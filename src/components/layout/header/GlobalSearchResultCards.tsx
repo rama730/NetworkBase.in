@@ -23,6 +23,9 @@ import {
     X,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { LinkPending } from "@/components/ui/LinkPending";
+import { isPlainLeftClick } from "@/lib/navigation/links";
 
 import { SkillIcon } from "@/components/skills";
 import { hasSkillIcon } from "@/lib/skills/icon-policy";
@@ -58,6 +61,7 @@ function ResultShell({
     activeIndex,
     onActivate,
     onOpen,
+    href,
     leading,
     children,
     trailing,
@@ -68,6 +72,8 @@ function ResultShell({
 }: ResultInteractionProps & {
     id: string;
     onOpen: () => void;
+    /** In-app address: Cmd/middle-click and long-press open it in a new tab (unified back B15). */
+    href?: string;
     leading?: ReactNode;
     children: ReactNode;
     trailing?: ReactNode;
@@ -95,10 +101,23 @@ function ResultShell({
                     : "border-transparent hover:border-border/60 hover:bg-muted/35",
             )}
         >
+            {href && href.startsWith("/") ? (
+                <Link
+                    href={href}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    prefetch={false}
+                    className="absolute inset-0 z-0 rounded-[inherit]"
+                    // A plain click bubbles to the card's own open (remembers the search, asks leave guards).
+                    onClick={(event) => { if (isPlainLeftClick(event)) event.preventDefault(); }}
+                >
+                    <LinkPending />
+                </Link>
+            ) : null}
             {leading ?? null}
             <span className="min-w-0 flex-1">{children}</span>
             {trailing}
-            {action}
+            {action ? <span className="relative z-10 shrink-0">{action}</span> : null}
             {onRemove ? (
                 <button
                     type="button"
@@ -106,7 +125,7 @@ function ResultShell({
                         event.stopPropagation();
                         onRemove();
                     }}
-                    className="nb-touch-target mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground opacity-100 transition-[color,background-color,opacity] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
+                    className="nb-touch-target relative z-10 mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground opacity-100 transition-[color,background-color,opacity] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
                     aria-label={removeLabel}
                 >
                     <X className="size-3.5" aria-hidden />
@@ -173,6 +192,7 @@ export function WorkspaceSearchResultCard({ result, onOpen, onRemove, ...interac
             {...interaction}
             id={result.id}
             onOpen={() => onOpen(result)}
+            href={result.href}
             onRemove={onRemove}
             removeLabel={`Remove ${result.title} from recent searches`}
             leading={leading}
@@ -238,6 +258,7 @@ export function ProfileSearchResultCard({ result, onOpen, onConnect, isConnectin
             {...interaction}
             id={result.id}
             onOpen={() => onOpen(result)}
+            href={result.href}
             onRemove={onRemove}
             removeLabel={`Remove ${result.title} from recent searches`}
             leading={result.isLockedProfile
@@ -315,6 +336,7 @@ export function TaskSearchResultCard({ result, onOpen, onRemove, ...interaction 
             {...interaction}
             id={result.id}
             onOpen={() => onOpen(result)}
+            href={result.href}
             onRemove={onRemove}
             removeLabel={`Remove ${result.title} from recent searches`}
             ariaLabel={`Open task ${result.taskCode}: ${result.title}`}
@@ -341,6 +363,7 @@ export function LinkSearchResultCard({ result, onOpen, onRemove, ...interaction 
             {...interaction}
             id={result.id}
             onOpen={() => onOpen(result)}
+            href={result.href}
             onRemove={onRemove}
             removeLabel={`Remove ${result.title} from recent searches`}
             leading={<span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted/40 text-muted-foreground">{result.iconKey ? <SocialPresenceIcon iconKey={result.iconKey as SocialPresenceIconKey} className="size-4" /> : <Link2 className="size-4" aria-hidden />}</span>}
@@ -372,6 +395,7 @@ export function SettingsSearchResultCard({ result, onOpen, ...interaction }: Res
             {...interaction}
             id={`settings-${result.id}`}
             onOpen={() => onOpen(result)}
+            href={result.href}
             leading={<span className="flex size-10 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted/40 text-muted-foreground"><Icon className="size-4" aria-hidden /></span>}
             ariaLabel={`Open ${result.title} in ${result.section} settings`}
         >
@@ -393,6 +417,7 @@ export function OrgSearchResultCard({ result, onOpen, onRemove, ...interaction }
             {...interaction}
             id={result.id}
             onOpen={() => onOpen(result)}
+            href={result.href}
             onRemove={onRemove}
             removeLabel={`Remove ${result.title} from recent searches`}
             ariaLabel={`Open ${ORG_KIND_LABEL[result.orgKind].toLowerCase()} ${result.title}`}

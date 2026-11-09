@@ -21,6 +21,9 @@ import type { NotificationItem, NotificationMuteScope } from "@/lib/notification
 import { projectUpdateDisplayText } from "@/lib/workspaces/updates";
 import { NotificationAvatar } from "@/components/notifications/NotificationAvatar";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { LinkPending } from "@/components/ui/LinkPending";
+import { isPlainLeftClick } from "@/lib/navigation/links";
 
 const QUALIFIED_VIEW_MS = 750;
 const FOCUS_VIEW_MS = 500;
@@ -139,16 +142,16 @@ export function NotificationRow(props: {
                     : "hover:bg-muted/60",
             )}
         >
-            <button
-                type="button"
-                onClick={() => void handleOpen()}
-                onFocus={() => {
-                    if (isNew) focusTimerRef.current = setTimeout(markViewed, FOCUS_VIEW_MS);
-                }}
-                onBlur={clearViewTimers}
-                aria-label={`${isNew ? "Unread" : "Read"} ${reasonLabel}: ${item.title}${relativeTime ? `, ${relativeTime}` : ""}`}
-                className="flex min-w-0 flex-1 items-start gap-3 rounded-sm text-left outline-none active:translate-y-px"
-            >
+            {/* A real link when the item has an address: Cmd/middle-click opens a new tab (unified back B15). */}
+            {(() => {
+                const shared = {
+                    onFocus: () => { if (isNew) focusTimerRef.current = setTimeout(markViewed, FOCUS_VIEW_MS); },
+                    onBlur: clearViewTimers,
+                    "aria-label": `${isNew ? "Unread" : "Read"} ${reasonLabel}: ${item.title}${relativeTime ? `, ${relativeTime}` : ""}`,
+                    className: "nb-pressable relative flex min-w-0 flex-1 items-start gap-3 rounded-sm text-left outline-none",
+                };
+                const body = (
+                    <>
                 <div className="relative mt-0.5 shrink-0">
                     <NotificationAvatar actorUserId={item.actorUserId} actorName={preview?.actorName} avatarUrl={preview?.actorAvatarUrl} size={compact ? 26 : 34} />
                     {isNew ? (
@@ -179,7 +182,22 @@ export function NotificationRow(props: {
                         <p className="nb-compact mt-2 font-medium text-[var(--status-warning)]">This item is no longer available.</p>
                     ) : null}
                 </div>
-            </button>
+                    </>
+                );
+                return item.href && item.href.startsWith("/") ? (
+                    <Link
+                        href={item.href}
+                        prefetch={false}
+                        {...shared}
+                        onClick={(event) => { if (isPlainLeftClick(event)) { event.preventDefault(); void handleOpen(); } }}
+                    >
+                        {body}
+                        <LinkPending />
+                    </Link>
+                ) : (
+                    <button type="button" onClick={() => void handleOpen()} {...shared}>{body}</button>
+                );
+            })()}
 
             <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>

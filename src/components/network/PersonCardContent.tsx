@@ -166,7 +166,7 @@ export function PersonCardContent({ person: input, action, variant = 'network', 
     return <PersonCardLayout variant={variant} className={className}
         avatar={<div className="relative"><Link href={href} tabIndex={-1} aria-hidden="true"><UserAvatar identity={person} size={48} priority={priority} /></Link>
             {!locked && person.id ? <PersonPresenceDot userId={person.id} lastActiveAt={person.lastActiveAt} /> : null}</div>}
-        head={<h3 className="nb-person-name-line"><Link href={href} className="nb-person-name" title={name} dir="auto">{name}</Link>
+        head={<h3 className="nb-person-name-line"><Link href={href} className="nb-person-name nb-pressable" title={name} dir="auto">{name}</Link>
             {person.openToCollaborate === true ? (
                 <OpenToCollaborateBadge
                     openToCollaborate={person.openToCollaborate}

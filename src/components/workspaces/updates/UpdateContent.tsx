@@ -15,6 +15,7 @@ import { splitMarkdownByInlineReferences } from "@/lib/workspaces/doc-blocks";
 import { isSafeHttpUrl } from "@/lib/security/urls";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { isPlainLeftClick } from "@/lib/navigation/links";
 
 type UpdateReferenceLinkKind = "task" | "sprint" | "file";
 
@@ -51,8 +52,10 @@ function ReferenceLink({
   const fallbackHref = referenceFallbackHref(reference, projectId, projectSlug);
 
   const handleClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
     e.stopPropagation();
+    // Cmd/middle-click opens the fallback address in a new tab (unified back B15).
+    if (!isPlainLeftClick(e)) return;
+    e.preventDefault();
 
     if (!isClickable || loading) return;
     setLoading(true);

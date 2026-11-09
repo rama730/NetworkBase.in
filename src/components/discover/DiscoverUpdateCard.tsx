@@ -106,7 +106,7 @@ function ProjectLink({ update, onVisit }: { update: DiscoverUpdateView; onVisit:
         <Link prefetch={false}
             href={href}
             onClick={onVisit}
-            className="inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-[5px] px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:underline"
+            className="nb-pressable inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-[5px] px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:underline"
         >
             {update.projectCoverImage && !coverFailed ? (
                 <img src={update.projectCoverImage} alt="" width={20} height={20} loading="lazy" onError={() => setCoverFailed(true)} className="size-5 shrink-0 rounded-[4px] object-cover" />
