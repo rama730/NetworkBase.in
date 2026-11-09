@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import fs, { readFileSync } from "node:fs";
+import path, { resolve } from "node:path";
 import test from "node:test";
 import { buildOwnerProfileTitle } from "@/lib/profile/display";
 
@@ -53,8 +53,6 @@ test("Canonical route metadata contract: Messages, Settings, and Workspace have 
 // Unified back R8: every page has a clear tab title (it names browser history entries and the back
 // arrow's "Back to …"), and in-page tabs, threads and drawers keep it current.
 test("every main page has a title from itself or its layout", () => {
-    const fs = require("node:fs") as typeof import("node:fs");
-    const path = require("node:path") as typeof import("node:path");
     const MAIN = resolve(ROOT, "src/app/(site)/(main)");
     const hasMeta = (file: string) => fs.existsSync(file) && /export (const metadata|(async )?function generateMetadata)/.test(fs.readFileSync(file, "utf-8"));
     const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(dir, e.name)) : e.name === "page.tsx" ? [path.join(dir, e.name)] : []);

@@ -39,9 +39,10 @@ function main() {
   const legalPaths = [...(middlewareSource.match(/STATIC_LEGAL_PATHS = new Set\(\[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g)]
     .map((match) => match[1])
     .sort();
-  const legalPages = fs.readdirSync(legalDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(legalDir, entry.name, "page.tsx")))
-    .map((entry) => `/${entry.name}`)
+  // Nested pages count too (/docs/cli, /help/running-a-class).
+  const legalPages = (fs.readdirSync(legalDir, { recursive: true, encoding: "utf8" }) as string[])
+    .filter((rel) => path.basename(rel) === "page.tsx" && path.dirname(rel) !== ".")
+    .map((rel) => `/${path.dirname(rel).split(path.sep).join("/")}`)
     .sort();
   if (legalPaths.join() !== legalPages.join()) {
     errors.push(`src/proxy.ts STATIC_LEGAL_PATHS must list exactly the src/app/(legal) pages: ${legalPages.join(", ")}`);

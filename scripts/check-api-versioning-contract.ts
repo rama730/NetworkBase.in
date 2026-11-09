@@ -24,6 +24,8 @@ function listRouteFiles(baseDir: string): string[] {
 const NON_V1_ALLOWLIST = new Set<string>([
   "src/app/api/e2e/auth/route.ts",
   "src/app/api/inngest/route.ts",
+  // Hosted MCP: the MCP protocol negotiates its own version, and editors are configured with this fixed address.
+  "src/app/api/mcp/route.ts",
 ]);
 
 function main() {
