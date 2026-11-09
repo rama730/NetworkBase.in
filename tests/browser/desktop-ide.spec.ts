@@ -435,3 +435,20 @@ test.describe("touch controls", () => {
     ).toBeVisible();
   });
 });
+
+test("CLI Copy copies even when the browser refuses the clipboard, and says so when it can't", async ({ page, context }) => {
+  // Root cause (2026-11-09): writeText was refused (here: no clipboard-write permission) and the rejection was dropped.
+  await context.grantPermissions(["clipboard-read"]);
+  await open(page);
+  await page.getByRole("button", { name: "Connect your code editor", exact: true }).click();
+  const copy = picker(page).getByRole("button", { name: "Copy" });
+  await copy.click();
+  await expect(picker(page).getByRole("button", { name: "Copied" })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("npx @networkbase/cli init --workspace=project-1 --task=task-42");
+  await expect(picker(page)).toBeVisible();
+  // Both ways fail: the command is selected for ⌘C, and the toast says so.
+  await page.evaluate(() => { document.execCommand = () => false; });
+  await page.waitForTimeout(2100);
+  await picker(page).getByRole("button", { name: "Copy" }).click();
+  await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe("npx @networkbase/cli init --workspace=project-1 --task=task-42");
+});

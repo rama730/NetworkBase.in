@@ -4,32 +4,13 @@ import { useMemo, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { projectDocEditorTargetId } from "@/lib/workspaces/doc-editor-source-map";
 import { cn } from "@/lib/utils";
+import { copyText } from "@/lib/clipboard";
 
 export type WorkspaceDocCommandLineTarget = {
     id: string;
     startLine: number;
     endLine: number;
 };
-
-async function copyTextWithFallback(value: string) {
-    try {
-        await navigator.clipboard.writeText(value);
-        return;
-    } catch {
-        // Permission denied or unfocused document: fall through to execCommand.
-    }
-    const textarea = document.createElement("textarea");
-    textarea.value = value;
-    textarea.setAttribute("readonly", "true");
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    textarea.style.top = "0";
-    document.body.appendChild(textarea);
-    textarea.select();
-    const copied = document.execCommand("copy");
-    document.body.removeChild(textarea);
-    if (!copied) throw new Error("Couldn’t copy");
-}
 
 export function WorkspaceDocCommandBlock({
     code,
@@ -57,7 +38,7 @@ export function WorkspaceDocCommandBlock({
 
     const handleCopy = async () => {
         try {
-            await copyTextWithFallback(code.trimEnd());
+            await copyText(code.trimEnd());
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1400);
         } catch (error) {

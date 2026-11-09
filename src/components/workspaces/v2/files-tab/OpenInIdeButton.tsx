@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { copyText } from "@/lib/clipboard";
+import { toast } from "@/lib/feedback";
 import { DesktopIdePicker } from "./DesktopIdePicker";
 import { IdeWorkspacePicker, type IdeWorkspace } from "./IdeWorkspacePicker";
 import type { CurrentLocation } from "./navigation";
@@ -80,6 +82,7 @@ export function OpenInIdeButton({
           ? `npx @networkbase/cli init --workspace=${projectId}`
           : `npx @networkbase/cli init`;
   const pickerRef = useRef<HTMLDivElement>(null);
+  const cliRef = useRef<HTMLElement>(null);
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
@@ -277,9 +280,14 @@ export function OpenInIdeButton({
                 <button
                   type="button"
                   onClick={() => {
-                    void navigator.clipboard.writeText(cliCommand).then(() => {
+                    // Root cause (2026-11-09): a refused clipboard write was dropped, so Copy did nothing and said
+                    // nothing. Fall back inside the picker (it traps focus), and on failure select the command to copy by hand.
+                    void copyText(cliCommand, pickerRef.current).then(() => {
                       setCopiedCli(true);
                       setTimeout(() => setCopiedCli(false), 2000);
+                    }, () => {
+                      if (cliRef.current) window.getSelection()?.selectAllChildren(cliRef.current);
+                      toast.error("Couldn’t copy. The command is selected: press ⌘C or Ctrl+C.");
                     });
                   }}
                   className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted"
@@ -297,7 +305,7 @@ export function OpenInIdeButton({
                   )}
                 </button>
               </div>
-              <code className="mt-1.5 block truncate rounded border border-border bg-background px-2 py-1 font-mono text-[11px] text-foreground">
+              <code ref={cliRef} title={cliCommand} className="mt-1.5 block select-all truncate rounded border border-border bg-background px-2 py-1 font-mono text-[11px] text-foreground">
                 {cliCommand}
               </code>
             </div>
