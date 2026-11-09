@@ -1,6 +1,5 @@
 'use client'
 
-import { ChevronLeft } from 'lucide-react'
 
 import { useEffect, useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -156,8 +155,6 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                 {box.next ? <p className="text-[13px] text-muted-foreground">{box.next}</p> : null}
                 {box.message && msgButton && h.holder ? <div className="pt-1.5">{msgButton}</div> : null}
             </div>
-            {/* Review UX 1.6: an admin who opened this copy from the Assignment tab gets back to it. */}
-            {!h.holder ? <a href={`?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(h.masterId)}`} className="nb-link inline-flex items-center gap-1 text-[13px]"><ChevronLeft className="size-4" aria-hidden="true" />Back to the assignment</a> : null}
             {!h.holder && h.state === 'submitted' ? <CopyReview copyId={copyId} orgId={h.orgId} masterId={h.masterId} onReviewed={(d) => { void refresh(); onReviewed?.(d) }} /> : null}
 
             {h.materials.length ? (

@@ -28,6 +28,7 @@ import {
 import { applyPayloadToFormBase, mergeSocialLinkCollections, toFormState, toChangedServerPayload } from "@/lib/profile/normalization";
 import { queryKeys } from "@/lib/query-keys";
 import { EditProfileTabs, type EditProfileSection } from "./EditProfileTabs";
+import { useBack } from "@/hooks/useBack";
 
 interface EditProfileEditorProps {
     profile: any;
@@ -227,10 +228,12 @@ export function EditProfileEditor({
     };
 
     const { allowLeave, leaveDialog } = useProfileEditNavigationGuard(hasChanges, saveState === "saving");
+    // A real back to where you were (unified back §9). Saving already revalidates the profile pages,
+    // so going back shows the change; everything else stays as you left it.
+    const back = useBack(returnHref);
     const onClose = () => {
         allowLeave();
-        router.replace(returnHref);
-        router.refresh();
+        back();
     };
 
     useEffect(() => { setActiveSection(sectionFromUrl); }, [sectionFromUrl]);

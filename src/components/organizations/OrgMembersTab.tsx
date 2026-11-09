@@ -56,7 +56,7 @@ import { StatusBadge, VerifiedMark } from '@/components/organizations/org-ui'
 import { fieldLabel, formatOrgDate, withCount } from '@/lib/organizations/display'
 import { rolePlural } from '@/lib/organizations/role-words'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
-import { ChevronLeft, ChevronRight, Mail, Search, UserRound } from 'lucide-react'
+import { ChevronRight, Mail, Search, UserRound } from 'lucide-react'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { Ban } from 'lucide-react'
@@ -103,7 +103,6 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
         mout: filter.outside ? '1' : null,
         mformer: filter.former ? '1' : null,
     })
-    const [cameFromWorkspaces] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('from') === 'workspaces')
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [open, setOpen] = useState<Row | null>(null)
     const [roleAsk, setRoleAsk] = useState<{ ids: string[]; names: string[]; role: 'admin' | 'member' | 'viewer' } | null>(null)
@@ -168,8 +167,6 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <div className="min-w-0 space-y-3 lg:col-span-8">
-                {/* Workspaces report §4 F5: came here from "Place them", so the way back is one click. */}
-                {cameFromWorkspaces ? <Link href="?tab=projects" className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground hover:underline"><ChevronLeft className="size-4" aria-hidden="true" />Workspaces</Link> : null}
                 <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Filter members">
                     <Input value={filter.q ?? ''} onChange={(e) => setFilter({ ...filter, q: e.target.value })} placeholder="Search members" aria-label="Search members" className="h-[var(--ui-control-height-sm)] w-full text-[13px] sm:w-56" />
                     <select aria-label="Role" className="nb-select" data-size="sm" value={filter.role ?? 'all'} onChange={(e) => setFilter({ ...filter, role: e.target.value as RosterFilter['role'] })}>

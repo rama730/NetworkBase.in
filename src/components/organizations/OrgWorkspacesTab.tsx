@@ -336,7 +336,7 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
                     onChange={(next) => go({ ws: next, wr: null })} tabs={statusTabs.map((t) => ({ key: t.key, label: t.label, count: t.count, warn: t.warn }))} />
                 {isAdmin && data.summary.notInProject > 0 ? (
                     <p className="pb-3 text-[12px] text-muted-foreground">
-                        {data.summary.notInProject === 1 ? '1 person isn’t' : `${data.summary.notInProject} people aren’t`} in a workspace · <Link href={`${base}?tab=members&project=none&from=workspaces`} className="nb-link">Place them</Link>
+                        {data.summary.notInProject === 1 ? '1 person isn’t' : `${data.summary.notInProject} people aren’t`} in a workspace · <Link href={`${base}?tab=members&mproject=none`} className="nb-link">Place them</Link>
                     </p>
                 ) : null}
             </div>

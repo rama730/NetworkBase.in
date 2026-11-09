@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useRef, useState, useTransition } from 'react'
 
 
@@ -273,8 +274,9 @@ export function CopyReview({ copyId, orgId, masterId, onReviewed }: { copyId: st
                     onApprove={(note) => decide('approve', undefined, null, note)} onReturn={(reason, fixBy) => decide('return', reason, fixBy)} />
             )}
             <div className="flex flex-wrap gap-3 text-[13px]">
-                {data.next ? <a href={data.next.href} className="text-primary underline-offset-4 hover:underline">Next waiting: {data.next.who}</a> : null}
-                <a href={queueHref} className="text-primary underline-offset-4 hover:underline">Back to queue</a>
+                {/* In-app links: no browser reload (unified back §8). */}
+                {data.next ? <Link href={data.next.href} scroll={false} className="text-primary underline-offset-4 hover:underline">Next waiting: {data.next.who}</Link> : null}
+                <Link href={queueHref} scroll={false} className="text-primary underline-offset-4 hover:underline">Review queue</Link>
             </div>
         </section>
     )
