@@ -1,6 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useCallback, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useLeaveGuard } from "@/hooks/useLeaveGuard";
 import {
   Dialog,
   DialogContent,
@@ -53,15 +55,8 @@ export function FileTransfersProvider({
     [],
   );
   const active = jobs.filter((job) => job.status === "running").length;
-  React.useEffect(() => {
-    if (!active) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [active]);
+  // Leaving while an upload runs asks first: links, back, swipe, the arrow and reloads (unified back R6).
+  const { leaveDialog } = useLeaveGuard(active > 0);
   const handleOpen = React.useCallback(() => setOpen(true), []);
   const contextValue = React.useMemo(
     () => ({ active, start, update, open: handleOpen }),
@@ -70,6 +65,7 @@ export function FileTransfersProvider({
   return (
     <TransfersContext.Provider value={contextValue}>
       {children}
+      <ConfirmDialog {...leaveDialog} title="An upload is still running. Leave anyway?" description="Files that haven’t finished uploading will stop." confirmLabel="Leave" cancelLabel="Stay" variant="destructive" />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85dvh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogTitle>Uploads and downloads</DialogTitle>

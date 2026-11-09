@@ -5,10 +5,11 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { APP_BEFORE_NAVIGATE_EVENT, type AppBeforeNavigateEvent } from '@/lib/navigation/confirm-navigation';
 
 /**
- * Keep the draft mounted when an ordinary link, browser Back or a programmatic move is canceled. Leaving with unsaved
- * changes asks in the shared dialog (report §32.3): the move is stopped, and Discard and leave replays it.
+ * Ask before leaving while something would be lost: unsaved profile edits (report §32.3) or a running upload
+ * (unified back R6). Ordinary links, browser Back, swipe and programmatic moves (the back arrow) are stopped, and
+ * the caller's dialog replays the move on confirm. While `saving`, every move waits silently.
  */
-export function useProfileEditNavigationGuard(dirty: boolean, saving: boolean) {
+export function useLeaveGuard(dirty: boolean, saving = false) {
     const pathname = usePathname();
     const search = useSearchParams().toString();
     const leaving = useRef(false);

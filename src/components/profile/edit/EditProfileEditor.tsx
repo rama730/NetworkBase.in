@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { parseProfileEditSection, profileEditHref, profileEditReturnHref } from "@/lib/profile/edit-route";
-import { useProfileEditNavigationGuard } from "./useProfileEditNavigationGuard";
+import { useLeaveGuard } from "@/hooks/useLeaveGuard";
 import { useAuth } from "@/hooks/use-auth";
 import {
     buildContributionMutations,
@@ -227,7 +227,7 @@ export function EditProfileEditor({
         void queryClient.invalidateQueries({ queryKey: queryKeys.connections.root() });
     };
 
-    const { allowLeave, leaveDialog } = useProfileEditNavigationGuard(hasChanges, saveState === "saving");
+    const { allowLeave, leaveDialog } = useLeaveGuard(hasChanges, saveState === "saving");
     // A real back to where you were (unified back §9). Saving already revalidates the profile pages,
     // so going back shows the change; everything else stays as you left it.
     const back = useBack(returnHref);
