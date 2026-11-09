@@ -1,6 +1,6 @@
 import { validateCsrf } from "@/lib/security/csrf";
 import { randomUUID } from "crypto";
-import { and, eq, asc, sql } from "drizzle-orm";
+import { and, eq, asc, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -8,7 +8,9 @@ import {
   workspaceNodes,
   fileVersions,
   profiles,
+  tasks,
 } from "@/lib/db/schema";
+import { createTaskCommentAs } from "@/lib/domain/task-comments";
 import {
   requireAuthenticatedUser,
   jsonSuccess,
@@ -132,6 +134,52 @@ export async function GET(request: Request) {
     });
   }
 }
+/**
+ * Task comments (report F1, §42.10). `{ kind: "task", taskId, text }` from CLI 2.0 and agents, and
+ * `{ taskId, content }` from CLI 1.x, which sent that shape to this route and always got "Invalid comment".
+ */
+const taskCommentSchema = z.union([
+  z.object({
+    kind: z.literal("task"),
+    projectId: z.string().uuid().optional(),
+    taskId: z.string().uuid(),
+    text: z.string().trim().min(1).max(4000),
+    replyTo: z.string().uuid().nullable().optional(),
+  }),
+  z
+    .object({ taskId: z.string().uuid(), content: z.string().trim().min(1).max(4000) })
+    .strict()
+    .transform((v) => ({ kind: "task" as const, taskId: v.taskId, text: v.content, projectId: undefined, replyTo: null })),
+]);
+
+async function postTaskComment(
+  user: { id: string; user_metadata?: Record<string, unknown> },
+  input: z.infer<typeof taskCommentSchema>,
+) {
+  const projectId =
+    input.projectId ??
+    (await db.query.tasks.findFirst({ where: and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)), columns: { projectId: true } }))?.projectId;
+  if (!projectId) return jsonError("Task not found", 404, "NOT_FOUND");
+  const meta = user.user_metadata ?? {};
+  const result = await createTaskCommentAs(
+    {
+      userId: user.id,
+      profile: {
+        fullName: typeof meta.full_name === "string" ? meta.full_name : null,
+        username: typeof meta.username === "string" ? meta.username : null,
+        avatarUrl: typeof meta.avatar_url === "string" ? meta.avatar_url : null,
+      },
+    },
+    input.taskId,
+    projectId,
+    input.text,
+    input.replyTo ?? null,
+  );
+  return result.success
+    ? jsonSuccess(result.data)
+    : jsonError(result.error, result.error === "Task not found" ? 404 : 400, result.error === "Task not found" ? "NOT_FOUND" : "BAD_REQUEST");
+}
+
 export async function POST(request: Request) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
@@ -140,7 +188,10 @@ export async function POST(request: Request) {
     if (auth.response) return auth.response;
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const userId = auth.user.id;
-    const parsed = schema.safeParse(await request.json());
+    const body = await request.json().catch(() => null);
+    const taskComment = taskCommentSchema.safeParse(body);
+    if (taskComment.success) return await postTaskComment(auth.user, taskComment.data);
+    const parsed = schema.safeParse(body);
     if (!parsed.success)
       return jsonError("Invalid comment", 400, "BAD_REQUEST");
     const input = parsed.data;
