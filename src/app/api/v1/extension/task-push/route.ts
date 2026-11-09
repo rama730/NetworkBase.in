@@ -8,6 +8,7 @@ import {replaceTaskFileRoleTag,type TaskFileRole} from '@/lib/workspaces/task-fi
 import {validateCsrf} from '@/lib/security/csrf';
 import {consumeRateLimit} from '@/lib/security/rate-limit';
 import {inngest} from '@/inngest/client';
+import {pushTransitionTarget,transitionAfterPush} from '@/lib/domain/task-transition';
 import crypto from 'crypto';
 import {z} from 'zod';
 export const runtime='nodejs';
@@ -48,6 +49,7 @@ export async function POST(request:Request){
   const scopeDenied=(defaultRole==='deliverable'||files.some(f=>f.role==='deliverable')?requireTokenScope(auth,'file:final'):null)??(transitionStatus==='done'?requireTokenScope(auth,'task:complete'):null);if(scopeDenied)return scopeDenied;
   const operationId=request.headers.get('idempotency-key')?.trim() || crypto.randomUUID();if(operationId.length>200)return jsonError('A stable operation id is required',400,'BAD_REQUEST');
   if(!(await consumeRateLimit(`extension-task-push:${user.id}`,60,60)).allowed)return jsonError('Too many attempts. Try again in a minute.',429,'RATE_LIMITED');
+  let statusTarget: 'in_progress' | 'done' | null = null;
   const pushRow=await db.transaction(async tx=>{
    // Decision 173: names its copy, so members push to their own and never to handed-in work.
    await assertWorkspaceWriteAccessTx(tx,projectId,user.id,{taskId});
@@ -74,15 +76,13 @@ export async function POST(request:Request){
     const updatedTags = replaceTaskFileRoleTag(existingLink.tags, fileRole);
     await tx.update(taskNodeLinks).set({tags:updatedTags,annotation:annotationForRole(fileRole),linkedAt:new Date()}).where(and(eq(taskNodeLinks.taskId,taskId),eq(taskNodeLinks.nodeId,existingNode.id)));
    }
-   if (transitionStatus && task.status !== transitionStatus) {
-    await tx.update(tasks).set({ status: transitionStatus, updatedAt: new Date() }).where(eq(tasks.id, taskId));
-   } else if (resolvedDefaultRole === 'working' && task.status === 'todo') {
-    await tx.update(tasks).set({ status: 'in_progress', updatedAt: new Date() }).where(eq(tasks.id, taskId));
-   }
+   // Status moves after commit through the task rules (review, permissions, notifications), never here (F31).
+   statusTarget = pushTransitionTarget({ current: task.status, requested: transitionStatus, role: resolvedDefaultRole });
    const [created]=await tx.insert(taskPushes).values({taskId,projectId,message:message||`Pushed ${nodes.length} ${resolvedDefaultRole} file(s)`,filesCount:nodes.length,pushedBy:user.id,filesJson:nodes.map(node=>({nodeId:node.id,path:node.path,name:node.name,version:node.currentVersion,contentHash:node.contentHash,role:roleByNodeId.get(node.id)??resolvedDefaultRole,taskAction,operationId}))}).returning();if(!created)throw new Error('Couldn’t record task receipt');
    await recordNodeEventsBatch(projectId,user.id,nodeIds,'extension_task_push',{taskId,taskAction,role:resolvedDefaultRole,filesCount:nodes.length,nodeIds,operationId,pushId:created.id},tx);
    return created;
   });
+  const transition = statusTarget ? await transitionAfterPush(user, taskId, statusTarget) : null;
   const commitSha = crypto.createHash('sha1').update(`${pushRow.id}:${operationId}`).digest('hex');
   const resolvedFinalRole = defaultRole ?? (taskAction === 'replace_task_version' ? 'deliverable' : 'working');
   void db.insert(workspaceGitCommits).values({
@@ -108,6 +108,6 @@ export async function POST(request:Request){
     filesCount: files.length,
    },
   }).catch(() => {});
-  return jsonSuccess({pushId:pushRow.id,commitSha:commitSha.slice(0,8),role:resolvedFinalRole,timestamp:pushRow.pushedAt.toISOString(),filesCount:pushRow.filesCount});
+  return jsonSuccess({pushId:pushRow.id,commitSha:commitSha.slice(0,8),role:resolvedFinalRole,timestamp:pushRow.pushedAt.toISOString(),filesCount:pushRow.filesCount,transition});
  }catch(error){return routeErrorResponse(error,{requestId:getRequestId(request),scope:'api/v1/extension/task-push',fallback:'Couldn’t link task file versions'});}
 }

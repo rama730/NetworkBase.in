@@ -48,6 +48,7 @@ import {
   workspaceNodes,
 } from "@/lib/db/schema";
 import { inngest } from "@/inngest/client";
+import { pushTransitionTarget, transitionAfterPush } from "@/lib/domain/task-transition";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -383,6 +384,7 @@ export async function POST(request: Request) {
     const resolvedRole: TaskFileRole = requestedRole || "working";
 
     // 5. Commit all storage_assets, file_versions, workspace_nodes, and optional task links in 1 atomic DB transaction
+    let statusTarget: "in_progress" | "done" | null = null;
     const txResult = await db.transaction(async (tx) => {
       await assertWorkspaceUploadAccessTx(tx, projectId, user.id);
       const now = new Date();
@@ -525,7 +527,7 @@ export async function POST(request: Request) {
         );
       }
 
-      // 6. Optional Task Linking & Status Transition inside the same transaction
+      // 6. Optional task linking inside the same transaction; the status move follows after commit.
       let taskReceipt: {
         pushId: string;
         commitSha: string;
@@ -586,19 +588,10 @@ export async function POST(request: Request) {
               );
           }
 
-          if (transitionStatus && task.status !== transitionStatus) {
-            await tx
-              .update(tasks)
-              .set({ status: transitionStatus, updatedAt: now })
-              .where(eq(tasks.id, taskId));
-          } else if (resolvedRole === "working" && task.status === "todo") {
-            await tx
-              .update(tasks)
-              .set({ status: "in_progress", updatedAt: now })
-              .where(eq(tasks.id, taskId));
-          }
+          // Status moves after commit through the task rules (review, permissions, notifications), never here (F31).
+          statusTarget = pushTransitionTarget({ current: task.status, requested: transitionStatus, role: resolvedRole });
 
-          if (completeAllSubtasks || transitionStatus === "done") {
+          if (completeAllSubtasks) {
             await tx
               .update(taskSubtasks)
               .set({ completed: true, completedBy: user.id, updatedAt: now })
@@ -657,6 +650,8 @@ export async function POST(request: Request) {
       return { committedFiles, taskReceipt };
     });
 
+    const transition = taskId && statusTarget ? await transitionAfterPush(user, taskId, statusTarget) : null;
+
     if (txResult.taskReceipt && taskId) {
       void db
         .insert(workspaceGitCommits)
@@ -699,6 +694,8 @@ export async function POST(request: Request) {
       uploadedCount: changedFiles.length,
       unchangedCount: txResult.committedFiles.length - changedFiles.length,
       taskPushReceipt: txResult.taskReceipt,
+      // What happened to the task's status: moved, sent for review, or refused with the reason.
+      transition,
       files: txResult.committedFiles,
     });
   } catch (error) {
