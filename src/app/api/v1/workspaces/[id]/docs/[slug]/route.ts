@@ -43,7 +43,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         content: doc.version?.content ?? "",
         contentHash: doc.version?.contentHash ?? null,
         file,
-        docs: doc.docs,
       },
       undefined,
       { headers: { "Cache-Control": "private, no-store" } },

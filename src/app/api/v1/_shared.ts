@@ -109,6 +109,16 @@ function normalizeSessionHeader(value: string | null, maxLength = 120) {
 }
 
 const EXTENSION_LAST_SEEN_INTERVAL_MS = 60_000;
+function deniedPrincipal(response: ReturnType<typeof jsonError>) {
+  return {
+    supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
+    user: null as User | null,
+    extensionSessionId: null as string | null,
+    tokenScopes: null as Set<TokenScope> | null,
+    response: response as ReturnType<typeof jsonError> | null,
+  };
+}
+
 /**
  * A signed-in token principal, or a 403 when the token may not call this route or lacks the scope
  * (report A3.6, A3.7). Method and path come from headers the proxy overwrites on every request.
@@ -127,13 +137,7 @@ async function bearerPrincipal(
       errorCode: denial.errorCode,
       scope: denial.scope ?? null,
     });
-    return {
-      supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
-      user: null as User | null,
-      extensionSessionId: null as string | null,
-      tokenScopes: null as Set<TokenScope> | null,
-      response: jsonError(denial.message, 403, denial.errorCode, denial.scope ? { scope: denial.scope } : undefined),
-    };
+    return deniedPrincipal(jsonError(denial.message, 403, denial.errorCode, denial.scope ? { scope: denial.scope } : undefined));
   }
   // One abuse budget per token for every token route (report A12.3, finding 76); routes keep their own limits too.
   const isRead = ["GET", "HEAD", "OPTIONS"].includes((headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase());
@@ -141,13 +145,7 @@ async function bearerPrincipal(
   if (!budget.allowed) {
     const limited = jsonError("Too many requests from this token. Try again in a minute.", 429, "RATE_LIMITED");
     limited.headers.set("Retry-After", "60");
-    return {
-      supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
-      user: null as User | null,
-      extensionSessionId: null as string | null,
-      tokenScopes: null as Set<TokenScope> | null,
-      response: limited,
-    };
+    return deniedPrincipal(limited);
   }
   return {
     supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,

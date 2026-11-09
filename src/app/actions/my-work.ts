@@ -9,7 +9,7 @@ import { countReviewableApplications } from "@/lib/applications/reviewers";
 import { normalizeTaskSurfaceRecord } from "@/lib/workspaces/task-presentation";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { readOrgPendingCountAction } from "@/app/actions/org-workspace";
-import { mineSql, orgCopyRules } from "@/lib/domain/my-tasks";
+import { memberWorkspaceSql, mineSql, orgCopyRules } from "@/lib/domain/my-tasks";
 
 function normalizeMyWorkLimit(rawLimit: unknown, fallback = 24) {
     const parsed = typeof rawLimit === "number" ? rawLimit : Number(rawLimit);
@@ -32,17 +32,7 @@ export async function getMyWorkSummaryAction() {
                 // Your open work, including assignment copies you or your team hold (report §29.2).
                 mineSql(user.id),
                 orgCopyRules(user.id),
-                exists(db.select({ id: workspaces.id }).from(workspaces).where(and(
-                    eq(workspaces.id, tasks.projectId),
-                    isNull(workspaces.deletedAt),
-                    or(
-                        eq(workspaces.ownerId, user.id),
-                        exists(db.select({ id: workspaceMembers.id }).from(workspaceMembers).where(and(
-                            eq(workspaceMembers.projectId, tasks.projectId),
-                            eq(workspaceMembers.userId, user.id),
-                        ))),
-                    ),
-                ))),
+                memberWorkspaceSql(user.id),
             )),
             countReviewableApplications(user.id).then((value) => [{ value }]),
             countPendingInvitationsForCandidate(user.id).then((value) => [{ value }]),

@@ -113,7 +113,7 @@ export function tokenRouteScope(method: string, path: string): TokenScope | null
   return needed === undefined ? "forbidden" : needed;
 }
 
-export type TokenAccessDenial = { status: 403; errorCode: "FORBIDDEN" | "SCOPE_MISSING"; message: string; scope?: TokenScope };
+type TokenAccessDenial = { status: 403; errorCode: "FORBIDDEN" | "SCOPE_MISSING"; message: string; scope?: TokenScope };
 
 /** Decide whether a token request may proceed. `method`/`path` come from the proxy's trusted headers. */
 export function checkTokenAccess(input: { method: string | null; path: string | null; scopes: Set<TokenScope> }): TokenAccessDenial | null {
