@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { WORKSPACE_TAB_LABELS } from '@/lib/copy/terms';
@@ -113,7 +113,8 @@ async function ResolvedProjectDashboard({
 }) {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
     if (isShareCrawler((await headers()).get('user-agent'))) {
-        const preview = await readSharePreview(new URL(`/workspaces/${encodeURIComponent(slug)}`, shareOrigin()).href);
+        // Audit N54: the preview of the address that was shared (/org/... for an organization).
+        const preview = await readSharePreview(new URL(`${base}/${encodeURIComponent(slug)}`, shareOrigin()).href);
         return <article className="p-6"><h1>{preview?.title ?? 'Workspace on NetworkBase'}</h1><p>{preview?.description ?? 'Open this workspace on NetworkBase.'}</p><a href={preview?.url ?? '/discover'}>Open NetworkBase</a></article>;
     }
     // Old assignment links (report §42.10 problem 11): Tasks, with the exact copy open in its own workspace.
@@ -136,7 +137,8 @@ async function ResolvedProjectDashboard({
         // An org's old handle redirects for 90 days; a private org shows outsiders only its minimal header.
         if (result.errorCode === 'NOT_FOUND' && base === '/org') {
             const current = await resolveHeldOrgHandle(slug);
-            if (current) redirect(`/org/${encodeURIComponent(current)}${queryStringOf(_searchParams)}`);
+            // Audit 4.2: a permanent move, so search engines and bookmarks follow the new handle.
+            if (current) permanentRedirect(`/org/${encodeURIComponent(current)}${queryStringOf(_searchParams)}`);
         }
         if (result.errorCode === 'FORBIDDEN') {
             const card = await readOrgCard(slug);
@@ -147,7 +149,9 @@ async function ResolvedProjectDashboard({
                     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
                         <h1 className="nb-page-title text-foreground">This workspace isn’t available</h1>
                         <p className="text-sm text-muted-foreground">It’s only for the members of its organization.</p>
-                        <a href="/discover" className="text-sm text-primary hover:underline">Go to Discover</a>
+                        {/* Audit N53: a member who isn't signed in can sign in and come back. */}
+                        {user ? null : <a href={`/login?redirect=${encodeURIComponent(`${base}/${slug}`)}`} className="nb-link text-sm">Sign in</a>}
+                        <a href="/discover" className="nb-link text-sm">Go to Discover</a>
                     </div>
                 );
             }

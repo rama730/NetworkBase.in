@@ -1,5 +1,7 @@
 'use server';
 
+import { consumeRateLimit } from '@/lib/security/rate-limit';
+
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { and, eq, ilike, isNull, ne, sql } from 'drizzle-orm';
@@ -36,9 +38,10 @@ async function ownerOf(orgId: string) {
     const access = await getWorkspaceAccessById(orgId, user.id);
     const role: OrgRole = access.isOwner ? 'owner' : access.memberRole === 'admin' ? 'admin' : 'member';
     if (access.project?.kind !== 'organization' || orgGrant(role, 'request_verified') !== 'yes') return null;
-    const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, links: workspaces.externalLinks, verifiedAt: workspaces.verifiedAt, settings: workspaces.orgSettings, status: workspaces.status, suspendedAt: workspaces.suspendedAt })
+    const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, links: workspaces.externalLinks, verifiedAt: workspaces.verifiedAt, settings: workspaces.orgSettings, status: workspaces.status, suspendedAt: workspaces.suspendedAt, deletionScheduledAt: workspaces.deletionScheduledAt })
         .from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
-    if (!org || org.status === 'archived' || org.suspendedAt) return null;
+    // Audit N28: an organization scheduled for deletion doesn't start verifying.
+    if (!org || org.status === 'archived' || org.suspendedAt || org.deletionScheduledAt) return null;
     return { user, org };
 }
 
@@ -163,6 +166,8 @@ export async function confirmOrgEmailCodeAction(orgId: string, code: string): Pr
 export async function checkOrgProofAction(orgId: string, where: 'website' | 'github' | 'dns'): Promise<{ success: true } | Failure> {
     const owner = await ownerOf(orgId);
     if (!owner) return DENIED;
+    // Audit N27: each check fetches outside pages (GitHub's API is shared per server), so 5 every 5 minutes.
+    if (!(await consumeRateLimit(`org:verify-check:${orgId}`, 5, 300)).allowed) return { success: false, error: 'Checked a few times already. Try again in a few minutes.' };
     const { org } = owner;
     const code = proofCode(orgId);
     const found = where === 'website' ? await findCodeOnWebsite(org.links, code) : where === 'github' ? await findCodeOnGithub(org.links, code) : await findCodeInDns(org.links, code);
@@ -213,7 +218,8 @@ export async function askParentOrgAction(orgId: string): Promise<{ success: true
     const parentLabel = await orgLabel(parent.id);
     if (parentLabel) {
         await notifyOrg({ orgId: parent.id, eventKey: 'org.child_requests', actorId: owner.user.id, title: `${owner.org.title} asks ${parent.title} to confirm it`,
-            href: orgHref(parentLabel), sourceEventId: `verify-parent:${orgId}:${Date.now()}` });
+            // Audit N27: asking again the same day doesn't notify the parent's admins again.
+            href: orgHref(parentLabel), sourceEventId: `verify-parent:${orgId}:${new Date().toISOString().slice(0, 10)}` });
     }
     done(owner.org.slug, orgId);
     return { success: true };

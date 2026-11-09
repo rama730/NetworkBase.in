@@ -305,9 +305,15 @@ export async function readOrgTemplateCopyAction(childProjectId: string, orgDocId
         .from(workspaceMembers).innerJoin(workspaceOpenRoles, eq(workspaceOpenRoles.id, workspaceMembers.unitId))
         .where(and(eq(workspaceMembers.projectId, child.id), eq(workspaceMembers.userId, userId))).limit(1);
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: org.timeZone ?? 'UTC' });
+    // Audit 8.5: a second copy the same day gets " (2)", not a "name already exists" error after the upload.
+    const base = templateCopyTitle(doc.filename, child.title, date);
+    const taken = new Set((await db.execute<{ name: string }>(sql`
+        SELECT lower(name) AS name FROM workspace_nodes WHERE workspace_id = ${child.id}::uuid AND deleted_at IS NULL AND name LIKE ${`${base.replace(/[%_\\]/g, (c) => `\\${c}`)}%`}`)).map((r) => r.name));
+    let title = base;
+    for (let n = 2; taken.has(docFileName(title).toLowerCase()) && n < 50; n += 1) title = `${base} (${n})`;
     return {
         success: true,
-        filename: docFileName(templateCopyTitle(doc.filename, child.title, date)),
+        filename: docFileName(title),
         content: fillDocTemplate(source.data.version.content, { project: child.title, team: unit?.name ?? child.title, date }),
     };
 }

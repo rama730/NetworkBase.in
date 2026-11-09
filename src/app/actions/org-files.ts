@@ -211,7 +211,8 @@ export async function readOrgFileUsageAction(orgId: string, nodeIds: string[]): 
 
 /** Org storage for admins (report §23): used of 5 GB, with a warning from 80%. */
 export async function readOrgStorageAction(orgId: string): Promise<{ usedBytes: number; limitBytes: number; warn: boolean } | null> {
-    if (!(await orgAdmin(orgId, 'read'))) return null;
+    // Audit N90: the same permission as the storage breakdown.
+    if (!(await orgAdmin(orgId, 'read', 'see_storage'))) return null;
     const [row] = await db.execute<{ used: number | null }>(sql`
         SELECT (retained_bytes + reserved_bytes)::bigint AS used FROM storage_quota_scopes WHERE scope_type = 'project' AND scope_id = ${orgId}`);
     const usedBytes = Number(row?.used ?? 0);

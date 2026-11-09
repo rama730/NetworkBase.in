@@ -478,7 +478,8 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
         inOrgSprint: sql<boolean>`EXISTS (SELECT 1 FROM workspace_sprints s JOIN workspace_sprints o ON o.id = s.parent_sprint_id AND o.status = 'active' WHERE s.workspace_id = ${workspaces.id} AND s.status = 'active')`,
         newInOrg: sql<boolean>`coalesce((${workspaces.orgSettings}->>'movedInAt')::timestamptz > now() - interval '7 days', false)`,
         openSeats: sql<number>`(SELECT coalesce(sum(greatest(r.count - r.filled, 0)), 0)::int FROM ${workspaceOpenRoles} r WHERE r.workspace_id = ${workspaces.id})`,
-        needsLead: sql<boolean>`${workspaces.orgSettings} ? 'leadHandover'`,
+        // Audit 6.1: a lead who left the organization needs replacing too ("lead left" gets Assign workspace lead).
+        needsLead: sql<boolean>`(${workspaces.orgSettings} ? 'leadHandover' OR NOT EXISTS (SELECT 1 FROM workspace_members lm WHERE lm.workspace_id = ${orgId} AND lm.user_id = ${workspaces.ownerId}))`,
         archivedByAdmin: sql<boolean | null>`(${workspaces.orgSettings}->'archivedBy'->>'admin')::boolean`,
         archivedByName: sql<string | null>`(SELECT coalesce(ap.full_name, ap.username) FROM profiles ap WHERE ap.id::text = ${workspaces.orgSettings}->'archivedBy'->>'userId')`,
         mine: v.userId ? sql<boolean>`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})` : sql<boolean>`false`,

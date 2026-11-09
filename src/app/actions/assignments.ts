@@ -478,14 +478,18 @@ export async function removeCopyAction(copyId: string): Promise<{ success: true 
 }
 
 /** Extend for the selected people (report §34.6): each is told. A closed assignment needs reopen for them. */
-export async function extendCopiesAction(copyIds: string[], dueDate: string, options: { reopen?: boolean } = {}): Promise<{ success: true; extended: number } | Failure> {
+export async function extendCopiesAction(copyIds: string[], dueDate: string, options: { reopen?: boolean } = {}): Promise<{ success: true; extended: number; failed: number } | Failure> {
+    // Audit N75: one that can't be extended doesn't stop the rest, and the result says how many weren't.
     let extended = 0;
+    let failed = 0;
+    let firstError: Failure | null = null;
     for (const id of copyIds.slice(0, 500)) {
         const result = await extendCopyAction(id, dueDate, options);
-        if (!result.success) return extended ? { success: true, extended } : result;
-        extended += 1;
+        if (result.success) extended += 1;
+        else { failed += 1; firstError ??= result; }
     }
-    return { success: true, extended };
+    if (!extended && firstError) return firstError;
+    return { success: true, extended, failed };
 }
 
 /** Return selected (report §23.2): one reason and Fix by for everyone selected; work that isn't waiting is skipped. */

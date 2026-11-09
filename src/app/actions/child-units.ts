@@ -8,7 +8,7 @@ import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyOrg, notifyTeamsWithoutLead } from '@/lib/organizations/notify';
 import { insertTask } from '@/lib/organizations/assignments';
 import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
-import { taskTeamMembers } from '@/lib/db/schema';
+import { taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { closePendingApplications } from '@/lib/applications/closing';
 import { notifyClosedApplications } from '@/lib/applications/notifications';
@@ -83,7 +83,14 @@ export async function updateUnitAction(projectId: string, unitId: string, patch:
         }
         set.leadUserId = patch.leadUserId;
     }
-    await db.update(workspaceOpenRoles).set(set).where(eq(workspaceOpenRoles.id, unitId));
+    const oldName = unitName(unit);
+    await db.transaction(async (tx) => {
+        await tx.update(workspaceOpenRoles).set(set).where(eq(workspaceOpenRoles.id, unitId));
+        // Audit 6.4: open team tasks carry the team's name; they follow the rename so moves keep carrying them.
+        if (set.title && set.title !== oldName) {
+            await tx.update(tasks).set({ teamName: set.title }).where(and(eq(tasks.projectId, projectId), eq(tasks.teamName, oldName)));
+        }
+    });
     if (newLead && m.project.parentId) {
         await notifyOrg({ orgId: m.project.parentId, eventKey: 'org.role_changed', actorId: m.userId, to: [newLead], title: `You’re team lead of ${set.title ?? unit.title ?? unit.role}`,
             href: `/workspaces/${encodeURIComponent(m.project.slug ?? projectId)}`, sourceEventId: `unit-lead:${projectId}:${unitId}:${newLead}:${Date.now()}`, refs: { projectId } });
@@ -129,8 +136,8 @@ export async function removeUnitAction(projectId: string, unitId: string): Promi
 }
 
 /** Open team tasks a move would carry over (report §42.10, decision 138): their old team's, not handed in. */
-async function openTeamTasks(projectId: string, userId: string, teamName: string) {
-    return db.execute<{ id: string }>(sql`
+async function openTeamTasks(projectId: string, userId: string, teamName: string, executor: Pick<typeof db, 'execute'> = db) {
+    return executor.execute<{ id: string }>(sql`
         SELECT t.id FROM tasks t JOIN task_team_members tm ON tm.task_id = t.id AND tm.user_id = ${userId}
         WHERE t.workspace_id = ${projectId} AND t.deleted_at IS NULL AND t.team_name = ${teamName} AND t.status <> 'done'
           AND t.assignment_id IS NULL AND t.review_status IS DISTINCT FROM 'pending'`);
@@ -184,22 +191,24 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
                 return u ? unitName(u) : null;
             };
             names = { from: await named(member.unitId), to: await named(unitId) };
+            // Audit N63: their open team tasks move in the same transaction, so a failure can't leave them in the
+            // new team but still on the old team's tasks.
+            if (moveTasks && names.from) {
+                const leaving = (await openTeamTasks(projectId, userId, names.from, tx)).map((r) => r.id);
+                if (leaving.length) await tx.execute(sql`DELETE FROM task_team_members WHERE user_id = ${userId} AND task_id IN ${leaving}`);
+                if (names.to) {
+                    await tx.execute(sql`
+                        INSERT INTO task_team_members (task_id, user_id)
+                        SELECT t.id, ${userId}::uuid FROM tasks t WHERE t.workspace_id = ${projectId} AND t.deleted_at IS NULL AND t.team_name = ${names.to}
+                          AND t.status <> 'done' AND t.assignment_id IS NULL AND t.review_status IS DISTINCT FROM 'pending'
+                        ON CONFLICT DO NOTHING`);
+                }
+            }
         });
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t move them.' };
     }
     if (leftLeadless && names.from) await notifyTeamsWithoutLead(projectId, m.userId, [names.from]).catch(() => undefined)
-    if (moveTasks && names.from) {
-        const leaving = (await openTeamTasks(projectId, userId, names.from)).map((r) => r.id);
-        if (leaving.length) await db.execute(sql`DELETE FROM task_team_members WHERE user_id = ${userId} AND task_id IN ${leaving}`);
-        if (names.to) {
-            await db.execute(sql`
-                INSERT INTO task_team_members (task_id, user_id)
-                SELECT t.id, ${userId}::uuid FROM tasks t WHERE t.workspace_id = ${projectId} AND t.deleted_at IS NULL AND t.team_name = ${names.to}
-                  AND t.status <> 'done' AND t.assignment_id IS NULL AND t.review_status IS DISTINCT FROM 'pending'
-                ON CONFLICT DO NOTHING`);
-        }
-    }
     if (m.project.parentId && names.to !== names.from) {
         await notifyOrg({ orgId: m.project.parentId, eventKey: 'org.team_changed', actorId: m.userId, to: [userId],
             title: names.to ? `You were moved to ${names.to}` : `You’re no longer in ${names.from}`, href: `/workspaces/${encodeURIComponent(m.project.slug ?? projectId)}`,

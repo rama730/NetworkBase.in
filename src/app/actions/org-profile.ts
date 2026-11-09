@@ -33,7 +33,9 @@ export async function verifyOrgContributionsAction(orgId: string, userIds: strin
     if (members.length === 0) return { success: true, verified: 0 };
     const verified = await db.update(profileContributions)
         .set({ verifiedAt: new Date(), verifiedBy: adminId, verificationRevokedReason: null, updatedAt: new Date() })
-        .where(and(eq(profileContributions.projectId, orgId), inArray(profileContributions.profileId, members), isNull(profileContributions.deletedAt)))
+        // Audit N29: entries this admin already verified aren't verified (and told) again.
+        .where(and(eq(profileContributions.projectId, orgId), inArray(profileContributions.profileId, members), isNull(profileContributions.deletedAt),
+            sql`(${profileContributions.verifiedAt} IS NULL OR ${profileContributions.verifiedBy} IS DISTINCT FROM ${adminId}::uuid)`))
         .returning({ profileId: profileContributions.profileId });
     await markProfileCollaborationSummaryStale(verified.map((v) => v.profileId));
     const [org, names] = await Promise.all([orgLabel(orgId), namesOf([adminId])]);

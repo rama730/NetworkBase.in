@@ -107,7 +107,7 @@ export function CreateWorkspaceRouteClient({
     }, [])
 
     if (createdOrg) {
-        return <OrganizationCreatedScreen {...createdOrg} onContinue={() => router.replace(`/workspaces/${createdOrg.projectId}`)} />
+        return <OrganizationCreatedScreen {...createdOrg} onContinue={() => router.replace(`/org/${encodeURIComponent(createdOrg.handle ?? createdOrg.projectId)}`)} />
     }
     if (!handoff) return <CreateWorkspaceShellSkeleton />
 

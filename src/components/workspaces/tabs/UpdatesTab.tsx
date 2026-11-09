@@ -546,8 +546,9 @@ export default function UpdatesTab({
         {detailUpdate && isPhone === false ? (
           <div ref={mobileDetailRef} className="xl:hidden">
             <UpdateDetailPanel
-              projectId={projectId}
-              projectSlug={projectSlug}
+              // Audit 7.1: a post shared up from a workspace is commented on and liked where it lives, as its card does.
+              projectId={detailUpdate.fromProject ? detailUpdate.projectId : projectId}
+              projectSlug={detailUpdate.fromProject ? detailUpdate.fromProject.slug : projectSlug}
               update={detailUpdate}
               updatesQueryKey={updatesQueryKey}
               onClose={closeDetail}
@@ -569,8 +570,9 @@ export default function UpdatesTab({
                 <DialogTitle className="sr-only">Update</DialogTitle>
                 {detailUpdate ? (
                   <UpdateDetailPanel
-                    projectId={projectId}
-                    projectSlug={projectSlug}
+                    // Audit 7.1: a post shared up from a workspace is commented on and liked where it lives, as its card does.
+                    projectId={detailUpdate.fromProject ? detailUpdate.projectId : projectId}
+                    projectSlug={detailUpdate.fromProject ? detailUpdate.fromProject.slug : projectSlug}
                     update={detailUpdate}
                     updatesQueryKey={updatesQueryKey}
                     onClose={closeDetail}
@@ -626,8 +628,9 @@ export default function UpdatesTab({
         >
           {detailUpdate ? (
             <UpdateDetailPanel
-              projectId={projectId}
-              projectSlug={projectSlug}
+              // Audit 7.1: a post shared up from a workspace is commented on and liked where it lives, as its card does.
+              projectId={detailUpdate.fromProject ? detailUpdate.projectId : projectId}
+              projectSlug={detailUpdate.fromProject ? detailUpdate.fromProject.slug : projectSlug}
               update={detailUpdate}
               updatesQueryKey={updatesQueryKey}
               onClose={closeDetail}

@@ -82,7 +82,7 @@ test("34.6: Remove only a copy nobody has started; bulk Extend and Return; expor
   viewerId = t.admin;
   assert.equal((await assignments.removeCopyAction(t.copyOf(t.asha))).success, false, "handed in");
   const extended = await assignments.extendCopiesAction([t.copyOf(t.asha), t.copyOf(t.ravi)], hours(120));
-  assert.deepEqual(extended, { success: true, extended: 2 });
+  assert.deepEqual(extended, { success: true, extended: 2, failed: 0 });
   const returned = await assignments.returnCopiesAction([t.copyOf(t.asha), t.copyOf(t.ravi)], "Add your name", hours(72));
   assert.deepEqual(returned, { success: true, returned: 1, skipped: 1 }, "only waiting work is returned");
   const csv = await assignments.readAssignmentExportAction(t.masterId);

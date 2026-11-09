@@ -486,7 +486,8 @@ export default function WorkspaceLayout({
                                     role="tab"
                                     aria-selected={isActive}
                                     aria-controls="project-active-tab-panel"
-                                    tabIndex={isActive ? 0 : -1}
+                                    // Audit 4.7: with no visible active tab ("Tab unavailable"), the first tab keeps the bar reachable.
+                                    tabIndex={isActive || (index === 0 && !visibleTabs.some((t) => t.id === activeTab)) ? 0 : -1}
                                     onClick={() => onTabChange(tab.id)}
                                     onKeyDown={(event) => handleTabKeyDown(event, index)}
                                     onMouseEnter={() => onTabHover?.(tab.id)}

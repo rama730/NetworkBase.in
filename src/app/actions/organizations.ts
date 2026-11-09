@@ -9,6 +9,7 @@ import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { getTrustedHeadersIp } from '@/lib/security/request-ip';
 import { z } from 'zod';
 import { ORG_LIMITS, orgRoleNames, orgTypeLabel } from '@/lib/organizations/config';
+import { orgLimitBlock } from '@/lib/organizations/limits';
 import { validateOrgHandle } from '@/lib/organizations/handle';
 import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 
@@ -163,6 +164,8 @@ export async function joinOrganizationAction(
 export async function checkOrgHandleAction(raw: string): Promise<{ available: boolean; handle: string | null; message: string }> {
     const userId = await viewerId();
     if (!userId) return { available: false, handle: null, message: 'Not available.' };
+    // Audit 1.3: typing is debounced already; this bounds scripted checks (60 a minute).
+    if (!(await consumeRateLimit(`org:handle-check:${userId}`, 60, 60)).allowed) return { available: false, handle: null, message: 'Checking too fast. Wait a moment.' };
     const checked = validateOrgHandle(raw);
     if (!checked.ok) {
         return {
@@ -322,15 +325,17 @@ export async function regenerateJoinCodeAction(orgId: string): Promise<{ success
         const joinCode = generateJoinCode();
         try {
             await db.update(workspaces).set({ joinCode, updatedAt: new Date() }).where(eq(workspaces.id, orgId));
-            revalidateOrg(viewer.slug, orgId);
-            // The other admins hear who changed it (report §26 A).
-            const name = (await namesOf([viewer.userId])).get(viewer.userId) ?? 'an admin';
-            await notifyOrg({ orgId, eventKey: 'org.code_changed', actorId: viewer.userId, title: `The join code was changed by ${name}`,
-                href: orgHref({ slug: viewer.slug, id: orgId }, '?tab=members'), sourceEventId: `code:${joinCode}` });
-            return { success: true, joinCode };
         } catch {
             // ponytail: a collision with another org's code just retries; 32^6 codes make five tries plenty.
+            continue;
         }
+        // Audit N31: only the update retries; once it's saved the code is announced once and kept.
+        revalidateOrg(viewer.slug, orgId);
+        // The other admins hear who changed it (report §26 A).
+        const name = (await namesOf([viewer.userId])).get(viewer.userId) ?? 'an admin';
+        await notifyOrg({ orgId, eventKey: 'org.code_changed', actorId: viewer.userId, title: `The join code was changed by ${name}`,
+            href: orgHref({ slug: viewer.slug, id: orgId }, '?tab=members'), sourceEventId: `code:${joinCode}` }).catch(() => undefined);
+        return { success: true, joinCode };
     }
     return { success: false, error: 'Couldn’t make a new code. Try again.' };
 }
@@ -642,17 +647,18 @@ async function leadlessChild(projectId: string) {
 }
 
 /** Assign dialog (report §35.4): team members first, then anyone in the organization; no Viewers, outside or blocked people. */
-export async function readLeadCandidatesAction(projectId: string): Promise<{ success: true; people: Array<{ id: string; name: string; onTeam: boolean }> } | Failure> {
+export async function readLeadCandidatesAction(projectId: string): Promise<{ success: true; people: Array<{ id: string; name: string; avatarUrl: string | null; onTeam: boolean }> } | Failure> {
     const ctx = await leadlessChild(projectId);
     if (!ctx) return DENIED;
-    const rows = await db.execute<{ id: string; name: string; on_team: boolean }>(sql`
-        SELECT m.user_id AS id, coalesce(p.full_name, p.username, 'Member') AS name,
+    // Audit N59: with their photos, like every other people list.
+    const rows = await db.execute<{ id: string; name: string; avatar_url: string | null; on_team: boolean }>(sql`
+        SELECT m.user_id AS id, coalesce(p.full_name, p.username, 'Member') AS name, p.avatar_url,
                EXISTS (SELECT 1 FROM workspace_members c WHERE c.workspace_id = ${projectId} AND c.user_id = m.user_id) AS on_team
         FROM workspace_members m JOIN profiles p ON p.id = m.user_id AND p.deleted_at IS NULL
         WHERE m.workspace_id = ${ctx.child.parentId} AND m.role IN ('admin', 'member') AND m.user_id <> ${ctx.child.ownerId}
           AND NOT EXISTS (SELECT 1 FROM org_join_blocks b WHERE b.org_id = ${ctx.child.parentId} AND b.user_id = m.user_id)
-        ORDER BY 3 DESC, 2 LIMIT 500`);
-    return { success: true, people: rows.map((r) => ({ id: r.id, name: r.name, onTeam: r.on_team })) };
+        ORDER BY 4 DESC, 2 LIMIT 500`);
+    return { success: true, people: rows.map((r) => ({ id: r.id, name: r.name, avatarUrl: r.avatar_url, onTeam: r.on_team })) };
 }
 
 /**
@@ -662,7 +668,9 @@ export async function readLeadCandidatesAction(projectId: string): Promise<{ suc
 export async function assignChildLeadAction(projectId: string, userId: string): Promise<{ success: true } | Failure> {
     const ctx = await leadlessChild(projectId);
     if (!ctx || !UUID_RE.test(userId)) return DENIED;
-    if (!ctx.flagged) return { success: false, error: `${ctx.child.title} already has a workspace lead. Only they can hand it over.` };
+    // Audit 6.1: a lead who has left the organization can't hand over, so admins may replace them then too.
+    const leadInOrg = ctx.flagged ? true : Boolean(await readViewerOrgRole(ctx.child.parentId, ctx.child.ownerId));
+    if (!ctx.flagged && leadInOrg) return { success: false, error: `${ctx.child.title} already has a workspace lead. Only they can hand it over.` };
     const role = await readViewerOrgRole(ctx.child.parentId, userId);
     const [blocked] = await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM org_join_blocks WHERE org_id = ${ctx.child.parentId} AND user_id = ${userId}`);
     if ((role !== 'member' && role !== 'admin') || blocked?.n) return { success: false, error: 'Choose someone in the organization who isn’t a Viewer.' };
@@ -711,6 +719,25 @@ export async function setChildVisibilityAction(projectId: string, next: ChildVis
  * Moves the lead's personal project into an org they belong to. Org owners and admins move it at once;
  * members send a request an admin approves. Outside people block the move while the org keeps them out.
  */
+/**
+ * Audit 6.6: what moving a workspace in must respect, whoever approves it. Null when it can move.
+ */
+async function moveInBlock(projectId: string, orgId: string): Promise<string | null> {
+    const [row] = await db.execute<{ org_open: boolean; org_title: string; children: number; archived: boolean; bytes: string | number | null }>(sql`
+        SELECT (o.status <> 'archived' AND o.suspended_at IS NULL AND o.restricted_at IS NULL AND o.deletion_scheduled_at IS NULL AND o.deleted_at IS NULL) AS org_open,
+               o.title AS org_title,
+               (SELECT count(*)::int FROM workspaces c WHERE c.parent_id = o.id AND c.deleted_at IS NULL) AS children,
+               (SELECT p.status = 'archived' FROM workspaces p WHERE p.id = ${projectId}::uuid) AS archived,
+               (SELECT q.retained_bytes FROM storage_quota_scopes q WHERE q.scope_type = 'project' AND q.scope_id = ${projectId}::uuid) AS bytes
+        FROM workspaces o WHERE o.id = ${orgId}::uuid`);
+    if (!row?.org_open) return 'That organization isn’t taking workspaces right now.';
+    if (row.archived) return 'Unarchive this workspace before moving it.';
+    const full = orgLimitBlock('workspaces', row.children, { org: row.org_title, isAdmin: false });
+    if (full) return full;
+    if (Number(row.bytes ?? 0) > ORG_LIMITS.teamStorageBytes) return `This workspace uses more than the ${Math.round(ORG_LIMITS.teamStorageBytes / 1024 ** 3)} GB a team workspace has. Free some space first.`;
+    return null;
+}
+
 export async function moveWorkspaceToOrgAction(projectId: string, orgId: string): Promise<{ success: true; outcome: 'moved' | 'requested' } | Failure> {
     const viewer = await childViewer(projectId);
     if (!viewer || !viewer.isLead || viewer.project.parentId) return DENIED;
@@ -718,6 +745,8 @@ export async function moveWorkspaceToOrgAction(projectId: string, orgId: string)
     if (!role || role === 'viewer') return { success: false, error: "You’re not a member of that organization." };
     const org = await readOrgCap(db, orgId);
     if (!org) return DENIED;
+    const blocked = await moveInBlock(projectId, orgId);
+    if (blocked) return { success: false, error: blocked };
     if (!org.outsidePeople) {
         const outside = await countOutsidePeople(projectId, orgId);
         if (outside > 0) return { success: false, error: `${outside} ${outside === 1 ? 'person isn’t' : 'people aren’t'} in that organization. Remove them first.` };
@@ -765,6 +794,8 @@ export async function approveMoveInAction(projectId: string): Promise<{ success:
     if (org && !org.outsidePeople && (await countOutsidePeople(projectId, pending.orgId)) > 0) {
         return { success: false, error: 'This workspace now has people outside the organization.' };
     }
+    const blocked = await moveInBlock(projectId, pending.orgId);
+    if (blocked) return { success: false, error: blocked };
     await moveIntoOrg(projectId, pending.orgId, pending.project.visibility);
     revalidatePath(`/workspaces/${pending.project.slug ?? projectId}`);
     await notifyChildDecision(pending.orgId, projectId, pending.project.ownerId, userId!, (child, orgTitle) => `${child} is now part of ${orgTitle}`);

@@ -1,6 +1,7 @@
 import "server-only";
 
-import { and, isNotNull, count, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, count, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { isLooseUuid } from "@/lib/validations/uuid";
 
 import { db } from "@/lib/db";
 import { orgHandleHolds, orgVerificationCodes, profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
@@ -247,15 +248,18 @@ export async function readOrgCard(slug: string) {
   const [row] = await db
     .select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, coverImage: workspaces.coverImage, orgType: workspaces.orgType, visibility: workspaces.visibility })
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)))
+    .where(and(bySlugOrId(slug), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)))
     .limit(1);
   return row ?? null;
 }
 
+/** Audit 4.1: links by id (webhooks, apps) reach the same minimal pages as links by handle. */
+const bySlugOrId = (slug: string) => (isLooseUuid(slug) ? or(eq(workspaces.slug, slug), eq(workspaces.id, slug))! : eq(workspaces.slug, slug));
+
 /** An organization-only workspace inside an organization, by its slug (report §31.2): outsiders get "not available". */
 export async function isOrgOnlyWorkspace(slug: string) {
   const [row] = await db.select({ id: workspaces.id }).from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.visibility, "org"), isNotNull(workspaces.parentId), isNull(workspaces.deletedAt))).limit(1);
+    .where(and(bySlugOrId(slug), eq(workspaces.visibility, "org"), isNotNull(workspaces.parentId), isNull(workspaces.deletedAt))).limit(1);
   return Boolean(row);
 }
 

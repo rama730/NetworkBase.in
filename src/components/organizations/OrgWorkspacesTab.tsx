@@ -688,7 +688,7 @@ function AssignLeadDialog({ row, onClose, onDone }: { row: Row; onClose: () => v
                         {list.map((p) => (
                             <li key={p.id}><button type="button" onClick={() => setPick(p)} aria-pressed={pick?.id === p.id}
                                 className={cn('flex min-h-11 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] hover:bg-muted', pick?.id === p.id && 'bg-muted font-medium')}>
-                                <UserAvatar identity={{ id: p.id, fullName: p.name, avatarUrl: null }} size={26} />
+                                <UserAvatar identity={{ id: p.id, fullName: p.name, avatarUrl: p.avatarUrl }} size={26} />
                                 <span className="min-w-0 flex-1 truncate">{p.name}</span>
                                 <span className="text-[12px] font-normal text-muted-foreground">{p.onTeam ? 'On the team' : 'In the organization'}</span>
                                 {pick?.id === p.id ? <Check className="size-4 text-primary" aria-hidden="true" /> : null}

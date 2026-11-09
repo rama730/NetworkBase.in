@@ -1,5 +1,7 @@
 'use server';
 
+import { assignmentHref } from '@/lib/organizations/assignment-rules';
+
 import { and, desc, eq, ilike, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
@@ -197,7 +199,8 @@ export async function fetchToReviewAction(): Promise<ToReviewRow[] | null> {
         id: r.id, title: r.title, who: r.team_name ?? r.who ?? 'Someone',
         context: r.org_title ? `${r.org_title} / ${r.context}` : r.context,
         submittedAt: r.submitted_at,
-        href: `/${r.kind === 'organization' ? 'org' : 'workspaces'}/${encodeURIComponent(r.slug ?? r.project_id)}?tab=${r.kind === 'organization' ? 'assignments' : 'tasks'}&drawerType=task&drawerId=${r.id}`,
+        // Audit N47: straight to Tasks with the submission open (the old assignments-tab redirect dropped drawerId).
+        href: assignmentHref(`/${r.kind === 'organization' ? 'org' : 'workspaces'}/${encodeURIComponent(r.slug ?? r.project_id)}`, r.id),
     }));
 }
 

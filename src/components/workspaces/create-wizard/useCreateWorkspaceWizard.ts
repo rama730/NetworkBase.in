@@ -650,11 +650,13 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
         submissionRef.current = true;
         setIsSubmitting(true);
         const importType = data.import_source?.type || 'scratch';
-        const creationToastId = toast.loading('Creating workspace…');
+        // Audit N26: an organization is called one here too.
+        const noun = data.organization ? 'Organization' : 'Workspace';
+        const creationToastId = toast.loading(`Creating ${noun.toLowerCase()}…`);
         const creationWarnings: string[] = [];
         const warnCreation = (message: string) => {
             if (!creationWarnings.includes(message)) creationWarnings.push(message);
-            toast.warning('Workspace created', { id: creationToastId, description: creationWarnings.join(' ') });
+            toast.warning(`${noun} created`, { id: creationToastId, description: creationWarnings.join(' ') });
         };
         let createdProjectId: string | null = null;
         let createdOrganization: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization | undefined;
@@ -998,7 +1000,7 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
                 await applyReadmeSetup(createdProjectId);
             }
             if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
-            if (!creationWarnings.length) toast.success(importType === 'upload' ? 'Workspace and files ready' : 'Workspace created', { id: creationToastId });
+            if (!creationWarnings.length) toast.success(importType === 'upload' ? `${noun} and files ready` : `${noun} created`, { id: creationToastId });
 
             const { draftStore } = await import('@/lib/storage/draft-store');
             await draftStore.clear(userId);

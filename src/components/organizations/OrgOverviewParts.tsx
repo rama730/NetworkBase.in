@@ -261,7 +261,12 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
                 {record.length ? <Notice><span data-testid={data.archivedSummary ? 'org-archived-summary' : 'org-term-mine'}>{record.join(' · ')}</span></Notice> : null}
                 {data.welcome && !welcomeClosed ? (
                     // Report §26.7, decision 49: once after joining; × hides it for good.
-                    <WelcomeNote note={data.welcome.note} testId="org-welcome" onClose={() => { setWelcomeClosed(true); void dismissWelcomeAction(orgId) }}>
+                    <WelcomeNote note={data.welcome.note} testId="org-welcome" onClose={() => {
+                        setWelcomeClosed(true)
+                        // Audit 1.4: the cached Overview forgets it too, so it doesn't flash back on the next visit.
+                        client.setQueryData(['org-dashboard', orgId], (old: typeof data | undefined) => (old?.success ? { ...old, welcome: null } : old))
+                        void dismissWelcomeAction(orgId)
+                    }}>
                         {data.welcome.start.length ? <ul className="mt-3 divide-y divide-border">{data.welcome.start.map((r) => <li key={r.href}><Link href={r.href} className={cn(row, 'hover:underline')}><span className="truncate">{r.label}</span><ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /></Link></li>)}</ul> : null}
                         {data.welcome.addToProfile ? <Link href="/profile/edit?section=experience" className="nb-link mt-3 inline-block text-[13px]">Add to your profile</Link> : null}
                     </WelcomeNote>
