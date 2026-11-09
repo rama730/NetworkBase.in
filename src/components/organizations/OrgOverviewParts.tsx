@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, BadgeCheck, BookOpenText, CalendarClock, Check, ChevronRight, ClipboardCheck, Clock, CornerDownLeft, Flag, FolderKanban, IterationCcw, ListTodo, Megaphone, MoreHorizontal, Plus, ShieldAlert, Star, UserPlus, Users, UserX, X, type LucideIcon } from 'lucide-react'
@@ -13,7 +13,8 @@ import { RailSection } from '@/components/ui/rail-section'
 import { ActivityItem } from '@/components/ui/activity-item'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
-import { approveJoinRequestsAction } from '@/app/actions/org-members'
+import { approveJoinRequestsAction, readOrgPeopleAction } from '@/app/actions/org-members'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { decideParentVerificationAction } from '@/app/actions/trust'
 import { StartNowButton } from '@/components/organizations/OrgSprintParts'
 import { toggleWorkspaceUpdatePinAction } from '@/app/actions/workspace/updates'
@@ -366,11 +367,17 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
                     {data.role === 'admin' && data.people.total <= 1 && !data.people.requests ? (
                         // Only you (report §7.2): a short invite panel instead of a list of one.
                         <OrgInvitePanel orgId={orgId} orgHandle={orgSlug} bare />
-                    ) : (
+                    ) : data.role === 'admin' ? (
                         <Link href={`${base}?tab=members`} className="group block space-y-2">
                             <AvatarStack people={data.people.avatars} total={data.people.total} />
                             <span className="block text-[13px] group-hover:underline">{data.people.total} {data.people.total === 1 ? 'member' : 'members'}{data.people.joinedThisWeek ? ` · ${data.people.joinedThisWeek} joined this week` : ''}</span>
                         </Link>
+                    ) : (
+                        // Decision D-A, audit N52: members open a read-only list here (Members is the admins' tab); viewers see the faces only.
+                        <OrgPeople orgId={orgId} canOpen={data.role === 'member'} summary={<>
+                            <AvatarStack people={data.people.avatars} total={data.people.total} />
+                            <span className="block text-[13px] group-hover:underline">{data.people.total} {data.people.total === 1 ? 'member' : 'members'}</span>
+                        </>} />
                     )}
                     {data.people.requests && data.role === 'admin' ? <Link href={`${base}?tab=members`} className="nb-link mt-2 inline-block text-[13px]">{data.people.requests} {data.people.requests === 1 ? 'request' : 'requests'} waiting</Link> : null}
                 </RailSection>
@@ -468,5 +475,44 @@ export function ChildUnitsLine({ projectId, members }: { projectId: string; memb
                 })}
             </ul>
         </OrgCard>
+    )
+}
+
+/** Decision D-A: the organization's people for its members, read-only (name, photo, role, title). */
+function OrgPeople({ orgId, canOpen, summary }: { orgId: string; canOpen: boolean; summary: ReactNode }) {
+    const [open, setOpen] = useState(false)
+    const [q, setQ] = useState('')
+    const people = useQuery({ queryKey: ['org-people', orgId], queryFn: () => readOrgPeopleAction(orgId), enabled: open, staleTime: 60_000 })
+    if (!canOpen) return <div className="space-y-2">{summary}</div>
+    const rows = people.data?.success ? people.data.people.filter((p) => !q.trim() || `${p.name} ${p.title ?? ''} ${p.role}`.toLowerCase().includes(q.trim().toLowerCase())) : []
+    return (
+        <>
+            <button type="button" className="group block w-full space-y-2 text-left" onClick={() => setOpen(true)}>{summary}</button>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>People</DialogTitle>
+                        <DialogDescription>Everyone in this organization.</DialogDescription>
+                    </DialogHeader>
+                    <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search people" aria-label="Search people" />
+                    {people.isPending ? <div className="nb-skeleton h-40 rounded-md" role="status" aria-label="Loading people" />
+                        : !people.data?.success ? <ErrorNotice what="People" onRetry={() => void people.refetch()} />
+                            : rows.length === 0 ? <p className="text-[13px] text-muted-foreground">No one matches.</p> : (
+                                <ul className="max-h-[60vh] divide-y divide-border overflow-y-auto" aria-label="People">
+                                    {rows.map((p) => (
+                                        <li key={p.id} className="flex min-h-12 items-center gap-3 py-2">
+                                            <UserAvatar identity={{ id: p.id, fullName: p.name, avatarUrl: p.avatarUrl }} size={28} />
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block truncate text-[13px] font-medium text-foreground">{p.name}</span>
+                                                {p.title ? <span className="nb-meta block truncate">{p.title}</span> : null}
+                                            </span>
+                                            <span className="nb-status" data-tone="neutral">{p.role}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }
