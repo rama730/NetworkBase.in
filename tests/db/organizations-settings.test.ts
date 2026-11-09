@@ -156,7 +156,7 @@ test("§21 Work: type defaults, admins save the section, composer and sprint def
   const assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
   const options = await assignments.readAssignmentComposerOptionsAction(id);
   assert.ok(options.success);
-  assert.deepEqual(options.success && options.defaults, { reviewRequired: false, lateRule: "none", dueTime: "17:00" });
+  assert.deepEqual(options.success && options.defaults, { reviewRequired: false, lateRule: "none", dueTime: "17:00", aiPolicy: "labelled" });
 
   const child = await sql.begin((tx) => createProject(tx, member, { visibility: "org" }));
   created.push(child);

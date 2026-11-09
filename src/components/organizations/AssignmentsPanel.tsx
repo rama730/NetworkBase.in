@@ -222,6 +222,9 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [lateOffset, setLateOffset] = useState<number | null>(7)
     const [lateUntilLocal, setLateUntilLocal] = useState('')
     const [lateAfter, setLateAfter] = useState(15)
+    // AI agents (CLI report A8.2): starts from the organization's default.
+    const [aiPolicy, setAiPolicy] = useState<'allowed' | 'labelled' | 'not_allowed'>('labelled')
+    const [aiNote, setAiNote] = useState('')
     // Publish timing (decision 125) and Materials (decision 128).
     const [when, setWhen] = useState<'now' | 'sprint' | 'date' | 'draft'>('now')
     const [publishLocal, setPublishLocal] = useState('')
@@ -280,6 +283,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             setReviewRequired(r.defaults.reviewRequired)
             setLateRule(r.defaults.lateRule)
             setDueTime(r.defaults.dueTime)
+            setAiPolicy(r.defaults.aiPolicy)
             // New task with many people (decision 10): the text typed there comes along, and its due date.
             if (prefill) {
                 setTitle(prefill.title); setDescription(prefill.description); setMode(prefill.mode)
@@ -352,6 +356,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntil ? at(lateUntil) : null,
             target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
             ...(reviewRequired && reviewers.length ? { reviewers } : {}),
+            aiPolicy, ...(aiNote.trim() ? { aiNote: aiNote.trim() } : {}),
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
             ...(repeatUntil ? { repeatWeeklyUntil: at(`${repeatUntil}T23:59`) } : {}),
@@ -711,6 +716,15 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             <span className="font-normal text-muted-foreground">minutes past the due time</span>
                         </label>
                         {reviewRequired ? <ReviewersPicker admins={admins} value={reviewers} onChange={setReviewers} className={small} /> : null}
+                        <label className={cn('block font-medium', small)}>AI agents
+                            <select className="nb-select mt-1.5 w-full" value={aiPolicy} onChange={(e) => setAiPolicy(e.target.value as typeof aiPolicy)}>
+                                <option value="labelled">Allowed, labelled for reviewers</option>
+                                <option value="allowed">Allowed</option>
+                                <option value="not_allowed">Not allowed</option>
+                            </select>
+                            <span className="mt-1 block font-normal text-muted-foreground">Applies to AI agents connected to NetworkBase. It can’t detect work written with other tools.</span>
+                        </label>
+                        <input value={aiNote} onChange={(e) => setAiNote(e.target.value)} maxLength={300} placeholder="A note to students about AI (optional)" aria-label="Note to students about AI" className={cn(inputClassName(false), small)} />
                         <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={shareToGeneral} onChange={(e) => setShareToGeneral(e.target.checked)} />Also share in #general</label>
                         <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} />Also post an announcement</label>
                         {announce ? <textarea value={announcement ?? defaultAnnouncement} onChange={(e) => setAnnouncement(e.target.value)} rows={2} maxLength={5000} aria-label="Announcement" className={cn('nb-textarea', inputClassName(false), 'min-h-[60px] resize-y py-2')} /> : null}

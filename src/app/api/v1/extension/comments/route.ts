@@ -108,7 +108,7 @@ async function postTaskComment(
     input.projectId ??
     (await db.query.tasks.findFirst({ where: and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)), columns: { projectId: true } }))?.projectId;
   if (!projectId) return jsonError("Task not found", 404, "NOT_FOUND");
-  const held = await agentGate(auth, request, input, { workspaceId: projectId, kinds: ["small"], summary: "Comment on the task" });
+  const held = await agentGate(auth, request, input, { workspaceId: projectId, kinds: ["small"], summary: "Comment on the task", taskId: input.taskId });
   if (held) return held;
   // Name and avatar come from the profile row, never from session metadata the person can edit.
   const [profile] = await db

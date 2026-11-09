@@ -4,11 +4,11 @@ import { and, count, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 import { db } from "@/lib/db";
-import { orgHandleHolds, orgVerificationCodes, profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
+import { extensionDeviceSessions, orgHandleHolds, orgVerificationCodes, profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
 import { orgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
 import { orgLimitBlock } from "@/lib/organizations/limits";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
-import { readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
+import { allowsAgentTokens, readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
 import { isWorkspacePubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
 import { codeSendWindow, linkUrls, maskEmail, verifiedLabel } from "@/lib/organizations/trust-rules";
 import { proofCode } from "@/lib/organizations/verification-ways";
@@ -50,6 +50,9 @@ export type OrgDetail = {
   followSprintsDefault: boolean;
   /** Settings → Work with the type defaults (report §21.2 #5, §21.5). */
   work: OrgWork;
+  /** Members may connect AI agents (CLI report A8.8), and how many agent sign-ins reach the org now (admins only). */
+  allowAgentTokens: boolean;
+  agentTokens: number | null;
   /** Chat rules as stored (report §25.4); read with orgChatSettings for type defaults. */
   chat: { membersCreateChannels?: boolean; generalAdminsOnly?: boolean; generalNotify?: string };
   adminDigest: "daily" | "instant";
@@ -179,6 +182,8 @@ export async function readOrgDetail(
     defaultUnits: readDefaultUnits(settings),
     followSprintsDefault: (settings as { followSprintsDefault?: boolean }).followSprintsDefault !== false,
     work: readOrgWork(settings, org.orgType),
+    allowAgentTokens: allowsAgentTokens(settings),
+    agentTokens: viewer.isAdmin ? await activeAgentTokens(orgId) : null,
     adminDigest: (settings as { adminDigest?: string }).adminDigest === "instant" ? "instant" : "daily",
     announcementNotify: (settings as { announcementNotify?: string }).announcementNotify === "email" ? "email" : "in_app",
     replyRule: (settings as { replyRule?: string }).replyRule === "logged_in" ? "logged_in" : "members",
@@ -373,4 +378,13 @@ export async function listCreateLocations(userId: string) {
       memberFileUploadDefault: row.memberFileUploadDefault,
     };
   });
+}
+
+
+/** Active agent sign-ins bound to the organization or its workspaces: a number only, never whose (report A8.8). */
+async function activeAgentTokens(orgId: string) {
+  const [row] = await db.select({ n: count() }).from(extensionDeviceSessions)
+    .innerJoin(workspaces, eq(workspaces.id, extensionDeviceSessions.workspaceId))
+    .where(and(eq(extensionDeviceSessions.tokenType, "agent"), isNull(extensionDeviceSessions.revokedAt), gt(extensionDeviceSessions.expiresAt, new Date()), or(eq(workspaces.id, orgId), eq(workspaces.parentId, orgId))));
+  return row?.n ?? 0;
 }

@@ -1,4 +1,5 @@
 import { canSeeOrgTask } from "@/lib/organizations/assignments";
+import { copyRules } from "@/lib/organizations/my-assignments";
 import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId, denyOutsideTokenWorkspace } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
@@ -238,6 +239,8 @@ export async function GET(request: Request) {
             }
           : null,
         sprint,
+        // An assignment copy's rules, so a CLI or agent brief states the AI policy (CLI report A8.2 item 3).
+        assignment: fullTask.assignmentId ? await copyRules(taskId) : null,
       },
       subtasks: enrichedSubtasks,
       subtaskSummary: {

@@ -166,8 +166,10 @@ async function bearerPrincipal(
   const isRead = ["GET", "HEAD", "OPTIONS"].includes((headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase());
   if (kind === "agent" && workspaceId) {
     // "Pause agents" in workspace settings stops every agent request at once (report §18.5).
-    const { paused } = await workspaceAgentPolicy(workspaceId);
+    const { paused, orgAllowsAgents, orgTitle } = await workspaceAgentPolicy(workspaceId);
     if (paused) return deniedPrincipal(jsonError("Agents are paused in this workspace. Its owner can turn them back on in workspace settings.", 403, "AGENTS_PAUSED"));
+    // The organization turned agent tokens off (report A8.8): no agent request reaches its workspaces.
+    if (!orgAllowsAgents) return deniedPrincipal(jsonError(`${orgTitle ?? "This organization"} doesn't allow AI agents. Its admins can allow them in organization settings.`, 403, "AGENT_NOT_ALLOWED"));
     // A day's writes per agent token (report §18.5, finding 76): enough for real work, not for a runaway loop.
     if (!isRead && !(await consumeRateLimit(`api:v1:agent:day:${extensionSessionId}`, AGENT_DAILY_WRITES, 86_400)).allowed) {
       const limited = jsonError(`This agent made ${AGENT_DAILY_WRITES} changes today, the daily limit. It can continue tomorrow.`, 429, "RATE_LIMITED");

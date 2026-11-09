@@ -20,6 +20,8 @@ export const SCOPE_WORDS: Array<{ scopes: string[]; label: string; hint: string;
   { scopes: ["file:delete"], label: "Delete files", hint: "Moves them to the workspace Trash" },
   { scopes: ["doc:write"], label: "Edit docs", hint: "The README and other docs" },
   { scopes: ["ask:others"], label: "Ask other people", hint: "Questions to the assignee or reviewer" },
+  { scopes: ["assignment:hand-in"], label: "Hand in assignments", hint: "Your own copies, with the app's late rules" },
+  { scopes: ["task:review"], label: "Review hand-ins", hint: "Approve or return, for organization reviewers" },
 ];
 
 /** Old and new permission names → the words above, for the token list. */

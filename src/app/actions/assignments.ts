@@ -10,8 +10,10 @@ import { assignmentSubmissions, profiles, taskNodeLinks, taskSubtasks, workspace
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { readBoardCounts } from '@/lib/workspaces/server/tasks';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuthenticatedUser } from '@/app/api/v1/_shared';
+import { agentMadeFiles, aiUseByCopy, type AiUsed } from '@/lib/organizations/ai-labels';
 import { orgRoleNames } from '@/lib/organizations/config';
-import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState, weeklyRepeats } from '@/lib/organizations/assignment-rules';
+import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState, weeklyRepeats, type AiPolicy } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
 import { publishMaster } from '@/lib/organizations/assignment-publish';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
@@ -32,9 +34,9 @@ import { normalizeSprintOptions } from '@/lib/workspaces/task-presentation';
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
+/** The signed-in person: a browser session, or a CLI token (`nb assignment`, `nb review`; CLI report A8.4–A8.5). */
 async function viewerId() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await requireAuthenticatedUser();
     return user?.id ?? null;
 }
 
@@ -91,6 +93,9 @@ const createSchema = z.object({
     repeatWeeklyUntil: z.string().datetime({ offset: true }).nullable().optional(),
     /** Reviewers (report §33.5): the admins who review it; none means every admin's queue has it. */
     reviewers: z.array(z.string().uuid()).max(20).optional(),
+    /** AI agents (CLI report A8.2): unset follows the organization's default. */
+    aiPolicy: z.enum(['allowed', 'labelled', 'not_allowed']).optional(),
+    aiNote: z.string().trim().max(300, 'Keep the note to 300 characters.').nullable().optional(),
 });
 
 /** Reviewers are the organization's admins (owner included), each once; an error when anyone else is named. */
@@ -154,6 +159,8 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
                 closedAt: null,
                 lateAfterMinutes: data.lateAfterMinutes ?? LATE_AFTER_DEFAULT_MINUTES,
                 ...(reviewers ? { reviewers } : {}),
+                ...(data.aiPolicy ? { aiPolicy: data.aiPolicy } : {}),
+                ...(data.aiNote ? { aiNote: data.aiNote } : {}),
                 ...scheduled.fields,
             };
             const masterId = await createMasterTask(tx, {
@@ -255,7 +262,7 @@ export type HandIn = {
     history: Array<{ kind: 'handed_in' | 'returned' | 'approved'; at: string; by: string | null; version?: number; late?: boolean; reason?: string | null }>;
 };
 /** A file with the workspace it lives in, so the viewer reads it from there. */
-export type HandInFile = { nodeId: string; name: string; size: number | null; projectId: string };
+export type HandInFile = { nodeId: string; name: string; size: number | null; projectId: string; /** Made by an AI agent (report A8.3): its name. */ agentName?: string | null; viaAgent?: boolean };
 
 /**
  * The task panel's Hand in section (report §34.4, decision 85): what's asked, the state with its reason or date,
@@ -301,12 +308,15 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
             SELECT CASE WHEN e.event_type = 'review_approved' THEN 'approved' ELSE 'returned' END, e.created_at, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = e.actor_id), NULL, NULL, e.payload->>'reason'
             FROM task_activity_events e WHERE e.task_id = ${copyId} AND e.event_type IN ('review_approved', 'changes_requested')
         ) h ORDER BY at DESC, kind = 'handed_in'`);
+    // Report A8.3: each file says "via Claude Code" when an agent made its current version.
+    const madeBy = await agentMadeFiles([...files.map((f) => f.node_id), ...(latest?.files ?? []).map((f) => f.nodeId)]);
+    const label = (id: string) => (madeBy.has(id) ? { viaAgent: true, agentName: madeBy.get(id) ?? null } : {});
     return { success: true, handIn: {
         holder, submissionType: master.settings.submissionType, reviewRequired: master.settings.reviewRequired, dueDate: copy.dueDate?.toISOString() ?? null,
         lateLabel: lateWorkLabel(master.settings), from: org?.title ?? 'the organization', reviewers: `${roles.owner} or ${roles.admin}`, state: s.state, late: s.late, canSubmit, closed: Boolean(master.settings.closedAt), approved,
         excusedReason: copy.excusedReason, returned: s.state === 'returned' ? { reason: returnedEvent?.reason ?? null, fixBy: returnedEvent?.fix_by ?? copy.submitUntil?.toISOString() ?? null, by: returnedEvent?.by ?? null } : null,
-        latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name, size: sizes.get(f.nodeId)?.size ?? null, projectId: sizes.get(f.nodeId)?.projectId ?? copy.projectId })) } : null,
-        files: files.map((f) => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size), projectId: f.project_id })), materials: materials.success ? materials.materials : [],
+        latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name, size: sizes.get(f.nodeId)?.size ?? null, projectId: sizes.get(f.nodeId)?.projectId ?? copy.projectId, ...label(f.nodeId) })) } : null,
+        files: files.map((f) => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size), projectId: f.project_id, ...label(f.node_id) })), materials: materials.success ? materials.materials : [],
         wouldBeLate, projectId: copy.projectId, orgId: master.projectId, masterId: master.id, steps, maxFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES,
         history: history.map((e) => ({ kind: e.kind, at: new Date(e.at).toISOString(), by: e.by, ...(e.kind === 'handed_in' ? { version: Number(e.version), late: Boolean(e.late) } : { reason: e.reason }) })),
     } };
@@ -384,6 +394,8 @@ const updateSchema = z.object({
     tellEveryone: z.boolean().optional(),
     /** Reviewers (report §33.5): admins of the organization; an empty list means everyone reviews. */
     reviewers: z.array(z.string().uuid()).max(20).optional(),
+    aiPolicy: z.enum(['allowed', 'labelled', 'not_allowed']).optional(),
+    aiNote: z.string().trim().max(300).nullable().optional(),
 }).strict();
 
 /**
@@ -421,6 +433,8 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
         ...(parsed.data.lateAfterMinutes !== undefined ? { lateAfterMinutes: parsed.data.lateAfterMinutes } : {}),
         ...(parsed.data.submissionType ? { submissionType: parsed.data.submissionType } : {}),
         ...(parsed.data.reviewRequired !== undefined ? { reviewRequired: parsed.data.reviewRequired } : {}),
+        ...(parsed.data.aiPolicy ? { aiPolicy: parsed.data.aiPolicy } : {}),
+        ...(parsed.data.aiNote !== undefined ? { aiNote: parsed.data.aiNote || null } : {}),
         ...(description !== undefined && settings.publishedAt ? { instructionsUpdatedAt: new Date().toISOString() } : {}),
     };
     // A moved due date can't pass the late date (report §42.12 smaller bug 16).
@@ -515,9 +529,9 @@ export async function readAssignmentExportAction(masterId: string): Promise<{ su
     const day = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : '');
     return {
         success: true,
-        rows: [['Person', 'Status', 'Due', 'Handed in', 'Late', 'Version'], ...roster.rows.map((r) => {
+        rows: [['Person', 'Status', 'Due', 'Handed in', 'Late', 'Version', 'AI used'], ...roster.rows.map((r) => {
             const sub = r.submission as { at?: string; version?: number } | null;
-            return [r.people?.length ? `${r.label} (${r.people.map((p) => p.name).join(', ')})` : r.label, ASSIGNMENT_STATE_LABELS[r.state], day(r.dueDate), day(sub?.at), r.late ? 'Late' : '', sub?.version ? String(sub.version) : ''];
+            return [r.people?.length ? `${r.label} (${r.people.map((p) => p.name).join(', ')})` : r.label, ASSIGNMENT_STATE_LABELS[r.state], day(r.dueDate), day(sub?.at), r.late ? 'Late' : '', sub?.version ? String(sub.version) : '', r.aiUsed === 'most' ? 'Most files' : r.aiUsed === 'some' ? 'Some files' : 'None'];
         })],
     };
 }
@@ -525,7 +539,7 @@ export async function readAssignmentExportAction(masterId: string): Promise<{ su
 /** Use again (report §33.5): the form filled from an earlier assignment, with new dates left to choose. */
 export async function readAssignmentForReuseAction(masterId: string): Promise<{ success: true; form: {
     title: string; description: string; submissionType: string; reviewRequired: boolean; lateRule: string; lateAfterMinutes: number; steps: string[]; target: AssignmentTarget; materials: Array<{ id: string; name: string }>; dueDate: null;
-    reviewers: string[];
+    reviewers: string[]; aiPolicy: AiPolicy | null; aiNote: string | null;
 } } | Failure> {
     const ctx = await adminOfMaster(masterId, 'edit_for_everyone');
     if (!ctx) return DENIED;
@@ -537,7 +551,7 @@ export async function readAssignmentForReuseAction(masterId: string): Promise<{ 
     return { success: true, form: {
         title: ctx.master.title, description: ctx.master.description ?? '', submissionType: s.submissionType, reviewRequired: s.reviewRequired, lateRule: s.lateRule,
         lateAfterMinutes: s.lateAfterMinutes ?? LATE_AFTER_DEFAULT_MINUTES, steps: steps.map((r) => r.title), target: s.target, materials: [...materials], dueDate: null,
-        reviewers: s.reviewers ?? [],
+        reviewers: s.reviewers ?? [], aiPolicy: s.aiPolicy ?? null, aiNote: s.aiNote ?? null,
     } };
 }
 
@@ -939,6 +953,8 @@ export type RosterRow = {
     submittedAt: string | null; version: number | null; remindedAt: string | null;
     /** Review UX 1.5: the person (photo) and when the copy last changed. */
     userId: string | null; avatarUrl: string | null; updatedAt: string;
+    /** Report A8.3: how much of the hand-in an AI agent made. */
+    aiUsed?: AiUsed;
 };
 
 /** The roster for one assignment (report §16.5): admins see names; guests see counts without names. */
@@ -983,6 +999,7 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
     const reminded = new Map(remindable.length === 0 ? [] : Array.from(await db.execute<{ id: string; at: string }>(sql`
         SELECT split_part(dedupe_key, ':', 5) AS id, max(created_at)::text AS at FROM user_notifications
         WHERE user_id IN ${remindable} AND dedupe_key LIKE ${`project:${master.projectId}:assignments.reminded:remind:%`} GROUP BY 1`)).map((r) => [r.id, new Date(r.at).toISOString()]));
+    const aiUse = await aiUseByCopy(copies.map((c) => c.id));
     const rows = copies.map((c, i) => {
         const members = people.filter((p) => p.copyId === c.id).map((p) => p.name || p.username || 'Member');
         // A group copy whose project left the org stays on the roster as "Detached" (report §14.7).
@@ -990,7 +1007,7 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
             : c.projectId !== master.projectId ? `${c.projectTitle} · Detached` : names.get(c.assigneeId ?? '') ?? 'Member');
         const team = people.filter((p) => p.copyId === c.id).map((p) => ({ id: p.userId, name: p.name || p.username || 'Member', lead: p.isLead }));
         const by = (c.submission as { by?: string } | null)?.by;
-        return { copyId: c.id, label, members, ...states[i]!, projectId: c.projectId, dueDate: c.dueDate?.toISOString() ?? null, submission: c.submission, excusedReason: c.excusedReason,
+        return { copyId: c.id, label, members, ...states[i]!, aiUsed: aiUse.get(c.id) ?? 'none', projectId: c.projectId, dueDate: c.dueDate?.toISOString() ?? null, submission: c.submission, excusedReason: c.excusedReason,
             approved: c.status === 'done' && c.completionSource === 'review',
             userId: c.assigneeId, avatarUrl: c.assigneeId ? avatars.get(c.assigneeId) ?? null : null, updatedAt: c.updatedAt.toISOString(),
             submittedAt: (c.submission as { at?: string } | null)?.at ?? null, version: (c.submission as { version?: number } | null)?.version ?? null, remindedAt: reminded.get(c.id) ?? null,
@@ -1026,7 +1043,7 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
         SELECT p.id, coalesce(p.full_name, p.username, 'Admin') AS name FROM profiles p
         WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${orgId} UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${orgId} AND role = 'admin')
         ORDER BY 2`);
-    return { success: true as const, children, sprints, teamAssignments, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule, dueTime: work.dueTime }, admins: [...admins] };
+    return { success: true as const, children, sprints, teamAssignments, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule, dueTime: work.dueTime, aiPolicy: work.aiPolicy }, admins: [...admins] };
 }
 
 export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; dueDate: string | null; state: CopyState; late: boolean; submissionType: string; canSubmit: boolean };
@@ -1210,6 +1227,8 @@ export type ReviewQueueRow = {
     lastAsk: string | null;
     /** §4b.8: an ordinary task's description (its files come in `files`). */
     description?: string | null;
+    /** Report A8.3: hand-in files an AI agent made, and which agent. */
+    aiFiles?: number; agentName?: string | null;
 };
 
 const QUEUE_PAGE = 200;
@@ -1302,7 +1321,11 @@ export async function readReviewQueueAction(orgId: string, cursor?: string | nul
             WHERE e.actor_id = ${viewer.userId} AND e.event_type IN ('changes_requested') AND coalesce(e.payload->>'reason', '') <> ''
             ORDER BY e.payload->>'reason', e.created_at DESC) r ORDER BY created_at DESC LIMIT 5`);
     const last = page.at(-1);
+    // Report A8.3: "3 of 5 files via Claude Code" on a hand-in an agent worked on.
+    const madeBy = await agentMadeFiles(page.flatMap((r) => (r.files ?? []).map((f: { nodeId: string }) => f.nodeId)));
+    const aiOf = (files: Array<{ nodeId: string }> | null) => { const hits = (files ?? []).filter((f) => madeBy.has(f.nodeId)); return { aiFiles: hits.length, agentName: hits.length ? madeBy.get(hits[0]!.nodeId) ?? null : null }; };
     return { success: true, nextCursor: more && last ? encodeQueueCursor(last.sort_at, last.copy_id) : null, rows: [...page.map((r): ReviewQueueRow => ({
+        ...aiOf(r.files),
         kind: 'copy', mine: r.mine, copyId: r.copy_id, masterId: r.master_id, title: r.title,
         who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
         submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at).getTime() > new Date(r.due_date).getTime() + (r.late_after ?? LATE_AFTER_DEFAULT_MINUTES) * 60_000),

@@ -72,7 +72,7 @@ async function handlePatch(request: Request) {
       : input.kind === "delete" ? "Delete the task"
       : input.kind === "subtask_edit" ? "Rename a subtask" : input.kind === "subtask_delete" ? "Delete a subtask" : input.kind === "subtask_move" ? "Reorder a subtask"
       : input.kind === "approve" ? "Approve the task" : input.kind === "request_changes" ? "Ask for changes on the task" : "Send the task for review again";
-    const held = await agentGate(auth, request, input, { workspaceId: input.projectId, kinds, summary: `${what}${others ? " (assigned to someone else)" : ""}` });
+    const held = await agentGate(auth, request, input, { workspaceId: input.projectId, kinds, summary: `${what}${others ? " (assigned to someone else)" : ""}`, taskId: input.taskId });
     if (held) return held;
     if (input.kind === "request_changes" || input.kind === "resubmit") {
       const result = input.kind === "resubmit"

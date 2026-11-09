@@ -11,6 +11,9 @@ import { jsonError } from "@/app/api/v1/_envelope";
 import { db } from "@/lib/db";
 import { agentConfirmationsUsed, tasks, undoOperations, workspaces } from "@/lib/db/schema";
 import { requestVia } from "@/lib/server/request-via";
+import { alias } from "drizzle-orm/pg-core";
+import { effectiveAiPolicy } from "@/lib/organizations/assignment-rules";
+import { allowsAgentTokens, readOrgWork } from "@/lib/organizations/settings";
 
 export type AgentPolicy = "ask_important" | "ask_all" | "trust_drafts_docs";
 
@@ -71,9 +74,44 @@ export async function spendConfirmToken(token: string, input: { userId: string; 
   return used.length === 1;
 }
 
-export async function workspaceAgentPolicy(workspaceId: string): Promise<{ policy: AgentPolicy; paused: boolean }> {
-  const [row] = await db.select({ policy: workspaces.agentPolicy, pausedAt: workspaces.agentsPausedAt }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
-  return { policy: row?.policy ?? "ask_important", paused: Boolean(row?.pausedAt) };
+export async function workspaceAgentPolicy(workspaceId: string): Promise<{ policy: AgentPolicy; paused: boolean; orgAllowsAgents: boolean; orgTitle: string | null }> {
+  const org = alias(workspaces, "agent_org");
+  const [row] = await db
+    .select({ policy: workspaces.agentPolicy, pausedAt: workspaces.agentsPausedAt, kind: workspaces.kind, title: workspaces.title, own: workspaces.orgSettings, orgTitle: org.title, orgSettings: org.orgSettings })
+    .from(workspaces)
+    .leftJoin(org, and(eq(org.id, workspaces.parentId), eq(org.kind, "organization")))
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  // An organization's "Allow agent tokens" covers it and its workspaces (report A8.8).
+  const orgSettings = row?.kind === "organization" ? row.own : row?.orgSettings;
+  return {
+    policy: row?.policy ?? "ask_important",
+    paused: Boolean(row?.pausedAt),
+    orgAllowsAgents: allowsAgentTokens(orgSettings),
+    orgTitle: row?.kind === "organization" ? row.title : row?.orgTitle ?? null,
+  };
+}
+
+/**
+ * An assignment copy whose policy is "No AI agents" (report A8.2 item 4): agents can read it, never change it.
+ * Returns the teacher's note as the reason, or null when agents may write.
+ */
+export async function agentAssignmentBlock(taskId: string | null | undefined): Promise<string | null> {
+  if (!taskId) return null;
+  const master = alias(tasks, "agent_master");
+  const org = alias(workspaces, "agent_master_org");
+  const [row] = await db
+    .select({ settings: master.assignmentSettings, orgSettings: org.orgSettings, orgType: org.orgType, orgTitle: org.title })
+    .from(tasks)
+    .innerJoin(master, eq(master.id, tasks.assignmentId))
+    .leftJoin(org, eq(org.id, master.projectId))
+    .where(eq(tasks.id, taskId))
+    .limit(1);
+  if (!row) return null;
+  const policy = effectiveAiPolicy(row.settings, readOrgWork(row.orgSettings, row.orgType).aiPolicy);
+  if (policy !== "not_allowed") return null;
+  const note = row.settings?.aiNote?.trim();
+  return `${row.orgTitle ?? "Your organization"} doesn't allow AI agents on this assignment${note ? `: ${note}` : "."} You can read it; do the work yourself.`;
 }
 
 /** A task assigned to someone else (unassigned tasks count as anyone's). */
@@ -91,9 +129,11 @@ export async function agentGate(
   auth: Principal,
   request: Request,
   body: unknown,
-  change: { workspaceId: string; kinds: ChangeKind[]; summary: string; preview?: string },
+  change: { workspaceId: string; kinds: ChangeKind[]; summary: string; preview?: string; taskId?: string | null },
 ) {
   if (auth.tokenKind !== "agent" || !auth.user || !auth.extensionSessionId) return null;
+  const blocked = await agentAssignmentBlock(change.taskId);
+  if (blocked) return jsonError(blocked, 403, "AGENT_NOT_ALLOWED");
   const { policy } = await workspaceAgentPolicy(change.workspaceId);
   if (!needsYes(change.kinds, policy)) return null;
   const given = request.headers.get(CONFIRM_HEADER)?.trim();

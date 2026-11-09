@@ -34,7 +34,8 @@ type Ask = { kind: 'return' | 'change' | 'extend' | 'excuse' | 'remove'; row: Ro
 
 /** What a row says under the name: when it came in, which version, late; or the reminder, reason or last change. */
 function detail(r: RosterRow) {
-    if (r.state === 'submitted' || r.state === 'done') return [r.submittedAt ? WHEN.format(new Date(r.submittedAt)) : null, r.version ? `Version ${r.version}` : null, r.late ? 'Late' : null, r.submittedBy ? `by ${r.submittedBy}` : null].filter(Boolean).join(' · ')
+    // CLI report A8.3: "AI used" when an agent made some or most of the files.
+    if (r.state === 'submitted' || r.state === 'done') return [r.submittedAt ? WHEN.format(new Date(r.submittedAt)) : null, r.version ? `Version ${r.version}` : null, r.late ? 'Late' : null, r.submittedBy ? `by ${r.submittedBy}` : null, r.aiUsed && r.aiUsed !== 'none' ? `AI: ${r.aiUsed} files` : null].filter(Boolean).join(' · ')
     if (r.state === 'excused') return r.excusedReason ?? 'Excused'
     return [ASSIGNMENT_STATE_LABELS[r.state], r.remindedAt ? `Reminded ${formatDistanceToNow(new Date(r.remindedAt), { addSuffix: true })}` : `Changed ${formatDistanceToNow(new Date(r.updatedAt), { addSuffix: true })}`].join(' · ')
 }

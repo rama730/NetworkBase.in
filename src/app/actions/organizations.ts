@@ -278,11 +278,12 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
             if (value.max_members < n) return { success: false, error: `There are ${n} members now. Max members can’t be lower.` };
         }
         if ('max_members' in value) columns.maxCollaborators = value.max_members == null ? null : String(value.max_members);
+        if ('allow_agent_tokens' in value) settingsPatch.allowAgentTokens = value.allow_agent_tokens;
     } else if (section === 'people') {
         // Names equal to the type's aren't saved, so a later type change still renames them.
         settingsPatch.roleNames = customRoleNames(current?.orgType, value.role_names as Record<string, string>);
     } else if (section === 'work') {
-        const keys = { review_required: 'assignmentReview', late_rule: 'assignmentLateRule', reminders: 'assignmentReminders', story_points: 'storyPoints', due_time: 'assignmentDueTime', main_sprint_word: 'mainSprintWord',
+        const keys = { review_required: 'assignmentReview', late_rule: 'assignmentLateRule', reminders: 'assignmentReminders', story_points: 'storyPoints', due_time: 'assignmentDueTime', main_sprint_word: 'mainSprintWord', ai_policy: 'assignmentAiPolicy',
             sprint_auto_start: 'sprintAutoStart', sprint_notify_on_start: 'sprintNotifyOnStart', sprint_show_in_children: 'sprintShowInChildren', sprint_create_matching: 'sprintCreateMatching' } as const;
         for (const [field, key] of Object.entries(keys)) if (field in value) settingsPatch[key] = value[field];
         if ('main_sprint_word' in value) settingsPatch.mainSprintWord = cleanMainWord(value.main_sprint_word);

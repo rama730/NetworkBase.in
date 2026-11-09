@@ -42,6 +42,7 @@ async function handlePost(request: Request, context: { params: Promise<{ taskId:
       workspaceId: projectId,
       kinds: [as === "final" && !detach ? "final" : "small", (await isOthersTask(taskId, auth.user.id)) ? "others-task" : "small"],
       summary: detach ? `Take ${normalized} off the task` : `Attach ${normalized} to the task as ${as}`,
+      taskId,
     });
     if (held) return held;
     if (detach) {

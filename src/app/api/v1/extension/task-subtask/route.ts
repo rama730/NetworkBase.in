@@ -82,6 +82,7 @@ async function handlePost(request: Request) {
       workspaceId: projectId,
       kinds: [(await isOthersTask(resolvedTaskId, user.id)) ? "others-task" : "small"],
       summary: `Add the subtask "${title}"`,
+      taskId: resolvedTaskId,
     });
     if (held) return held;
 

@@ -81,6 +81,8 @@ export const ORG_SETTINGS_PATCH = {
     join_mode: z.enum(["instant", "approval"]).optional(),
     join_code_enabled: z.boolean().optional(),
     max_members: z.number().int().min(1).max(ORG_LIMITS.membersPerOrg).nullable().optional(),
+    // CLI report A8.8: members may connect AI agents to this organization's workspaces.
+    allow_agent_tokens: z.boolean().optional(),
   }).strict(),
   people: z.object({
     role_names: z.object({ owner: roleName, admin: roleName, member: roleName, viewer: roleName }).strict(),
@@ -98,6 +100,8 @@ export const ORG_SETTINGS_PATCH = {
     late_rule: z.enum(["none", "until", "always"]).optional(),
     reminders: z.enum(["both", "day_before", "due_day", "off"]).optional(),
     story_points: z.enum(["shown", "hidden"]).optional(),
+    // CLI report A8.2: the AI agent policy new assignments start with.
+    ai_policy: z.enum(["allowed", "labelled", "not_allowed"]).optional(),
     // Assignment form redesign (2026-11-09): the time a picked due date gets.
     due_time: z.string().refine(isTimeOfDay, "Pick a time like 23:59.").optional(),
     // Sprint redesign (2026-11-09): what a main sprint is called; null goes back to the type's word.
@@ -135,6 +139,8 @@ export type OrgWork = {
   sprintNotifyOnStart: boolean;
   sprintShowInChildren: boolean;
   sprintCreateMatching: boolean;
+  /** New assignments' AI agent policy (report A8.2); Labelled by default. */
+  aiPolicy: "allowed" | "labelled" | "not_allowed";
 };
 
 /**
@@ -157,8 +163,12 @@ export function readOrgWork(orgSettings: unknown, orgType: string | null | undef
     sprintNotifyOnStart: s.sprintNotifyOnStart !== false,
     sprintShowInChildren: s.sprintShowInChildren !== false,
     sprintCreateMatching: s.sprintCreateMatching === true,
+    aiPolicy: pick(s.assignmentAiPolicy, ["allowed", "labelled", "not_allowed"] as const, "labelled"),
   };
 }
+
+/** Whether members may connect AI agents to this organization's workspaces (report A8.8); on unless turned off. */
+export const allowsAgentTokens = (orgSettings: unknown) => (orgSettings as { allowAgentTokens?: unknown } | null)?.allowAgentTokens !== false;
 
 /** The child-project rules an org enforces (report §21.7), read from org_settings with their defaults. */
 export function readOrgRules(orgSettings: unknown): { childCreation: "members" | "admins"; outsidePeople: boolean; visibilityCap: VisibilityCap } {

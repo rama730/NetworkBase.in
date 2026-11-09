@@ -276,9 +276,11 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                                             <span className="block truncate text-[13px] font-medium" title={r.who}>{r.who}</span>
                                             <span className="block truncate font-mono text-[11px] text-muted-foreground">{meta(r)}</span>
                                             {/* Late and Resubmitted on their own line, so the name never gets cut for them. */}
-                                            {r.late || (r.version ?? 1) > 1 ? (
-                                                <span className="mt-1 flex gap-1">
+                                            {r.late || (r.version ?? 1) > 1 || r.aiFiles ? (
+                                                <span className="mt-1 flex flex-wrap gap-1">
                                                     {r.late ? <span className="rounded-sm border border-border px-1.5 font-mono text-[11px] text-destructive">Late</span> : null}
+                                                    {/* CLI report A8.3: how much of this hand-in an AI agent made. */}
+                                                    {r.aiFiles ? <span className="rounded-sm border border-border px-1.5 font-mono text-[11px] text-muted-foreground" title="Made by an AI agent connected to NetworkBase">{r.aiFiles} of {r.files.length} via {r.agentName ?? 'an agent'}</span> : null}
                                                     {(r.version ?? 1) > 1 ? <span className="rounded-sm border border-border px-1.5 font-mono text-[11px] text-muted-foreground">Resubmitted</span> : null}
                                                 </span>
                                             ) : null}

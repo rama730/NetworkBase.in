@@ -49,6 +49,10 @@ export async function decideDeviceCodeAction(code: string, input: unknown): Prom
     if (decision.type === "agent") {
       const access = await getWorkspaceAccessById(decision.workspaceId, user.id);
       if (!access.canWrite) return { success: false, error: "Choose a workspace you can change" };
+      // An organization that turned agent tokens off (report A8.8).
+      const { workspaceAgentPolicy } = await import("@/lib/agents/policy");
+      const org = await workspaceAgentPolicy(decision.workspaceId);
+      if (!org.orgAllowsAgents) return { success: false, error: `${org.orgTitle ?? "This organization"} doesn't allow AI agents. Choose another workspace.` };
     }
   }
 

@@ -111,7 +111,9 @@ type EditPatch = Parameters<typeof updateAssignmentAction>[1]
  * type locks once someone has handed in; a closed one keeps its instructions and due date until reopened.
  */
 export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZone = null }: { orgId: string; row: AssignmentRow; open: boolean; onClose: () => void; onSave: (patch: EditPatch) => void; timeZone?: string | null }) {
-    const [loaded, setLoaded] = useState<{ description: string; lateRule: string; lateAfterMinutes: number } | null>(null)
+    const [loaded, setLoaded] = useState<{ description: string; lateRule: string; lateAfterMinutes: number; aiPolicy: string; aiNote: string } | null>(null)
+    const [aiPolicy, setAiPolicy] = useState('')
+    const [aiNote, setAiNote] = useState('')
     const [sprints, setSprints] = useState<Array<{ id: string; name: string }>>([])
     const [title, setTitle] = useState(row.title)
     const [description, setDescription] = useState('')
@@ -130,7 +132,8 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
         if (!open) return
         void readAssignmentForReuseAction(row.masterId).then((r) => {
             if (!r.success) return
-            setLoaded({ description: r.form.description, lateRule: r.form.lateRule, lateAfterMinutes: r.form.lateAfterMinutes })
+            setLoaded({ description: r.form.description, lateRule: r.form.lateRule, lateAfterMinutes: r.form.lateAfterMinutes, aiPolicy: r.form.aiPolicy ?? '', aiNote: r.form.aiNote ?? '' })
+            setAiPolicy(r.form.aiPolicy ?? ''); setAiNote(r.form.aiNote ?? '')
             setDescription(r.form.description); setLateRule(r.form.lateRule); setLateAfter(r.form.lateAfterMinutes)
             setReviewers(r.form.reviewers ?? []); setSavedReviewers(r.form.reviewers ?? [])
         })
@@ -150,6 +153,8 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
         ...(review !== row.reviewRequired ? { reviewRequired: review } : {}),
         ...(sprintId ? { sprintId } : {}),
         ...(reviewers && [...reviewers].sort().join() !== [...savedReviewers].sort().join() ? { reviewers } : {}),
+        ...(loaded && aiPolicy && aiPolicy !== loaded.aiPolicy ? { aiPolicy: aiPolicy as 'allowed' | 'labelled' | 'not_allowed' } : {}),
+        ...(loaded && aiNote !== loaded.aiNote ? { aiNote: aiNote.trim() || null } : {}),
     })
     return (
         <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} size="wide" title={published ? `Edit ${row.title} for everyone` : `Edit ${row.title}`}
@@ -192,6 +197,16 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
                 </label>
                 <label className="flex items-center gap-2"><input className="nb-check" type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} /> Review each submission</label>
                 {review && reviewers ? <ReviewersPicker admins={admins} value={reviewers} onChange={setReviewers} className="sm:col-span-2" /> : null}
+                {/* CLI report A8.2: AI agents on this assignment; empty follows the organization's default. */}
+                <label className="block space-y-1"><span className="font-medium">AI agents</span>
+                    <select value={aiPolicy} onChange={(e) => setAiPolicy(e.target.value)} className="nb-select w-full">
+                        {!loaded?.aiPolicy ? <option value="">Organization default</option> : null}
+                        <option value="labelled">Allowed, labelled</option><option value="allowed">Allowed</option><option value="not_allowed">Not allowed</option>
+                    </select>
+                </label>
+                <label className="block space-y-1"><span className="font-medium">Note about AI</span>
+                    <Input value={aiNote} onChange={(e) => setAiNote(e.target.value)} maxLength={300} placeholder="Optional" />
+                </label>
                 {published ? <p className="text-[12px] text-muted-foreground sm:col-span-2">Steps can only be added after publishing, from the roster’s Add step. Turning review off approves nothing already waiting.</p> : null}
             </div>
         </ConfirmDialog>

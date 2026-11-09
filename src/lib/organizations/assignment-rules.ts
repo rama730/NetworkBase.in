@@ -34,7 +34,24 @@ export type AssignmentSettings = {
   instructionsUpdatedAt?: string | null;
   /** Reviewers (report §33.5): the admins who review it; none means everyone. The queue's Mine follows this. */
   reviewers?: string[];
+  /** AI agents on this assignment (CLI report A8.2, D20); unset follows the organization's default. */
+  aiPolicy?: AiPolicy;
+  /** A line to students about AI use ("You may use AI for research, not for writing"). */
+  aiNote?: string | null;
 };
+
+/**
+ * What AI agents connected to NetworkBase may do on an assignment's copies (report A8.2). It applies to agents
+ * connected to NetworkBase only; nothing here detects work written with other tools.
+ */
+export type AiPolicy = "allowed" | "labelled" | "not_allowed";
+export const AI_POLICY_DEFAULT: AiPolicy = "labelled";
+export const AI_POLICY_WORDS: Record<AiPolicy, string> = { allowed: "AI agents allowed", labelled: "AI agents allowed, labelled", not_allowed: "No AI agents" };
+
+/** The assignment's own policy, else the organization's default, else Labelled. */
+export function effectiveAiPolicy(settings: Pick<AssignmentSettings, "aiPolicy"> | null | undefined, orgDefault?: AiPolicy | null): AiPolicy {
+  return settings?.aiPolicy ?? orgDefault ?? AI_POLICY_DEFAULT;
+}
 
 export const LATE_AFTER_DEFAULT_MINUTES = 15;
 /** Late after in milliseconds; assignments saved before it existed get the default. */

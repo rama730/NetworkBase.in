@@ -132,6 +132,14 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/questions/${ID}/(answer|mute)`), write: "task:write", agent: "route" },
   // The agent disconnected: send its held notifications (report A11.6).
   { pattern: route("/api/v1/agent-sessions/end"), write: null, agent: "self" },
+  // Assignments and reviews (report A8.4–A8.5). Agents may read a copy in their workspace; handing in, asking the
+  // class and reviewing are the person's own acts, so agent tokens can't call them.
+  { pattern: route("/api/v1/assignments"), read: "task:read", agent: "self" },
+  { pattern: route(`/api/v1/assignments/${ID}`), read: "task:read", agent: "route" },
+  { pattern: route(`/api/v1/assignments/${ID}/hand-in`), write: "assignment:hand-in" },
+  { pattern: route(`/api/v1/assignments/${ID}/question`), write: "task:write" },
+  { pattern: route("/api/v1/reviews"), read: "task:read" },
+  { pattern: route(`/api/v1/reviews/${ID}`), write: "task:review" },
   // Your devices, agents and personal tokens (report A3.9). No agent mode: agent tokens can't see or revoke them.
   { pattern: route("/api/v1/tokens"), read: null },
   { pattern: route(`/api/v1/tokens/${ID}/revoke`), write: null },

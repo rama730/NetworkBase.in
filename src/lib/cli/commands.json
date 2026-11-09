@@ -800,6 +800,170 @@
       ]
     },
     {
+      "name": "assignment list",
+      "summary": "Your assignments: due, state, AI policy",
+      "usage": "nb assignment list [--status missing,returned]",
+      "flags": {
+        "status": {
+          "type": "string",
+          "describe": "Only these states: not_started,in_progress,submitted,returned,done,missing",
+          "valueName": "a,b"
+        }
+      },
+      "examples": [
+        "nb assignment list --status missing,returned"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "assignment view",
+      "summary": "Instructions, due date, late rule, AI policy, your state",
+      "usage": "nb assignment view <ref>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "assignment pull",
+      "summary": "Materials and your files into .tasks/",
+      "usage": "nb assignment pull <ref>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "assignment hand-in",
+      "summary": "Hand in, with the app's late and lock rules",
+      "usage": "nb assignment hand-in <ref> [files…] [--link url] [--text …] [-m note]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "link": {
+          "type": "string",
+          "describe": "A link, for assignments that take one",
+          "valueName": "url"
+        },
+        "text": {
+          "type": "string",
+          "describe": "Your answer, for assignments that take text",
+          "valueName": "text"
+        }
+      },
+      "examples": [
+        "nb assignment hand-in 3 essay.pdf -m \"Final draft\"",
+        "nb assignment hand-in 4 --link https://github.com/me/app"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "assignment question",
+      "summary": "Ask the class a question about an assignment",
+      "usage": "nb assignment question <ref> -m text",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "review list",
+      "summary": "Hand-ins waiting for your review",
+      "usage": "nb review list -w <organization> [--mine]",
+      "flags": {
+        "mine": {
+          "type": "boolean",
+          "describe": "Only assignments you review"
+        }
+      },
+      "examples": [
+        "nb review list -w physics-101 --mine"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "review view",
+      "summary": "A hand-in: files, note, late, AI policy",
+      "usage": "nb review view <n>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "review approve",
+      "summary": "Approve a hand-in",
+      "usage": "nb review approve <n>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "review return",
+      "summary": "Return a hand-in with what to fix",
+      "usage": "nb review return <n> -m reason [--fix-by date]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "fix-by": {
+          "type": "string",
+          "describe": "When it can be handed in again by",
+          "valueName": "date"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "review pull",
+      "summary": "Download a hand-in to reviews/ (read-only)",
+      "usage": "nb review pull <n>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "task pull",
       "summary": "Bring a task's panel files into .tasks/",
       "usage": "nb task pull <task>",

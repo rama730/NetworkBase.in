@@ -87,7 +87,7 @@ test("34.6: Remove only a copy nobody has started; bulk Extend and Return; expor
   assert.deepEqual(returned, { success: true, returned: 1, skipped: 1 }, "only waiting work is returned");
   const csv = await assignments.readAssignmentExportAction(t.masterId);
   assert.ok(csv.success);
-  assert.deepEqual(csv.success && csv.rows[0], ["Person", "Status", "Due", "Handed in", "Late", "Version"]);
+  assert.deepEqual(csv.success && csv.rows[0], ["Person", "Status", "Due", "Handed in", "Late", "Version", "AI used"], "CLI report A8.3: the AI-use column");
   assert.ok(!JSON.stringify(csv).includes("secret") && !JSON.stringify(csv).includes("example.com"), "no submission content");
   assert.equal((await assignments.removeCopyAction(t.copyOf(t.ravi))).success, true, "Ravi hadn't started");
   assert.equal((await sql`SELECT deleted_at FROM tasks WHERE id = ${t.copyOf(t.ravi)}`)[0]!.deleted_at !== null, true);

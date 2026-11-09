@@ -349,6 +349,9 @@ export function OrgAccessSection({ orgId, organization, maxMembers, handle }: Se
                     </div>
                     <InstantSwitch label="Code works" help="Off means nobody can join by code. The code itself doesn’t change." checked={organization.joinCodeEnabled}
                         save={(on) => updateOrgSettingsAction(orgId, 'access', { join_code_enabled: on })} />
+                    {/* CLI report A8.8: agent tokens for members, with how many are active now (no names). */}
+                    <InstantSwitch label="Allow AI agents" help={`Members can connect Claude Code, Codex or Cursor to this organization’s workspaces. Off stops every agent here at once.${organization.agentTokens != null ? ` ${organization.agentTokens} active now.` : ''}`} checked={organization.allowAgentTokens}
+                        save={(on) => updateOrgSettingsAction(orgId, 'access', { allow_agent_tokens: on })} />
                     <fieldset>
                         <legend className={labelClass}>{ORG_SETTING_LABELS.joinMode.label}</legend>
                         <div className="mt-2 space-y-2.5 text-[13px]">
@@ -593,6 +596,11 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                                 {(['both', 'day_before', 'due_day', 'off'] as const).map((v) => <option key={v} value={v}>{L.reminders.options[v]}</option>)}
                             </select>
                         </label>
+                        <label className="flex flex-col"><span className={labelClass}>AI agents on assignments</span><span className={`block pb-2 ${helpClass}`}>New assignments start with this. It applies to agents connected to NetworkBase; it can’t detect other tools.</span>
+                            <select className="nb-select mt-auto w-full" value={work.aiPolicy} onChange={(e) => set('aiPolicy', e.target.value as typeof work.aiPolicy)}>
+                                <option value="labelled">Allowed, labelled for reviewers</option><option value="allowed">Allowed</option><option value="not_allowed">Not allowed</option>
+                            </select>
+                        </label>
                         <label className="flex flex-col"><span className={labelClass}>{L.storyPoints.label}</span><span className={`block pb-2 ${helpClass}`}>{L.storyPoints.help}</span>
                             <select className="nb-select mt-auto w-full" value={work.storyPoints} onChange={(e) => set('storyPoints', e.target.value as typeof work.storyPoints)}>
                                 {(['shown', 'hidden'] as const).map((v) => <option key={v} value={v}>{L.storyPoints.options[v]}</option>)}
@@ -605,7 +613,7 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                         </label>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', { late_rule: work.lateRule, reminders: work.reminders, story_points: work.storyPoints, due_time: work.dueTime }))}>Save task defaults</Button>
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', { late_rule: work.lateRule, reminders: work.reminders, story_points: work.storyPoints, due_time: work.dueTime, ai_policy: work.aiPolicy }))}>Save task defaults</Button>
                         {status}
                     </div>
                     <h3 className="nb-micro border-t border-border pt-5">Sprints</h3>

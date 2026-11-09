@@ -1,6 +1,7 @@
 'use client'
 
 
+import { ViaLabel } from '@/components/ui/via-label'
 import { useEffect, useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -37,6 +38,8 @@ function FileRow({ file, onRemove }: { file: HandInFile; onRemove?: () => void }
         <li className="rounded-md border border-border text-[13px]">
             <div className="flex items-center gap-2 px-2.5 py-1.5">
                 <span className="min-w-0 flex-1 truncate">{name}</span>
+                {/* CLI report A8.3: who made it, per file. */}
+                <ViaLabel via={file.viaAgent ? 'agent' : null} agentName={file.agentName} />
                 <span className="font-mono text-[12px] text-muted-foreground">{fileSize(file.size)}</span>
                 <button type="button" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Preview'} ${name}`} className="rounded-sm px-1.5 text-[12px] text-primary hover:bg-muted" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Preview'}</button>
                 {onRemove ? <button type="button" aria-label={`Remove ${name}`} className="rounded-sm px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onRemove}>×</button> : null}

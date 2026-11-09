@@ -289,6 +289,7 @@ async function handlePost(request: Request) {
       kinds,
       summary: `Push ${files.length} file${files.length === 1 ? "" : "s"}${requestedRole ? ` as ${toPublicRole(requestedRole)}` : ""}${taskId ? " to a task" : ""}${transitionStatus === "done" ? " and finish the task" : ""}`,
       preview: files.slice(0, 30).map((f) => normalizePath(f.path)).join("\n"),
+      taskId,
     });
     if (held) return held;
 

@@ -1556,6 +1556,12 @@
       "meaning": "An agent token only reaches the workspace it was approved for",
       "fix": "Use the folder linked to that workspace, or approve a new agent sign-in"
     },
+    "AGENT_NOT_ALLOWED": {
+      "status": 403,
+      "exit": 3,
+      "meaning": "The organization doesn't allow AI agents here (or on this assignment)",
+      "fix": "Do this one yourself, or ask the organization's admins"
+    },
     "AGENTS_PAUSED": {
       "status": 403,
       "exit": 3,

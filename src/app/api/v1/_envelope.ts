@@ -30,6 +30,7 @@ export type ApiErrorCode =
   | "WORKSPACE_NOT_ALLOWED"
   | "NEEDS_CONFIRMATION"
   | "AGENTS_PAUSED"
+  | "AGENT_NOT_ALLOWED"
   | "TASK_CHANGED";
 
 export function jsonSuccess<T>(
