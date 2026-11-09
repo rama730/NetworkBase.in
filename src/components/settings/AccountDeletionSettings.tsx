@@ -28,7 +28,7 @@ export default function AccountDeletionSettings() {
       : "Account scheduled for deletion. Sign in within 30 days to cancel.");
     // The server already signed this browser out: nothing of this account should stay in memory.
     queryClient.clear();
-    router.push("/login");
+    router.replace("/login");
   };
 
   const pending = Boolean(deletionStatus?.pending);

@@ -33,7 +33,7 @@ test("the app shell waits behind the photo, then fades in region by region; redu
 test("the page preloads the overlay, starts the flight with the photo's place, and falls back to the old navigation", () => {
   const page = read("src/app/(site)/(onboarding)/onboarding/page.tsx");
   assert.match(page, /void preloadWelcomeFlight\(\)/);
-  assert.match(page, /onContinue=\{\(from\) => \{[\s\S]*startWelcomeFlight\(\{[\s\S]*visibility: data\.visibility[\s\S]*from,[\s\S]*\}\)\s*if \(!started\) window\.location\.assign\(continuePath\)/);
+  assert.match(page, /onContinue=\{\(from\) => \{[\s\S]*startWelcomeFlight\(\{[\s\S]*visibility: data\.visibility[\s\S]*from,[\s\S]*\}\)\s*if \(!started\) window\.location\.replace\(continuePath\)/);
 });
 
 test("the finish screen cannot start two flights, and uses the same photo identity as the top bar", () => {
@@ -47,7 +47,7 @@ test("the overlay never leaves the person behind a curtain", () => {
   const overlay = read("src/components/onboarding/WelcomeFlightOverlay.tsx");
   assert.match(overlay, /const watchdog = setTimeout\(/, "a hard time limit");
   assert.match(overlay, /delete root\.dataset\.welcomeFlight/, "the page is released");
-  assert.match(overlay, /window\.location\.assign\(flight\.continuePath\)/, "a page that never came is fetched the old way");
+  assert.match(overlay, /window\.location\.replace\(flight\.continuePath\)/, "a page that never came is fetched the old way (replace: back never returns to onboarding)");
   assert.match(overlay, /event\.key === 'Escape' \|\| event\.key === 'Enter'/);
   assert.match(overlay, /isReducedMotionEnabled\(/, "the in-app and the system setting both count");
 });

@@ -91,7 +91,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
 
     const signInAgain = async () => {
         await signOut();
-        router.push(`/login?redirect=${encodeURIComponent("/settings#settings-delete-account")}`);
+        router.replace(`/login?redirect=${encodeURIComponent("/settings#settings-delete-account")}`);
     };
 
     if (stepUp) {

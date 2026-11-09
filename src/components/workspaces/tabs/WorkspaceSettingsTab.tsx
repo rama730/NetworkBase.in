@@ -1305,7 +1305,7 @@ function ProjectSettingsContent({
             }
             setDeleteModalOpen(false);
             toast.success(result.message);
-            router.push(result.data.redirectTo || "/workspaces");
+            router.replace(result.data.redirectTo || "/workspaces");
         } catch (error) {
             console.error("Failed to delete project:", error);
             toast.error("Couldn’t delete workspace");

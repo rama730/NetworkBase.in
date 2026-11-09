@@ -429,7 +429,7 @@ export default function OnboardingPage() {
                             continuePath,
                             from,
                         })
-                        if (!started) window.location.assign(continuePath)
+                        if (!started) window.location.replace(continuePath)
                     }}
                 />
             </OnboardingLayout>

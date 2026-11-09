@@ -127,7 +127,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                 return false
             }
         }
-        router.push(redirectPath)
+        router.replace(redirectPath)
         return true
     }
 
@@ -236,7 +236,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
             }
             leaving = true
             // A full load so the server sees the upgraded session cookie.
-            window.location.assign(redirectPath)
+            window.location.replace(redirectPath)
         } catch {
             setCodeError("Couldn’t check the code. Try again.")
         } finally {

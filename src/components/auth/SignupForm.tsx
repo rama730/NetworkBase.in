@@ -149,7 +149,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
                 if (session?.user) {
                     clearDraft()
-                    router.push(redirectPath)
+                    router.replace(redirectPath)
                 }
             })
             unsubscribe = () => subscription.unsubscribe()
@@ -221,7 +221,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             const data = (signUpResult as { data?: { session?: unknown; user?: unknown } } | null)?.data
             if (data?.session) {
                 clearDraft()
-                router.push(redirectPath)
+                router.replace(redirectPath)
                 return
             }
             if (data?.user) {
@@ -263,7 +263,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             }
             clearDraft()
             rememberSignInMethod('password')
-            router.push(redirectPath)
+            router.replace(redirectPath)
         } catch {
             setOtpError("Couldn’t check the code. Try again.")
         } finally {

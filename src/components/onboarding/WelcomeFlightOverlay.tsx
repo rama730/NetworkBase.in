@@ -184,7 +184,7 @@ export default function WelcomeFlightOverlay({ flight, onDone }: { flight: Welco
       if (!alive) return
       record('welcome_flight_started')
       setScrim(true)
-      router.push(flight.continuePath)
+      router.replace(flight.continuePath)
       const hintTimer = setTimeout(() => alive && !skipped && setHint(true), 600)
 
       await moveTo(layout.box, t.stepForward)
@@ -213,7 +213,7 @@ export default function WelcomeFlightOverlay({ flight, onDone }: { flight: Welco
       if (!alive) return
       if (!slot) {
         // No top bar to land on. If the page never even moved, do what the finish screen used to do.
-        if (pathRef.current.startsWith('/onboarding')) window.location.assign(flight.continuePath)
+        if (pathRef.current.startsWith('/onboarding')) window.location.replace(flight.continuePath)
         setCaption(0)
         setScrim(false)
         record(skipped ? 'welcome_flight_skipped' : 'welcome_flight_completed')
@@ -271,7 +271,7 @@ export default function WelcomeFlightOverlay({ flight, onDone }: { flight: Welco
     const watchdog = setTimeout(() => {
       // Whatever went wrong, the person is never left behind a curtain.
       release()
-      if (alive && pathRef.current.startsWith('/onboarding')) window.location.assign(flight.continuePath)
+      if (alive && pathRef.current.startsWith('/onboarding')) window.location.replace(flight.continuePath)
       onDone()
     }, t.max)
     void run().catch(() => {

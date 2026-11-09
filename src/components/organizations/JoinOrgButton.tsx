@@ -26,7 +26,7 @@ export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinM
             const result = await joinOrganizationAction(code, joinMode === 'approval' ? note : null).catch(() => ({ success: false as const, error: 'Couldn’t do that. Try again.' }))
             if (!result.success) return setMessage({ kind: 'error', text: result.error })
             refreshSidebar()
-            if (result.outcome === 'joined' || result.outcome === 'already_member') return router.push(orgHref)
+            if (result.outcome === 'joined' || result.outcome === 'already_member') return router.replace(orgHref)
             setMessage({ kind: 'status', text: 'Request sent. The admins will review it.' })
         })
 

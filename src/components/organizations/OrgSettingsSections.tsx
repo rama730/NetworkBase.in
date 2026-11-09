@@ -170,7 +170,7 @@ export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/di
         // Report §26.10 and §38.6: back to About if the organization is public, with the write-up nudge.
         toast.success(`You left ${title}. You can still write up your work.`)
         refreshSidebar()
-        router.push(afterLeaveHref)
+        router.replace(afterLeaveHref)
     })
     const month = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' }).format(new Date())
     return (
