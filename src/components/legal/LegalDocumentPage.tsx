@@ -1,4 +1,5 @@
 import Logo from "@/components/layout/header/Logo";
+import { BackButton } from "@/components/layout/header/BackButton";
 import type { ReactNode } from "react";
 import { LegalLinks } from "@/components/legal/LegalLinks";
 import { LEGAL_EFFECTIVE_DATE } from "@/lib/legal/versions";
@@ -26,7 +27,8 @@ export function LegalDocumentPage({
     <main id="main-content" className="min-h-[100dvh] bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
       <div className="mx-auto grid max-w-6xl gap-10 px-5 pb-20 pt-8 md:grid-cols-[220px_minmax(0,1fr)] md:px-8 md:pt-12">
         <aside className="md:sticky md:top-8 md:self-start">
-          <Logo />
+          {/* A way back on every page, even in the installed app (unified back A1). */}
+          <div className="flex items-center gap-2"><BackButton fallback="/" className="-ml-2" /><Logo /></div>
           <nav aria-label={`${title} sections`} className="mt-8 hidden space-y-1 md:block">
             {sections.map((section) => (
               <a key={section.id} href={`#${section.id}`} className="block rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white hover:text-zinc-950 dark:hover:bg-zinc-900 dark:hover:text-white">

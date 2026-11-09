@@ -14,6 +14,11 @@ export default function GlobalError({ error, retry }: { error: Error & { digest?
           <p>Try again in a moment.</p>
           <button type="button" onClick={() => retry()} style={{ padding: "8px 16px", cursor: "pointer" }}>
             Try again
+          </button>{" "}
+          {/* No app components load here; a plain way back (unified back A1). */}
+          {/* eslint-disable-next-line @next/next/no-location-assign-relative-destination -- the root layout failed, so there is no router */}
+          <button type="button" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/discover"))} style={{ padding: "8px 16px", cursor: "pointer" }}>
+            Go back
           </button>
         </main>
       </body>

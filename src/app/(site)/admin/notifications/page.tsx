@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { BackButton } from "@/components/layout/header/BackButton";
 import { sql } from "drizzle-orm";
 import { Suspense } from "react";
 
@@ -133,6 +134,8 @@ async function ResolvedAdminNotifications() {
     return (
         <div className="mx-auto max-w-5xl space-y-8 px-6 py-10">
             <header>
+                {/* No top bar here: its own way back (unified back A1). */}
+                <BackButton fallback="/admin/trust" className="-ml-2 mb-2" />
                 <h1 className="text-2xl font-semibold text-foreground">Notifications ops</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
                     Per-channel throughput, failure rate, and retention backlog.

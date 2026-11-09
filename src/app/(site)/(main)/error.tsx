@@ -2,6 +2,7 @@
 
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useReportBoundaryError } from '@/lib/observability/use-report-boundary-error'
 
 export default function MainError({
@@ -12,6 +13,7 @@ export default function MainError({
     reset: () => void
 }) {
     useReportBoundaryError(error)
+    const online = useOnlineStatus()
 
     return (
         <div className="min-h-[400px] flex items-center justify-center">
@@ -21,7 +23,7 @@ export default function MainError({
                     Something went wrong
                 </h2>
                 <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">
-                    {error.message || 'An unexpected error occurred. Try again.'}
+                    {online ? (error.message || 'An unexpected error occurred. Try again.') : 'You’re offline. Pages you opened still work when you go back.'}
                 </p>
                 <button
                     onClick={reset}
