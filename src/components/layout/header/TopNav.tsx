@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { LogOut, Menu, Plus, Search, ShieldCheck, Smile, UserRound } from "lucide-react";
 import Logo from "./Logo";
+import { BackLogoSwap, BackSlot } from "./BackButton";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -169,11 +170,14 @@ export default function TopNav() {
                         </button>
                     )}
                     <div className="md:hidden">
-                        <Logo href={authUiState === "signed-in" ? ROUTES.DISCOVER : ROUTES.HOME} />
+                        {authUiState === "signed-in"
+                            ? <BackLogoSwap logo={<Logo href={ROUTES.DISCOVER} />} />
+                            : <Logo href={ROUTES.HOME} />}
                     </div>
                 </div>
 
                 <div className="hidden min-w-0 flex-1 items-center md:flex">
+                    {authUiState === "signed-in" && <BackSlot />}
                     {authUiState === "signed-in" && (
                         <Suspense fallback={<div className="h-[var(--ui-control-height)] w-60 shrink-0 rounded-md bg-muted" />}>
                             <GlobalSearch
