@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSessionIdentifierFromSession } from "@/lib/auth/session-identifier";
-import { consumeRateLimitForRoute } from "@/lib/security/rate-limit";
+import { consumeRateLimit, consumeRateLimitForRoute } from "@/lib/security/rate-limit";
 import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { logger } from "@/lib/logger";
 import { getTrustedRequestIp } from "@/lib/security/request-ip";
@@ -113,7 +113,7 @@ const EXTENSION_LAST_SEEN_INTERVAL_MS = 60_000;
  * A signed-in token principal, or a 403 when the token may not call this route or lacks the scope
  * (report A3.6, A3.7). Method and path come from headers the proxy overwrites on every request.
  */
-function bearerPrincipal(
+async function bearerPrincipal(
   headerStore: Awaited<ReturnType<typeof headers>>,
   user: User,
   extensionSessionId: string,
@@ -133,6 +133,20 @@ function bearerPrincipal(
       extensionSessionId: null as string | null,
       tokenScopes: null as Set<TokenScope> | null,
       response: jsonError(denial.message, 403, denial.errorCode, denial.scope ? { scope: denial.scope } : undefined),
+    };
+  }
+  // One abuse budget per token for every token route (report A12.3, finding 76); routes keep their own limits too.
+  const isRead = ["GET", "HEAD", "OPTIONS"].includes((headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase());
+  const budget = await consumeRateLimit(`api:v1:token:${isRead ? "read" : "write"}:${extensionSessionId}`, isRead ? 300 : 60, 60);
+  if (!budget.allowed) {
+    const limited = jsonError("Too many requests from this token. Try again in a minute.", 429, "RATE_LIMITED");
+    limited.headers.set("Retry-After", "60");
+    return {
+      supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
+      user: null as User | null,
+      extensionSessionId: null as string | null,
+      tokenScopes: null as Set<TokenScope> | null,
+      response: limited,
     };
   }
   return {

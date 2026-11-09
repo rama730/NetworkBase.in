@@ -76,3 +76,24 @@ test("a device token is refused on account and token routes, and when the target
     await sql`DELETE FROM extension_device_sessions WHERE user_id = ${userId}`;
   }
 });
+
+test("each token has an abuse budget across all token routes (report A12.3)", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const token = `nb_dev_${randomUUID()}`;
+  try {
+    await sql`INSERT INTO extension_device_sessions (user_id, token_hash, token_prefix, device_name, client_version, expires_at)
+              VALUES (${userId}, ${hash(token)}, ${token.slice(0, 12)}, 'test device', '1.0.0', now() + interval '1 day')`;
+    let limited: Response | null = null;
+    for (let i = 0; i < 61 && !limited; i++) {
+      asRequest(token, "POST", i % 2 ? "/api/v1/extension/fast-push" : "/api/v1/extension/create-task");
+      const r = await shared.requireAuthenticatedUser();
+      if (r.response) limited = r.response;
+    }
+    assert.equal(limited?.status, 429, "the 61st write in a minute is refused");
+    assert.equal(limited?.headers.get("retry-after"), "60");
+    asRequest(token, "GET", "/api/v1/extension/workspace-tasks");
+    assert.equal((await shared.requireAuthenticatedUser()).response, null, "reads have their own budget");
+  } finally {
+    await sql`DELETE FROM extension_device_sessions WHERE user_id = ${userId}`;
+  }
+});

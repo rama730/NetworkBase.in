@@ -182,6 +182,8 @@ export const RATE_LIMIT_SCOPE_POLICIES: RateLimitScopePolicy[] = [
     { prefix: 'realtime:', failMode: 'stale_or_shed', category: 'soft' },
     { prefix: 'api:v1:projects:', failMode: 'stale_or_shed', category: 'soft' },
     { prefix: 'api:v1:files:', failMode: 'stale_or_shed', category: 'soft' },
+    // CLI, editor and agent tokens (report A12.3): an outage must not stop people's work; local buckets still apply.
+    { prefix: 'api:v1:token:', failMode: 'stale_or_shed', category: 'soft' },
     { prefix: 'api:v1:github:', failMode: 'stale_or_shed', category: 'soft' },
     // Public, unauthenticated read endpoints: fail open so the site stays up.
     { prefix: 'health:', failMode: 'allow', category: 'public' },
