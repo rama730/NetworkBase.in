@@ -31,6 +31,7 @@ import {
 } from "@/lib/extension/review-evidence";
 import { viaPayload } from "@/lib/server/request-via";
 import { taskUpdateSchema } from "@/lib/api/v1-schemas";
+import { agentGate, isOthersTask, recordUndo, type ChangeKind } from "@/lib/agents/policy";
 export const runtime = "nodejs";
 async function handlePatch(request: Request) {
   const csrf = validateCsrf(request);
@@ -54,6 +55,18 @@ async function handlePatch(request: Request) {
           ? requireTokenScope(auth, "task:complete")
           : null;
     if (scopeDenied) return scopeDenied;
+    // Which changes an agent's person has to agree to first (report §26.6).
+    const others = await isOthersTask(input.taskId, user.id);
+    const kinds: ChangeKind[] = [
+      input.kind === "approve" || input.kind === "request_changes" ? "review" : input.kind === "resubmit" || (input.kind === "status" && input.status === "done") ? "done" : "small",
+      others ? "others-task" : "small",
+    ];
+    const what =
+      input.kind === "status" ? (input.status === "done" ? "Finish the task" : `Move the task to ${input.status.replace("_", " ")}`)
+      : input.kind === "subtask" ? `${input.completed ? "Tick" : "Untick"} a subtask`
+      : input.kind === "approve" ? "Approve the task" : input.kind === "request_changes" ? "Ask for changes on the task" : "Send the task for review again";
+    const held = await agentGate(auth, request, input, { workspaceId: input.projectId, kinds, summary: `${what}${others ? " (assigned to someone else)" : ""}` });
+    if (held) return held;
     if (input.kind === "request_changes" || input.kind === "resubmit") {
       const result = input.kind === "resubmit"
         ? await resubmitTaskReviewAction(input.taskId, input.projectId, input.expectedUpdatedAt)
@@ -98,8 +111,11 @@ async function handlePatch(request: Request) {
           .returning();
         return updated;
       });
+      const subtaskUndo = row
+        ? await recordUndo(auth, { workspaceId: input.projectId, operation: "subtask.set", summary: `${input.completed ? "Ticked" : "Unticked"} "${row.title}"`, inverse: { kind: "subtask.set", subtaskId: row.id, taskId: input.taskId, projectId: input.projectId, completed: !input.completed } })
+        : null;
       return row
-        ? jsonSuccess({ subtask: row })
+        ? jsonSuccess({ subtask: row, undoToken: subtaskUndo })
         : jsonError(
             "Subtask changed elsewhere. Reload before retrying.",
             409,
@@ -184,7 +200,12 @@ async function handlePatch(request: Request) {
       input.taskId,
       changed.result,
     );
-    return jsonSuccess({ ...changed.result, warnings });
+    const from = changed.locked.currentStatus;
+    const to = (changed.result as { status?: string }).status ?? input.status;
+    const undoToken = from && to && from !== to
+      ? await recordUndo(auth, { workspaceId: input.projectId, operation: "task.status", summary: `Moved the task from ${from} to ${to}`, inverse: { kind: "task.status", taskId: input.taskId, projectId: input.projectId, to: from, expectFrom: to } })
+      : null;
+    return jsonSuccess({ ...changed.result, warnings, undoToken });
   } catch (error) {
     return routeErrorResponse(error, {
       requestId: getRequestId(request),

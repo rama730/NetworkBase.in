@@ -27,7 +27,10 @@ export type ApiErrorCode =
   | "VERSION_CONFLICT"
   | "SECRET_DETECTED"
   | "EXPIRED"
-  | "WORKSPACE_NOT_ALLOWED";
+  | "WORKSPACE_NOT_ALLOWED"
+  | "NEEDS_CONFIRMATION"
+  | "AGENTS_PAUSED"
+  | "TASK_CHANGED";
 
 export function jsonSuccess<T>(
   data?: T,

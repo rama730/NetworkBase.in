@@ -803,6 +803,10 @@ export const workspaces = pgTable(
     parentId: uuid("parent_id").references((): AnyPgColumn => workspaces.id, { onDelete: "set null" }),
     orgType: text("org_type", { enum: ["education", "company", "community", "research", "club", "other"] }),
     orgSettings: jsonb("org_settings").$type<Record<string, unknown>>().default({}).notNull(),
+    /** What AI agents may do here without asking (0074, report §26.6). */
+    agentPolicy: text("agent_policy").$type<"ask_important" | "ask_all" | "trust_drafts_docs">().default("ask_important").notNull(),
+    /** Set while agents are paused in this workspace. */
+    agentsPausedAt: timestamp("agents_paused_at", { withTimezone: true }),
     termStart: date("term_start"),
     termEnd: date("term_end"),
     timeZone: text("time_zone"),
@@ -5332,6 +5336,30 @@ export const extensionDeviceSessions = pgTable("extension_device_sessions", {
   userLastSeenIdx: index("extension_device_sessions_user_last_seen_idx")
     .on(t.userId, t.lastSeenAt.desc(), t.id.desc())
     .where(sql`${t.revokedAt} IS NULL`),
+}));
+
+/** A "yes" token is used once (0074, report A2.8). */
+export const agentConfirmationsUsed = pgTable("agent_confirmations_used", {
+  tokenHash: text("token_hash").primaryKey(),
+  usedAt: timestamp("used_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** How to undo a change made with a token, for 24 hours (0074, report A2.9). */
+export const undoOperations = pgTable("undo_operations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  sessionId: uuid("session_id"),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  operation: text("operation").notNull(),
+  summary: text("summary").notNull(),
+  inverse: jsonb("inverse").$type<Record<string, unknown>>().notNull(),
+  via: text("via").$type<"cli" | "agent">(),
+  agentName: text("agent_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+}, (t) => ({
+  userCreatedIdx: index("undo_operations_user_created_idx").on(t.userId, t.createdAt.desc()),
 }));
 
 /** Sign-in with a code from a terminal without a browser (0072, report A3.1). Only the device code's hash is kept. */

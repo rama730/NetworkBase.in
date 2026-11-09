@@ -13,6 +13,7 @@ import {
 } from "@/app/actions/files/mutations";
 import { z } from "zod";
 import { fileOperationSchema } from "@/lib/api/v1-schemas";
+import { agentGate } from "@/lib/agents/policy";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   const csrf = validateCsrf(request);
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
     const i = parsed.data;
     const outside = await denyOutsideTokenWorkspace(auth, { projectId: i.projectId });
     if (outside) return outside;
+    // Moving, renaming and deleting files changes what everyone sees: an agent's person agrees first (report §26.6).
+    const held = await agentGate(auth, request, i, { workspaceId: i.projectId, kinds: ["file-move"], summary: i.kind === "trash" ? "Move a file to the Trash" : i.kind === "rename" ? `Rename a file to ${i.name}` : "Move a file" });
+    if (held) return held;
     if (i.kind === "move")
       return jsonSuccess(
         await moveWorkspaceNodes([i.nodeId], i.parentId, i.projectId, {

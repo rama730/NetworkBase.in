@@ -55,6 +55,7 @@ import { inngest } from "@/inngest/client";
 import { pushTransitionTarget, transitionAfterPush } from "@/lib/domain/task-transition";
 import { viaColumns } from "@/lib/server/request-via";
 import { filePlaceSchema, MAX_FAST_PUSH_BATCH_BYTES } from "@/lib/api/v1-schemas";
+import { agentGate, BATCH_LIMIT, isOthersTask, recordUndo, type ChangeKind } from "@/lib/agents/policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -237,6 +238,7 @@ async function handlePost(request: Request) {
     }
 
     // Files that back a workspace doc (the README) need the doc:write permission for tokens (report D16).
+    let editsDoc = false;
     if (auth.tokenScopes && existingNodes.length) {
       const docBacked = await db
         .select({ id: workspaceDocuments.id })
@@ -244,6 +246,7 @@ async function handlePost(request: Request) {
         .where(and(eq(workspaceDocuments.projectId, projectId), inArray(workspaceDocuments.linkedNodeId, existingNodes.map((n) => n.id))))
         .limit(1);
       if (docBacked.length) {
+        editsDoc = true;
         const denied = requireTokenScope(auth, "doc:write");
         if (denied) return denied;
       }
@@ -266,6 +269,28 @@ async function handlePost(request: Request) {
         { conflicts },
       );
     }
+
+    // What an agent's person has to agree to first (report §26.6): final files, the README, more than 20 files,
+    // someone else's task, finishing the task, or replacing a version without saying which one it started from.
+    const overwrites = files.some((item) => {
+      const current = existingByPath.get(normalizePath(item.path));
+      return current && item.baseVersion == null && current.contentHash?.toLowerCase() !== item.contentHash.toLowerCase();
+    });
+    const kinds: ChangeKind[] = [
+      requestedRole === "deliverable" ? "final" : "small",
+      editsDoc ? "doc" : "small",
+      files.length > BATCH_LIMIT ? "batch" : "small",
+      transitionStatus === "done" ? "done" : "small",
+      overwrites && onSameName !== "keep-both" ? "overwrite" : "small",
+      (await isOthersTask(taskId, user.id)) ? "others-task" : "small",
+    ];
+    const held = await agentGate(auth, request, parsed.data, {
+      workspaceId: projectId,
+      kinds,
+      summary: `Push ${files.length} file${files.length === 1 ? "" : "s"}${requestedRole ? ` as ${toPublicRole(requestedRole)}` : ""}${taskId ? " to a task" : ""}${transitionStatus === "done" ? " and finish the task" : ""}`,
+      preview: files.slice(0, 30).map((f) => normalizePath(f.path)).join("\n"),
+    });
+    if (held) return held;
 
     // Keep both: a changed file whose name is taken goes in as `name (2).ext` instead of a new version (D13).
     if (onSameName === "keep-both") {
@@ -776,9 +801,19 @@ async function handlePost(request: Request) {
         .catch(() => {});
     }
 
+    const changedForUndo = txResult.committedFiles.filter((f) => f.status !== "unchanged");
+    const undoToken = changedForUndo.length
+      ? await recordUndo(auth, {
+          workspaceId: projectId,
+          operation: "files.push",
+          summary: `Pushed ${changedForUndo.length} file${changedForUndo.length === 1 ? "" : "s"}`,
+          inverse: { kind: "files.restore", projectId, files: changedForUndo.map((f) => ({ nodeId: f.nodeId, created: f.status === "new", version: f.version, previousVersion: f.status === "new" ? null : f.previousVersion })) },
+        })
+      : null;
     return jsonSuccess({
       success: true,
       fastPath: true,
+      undoToken,
       projectId,
       taskId: taskId || null,
       role: resolvedRole,

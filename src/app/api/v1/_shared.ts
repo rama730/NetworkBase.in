@@ -4,6 +4,9 @@ import { consumeRateLimit, consumeRateLimitForRoute } from "@/lib/security/rate-
 import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { logger } from "@/lib/logger";
 import { getIsolationScope } from "@sentry/nextjs";
+import { workspaceAgentPolicy } from "@/lib/agents/policy";
+
+const AGENT_DAILY_WRITES = 1000;
 import { getTrustedRequestIp } from "@/lib/security/request-ip";
 import type { User } from "@supabase/supabase-js";
 import { jsonError, jsonSuccess } from "@/app/api/v1/_envelope";
@@ -154,6 +157,17 @@ async function bearerPrincipal(
   }
   // One abuse budget per token for every token route (report A12.3, finding 76); routes keep their own limits too.
   const isRead = ["GET", "HEAD", "OPTIONS"].includes((headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase());
+  if (kind === "agent" && workspaceId) {
+    // "Pause agents" in workspace settings stops every agent request at once (report §18.5).
+    const { paused } = await workspaceAgentPolicy(workspaceId);
+    if (paused) return deniedPrincipal(jsonError("Agents are paused in this workspace. Its owner can turn them back on in workspace settings.", 403, "AGENTS_PAUSED"));
+    // A day's writes per agent token (report §18.5, finding 76): enough for real work, not for a runaway loop.
+    if (!isRead && !(await consumeRateLimit(`api:v1:agent:day:${extensionSessionId}`, AGENT_DAILY_WRITES, 86_400)).allowed) {
+      const limited = jsonError(`This agent made ${AGENT_DAILY_WRITES} changes today, the daily limit. It can continue tomorrow.`, 429, "RATE_LIMITED");
+      limited.headers.set("Retry-After", "3600");
+      return deniedPrincipal(limited);
+    }
+  }
   const budget = await consumeRateLimit(`api:v1:token:${isRead ? "read" : "write"}:${extensionSessionId}`, isRead ? 300 : 60, 60);
   if (!budget.allowed) {
     const limited = jsonError("Too many requests from this token. Try again in a minute.", 429, "RATE_LIMITED");

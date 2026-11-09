@@ -9,6 +9,7 @@ import { routeErrorResponse } from "@/app/api/v1/_error";
 import { createTaskAction } from "@/app/actions/workspace";
 import { z } from "zod";
 import { createTaskSchema } from "@/lib/api/v1-schemas";
+import { agentGate, recordUndo } from "@/lib/agents/policy";
 export const runtime = "nodejs";
 async function handlePost(request: Request) {
   const csrf = validateCsrf(request);
@@ -21,14 +22,20 @@ async function handlePost(request: Request) {
     if (!parsed.success) return jsonError("Invalid task", 400, "BAD_REQUEST");
     const outside = await denyOutsideTokenWorkspace(auth, { projectId: parsed.data.projectId });
     if (outside) return outside;
+    // Small change for agents (report §26.6); only "Ask for everything" holds it for a yes.
+    const held = await agentGate(auth, request, parsed.data, { workspaceId: parsed.data.projectId, kinds: ["small"], summary: `Create the task "${parsed.data.title}"` });
+    if (held) return held;
     const result = await createTaskAction({
       ...parsed.data,
       status: "todo",
       priority: parsed.data.priority || "medium",
     });
-    return result.success
-      ? jsonSuccess(result)
-      : jsonError(result.error || "Couldn’t create task", 400, "BAD_REQUEST");
+    if (!result.success) return jsonError(result.error || "Couldn’t create task", 400, "BAD_REQUEST");
+    const taskId = (result as { task?: { id?: string } }).task?.id;
+    const undoToken = taskId
+      ? await recordUndo(auth, { workspaceId: parsed.data.projectId, operation: "task.create", summary: `Created "${parsed.data.title}"`, inverse: { kind: "task.delete", taskId, projectId: parsed.data.projectId } })
+      : null;
+    return jsonSuccess({ ...result, undoToken });
   } catch (error) {
     return routeErrorResponse(error, {
       requestId: getRequestId(request),

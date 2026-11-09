@@ -13,6 +13,7 @@ const sleep = (/** @type {number} */ ms) => new Promise((resolve) => setTimeout(
 
 /** Next step for common server codes (A4.7: every error ends with what to do). */
 const HINTS = /** @type {Record<string, string>} */ ({
+  NEEDS_CONFIRMATION: "Show this to the person; if they agree, run the same command again with --confirm <token> (in --json: error.details.confirmToken)",
   UNAUTHORIZED: "Run nb login",
   SCOPE_MISSING: "This token can't do that; sign in again with nb login, or make a token with more access in Settings → Integrations",
   FORBIDDEN: "Check you're a member of this workspace with nb whoami",
@@ -22,9 +23,11 @@ const HINTS = /** @type {Record<string, string>} */ ({
 });
 
 /**
- * @param {{ origin: string, token: string | null, version: string, fetchImpl?: typeof fetch, onRetry?: (info: { attempt: number, waitMs: number, reason: string }) => void }} options
+ * @param {{ origin: string, token: string | null, version: string, fetchImpl?: typeof fetch, onRetry?: (info: { attempt: number, waitMs: number, reason: string }) => void, confirmToken?: string | null, onUndo?: (u: { token: string, method: string, path: string, summary: string | null }) => void }} options
+ *   confirmToken: the person's yes for a held agent change (sent as X-NB-Confirm); onUndo: called with every undo
+ *   token a write returns, so `nb undo` can use it (report A2.8, A2.9).
  */
-export function createApi({ origin, token, version, fetchImpl = fetch, onRetry }) {
+export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, confirmToken = null, onUndo }) {
   /**
    * @param {"GET" | "POST" | "PUT" | "PATCH" | "DELETE"} method
    * @param {string} path
@@ -52,6 +55,7 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry }
       ...(body !== undefined ? { "content-type": "application/json" } : {}),
       ...(token && options.auth !== false ? { authorization: `Bearer ${token}` } : {}),
       ...(key ? { "idempotency-key": key } : {}),
+      ...(confirmToken && method !== "GET" ? { "x-nb-confirm": confirmToken } : {}),
       ...options.headers,
     };
 
@@ -91,7 +95,9 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry }
         const message = payload?.message ?? `${url.host} answered HTTP ${response.status}`;
         throw new CliError(code, message, { status: response.status, details: payload?.details, hint: HINTS[code] });
       }
-      return payload?.data !== undefined ? payload.data : payload;
+      const data = payload?.data !== undefined ? payload.data : payload;
+      if (method !== "GET" && data && typeof data.undoToken === "string") onUndo?.({ token: data.undoToken, method, path: url.pathname, summary: typeof data.undone === "string" ? data.undone : null });
+      return data;
     }
 
     /** @param {number} attempt @param {string | null} retryAfter @param {string} reason */

@@ -20,6 +20,7 @@ Account and setup
   config           Show or change settings
 
 Files
+  undo             Undo your last change from this machine (24 hours)
   diff             Changes against the version you last pulled
   pull             Download changes; never overwrites your edits
   push             Upload changes; same path = new version

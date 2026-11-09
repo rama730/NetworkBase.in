@@ -15,6 +15,7 @@ import { typeProfile } from "@/lib/organizations/type-profile";
 import { ORG_REUSED_LABELS, ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/workspaces/settings/TaskCompletionSettings";
+import { AgentSettings } from "@/components/workspaces/settings/AgentSettings";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useIdentityStepUp } from "@/hooks/useIdentityStepUp";
@@ -1948,6 +1949,7 @@ function ProjectSettingsContent({
                     <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-8">
                         <SettingsPageHeader level={2} title="Stages and workflow" description="Manage task completion and your workspace’s lifecycle stages." />
                         <TaskCompletionSettings projectId={projectId} />
+                        {canManageSettings ? <AgentSettings projectId={projectId} /> : null}
                         <div className="space-y-6">
                             <LifecycleSettingsEditor
                                 initialStages={project?.lifecycle_stages || project?.lifecycleStages || ["Concept", "MVP", "Launch"]}

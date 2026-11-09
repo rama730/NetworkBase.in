@@ -51,7 +51,17 @@ try {
   const mod = await import(`../lib/commands/${spec.module}.mjs`);
   const run = mod[spec.fn];
   if (typeof run !== "function") throw new CliError("INTERNAL", `nb ${spec.name} isn't built yet`);
-  const code = await run(ctx);
+  let code;
+  try {
+    code = await run(ctx);
+  } catch (error) {
+    // The server held an agent's change for the person's yes (report §26.6): ask at a terminal, then run it again.
+    const held = /** @type {any} */ (error instanceof CliError && error.code === "NEEDS_CONFIRMATION" ? error.details : null);
+    if (!held?.confirmToken || !ctx.out.interactive) throw error;
+    const { confirm } = await import("../lib/tui/ask.mjs");
+    if (!(await confirm(ctx, { key: "server-confirm", question: String(held.summary ?? "Make this change?"), ...(held.preview ? { preview: String(held.preview) } : {}), yesLabel: "Yes, do it", defaultYes: false }))) throw new CliError("CANCELLED", "Nothing was changed");
+    code = await run(createContext({ flags: { ...flags, confirm: held.confirmToken }, positionals }));
+  }
   process.exitCode = typeof code === "number" ? code : EXIT.ok;
   await (await import("../lib/print/notices.mjs")).afterCommand(ctx);
 } catch (error) {

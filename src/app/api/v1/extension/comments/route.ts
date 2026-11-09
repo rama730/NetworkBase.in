@@ -26,6 +26,7 @@ import {
 } from "@/lib/files/internal-helpers";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { fileCommentSchema, taskCommentSchema } from "@/lib/api/v1-schemas";
+import { agentGate, recordUndo } from "@/lib/agents/policy";
 export const runtime = "nodejs";
 async function readable(projectId: string, nodeId: string, userId: string) {
   const access = await assertWorkspaceFileReadAccess(projectId, userId);
@@ -98,13 +99,17 @@ export async function GET(request: Request) {
   }
 }
 async function postTaskComment(
-  user: { id: string },
+  auth: Parameters<typeof agentGate>[0] & { user: { id: string } },
+  request: Request,
   input: z.infer<typeof taskCommentSchema>,
 ) {
+  const user = auth.user;
   const projectId =
     input.projectId ??
     (await db.query.tasks.findFirst({ where: and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)), columns: { projectId: true } }))?.projectId;
   if (!projectId) return jsonError("Task not found", 404, "NOT_FOUND");
+  const held = await agentGate(auth, request, input, { workspaceId: projectId, kinds: ["small"], summary: "Comment on the task" });
+  if (held) return held;
   // Name and avatar come from the profile row, never from session metadata the person can edit.
   const [profile] = await db
     .select({ fullName: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl })
@@ -118,9 +123,14 @@ async function postTaskComment(
     input.text,
     input.replyTo ?? null,
   );
-  return result.success
-    ? jsonSuccess(result.data)
-    : jsonError(result.error, result.error === "Task not found" ? 404 : 400, result.error === "Task not found" ? "NOT_FOUND" : "BAD_REQUEST");
+  if (result.success) {
+    const commentId = (result.data as { comment?: { id?: string }; id?: string }).comment?.id ?? (result.data as { id?: string }).id;
+    const undoToken = commentId
+      ? await recordUndo(auth, { workspaceId: projectId, operation: "comment.add", summary: "Commented on the task", inverse: { kind: "comment.delete", commentId, taskId: input.taskId, projectId } })
+      : null;
+    return jsonSuccess({ ...result.data, undoToken });
+  }
+  return jsonError(result.error, result.error === "Task not found" ? 404 : 400, result.error === "Task not found" ? "NOT_FOUND" : "BAD_REQUEST");
 }
 
 async function handlePost(request: Request) {
@@ -135,7 +145,7 @@ async function handlePost(request: Request) {
     const taskComment = taskCommentSchema.safeParse(body);
     if (taskComment.success) {
       const outside = await denyOutsideTokenWorkspace(auth, { projectId: taskComment.data.projectId, taskId: taskComment.data.taskId });
-      return outside ?? (await postTaskComment(auth.user, taskComment.data));
+      return outside ?? (await postTaskComment({ ...auth, user: auth.user }, request, taskComment.data));
     }
     const parsed = fileCommentSchema.safeParse(body);
     if (!parsed.success)

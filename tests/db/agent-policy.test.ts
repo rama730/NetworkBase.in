@@ -1,0 +1,112 @@
+import assert from "node:assert/strict";
+import { createHash, randomUUID } from "node:crypto";
+import { after, before, test } from "node:test";
+
+import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
+
+// Report §26.6, A2.8, A2.9: agents make small changes at once with an undo; big ones need the person's yes, bound
+// to the exact request and usable once; a workspace can ask for everything or pause agents; undo refuses when
+// something changed since.
+let headerValues: Record<string, string> = {};
+moduleStubs.set("next/headers", { headers: async () => ({ get: (name: string) => headerValues[name.toLowerCase()] ?? null }), cookies: async () => ({ getAll: () => [], get: () => undefined, set: () => undefined }) });
+moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
+moduleStubs.set("@/lib/security/csrf", { validateCsrf: () => null });
+
+let createTask: typeof import("../../src/app/api/v1/extension/create-task/route");
+let taskUpdate: typeof import("../../src/app/api/v1/extension/task-update/route");
+let place: typeof import("../../src/app/api/v1/files/place/route");
+let undo: typeof import("../../src/app/api/v1/undo/[id]/route");
+before(async () => {
+  const server = await loadAppModule(() => import("../../src/lib/supabase/server"));
+  moduleStubs.set("@/lib/supabase/server", { ...server, createAdminClient: async () => ({ storage: { from: () => ({ upload: async () => ({ error: null }) }) } }) });
+  createTask = await loadAppModule(() => import("../../src/app/api/v1/extension/create-task/route"));
+  taskUpdate = await loadAppModule(() => import("../../src/app/api/v1/extension/task-update/route"));
+  place = await loadAppModule(() => import("../../src/app/api/v1/files/place/route"));
+  undo = await loadAppModule(() => import("../../src/app/api/v1/undo/[id]/route"));
+});
+after(async () => { await sql.end(); await closeAppDb(); });
+
+const hash = (s: string) => createHash("sha256").update(s).digest("hex");
+async function agentToken(userId: string, workspaceId: string, scopes: string[] = []) {
+  const token = `nb_agt_${randomUUID().replace(/-/g, "")}`;
+  await sql`INSERT INTO extension_device_sessions (user_id, token_hash, token_prefix, device_name, client_version, expires_at, token_type, agent_name, workspace_id, scopes)
+            VALUES (${userId}, ${hash(token)}, ${token.slice(0, 11)}, 'laptop', '2.0.0', now() + interval '1 day', 'agent', 'Claude Code', ${workspaceId}, ${sql.json(scopes)})`;
+  return token;
+}
+const call = async (handler: (r: Request, c?: any) => Promise<Response>, token: string, method: string, path: string, body: unknown, extra: Record<string, string> = {}, ctx?: unknown) => {
+  headerValues = { authorization: `Bearer ${token}`, "x-networkbase-request-method": method, "x-networkbase-request-target": path };
+  const res = await handler(new Request(`https://app.test${path}`, { method, headers: { "content-type": "application/json", "idempotency-key": randomUUID(), ...extra }, body: JSON.stringify(body) }), ctx);
+  return { status: res.status, json: await res.json() };
+};
+const undoCall = (token: string, id: string) => call(undo.POST, token, "POST", `/api/v1/undo/${id}`, {}, {}, { params: Promise.resolve({ id }) });
+
+test("a small change runs with an undo token, and undo removes it", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const token = await agentToken(userId, projectId);
+  const created = await call(createTask.POST, token, "POST", "/api/v1/extension/create-task", { projectId, title: "Update the logo" });
+  assert.equal(created.status, 200, JSON.stringify(created.json));
+  assert.ok(created.json.data.undoToken);
+  const undone = await undoCall(token, created.json.data.undoToken);
+  assert.equal(undone.status, 200, JSON.stringify(undone.json));
+  const [task] = await sql`SELECT deleted_at FROM tasks WHERE workspace_id = ${projectId} AND title = 'Update the logo'`;
+  assert.ok(task!.deleted_at, "the task is gone");
+  assert.equal((await undoCall(token, created.json.data.undoToken)).status, 410, "undo works once");
+});
+
+test("finishing a task needs a yes bound to the exact request, usable once", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const token = await agentToken(userId, projectId, ["workspace:read", "task:read", "task:write", "task:complete"]);
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, status, assignee_id) VALUES (${projectId}, 'Ship', 'in_progress', ${userId}) RETURNING id, updated_at`;
+  const body = { kind: "status", projectId, taskId: task!.id, status: "done", expectedUpdatedAt: new Date(task!.updated_at).toISOString() };
+  const held = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", body);
+  assert.equal(held.status, 428, JSON.stringify(held.json));
+  assert.equal(held.json.errorCode, "NEEDS_CONFIRMATION");
+  const yes = held.json.details.confirmToken as string;
+  const [still] = await sql`SELECT status FROM tasks WHERE id = ${task!.id}`;
+  assert.equal(still!.status, "in_progress", "nothing changed yet");
+  const other = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", { ...body, expectedUpdatedAt: new Date(new Date(task!.updated_at).getTime() + 1).toISOString() }, { "x-nb-confirm": yes });
+  assert.equal(other.status, 428, "a yes for one change doesn't cover another");
+  const done = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", body, { "x-nb-confirm": yes });
+  assert.equal(done.status, 200, JSON.stringify(done.json));
+  assert.ok(done.json.data.undoToken);
+  const [after1] = await sql`SELECT status FROM tasks WHERE id = ${task!.id}`;
+  assert.equal(after1!.status, "done");
+  const back = await undoCall(token, done.json.data.undoToken);
+  assert.equal(back.status, 200, JSON.stringify(back.json));
+  const [after2] = await sql`SELECT status FROM tasks WHERE id = ${task!.id}`;
+  assert.equal(after2!.status, "in_progress", "undo moved it back through the task rules");
+});
+
+test("'Ask for everything' holds even a comment-sized change; 'Pause agents' stops all agent requests", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const token = await agentToken(userId, projectId);
+  await sql`UPDATE workspaces SET agent_policy = 'ask_all' WHERE id = ${projectId}`;
+  assert.equal((await call(createTask.POST, token, "POST", "/api/v1/extension/create-task", { projectId, title: "x" })).status, 428);
+  await sql`UPDATE workspaces SET agents_paused_at = now() WHERE id = ${projectId}`;
+  const paused = await call(createTask.POST, token, "POST", "/api/v1/extension/create-task", { projectId, title: "x" });
+  assert.equal(paused.status, 403);
+  assert.equal(paused.json.errorCode, "AGENTS_PAUSED");
+});
+
+test("pushing a new version undoes back to the old one, and refuses if someone saved since", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const token = await agentToken(userId, projectId);
+  const file = (text: string, baseVersion?: number) => ({ path: "/notes.md", contentHash: hash(text), size: text.length, mimeType: "text/markdown", contentBase64: Buffer.from(text).toString("base64"), ...(baseVersion ? { baseVersion } : {}) });
+  const v1 = await call(place.POST, token, "POST", "/api/v1/files/place", { projectId, message: "v1", files: [file("one")] });
+  assert.equal(v1.status, 200, JSON.stringify(v1.json));
+  const v2 = await call(place.POST, token, "POST", "/api/v1/files/place", { projectId, message: "v2", files: [file("two", 1)] });
+  assert.equal(v2.status, 200, JSON.stringify(v2.json));
+  const back = await undoCall(token, v2.json.data.undoToken);
+  assert.equal(back.status, 200, JSON.stringify(back.json));
+  const [node] = await sql`SELECT n.current_version, v.content_hash FROM workspace_nodes n JOIN file_versions v ON v.node_id = n.id AND v.version = n.current_version WHERE n.workspace_id = ${projectId} AND n.path = '/notes.md'`;
+  assert.equal(node!.content_hash, hash("one"), "a new version with the old content");
+  assert.equal((await undoCall(token, v1.json.data.undoToken)).status, 409, "v1's push can't be undone: newer versions exist");
+
+  const finals = await agentToken(userId, projectId, ["workspace:read", "file:read", "file:write", "file:final"]);
+  const final = await call(place.POST, finals, "POST", "/api/v1/files/place", { projectId, message: "final", role: "final", files: [{ ...file("report"), path: "/report.md" }] });
+  assert.equal(final.status, 428, "final files need a yes");
+});

@@ -17,6 +17,7 @@ export const GLOBAL_FLAGS = {
   answer: { type: "string", multiple: true, describe: "Answer a question without asking: key=value", valueName: "key=value" },
   profile: { type: "string", describe: "Account profile (several accounts or servers)", valueName: "name" },
   "api-url": { type: "string", describe: "Server for this profile", valueName: "url" },
+  confirm: { type: "string", describe: "The yes for a change held for confirmation (exit 7 gives the token)", valueName: "token" },
   help: { type: "boolean", short: "h", describe: "Help for this command" },
 };
 
@@ -69,6 +70,8 @@ export const COMMANDS = [
   { group: "Account and setup", name: "config", summary: "Show or change settings", usage: "nb config list | get <key> | set <key> <value>", module: "misc", fn: "config" },
 
   // Files
+  { group: "Files", name: "undo", summary: "Undo your last change from this machine (24 hours)", usage: "nb undo [token] [--list]", module: "undo", fn: "undo",
+    flags: { list: { type: "boolean", describe: "Changes you can undo, newest first" } }, exit: [0, 1, 4] },
   { group: "Files", name: "diff", summary: "Changes against the version you last pulled", usage: "nb diff [path...]", module: "resolve", fn: "diff" },
   { group: "Files", name: "pull", summary: "Download changes; never overwrites your edits", usage: "nb pull [path...]", module: "files", fn: "pull", flags: { ...DRY }, exit: [0, 4, 8] },
   { group: "Files", name: "push", summary: "Upload changes; same path = new version", usage: "nb push <path...> [--task 4 --as draft] [-m text]", module: "files", fn: "push",

@@ -7,6 +7,7 @@ import { createApi } from "./api.mjs";
 import { currentProfile, findRoot, readProjectConfig } from "./config.mjs";
 import { CliError } from "./errors.mjs";
 import { createOutput } from "./print/out.mjs";
+import { appendUndo } from "./undo-log.mjs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PACKAGE_JSON = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
@@ -26,6 +27,8 @@ export function createContext({ flags, positionals, cwd = process.cwd(), env = p
     token: profile.token,
     version: VERSION,
     fetchImpl,
+    confirmToken: typeof flags.confirm === "string" ? flags.confirm : null,
+    onUndo: (u) => appendUndo(env, { token: u.token, at: Date.now(), method: u.method, path: u.path, origin: profile.origin }),
     onRetry: ({ waitMs, reason }) => out.note(out.c.muted(`${reason}; retrying in ${Math.max(1, Math.round(waitMs / 1000))} s`)),
   });
 

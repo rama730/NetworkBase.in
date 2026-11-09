@@ -120,6 +120,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/workspaces/${ID}/docs/${ID}`), read: "workspace:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/manifest`), read: "file:read", agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/image`), read: "workspace:read" },
+  // Undo a change made with this person's token (report A2.9); the route checks the workspace.
+  { pattern: route(`/api/v1/undo/${ID}`), write: null, agent: "route" },
 ];
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);

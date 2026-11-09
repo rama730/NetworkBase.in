@@ -15,6 +15,7 @@ import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
 import { taskSubtaskTitleSchema } from "@/lib/validations/task";
 import { viaColumns } from "@/lib/server/request-via";
 import { addSubtaskSchema } from "@/lib/api/v1-schemas";
+import { agentGate, isOthersTask, recordUndo } from "@/lib/agents/policy";
 
 export const runtime = "nodejs";
 
@@ -76,6 +77,14 @@ async function handlePost(request: Request) {
       return jsonError("Task not found in this workspace", 404, "NOT_FOUND");
     }
 
+    // Adding to someone else's task needs a yes from an agent's person (report §26.6).
+    const held = await agentGate(auth, request, parsed.data, {
+      workspaceId: projectId,
+      kinds: [(await isOthersTask(resolvedTaskId, user.id)) ? "others-task" : "small"],
+      summary: `Add the subtask "${title}"`,
+    });
+    if (held) return held;
+
     // Handle course assignment steps if applicable
     if (targetTask.kind === "assignment" && !targetTask.assignmentId) {
       const { addAssignmentStepAction } = await import("@/app/actions/assignments");
@@ -115,8 +124,10 @@ async function handlePost(request: Request) {
       return next;
     });
 
+    const undoToken = await recordUndo(auth, { workspaceId: projectId, operation: "subtask.add", summary: `Added the subtask "${created.title}"`, inverse: { kind: "subtask.delete", subtaskId: created.id, taskId: created.taskId, projectId } });
     return jsonSuccess({
       success: true,
+      undoToken,
       subtask: {
         id: created.id,
         taskId: created.taskId,

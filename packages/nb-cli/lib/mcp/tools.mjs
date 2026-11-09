@@ -160,6 +160,9 @@ export const TOOLS = [
   { name: "networkbase_search", title: "Search files", tier: "read", props: { query: { type: "string", description: "Words in file names" }, workspace: workspaceProp }, required: ["query"],
     description: "Find files in the workspace by name.",
     run: (nb, a) => nb("search", [a.query], ws(a)) },
+  { name: "networkbase_undo", title: "Undo", tier: "small", props: { token: { type: "string", description: "An undoToken from an earlier result (default: the last change from this machine)" } },
+    description: "Undo a change made through NetworkBase tools in the last 24 hours (a push, a task, a subtask, a comment, a status change). Refused if someone changed it since.",
+    run: (nb, a) => nb("undo", a.token ? [String(a.token)] : []) },
   { name: "networkbase_member_list", title: "Members", tier: "read", props: { query: { type: "string", description: "Part of a name (at most 10 shown)" }, workspace: workspaceProp },
     description: "People in the workspace, with their role.",
     run: (nb, a) => nb("member list", a.query ? [a.query] : [], ws(a)) },
@@ -213,15 +216,26 @@ export async function callTool(name, args = {}, where) {
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) return errorResult(new CliError("UNKNOWN_TOOL", `No tool ${name}`, { hint: "See tools/list" }));
   try {
-    const confirmed = takeConfirmation(name, args);
-    const summary = !confirmed && tool.needsYes ? tool.needsYes(args) : null;
+    // A server-issued yes (signed, contains a dot) goes to the server as X-NB-Confirm; it decides.
+    const serverYes = typeof args.confirmToken === "string" && args.confirmToken.includes(".") ? args.confirmToken : null;
+    const confirmed = serverYes ? false : takeConfirmation(name, args);
+    // With an agent token the server holds big changes itself (report §26.6), so asking here too would ask twice.
+    const agentToken = String(createContext({ flags: {}, positionals: [], cwd: where.cwd, env: where.env, io: { stdout: /** @type {any} */ ({ write: () => true }), stderr: process.stderr } }).profile.token ?? "").startsWith("nb_agt_");
+    const summary = !confirmed && !serverYes && !agentToken && tool.needsYes ? tool.needsYes(args) : null;
     if (summary) return confirmationResult(name, args, summary, undefined);
     const answers = Object.entries(args.answers ?? {}).map(([k, v]) => `${k}=${v}`);
-    const nb = executor(where, { ...(confirmed ? { yes: true } : {}), ...(answers.length ? { answer: answers } : {}) });
+    const nb = executor(where, { ...(confirmed || serverYes ? { yes: true } : {}), ...(serverYes ? { confirm: serverYes } : {}), ...(answers.length ? { answer: answers } : {}) });
     const r = await tool.run(nb, args);
     const warnings = r.warnings.length ? `\n\nWarnings: ${r.warnings.join("; ")}` : "";
     return { content: [{ type: "text", text: `${r.text || JSON.stringify(r.data)}${warnings}` }], structuredContent: { status: "ok", schema: r.schema, data: r.data } };
   } catch (error) {
+    const held = /** @type {any} */ (error instanceof CliError && error.code === "NEEDS_CONFIRMATION" ? error.details : null);
+    if (held?.confirmToken) {
+      return {
+        content: [{ type: "text", text: `needs_confirmation: ${held.summary ?? "this change needs a yes"}${held.preview ? `\n\n${held.preview}` : ""}\n\nShow this to the user. Only if they agree, call ${name} again with the same arguments and confirmToken "${held.confirmToken}" (valid 10 minutes, once).` }],
+        structuredContent: { status: "needs_confirmation", summary: held.summary ?? "this change needs a yes", ...(held.preview ? { preview: held.preview } : {}), confirmToken: held.confirmToken, by: "server" },
+      };
+    }
     if (error instanceof CliError && error.code === "NEEDS_CONFIRMATION") return confirmationResult(name, args, error.message, /** @type {any} */ (error.details)?.questions?.[0]?.preview);
     if (error instanceof CliError && error.code === "NEEDS_INPUT") {
       const questions = /** @type {any} */ (error.details)?.questions ?? [];

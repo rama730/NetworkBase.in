@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -95,6 +95,10 @@ const exact = {
     return { data: { subtask: s } };
   },
   "PATCH /api/v1/extension/task-update": (req, state) => {
+    // Like the real server (report §26.6): an agent finishing a task needs the person's yes.
+    if (String(req.headers.authorization ?? "").startsWith("Bearer nb_agt_") && req.body.kind === "status" && req.body.status === "done") {
+      if (req.headers["x-nb-confirm"] !== "srv.yes-token") return fail(428, "NEEDS_CONFIRMATION", "Needs the person's yes: Finish the task", { summary: "Finish the task", confirmToken: "srv.yes-token", header: "x-nb-confirm" });
+    }
     const t = findTask(state, req.body.taskId);
     if (!t) return fail(404, "NOT_FOUND", "Task not found");
     if (req.body.kind === "subtask") {
@@ -155,12 +159,21 @@ const exact = {
     });
     const task = req.body.taskId ? findTask(state, req.body.taskId) : null;
     if (task) for (const f of out) task.files.push({ path: f.path, name: f.path.split("/").pop(), role: req.body.role === "final" ? "deliverable" : req.body.role === "reference" ? "reference" : "working", currentVersion: f.version });
-    return { data: { success: true, files: out, role: req.body.role ?? "working", as: req.body.role ?? "draft", transition: null } };
+    const undoToken = crypto.randomUUID();
+    state.undos.set(undoToken, { kind: "push", paths: out.filter((/** @type {any} */ f) => f.status !== "unchanged").map((/** @type {any} */ f) => f.path) });
+    return { data: { success: true, files: out, role: req.body.role ?? "working", as: req.body.role ?? "draft", transition: null, undoToken } };
   },
 };
 
 /** Routes with ids in the path. @type {Array<[RegExp, string, Handler]>} */
 const patterns = [
+  [/^\/api\/v1\/undo\/([^/]+)$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
+    const op = state.undos.get(req.params[0] ?? "");
+    if (!op) return fail(410, "EXPIRED", "Nothing to undo: it was undone already, is older than 24 hours, or isn't yours");
+    state.undos.delete(req.params[0] ?? "");
+    state.undone.push(op);
+    return { data: { undone: op.kind === "push" ? `Pushed ${op.paths.length} file(s)` : op.kind, result: "Undid it", operation: op.kind } };
+  }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "u1", username: "tester", fullName: "Test User", role: "owner" }, { id: "u2", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || m.username.includes(String(req.query.get("q")))) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...state.files.values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: state.files.get(d.nodePath)?.nodeId ?? null })) } })],
@@ -177,7 +190,7 @@ const patterns = [
  */
 export async function startFakeServer({ routes = {}, fault = {} } = {}) {
   /** @type {FakeState} */
-  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" } };
+  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" }, undos: new Map(), undone: [] };
   /** @type {FakeRequest[]} */
   const requests = [];
   const faults = new Map(Object.entries(fault));

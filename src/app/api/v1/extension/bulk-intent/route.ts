@@ -10,7 +10,8 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createUploadIntents } from "@/lib/upload/upload-intents";
 import { validateCsrf } from "@/lib/security/csrf";
-import { bulkIntentItemSchema, bulkIntentSchema } from "@/lib/api/v1-schemas";
+import { bulkIntentSchema } from "@/lib/api/v1-schemas";
+import { agentGate, BATCH_LIMIT } from "@/lib/agents/policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
     const { projectId, files, operationId } = parsed.data;
     const outside = await denyOutsideTokenWorkspace(auth, { projectId });
     if (outside) return outside;
+    const held = await agentGate(auth, request, parsed.data, { workspaceId: projectId, kinds: [files.length > BATCH_LIMIT ? "batch" : "small"], summary: `Upload ${files.length} large file${files.length === 1 ? "" : "s"}`, preview: files.slice(0, 30).map((f) => f.path).join("\n") });
+    if (held) return held;
     const clientSessionId = parsed.data.clientSessionId ?? crypto.randomUUID();
 
     // 1. Verify project write access

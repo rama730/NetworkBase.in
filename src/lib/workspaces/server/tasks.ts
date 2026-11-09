@@ -1397,13 +1397,20 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
 
 
 export async function deleteTaskAction(taskId: string, projectId: string) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Sign in to continue");
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Sign in to continue" };
+  return deleteTaskAs(user, taskId, projectId);
+}
 
+/**
+ * Deleting a task as this person. Only the workspace owner may, except `undoOwnCreate`: undoing a task the same
+ * person created with a token in the last day (report A2.9).
+ */
+export async function deleteTaskAs(user: { id: string }, taskId: string, projectId: string, options: { undoOwnCreate?: boolean } = {}) {
+  try {
     // Access Check - Only project owner can delete tasks
     const project = await db.query.workspaces.findFirst({
       where: eq(workspaces.id, projectId),
@@ -1411,7 +1418,7 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
     });
     if (!project) throw new Error("Workspace not found");
 
-    if (project.ownerId !== user.id) {
+    if (project.ownerId !== user.id && !options.undoOwnCreate) {
       throw new Error("Only the owner can delete tasks");
     }
 
