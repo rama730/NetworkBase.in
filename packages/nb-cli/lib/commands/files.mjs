@@ -128,18 +128,19 @@ export async function pull(ctx, options = {}) {
     }
     /** @type {Array<{ path: string, did: string, version?: number, by?: string, copy?: string }>} */
     const results = [];
-    for (const item of todo) {
+    /** @param {PlanItem} item */
+    const apply = async (item) => {
       const r = /** @type {import("../sync/plan.mjs").RemoteFile} */ (item.remote);
       const abs = localPathOf(root, project.remoteRoot, item.path);
       if (item.action === "adopt") {
         recordBase(state, item.path, { nodeId: r.nodeId, version: r.version, hash: r.hash ?? "", abs });
-        continue;
+        return;
       }
       if (item.action === "remove-local") {
         const kept = moveToLocalTrash(root, abs);
         delete state.files[item.path];
         results.push({ path: item.path, did: "removed (deleted on the server)", copy: path.relative(root, kept) });
-        continue;
+        return;
       }
       if (item.action === "conflict") {
         // Never overwrite: the server's version lands next to yours (A1.7, D18).
@@ -147,14 +148,20 @@ export async function pull(ctx, options = {}) {
         await downloadTo(ctx.api, project.workspaceId, item.path, copy, r.hash);
         state.conflicts[item.path] = { remoteVersion: r.version, copy: path.relative(root, copy) };
         results.push({ path: item.path, did: "conflict", version: r.version, copy: path.relative(root, copy) });
-        continue;
+        return;
       }
       const got = await downloadTo(ctx.api, project.workspaceId, item.path, abs, r.hash);
       if (got.content) saveBaseCopy(root, got.hash, got.content);
       recordBase(state, item.path, { nodeId: r.nodeId, version: r.version, hash: got.hash, abs });
       results.push({ path: item.path, did: item.action === "restore" ? "restored" : item.base ? "updated" : "new", version: r.version });
-      writeState(root, state);
-    }
+      // State is saved every 100 files; after a crash, a downloaded file matching the server is adopted next run.
+      if (results.length % 100 === 0) writeState(root, state);
+    };
+    // 8 downloads at a time, 4 on Windows (A12.6).
+    let next = 0;
+    const worker = async () => { while (next < todo.length) await apply(/** @type {PlanItem} */ (todo[next++])); };
+    await Promise.all(Array.from({ length: Math.min(process.platform === "win32" ? 4 : 8, todo.length) }, worker));
+    results.sort((a, b) => a.path.localeCompare(b.path));
     writeState(root, state);
     pruneBaseCopies(root, state, Number(readUserConfig(ctx.env)["base-cache-mb"] ?? 200) * 1024 * 1024);
     const conflicts = results.filter((r) => r.did === "conflict");

@@ -16,7 +16,7 @@ async function linkedFolderWithFiles(count, run) {
   fs.writeFileSync(path.join(cwd, ".networkbase", "config.json"), JSON.stringify({ projectId: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", apiUrl: api.url }));
   const names = [];
   for (let i = 0; i < count; i++) {
-    const name = `f${i}.txt`;
+    const name = `r${run}-f${i}.txt`;
     fs.writeFileSync(path.join(cwd, name), `run ${run} file ${i} `.padEnd(1024, "x"));
     names.push(name);
   }
@@ -26,7 +26,10 @@ async function linkedFolderWithFiles(count, run) {
 const pushMs = (/** @type {number} */ count) =>
   medianMs(RUNS, async (run) => {
     const { cwd, names } = await linkedFolderWithFiles(count, run);
-    return () => runCli(["push", ...names, "--draft", "--json"], { api: api.url, cwd });
+    return async () => {
+      const r = await runCli(["push", ...names, "--as", "draft", "--json"], { api: api.url, cwd });
+      if (r.code !== 0) throw new Error(`push failed: ${r.stderr || r.stdout}`);
+    };
   });
 
 for (let i = 0; i < 1000; i++) putFile(api.state, `/docs/file-${i}.md`, Buffer.from(`# File ${i}\n`.padEnd(2048, "y")));

@@ -90,7 +90,12 @@ const BASE_MAX_BYTES = 1024 * 1024;
 export function saveBaseCopy(root, hash, content) {
   if (content.length > BASE_MAX_BYTES || content.includes(0)) return;
   const file = path.join(root, DIR_NAME, "base", hash);
-  if (!fs.existsSync(file)) writeAtomic(file, content);
+  if (fs.existsSync(file)) return;
+  // A cache for nb diff only, so no fsync (it blocked parallel pulls); the rename keeps it whole.
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  const tmp = `${file}.nbtmp-${crypto.randomBytes(4).toString("hex")}`;
+  fs.writeFileSync(tmp, content, { mode: 0o600 });
+  fs.renameSync(tmp, file);
 }
 
 /** @param {string} root @param {string} hash */
