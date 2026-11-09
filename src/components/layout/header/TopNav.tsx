@@ -112,13 +112,16 @@ export default function TopNav() {
     }, [closeGlobalSearch, pathname]);
 
     // Back to your search (unified back R2): returning to the page you searched from reopens it.
+    // One listener for the life of the top bar: re-subscribing on every address change missed the stamp.
+    const openGlobalSearchRef = useRef(openGlobalSearch);
+    useEffect(() => { openGlobalSearchRef.current = openGlobalSearch; });
     useEffect(() => subscribeEntry((entry) => {
         if (!arrivedByTraverse()) return;
         const back = takeSearchReturn(window.sessionStorage, entry.id);
         if (!back) return;
         setCommandPaletteIndex(back.activeIndex >= 0 ? back.activeIndex : undefined);
-        openGlobalSearch(back.query, back.context as GlobalSearchContext | undefined);
-    }), [openGlobalSearch]);
+        openGlobalSearchRef.current(back.query, back.context as GlobalSearchContext | undefined);
+    }), []);
 
 
 
