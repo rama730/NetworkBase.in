@@ -2,7 +2,7 @@
 // and `nb help --json` all read this table; handler modules load only for the command being run (A6.3).
 
 /**
- * @typedef {{ type: "string" | "boolean", short?: string, multiple?: boolean, describe: string, valueName?: string }} FlagSpec
+ * @typedef {{ type: "string" | "boolean", short?: string, multiple?: boolean, describe: string, valueName?: string, hidden?: boolean }} FlagSpec
  * @typedef {{ name: string, summary: string, usage: string, module: string, fn: string, flags?: Record<string, FlagSpec>, examples?: string[], exit?: number[], hidden?: boolean, group: string }} CommandSpec
  */
 
@@ -33,6 +33,11 @@ const FILTERS = {
   status: { type: "string", describe: "todo,in_progress,blocked,review,done", valueName: "list" },
   limit: { type: "string", describe: "At most this many", valueName: "n" },
 };
+/** 1.x status flags: still accepted so old scripts run, never shown (P2.9). @type {Record<string, FlagSpec>} */
+const OLD_STATUS = {
+  done: { type: "boolean", describe: "1.x: no longer changes the task status", hidden: true },
+  wip: { type: "boolean", describe: "1.x: no longer changes the task status", hidden: true },
+};
 /** @type {Record<string, FlagSpec>} */
 const DRY = { "dry-run": { type: "boolean", describe: "Show what would happen, change nothing" } };
 
@@ -44,10 +49,10 @@ export const COMMANDS = [
     examples: ["nb login", "echo $NB_TOKEN | nb login --with-token"], exit: [0, 3] },
   { group: "Account and setup", name: "logout", summary: "Revoke this device's token and sign out", usage: "nb logout", module: "account", fn: "logout" },
   { group: "Account and setup", name: "whoami", summary: "Who you are, what this token may do, limits", usage: "nb whoami", module: "account", fn: "whoami", exit: [0, 3] },
-  { group: "Account and setup", name: "init", summary: "Link this folder to a workspace", usage: "nb init [workspace] [--task 4]", module: "files", fn: "init",
+  { group: "Account and setup", name: "init", summary: "Link this folder to a workspace", usage: "nb init [workspace] [--task 4]", module: "link", fn: "init",
     flags: { ...TASK, path: { type: "string", describe: "Link only this remote folder", valueName: "/folder" }, nested: { type: "boolean", describe: "Allow a link inside another linked folder" } },
     examples: ["nb init design-lab", "nb init design-lab --task 4"] },
-  { group: "Account and setup", name: "unlink", summary: "Remove the link, keep your files", usage: "nb unlink [--purge-local]", module: "files", fn: "unlink",
+  { group: "Account and setup", name: "unlink", summary: "Remove the link, keep your files", usage: "nb unlink [--purge-local]", module: "link", fn: "unlink",
     flags: { "purge-local": { type: "boolean", describe: "Also remove .tasks/ copies" } } },
   { group: "Account and setup", name: "status", summary: "What changed here, the started task, conflicts", usage: "nb status", module: "files", fn: "status", exit: [0, 3, 4, 8] },
   { group: "Account and setup", name: "doctor", summary: "Check sign-in, server, link, Node and this folder", usage: "nb doctor [--repair]", module: "misc", fn: "doctor",
@@ -62,19 +67,19 @@ export const COMMANDS = [
   { group: "Files", name: "diff", summary: "Changes against the version you last pulled", usage: "nb diff [path...]", module: "files", fn: "diff" },
   { group: "Files", name: "pull", summary: "Download changes; never overwrites your edits", usage: "nb pull [path...]", module: "files", fn: "pull", flags: { ...DRY }, exit: [0, 4, 8] },
   { group: "Files", name: "push", summary: "Upload changes; same path = new version", usage: "nb push <path...> [--task 4 --as draft] [-m text]", module: "files", fn: "push",
-    flags: { ...TASK, ...AS, ...MESSAGE, ...DRY,
+    flags: { ...TASK, ...AS, ...MESSAGE, ...DRY, ...OLD_STATUS,
       all: { type: "boolean", describe: "Push every changed tracked file (needed when not interactive and no paths)" },
       folder: { type: "string", describe: "Workspace folder to put the files in", valueName: "/folder" },
       "keep-both": { type: "boolean", describe: "A changed file whose name is taken goes in as name (2).ext" },
       force: { type: "boolean", describe: "Replace a newer server version after a conflict (asks first)" },
       "confirm-secrets": { type: "boolean", describe: "Upload even though a file looks like it holds a password or key" } },
     examples: ["nb push src/app.ts -m \"Fix login\"", "nb push report.pdf --task 4 --as final", "nb push shots/ --task 5 --as reference"], exit: [0, 2, 4, 5, 7, 8] },
-  { group: "Files", name: "sync", summary: "Pull, then push changed tracked files", usage: "nb sync", module: "files", fn: "sync", flags: { ...MESSAGE }, exit: [0, 4, 8] },
+  { group: "Files", name: "sync", summary: "Pull, then push changed tracked files", usage: "nb sync", module: "files", fn: "sync", flags: { ...MESSAGE, ...OLD_STATUS }, exit: [0, 4, 8] },
   { group: "Files", name: "resolve", summary: "Settle a conflict", usage: "nb resolve <path> --mine|--theirs|--both", module: "files", fn: "resolve",
     flags: { mine: { type: "boolean", describe: "Keep yours and push it" }, theirs: { type: "boolean", describe: "Take the server's version" }, both: { type: "boolean", describe: "Keep both as separate files" } } },
-  { group: "Files", name: "watch", summary: "Push saves as drafts and pull teammates' changes (foreground)", usage: "nb watch", module: "watch", fn: "watch" },
-  { group: "Files", name: "file list", summary: "Files in the workspace", usage: "nb file list [folder] [--task 4]", module: "files", fn: "fileList", flags: { ...TASK } },
-  { group: "Files", name: "file view", summary: "Print a file (pipe-safe)", usage: "nb file view <path>", module: "files", fn: "fileView" },
+  { group: "Files", name: "watch", summary: "Push saves of tracked files as drafts (foreground)", usage: "nb watch", module: "watch", fn: "watch" },
+  { group: "Files", name: "file list", summary: "Files in the workspace", usage: "nb file list [folder] [--task 4]", module: "docs", fn: "fileList", flags: { ...TASK } },
+  { group: "Files", name: "file view", summary: "Print a file (pipe-safe)", usage: "nb file view <path>", module: "docs", fn: "fileView" },
 
   // Tasks
   { group: "Tasks", name: "task list", summary: "Tasks (default: yours, not done)", usage: "nb task list [--mine|--all] [--status list]", module: "tasks", fn: "list", flags: { ...FILTERS } },

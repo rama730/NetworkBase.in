@@ -23,7 +23,7 @@ Files
   push             Upload changes; same path = new version
   sync             Pull, then push changed tracked files
   resolve          Settle a conflict
-  watch            Push saves as drafts and pull teammates' changes (foreground)
+  watch            Push saves of tracked files as drafts (foreground)
   file list        Files in the workspace
   file view        Print a file (pipe-safe)
 

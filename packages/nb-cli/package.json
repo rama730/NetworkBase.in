@@ -1,7 +1,7 @@
 {
   "name": "@networkbase/cli",
-  "version": "1.0.4",
-  "description": "NetworkBase CLI, Local Mirror Sync, Git Credential Helper & AI MCP Server",
+  "version": "2.0.0-next.1",
+  "description": "NetworkBase in your terminal: sync files, work on tasks, edit docs",
   "type": "module",
   "homepage": "https://networkbase.in",
   "repository": {
@@ -11,18 +11,19 @@
   },
   "bin": {
     "nb": "./bin/nb.mjs",
-    "networkbase": "./bin/nb.mjs",
-    "cli": "./bin/nb.mjs"
+    "networkbase": "./bin/nb.mjs"
   },
   "scripts": {
     "test": "node test/run.mjs"
   },
   "files": [
-    "bin/",
-    "README.md"
+    "bin/nb.mjs",
+    "lib/",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20"
   },
   "publishConfig": {
     "access": "public"
@@ -30,9 +31,8 @@
   "keywords": [
     "networkbase",
     "cli",
-    "git",
-    "mcp",
-    "ai",
+    "sync",
+    "tasks",
     "developer-tools"
   ],
   "license": "Apache-2.0"

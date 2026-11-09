@@ -62,5 +62,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Report only until CLI 2.0 (Phase 2) adds --enforce.
-      - run: node packages/nb-cli/test/budgets.mjs
+      - run: node packages/nb-cli/test/budgets.mjs --enforce

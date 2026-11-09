@@ -49,6 +49,16 @@ describe("files: init, push, pull, conflicts", () => {
     assert.equal(api.state.files.size, 0, "nothing uploaded");
   });
 
+  it("1.x push --done still uploads but no longer changes status, and says so (P2.9)", async () => {
+    write("a.txt", "hello");
+    const r = await nb(["push", "a.txt", "--done"]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(remote("/a.txt")?.version, 1);
+    assert.match(r.stderr, /--done no longer changes the task's status/);
+    assert.ok(!api.requests.some((q) => q.path === "/api/v1/extension/task-update"), "no status change");
+    assert.ok(!(await nb(["help", "push"])).stdout.includes("--done"), "hidden from help");
+  });
+
   it("push uploads named files; a second push makes a new version based on the first", async () => {
     write("notes/plan.md", "v1");
     assert.equal((await nb(["push", "notes/plan.md"])).code, 0);

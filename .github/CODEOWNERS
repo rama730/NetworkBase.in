@@ -1,0 +1,5 @@
+# Report A13.7: the CLI and the API it talks to need an owner's review.
+/packages/nb-cli/ @rama730
+/src/app/api/v1/ @rama730
+/src/lib/domain/ @rama730
+/src/lib/security/token-access.ts @rama730

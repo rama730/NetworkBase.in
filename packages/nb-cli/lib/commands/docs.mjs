@@ -1,4 +1,4 @@
-// Docs (the README), workspaces and search (report §17.4, §18.2 "change the workspace README", §21 flow C).
+// Docs (the README), workspaces, search and reading remote files (report §17.4, §18.2 "change the workspace README", §21 flow C).
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -9,7 +9,9 @@ import { readUserConfig } from "../config.mjs";
 import { CliError, EXIT, usage } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { unifiedDiff } from "../sync/diff.mjs";
+import { fetchManifest } from "../sync/transfer.mjs";
 import { confirm } from "../tui/ask.mjs";
+import { resolveTask } from "./tasks.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -93,4 +95,44 @@ export async function search(ctx) {
   if (!q) throw usage('nb search "<text>"');
   const res = /** @type {any} */ (await ctx.api.get("/api/v1/extension/search", { query: { projectId: ctx.requireWorkspace(), q, kind: "file" } }));
   ctx.out.result("nb.search/1", { query: q, files: res.files.map((/** @type {any} */ f) => ({ path: f.path, version: f.currentVersion })) }, (/** @type {any} */ d) => (d.files.length ? d.files.map((/** @type {any} */ f) => `  ${safe(f.path)} ${ctx.out.c.muted(`v${f.version}`)}`) : `Nothing named like "${safe(q)}"`));
+}
+
+// ───────────────────────────────── file list / view
+
+/** @param {Context} ctx */
+export async function fileList(ctx) {
+  const workspaceId = ctx.requireWorkspace();
+  if (ctx.flags.task) {
+    const task = await resolveTask(ctx, String(ctx.flags.task));
+    const files = /** @type {any[]} */ (task.files ?? []).map((f) => ({ path: f.path ?? f.name, as: f.role === "deliverable" ? "final" : f.role === "working" ? "draft" : f.role ?? "draft", version: f.currentVersion ?? null, size: f.size ?? null }));
+    return ctx.out.result("nb.file.list/1", { task: { id: task.id, number: task.taskNumber }, files }, (d) => (d.files.length ? ctx.out.table([{ title: "Path", value: (f) => safe(f.path), flex: true, path: true }, { title: "Role", value: (f) => f.as }, { title: "Version", value: (f) => (f.version ? `v${f.version}` : ""), align: "right" }], d.files) : "No files on this task"));
+  }
+  const { files } = await fetchManifest(ctx.api, workspaceId);
+  const folder = ctx.positionals[0] ? `/${ctx.positionals[0].replace(/^\/+|\/+$/g, "")}/` : "/";
+  const list = [...files.values()].filter((f) => f.path.startsWith(folder)).sort((a, b) => a.path.localeCompare(b.path));
+  ctx.out.result("nb.file.list/1", { files: list.map((f) => ({ path: f.path, version: f.version, size: f.size })) }, (d) =>
+    d.files.length ? ctx.out.table([{ title: "Path", value: (f) => safe(f.path), flex: true, path: true }, { title: "Version", value: (f) => `v${f.version}`, align: "right" }, { title: "Size", value: (f) => formatBytes(f.size), align: "right" }], d.files) : "No files");
+}
+
+/** @param {number} bytes */
+export const formatBytes = (bytes) => (bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
+/** Prints a file; raw bytes when piped, control characters made visible on a terminal (A3.11). @param {Context} ctx */
+export async function fileView(ctx) {
+  const workspaceId = ctx.requireWorkspace();
+  const p = ctx.positionals[0];
+  if (!p) throw usage("nb file view <path>");
+  const remotePath = p.startsWith("/") ? p : `/${p}`;
+  const response = await ctx.api.download("/api/v1/extension/file", { projectId: workspaceId, path: remotePath, transfer: "raw" }).catch(async () => null);
+  /** @type {Buffer} */
+  let bytes;
+  if (response) bytes = Buffer.from(await response.arrayBuffer());
+  else {
+    const inline = /** @type {any} */ (await ctx.api.get("/api/v1/extension/file", { query: { projectId: workspaceId, path: remotePath, transfer: "inline" } }));
+    bytes = Buffer.from(inline.content ?? "", inline.encoding === "base64" ? "base64" : "utf8");
+  }
+  if (ctx.out.json) return ctx.out.result("nb.file.view/1", { path: remotePath, size: bytes.length, contentBase64: bytes.toString("base64") }, () => null);
+  if (process.stdout.isTTY) {
+    ctx.out.raw(bytes.toString("utf8").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, (ch) => `^${String.fromCharCode(ch.charCodeAt(0) + 64)}`));
+  } else ctx.out.raw(bytes);
 }

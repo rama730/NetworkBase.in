@@ -88,7 +88,7 @@ export function parseFlags(spec, rest) {
 
 /** Help for one command (A4.6). @param {CommandSpec} spec */
 export function commandHelp(spec) {
-  const flags = Object.entries({ ...(spec.flags ?? {}), ...GLOBAL_FLAGS }).filter(([name]) => name !== "help");
+  const flags = Object.entries({ ...(spec.flags ?? {}), ...GLOBAL_FLAGS }).filter(([name, f]) => name !== "help" && !f.hidden);
   const label = (/** @type {string} */ name, /** @type {any} */ f) => `${f.short ? `-${f.short}, ` : "    "}--${name}${f.type === "string" ? ` <${f.valueName ?? "value"}>` : ""}`;
   const w = Math.max(...flags.map(([n, f]) => label(n, f).length));
   const lines = [`nb ${spec.name} — ${spec.summary}`, "", "Usage", `  ${spec.usage}`, "", "Flags"];
@@ -122,7 +122,7 @@ export function overviewHelp() {
 /** The command table as data, for agents and completions (`nb help --json`). */
 export function helpData() {
   return {
-    commands: COMMANDS.filter((c) => !c.hidden).map((c) => ({ name: c.name, summary: c.summary, usage: c.usage, flags: { ...(c.flags ?? {}) }, examples: c.examples ?? [], exitCodes: c.exit ?? [0, 1] })),
+    commands: COMMANDS.filter((c) => !c.hidden).map((c) => ({ name: c.name, summary: c.summary, usage: c.usage, flags: Object.fromEntries(Object.entries(c.flags ?? {}).filter(([, f]) => !f.hidden)), examples: c.examples ?? [], exitCodes: c.exit ?? [0, 1] })),
     globalFlags: GLOBAL_FLAGS,
     aliases: ALIASES,
   };

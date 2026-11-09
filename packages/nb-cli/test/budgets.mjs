@@ -1,9 +1,9 @@
 // Size and startup budgets (report A13.8). Reports always; `--enforce` fails when over.
-// Phase 0 records 1.x numbers; enforcement starts with CLI 2.0 (Phase 2).
+// Size: report A13.8 aimed for 150 KB; 2.0 is held to no bigger than 1.0.4 (193,446 B) instead (phase 2 notes).
 import { startFakeServer } from "./helpers/fake-server.mjs";
 import { cliMs, unpackedBytes } from "./helpers/measure.mjs";
 
-const BUDGET = { unpackedBytes: 150 * 1024, versionMs: 120, helpMs: 200 };
+const BUDGET = { unpackedBytes: 193_446, versionMs: 120, helpMs: 200 };
 
 const api = await startFakeServer();
 const result = {
