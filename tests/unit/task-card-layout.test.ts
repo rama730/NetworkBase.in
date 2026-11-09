@@ -183,3 +183,53 @@ test("overdue timing badges do not add a second metadata row", () => {
   assert.equal((html.match(/title="Files"/g) ?? []).length, 1);
   assert.equal((html.match(/title="Comments"/g) ?? []).length, 1);
 });
+
+// Member card lifecycle (2026-11-10): a member's own copy never overlaps, in any state.
+const copy = (state: string, extra: Record<string, unknown> = {}) => renderTask({
+  assignmentId: "master", fromLabel: "Ms. Rao", teamName: "CSE 3B", reviewStatus: "none", status: "in_progress",
+  copyStage: { state, late: false, since: "2026-11-04T10:00:00.000Z", reason: "add the complexity of push and pop", fixBy: "2026-11-13T10:00:00.000Z", version: 1, reviewRequired: true, handIn: null },
+  ...extra,
+}, { showStatus: false });
+
+test("a copy shows who it's from in the avatar slot, not the holder's own avatar", () => {
+  const html = copy("in_progress");
+  assert.match(html, /From Ms\. Rao · CSE 3B/);
+  assert.doesNotMatch(html, /title="Rama"/);
+});
+
+test("a copy's date is what its holder owes next: due while working, fix-by when returned, nothing once handed in", () => {
+  assert.match(copy("not_started"), /Jan 1, 2025/);
+  assert.match(copy("in_progress"), /Jan 1, 2025/);
+  const returned = copy("returned");
+  assert.match(returned, /data-deadline="fix-by"[^>]*>.*?Nov 13/);
+  assert.doesNotMatch(returned, /Jan 1, 2025/);
+  for (const state of ["submitted", "done", "missing", "excused"]) {
+    assert.doesNotMatch(copy(state), /data-deadline=/, state);
+  }
+});
+
+test("a handed-in or missing copy shows no timing chips; Missing already says it", () => {
+  for (const state of ["submitted", "done", "missing", "excused"]) {
+    assert.doesNotMatch(copy(state), />(Overdue|Overtime|Incomplete)</, state);
+  }
+  assert.match(copy("in_progress"), />(Overdue|Overtime)</);
+});
+
+test("the stage line stops at two lines", () => {
+  assert.match(copy("returned"), /line-clamp-2[^"]*"[^>]*>Returned: add the complexity/);
+});
+
+test("activity counts share one chip that keeps its size; the From label is the footer's one shrinking item", () => {
+  const html = copy("submitted");
+  assert.equal((html.match(/aria-label="Task activity summary/g) ?? []).length, 1);
+  assert.match(html, /class="flex shrink-0 items-center gap-1 rounded-\[3px\] border[^"]*"[^>]*aria-label="Task activity summary/);
+  assert.equal((html.match(/border border-border\/60 bg-muted\/40 px-1 /g) ?? []).length, 1);
+  assert.match(html, /class="flex h-4 min-w-0 flex-wrap[^"]*overflow-hidden[^"]*"[^>]*title="Assignment from Ms\. Rao/);
+  assert.match(html, /class="min-w-12 flex-1 truncate">From Ms\. Rao · CSE 3B</);
+});
+
+test("My work rows: the org chips group shrinks only its context chip and clips instead of overlapping", () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "src/components/my-work/MyWorkTasksTab.tsx"), "utf8");
+  assert.match(source, /hidden min-w-0 max-w-\[55%\] items-center gap-1 overflow-hidden sm:flex/);
+  assert.match(source, /cn\(chip, "min-w-0 shrink truncate"\)\} title=\{task\.org\.context\}/);
+});

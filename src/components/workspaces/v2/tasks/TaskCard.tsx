@@ -39,6 +39,11 @@ interface TaskCardProps {
 
 export type Task = TaskSurfaceRecord;
 
+// Member card lifecycle (2026-11-10): the footer's one shrinking item. When fewer than 3rem are left for its text,
+// the text wraps onto a second line that the one-line height hides, so the icon stays and no letter sliver shows.
+const FOOTER_LABEL = "flex h-4 min-w-0 flex-wrap items-center gap-x-1 overflow-hidden text-[11px] leading-4 text-muted-foreground";
+const FOOTER_LABEL_TEXT = "min-w-12 flex-1 truncate";
+
 type TaskMetaIndicatorProps = {
   title: string;
   icon: typeof CheckSquare;
@@ -55,8 +60,8 @@ function TaskMetaIndicator({
   const hasUnread = unreadCount > 0;
 
   return (
-    <div
-      className="flex shrink-0 items-center gap-1 rounded-[3px] border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] font-medium"
+    <span
+      className="flex shrink-0 items-center gap-0.5"
       title={title}
       aria-label={
         hasUnread
@@ -71,7 +76,7 @@ function TaskMetaIndicator({
         )}
       />
       <span className="text-muted-foreground">{label}</span>
-    </div>
+    </span>
   );
 }
 
@@ -93,12 +98,18 @@ function TaskMetaIndicators({
   | "commentCount"
   | "newCommentCount"
 >) {
+  const subtasks = (subtaskCount ?? 0) > 0;
+  const files = (fileCount ?? 0) > 0 || (newFileCount ?? 0) > 0;
+  const comments = (commentCount ?? 0) > 0;
+  if (!subtasks && !files && !comments) return null;
+  // Member card lifecycle (2026-11-10): one chip for all counts, and it keeps its size. It used to be a shrinkable
+  // box of fixed chips, so the From label was painted over them when the footer ran out of room (ALM-1).
   return (
     <div
-      className="flex min-w-0 items-center gap-1 text-muted-foreground"
+      className="flex shrink-0 items-center gap-1 rounded-[3px] border border-border/60 bg-muted/40 px-1 py-0.5 font-mono text-[11px] font-medium text-muted-foreground"
       aria-label={`Task activity summary: ${completedSubtaskCount ?? 0} of ${subtaskCount ?? 0} subtasks complete, ${fileCount ?? 0} attachments, ${commentCount ?? 0} comments`}
     >
-      {(subtaskCount ?? 0) > 0 && (
+      {subtasks && (
         <TaskMetaIndicator
           title="Subtasks"
           icon={CheckSquare}
@@ -106,7 +117,7 @@ function TaskMetaIndicators({
           unreadCount={newSubtaskCount}
         />
       )}
-      {((fileCount ?? 0) > 0 || (newFileCount ?? 0) > 0) && (
+      {files && (
         <TaskMetaIndicator
           title="Files"
           icon={Paperclip}
@@ -114,7 +125,7 @@ function TaskMetaIndicators({
           unreadCount={newFileCount}
         />
       )}
-      {(commentCount ?? 0) > 0 && (
+      {comments && (
         <TaskMetaIndicator
           title="Comments"
           icon={MessageSquare}
@@ -162,7 +173,13 @@ export const TaskCard = memo(function TaskCard({
     taskRecord,
     taskRecord.sprint ?? null,
   );
-  const hasValidDueDate = Boolean(dueDateLabel);
+  // Member card lifecycle (2026-11-10): a copy's date is what its holder owes next. The due date while working, the
+  // fix-by date once returned, nothing after hand-in or when missing (the stage line says it). Timing chips follow.
+  const owesWork = !ownStage || ownStage.state === "not_started" || ownStage.state === "in_progress" || ownStage.state === "returned";
+  const fixByLabel = ownStage?.state === "returned" ? formatTaskDueDate(ownStage.fixBy) : null;
+  const deadlineLabel = ownStage ? fixByLabel ?? (owesWork ? dueDateLabel : null) : titlePresentation.isCompleted ? null : dueDateLabel;
+  const timing = owesWork ? timeHealth.state : null;
+  const isCopy = Boolean(taskRecord.assignmentId);
 
   const cardButton = (
     <button
@@ -205,7 +222,7 @@ export const TaskCard = memo(function TaskCard({
             <p className="font-mono text-[11px] text-muted-foreground">Nobody has it yet. People get it when they join.</p>
           )
         ) : ownStage && ownStage.state !== "not_started" && ownStage.state !== "in_progress" ? (
-          <p className={cn("font-mono text-[11px]", ownChip?.tone === "danger" ? "text-[var(--status-danger)]" : ownChip?.tone === "success" ? "text-[var(--status-success)]" : "text-muted-foreground")}>{copyStageLine(ownStage)}</p>
+          <p className={cn("line-clamp-2 font-mono text-[11px]", ownChip?.tone === "danger" ? "text-[var(--status-danger)]" : ownChip?.tone === "success" ? "text-[var(--status-success)]" : "text-muted-foreground")}>{copyStageLine(ownStage)}</p>
         ) : null}
 
         {/* Keep the card compact: stable status first (if enabled), then semantic labels without a horizontal scroller. */}
@@ -230,17 +247,17 @@ export const TaskCard = memo(function TaskCard({
               In review
             </span>
           )}
-          {timeHealth.state === "overdue" && (
+          {timing === "overdue" && (
             <span className="shrink-0 rounded-[3px] border border-destructive/20 bg-destructive/10 px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-destructive">
               Overdue
             </span>
           )}
-          {timeHealth.state === "unfinished" && (
+          {timing === "unfinished" && (
             <span className="shrink-0 rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
               Incomplete
             </span>
           )}
-          {timeHealth.state === "overtime" && (
+          {timing === "overtime" && (
             <span className="shrink-0 rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
               Overtime
             </span>
@@ -271,13 +288,21 @@ export const TaskCard = memo(function TaskCard({
           )}
         </div>
 
-        <div className="flex min-w-0 items-center justify-between gap-2 border-t border-border/50 pt-1.5">
-          {/* Avatar + task counts share one fixed footer row; names belong in the tooltip. */}
+        <div className="flex min-w-0 items-center justify-between gap-1.5 border-t border-border/50 pt-1.5">
+          {/* Avatar + task counts share one fixed footer row; names belong in the tooltip.
+              Member card lifecycle (2026-11-10): at most one item here may shrink (the label); everything else keeps
+              its size, and this side clips at its edge, so nothing is ever painted over anything else. */}
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
             {master ? (
-              <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+              <span className={FOOTER_LABEL} title={audienceLabel(taskRecord.audience)}>
                 <AssignmentIcon allDone={allApproved} className="size-3.5" />
-                <span className="truncate">{audienceLabel(taskRecord.audience)}</span>
+                <span className={FOOTER_LABEL_TEXT}>{audienceLabel(taskRecord.audience)}</span>
+              </span>
+            ) : isCopy ? (
+              // Decisions 6 and 14, gap 24: on a copy the slot says who it's from; the holder's own avatar says nothing.
+              <span className={FOOTER_LABEL} title={taskRecord.fromLabel ? `Assignment from ${taskRecord.fromLabel}` : "Assignment"}>
+                <AssignmentIcon className="size-3.5" />
+                <span className={FOOTER_LABEL_TEXT}>{taskRecord.fromLabel ? `From ${taskRecord.fromLabel}${taskRecord.teamName ? ` · ${taskRecord.teamName}` : ""}` : "Assignment"}</span>
               </span>
             ) : taskRecord.assignee ? (
               <div
@@ -308,31 +333,22 @@ export const TaskCard = memo(function TaskCard({
               </div>
             )}
             <TaskMetaIndicators {...taskRecord} />
-            {/* Decisions 6 and 14, gap 24: the assignment card shows class progress; it moves by itself. */}
-            {taskRecord.assignmentId && !taskRecord.fromLabel ? (
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><AssignmentIcon className="size-3.5" />Assignment</span>
-            ) : null}
-            {taskRecord.fromLabel ? (
-              <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground" title={`Assignment from ${taskRecord.fromLabel}`}>
-                <AssignmentIcon className="size-3.5" />
-                <span className="truncate">From {taskRecord.fromLabel}{taskRecord.teamName ? ` · ${taskRecord.teamName}` : ""}</span>
-              </span>
-            ) : null}
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            {hasValidDueDate && !titlePresentation.isCompleted && (
+            {deadlineLabel && (
               <div
+                data-deadline={fixByLabel ? "fix-by" : "due"}
+                title={fixByLabel ? `Fix by ${fixByLabel}` : `Due ${deadlineLabel}`}
                 className={cn(
                   "flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 font-mono text-[11px] font-semibold",
-                  timeHealth.state === "overdue" ||
-                    timeHealth.state === "overtime"
+                  fixByLabel || timing === "overdue" || timing === "overtime"
                     ? "border-destructive/20 bg-destructive/10 text-destructive"
                     : "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
                 )}
               >
                 <Calendar className="size-3" />
-                {dueDateLabel}
+                {deadlineLabel}
               </div>
             )}
             <span className="whitespace-nowrap font-mono text-[11px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">

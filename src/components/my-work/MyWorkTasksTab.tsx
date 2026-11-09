@@ -202,9 +202,11 @@ function TaskRow({
 function OrgTaskChips({ task }: { task: MyWorkTask }) {
     if (!task.org) return null;
     const chip = "shrink-0 rounded-[3px] border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground";
+    // Member card lifecycle (2026-11-10): the context chip is the one item that shrinks; the group never takes more
+    // than about half the row from the title, and clips at its edge instead of spilling over priority and due date.
     return (
-        <span className="hidden min-w-0 items-center gap-1 sm:flex">
-            <span className={chip} title={task.org.context}>{task.org.context}</span>
+        <span className="hidden min-w-0 max-w-[55%] items-center gap-1 overflow-hidden sm:flex">
+            <span className={cn(chip, "min-w-0 shrink truncate")} title={task.org.context}>{task.org.context}</span>
             {task.org.fromName ? <span className="shrink-0 text-[11px] text-muted-foreground">From {task.org.fromName}</span> : null}
             {task.org.teamName ? <span className={chip}>{task.org.teamName}</span> : null}
             {task.org.copyState === "missing" ? <span className={cn(chip, "border-destructive/30 text-destructive")}>Missing</span>
