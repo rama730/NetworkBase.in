@@ -589,7 +589,7 @@ export default function SprintPlanning({
           addWork={editorState?.mode === "edit" ? null : {
             // 2026-11-09: Add work is New's last tab; it fills an upcoming or running sprint, the one in view by default.
             sprints: detail.sprints.filter((s) => s.status === "planning" || s.status === "active").map((s) => ({ id: s.id, name: sprintPath(s, detail.sprints) })),
-            defaultSprintId: selectedSprint?.id ?? null, plannedPoints: detail.summary?.totalStoryPoints ?? 0, velocity: detail.velocity,
+            defaultSprintId: selectedSprint?.id ?? null,
             onAdded: () => { refreshSprints(); void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) }); },
           }}
           initialInsideOf={editorState?.insideOf ?? null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { addTasksToSprintAction } from "@/app/actions/task";
 import { readSprintBacklogAction } from "@/app/actions/workspace";
@@ -10,23 +10,15 @@ import { toast } from "@/lib/feedback";
 import type { SprintBacklogRow } from "@/lib/workspaces/sprint-detail";
 import { cn } from "@/lib/utils";
 
-// Sprint redesign §8.6: plan from the backlog — tick tasks, see the points against what the team usually finishes, add.
+// Sprint redesign §8.6: plan from the backlog — pick the sprint, tick tasks, add. (The points card went 2026-11-09.)
 // 2026-11-09: it lives in New sprint as its third tab (Unit · Week · Add work), not as a header button; it renders its
 // own scrolling body and footer, so the dialog around it is a flex column.
-
-/** More than usual: above the recent average, or the last sprint when there's no average. */
-export function planWarning(planned: number, velocity: { last: number | null; average: number | null } | null | undefined) {
-  const usual = velocity?.average ?? velocity?.last ?? null;
-  return usual !== null && planned > usual ? "More than you usually finish." : null;
-}
 
 export type AddWorkTargets = {
   /** Sprints work can go into (upcoming or running), named in full ("Unit 1 · Week 3–4"). */
   sprints: Array<{ id: string; name: string }>;
-  /** The sprint being looked at; its points so far are known. */
+  /** The sprint being looked at, picked first. */
   defaultSprintId: string | null;
-  plannedPoints: number;
-  velocity?: { last: number | null; average: number | null } | null;
   onAdded: () => void;
 };
 
@@ -34,8 +26,8 @@ export function SprintAddWorkPanel({ projectId, targets, onDone }: { projectId: 
   const [sprintId, setSprintId] = useState(() => (targets.sprints.some((s) => s.id === targets.defaultSprintId) ? targets.defaultSprintId! : targets.sprints[0]?.id ?? ""));
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<SprintBacklogRow[] | null>(null);
-  // Ticked tasks stay counted while a search hides them.
-  const [picked, setPicked] = useState<Map<string, SprintBacklogRow>>(new Map());
+  // Ticked tasks stay ticked while a search hides them.
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   useEffect(() => {
@@ -48,16 +40,9 @@ export function SprintAddWorkPanel({ projectId, targets, onDone }: { projectId: 
     return () => { live = false; clearTimeout(timer); };
   }, [projectId, query]);
   const target = targets.sprints.find((s) => s.id === sprintId) ?? null;
-  const chosen = useMemo(() => [...picked.values()], [picked]);
-  const adding = chosen.reduce((n, r) => n + (r.storyPoints ?? 0), 0);
-  // The points already in it are known for the sprint being looked at; for another one, say what this adds.
-  const known = sprintId === targets.defaultSprintId;
-  const total = (known ? targets.plannedPoints : 0) + adding;
-  const noPoints = chosen.filter((r) => r.storyPoints == null).length;
-  const warning = known ? planWarning(total, targets.velocity) : null;
   const add = () => startTransition(async () => {
     if (!target) return;
-    const result = await addTasksToSprintAction({ projectId, sprintId: target.id, taskIds: [...picked.keys()] });
+    const result = await addTasksToSprintAction({ projectId, sprintId: target.id, taskIds: [...picked] });
     if (result.added) toast.success(`Added ${result.added} to ${target.name}.`);
     targets.onAdded();
     if (result.failed.length) return setError(result.failed[0]!.error);
@@ -74,16 +59,15 @@ export function SprintAddWorkPanel({ projectId, targets, onDone }: { projectId: 
               </select>
             </SelectWrap>
           </Field>
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_200px]">
-            <div className="min-w-0 space-y-2">
-              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the backlog" aria-label="Search the backlog" className={cn("nb-touch-target", inputClassName(false))} />
+          <div className="space-y-2">
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the backlog" aria-label="Search the backlog" className={cn("nb-touch-target", inputClassName(false))} />
               <ul aria-label="Backlog" className="max-h-72 divide-y divide-border overflow-y-auto rounded-md border border-border">
                 {rows === null ? <li className="px-3 py-4 text-sm text-muted-foreground">Reading the backlog…</li> : null}
                 {rows?.length === 0 ? <li className="px-3 py-4 text-sm text-muted-foreground">{query ? "Nothing matches." : "The backlog is empty."}</li> : null}
                 {rows?.map((r) => (
                   <li key={r.id}>
                     <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[13px] hover:bg-muted">
-                      <input type="checkbox" className="nb-check" checked={picked.has(r.id)} onChange={(e) => setPicked((cur) => { const next = new Map(cur); if (e.target.checked) next.set(r.id, r); else next.delete(r.id); return next; })} />
+                      <input type="checkbox" className="nb-check" checked={picked.has(r.id)} onChange={(e) => setPicked((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.id); else next.delete(r.id); return next; })} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{r.title}</span>
                         <span className="block text-[12px] text-muted-foreground">{r.kind === "assignment" ? "Assignment" : r.assignee ?? "Nobody yet"}</span>
@@ -93,21 +77,6 @@ export function SprintAddWorkPanel({ projectId, targets, onDone }: { projectId: 
                   </li>
                 ))}
               </ul>
-            </div>
-            <div className="space-y-2">
-              <div className="rounded-md bg-muted p-3">
-                <p className="text-[12px] text-muted-foreground">{known ? `In ${target?.name ?? "it"} after this` : "This adds"}</p>
-                <p className="text-[20px] font-semibold leading-tight">{total} points</p>
-                {known ? (
-                  <p className="text-[12px] text-muted-foreground">
-                    {targets.velocity?.last != null ? `Last sprint finished ${targets.velocity.last}.` : "No closed sprint to compare with yet."}
-                    {targets.velocity?.average != null ? ` Recent average ${targets.velocity.average}.` : ""}
-                  </p>
-                ) : null}
-                {warning ? <p className="mt-1 text-[12px] text-[var(--status-warning)]">{warning}</p> : null}
-              </div>
-              {noPoints ? <p className="text-[12px] text-muted-foreground">{noPoints} {noPoints === 1 ? "task has" : "tasks have"} no points.</p> : null}
-            </div>
           </div>
           {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         </>)}

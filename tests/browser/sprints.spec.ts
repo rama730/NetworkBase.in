@@ -129,24 +129,20 @@ test('§5, §8: the rail is the term, the header has the goal and one main butto
   await expect(page.getByRole('menuitem', { name: 'Complete early' })).toBeVisible();
 });
 
-test('§8.6: Add work, New sprint\'s last tab, plans from the backlog against what the team usually finishes', async ({ page }) => {
+test('§8.6: Add work, New sprint\'s last tab, picks a sprint and adds ticked backlog tasks', async ({ page }) => {
   await open(page);
   await page.getByRole('complementary', { name: 'Sprints' }).getByRole('button', { name: 'New sprint' }).click();
   const dialog = page.getByRole('dialog', { name: 'New' });
   await dialog.getByRole('tab', { name: 'Add work' }).click();
   await expect(dialog.getByText('Open work that isn’t in a sprint yet.')).toBeVisible();
   await expect(dialog.getByLabel('Add to')).toHaveValue('s4');
+  // Kept simple: pick the sprint, tick tasks, add; no points card.
+  await expect(dialog).not.toContainText('points');
   expect((await dialog.boundingBox())!.width).toBeGreaterThan(600);
-  await expect(dialog).toContainText('26 points');
-  await expect(dialog).toContainText('Last sprint finished 21. Recent average 23.');
-  await expect(dialog).toContainText('More than you usually finish.');
   await dialog.getByRole('checkbox', { name: /Refund flow/ }).check();
   await dialog.getByRole('checkbox', { name: /Retry payouts/ }).check();
-  await expect(dialog).toContainText('31 points');
-  await expect(dialog).toContainText('1 task has no points.');
   await dialog.getByRole('searchbox', { name: 'Search the backlog' }).fill('invoice');
   await expect(dialog.getByRole('checkbox')).toHaveCount(1);
-  await expect(dialog).toContainText('31 points', { timeout: 1000 });
   await dialog.getByRole('searchbox', { name: 'Search the backlog' }).fill('');
   await dialog.screenshot({ path: test.info().outputPath('add-work-tab.png') });
   await dialog.getByRole('button', { name: 'Add 2 tasks' }).click();
