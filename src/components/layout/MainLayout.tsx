@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, type ReactNode } from 'react'
+import { Suspense, useEffect, useLayoutEffect, type ReactNode } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
@@ -14,7 +14,8 @@ import { useScrollMemory } from '@/hooks/useScrollMemory'
 function HistoryStamp() {
     const pathname = usePathname()
     const search = useSearchParams()?.toString() ?? ''
-    useEffect(() => {
+    // Before paint, so a page you come back to is already at its remembered place in its first frame.
+    useLayoutEffect(() => {
         stampEntry(window)
     }, [pathname, search])
     return null

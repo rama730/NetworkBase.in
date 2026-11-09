@@ -11,6 +11,8 @@ export type ScrollRecord = {
   anchorOffset: number;
   /** The card you opened from here (focus and a soft tint on return). */
   opened: string | null;
+  /** That card's top edge relative to the box's top, in px: it is the card held in place on return. */
+  openedOffset?: number | null;
   areas: Record<string, { top: number; left: number }>;
 };
 

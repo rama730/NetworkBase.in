@@ -8,7 +8,7 @@ import { chooseAnchors, loadRecord, pickAnchor, saveRecord, type ScrollRecord } 
 /** How long to wait for the page to come back (a slow load shows its loading screen first). */
 const ARRIVE_WINDOW_MS = 5000;
 /** After it lands, how long the card is held in place while late rows and images settle. */
-const HOLD_WINDOW_MS = 1500;
+const HOLD_WINDOW_MS = 3000;
 const RETURNED_TINT_MS = 1000;
 
 const routeRoot = () => document.querySelector<HTMLElement>('#main-content [data-scroll-root="route"]');
@@ -24,7 +24,9 @@ function snapshot(root: HTMLElement, opened: string | null): ScrollRecord {
   document.querySelectorAll<HTMLElement>("#main-content [data-scroll-memory]").forEach((el) => {
     areas[el.dataset.scrollMemory ?? ""] = { top: el.scrollTop, left: el.scrollLeft };
   });
-  return { top: root.scrollTop, ...chooseAnchors(items, 0), opened, areas };
+  const openedEl = opened ? byRestoreId(root, opened) : null;
+  const openedOffset = openedEl ? openedEl.getBoundingClientRect().top - box.top : null;
+  return { top: root.scrollTop, ...chooseAnchors(items, 0), opened, openedOffset, areas };
 }
 
 /** Bring the page back to where you were: the remembered card at the same spot, inner areas, focus. */
@@ -41,8 +43,21 @@ function restore(record: ScrollRecord) {
   const stop = () => { stopped = true; };
   const inputs = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
   inputs.forEach((type) => window.addEventListener(type, stop, { passive: true, capture: true, once: true }));
+  // Content that changes size after you come back is corrected before the browser paints it, so the card
+  // never visibly jumps for a frame.
+  let watched: HTMLElement | null = null;
+  const realign = () => { if (!stopped) { const root = routeRoot(); if (root) align(root); } };
+  const resized = new ResizeObserver(realign);
+  // A list that swaps in new rows (the feed's first rows hand over to the full list) is caught too.
+  const added = new MutationObserver(() => {
+    const root = routeRoot();
+    if (root) Array.from(root.children).forEach((child) => resized.observe(child));
+    realign();
+  });
   const done = () => {
     restoring = false;
+    resized.disconnect();
+    added.disconnect();
     inputs.forEach((type) => window.removeEventListener(type, stop, { capture: true }));
   };
 
@@ -63,27 +78,44 @@ function restore(record: ScrollRecord) {
     window.setTimeout(() => opened.removeAttribute("data-returned"), RETURNED_TINT_MS);
   };
 
+  /** One correction: the remembered card back at its spot. Returns whether a card was found to line up. */
+  const align = (root: HTMLElement) => {
+    const tallEnough = root.scrollHeight - root.clientHeight >= record.top - 1;
+    // The card you opened is the one held in place: cards above it can still change height after you
+    // come back (the first visit's feed settles late), and lining up the top card let it drift.
+    const openedEl = record.opened && record.openedOffset != null ? byRestoreId(root, record.opened) : null;
+    // Otherwise the card that was at the top, once drawn. A later one only when the list is long enough
+    // and the first is still missing (deleted meanwhile, R10).
+    const first = record.anchors[0] && byRestoreId(root, record.anchors[0]) ? record.anchors[0] : null;
+    const anchor = openedEl ? record.opened : first ?? (tallEnough ? pickAnchor(record.anchors.slice(1), (id) => Boolean(byRestoreId(root, id))) : null);
+    if (anchor) {
+      const el = byRestoreId(root, anchor)!;
+      const want = openedEl ? record.openedOffset! : anchor === first ? record.anchorOffset : 0;
+      const delta = el.getBoundingClientRect().top - root.getBoundingClientRect().top - want;
+      if (Math.abs(delta) > 1) root.scrollTop += delta;
+    } else if (Math.abs(root.scrollTop - record.top) > 1) {
+      // Not drawn yet: the pixel position makes lazy lists draw that region.
+      root.scrollTop = record.top;
+    }
+    return { found: anchor !== null, tallEnough };
+  };
+
   const step = () => {
     const root = routeRoot();
     const now = performance.now();
     if (stopped || (settled ? now - settledAt > HOLD_WINDOW_MS : now - start > ARRIVE_WINDOW_MS)) return done();
     if (root) {
-      const tallEnough = root.scrollHeight - root.clientHeight >= record.top - 1;
-      // The card that was at the top, once drawn. A later one only when the list is long enough and
-      // the first is still missing (deleted meanwhile, R10).
-      const first = record.anchors[0] && byRestoreId(root, record.anchors[0]) ? record.anchors[0] : null;
-      const anchor = first ?? (tallEnough ? pickAnchor(record.anchors.slice(1), (id) => Boolean(byRestoreId(root, id))) : null);
-      if (anchor) {
-        const el = byRestoreId(root, anchor)!;
-        const delta = el.getBoundingClientRect().top - root.getBoundingClientRect().top - (anchor === first ? record.anchorOffset : 0);
-        if (Math.abs(delta) > 1) root.scrollTop += delta;
-      } else if (Math.abs(root.scrollTop - record.top) > 1) {
-        // Not drawn yet: the pixel position makes lazy lists draw that region.
-        root.scrollTop = record.top;
+      if (watched !== root) {
+        resized.disconnect();
+        added.disconnect();
+        watched = root;
+        Array.from(root.children).forEach((child) => resized.observe(child));
+        added.observe(root, { childList: true, subtree: true });
       }
+      const { found, tallEnough } = align(root);
       stable = Math.abs(root.scrollTop - lastTop) < 1 ? stable + 1 : 0;
       lastTop = root.scrollTop;
-      const reached = anchor !== null || tallEnough;
+      const reached = found || tallEnough;
       // Keep correcting through the window (a background refresh may add rows above), settle once.
       if (stable >= 2 && reached && !settled) settle(root);
     }
