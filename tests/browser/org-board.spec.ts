@@ -24,8 +24,9 @@ test.beforeAll(async () => {
       export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:null,rows:[{masterId:'master-1',title:'Array lab',dueDate:null,status:'open',submissionType:'file',reviewRequired:true,teams:false,counts,mine:null}]});
       export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[{id:'co1',name:'CO1',status:'active',endDate:'2026-12-04T18:29:00.000Z'}],teamAssignments:[],admins:[],defaults:{reviewRequired:true,lateRule:'until',dueTime:'17:00'}});
       export const createAssignmentAction=async(input)=>{window.created=input;return {success:true,copies:2,masterId:'m-new'}};
+      export const autoMakeGroupsAction=async(_o,ids,size,opts)=>{window.autoArgs={ids,size,opts};const n=opts&&opts.teams?opts.teams:Math.max(1,Math.floor(ids.length/size));const g=Array.from({length:n},()=>[]);ids.forEach((id,i)=>g[i%n].push(id));return {success:true,groups:g}};
       export const readAssignmentForReuseAction=async()=>({success:true,form:{title:'Array lab',description:'Implement a dynamic array',submissionType:'link',reviewRequired:true,lateRule:'always',lateAfterMinutes:15,steps:['Push','Pop'],target:{mode:'everyone'},materials:[],dueDate:null}});`,
-    '@/app/actions/organizations': `export const listOrgRosterAction=async()=>[{userId:'rama',name:'Rama',username:'rama',avatarUrl:null,title:null,role:'member',projectHint:null},{userId:'asha',name:'Asha',username:'asha',avatarUrl:null,title:null,role:'member',projectHint:null}];`,
+    '@/app/actions/organizations': `export const listOrgRosterAction=async()=>[{userId:'rama',name:'Rama',username:'rama',avatarUrl:null,title:null,role:'member',projectHint:null},{userId:'asha',name:'Asha',username:'asha',avatarUrl:null,title:null,role:'member',projectHint:null},{userId:'ravi',name:'Ravi',username:'ravi',avatarUrl:null,title:null,role:'member',projectHint:null},{userId:'meena',name:'Meena',username:'meena',avatarUrl:null,title:null,role:'member',projectHint:null},{userId:'teach',name:'Ms Rao',username:'rao',avatarUrl:null,title:'Teacher',role:'owner',projectHint:null}];`,
     '@/app/actions/workspace': `export const fetchWorkspaceTasksAction=async(_p,_n,_c,scope)=>({success:true,tasks:scope==='mine'?[]:window.boardTasks.filter((t)=>scope!=='sprint'||t.sprintId),nextCursor:undefined,hasMore:false});
       export const readBoardCountsAction=async()=>{window.countCalls++;return {success:true,counts:JSON.parse(JSON.stringify(window.counts))}};`,
     '@/app/actions/moderation': `export const moderatedItemsAction=async()=>[];`,
@@ -76,7 +77,7 @@ test('board/review report §4: Use again on an assignment\'s card opens New on i
   const dialog = page.getByRole('dialog', { name: 'New' });
   await expect(dialog.getByRole('tab', { name: 'Assignment' })).toHaveAttribute('aria-selected', 'true');
   await expect(dialog.getByRole('textbox', { name: /Assignment title/ })).toHaveValue('Array lab');
-  await expect(dialog.getByRole('button', { name: 'Publish to 2' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Publish to 4' })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'New assignment' })).toHaveCount(0);
 });
 
@@ -201,7 +202,7 @@ test('assignment form redesign: the Assignment tab is laid out like Task, and a 
   for (const heading of ['Basics', 'Who gets it', 'Due and late work', 'Hand-in and review', 'Steps and materials']) await expect(dialog.getByText(heading, { exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible();
   // Nothing filled in: each field says what it needs, under itself.
-  await dialog.getByRole('button', { name: 'Publish to 2' }).click();
+  await dialog.getByRole('button', { name: 'Publish to 4' }).click();
   await expect(dialog.getByText('Add a title.')).toBeVisible();
   await expect(dialog.getByText('Pick a due date.')).toBeVisible();
   // Late work counted from the due date isn't flagged on its own.
@@ -225,7 +226,7 @@ test('assignment form redesign: the Assignment tab is laid out like Task, and a 
   await expect(dialog.getByRole('checkbox', { name: 'Also share in #general' })).toBeVisible();
   await dialog.getByRole('textbox', { name: /Assignment title/ }).fill('Lab 5: Graphs');
   await page.screenshot({ path: 'test-results/assignment-form.png' });
-  await dialog.getByRole('button', { name: 'Publish to 2' }).click();
+  await dialog.getByRole('button', { name: 'Publish to 4' }).click();
   await expect(dialog).toHaveCount(0);
   const created = await page.evaluate(() => (window as unknown as { created: { title: string; dueDate: string; lateUntil: string } }).created);
   expect(created.title).toBe('Lab 5: Graphs');
@@ -243,4 +244,49 @@ test('assignment form redesign: picking a sprint fills an empty due date with it
   await expect(dialog.getByRole('textbox', { name: 'Due, date' })).toHaveValue(/^2026-12-0[45]$/);
   await expect(dialog.getByRole('button', { name: 'End of sprint' })).toHaveAttribute('aria-pressed', 'true');
   await expect(dialog.getByRole('option', { name: 'When the sprint starts' })).toBeAttached();
+});
+
+test('teams picker: everyone starts outside a team; Auto-make by count; one step to place; problems on the card; leftovers get their own copy', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await open(page);
+  await page.getByRole('button', { name: 'New task' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New' });
+  await dialog.getByRole('tab', { name: 'Assignment' }).click();
+  await dialog.getByRole('combobox', { name: 'Assign to' }).selectOption('teams');
+  // Students only, already waiting; the teacher joins only with "Include TAs and teachers".
+  const pool = dialog.getByRole('group', { name: 'Not in a team' });
+  await expect(pool.getByRole('button')).toHaveText(['Rama', 'Asha', 'Ravi', 'Meena']);
+  await dialog.getByRole('checkbox', { name: 'Include TAs and teachers' }).check();
+  await expect(pool.getByRole('button', { name: 'Ms Rao' })).toBeVisible();
+  await dialog.getByRole('checkbox', { name: 'Include TAs and teachers' }).uncheck();
+  await expect(dialog.getByRole('combobox', { name: 'Copy teams from' })).toBeDisabled();
+  // Auto-make 2 teams from everyone eligible.
+  await dialog.getByRole('combobox', { name: 'Auto-make by' }).selectOption('teams');
+  await dialog.getByRole('spinbutton', { name: 'Number of teams' }).fill('2');
+  await dialog.getByRole('button', { name: 'Make', exact: true }).click();
+  const teams = dialog.getByRole('list', { name: 'Teams' });
+  await expect(teams.getByRole('listitem', { name: /^Team [AB]$/ })).toHaveCount(2);
+  expect(await page.evaluate(() => (window as unknown as { autoArgs: unknown }).autoArgs)).toEqual({ ids: ['rama', 'asha', 'ravi', 'meena'], size: 2, opts: { teams: 2, includeStaff: false } });
+  await expect(dialog.getByText('Everyone is in a team.')).toBeVisible();
+  await expect(dialog.getByText('2 teams · 4 people', { exact: true })).toBeVisible();
+  await expect(teams.getByText('Lead')).toHaveCount(2);
+  // The ⋯ menu: take someone out; they wait in the pool and, by default, get their own copy.
+  const teamA = teams.getByRole('listitem', { name: 'Team A' });
+  await teamA.getByRole('button', { name: 'Options for Ravi' }).click();
+  await page.getByRole('menuitem', { name: 'Take out of team' }).click();
+  await expect(pool.getByRole('button')).toHaveText(['Ravi']);
+  await expect(dialog.getByText('2 teams · 3 people · 1 on their own', { exact: true })).toBeVisible();
+  // Tick, then Add to a new team, in one step.
+  await pool.getByRole('button', { name: 'Ravi' }).click();
+  await dialog.getByRole('combobox', { name: 'Add the picked people to' }).selectOption('new');
+  await expect(teams.getByRole('textbox', { name: 'Team name' })).toHaveCount(3);
+  // An empty team and a duplicate name are said on the card; Publish says how many to fix.
+  await dialog.getByRole('button', { name: 'Empty team' }).click();
+  await teams.getByRole('textbox', { name: 'Team name' }).nth(1).fill('Team A');
+  await expect(dialog.getByText('Add someone or remove this team.')).toBeVisible();
+  await expect(dialog.getByText('Another team has this name.')).toHaveCount(2);
+  await expect(dialog.getByRole('button', { name: 'Fix 3 teams' })).toBeVisible();
+  await dialog.screenshot({ path: test.info().outputPath('teams-picker.png') });
+  expect(errors).toEqual([]);
 });

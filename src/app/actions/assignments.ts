@@ -1157,17 +1157,21 @@ export async function moveTeamMemberAction(masterId: string, userId: string, toC
  * Auto-make groups (report §25.7, §29.3, decision 64): a random split that quietly keeps blocked pairs apart. Blocks
  * are private, so this runs here and the composer only gets the groups back.
  */
-export async function autoMakeGroupsAction(orgId: string, userIds: string[], size: number): Promise<{ success: true; groups: string[][] } | Failure> {
+/**
+ * Auto-make (2026-11-09): by people per team (`size`) or by number of teams (`options.teams`); students only unless
+ * `options.includeStaff` (the form's "Include TAs and teachers").
+ */
+export async function autoMakeGroupsAction(orgId: string, userIds: string[], size: number, options: { teams?: number; includeStaff?: boolean } = {}): Promise<{ success: true; groups: string[][] } | Failure> {
     const viewer = await orgRole(orgId, 'read');
     const parsed = z.array(z.string().uuid()).max(2000).safeParse(userIds);
     if (!viewer || !orgCan(orgRoleOf(viewer.role), 'create_assignments') || !parsed.success) return DENIED;
     // Only this organization's members: the block graph of anyone else is never read (no cross-org probing).
     const ids = parsed.data.length ? (await db.select({ id: workspaceMembers.userId }).from(workspaceMembers)
-        .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.userId, [...new Set(parsed.data)]), eq(workspaceMembers.role, 'member')))).map((r) => r.id) : [];
+        .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.userId, [...new Set(parsed.data)]), inArray(workspaceMembers.role, options.includeStaff ? ['member', 'admin', 'owner'] : ['member'])))).map((r) => r.id) : [];
     const blocks = ids.length ? await db.execute<{ a: string; b: string }>(sql`
         SELECT blocker_id AS a, blocked_id AS b FROM user_blocks WHERE blocker_id IN ${ids} AND blocked_id IN ${ids}`) : [];
     const blocked = new Set(blocks.map((r) => [r.a, r.b].sort().join('|')));
-    const groups = splitIntoTeams(ids, Math.max(1, Math.trunc(size)), Math.random, (a, b) => blocked.has([a, b].sort().join('|')));
+    const groups = splitIntoTeams(ids, options.teams ? { teams: Math.max(1, Math.trunc(options.teams)) } : Math.max(1, Math.trunc(size)), Math.random, (a, b) => blocked.has([a, b].sort().join('|')));
     return { success: true, groups };
 }
 

@@ -49,7 +49,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { formatDistanceToNow } from '@/lib/utils/date'
-import { defaultFixBy, deleteAssignmentWarning, queueOrder, webLink, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
+import { defaultFixBy, deleteAssignmentWarning, queueOrder, teamProblems, teamsSummary, webLink, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
 import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
@@ -57,7 +57,7 @@ import { cn } from '@/lib/utils'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog, ReviewersPicker } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AssignmentRoster } from '@/components/organizations/AssignmentRoster'
 import { useReloadOnNotice } from '@/components/organizations/ReviewQueueParts'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
@@ -238,7 +238,13 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [peopleQuery, setPeopleQuery] = useState('')
     const [teams, setTeams] = useState<TeamBox[]>([])
     const [childIds, setChildIds] = useState<string[]>([])
-    const [teamSize, setTeamSize] = useState(3)
+    // Teams picker (2026-11-09): everyone eligible starts in "Not in a team"; Auto-make by team count or team size;
+    // a person's ⋯ menu makes them lead or moves them; people left out get their own copy unless that's switched off.
+    const [autoBy, setAutoBy] = useState<'teams' | 'size'>('size')
+    const [autoN, setAutoN] = useState(3)
+    const [includeStaff, setIncludeStaff] = useState(false)
+    const [poolPicked, setPoolPicked] = useState<string[]>([])
+    const [leftover, setLeftover] = useState<'own' | 'none'>('own')
     const [steps, setSteps] = useState<string[]>([])
     // Also share in #general (report §25.5): off by default.
     const [shareToGeneral, setShareToGeneral] = useState(false)
@@ -298,17 +304,23 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const lateUntil = lateOffset != null ? (dueLocal ? `${addDaysToDay(dueDay, lateOffset)}T${dueLocal.slice(11, 16)}` : '') : lateUntilLocal
     const repeatDays = repeatUntil && dueDay ? weeklyDays(dueDay, repeatUntil) : []
 
+    const pickable = roster.filter((p) => p.role !== 'viewer')
+    const query = peopleQuery.trim().toLowerCase()
+    const matches = (p: OrgRosterPerson) => !query || `${p.name} ${p.username ?? ''} ${p.title ?? ''}`.toLowerCase().includes(query)
+    const shownPeople = pickable.filter(matches)
+    // Teams: students, and staff when "Include TAs and teachers" is on; whoever isn't in a team waits in the pool.
+    const eligible = roster.filter((p) => p.role === 'member' || (includeStaff && (p.role === 'admin' || p.role === 'owner')))
     const placed = new Set(teams.flatMap((t) => t.people.map((p) => p.userId)))
-    const individuals = people.filter((id) => !placed.has(id))
+    const pool = eligible.filter((p) => !placed.has(p.userId))
+    const individuals = leftover === 'own' ? pool.map((p) => p.userId) : []
+    const problems = teamProblems(teams.map((t) => ({ name: t.name, size: t.people.length })))
+    const problemCount = problems.filter(Boolean).length
     const preview = mode === 'everyone' ? 'One assignment per member'
         : mode === 'role' ? 'One assignment per admin'
             : mode === 'people' ? `Creates ${people.length} ${people.length === 1 ? 'assignment' : 'assignments'}`
-                : mode === 'teams' ? `Creates ${teams.length + individuals.length} assignments: ${teams.length} team ${teams.length === 1 ? 'assignment' : 'assignments'} (${placed.size} people) + ${individuals.length} individual`
+                : mode === 'teams' ? teamsSummary(teams.length, placed.size, pool.length, leftover === 'own')
                     : mode === 'each_child' ? `Creates ${options.children.length} assignments · one per workspace`
                         : `Creates ${childIds.length} assignments · one per workspace`
-    const pickable = roster.filter((p) => p.role !== 'viewer')
-    const query = peopleQuery.trim().toLowerCase()
-    const shownPeople = query ? pickable.filter((p) => `${p.name} ${p.username ?? ''} ${p.title ?? ''}`.toLowerCase().includes(query)) : pickable
 
     // Board/review report §4: the button says what happens — "Publish to 60".
     const goesTo = mode === 'everyone' ? roster.filter((p) => p.role === 'member').length : mode === 'people' ? people.length
@@ -329,6 +341,8 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
         // A late-work date counted from the due date waits for the due date; it isn't missing on its own.
         if (lateRule === 'until' && !lateUntil && (lateOffset == null || dueLocal)) missing.lateUntil = 'Pick the last day late work is accepted.'
         if (when === 'date' && !publishLocal) missing.publishAt = 'Pick when to publish.'
+        if (mode === 'teams' && !teams.length) missing.teams = 'Make at least one team.'
+        else if (mode === 'teams' && problemCount) missing.teams = `Fix ${problemCount} ${problemCount === 1 ? 'team' : 'teams'} first.`
         setFieldErrors(missing)
         if (Object.keys(missing).length) return setAttempt((n) => n + 1)
         // Report §16.9: a past due date is allowed, after a check.
@@ -358,10 +372,24 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const copyTeamsFrom = async (masterId: string) => {
         const r = await readAssignmentTeamsAction(masterId)
         if (!r.success) return setError(r.error)
-        const boxes = r.teams.map((t) => ({ name: t.name, people: t.userIds.map((id) => roster.find((p) => p.userId === id)).filter((p): p is OrgRosterPerson => Boolean(p)), leadId: t.leadId }))
+        const boxes = r.teams.map((t) => ({ name: t.name, people: t.userIds.map((id) => pickable.find((p) => p.userId === id)).filter((p): p is OrgRosterPerson => Boolean(p)), leadId: t.leadId }))
             .filter((t) => t.people.length > 0).map((t) => ({ ...t, leadId: t.people.some((p) => p.userId === t.leadId) ? t.leadId : t.people[0]!.userId }))
+        // Staff on the earlier teams come along, so they count as in the picker.
+        if (boxes.some((t) => t.people.some((p) => p.role !== 'member'))) setIncludeStaff(true)
         setTeams(boxes)
-        setPeople((cur) => [...new Set([...cur, ...boxes.flatMap((t) => t.people.map((p) => p.userId))])])
+        setPoolPicked([])
+    }
+    const nextTeamName = (cur: TeamBox[]) => {
+        const taken = new Set(cur.map((t) => t.name.trim().toLowerCase()))
+        for (let i = 0; ; i += 1) { const name = `Team ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`; if (!taken.has(name.toLowerCase())) return name }
+    }
+    /** The picked people from the pool into team `to`, or into a new team. */
+    const addPicked = (to: number | 'new') => {
+        const chosen = pool.filter((p) => poolPicked.includes(p.userId))
+        if (!chosen.length) return
+        setTeams((cur) => to === 'new' ? [...cur, { name: nextTeamName(cur), people: chosen, leadId: chosen[0]!.userId }]
+            : cur.map((t, i) => (i === to ? { ...t, people: [...t.people, ...chosen], leadId: t.leadId ?? chosen[0]!.userId } : t)))
+        setPoolPicked([])
     }
     const moveBetweenTeams = (userId: string, from: number, to: number | null) => setTeams((cur) => {
         const person = cur[from]?.people.find((p) => p.userId === userId)
@@ -374,13 +402,16 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     })
 
     // Decision 64: made on the server, which quietly keeps blocked pairs apart.
-    const autoMake = () => void autoMakeGroupsAction(orgId, people, teamSize).then((r) => {
+    // Make (again) splits everyone eligible, replacing the teams on the form.
+    const autoMake = () => void autoMakeGroupsAction(orgId, eligible.map((p) => p.userId), autoN, { ...(autoBy === 'teams' ? { teams: autoN } : {}), includeStaff }).then((r) => {
         if (!r.success) return setError(r.error)
         const byId = new Map(roster.map((p) => [p.userId, p]))
         setTeams(r.groups.map((ids, i) => {
             const group = ids.map((id) => byId.get(id)).filter((p): p is OrgRosterPerson => Boolean(p))
             return { name: `Team ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`, people: group, leadId: group[0]?.userId ?? null }
         }))
+        setPoolPicked([])
+        clear('teams')
     })
 
     const pickDue = (local: string) => {
@@ -437,7 +468,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             </SelectWrap>
                         </Field>
                     </div>
-                    {mode === 'people' || mode === 'teams' ? (
+                    {mode === 'people' ? (
                         <div className="space-y-1.5">
                             <input type="search" value={peopleQuery} onChange={(e) => setPeopleQuery(e.target.value)} placeholder="Search people" aria-label="Search people" className={inputClassName(false)} />
                             <ul className="max-h-56 divide-y divide-border overflow-y-auto rounded-md border border-border" aria-label="People">
@@ -454,48 +485,107 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                         </div>
                     ) : null}
                     {mode === 'teams' ? (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
+                            {/* One row to make teams: Auto by count or size, Copy teams from, or an empty team. */}
                             <div className={cn('flex flex-wrap items-center gap-2', small)}>
-                                <Button type="button" size="sm" variant="outline" onClick={() => setTeams((cur) => [...cur, { name: `Team ${String.fromCharCode(65 + cur.length)}`, people: [], leadId: null }])}><Plus className="size-3.5" aria-hidden="true" />Add team</Button>
+                                <select value={autoBy} onChange={(e) => setAutoBy(e.target.value as typeof autoBy)} aria-label="Auto-make by" className="nb-select" data-size="sm">
+                                    <option value="teams">Auto: number of teams</option>
+                                    <option value="size">Auto: people per team</option>
+                                </select>
+                                <input type="number" min={1} max={500} value={autoN} onChange={(e) => setAutoN(Math.max(1, Math.min(500, Number(e.target.value) || 1)))}
+                                    aria-label={autoBy === 'teams' ? 'Number of teams' : 'People per team'} className={cn(inputClassName(false), 'h-8 w-16 font-mono')} />
+                                <Button type="button" size="sm" variant="outline" onClick={autoMake} disabled={eligible.length === 0}><Shuffle className="size-3.5" aria-hidden="true" />{teams.length ? 'Make again' : 'Make'}</Button>
                                 <span className="text-muted-foreground">or</span>
-                                <label className="flex items-center gap-1">Auto-make teams of <Input type="number" min={1} max={100} value={teamSize} onChange={(e) => setTeamSize(Number(e.target.value))} className="w-16" /></label>
-                                <Button type="button" size="sm" variant="outline" onClick={autoMake} disabled={people.length === 0}><Shuffle className="size-3.5" aria-hidden="true" />Make</Button>
-                                {options.teamAssignments?.length ? (
-                                    <select value="" aria-label="Copy teams from" className="nb-select" data-size="sm" onChange={(e) => { if (e.target.value) void copyTeamsFrom(e.target.value) }}>
-                                        <option value="">Copy teams from…</option>
-                                        {options.teamAssignments.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
-                                    </select>
+                                <select value="" aria-label="Copy teams from" className="nb-select" data-size="sm" disabled={!options.teamAssignments?.length} onChange={(e) => { if (e.target.value) void copyTeamsFrom(e.target.value) }}>
+                                    <option value="">{options.teamAssignments?.length ? 'Copy teams from…' : 'No earlier team assignments'}</option>
+                                    {(options.teamAssignments ?? []).map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+                                </select>
+                                <Button type="button" size="sm" variant="ghost" onClick={() => setTeams((cur) => [...cur, { name: nextTeamName(cur), people: [], leadId: null }])}><Plus className="size-3.5" aria-hidden="true" />Empty team</Button>
+                            </div>
+                            <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={includeStaff} onChange={(e) => setIncludeStaff(e.target.checked)} />Include TAs and teachers</label>
+
+                            {/* Not in a team: tick a few, then Add to a team, in one step. */}
+                            <div className="space-y-2 rounded-md border border-border p-2.5">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="nb-micro">Not in a team · {pool.length}</p>
+                                    <input type="search" value={peopleQuery} onChange={(e) => setPeopleQuery(e.target.value)} placeholder="Search people" aria-label="Search people" className={cn(inputClassName(false), 'h-8 w-48')} />
+                                </div>
+                                {pool.length ? (
+                                    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Not in a team">
+                                        {pool.filter(matches).map((p) => (
+                                            <button key={p.userId} type="button" className="nb-tag" aria-pressed={poolPicked.includes(p.userId)}
+                                                onClick={() => setPoolPicked((cur) => cur.includes(p.userId) ? cur.filter((id) => id !== p.userId) : [...cur, p.userId])}>{p.name}</button>
+                                        ))}
+                                        {query && !pool.some(matches) ? <span className="text-xs text-muted-foreground">No one here matches “{peopleQuery.trim()}”.</span> : null}
+                                    </div>
+                                ) : <p className="text-xs text-muted-foreground">{eligible.length ? 'Everyone is in a team.' : 'No students yet.'}</p>}
+                                {poolPicked.length ? (
+                                    <div className={cn('flex flex-wrap items-center gap-2', small)}>
+                                        <span>Add {poolPicked.length} to</span>
+                                        <select value="" aria-label="Add the picked people to" className="nb-select" data-size="sm" onChange={(e) => { const v = e.target.value; if (v) addPicked(v === 'new' ? 'new' : Number(v)) }}>
+                                            <option value="">Pick a team…</option>
+                                            {teams.map((t, i) => <option key={i} value={String(i)}>{t.name || 'Unnamed team'}</option>)}
+                                            <option value="new">A new team</option>
+                                        </select>
+                                        <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setPoolPicked([])}>Clear</button>
+                                    </div>
                                 ) : null}
                             </div>
-                            {teams.map((team, ti) => (
-                                <div key={ti} className="rounded-md border border-border p-2">
-                                    <div className="flex items-center gap-2">
-                                        <Input value={team.name} onChange={(e) => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, name: e.target.value } : t)))} maxLength={60} className="h-8 w-40" aria-label="Team name" />
-                                        <span className="text-xs text-muted-foreground">{team.people.length} people</span>
-                                        <button type="button" aria-label={`Remove ${team.name}`} className="nb-icon-button ml-auto size-7" onClick={() => setTeams((cur) => cur.filter((_, i) => i !== ti))}><X className="size-3.5" aria-hidden="true" /></button>
-                                    </div>
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {team.people.map((p) => (
-                                            <span key={p.userId} className="inline-flex items-center gap-1 rounded-md border border-border bg-card py-0.5 pl-1 pr-0.5 text-[12px]">
-                                                <button type="button" title="Make team lead" aria-pressed={team.leadId === p.userId} aria-label={`${p.name}, ${team.leadId === p.userId ? 'team lead' : 'make team lead'}`} className="inline-flex items-center gap-1 rounded-sm px-1 hover:bg-muted" onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: p.userId } : t)))}>{team.leadId === p.userId ? <Star className="size-3 fill-current text-primary" aria-hidden="true" /> : null}{p.name}</button>
-                                                <select value="" aria-label={`Move ${p.name} to…`} className="nb-select" data-size="sm" onChange={(e) => { const v = e.target.value; if (v) moveBetweenTeams(p.userId, ti, v === 'none' ? null : Number(v)) }}>
-                                                    <option value="">Move to…</option>
-                                                    {teams.map((t, i) => (i === ti ? null : <option key={i} value={String(i)}>{t.name}</option>))}
-                                                    <option value="none">Not in a team</option>
-                                                </select>
-                                            </span>
-                                        ))}
-                                        <select value="" aria-label={`Add to ${team.name}`} className="nb-select" data-size="sm" onChange={(e) => {
-                                            const person = roster.find((p) => p.userId === e.target.value)
-                                            if (person) setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, people: [...t.people, person], leadId: t.leadId ?? person.userId } : t)))
-                                        }}>
-                                            <option value="">+ Add person</option>
-                                            {roster.filter((p) => people.includes(p.userId) && !placed.has(p.userId)).map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
-                                        </select>
-                                    </div>
+
+                            {/* Team cards: the name, the people with their photos, LEAD on the lead, and a ⋯ menu each. */}
+                            {teams.length ? (
+                                <div className="grid gap-2 sm:grid-cols-2" aria-label="Teams" role="list">
+                                    {teams.map((team, ti) => {
+                                        const problem = problems[ti]
+                                        const lead = team.leadId ?? team.people[0]?.userId ?? null
+                                        return (
+                                            <div key={ti} role="listitem" aria-label={team.name || 'Unnamed team'} className={cn('rounded-md border p-2.5', problem ? 'border-destructive' : 'border-border')}>
+                                                <div className="flex items-center gap-2">
+                                                    <input value={team.name} onChange={(e) => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, name: e.target.value } : t)))} maxLength={60}
+                                                        aria-label="Team name" aria-invalid={Boolean(problem)} className={cn(inputClassName(Boolean(problem)), 'h-8 min-w-0 flex-1')} />
+                                                    <span className="shrink-0 font-mono text-xs text-muted-foreground">{team.people.length}</span>
+                                                    <button type="button" aria-label={`Remove ${team.name || 'this team'}`} className="nb-icon-button size-7" onClick={() => setTeams((cur) => cur.filter((_, i) => i !== ti))}><X className="size-3.5" aria-hidden="true" /></button>
+                                                </div>
+                                                {problem ? <p role="alert" className="mt-1 text-xs text-destructive">{problem}</p> : null}
+                                                <ul className="mt-2 space-y-1">
+                                                    {team.people.map((p) => (
+                                                        <li key={p.userId} className={cn('flex items-center gap-2 text-[13px]', query && (matches(p) ? 'font-semibold text-foreground' : 'text-muted-foreground'))}>
+                                                            <UserAvatar identity={{ id: p.userId, fullName: p.name, username: p.username, avatarUrl: p.avatarUrl }} size={20} />
+                                                            <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                                                            {lead === p.userId ? <span className="nb-status shrink-0" data-status="active">Lead</span> : null}
+                                                            <DropdownMenu modal={false}>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <button type="button" aria-label={`Options for ${p.name}`} className="nb-icon-button size-6 shrink-0"><MoreHorizontal className="size-3.5" aria-hidden="true" /></button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    {lead !== p.userId ? <DropdownMenuItem onSelect={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: p.userId } : t)))}>Make lead</DropdownMenuItem> : null}
+                                                                    {teams.length > 1 ? (
+                                                                        <DropdownMenuSub>
+                                                                            <DropdownMenuSubTrigger>Move to</DropdownMenuSubTrigger>
+                                                                            <DropdownMenuSubContent>
+                                                                                {teams.map((t, i) => (i === ti ? null : <DropdownMenuItem key={i} onSelect={() => moveBetweenTeams(p.userId, ti, i)}>{t.name || 'Unnamed team'}</DropdownMenuItem>))}
+                                                                            </DropdownMenuSubContent>
+                                                                        </DropdownMenuSub>
+                                                                    ) : null}
+                                                                    <DropdownMenuItem onSelect={() => moveBetweenTeams(p.userId, ti, null)}>Take out of team</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
-                            ))}
-                            {individuals.length > 0 ? <p className="text-xs text-muted-foreground">Not in a team (own assignment): {roster.filter((p) => individuals.includes(p.userId)).map((p) => p.name).join(', ')}</p> : null}
+                            ) : null}
+                            {fieldErrors.teams ? <p role="alert" className="text-xs text-destructive">{fieldErrors.teams}</p> : null}
+
+                            {/* People left out: their own copy (the default), or none. */}
+                            <fieldset className={cn('flex flex-wrap items-center gap-x-4 gap-y-1', small)}>
+                                <legend className="mb-1 font-medium">People not in a team</legend>
+                                <label className="flex items-center gap-1.5"><input type="radio" className="nb-radio" name="team-leftover" checked={leftover === 'own'} onChange={() => setLeftover('own')} />Get their own copy</label>
+                                <label className="flex items-center gap-1.5"><input type="radio" className="nb-radio" name="team-leftover" checked={leftover === 'none'} onChange={() => setLeftover('none')} />Don’t get it</label>
+                            </fieldset>
                         </div>
                     ) : null}
                     {mode === 'children' ? (
@@ -643,7 +733,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                 <button type="button" onClick={onDone} disabled={pending} className={FORM_SECONDARY_CLASS}>Cancel</button>
                 <button type="button" disabled={pending} onClick={() => save()} className={FORM_PRIMARY_CLASS}>
                     {/* Report §44.3: publishing to many takes a few seconds, so it says so. */}
-                    {pending ? (when === 'now' ? 'Publishing…' : 'Saving…') : when === 'now' ? (goesTo ? `Publish to ${goesTo}` : 'Publish') : when === 'draft' ? 'Save as draft' : 'Schedule'}
+                    {pending ? (when === 'now' ? 'Publishing…' : 'Saving…') : mode === 'teams' && problemCount ? `Fix ${problemCount} ${problemCount === 1 ? 'team' : 'teams'}` : when === 'now' ? (goesTo ? `Publish to ${goesTo}` : 'Publish') : when === 'draft' ? 'Save as draft' : 'Schedule'}
                 </button>
             </div>
             <ConfirmDialog open={lateAsk} onOpenChange={setLateAsk} title="The due date has passed" description="Publish it as already late?"

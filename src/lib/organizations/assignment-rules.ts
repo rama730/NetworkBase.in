@@ -94,14 +94,34 @@ export function canStillSubmit(settings: AssignmentSettings, dueDate: Date | nul
   return false;
 }
 
-/** "Auto-make teams": a random split into teams of about `size`, sizes within one of each other. */
-export function splitIntoTeams<T>(people: T[], size: number, random: () => number = Math.random, apart: (a: T, b: T) => boolean = () => false): T[][] {
+/**
+ * Teams picker (2026-11-09): what's wrong with each team before Publish — empty, unnamed, or a name another team has.
+ * The server refuses the same things; this says so on the card first.
+ */
+export function teamProblems(teams: Array<{ name: string; size: number }>): Array<string | null> {
+  const names = teams.map((t) => t.name.trim().toLowerCase());
+  return teams.map((team, i) => !team.size ? "Add someone or remove this team."
+    : !names[i] ? "Give this team a name."
+      : names.indexOf(names[i]!) !== i || names.lastIndexOf(names[i]!) !== i ? "Another team has this name." : null);
+}
+
+/** "3 teams · 8 people · 4 on their own" (or "· 4 not getting it"). */
+export function teamsSummary(teams: number, placed: number, leftover: number, leftoverGetsOwn: boolean) {
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  return [plural(teams, "team", "teams"), plural(placed, "person", "people"), leftover ? `${leftover} ${leftoverGetsOwn ? "on their own" : "not getting it"}` : null].filter(Boolean).join(" · ");
+}
+
+/**
+ * "Auto-make teams": a random split into teams of about `size`, or into `{ teams }` teams (2026-11-09: "10 teams" as
+ * well as "3 people each"), sizes within one of each other.
+ */
+export function splitIntoTeams<T>(people: T[], size: number | { teams: number }, random: () => number = Math.random, apart: (a: T, b: T) => boolean = () => false): T[][] {
   if (people.length === 0) return [];
   const shuffled = [...people]
     .map((person) => ({ person, key: random() }))
     .sort((a, b) => a.key - b.key)
     .map((entry) => entry.person);
-  const count = Math.max(1, Math.floor(shuffled.length / Math.max(1, size)));
+  const count = typeof size === "number" ? Math.max(1, Math.floor(shuffled.length / Math.max(1, size))) : Math.max(1, Math.min(shuffled.length, Math.trunc(size.teams)));
   const cap = Math.ceil(shuffled.length / count);
   const teams: T[][] = Array.from({ length: count }, () => []);
   // Each person joins the smallest team, skipping one that holds someone they must stay apart from (decision 64:

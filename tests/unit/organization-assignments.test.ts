@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { canStillSubmit, copyState, lateWorkLabel, splitIntoTeams } from "../../src/lib/organizations/assignment-rules";
+import { canStillSubmit, copyState, lateWorkLabel, splitIntoTeams, teamProblems, teamsSummary } from "../../src/lib/organizations/assignment-rules";
 
 // Report §16.3: Missing and Late are derived from the due date and submission time, never stored.
 const now = new Date("2026-11-10T12:00:00Z");
@@ -42,6 +42,15 @@ test("auto-make teams: sizes stay within one of each other and everyone is place
   assert.deepEqual(teams.map((t) => t.length).sort(), [3, 3, 4]);
   assert.deepEqual(teams.flat().sort(), [...people].sort());
   assert.deepEqual(splitIntoTeams(["a", "b"], 5, () => 0.5), [["a", "b"]]);
+});
+
+test("auto-make by number of teams: exactly that many, sizes within one, never more teams than people", () => {
+  const people = Array.from({ length: 9 }, (_, i) => `p${i}`);
+  const teams = splitIntoTeams(people, { teams: 4 }, () => 0.5);
+  assert.equal(teams.length, 4);
+  assert.deepEqual(teams.map((t) => t.length).sort(), [2, 2, 2, 3]);
+  assert.deepEqual(teams.flat().sort(), [...people].sort());
+  assert.equal(splitIntoTeams(["a", "b"], { teams: 5 }, () => 0.5).length, 2);
 });
 
 test("report §19.3 and §42.12: one rule for every write to assignment work", async () => {
@@ -127,4 +136,12 @@ test("security review: only http and https hand-in links are ever links", async 
   assert.equal(webLink("data:text/html,hi"), null);
   assert.equal(webLink("https://example.com/a"), "https://example.com/a");
   assert.equal(webLink("not a url"), null);
+});
+
+test("teams picker: each team's problem is said on its card, and the summary reads plainly", () => {
+  assert.deepEqual(teamProblems([{ name: "Team A", size: 0 }, { name: " ", size: 2 }, { name: "Team B", size: 1 }, { name: "team b", size: 3 }, { name: "Team C", size: 2 }]),
+    ["Add someone or remove this team.", "Give this team a name.", "Another team has this name.", "Another team has this name.", null]);
+  assert.equal(teamsSummary(3, 8, 4, true), "3 teams · 8 people · 4 on their own");
+  assert.equal(teamsSummary(1, 1, 2, false), "1 team · 1 person · 2 not getting it");
+  assert.equal(teamsSummary(2, 6, 0, true), "2 teams · 6 people");
 });

@@ -150,3 +150,20 @@ test("N50: hiding a shared post can be undone, and share, hide and show each cou
   const [row] = await sql<{ hidden: Date | null }[]>`SELECT hidden_from_org_at AS hidden FROM workspace_updates WHERE id = ${post!.id}`;
   assert.equal(row!.hidden, null);
 });
+
+test("teams picker: Auto-make by number of teams, students only unless staff are included", async () => {
+  const o = await org();
+  const assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
+  const students = [await user(), await user(), await user(), await user(), await user()];
+  const ta = await user();
+  for (const s of students) await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${o.id}, ${s}, 'member')`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${o.id}, ${ta}, 'admin')`;
+  viewerId = o.owner;
+  const everyone = [...students, ta, o.owner];
+  const two = await assignments.autoMakeGroupsAction(o.id, everyone, 3, { teams: 2 });
+  assert.ok(two.success);
+  assert.equal(two.success && two.groups.length, 2);
+  assert.deepEqual(two.success && two.groups.flat().sort(), [...students].sort(), "staff left out by default");
+  const withStaff = await assignments.autoMakeGroupsAction(o.id, everyone, 3, { includeStaff: true });
+  assert.deepEqual(withStaff.success && withStaff.groups.flat().sort(), [...everyone].sort());
+});
