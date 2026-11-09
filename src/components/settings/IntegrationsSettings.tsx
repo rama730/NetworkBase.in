@@ -37,6 +37,7 @@ import type { AuthConnectionMethod, ExtensionSessionData, ExtensionSessionsData,
 import { copyText } from "@/lib/clipboard";
 import { TerminalBlock } from "@/components/ui/terminal-block";
 import { PersonalTokenForm, scopeWords } from "@/components/settings/PersonalTokenForm";
+import { AgentActivity } from "@/components/settings/AgentActivity";
 
 const PROVIDER_ICONS: Partial<Record<IntegrationsAuthProvider, string>> = {
   google: "/skill-icons/v1/logos-google-icon.svg",
@@ -190,6 +191,7 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
                 {session.lastCountry ? ` · last used from ${session.lastCountry}` : ""}
                 {` · expires ${formatDistanceToNow(new Date(session.expiresAt), { addSuffix: true })}`}
               </p>
+              {session.tokenType === "agent" ? <AgentActivity sessionId={session.id} /> : null}
             </>
           )}
         </div>

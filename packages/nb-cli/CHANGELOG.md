@@ -40,6 +40,10 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 - `nb token list|revoke`, `nb whoami --all`, `nb logout --all`.
 - Tokens are kept in the macOS Keychain, the Linux keyring or Windows-encrypted storage when available (`NB_CREDENTIAL_STORE=file` keeps the file).
 - `--confirm <token>` sends the yes for a change the server held for one.
+- `nb inbox` shows your notifications as in the app (`--unread`, `read`, `open`); `--follow` waits for new ones and `--notify` also shows them as desktop notifications.
+- `nb watch` also pulls teammates' new versions as they land (`--no-pull` to only push); your edits are never overwritten.
+- Classes: `nb assignment list|view|pull|hand-in|question` with the app's late and lock rules and the assignment's AI policy; reviewers get `nb review list|view|approve|return|pull`.
+- `--fields`, a pager for long views (`--no-pager`), clickable links in terminals that support them, and server errors link to their entry on /docs/cli.
 
 ### Removed
 - The background auto-push process and `.networkbase/mirror`.

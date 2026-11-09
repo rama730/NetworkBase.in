@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -66,6 +66,18 @@ const exact = {
   },
   "GET /api/v1/assignments": (_req, state) => ({ data: { copies: state.assignments.map((a) => ({ id: a.id, number: a.number, title: a.title, org: "Physics 101", orgId: WORKSPACE_ID, workspaceId: WORKSPACE_ID, due: a.due, state: a.state, late: false, submissionType: a.submissionType, aiPolicy: a.aiPolicy, team: null })) } }),
   "GET /api/v1/reviews": (req, state) => (req.query.get("org") ? { data: { rows: state.assignments.filter((a) => a.state === "submitted").map((a) => ({ kind: "copy", mine: true, copyId: a.id, masterId: a.id, title: a.title, who: "Sam Lee", submittedBy: "u2", submittedAt: now(), late: false, href: "", projectId: WORKSPACE_ID, updatedAt: now(), version: 1, link: null, text: null, note: null, files: [], versions: [] })), total: 1, nextCursor: null } } : fail(400, "BAD_REQUEST", "Which organization?")),
+  "GET /api/v1/inbox": (_req, state) => ({ data: { items: state.inbox, nextCursor: null, hasMore: false, unreadCount: state.inbox.filter((i) => !i.readAt).length, unreadImportantCount: 0 } }),
+  "POST /api/v1/inbox/read": (req, state) => {
+    const ids = req.body.all ? state.inbox.filter((i) => !i.readAt).map((i) => i.id) : req.body.ids;
+    for (const i of state.inbox) if (ids.includes(i.id)) i.readAt = now();
+    return { data: { read: ids.length } };
+  },
+  "GET /api/v1/events": async (req, state) => {
+    // Hands out queued events once; with none, waits a little like the real long-poll.
+    if (!state.events.length) await new Promise((r) => setTimeout(r, 150));
+    const next = state.events.shift() ?? { notifications: [], files: [] };
+    return { data: { cursor: now(), ...next } };
+  },
   "GET /api/v1/tokens": (req) => {
     const current = String(req.headers.authorization ?? "").replace(/^Bearer /, "");
     return { data: { tokens: [
@@ -281,7 +293,7 @@ const patterns = [
  */
 export async function startFakeServer({ routes = {}, fault = {} } = {}) {
   /** @type {FakeState} */
-  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" }, undos: new Map(), undone: [], questions: [], autoAnswer: /** @type {string | null} */ (null), sessionsEnded: 0, fileOps: [], fileComments: [], updates: [], assignments: [] };
+  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" }, undos: new Map(), undone: [], questions: [], autoAnswer: /** @type {string | null} */ (null), sessionsEnded: 0, fileOps: [], fileComments: [], updates: [], assignments: [], inbox: [], events: [] };
   /** @type {FakeRequest[]} */
   const requests = [];
   const faults = new Map(Object.entries(fault));

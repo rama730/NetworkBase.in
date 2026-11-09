@@ -403,8 +403,67 @@
     },
     {
       "name": "watch",
-      "summary": "Push saves of tracked files as drafts (foreground)",
-      "usage": "nb watch",
+      "summary": "Push your saves as drafts; pull teammates' changes (foreground)",
+      "usage": "nb watch [--no-pull]",
+      "flags": {
+        "no-pull": {
+          "type": "boolean",
+          "describe": "Only push; don't pull other people's changes"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "inbox",
+      "summary": "Your notifications, as in the app",
+      "usage": "nb inbox [--unread] [--follow [--notify]]",
+      "flags": {
+        "unread": {
+          "type": "boolean",
+          "describe": "Only unread"
+        },
+        "follow": {
+          "type": "boolean",
+          "describe": "Keep waiting and print new ones"
+        },
+        "notify": {
+          "type": "boolean",
+          "describe": "With --follow: also a desktop notification"
+        }
+      },
+      "examples": [
+        "nb inbox --unread",
+        "nb inbox --follow --notify"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "inbox read",
+      "summary": "Mark inbox items read",
+      "usage": "nb inbox read <n…> | --all",
+      "flags": {
+        "all": {
+          "type": "boolean",
+          "describe": "Every unread item"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "inbox open",
+      "summary": "Open an inbox item in the browser",
+      "usage": "nb inbox open <n>",
       "flags": {},
       "examples": [],
       "exitCodes": [

@@ -63,6 +63,8 @@ Run `nb help` for the list and `nb help <command>` for flags and examples.
 | Tasks | `task list/count/view/create/edit/assign/start/stop/move/done/report/review/resubmit/delete/open/pull`, `subtask list/add/check/uncheck/edit/delete/move`, `comment list/add/resolve`, `sprint list/view` |
 | Docs | `doc list/view/edit/set`, `workspace list/view/open`, `member list`, `search`, `update post` |
 | Agents | `agent setup/status/remove`, `mcp`, `ask` |
+| Classes | `assignment list/view/pull/hand-in/question`, `review list/view/approve/return/pull` |
+| Inbox | `inbox [--unread] [--follow --notify]`, `inbox read/open` |
 
 ## Coming from 1.x
 

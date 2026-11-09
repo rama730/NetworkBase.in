@@ -140,6 +140,10 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/assignments/${ID}/question`), write: "task:write" },
   { pattern: route("/api/v1/reviews"), read: "task:read" },
   { pattern: route(`/api/v1/reviews/${ID}`), write: "task:review" },
+  // Your inbox and live changes (report A11.1–A11.2). Agents get file changes in their workspace, never the inbox.
+  { pattern: route("/api/v1/inbox"), read: "workspace:read" },
+  { pattern: route("/api/v1/inbox/read"), write: "workspace:read" },
+  { pattern: route("/api/v1/events"), read: "workspace:read", agent: "route" },
   // Your devices, agents and personal tokens (report A3.9). No agent mode: agent tokens can't see or revoke them.
   { pattern: route("/api/v1/tokens"), read: null },
   { pattern: route(`/api/v1/tokens/${ID}/revoke`), write: null },
