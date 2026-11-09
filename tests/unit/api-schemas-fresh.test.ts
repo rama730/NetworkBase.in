@@ -20,3 +20,8 @@ it("the CLI's exit codes agree with the error catalog", async () => {
   const cli = Object.fromEntries([...src.matchAll(/^ {2}([A-Z_]+): EXIT\.(\w+),$/gm)].map(([, code, kind]) => [code!, exits[kind!]!]));
   for (const [code, entry] of Object.entries(ERROR_CATALOG)) assert.equal(cli[code] ?? 1, entry.exit, `${code}: catalog says exit ${entry.exit}`);
 });
+
+it("src/lib/cli/commands.json matches the CLI's command table (the /docs/cli reference)", async () => {
+  const { helpData } = await import("../../packages/nb-cli/lib/args.mjs");
+  assert.deepEqual(JSON.parse(fs.readFileSync("src/lib/cli/commands.json", "utf8")), JSON.parse(JSON.stringify(helpData())));
+});

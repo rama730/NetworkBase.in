@@ -215,14 +215,6 @@ describe("Design & UX Hardening Contracts (Darkening & Upload Scenarios)", () =>
     process.cwd(),
     "src/components/workspaces/v2/explorer/ExplorerDialogsHost.tsx"
   );
-  const uploadModalPath = path.resolve(
-    process.cwd(),
-    "src/components/workspaces/v2/files-tab/upload/FilesTabUploadModal.tsx"
-  );
-  const taskUploadModalPath = path.resolve(
-    process.cwd(),
-    "src/components/workspaces/v2/tasks/components/TaskFileUploadModal.tsx"
-  );
   const mutationsPath = path.resolve(
     process.cwd(),
     "src/components/workspaces/v2/explorer/useExplorerMutations.ts"
@@ -249,24 +241,10 @@ describe("Design & UX Hardening Contracts (Darkening & Upload Scenarios)", () =>
     assert.match(source, /disabled=\{!canEdit \|\| !createDialog\.name\.trim\(\)\}/);
   });
 
-  it("FilesTabUploadModal uses transparent non-darkening backdrop overlay", () => {
-    const source = readFileSync(uploadModalPath, "utf-8");
-    assert.doesNotMatch(
-      source,
-      /bg-\[rgba\(13,17,20,0\.44\)\]/,
-      "Must not have harsh 0.44 dark overlay in FilesTabUploadModal"
-    );
-    assert.match(source, /overlayClassName="z-\[299\] bg-transparent backdrop-blur-none"/);
-  });
-
-  it("FilesTabUploadModal strictly disables upload button when no files are selected", () => {
-    const source = readFileSync(uploadModalPath, "utf-8");
-    assert.match(source, /fileList\.length === 0/);
-  });
-
-  it("TaskFileUploadModal strictly disables confirm button when no files are selected", () => {
-    const source = readFileSync(taskUploadModalPath, "utf-8");
-    assert.match(source, /disabled=\{files\.length === 0 \|\| \(intent === "version" && !versionNodeId\)\}/);
+  it("no upload pop-up remains (CLI report §19.2, A10 done means)", () => {
+    for (const gone of ["src/components/workspaces/v2/files-tab/upload/FilesTabUploadModal.tsx", "src/components/workspaces/v2/tasks/components/TaskFileUploadModal.tsx"]) {
+      assert.throws(() => readFileSync(path.resolve(process.cwd(), gone), "utf-8"), /ENOENT/);
+    }
   });
 
   it("useExplorerMutations guards openFolderUpload and uploadFilesDirectly with validation", () => {

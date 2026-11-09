@@ -81,16 +81,14 @@ import {
 } from "./FolderListRow";
 import { sortFolderListNodes } from "./sort";
 import styles from "./FolderList.module.css";
-import {
-  type FilesTabUploadConfirmResult,
-} from "../upload/FilesTabUploadModal";
+import { placeDrop } from "@/lib/files/place-drop";
+import { pastedFiles, resolveDropTarget } from "@/lib/files/drop-target";
 import { validateUploadSelection } from "@/lib/files/upload-validator";
 import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
 import { downloadWorkspaceNode } from "../file/downloadWorkspaceNode";
 import { downloadFile, workspaceExportUrl } from "@/lib/download";
 import { copyText } from "@/lib/clipboard";
 
-const FilesTabUploadModal = dynamic(() => import("../upload/FilesTabUploadModal").then((mod) => mod.FilesTabUploadModal), { ssr: false });
 const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
 const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
 const ExplorerDialogsHost = dynamic(() => import("../../explorer/ExplorerDialogsHost").then((mod) => mod.ExplorerDialogsHost), { ssr: false });
@@ -464,9 +462,6 @@ export function FolderListView({
 
   // ── Drag & Drop state (matching Task Panel UX) ─────────────────────
   const [isDragActive, setIsDragActive] = React.useState(false);
-  const [pendingUploadFiles, setPendingUploadFiles] = React.useState<File[] | null>(null);
-  const [targetDropFolderId, setTargetDropFolderId] = React.useState<string | null>(null);
-  const [isProcessingDrop, setIsProcessingDrop] = React.useState(false);
   const dragCounterRef = React.useRef(0);
 
   const queryClient = useQueryClient();
@@ -656,16 +651,47 @@ export function FolderListView({
           return;
         }
 
-        setTargetDropFolderId(folderId);
-        setPendingUploadFiles(validation.files);
+        void dropInto(validation.files, folderId);
       }).catch((error) => {
         toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t read dropped folder", "Couldn’t read dropped folder"));
       });
     };
 
-  // ── Desktop file drop wiring (opens modal with target folder) ──────────
+  // ── Drops and picks place files directly (CLI report §19.2): no pop-up ──────────
+  const folderPath = React.useCallback(
+    (id: string | null) => (id ? nodesById[id]?.path ?? "this folder" : "All files"),
+    [nodesById],
+  );
+  const dropInto = React.useCallback(
+    async (files: File[], targetFolderId: string | null) =>
+      placeDrop({
+        projectId,
+        parentId: targetFolderId,
+        where: folderPath(targetFolderId),
+        files,
+        uploadNew: (fresh, parentId) => uploadFilesDirectly(fresh, parentId),
+        onChanged: () => void loadFolderContent(folderId, "refresh"),
+      }),
+    [projectId, folderPath, uploadFilesDirectly, loadFolderContent, folderId],
+  );
+
+  // ⌘V / Ctrl+V with files or a screenshot: same as dropping on the folder you're viewing (A10.4).
+  React.useEffect(() => {
+    if (!canEditCurrentFolder) return;
+    const onPaste = (event: ClipboardEvent) => {
+      // An open task panel or dialog takes the paste instead.
+      if (document.querySelector("[role=dialog]")) return;
+      const files = pastedFiles(event);
+      if (!files) return;
+      event.preventDefault();
+      void dropInto(files, folderId);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [canEditCurrentFolder, dropInto, folderId]);
+
   const handleDesktopFileDrop = React.useCallback(
-    (files: File[], targetFolderId: string) => {
+    (files: File[], targetNodeId: string) => {
       if (!canEdit || files.length === 0) return;
       resetDragState();
       const validation = validateUploadSelection(files, {
@@ -675,80 +701,34 @@ export function FolderListView({
         if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
         return;
       }
-      setTargetDropFolderId(targetFolderId);
-      setPendingUploadFiles(validation.files);
-    },
-    [canEdit, resetDragState],
-  );
-
-  const handleConfirmDropUpload = React.useCallback(
-    async (result: FilesTabUploadConfirmResult) => {
-      const filesToUpload = result.files ?? pendingUploadFiles;
-      if (!filesToUpload || filesToUpload.length === 0) return;
-
-      if (result.intent === "version" && result.versionNodeId) {
-        setIsProcessingDrop(true);
-        try {
-          const file = filesToUpload[0]!;
-          const { saveFileRevision } = await import("@/hooks/useFileVersions");
-          const saveRes = await saveFileRevision({
-            projectId,
-            nodeId: result.versionNodeId,
-            file,
-            mode: "new_revision",
-          });
-          if (!saveRes.success) {
-            throw new Error(saveRes.error || "Couldn’t save new version");
-          }
-          toast.success(`Saved ${file.name} as a new version.`);
-          upsertNodes(projectId, [saveRes.node]);
-          await loadFolderContent(folderId, "refresh");
-        } catch (err) {
-          toast.error(feedbackError((err as Error).message || "Couldn’t save new version", "Couldn’t save new version"));
-        } finally {
-          setIsProcessingDrop(false);
-          setPendingUploadFiles(null);
-          resetDragState();
+      const node = nodesById[targetNodeId];
+      if (node?.type === "file") {
+        // A file row: one same-type file is a new version of it; anything else goes into its folder.
+        const target = resolveDropTarget(
+          { kind: "file", id: node.id, name: node.name, parentId: node.parentId ?? null, parentPath: folderPath(node.parentId ?? null), version: Number((node as { currentVersion?: number }).currentVersion ?? 1) },
+          validation.files,
+        );
+        if (target.kind === "version") {
+          const file = validation.files[0]!;
+          void (async () => {
+            const { saveFileRevision } = await import("@/hooks/useFileVersions");
+            const res = await saveFileRevision({ projectId, nodeId: node.id, file, mode: "new_revision" });
+            if (!res.success) { toast.error(feedbackError(res.error, "Couldn’t save the new version")); return; }
+            upsertNodes(projectId, [res.node]);
+            const previous = res.version.version - 1;
+            toast.success(`${node.name} · v${previous} → v${res.version.version}`, {
+              duration: 8_000,
+              action: { label: "Undo", onClick: () => void import("@/lib/files/place-drop").then(({ undoDrop }) => undoDrop(projectId, { created: [], versions: [{ nodeId: node.id, name: node.name, previous }], skipped: [] }, () => void loadFolderContent(folderId, "refresh"))) },
+            });
+          })();
+          return;
         }
+        void dropInto(validation.files, node.parentId ?? null);
         return;
       }
-
-      // Optimistic modal teardown: close immediately for non-version uploads
-      const target = result.targetFolderId ?? targetDropFolderId ?? folderId;
-      setPendingUploadFiles(null);
-      setTargetDropFolderId(null);
-      setIsProcessingDrop(false);
-      resetDragState();
-
-      // Background transfer & deterministic task linking without race conditions
-      uploadFilesDirectly(filesToUpload, target)
-        .then(async (createdNodes) => {
-          if (result.taskId && createdNodes.length > 0) {
-            const taskId = result.taskId;
-            const { linkNodeToTask } = await import("@/app/actions/files/links");
-            const linkAll = async (nodes: typeof createdNodes) => {
-              const failed: typeof createdNodes = [];
-              for (const node of nodes) {
-                try {
-                  await linkNodeToTask(taskId, node.id, { role: result.role, annotation: result.label });
-                } catch {
-                  failed.push(node);
-                }
-              }
-              window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId, taskId } }));
-              if (failed.length === 0) return;
-              toast.warning(`${failed.length} of ${nodes.length} uploaded file${nodes.length === 1 ? "" : "s"} could not be linked to the task.`, {
-                action: { label: "Retry", onClick: () => void linkAll(failed) },
-              });
-            };
-            await linkAll(createdNodes);
-          }
-        })
-        .catch((err) => {
-          toast.error(feedbackError((err as Error).message || "Couldn’t upload files", "Couldn’t upload files"));
-        });
+      void dropInto(validation.files, targetNodeId);
     },
-    [pendingUploadFiles, projectId, folderId, targetDropFolderId, uploadFilesDirectly, upsertNodes, loadFolderContent, resetDragState],
+    [canEdit, resetDragState, nodesById, folderPath, projectId, upsertNodes, loadFolderContent, folderId, dropInto],
   );
 
   // ── Toolbar Upload actions with rigorous selection validation ─────
@@ -764,11 +744,10 @@ export function FolderListView({
         if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
         return;
       }
-      setTargetDropFolderId(folderId);
-      setPendingUploadFiles(validation.files);
+      void dropInto(validation.files, folderId);
     };
     input.click();
-  }, [canEditCurrentFolder, folderId]);
+  }, [canEditCurrentFolder, folderId, dropInto]);
 
   const triggerFolderPicker = React.useCallback(() => {
     if (!canEditCurrentFolder) return;
@@ -783,11 +762,10 @@ export function FolderListView({
         if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
         return;
       }
-      setTargetDropFolderId(folderId);
-      setPendingUploadFiles(validation.files);
+      void dropInto(validation.files, folderId);
     };
     input.click();
-  }, [canEditCurrentFolder, folderId]);
+  }, [canEditCurrentFolder, folderId, dropInto]);
 
   // ── Stable row callbacks ──────────────────────────────────────────
   const handleToggleFavorite = React.useCallback(
@@ -1268,10 +1246,11 @@ export function FolderListView({
       />
 
       {/* Drag & Drop Visual Overlay */}
-      {isDragActive && !pendingUploadFiles && (
+      {isDragActive && (
         <div
-          role="dialog"
-          aria-label="Drop files to upload"
+          role="status"
+          aria-live="polite"
+          aria-label={`Upload to ${folderPath(folderId)}`}
           onClick={resetDragState}
           className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#FCF0EA]/75 dark:bg-[#D14E24]/10 backdrop-blur-xs border-2 border-dashed border-[#D14E24] rounded-[12px] cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] animate-in fade-in-50 duration-[130ms]"
         >
@@ -1289,37 +1268,13 @@ export function FolderListView({
             </button>
             <Upload className="size-8 text-[#D14E24] animate-none" />
             <p className="font-semibold text-sm text-foreground">
-              Drop files to upload
+              Upload to {folderPath(folderId)}
             </p>
             <p className="text-xs text-muted-foreground">
-              Categorize into workspace files, task references, or file versions
+              Files with the same name become new versions. Drop on a file for a new version of it.
             </p>
           </div>
         </div>
-      )}
-
-      {/* Upload & Categorization Modal */}
-      {pendingUploadFiles && (
-        <FilesTabUploadModal
-          projectId={projectId}
-          isOpen={true}
-          files={pendingUploadFiles}
-          currentFolderId={targetDropFolderId ?? folderId}
-          currentFolderName={
-            targetDropFolderId && targetDropFolderId !== folderId
-              ? (nodesById[targetDropFolderId]?.name ?? selectedNode?.name ?? "All files")
-              : (selectedNode ? selectedNode.name : "All files")
-          }
-          existingFiles={sortedChildren}
-          activeTaskId={workspace?.taskId ?? null}
-          isProcessing={isProcessingDrop}
-          onConfirm={handleConfirmDropUpload}
-          onCancel={() => {
-            setPendingUploadFiles(null);
-            setTargetDropFolderId(null);
-            resetDragState();
-          }}
-        />
       )}
 
       {/* TaskSearchPicker Dialog for Attach task action */}

@@ -13,15 +13,13 @@ import {
   type TaskCollectionEntry,
   type TaskFileGroup,
 } from "@/app/actions/files/collections";
-import dynamic from "next/dynamic";
 import { FolderListView } from "./folder/FolderListView";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import type { FilesTabUploadConfirmResult } from "./upload/FilesTabUploadModal";
+import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 
-const FilesTabUploadModal = dynamic(
-  () => import("./upload/FilesTabUploadModal").then((mod) => mod.FilesTabUploadModal),
-  { ssr: false }
-);
+/** Where picked files go: the task's own files folder, linked with a role (CLI report §19.2: drafts by default). */
+type TaskUploadTarget = { targetFolderId: string | null; taskId?: string; taskTitle?: string; role?: TaskFileRole; label?: string; files?: File[] };
+
 import { FilesViewsMenu, FilesHeaderSlot } from "./FilesHeader";
 import {
   DropdownMenu,
@@ -101,8 +99,6 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
 
   // Direct upload to task state
   const [targetUploadTask, setTargetUploadTask] = useState<{ id: string; title: string } | null>(null);
-  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[] | null>(null);
-  const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const directUploadInputRef = useRef<HTMLInputElement>(null);
 
   const [unlinkTarget, setUnlinkTarget] = useState<FolderListRowNode | null>(
@@ -296,17 +292,21 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
   // Direct upload picker triggers
   const handleDirectFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      setPendingUploadFiles(files);
+    if (files.length > 0 && targetUploadTask) {
+      // No pop-up: picked files are added to the task as drafts; the role chip changes it (report §19.2).
+      void (async () => {
+        const { getOrCreateTaskSystemFolderAction } = await import("@/app/actions/files/mutations");
+        const folder = await getOrCreateTaskSystemFolderAction(projectId, targetUploadTask.id).catch(() => null);
+        await handleConfirmUpload({ targetFolderId: folder, taskId: targetUploadTask.id, role: "working", files });
+      })();
     }
     e.target.value = "";
   };
 
-  const handleConfirmUpload = async (confirmResult: FilesTabUploadConfirmResult) => {
-    const filesToUpload = confirmResult.files ?? pendingUploadFiles;
+  const handleConfirmUpload = async (confirmResult: TaskUploadTarget) => {
+    const filesToUpload = confirmResult.files;
     if (!filesToUpload || filesToUpload.length === 0) return;
 
-    setIsProcessingUpload(true);
     try {
       const { buildWorkspaceFileKey } = await import("@/lib/storage/workspace-file-key");
       const { getBatchUploadUrls } = await import("@/app/actions/upload");
@@ -371,9 +371,8 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
       }
 
       toast.success(
-        filesToUpload.length === 1
-          ? `Uploaded ${filesToUpload[0]?.name ?? "file"} to task`
-          : `Uploaded ${filesToUpload.length} files to task`,
+        `Added ${filesToUpload.length === 1 ? filesToUpload[0]?.name ?? "1 file" : `${filesToUpload.length} files`} to ${confirmResult.taskTitle ?? targetUploadTask?.title ?? "the task"} as ${confirmResult.role === "deliverable" ? "final" : confirmResult.role === "reference" ? "reference" : "draft"}`,
+        { description: "Change a file’s role from its role chip." },
       );
 
       void queryClient.invalidateQueries({
@@ -387,8 +386,6 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
     } catch (err) {
       toast.error(feedbackError(err instanceof Error ? err.message : "Couldn’t upload file to task", "Couldn’t upload file to task"));
     } finally {
-      setIsProcessingUpload(false);
-      setPendingUploadFiles(null);
       setTargetUploadTask(null);
     }
   };
@@ -770,6 +767,25 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                       role="row"
                       data-testid="files-tab-task-group-row"
                       data-task-id={group.id}
+                      title={canEdit ? `Drop files here to add them to ${group.title} as drafts` : undefined}
+                      onDragOver={(e) => {
+                        if (!canEdit || !e.dataTransfer.types.includes("Files")) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "copy";
+                      }}
+                      onDrop={(e) => {
+                        // A task's row in Task files: the files are added to that task as drafts (CLI report §19.2).
+                        if (!canEdit || !e.dataTransfer.files.length) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const files = Array.from(e.dataTransfer.files);
+                        setTargetUploadTask({ id: group.id, title: group.title });
+                        void (async () => {
+                          const { getOrCreateTaskSystemFolderAction } = await import("@/app/actions/files/mutations");
+                          const folder = await getOrCreateTaskSystemFolderAction(projectId, group.id).catch(() => null);
+                          await handleConfirmUpload({ targetFolderId: folder, taskId: group.id, taskTitle: group.title, role: "working", files });
+                        })();
+                      }}
                       style={{
                         gridTemplateColumns: FOLDER_LIST_GRID_TEMPLATE,
                         minHeight: FOLDER_LIST_ROW_HEIGHT_PX,
@@ -982,26 +998,6 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
         </div>
       </>
     )}
-
-      {/* Direct upload modal scoped to target task */}
-      {pendingUploadFiles && targetUploadTask && (
-        <FilesTabUploadModal
-          projectId={projectId}
-          isOpen={true}
-          files={pendingUploadFiles}
-          currentFolderId={null}
-          currentFolderName="All files"
-          existingFiles={[]}
-          activeTaskId={targetUploadTask.id}
-          activeTaskTitle={targetUploadTask.title}
-          isProcessing={isProcessingUpload}
-          onConfirm={handleConfirmUpload}
-          onCancel={() => {
-            setPendingUploadFiles(null);
-            setTargetUploadTask(null);
-          }}
-        />
-      )}
 
       <ConfirmDialog
         open={!!unlinkTarget}

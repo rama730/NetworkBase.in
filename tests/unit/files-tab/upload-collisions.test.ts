@@ -35,3 +35,7 @@ test("explains the safe collision policy before an upload continues", () => {
     "Some uploaded items already exist. 1 existing folder will be reused and 2 existing files will be skipped. Continue?",
   );
 });
+
+test("folders merge into same-named folders without asking (CLI report A10.5)", () => {
+  assert.equal(getUploadCollisionMessage({ existingFiles: [], existingFolders: ["design"], folderIdsByPath: { design: "f1" } }), null);
+});

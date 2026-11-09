@@ -13,3 +13,6 @@ const write = (file: string, data: unknown) => {
 };
 write("public/api/v1/openapi.json", openApiDocument(version));
 write("packages/nb-cli/schema/api.json", cliSchemas());
+
+// The CLI's command table for /docs/cli (report A9.10): the docs list exactly what `nb help --json` lists.
+void import("../../packages/nb-cli/lib/args.mjs").then(({ helpData }) => write("src/lib/cli/commands.json", helpData()));

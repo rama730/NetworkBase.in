@@ -27,13 +27,13 @@ test("task files render reference, deliverable, and working sections without dup
 
 test("task file actions expose all safe role transitions", () => {
   const row = read("src/components/workspaces/v2/tasks/components/TaskFileRow.tsx");
-  const upload = read("src/components/workspaces/v2/tasks/components/TaskFileUploadModal.tsx");
+  const files = read("src/components/workspaces/v2/tasks/TaskDetailTabs/FilesTab.tsx");
 
   assert.match(row, /Mark as reference/);
   assert.match(row, /Mark as draft/);
   assert.match(row, /Mark as final/);
-  assert.match(upload, /Task reference/);
-  assert.match(upload, /UploadIntent = "reference" \| "working" \| "deliverable" \| "version"/);
+  // Drop bands replace the upload pop-up (CLI report §19.2).
+  assert.match(files, /"References" : role === "working" \? "Draft files" : "Final files"/);
 });
 
 test("the task detail surface refreshes after a role move", () => {

@@ -34,7 +34,8 @@ export function planUploadCopyNames(names: readonly string[], occupiedNames: rea
 export function getUploadCollisionMessage(summary: UploadCollisionSummary): string | null {
   const folderCount = summary.existingFolders.length;
   const fileCount = summary.existingFiles.length;
-  if (folderCount === 0 && fileCount === 0) return null;
+  // Folders merge into ones with the same name without asking (CLI report A10.5); only skipped files are worth a word.
+  if (fileCount === 0) return null;
 
   const parts: string[] = [];
   if (folderCount > 0) {

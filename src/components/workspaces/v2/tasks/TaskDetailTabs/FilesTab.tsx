@@ -12,10 +12,6 @@ import { TaskFilesActionMenu } from "@/components/workspaces/v2/tasks/components
 import { SingleAttachmentPicker } from "@/components/workspaces/v2/files-tab/picker/SingleAttachmentPicker";
 import { TaskFilesEmptyState } from "@/components/workspaces/v2/tasks/components/TaskFilesEmptyState";
 import { FileVersionHistoryDrawer } from "@/components/workspaces/v2/tasks/components/FileVersionHistoryDrawer";
-import {
-  TaskFileUploadModal,
-  type UploadIntent,
-} from "@/components/workspaces/v2/tasks/components/TaskFileUploadModal";
 import { cn } from "@/lib/utils";
 import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import {
@@ -23,8 +19,7 @@ import {
   type DroppedFolder,
 } from "@/lib/files/folder-drop";
 import { validateUploadSelection } from "@/lib/files/upload-validator";
-import { DropZoneOverlay } from "@/components/ui/drop-zone-overlay";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ROLE_WORDS, isOsJunk, pastedFiles, type DropRole } from "@/lib/files/drop-target";
 
 interface FilesTabProps {
   projectId: string;
@@ -80,42 +75,8 @@ export default function FilesTab({
   const [isDragActive, setIsDragActive] = useState(false);
   const [isProcessingDrop, setIsProcessingDrop] = useState(false);
   const [v3PickerOpen, setV3PickerOpen] = useState(false);
-  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[] | null>(
-    null,
-  );
-  const [pendingUploadFolders, setPendingUploadFolders] = useState<DroppedFolder[] | null>(null);
-  const [unreadableSkipDialog, setUnreadableSkipDialog] = useState<{
-    count: number;
-    shown: string[];
-    moreCount: number;
-    folders: DroppedFolder[];
-    looseFiles: File[];
-  } | null>(null);
+  const [hoverRole, setHoverRole] = useState<DropRole | null>(null);
   const dragCounterRef = useRef(0);
-
-  const proceedWithExtracted = useCallback(
-    (extracted: { folders: DroppedFolder[]; looseFiles: File[] }) => {
-      if (
-        extracted.folders.length === 0 &&
-        extracted.looseFiles.length === 0
-      ) {
-        return;
-      }
-      if (extracted.folders.length > 0 && onUploadFolders) {
-        setPendingUploadFolders(extracted.folders);
-      }
-      if (extracted.looseFiles.length > 0) {
-        setPendingUploadFiles(extracted.looseFiles);
-      }
-      if (extracted.folders.length > 0 && !onUploadFolders) {
-        const flat = extracted.folders.flatMap((folder) =>
-          folder.files.map((entry) => entry.file),
-        );
-        if (flat.length > 0) setPendingUploadFiles(flat);
-      }
-    },
-    [onUploadFolders],
-  );
 
   // URL state routing for Universal Task File Preview (Ponytail Phase 4)
   const handleOpenFile = useCallback(
@@ -129,92 +90,55 @@ export default function FilesTab({
     [pathname, projectId, projectSlug, router],
   );
 
-  const handleDroppedFiles = useCallback(
-    async (files: File[]) => {
-      if (!canEdit || files.length === 0) return;
-      const validation = validateUploadSelection(files, { isFolder: false });
-      if (!validation.valid) {
-        if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
-        return;
-      }
-      setPendingUploadFiles(validation.files);
-    },
-    [canEdit],
-  );
-
-  const handleUploadIntentConfirm = async (
-    intent: UploadIntent,
-    targetNodeId?: string,
-    label?: string,
-  ) => {
-    if (!pendingUploadFiles && !pendingUploadFolders) return;
-    const files = pendingUploadFiles;
-    const folders = pendingUploadFolders;
-
-    if (
-      intent === "version" &&
-      targetNodeId &&
-      onSaveAsNewVersion &&
-      files?.[0]
-    ) {
+  /**
+   * Where you drop is what it means (CLI report §19.2): a band gives the role, anywhere else is a draft file. No
+   * pop-up; a wrong role is one click on the file's role chip.
+   */
+  const uploadAs = useCallback(
+    async (role: DropRole, files: File[], folders: DroppedFolder[] = []) => {
+      if (!canEdit || (files.length === 0 && folders.length === 0)) return;
       setIsProcessingDrop(true);
       try {
-        const file = files[0]!;
-        const result = await onSaveAsNewVersion(targetNodeId, file);
-        if (result.success) {
-          toast.success(`Saved ${file.name} as a new version.`);
-          setPendingUploadFiles(null);
-          setPendingUploadFolders(null);
-        } else {
-          toast.error(feedbackError(result.error || "Couldn’t save new version", "Couldn’t save new version"));
+        const annotation = role === "deliverable" ? "#deliverable" : undefined;
+        const results: Array<{ success: boolean; error?: string }> = [];
+        if (folders.length) {
+          results.push(onUploadFolders
+            ? await onUploadFolders(folders, { role })
+            : await onUploadFiles(folders.flatMap((folder) => folder.files.map((entry) => entry.file)), { annotation, role }));
         }
+        if (files.length) results.push(await onUploadFiles(files, { annotation, role }));
+        const failed = results.find((result) => !result.success);
+        if (failed) {
+          toast.error(feedbackError(failed.error || "Couldn’t upload files", "Couldn’t upload files"));
+          return;
+        }
+        const count = files.length + folders.reduce((n, f) => n + f.files.length, 0);
+        toast.success(`Added ${count} file${count === 1 ? "" : "s"} to this task as ${ROLE_WORDS[role]}${count === 1 ? "" : "s"}`, {
+          description: "Change a file’s role from its role chip.",
+        });
       } catch {
-        toast.error("Couldn’t save new version");
+        toast.error("Couldn’t upload files");
       } finally {
         setIsProcessingDrop(false);
       }
-      return;
-    }
+    },
+    [canEdit, onUploadFiles, onUploadFolders],
+  );
 
-    setIsProcessingDrop(true);
-    try {
-      const role: TaskFileRole =
-        intent === "deliverable"
-          ? "deliverable"
-          : intent === "reference"
-            ? "reference"
-            : "working";
-      const annotation = intent === "deliverable" ? "#deliverable" : label || undefined;
-      const parentId = intent === "deliverable" ? targetNodeId : undefined;
-      const results: Array<{ success: boolean; error?: string }> = [];
-      if (folders?.length) {
-        if (onUploadFolders) {
-          results.push(await onUploadFolders(folders, { role, parentId }));
-        } else {
-          results.push(
-            await onUploadFiles(
-              folders.flatMap((folder) => folder.files.map((entry) => entry.file)),
-              { annotation, parentId, role },
-            ),
-          );
-        }
-      }
-      if (files?.length) {
-        results.push(await onUploadFiles(files, { annotation, parentId, role }));
-      }
-      const failed = results.find((result) => !result.success);
-      if (failed) {
-        toast.error(feedbackError(failed.error || "Couldn’t upload files", "Couldn’t upload files"));
-        return;
-      }
-      setPendingUploadFiles(null);
-      setPendingUploadFolders(null);
-    } catch {
-      toast.error("Couldn’t upload files");
-    } finally {
-      setIsProcessingDrop(false);
-    }
-  };
+  // ⌘V / Ctrl+V with files or a screenshot while this panel is open: added as drafts (A10.4).
+  useEffect(() => {
+    if (!canEdit) return;
+    const onPaste = (event: ClipboardEvent) => {
+      // Only while this Files tab is the one showing.
+      if (!document.querySelector<HTMLElement>('[data-testid="task-files-tab-body"]')?.checkVisibility?.()) return;
+      const files = pastedFiles(event);
+      if (!files) return;
+      event.preventDefault();
+      void uploadAs("working", files);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [canEdit, uploadAs]);
 
   const handleDropZoneDragEnter = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -233,13 +157,15 @@ export default function FilesTab({
       if (!event.dataTransfer.types.includes("Files")) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
+      const band = (event.target as Element).closest?.("[data-drop-role]")?.getAttribute("data-drop-role") as DropRole | null;
+      if (band !== hoverRole) setHoverRole(band);
     },
-    [canEdit],
+    [canEdit, hoverRole],
   );
 
   const handleDropZoneDragLeave = useCallback(() => {
     dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
-    if (dragCounterRef.current === 0) setIsDragActive(false);
+    if (dragCounterRef.current === 0) { setIsDragActive(false); setHoverRole(null); }
   }, []);
 
   const handleDropZoneDrop = useCallback(
@@ -249,32 +175,32 @@ export default function FilesTab({
       event.stopPropagation();
       dragCounterRef.current = 0;
       setIsDragActive(false);
+      setHoverRole(null);
+      const target = event.target as Element;
+      const role = (target.closest?.("[data-drop-role]")?.getAttribute("data-drop-role") as DropRole | null) ?? "working";
+      const versionOf = target.closest?.("[data-task-file-row][data-node-id]")?.getAttribute("data-node-id") ?? null;
 
       const dataTransfer = event.dataTransfer;
       void (async () => {
         setIsProcessingDrop(true);
         try {
           const extracted = await extractFoldersFromDataTransfer(dataTransfer);
+          const loose = extracted.looseFiles.filter((f) => !isOsJunk(f.name));
+          const files = loose.length || extracted.folders.length ? loose : Array.from(dataTransfer.files || []);
+          // One file on a linked file's row: a new version of it.
+          if (versionOf && onSaveAsNewVersion && files.length === 1 && extracted.folders.length === 0) {
+            const res = await onSaveAsNewVersion(versionOf, files[0]!);
+            if (res.success) toast.success(`Saved ${files[0]!.name} as a new version`);
+            else toast.error(feedbackError(res.error || "Couldn’t save new version", "Couldn’t save new version"));
+            return;
+          }
+          // Unreadable items are skipped and named, the rest upload (A10.5 item 3).
           if (extracted.unreadable.length > 0) {
-            // A partial selection is only uploaded when the person agrees to leave those out.
-            setUnreadableSkipDialog({
-              count: extracted.unreadable.length,
-              shown: extracted.unreadable.slice(0, 5),
-              moreCount: Math.max(0, extracted.unreadable.length - 5),
-              folders: extracted.folders,
-              looseFiles: extracted.looseFiles,
+            toast.warning(`${extracted.unreadable.length} item${extracted.unreadable.length === 1 ? "" : "s"} couldn’t be read and ${extracted.unreadable.length === 1 ? "was" : "were"} skipped`, {
+              description: extracted.unreadable.slice(0, 5).join(", ") + (extracted.unreadable.length > 5 ? ` and ${extracted.unreadable.length - 5} more` : ""),
             });
-            return;
           }
-          if (
-            extracted.folders.length === 0 &&
-            extracted.looseFiles.length === 0
-          ) {
-            const files = Array.from(dataTransfer.files || []);
-            if (files.length > 0) setPendingUploadFiles(files);
-            return;
-          }
-          proceedWithExtracted(extracted);
+          await uploadAs(role, files, extracted.folders);
         } catch (error) {
           toast.error(
             feedbackError(error instanceof Error ? error.message : "Couldn’t read the dropped files", "Couldn’t read the dropped files"),
@@ -284,7 +210,7 @@ export default function FilesTab({
         }
       })();
     },
-    [canEdit, onUploadFolders],
+    [canEdit, onSaveAsNewVersion, uploadAs],
   );
 
   const hasAttachments = attachments.length > 0;
@@ -328,7 +254,23 @@ export default function FilesTab({
         onDragLeave={handleDropZoneDragLeave}
         onDrop={handleDropZoneDrop}
       >
-        <DropZoneOverlay visible={isDragActive} />
+        {isDragActive ? (
+          <div className="pointer-events-none sticky top-0 z-20 -mx-1 mb-3 grid grid-cols-3 gap-2" aria-live="polite">
+            {(["reference", "working", "deliverable"] as const).map((role) => (
+              <div
+                key={role}
+                data-drop-role={role}
+                className={cn(
+                  "pointer-events-auto flex min-h-16 flex-col items-center justify-center rounded-[5px] border-2 border-dashed px-2 text-center text-[12px] font-medium transition-colors",
+                  hoverRole === role || (!hoverRole && role === "working") ? "border-primary bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground",
+                )}
+              >
+                {role === "reference" ? "References" : role === "working" ? "Draft files" : "Final files"}
+                <span className="nb-meta mt-0.5">{hoverRole === role || (!hoverRole && role === "working") ? `Add as ${ROLE_WORDS[role]}` : ""}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {isLoading ? (
           <div className="space-y-2 py-1" role="status" aria-label="Loading files">
@@ -402,7 +344,7 @@ export default function FilesTab({
               e.target.value = "";
               return;
             }
-            if (validation.files.length > 0) void handleDroppedFiles(validation.files);
+            if (validation.files.length > 0) void uploadAs("working", validation.files);
             e.target.value = "";
           }}
         />
@@ -433,11 +375,7 @@ export default function FilesTab({
                     .join("/"),
                 })),
               };
-              if (onUploadFolders) {
-                setPendingUploadFolders([syntheticFolder]);
-              } else {
-                setPendingUploadFiles(validFiles);
-              }
+              void uploadAs("working", [], [syntheticFolder]);
             }
             e.target.value = "";
           }}
@@ -463,45 +401,6 @@ export default function FilesTab({
         />
       )}
 
-      {(pendingUploadFiles || pendingUploadFolders) && (
-        <TaskFileUploadModal
-          projectId={projectId}
-          isOpen={true}
-          files={pendingUploadFiles ?? pendingUploadFolders?.flatMap((folder) => folder.files.map((entry) => entry.file)) ?? []}
-          folderCount={pendingUploadFolders?.length ?? 0}
-          existingFiles={attachments}
-          onConfirm={handleUploadIntentConfirm}
-          onCancel={() => { setPendingUploadFiles(null); setPendingUploadFolders(null); }}
-        />
-      )}
-
-      <ConfirmDialog
-        open={Boolean(unreadableSkipDialog)}
-        onOpenChange={(open) => {
-          if (!open) setUnreadableSkipDialog(null);
-        }}
-        title="Skip unreadable files?"
-        description={`${unreadableSkipDialog?.count ?? 0} item(s) could not be read and will be skipped. Upload the rest?`}
-        confirmLabel="Upload the rest"
-        cancelLabel="Cancel"
-        onConfirm={() => {
-          if (unreadableSkipDialog) {
-            proceedWithExtracted(unreadableSkipDialog);
-            setUnreadableSkipDialog(null);
-          }
-        }}
-      >
-        {unreadableSkipDialog && unreadableSkipDialog.shown.length > 0 && (
-          <div className="mt-2 rounded bg-muted/50 p-2 font-mono text-xs text-muted-foreground">
-            {unreadableSkipDialog.shown.map((item, idx) => (
-              <div key={idx} className="truncate">{item}</div>
-            ))}
-            {unreadableSkipDialog.moreCount > 0 && (
-              <div className="mt-1 text-[11px] italic">…and {unreadableSkipDialog.moreCount} more</div>
-            )}
-          </div>
-        )}
-      </ConfirmDialog>
     </div>
   );
 }

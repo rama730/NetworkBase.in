@@ -92,13 +92,16 @@ export function createOutput(mode, io = {}) {
     },
     /** @param {import("../errors.mjs").CliError} error */
     error(error) {
+      // Server errors link to their entry on /docs/cli (report A2.6).
+      const docs = error.status && /^[A-Z_]+$/.test(error.code) ? `https://networkbase.in/docs/cli#error-${error.code}` : null;
       if (json) {
-        const body = { ok: false, error: { code: error.code, message: error.message, ...(error.hint ? { hint: error.hint } : {}), ...(error.details !== undefined ? { details: error.details } : {}) } };
+        const body = { ok: false, error: { code: error.code, message: error.message, ...(error.hint ? { hint: error.hint } : {}), ...(error.details !== undefined ? { details: error.details } : {}), ...(docs ? { docs } : {}) } };
         stdout.write(`${JSON.stringify(body)}\n`);
         return;
       }
       stderr.write(`${c.danger(sym.error)} ${safe(error.message)}\n`);
       if (error.hint) stderr.write(`  ${c.muted(safe(error.hint))}\n`);
+      if (docs && env.NB_DOCS_LINKS !== "0") stderr.write(`  ${c.muted(docs)}\n`);
       // GitHub Actions shows this line as an error on the run's summary (A5.10).
       if (env.GITHUB_ACTIONS === "true") stderr.write(`::error title=nb::${safe(error.message).replace(/%/g, "%25").replace(/\r?\n/g, "%0A")}\n`);
     },

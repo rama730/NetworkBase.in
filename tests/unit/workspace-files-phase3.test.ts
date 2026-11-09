@@ -32,6 +32,6 @@ test("trash: no promise of an auto-purge that does not exist, and bulk deletes a
 test("attach-to-task refreshes the real queries; quick open hides storage folders", () => {
   const list = read(`${V2}/files-tab/folder/FolderListView.tsx`);
   assert.doesNotMatch(list, /queryKey: \["task-links"/);
-  assert.match(list, /could not be linked to the task/);
+  // Drops no longer link to a task from the Files list (CLI report §19.2: task files are added from the task or its group).
   assert.match(read(`${V2}/files-tab/quick-open/QuickOpenDialog.tsx`), /isInternalTaskWorkingFilesNode\(node\)/);
 });

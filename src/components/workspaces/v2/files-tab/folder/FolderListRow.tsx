@@ -201,12 +201,14 @@ export const FolderListRow = React.memo(function FolderListRow({
 
   const handleDragOver = React.useCallback(
     (e: React.DragEvent) => {
-      if (!isFolder) return;
+      // Files from the computer can land on any row (a file row takes a new version, §19.2); moves only on folders.
       const hasFiles =
         canEdit &&
         Boolean(onDesktopFileDrop) &&
         e.dataTransfer.types.includes("Files");
+      if (!isFolder && !hasFiles) return;
       const hasNodeDrag =
+        isFolder &&
         canMove &&
         Boolean(onDropOnFolder) &&
         e.dataTransfer.types.includes(NODE_DRAG_MIME);
@@ -231,7 +233,7 @@ export const FolderListRow = React.memo(function FolderListRow({
 
   const handleDrop = React.useCallback(
     (e: React.DragEvent) => {
-      if (!isFolder) return;
+      if (!isFolder && !(canEdit && onDesktopFileDrop && e.dataTransfer.types.includes("Files"))) return;
       e.preventDefault();
       e.stopPropagation();
       setDropHighlight(false);

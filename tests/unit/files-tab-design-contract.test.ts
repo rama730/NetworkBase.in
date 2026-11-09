@@ -7,7 +7,6 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
   const filesTabDir = path.join(process.cwd(), "src/components/workspaces/v2/files-tab");
   const folderDir = path.join(filesTabDir, "folder");
   const quickOpenDir = path.join(filesTabDir, "quick-open");
-  const uploadDir = path.join(filesTabDir, "upload");
   const pickerDir = path.join(filesTabDir, "picker");
   const fileDir = path.join(filesTabDir, "file");
   const breadcrumbDir = path.join(filesTabDir, "breadcrumb");
@@ -23,7 +22,6 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
   const quickOpenDialog = fs.readFileSync(path.join(quickOpenDir, "QuickOpenDialog.tsx"), "utf-8");
   const revisionModal = fs.readFileSync(path.join(uiDir, "RevisionControlModal.tsx"), "utf-8");
   const filesTabMain = fs.readFileSync(path.join(filesTabDir, "FilesTabMain.tsx"), "utf-8");
-  const uploadModal = fs.readFileSync(path.join(uploadDir, "FilesTabUploadModal.tsx"), "utf-8");
   const taskSearchPicker = fs.readFileSync(path.join(pickerDir, "TaskSearchPicker.tsx"), "utf-8");
   const multiAttachmentPicker = fs.readFileSync(path.join(pickerDir, "MultiAttachmentPicker.tsx"), "utf-8");
   const taskLinkPopover = fs.readFileSync(path.join(filesTabDir, "TaskLinkPopover.tsx"), "utf-8");
@@ -43,7 +41,6 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
     assert.doesNotMatch(quickOpenDialog, /rounded-full/, "QuickOpenDialog must not have rounded-full controls");
     assert.doesNotMatch(revisionModal, /rounded-full/, "RevisionControlModal must not have rounded-full controls");
     assert.doesNotMatch(filesTabMain, /rounded-full/, "FilesTabMain must not have rounded-full controls");
-    assert.doesNotMatch(uploadModal, /rounded-full/, "FilesTabUploadModal must not have rounded-full controls");
     assert.doesNotMatch(versionHistoryPanel, /rounded-full/, "FileVersionHistoryPanel must not have rounded-full controls");
     assert.doesNotMatch(taskFilesCollection, /rounded-full/, "TaskFilesCollection must not have rounded-full controls");
   });
@@ -61,7 +58,6 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
     assert.doesNotMatch(quickOpenDialog, zincRegex, "QuickOpenDialog must have zero raw zinc token leaks");
     assert.doesNotMatch(revisionModal, zincRegex, "RevisionControlModal must have zero raw zinc token leaks");
     assert.doesNotMatch(filesTabMain, zincRegex, "FilesTabMain must have zero raw zinc token leaks");
-    assert.doesNotMatch(uploadModal, zincRegex, "FilesTabUploadModal must have zero raw zinc token leaks");
     assert.doesNotMatch(taskSearchPicker, zincRegex, "TaskSearchPicker must have zero raw zinc token leaks");
     assert.doesNotMatch(multiAttachmentPicker, zincRegex, "MultiAttachmentPicker must have zero raw zinc token leaks");
     assert.doesNotMatch(taskLinkPopover, zincRegex, "TaskLinkPopover must have zero raw zinc token leaks");
@@ -82,7 +78,6 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
     assert.doesNotMatch(openInIdeButton, blueIndigoRegex, "OpenInIdeButton must have zero raw blue/indigo token leaks");
     assert.doesNotMatch(quickOpenDialog, blueIndigoRegex, "QuickOpenDialog must have zero raw blue/indigo token leaks");
     assert.doesNotMatch(revisionModal, blueIndigoRegex, "RevisionControlModal must have zero raw blue/indigo token leaks");
-    assert.doesNotMatch(uploadModal, blueIndigoRegex, "FilesTabUploadModal must have zero raw blue/indigo token leaks");
     assert.doesNotMatch(taskSearchPicker, blueIndigoRegex, "TaskSearchPicker must have zero raw blue/indigo token leaks");
     assert.doesNotMatch(multiAttachmentPicker, blueIndigoRegex, "MultiAttachmentPicker must have zero raw blue/indigo token leaks");
     assert.doesNotMatch(taskFilesCollection, blueIndigoRegex, "TaskFilesCollection must have zero raw blue/indigo token leaks");

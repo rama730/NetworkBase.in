@@ -189,10 +189,10 @@ test("Task Files Design Specification Conformance Contract", async (t) => {
       /Upload file to task…/,
       "TaskFilesCollection action menu must include 'Upload file to task…'",
     );
-    assert.match(
+    assert.doesNotMatch(
       taskFilesCollection,
-      /<FilesTabUploadModal/,
-      "TaskFilesCollection must mount FilesTabUploadModal",
+      /UploadModal/,
+      "TaskFilesCollection uploads to the task as drafts without a pop-up (CLI report §19.2)",
     );
   });
 

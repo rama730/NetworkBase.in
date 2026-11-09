@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CloudUpload } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -42,8 +43,8 @@ export function TaskFilesEmptyState({
           {isDragActive ? "Drop to link" : "No task files yet"}
         </h3>
         <p className="max-w-xs text-xs text-muted-foreground">
-          Start by linking the file or folder this task depends on. You can drag items here or
-          use one guided entry point to add a new file, folder, or existing workspace item.
+          Drop files here: they’re added as drafts, or drop them on References or Final files. You can also
+          link a file that’s already in the workspace.
         </p>
       </div>
 
@@ -56,8 +57,8 @@ export function TaskFilesEmptyState({
       />
 
       <p className="max-w-sm text-[11px] text-muted-foreground">
-        The system will guide version updates, folder placement, and existing-file linking
-        so the task starts cleanly and ends with a clear output.
+        From your terminal or an AI agent: <code>nb push &lt;files&gt; --task &lt;n&gt;</code> ·{" "}
+        <Link href="/docs/agents" className="nb-link">Work with an agent</Link>
       </p>
 
       {!canEdit ? (

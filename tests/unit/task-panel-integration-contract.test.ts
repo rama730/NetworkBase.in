@@ -230,20 +230,15 @@ test("task-file navigation preserves fileId until the file viewer hydrates", () 
   assert.match(urlSync, /suspended: options\.suspendWrites/);
 });
 
-test("task uploads preserve the selected intent and destination", () => {
+test("task uploads place files by where they're dropped, with no pop-up (CLI report §19.2)", () => {
   const files = read(
     "src/components/workspaces/v2/tasks/TaskDetailTabs/FilesTab.tsx",
   );
-  const modal = read(
-    "src/components/workspaces/v2/tasks/components/TaskFileUploadModal.tsx",
-  );
 
-  assert.match(
-    modal,
-    /onConfirm\(intent, destinationFolderId \?\? undefined\)/,
-  );
-  assert.match(modal, /onConfirm\(intent, versionNodeId\)/);
-  assert.match(files, /intent === "deliverable" \? targetNodeId : undefined/);
+  assert.doesNotMatch(files, /UploadModal/);
+  assert.match(files, /data-drop-role=\{role\}/);
+  assert.match(files, /\?\? "working";/, "anywhere outside a band is a draft file");
+  assert.match(files, /role === "deliverable" \? "#deliverable" : undefined/);
   assert.match(
     files,
     /toast\.error\(feedbackError\(failed\.error \|\| "Couldn’t upload files", "Couldn’t upload files"\)\)/,

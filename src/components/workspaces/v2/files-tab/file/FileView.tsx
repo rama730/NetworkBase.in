@@ -356,14 +356,23 @@ export function FileView({
             currentVersionRow?.contentHash &&
             hashResult.hashHex === currentVersionRow.contentHash
           ) {
-            // Req 12.4: Hash matches — prompt "File is identical — re-upload anyway?"
-            setHashMatchPromptFile(droppedFile);
+            // Identical content: nothing to save (CLI report §19.2).
+            toast.info(`No changes: ${droppedFile.name} is the same as v${currentVersionRow.version}`);
             return;
           }
 
-          // Hash differs or unknown — proceed with upload options modal
-          setPendingDropFile(droppedFile);
-          setIsDropModalOpen(true);
+          // Dropping on an open file is a new version of it, no pop-up (§19.2); Undo puts the old content back.
+          const result = await saveAsNewVersion(droppedFile, {});
+          if (!result.success) {
+            toast.error(feedbackError(result.error || "Couldn’t save the new version", "Couldn’t save the new version"));
+            return;
+          }
+          useFilesStore.getState().setNodes(projectId, [result.node]);
+          const previous = result.version.version - 1;
+          toast.success(`New version · v${previous} → v${result.version.version}`, {
+            duration: 8_000,
+            action: { label: "Undo", onClick: () => void import("@/lib/files/place-drop").then(({ undoDrop }) => undoDrop(projectId, { created: [], versions: [{ nodeId: node.id, name: node.name, previous }], skipped: [] })) },
+          });
         } catch (err) {
           const message =
             err instanceof Error ? err.message : "Drop failed";

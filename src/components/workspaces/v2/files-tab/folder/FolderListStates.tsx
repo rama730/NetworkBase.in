@@ -10,6 +10,7 @@
 
 "use client";
 
+import Link from "next/link";
 import * as React from "react";
 import { AlertTriangle, Folder, Loader2 } from "lucide-react";
 
@@ -99,6 +100,10 @@ export function FolderListEmpty({
       <Folder className="nb-empty-state-icon mb-2" />
       <p className="nb-card-title text-foreground">{message}</p>
       {hint ? <p className="nb-compact mt-1 text-muted-foreground">{hint}</p> : null}
+      {/* Entry point (CLI report A6.1): the terminal and AI agents reach the same files. */}
+      <p className="nb-meta mt-2 text-muted-foreground">
+        Or from your terminal: <code>nb push &lt;files&gt;</code> · <Link href="/docs/cli" className="nb-link">CLI</Link> · <Link href="/docs/agents" className="nb-link">AI agents</Link>
+      </p>
     </div>
   );
 }

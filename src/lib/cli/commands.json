@@ -1,0 +1,1439 @@
+{
+  "commands": [
+    {
+      "name": "login",
+      "summary": "Sign in (browser, a code, or a token from stdin)",
+      "usage": "nb login [--device] [--agent name] [--with-token]",
+      "flags": {
+        "with-token": {
+          "type": "boolean",
+          "describe": "Read a token from stdin (CI, scripts)"
+        },
+        "device": {
+          "type": "boolean",
+          "describe": "Sign in with a code you approve on another device (automatic over SSH)"
+        },
+        "agent": {
+          "type": "string",
+          "describe": "Sign in an AI agent; you pick the one workspace it may use",
+          "valueName": "name"
+        }
+      },
+      "examples": [
+        "nb login",
+        "nb login --device",
+        "nb login --device --agent \"Claude Code\"",
+        "echo $NB_TOKEN | nb login --with-token"
+      ],
+      "exitCodes": [
+        0,
+        3,
+        130
+      ]
+    },
+    {
+      "name": "logout",
+      "summary": "Revoke this device's token and sign out",
+      "usage": "nb logout [--all]",
+      "flags": {
+        "all": {
+          "type": "boolean",
+          "describe": "Sign out every device and agent (opens Settings to confirm it's you)"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "token list",
+      "summary": "Your signed-in devices, agents and personal tokens",
+      "usage": "nb token list",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "token revoke",
+      "summary": "Revoke a device, agent or personal token",
+      "usage": "nb token revoke <id>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        7,
+        130
+      ]
+    },
+    {
+      "name": "whoami",
+      "summary": "Who you are, what this token may do, limits",
+      "usage": "nb whoami [--all]",
+      "flags": {
+        "all": {
+          "type": "boolean",
+          "describe": "Every saved sign-in (profiles)"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        3
+      ]
+    },
+    {
+      "name": "init",
+      "summary": "Link this folder to a workspace",
+      "usage": "nb init [workspace] [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "path": {
+          "type": "string",
+          "describe": "Link only this remote folder",
+          "valueName": "/folder"
+        },
+        "nested": {
+          "type": "boolean",
+          "describe": "Allow a link inside another linked folder"
+        }
+      },
+      "examples": [
+        "nb init design-lab",
+        "nb init design-lab --task 4"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "unlink",
+      "summary": "Remove the link, keep your files",
+      "usage": "nb unlink [--purge-local]",
+      "flags": {
+        "purge-local": {
+          "type": "boolean",
+          "describe": "Also remove .tasks/ copies"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "status",
+      "summary": "What changed here, the started task, conflicts",
+      "usage": "nb status",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        3,
+        4,
+        8
+      ]
+    },
+    {
+      "name": "doctor",
+      "summary": "Check sign-in, server, link, Node and this folder",
+      "usage": "nb doctor [--repair]",
+      "flags": {
+        "repair": {
+          "type": "boolean",
+          "describe": "Fix what can be fixed (lock, temp files)"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "open",
+      "summary": "Open the workspace, a task or a file in the browser",
+      "usage": "nb open [task|path]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "version",
+      "summary": "CLI, Node and server versions",
+      "usage": "nb version",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "help",
+      "summary": "Help for a command",
+      "usage": "nb help [command]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "completion",
+      "summary": "Shell completion script",
+      "usage": "nb completion zsh|bash|fish|powershell",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "setup shell",
+      "summary": "Add completions to your shell (asks first)",
+      "usage": "nb setup shell [zsh|bash|fish|powershell]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "feedback",
+      "summary": "A report to send with a problem (no tokens or paths)",
+      "usage": "nb feedback [--include-paths]",
+      "flags": {
+        "include-paths": {
+          "type": "boolean",
+          "describe": "Keep folder paths in the report"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "config",
+      "summary": "Show or change settings",
+      "usage": "nb config list | get <key> | set <key> <value>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "undo",
+      "summary": "Undo your last change from this machine (24 hours)",
+      "usage": "nb undo [token] [--list]",
+      "flags": {
+        "list": {
+          "type": "boolean",
+          "describe": "Changes you can undo, newest first"
+        },
+        "session": {
+          "type": "boolean",
+          "describe": "Everything this agent session did (inside nb mcp)"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1,
+        4
+      ]
+    },
+    {
+      "name": "diff",
+      "summary": "Changes against the version you last pulled",
+      "usage": "nb diff [path...]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "pull",
+      "summary": "Download changes; never overwrites your edits",
+      "usage": "nb pull [path...]",
+      "flags": {
+        "dry-run": {
+          "type": "boolean",
+          "describe": "Show what would happen, change nothing"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        4,
+        8
+      ]
+    },
+    {
+      "name": "push",
+      "summary": "Upload changes; same path = new version",
+      "usage": "nb push <path...> [--task 4 --as draft] [-m text]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "as": {
+          "type": "string",
+          "describe": "File role: reference, draft or final",
+          "valueName": "role"
+        },
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "dry-run": {
+          "type": "boolean",
+          "describe": "Show what would happen, change nothing"
+        },
+        "all": {
+          "type": "boolean",
+          "describe": "Push every changed tracked file (needed when not interactive and no paths)"
+        },
+        "folder": {
+          "type": "string",
+          "describe": "Workspace folder to put the files in",
+          "valueName": "/folder"
+        },
+        "keep-both": {
+          "type": "boolean",
+          "describe": "A changed file whose name is taken goes in as name (2).ext"
+        },
+        "force": {
+          "type": "boolean",
+          "describe": "Replace a newer server version after a conflict (asks first)"
+        },
+        "recreate": {
+          "type": "boolean",
+          "describe": "Upload again files that were deleted on the server but you still have"
+        },
+        "confirm-secrets": {
+          "type": "boolean",
+          "describe": "Upload even though a file looks like it holds a password or key"
+        }
+      },
+      "examples": [
+        "nb push src/app.ts -m \"Fix login\"",
+        "nb push report.pdf --task 4 --as final",
+        "nb push shots/ --task 5 --as reference"
+      ],
+      "exitCodes": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        8
+      ]
+    },
+    {
+      "name": "sync",
+      "summary": "Pull, then push changed tracked files",
+      "usage": "nb sync",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        4,
+        8
+      ]
+    },
+    {
+      "name": "resolve",
+      "summary": "Settle a conflict",
+      "usage": "nb resolve <path> --mine|--theirs|--both",
+      "flags": {
+        "mine": {
+          "type": "boolean",
+          "describe": "Keep yours and push it"
+        },
+        "theirs": {
+          "type": "boolean",
+          "describe": "Take the server's version"
+        },
+        "both": {
+          "type": "boolean",
+          "describe": "Keep both as separate files"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "watch",
+      "summary": "Push saves of tracked files as drafts (foreground)",
+      "usage": "nb watch",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file list",
+      "summary": "Files in the workspace",
+      "usage": "nb file list [folder] [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file history",
+      "summary": "A file's versions: who, when, how",
+      "usage": "nb file history <path>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file move",
+      "summary": "Move a file to another folder (asks first)",
+      "usage": "nb file move <path> <folder>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file rename",
+      "summary": "Rename a file (asks first)",
+      "usage": "nb file rename <path> <new name>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file delete",
+      "summary": "Move a file to the workspace Trash (asks first)",
+      "usage": "nb file delete <path>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file attach",
+      "summary": "Attach a workspace file to a task with a role",
+      "usage": "nb file attach <path> --task 4 [--as reference|draft|final]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "as": {
+          "type": "string",
+          "describe": "File role: reference, draft or final",
+          "valueName": "role"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file detach",
+      "summary": "Take a file off a task",
+      "usage": "nb file detach <path> --task 4",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file view",
+      "summary": "Print a file (pipe-safe)",
+      "usage": "nb file view <path>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task list",
+      "summary": "Tasks (default: yours, not done)",
+      "usage": "nb task list [--mine|--all] [--status list]",
+      "flags": {
+        "mine": {
+          "type": "boolean",
+          "describe": "Only tasks assigned to you"
+        },
+        "all": {
+          "type": "boolean",
+          "describe": "Include tasks assigned to others"
+        },
+        "status": {
+          "type": "string",
+          "describe": "todo,in_progress,blocked,review,done",
+          "valueName": "list"
+        },
+        "limit": {
+          "type": "string",
+          "describe": "At most this many",
+          "valueName": "n"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task count",
+      "summary": "How many open tasks you have",
+      "usage": "nb task count",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task view",
+      "summary": "A task's details (--context: brief for an AI agent)",
+      "usage": "nb task view <task> [--context]",
+      "flags": {
+        "context": {
+          "type": "boolean",
+          "describe": "Print the task brief for pasting into an AI agent"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task create",
+      "summary": "Create a task",
+      "usage": "nb task create \"<title>\" [-m description] [--priority high]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "priority": {
+          "type": "string",
+          "describe": "low, medium, high or urgent",
+          "valueName": "level"
+        },
+        "subtask": {
+          "type": "string",
+          "multiple": true,
+          "describe": "Add a subtask (repeatable)",
+          "valueName": "title"
+        }
+      },
+      "examples": [
+        "nb task create \"Fix login\" --priority high",
+        "nb task create \"Write report\" --subtask Outline --subtask Draft"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task start",
+      "summary": "Make it this folder's task and move it to In progress",
+      "usage": "nb task start <task>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task stop",
+      "summary": "Clear this folder's task (status unchanged)",
+      "usage": "nb task stop",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task move",
+      "summary": "Move to todo, in_progress or blocked",
+      "usage": "nb task move <task> <status> [--reason text]",
+      "flags": {
+        "reason": {
+          "type": "string",
+          "describe": "Why (needed for blocked)",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task done",
+      "summary": "Finish a task (sends it for review when required)",
+      "usage": "nb task done [task] [-m summary] [--check name=pass]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "check": {
+          "type": "string",
+          "multiple": true,
+          "describe": "A check you ran: name=pass|fail[:note]",
+          "valueName": "check"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task review",
+      "summary": "Approve or ask for changes (reviewers)",
+      "usage": "nb task review <task> approve|changes [-m reason]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task resubmit",
+      "summary": "Send for review again after changes",
+      "usage": "nb task resubmit <task>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task edit",
+      "summary": "Change a task's title, description, priority or due date",
+      "usage": "nb task edit <task> [--title text] [-m description] [--priority high] [--due 2026-11-14|none]",
+      "flags": {
+        "title": {
+          "type": "string",
+          "describe": "New title",
+          "valueName": "text"
+        },
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "priority": {
+          "type": "string",
+          "describe": "low, medium, high or urgent",
+          "valueName": "level"
+        },
+        "due": {
+          "type": "string",
+          "describe": "A date, or none",
+          "valueName": "date"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task assign",
+      "summary": "Assign a task to someone, you, or nobody",
+      "usage": "nb task assign <task> <@username|me|none>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task report",
+      "summary": "Report progress with checks, without finishing",
+      "usage": "nb task report <task> -m summary [--check name=pass]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "check": {
+          "type": "string",
+          "multiple": true,
+          "describe": "A check you ran: name=pass|fail[:note]",
+          "valueName": "check"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task delete",
+      "summary": "Delete a task (owner; asks first)",
+      "usage": "nb task delete <task>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        3,
+        7,
+        130
+      ]
+    },
+    {
+      "name": "task open",
+      "summary": "Open a task in the browser",
+      "usage": "nb task open <task>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task pull",
+      "summary": "Bring a task's panel files into .tasks/",
+      "usage": "nb task pull <task>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "subtask list",
+      "summary": "Numbered subtasks",
+      "usage": "nb subtask list [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "subtask add",
+      "summary": "Add subtasks",
+      "usage": "nb subtask add \"<title>\"... [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "subtask check",
+      "summary": "Tick subtasks by number",
+      "usage": "nb subtask check <n...> [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "subtask uncheck",
+      "summary": "Untick subtasks by number",
+      "usage": "nb subtask uncheck <n...> [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "subtask edit",
+      "summary": "Rename a subtask",
+      "usage": "nb subtask edit <n> \"<title>\" [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "subtask delete",
+      "summary": "Delete a subtask (asks first)",
+      "usage": "nb subtask delete <n> [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "subtask move",
+      "summary": "Move a subtask to another position",
+      "usage": "nb subtask move <n> <position> [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "comment add",
+      "summary": "Comment on a task",
+      "usage": "nb comment add -m \"<text>\" [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "file": {
+          "type": "string",
+          "describe": "Comment on lines of a file instead: path:12 or path:12-18",
+          "valueName": "path:line"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "comment list",
+      "summary": "A task's comments, or a file's line comments",
+      "usage": "nb comment list [--task 4] [--file path]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "file": {
+          "type": "string",
+          "describe": "A file's line comments",
+          "valueName": "path"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "comment resolve",
+      "summary": "Resolve (or --reopen) a file comment thread",
+      "usage": "nb comment resolve <thread id> --file <path> [--reopen]",
+      "flags": {
+        "file": {
+          "type": "string",
+          "describe": "The file",
+          "valueName": "path"
+        },
+        "reopen": {
+          "type": "boolean",
+          "describe": "Open it again"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ask",
+      "summary": "Ask a person a question in NetworkBase (and wait for the answer)",
+      "usage": "nb ask \"<question>\" --option A --option B [--to me|assignee|reviewer] [--task 4] [--wait]",
+      "flags": {
+        "option": {
+          "type": "string",
+          "multiple": true,
+          "describe": "An answer to offer (2–4; the first is recommended). \"Label: description\"",
+          "valueName": "text"
+        },
+        "to": {
+          "type": "string",
+          "describe": "me (default), assignee or reviewer",
+          "valueName": "who"
+        },
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "header": {
+          "type": "string",
+          "describe": "Short label, up to 12 characters",
+          "valueName": "text"
+        },
+        "context": {
+          "type": "string",
+          "describe": "What it's about",
+          "valueName": "text"
+        },
+        "wait": {
+          "type": "boolean",
+          "describe": "Wait for the answer"
+        },
+        "timeout": {
+          "type": "string",
+          "describe": "Seconds to wait (default 600)",
+          "valueName": "s"
+        }
+      },
+      "examples": [
+        "nb ask \"Export as CSV or Excel?\" --option CSV --option Excel --to reviewer --task 4 --wait"
+      ],
+      "exitCodes": [
+        0,
+        1,
+        8
+      ]
+    },
+    {
+      "name": "ask wait",
+      "summary": "Wait for the answer to a question",
+      "usage": "nb ask wait <id> [--timeout 600]",
+      "flags": {
+        "timeout": {
+          "type": "string",
+          "describe": "Seconds to wait (default 600)",
+          "valueName": "s"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1,
+        8
+      ]
+    },
+    {
+      "name": "ask list",
+      "summary": "Questions agents asked you",
+      "usage": "nb ask list",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ask answer",
+      "summary": "Answer a question an agent asked you",
+      "usage": "nb ask answer <id> <option number or text>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "agent setup",
+      "summary": "Connect Claude Code, Codex or Cursor to this workspace (asks first)",
+      "usage": "nb agent setup claude|codex|cursor [--token agent|mine]",
+      "flags": {
+        "token": {
+          "type": "string",
+          "describe": "agent (default): its own sign-in for this workspace only; mine: use yours",
+          "valueName": "kind"
+        }
+      },
+      "examples": [
+        "nb agent setup claude",
+        "nb agent setup codex"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "agent status",
+      "summary": "Which agents are connected here",
+      "usage": "nb agent status",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "agent remove",
+      "summary": "Disconnect an agent and remove its NetworkBase notes",
+      "usage": "nb agent remove claude|codex|cursor",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "mcp",
+      "summary": "MCP server for Claude Code, Codex and Cursor (stdio)",
+      "usage": "nb mcp",
+      "flags": {},
+      "examples": [
+        "claude mcp add networkbase -- npx -y @networkbase/cli@2 mcp"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "doc list",
+      "summary": "Workspace docs",
+      "usage": "nb doc list",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "doc view",
+      "summary": "Print a doc (default: the README)",
+      "usage": "nb doc view [slug] [--raw]",
+      "flags": {
+        "raw": {
+          "type": "boolean",
+          "describe": "Markdown only"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "doc edit",
+      "summary": "Edit a doc in your editor, saved as a new version",
+      "usage": "nb doc edit [slug]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "doc set",
+      "summary": "Replace a doc's text from a file or stdin (asks first)",
+      "usage": "nb doc set [slug] --file <path|->",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "file": {
+          "type": "string",
+          "describe": "Markdown file, or - for stdin",
+          "valueName": "path"
+        }
+      },
+      "examples": [
+        "nb doc set readme --file README.md",
+        "cat notes.md | nb doc set readme --file - --yes"
+      ],
+      "exitCodes": [
+        0,
+        4,
+        7
+      ]
+    },
+    {
+      "name": "workspace list",
+      "summary": "Your workspaces",
+      "usage": "nb workspace list",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "workspace view",
+      "summary": "The workspace at a glance",
+      "usage": "nb workspace view [-w slug]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "workspace open",
+      "summary": "Open the workspace in the browser",
+      "usage": "nb workspace open",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "activity",
+      "summary": "What happened, newest first",
+      "usage": "nb activity [--task 4] [--since 1d]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "since": {
+          "type": "string",
+          "describe": "30m, 3h, 1d, 2w or a date",
+          "valueName": "when"
+        },
+        "limit": {
+          "type": "string",
+          "describe": "At most this many (default 30)",
+          "valueName": "n"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "sprint list",
+      "summary": "Sprints (or the workspace's own word for them)",
+      "usage": "nb sprint list",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "sprint view",
+      "summary": "One sprint and its tasks",
+      "usage": "nb sprint view <name or number>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "update post",
+      "summary": "Post an update to the workspace (asks first)",
+      "usage": "nb update post -m text",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "member list",
+      "summary": "People in the workspace",
+      "usage": "nb member list [name]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "search",
+      "summary": "Find files by name",
+      "usage": "nb search \"<text>\"",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    }
+  ],
+  "globalFlags": {
+    "workspace": {
+      "type": "string",
+      "short": "w",
+      "describe": "Workspace slug (default: the linked one)",
+      "valueName": "slug"
+    },
+    "json": {
+      "type": "boolean",
+      "describe": "Print one JSON result on stdout"
+    },
+    "quiet": {
+      "type": "boolean",
+      "short": "q",
+      "describe": "Only errors"
+    },
+    "plain": {
+      "type": "boolean",
+      "describe": "No color, symbols or animation (screen readers, logs)"
+    },
+    "verbose": {
+      "type": "boolean",
+      "describe": "More detail"
+    },
+    "fields": {
+      "type": "string",
+      "describe": "With --json: keep only these fields of each item",
+      "valueName": "a,b"
+    },
+    "no-pager": {
+      "type": "boolean",
+      "describe": "Print long views straight to the terminal"
+    },
+    "yes": {
+      "type": "boolean",
+      "short": "y",
+      "describe": "Accept the recommended answer to every question"
+    },
+    "answer": {
+      "type": "string",
+      "multiple": true,
+      "describe": "Answer a question without asking: key=value",
+      "valueName": "key=value"
+    },
+    "profile": {
+      "type": "string",
+      "describe": "Account profile (several accounts or servers)",
+      "valueName": "name"
+    },
+    "api-url": {
+      "type": "string",
+      "describe": "Server for this profile",
+      "valueName": "url"
+    },
+    "confirm": {
+      "type": "string",
+      "describe": "The yes for a change held for confirmation (exit 7 gives the token)",
+      "valueName": "token"
+    },
+    "help": {
+      "type": "boolean",
+      "short": "h",
+      "describe": "Help for this command"
+    }
+  },
+  "aliases": {
+    "auth login": "login",
+    "auth logout": "logout",
+    "auth whoami": "whoami",
+    "auth status": "whoami",
+    "setup": "init",
+    "task work": "task start",
+    "task inspect": "task view",
+    "task show": "task view",
+    "task check": "subtask check",
+    "task subtask add": "subtask add",
+    "task comment": "comment add",
+    "task status": "task count",
+    "file ls": "file list",
+    "file cat": "file view",
+    "file read": "file view",
+    "workspace ls": "workspace list",
+    "ws list": "workspace list",
+    "ws": "workspace list"
+  }
+}

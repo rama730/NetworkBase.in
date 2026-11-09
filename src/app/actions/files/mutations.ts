@@ -660,6 +660,8 @@ export type UploadCollisionSummary = {
     existingFiles: string[];
     existingFolders: string[];
     folderIdsByPath: Record<string, string>;
+    /** Existing files by relative path: a drop with the same name becomes a new version of these (report §19.2). */
+    fileIdsByPath?: Record<string, string>;
 };
 
 /**
@@ -751,6 +753,7 @@ export async function getUploadCollisionSummary(
     const existingFiles = new Set<string>();
     const existingFolders = new Set<string>();
     const folderIdsByPath: Record<string, string> = {};
+    const fileIdsByPath: Record<string, string> = {};
 
     for (const row of matchedRows) {
         if (row.node_type === "folder") {
@@ -758,6 +761,7 @@ export async function getUploadCollisionSummary(
             folderIdsByPath[row.relative_path] = row.node_id;
         } else {
             existingFiles.add(row.relative_path);
+            fileIdsByPath[row.relative_path] = row.node_id;
         }
     }
 
@@ -765,6 +769,7 @@ export async function getUploadCollisionSummary(
         existingFiles: Array.from(existingFiles).sort(),
         existingFolders: Array.from(existingFolders).sort(),
         folderIdsByPath,
+        fileIdsByPath,
     };
 }
 
