@@ -74,8 +74,8 @@ test("in-app Back: a deep link has nothing behind it; browser back steps down", 
   index = 0;
   stampEntry(win);
   assert.equal(canGoBackInApp(), false, "back at the landing page");
-  assert.match(read("src/components/messages/useBack.ts"), /canGoBackInApp\(\) \? |if \(canGoBackInApp\(\)\)/);
-  assert.doesNotMatch(read("src/components/messages/useBack.ts"), /history\.length/);
+  assert.match(read("src/hooks/useBack.ts"), /canGoBackInApp\(\) \? |if \(canGoBackInApp\(\)\)/);
+  assert.doesNotMatch(read("src/hooks/useBack.ts"), /history\.length/);
 });
 
 test("sidebar: Search row, Unreads toggle, one-click +, focus-visible controls", () => {

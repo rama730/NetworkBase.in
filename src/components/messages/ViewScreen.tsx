@@ -3,7 +3,7 @@
 import { ArrowLeft, X } from "lucide-react";
 
 import { ConnectionBanner } from "@/components/messages/ConnectionBanner";
-import { useBack } from "@/components/messages/useBack";
+import { useBack } from "@/hooks/useBack";
 import { useWindowNav } from "@/components/messages/window-nav";
 
 /**
@@ -12,7 +12,7 @@ import { useWindowNav } from "@/components/messages/window-nav";
  */
 export function ViewScreen({ title, action, closable, children, back }: { title: string; action?: React.ReactNode; closable?: boolean; children: React.ReactNode; back?: string }) {
   // `back`: where Back goes when there's no in-app history (Browse goes to its project).
-  const goBack = useBack(back);
+  const goBack = useBack(back ?? "/messages");
   const win = useWindowNav();
   if (win) {
     // In the floating window: always a Back (to the window's list), then the window's own controls.

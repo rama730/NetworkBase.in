@@ -59,6 +59,7 @@ import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspac
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesStore } from '@/stores/filesStore';
 import { useReloadOnNotice } from '@/hooks/useReloadOnNotice';
+import { useBackParent } from '@/hooks/useBackParent';
 
 const EditWorkspaceModal = dynamic(() => import('@/components/workspaces/EditWorkspaceModal'), { ssr: false, loading: () => null });
 
@@ -295,6 +296,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     // Org admins read every tab of their org's child projects and manage its org link (report §29.4);
     // the project's own admin tools stay with its team.
     const parentOrg = project.parentOrg ?? null;
+    // Unified back (B13): opened from a link with nothing behind it, the arrow goes to the parent organization.
+    useBackParent(parentOrg && (parentOrg.viewerRole || parentOrg.isPublic) ? `/org/${parentOrg.slug ?? parentOrg.id}` : null);
     const isInheritedAdmin = Boolean(parentOrg?.viewerIsInheritedAdmin) && !isOwnerOrMember;
     const canSeeAllTabs = isOwnerOrMember || isInheritedAdmin;
     const resolvedActiveTab = resolveAllowedWorkspaceTab({

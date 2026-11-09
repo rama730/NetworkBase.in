@@ -41,6 +41,9 @@ interface UIState {
     myWorkTab: MyWorkTab
     myWorkTaskHandoff: MyWorkTaskHandoff | null
 
+    // Unified back (B13): the page's real parent, used when nothing of ours is behind it
+    backParent: string | null
+
     // Actions
     setSidebarOpen: (open: boolean) => void
     toggleSidebar: () => void
@@ -51,6 +54,7 @@ interface UIState {
     openMyWork: (tab?: MyWorkTab) => void
     setMyWorkTab: (tab: MyWorkTab) => void
     setMyWorkTaskHandoff: (handoff: MyWorkTaskHandoff | null) => void
+    setBackParent: (href: string | null) => void
 }
 
 export const useUIStore = create<UIState>()((set) => ({
@@ -63,6 +67,7 @@ export const useUIStore = create<UIState>()((set) => ({
     isMyWorkOpen: false,
     myWorkTab: "tasks",
     myWorkTaskHandoff: null,
+    backParent: null,
 
     setSidebarOpen: (open) => set({ sidebarOpen: open }),
     toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
@@ -74,4 +79,5 @@ export const useUIStore = create<UIState>()((set) => ({
     openMyWork: (tab = "tasks") => set({ isMyWorkOpen: true, myWorkTab: tab }),
     setMyWorkTab: (tab) => set({ myWorkTab: tab }),
     setMyWorkTaskHandoff: (handoff) => set({ myWorkTaskHandoff: handoff }),
+    setBackParent: (href) => set({ backParent: href }),
 }))

@@ -14,7 +14,7 @@ import { setMemberState } from "@/app/actions/chat/members";
 import { listPins, pinMessage } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
 import { readChatUi, useChatUi, writeChatUi } from "@/components/messages/chat-ui-store";
-import { useBack } from "@/components/messages/useBack";
+import { useBack } from "@/hooks/useBack";
 import { useBlockFlow, useMuteToggle } from "@/components/privacy/BlockDialog";
 import { useReportDialog } from "@/components/reports/ReportDialog";
 import { useBlockedIds, useChatShell, useMutedIds } from "@/components/messages/ChatShellProvider";
@@ -222,7 +222,7 @@ const TasksTab = dynamic(() => import("@/components/workspaces/v2/TasksTab"), { 
 
 export function ConversationView({ channelId, around = null, surface = "page", onBack, onOpenThread, windowActions }: Props) {
   const router = useRouter();
-  const goBack = useBack();
+  const goBack = useBack("/messages");
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
   const meId = user?.id ?? null;
