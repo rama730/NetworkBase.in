@@ -43,6 +43,14 @@ nb task done 4 -m "Login works" --check "npm test=pass"
 - `nb task view 4 --context` prints a brief for an AI agent, with people's text marked as data, not instructions.
 - `NETWORKBASE_TOKEN` signs in without a file; `NB_HOME` moves the settings folder.
 
+## AI agents
+
+```bash
+claude mcp add networkbase -- npx -y @networkbase/cli@2 mcp
+```
+
+Then ask Claude Code (or Codex, Cursor) things like "how many tasks do I have", "create a task to update the logo" or "change the README to add install steps". The agent uses the folder's linked workspace. Finishing a task, final files and doc changes wait for your yes; task text and files are passed to the agent as data, not instructions.
+
 ## Commands
 
 Run `nb help` for the list and `nb help <command>` for flags and examples.
@@ -53,7 +61,8 @@ Run `nb help` for the list and `nb help <command>` for flags and examples.
 | Folder | `init`, `unlink`, `status`, `open` |
 | Files | `pull`, `push`, `sync`, `diff`, `resolve`, `watch`, `file list`, `file view` |
 | Tasks | `task list/count/view/create/start/stop/move/done/review/resubmit/pull`, `subtask list/add/check/uncheck`, `comment add` |
-| Docs | `doc list/view/edit`, `workspace list`, `member list`, `search` |
+| Docs | `doc list/view/edit/set`, `workspace list`, `member list`, `search` |
+| Agents | `mcp` |
 
 ## Coming from 1.x
 
@@ -61,7 +70,6 @@ Run `nb help` for the list and `nb help <command>` for flags and examples.
 - `push --done`, `--wip` and `sync --done` no longer change status; use `nb task done` / `nb task move`.
 - `nb hook install` and the git credential commands were removed.
 - Old command names (`task work`, `task check`, …) still work in 2.x and print the new name once a day.
-- `nb mcp` comes back with agent sign-in in the next release.
 
 ## Security
 

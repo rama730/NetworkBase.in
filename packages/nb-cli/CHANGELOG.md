@@ -17,6 +17,9 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 - Needs Node.js 20 or newer.
 
 ### Added
+- `nb mcp` rebuilt: 22 tools for Claude Code, Codex and Cursor that run the same checks as the commands; finishing a task, final files and doc changes need the user's yes; tasks and workspaces found by words; stdout carries only protocol messages.
+- `nb doc set` replaces a doc's text from a file or stdin.
+- `--workspace` takes a slug.
 - `nb task count`, `nb task view --context` (agent brief), `nb task review`, `nb task resubmit`, `nb task pull`.
 - `nb comment add` posts a real task comment (1.x posted nowhere).
 - `nb doc list|view|edit` (edit the README in your editor; refuses if someone saved in between).
@@ -32,7 +35,6 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 - The background auto-push process and `.networkbase/mirror`.
 - `nb hook install`, `nb auth setup-git`, `nb auth git-credential`.
 - The `cli` command name (use `nb` or `networkbase`).
-- `nb mcp` until agent sign-in ships (the 1.x server wrote logs into its own message stream).
 
 ### Security
 - Browser sign-in uses PKCE and answers only the page that asked.

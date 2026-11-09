@@ -116,4 +116,12 @@ describe("nb 2.0 basics", () => {
     assert.notEqual(r.code, 0);
     assert.match(r.stderr, /^::error title=nb::/m);
   });
+
+  it("--workspace takes a slug; the API gets the id", async () => {
+    const r = await runCli(["task", "list", "-w", "design-lab", "--json"], { api: api.url });
+    assert.equal(r.code, 0, r.stderr);
+    const q = api.requests.filter((x) => x.path === "/api/v1/extension/workspace-tasks").at(-1);
+    assert.equal(q?.query.get("projectId"), WORKSPACE_ID);
+    assert.match((await runCli(["task", "list", "-w", "nope"], { api: api.url })).stderr, /No workspace nope/);
+  });
 });

@@ -8,15 +8,16 @@ import { currentProfile, findRoot, readProjectConfig } from "./config.mjs";
 import { CliError } from "./errors.mjs";
 import { createOutput } from "./print/out.mjs";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PACKAGE_JSON = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
 /** The version comes from package.json only, so it can't drift (finding 92). */
 export const VERSION = JSON.parse(fs.readFileSync(PACKAGE_JSON, "utf8")).version;
 
 /**
- * @param {{ flags: Record<string, any>, positionals: string[], cwd?: string, env?: NodeJS.ProcessEnv, fetchImpl?: typeof fetch }} input
+ * @param {{ flags: Record<string, any>, positionals: string[], cwd?: string, env?: NodeJS.ProcessEnv, fetchImpl?: typeof fetch, io?: Parameters<typeof createOutput>[1] }} input
  */
-export function createContext({ flags, positionals, cwd = process.cwd(), env = process.env, fetchImpl }) {
-  const out = createOutput({ json: Boolean(flags.json || env.NB_JSON === "1"), quiet: Boolean(flags.quiet), plain: Boolean(flags.plain), verbose: Boolean(flags.verbose) });
+export function createContext({ flags, positionals, cwd = process.cwd(), env = process.env, fetchImpl, io }) {
+  const out = createOutput({ json: Boolean(flags.json || env.NB_JSON === "1"), quiet: Boolean(flags.quiet), plain: Boolean(flags.plain), verbose: Boolean(flags.verbose) }, io);
   const root = findRoot(cwd);
   const project = root ? readProjectConfig(root, (m) => out.warn(m)) : null;
   const profile = currentProfile({ flags, env, project });
@@ -44,6 +45,16 @@ export function createContext({ flags, positionals, cwd = process.cwd(), env = p
       if (flags.workspace) return /** @type {string} */ (flags.workspace);
       if (project?.workspaceId) return project.workspaceId;
       throw new CliError("NOT_LINKED", "This folder isn't linked to a workspace", { hint: "Run nb init <workspace>, or pass --workspace <slug>" });
+    },
+    /** --workspace takes a slug or title; the API needs the id, so it's looked up once before the command runs. */
+    async resolveWorkspace() {
+      const given = flags.workspace;
+      if (!given || UUID.test(given)) return;
+      const { workspaces } = /** @type {any} */ (await api.get("/api/v1/extension/workspaces"));
+      const want = String(given).toLowerCase();
+      const found = workspaces.find((/** @type {any} */ w) => String(w.slug).toLowerCase() === want) ?? workspaces.find((/** @type {any} */ w) => String(w.title).toLowerCase() === want);
+      if (!found) throw new CliError("WORKSPACE_NOT_FOUND", `No workspace ${given} in your list`, { hint: workspaces.length ? `Yours: ${workspaces.slice(0, 8).map((/** @type {any} */ w) => w.slug).join(", ")}` : "Create one at networkbase.in first" });
+      flags.workspace = found.id;
     },
     /** The linked folder; commands that sync files need one. */
     requireRoot() {

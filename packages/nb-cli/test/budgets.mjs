@@ -1,9 +1,9 @@
 // Size and startup budgets (report A13.8). Reports always; `--enforce` fails when over.
-// Size: report A13.8 aimed for 150 KB; 2.0 is held to no bigger than 1.0.4 (193,446 B) instead (phase 2 notes).
+// Size: report A13.8 aimed for 150 KB; 2.0 with its MCP server is held to 250 KB, unminified (phase 3 notes).
 import { startFakeServer } from "./helpers/fake-server.mjs";
 import { cliMs, unpackedBytes } from "./helpers/measure.mjs";
 
-const BUDGET = { unpackedBytes: 193_446, versionMs: 120, helpMs: 200 };
+const BUDGET = { unpackedBytes: 250 * 1024, versionMs: 120, helpMs: 200 };
 
 const api = await startFakeServer();
 const result = {

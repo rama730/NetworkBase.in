@@ -66,6 +66,27 @@ export async function edit(ctx) {
   if (run.status !== 0) throw new CliError("EDITOR_FAILED", `The editor exited with ${run.status ?? run.signal}`);
   const next = fs.readFileSync(tmp, "utf8");
   fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
+  return saveDoc(ctx, slug, doc, next);
+}
+
+/**
+ * Replaces a doc's Markdown without an editor (scripts and agents): from --file, stdin (--file -), or the
+ * MCP tool's content. Same diff preview, yes and conflict rules as nb doc edit.
+ * @param {Context} ctx
+ */
+export async function set(ctx) {
+  const slug = ctx.positionals[0] ?? "readme";
+  const from = ctx.flags.file;
+  const next = typeof ctx.flags.content === "string" ? ctx.flags.content : from === "-" ? fs.readFileSync(0, "utf8") : from ? fs.readFileSync(path.resolve(ctx.cwd, from), "utf8") : null;
+  if (next === null) throw usage("nb doc set <slug> --file <path>, or --file - to read stdin");
+  const doc = await readDoc(ctx, slug);
+  if (!doc.file) throw new CliError("NOT_SUPPORTED", `${slug} isn't backed by a file, so it's edited in the app`, { hint: "nb open" });
+  if (!doc.canEdit) throw new CliError("FORBIDDEN", `You can read ${slug} but not edit it`);
+  return saveDoc(ctx, slug, doc, next);
+}
+
+/** @param {Context} ctx @param {string} slug @param {any} doc @param {string} next */
+async function saveDoc(ctx, slug, doc, next) {
   if (next === doc.content) {
     ctx.out.result("nb.doc.edit/1", { slug, changed: false }, () => "No changes");
     return EXIT.ok;
@@ -78,7 +99,7 @@ export async function edit(ctx) {
     ...(ctx.flags.message ? { message: ctx.flags.message } : {}),
     files: [{ path: doc.file.path, versionOf: doc.file.nodeId, baseVersion: doc.file.version, contentHash: crypto.createHash("sha256").update(bytes).digest("hex"), size: bytes.length, mimeType: "text/markdown", contentBase64: bytes.toString("base64") }],
   }).catch((error) => {
-    if (error instanceof CliError && error.code === "VERSION_CONFLICT") throw new CliError("VERSION_CONFLICT", `Someone saved ${doc.file.path} while you were editing`, { hint: "Run nb doc edit again to start from their version", details: error.details });
+    if (error instanceof CliError && error.code === "VERSION_CONFLICT") throw new CliError("VERSION_CONFLICT", `Someone saved ${doc.file.path} while you were editing`, { hint: "Read the doc again and redo your change on their version", details: error.details });
     throw error;
   }));
   const saved = res.files[0];

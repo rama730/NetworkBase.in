@@ -9,7 +9,8 @@ import { colorLevel, palette, pad, safe, symbols, truncateEnd, truncateMiddle, a
 
 /**
  * @param {Partial<OutputMode>} mode
- * @param {{ stdout?: NodeJS.WriteStream, stderr?: NodeJS.WriteStream, env?: NodeJS.ProcessEnv }} [io]
+ * @param {{ stdout?: NodeJS.WriteStream, stderr?: NodeJS.WriteStream, env?: NodeJS.ProcessEnv, onResult?: (r: { schema: string, data: any, text: string, warnings: string[] }) => void }} [io]
+ *   onResult: the MCP server takes each result as data plus its plain-text summary instead of printing it.
  */
 export function createOutput(mode, io = {}) {
   const stdout = io.stdout ?? process.stdout;
@@ -57,6 +58,11 @@ export function createOutput(mode, io = {}) {
      * @param {(data: T) => string | string[] | null} human
      */
     result(schema, data, human) {
+      if (io.onResult) {
+        const lines = human(data);
+        io.onResult({ schema, data, text: lines == null ? "" : Array.isArray(lines) ? lines.join("\n") : lines, warnings });
+        return;
+      }
       if (json) {
         const envelope = { ok: true, schema, data, ...(warnings.length ? { meta: { warnings } } : {}) };
         stdout.write(`${JSON.stringify(envelope)}\n`);

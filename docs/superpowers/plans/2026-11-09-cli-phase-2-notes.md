@@ -34,3 +34,8 @@ Commits on local `main`, not pushed: `e3e212d98` (2.0 core), `50554fb93` (packag
 - Crash-at-every-step test, 250 MB upload memory test, "first push < 60 s on clean macOS/Windows/Linux": need CI runners or VMs; the Windows path is untested locally.
 - `x-nb-min-client` / `CLIENT_TOO_OLD` (server half moved with P1.11).
 - `nb mcp` and the 2.0 release itself wait for Phase 3 (P3.2).
+
+## Phase 3 start (MCP)
+
+- **Size budget raised to 250 KB** (the recommended option above): with `nb mcp` the package is 224.5 KB; startup is unchanged (71 ms) because command modules load only when used. Minifying stays possible later.
+- **Found while building the tools:** `--workspace <slug>` was sent to the API as-is (routes need the id). Fixed: the slug or title is looked up once before the command runs.

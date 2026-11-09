@@ -109,9 +109,13 @@ export const COMMANDS = [
   { group: "Tasks", name: "comment add", summary: "Comment on a task", usage: "nb comment add -m \"<text>\" [--task 4]", module: "tasks", fn: "commentAdd", flags: { ...TASK, ...MESSAGE } },
 
   // Docs and workspaces
+  { group: "Agents", name: "mcp", summary: "MCP server for Claude Code, Codex and Cursor (stdio)", usage: "nb mcp", module: "mcp", fn: "serve",
+    examples: ["claude mcp add networkbase -- npx -y @networkbase/cli@2 mcp"] },
   { group: "Docs and workspaces", name: "doc list", summary: "Workspace docs", usage: "nb doc list", module: "docs", fn: "list" },
   { group: "Docs and workspaces", name: "doc view", summary: "Print a doc (default: the README)", usage: "nb doc view [slug] [--raw]", module: "docs", fn: "view", flags: { raw: { type: "boolean", describe: "Markdown only" } } },
   { group: "Docs and workspaces", name: "doc edit", summary: "Edit a doc in your editor, saved as a new version", usage: "nb doc edit [slug]", module: "docs", fn: "edit", flags: { ...MESSAGE } },
+  { group: "Docs and workspaces", name: "doc set", summary: "Replace a doc's text from a file or stdin (asks first)", usage: "nb doc set [slug] --file <path|->", module: "docs", fn: "set",
+    flags: { ...MESSAGE, file: { type: "string", describe: "Markdown file, or - for stdin", valueName: "path" } }, examples: ["nb doc set readme --file README.md", "cat notes.md | nb doc set readme --file - --yes"], exit: [0, 4, 7] },
   { group: "Docs and workspaces", name: "workspace list", summary: "Your workspaces", usage: "nb workspace list", module: "docs", fn: "workspaceList" },
   { group: "Docs and workspaces", name: "member list", summary: "People in the workspace", usage: "nb member list [name]", module: "docs", fn: "memberList" },
   { group: "Docs and workspaces", name: "search", summary: "Find files by name", usage: "nb search \"<text>\"", module: "docs", fn: "search" },
@@ -144,5 +148,4 @@ export const REMOVED = {
   "hook install": "nb hook install was removed in 2.0: it replaced your git hook and scanned the wrong files.",
   "auth setup-git": "nb auth setup-git was removed in 2.0: there is no NetworkBase git server.",
   "auth git-credential": "nb auth git-credential was removed in 2.0: there is no NetworkBase git server.",
-  mcp: "nb mcp is being rebuilt for 2.0 and comes back with agent setup. Use CLI 1.x (npx @networkbase/cli@1 mcp) until then.",
 };
