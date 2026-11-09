@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { startCopyOnWork } from "@/lib/organizations/assignments";
 import { z } from "zod";
 import { and, eq, gt, inArray, isNull, max } from "drizzle-orm";
 import {getRequestId,
@@ -686,6 +687,8 @@ async function handlePost(request: Request) {
                 })),
               )
               .onConflictDoNothing({ target: [taskNodeLinks.taskId, taskNodeLinks.nodeId] });
+            // Assignment flow decision 1: files pushed to a copy in To do start it.
+            await startCopyOnWork(tx, taskId, user.id, { kind: "file", name: additions.length === 1 ? additions[0]!.path.split("/").pop() ?? null : null });
           }
 
           for (const existingFile of committedFiles.filter((f) => linkedMap.has(f.nodeId))) {

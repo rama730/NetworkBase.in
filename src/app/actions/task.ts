@@ -422,8 +422,11 @@ export async function moveTaskToWorkflowColumnAction(
   workflowColumnId: string,
   position?: number,
   expectedUpdatedAt?: string | null,
+  /** Assignment flow decision 6: what's in the way, when a copy goes to Blocked. Kept on the move's event. */
+  options: { note?: string | null } = {},
 ) {
   try {
+    const note = typeof options?.note === "string" ? options.note.trim().slice(0, 500) : "";
     if (
       !z.string().uuid().safeParse(taskId).success ||
       !z.string().uuid().safeParse(projectId).success ||
@@ -440,12 +443,13 @@ export async function moveTaskToWorkflowColumnAction(
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId)
         throw new Error("Task does not belong to this workspace");
-      // Members move their own or unassigned tasks; leads move any (the board mirrors this).
-      if (!locked.isLeader && locked.previousAssigneeId && locked.previousAssigneeId !== user.id)
+      // Members move their own or unassigned tasks; leads move any (the board mirrors this). Assignment flow decision 7:
+      // a team's or a group workspace's copy is moved by anyone who holds it, not only its lead.
+      if (!locked.isLeader && !locked.isHolder && locked.previousAssigneeId && locked.previousAssigneeId !== user.id)
         throw new Error("Only the assignee, the owner or an admin can move this task.");
       if (expectedVersion && new Date(locked.currentUpdatedAt).getTime() !== expectedVersion.getTime())
         throw new Error("This task changed elsewhere. Reload and try again.");
-      return { locked, result: await transitionTaskTx(tx, locked, { taskId, userId: user.id, columnId: workflowColumnId, position }) };
+      return { locked, result: await transitionTaskTx(tx, locked, { taskId, userId: user.id, columnId: workflowColumnId, position, ...(note ? { note } : {}) }) };
     });
     const warnings = await afterTaskTransition(user, locked, taskId, result);
     return {

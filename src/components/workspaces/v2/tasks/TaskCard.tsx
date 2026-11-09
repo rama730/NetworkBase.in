@@ -1,6 +1,7 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
+import { markMoveSeen, moveSeen } from "@/lib/organizations/move-seen";
 import { useSprintPath } from "@/components/workspaces/v2/tasks/SprintPathContext";
 import { AssignmentIcon, audienceLabel, cardLine, copyChip, copyStageLine, publishLine, StageBar } from "@/components/workspaces/tabs/sprint/AssignmentStages";
 import { assignmentChip } from "@/lib/organizations/assignment-chip";
@@ -180,6 +181,18 @@ export const TaskCard = memo(function TaskCard({
   const deadlineLabel = ownStage ? fixByLabel ?? (owesWork ? dueDateLabel : null) : titlePresentation.isCompleted ? null : dueDateLabel;
   const timing = owesWork ? timeHealth.state : null;
   const isCopy = Boolean(taskRecord.assignmentId);
+  // Assignment flow decision 3: handed-in, approved and excused copies can't be dragged; the lock says so.
+  const lockedCopy = Boolean(ownStage && (ownStage.state === "submitted" || ownStage.state === "excused" || (ownStage.state === "done" && ownStage.reviewRequired)));
+  const lockReason = ownStage?.state === "submitted" ? "Waiting for review" : ownStage?.state === "excused" ? "Excused" : "Approved work is locked";
+  const stuck = Boolean(ownStage?.stuck);
+  // Why it moved (an auto start, a teammate's move), until its person opens the card. Read after mount: storage is per browser.
+  const lastMove = taskRecord.lastMove ?? null;
+  const [moveHidden, setMoveHidden] = useState(true);
+  useEffect(() => { setMoveHidden(!lastMove || moveSeen(taskRecord.id, lastMove.at)); }, [lastMove, taskRecord.id]);
+  const open = () => {
+    if (lastMove && !moveHidden) { markMoveSeen(taskRecord.id, lastMove.at); setMoveHidden(true); }
+    onClick?.(taskRecord);
+  };
 
   const cardButton = (
     <button
@@ -189,7 +202,7 @@ export const TaskCard = memo(function TaskCard({
       type="button"
       data-testid="task-card"
       aria-label={cardName}
-      onClick={() => onClick?.(taskRecord)}
+      onClick={open}
       className={cn(
         "group relative min-h-[128px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[8px] bg-card text-left transition-colors duration-[180ms]",
         "border border-border shadow-2xs hover:border-border/80",
@@ -209,6 +222,11 @@ export const TaskCard = memo(function TaskCard({
           >
             {taskRecord.title}
           </h4>
+          {lockedCopy ? (
+            <span className="ml-auto shrink-0 self-start text-muted-foreground" title={lockReason} aria-label={lockReason}>
+              <Lock className="size-3" />
+            </span>
+          ) : null}
         </div>
         {master ? (
           master.draft ? (
@@ -223,6 +241,12 @@ export const TaskCard = memo(function TaskCard({
           )
         ) : ownStage && ownStage.state !== "not_started" && ownStage.state !== "in_progress" ? (
           <p className={cn("line-clamp-2 font-mono text-[11px]", ownChip?.tone === "danger" ? "text-[var(--status-danger)]" : ownChip?.tone === "success" ? "text-[var(--status-success)]" : "text-muted-foreground")}>{copyStageLine(ownStage)}</p>
+        ) : stuck ? (
+          // Assignment flow decision 6: what's in the way, while it sits in Blocked.
+          <p className="line-clamp-2 font-mono text-[11px] text-[var(--status-danger)]">{taskRecord.stuckNote ? `Stuck: ${taskRecord.stuckNote}` : "Stuck"}</p>
+        ) : null}
+        {!master && lastMove && !moveHidden ? (
+          <p data-why-moved className="line-clamp-2 rounded-[4px] bg-primary/10 px-1.5 py-1 font-mono text-[11px] text-primary">{lastMove.text}</p>
         ) : null}
 
         {/* Keep the card compact: stable status first (if enabled), then semantic labels without a horizontal scroller. */}
@@ -234,6 +258,9 @@ export const TaskCard = memo(function TaskCard({
           {ownChip ? (
             <span className={cn("shrink-0 rounded-[3px] border px-2 py-0.5 font-mono text-[11px] font-semibold",
               ownChip.tone === "danger" ? "border-destructive/20 bg-destructive/10 text-destructive" : ownChip.tone === "success" ? "border-[var(--status-success)]/30 text-[var(--status-success)]" : "border-border bg-muted/40 text-muted-foreground")}>{ownChip.label}</span>
+          ) : null}
+          {stuck ? (
+            <span className="shrink-0 rounded-[3px] border border-destructive/20 bg-destructive/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-destructive">Blocked</span>
           ) : null}
           {showStatus && taskRecord.reviewStatus !== "pending" && !master && (
             <TaskStatusBadge status={taskRecord.status} className="shrink-0" />

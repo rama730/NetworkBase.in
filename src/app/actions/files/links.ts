@@ -19,6 +19,7 @@ import {
 } from "@/lib/workspaces/task-file-intelligence";
 import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
+import { startCopyOnWork } from "@/lib/organizations/assignments";
 
 const MAX_ANNOTATION_LENGTH = 2000;
 
@@ -175,7 +176,12 @@ export async function linkNodeToTask(
             }).onConflictDoNothing({
                 target: [taskNodeLinks.taskId, taskNodeLinks.nodeId],
             }).returning();
-            if (inserted) return { row: inserted, changed: true };
+            if (inserted) {
+                // Assignment flow decision 1: linking the first file to a copy in To do starts it.
+                const [file] = await tx.select({ name: workspaceNodes.name, type: workspaceNodes.type }).from(workspaceNodes).where(eq(workspaceNodes.id, nodeId)).limit(1);
+                if (file?.type === "file") await startCopyOnWork(tx, taskId, user.id, { kind: "file", name: file.name });
+                return { row: inserted, changed: true };
+            }
         } else if (options?.annotation !== undefined || options?.role) {
             const [updated] = await tx.update(taskNodeLinks)
                 .set({

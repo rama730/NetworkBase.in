@@ -49,6 +49,7 @@ import {
     UUID_RE,
 } from "./_constants";
 import { viaPayload } from "@/lib/server/request-via";
+import { startCopyOnWork } from "@/lib/organizations/assignments";
 
 function actorNotificationSnapshot(user: { user_metadata?: Record<string, unknown> | null }) {
     return {
@@ -377,6 +378,8 @@ export async function createFileNode(projectId: string, parentId: string | null,
             await tx.insert(taskNodeLinks).values({ taskId: file.taskId, nodeId: created!.id, createdBy: user.id, order: Number(last?.order ?? 0) + 1,
                 tags: replaceTaskFileRoleTag([], file.taskLink.role ?? "working"), annotation: file.taskLink.annotation ?? null });
         }
+        // Assignment flow decision 1: the first file on a copy in To do starts it, in the same transaction.
+        if (file.taskId) await startCopyOnWork(tx, file.taskId, user.id, { kind: "file", name: safeName });
         return created!;
     });
 

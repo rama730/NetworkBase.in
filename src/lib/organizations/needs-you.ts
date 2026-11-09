@@ -78,6 +78,17 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         ]);
         for (const r of reviews) rows.push({ kind: 'review', ...reviewRow(r.title, r.n, r.oldest ? new Date(r.oldest) : null, now), title: `${r.n} ${r.n === 1 ? 'submission' : 'submissions'} to review`,
             detail: `${r.title}${r.oldest ? ` · oldest ${formatDistanceToNow(new Date(r.oldest), { addSuffix: true })}` : ''}`, href: `${base}?tab=tasks&taskScope=review`, count: r.n });
+        // Assignment flow decision 6: copies someone dropped in Blocked, with the newest note when they left one.
+        const stuck = await db.execute<{ title: string; n: number; who: string | null; note: string | null }>(sql`
+            SELECT t.title, count(*)::int AS n,
+                   (array_agg(coalesce(p.full_name, p.username) ORDER BY t.updated_at DESC))[1] AS who,
+                   (array_agg((SELECT e.payload->>'note' FROM task_activity_events e WHERE e.task_id = t.id AND e.event_type = 'status_changed' ORDER BY e.created_at DESC LIMIT 1) ORDER BY t.updated_at DESC))[1] AS note
+            FROM tasks t JOIN workspaces w ON w.id = t.workspace_id LEFT JOIN profiles p ON p.id = t.assignee_id
+            WHERE t.assignment_id IS NOT NULL AND t.deleted_at IS NULL AND t.excused_at IS NULL AND t.status = 'blocked' AND t.review_status <> 'pending'
+              AND (t.workspace_id = ${v.org.id} OR w.parent_id = ${v.org.id})
+            GROUP BY t.title ORDER BY t.title`);
+        for (const r of stuck) rows.push({ kind: 'stuck', label: `${r.title} · ${r.n} stuck`, title: `${r.n} ${r.n === 1 ? 'person is' : 'people are'} stuck`,
+            detail: `${r.title}${r.n === 1 && r.who ? ` · ${r.who}` : ''}${r.note ? ` · “${r.note}”` : ''}`, href: `${base}?tab=tasks&taskScope=assignments`, count: r.n });
         if (plainWaiting && plainWaiting.n > 0) rows.push({ kind: 'review', ...reviewRow('Other tasks', plainWaiting.n, plainWaiting.oldest ? new Date(plainWaiting.oldest) : null, now),
             title: `${plainWaiting.n} ${plainWaiting.n === 1 ? 'task' : 'tasks'} to review`, detail: `Other tasks${plainWaiting.oldest ? ` · oldest ${formatDistanceToNow(new Date(plainWaiting.oldest), { addSuffix: true })}` : ''}`,
             href: `${base}?tab=tasks&taskScope=review`, count: plainWaiting.n });

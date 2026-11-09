@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MoreHorizontal } from 'lucide-react'
 
-import { readReviewQueueAction, reviewAssignmentCopyAction, type ReviewQueueRow } from '@/app/actions/assignments'
+import { approveAllSubmittedAction, readReviewLanesAction, readReviewQueueAction, reviewAssignmentCopyAction, type ReviewLaneRow, type ReviewQueueRow } from '@/app/actions/assignments'
+import { ReviewLanes } from '@/components/organizations/ReviewLanes'
 import { approveTaskReviewAction, requestTaskChangesAction } from '@/app/actions/task'
 import { createTaskCommentAction } from '@/app/actions/task-comment'
 import { markTaskAsReadAction } from '@/app/actions/workspace'
@@ -59,8 +60,11 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
     const [mineOnly, setMineOnly] = useState(() => readUrlParam('rqmine') === '1')
     const [query, setQuery] = useState(() => readUrlParam('rqq') ?? '')
     const [sort, setSort] = useState<'oldest' | 'newest' | 'late'>(() => { const s = readUrlParam('rqsort'); return s === 'newest' || s === 'late' ? s : 'oldest' })
+    // Assignment flow decision 5: the lanes by default; One at a time is the full review of each hand-in.
+    const [view, setView] = useState<'lanes' | 'one'>(() => (readUrlParam('rqview') === 'one' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('review')) ? 'one' : 'lanes'))
+    const [lanes, setLanes] = useState<{ returned: ReviewLaneRow[]; approved: ReviewLaneRow[] }>({ returned: [], approved: [] })
     // The queue's filters live in the address (unified back R3).
-    useUrlMirror({ assignment: assignment !== 'all' ? assignment : null, rqlate: lateOnly ? '1' : null, rqmine: mineOnly ? '1' : null, rqq: query || null, rqsort: sort !== 'oldest' ? sort : null })
+    useUrlMirror({ rqview: view === 'one' ? 'one' : null, assignment: assignment !== 'all' ? assignment : null, rqlate: lateOnly ? '1' : null, rqmine: mineOnly ? '1' : null, rqq: query || null, rqsort: sort !== 'oldest' ? sort : null })
     // Review UX 3.9: decisions waiting out their 10 seconds, hidden from the list until sent or taken back.
     const [held, setHeld] = useState<Set<string>>(new Set())
     const [error, setError] = useState<string | null>(null)
@@ -87,8 +91,9 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
             return kept
         })
     }), [orgId])
-    useEffect(() => { load() }, [load])
-    useReloadOnNotice(load)
+    const loadLanes = useCallback(() => void readReviewLanesAction(orgId).then((r) => { if (r.success) setLanes({ returned: r.returned, approved: r.approved }) }).catch(() => undefined), [orgId])
+    useEffect(() => { load(); loadLanes() }, [load, loadLanes])
+    useReloadOnNotice(useCallback(() => { load(); loadLanes() }, [load, loadLanes]))
     const showIncoming = () => { setRows((cur) => [...(cur ?? []), ...incoming]); setIncoming([]) }
     // §4b.2: the next 200 when you're near the end, and a Load more row for keyboards and screen readers.
     const loadMore = useCallback(() => {
@@ -161,6 +166,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                 setTotal((t) => Math.max(0, t - 1))
                 hold(row.copyId, false)
                 onChanged()
+                loadLanes()
                 return
             }
             if (message === 'NOTE_FAILED') {
@@ -175,6 +181,33 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
             if (message.startsWith('Already reviewed')) { setRows((cur) => (cur ?? []).filter((x) => x.copyId !== row.copyId)); setTotal((t) => Math.max(0, t - 1)) }
             else load()
             hold(row.copyId, false)
+        })
+    }
+    // Decision 5: an approved copy dragged (or sent) to Returned, while the assignment is open (decision 40).
+    const returnApproved = (row: ReviewLaneRow, reason: string, fixBy: string | null) => {
+        setLanes((l) => ({ ...l, approved: l.approved.filter((x) => x.copyId !== row.copyId) }))
+        deferDecision(`Returned ${row.title} to ${row.who}.`,
+            () => reviewAssignmentCopyAction(row.copyId, 'return', reason, { projectId: row.projectId, updatedAt: row.updatedAt }, { ...(fixBy ? { fixBy } : {}), change: true }),
+            () => loadLanes(),
+            (ok, message = 'Couldn’t save that. Try again.') => { if (!ok) setError(message); loadLanes(); onChanged() })
+    }
+    // Approve all in To review: one call per assignment, with the same 10 seconds to take it back.
+    const approveAll = (list: ReviewQueueRow[]) => {
+        const byMaster = new Map<string, string[]>()
+        for (const r of list) byMaster.set(r.masterId, [...(byMaster.get(r.masterId) ?? []), r.copyId])
+        list.forEach((r) => hold(r.copyId, true))
+        deferDecision(`Approved ${list.length}.`, async () => {
+            const failed: string[] = []
+            for (const [masterId, ids] of byMaster) {
+                const r = await approveAllSubmittedAction(masterId, ids)
+                if (!r.success) failed.push(r.error)
+                else if (r.failed.length) failed.push(`${r.failed.length} couldn’t be approved: ${r.failed[0]!.reason}`)
+            }
+            return failed.length ? { success: false, error: failed.join(' ') } : { success: true }
+        }, () => list.forEach((r) => hold(r.copyId, false)), (ok, message) => {
+            list.forEach((r) => hold(r.copyId, false))
+            if (!ok && message) setError(message)
+            load(); loadLanes(); onChanged()
         })
     }
     const keys = useRef({ step, onClose })
@@ -222,6 +255,10 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                     <button type="button" aria-pressed={!mineOnly} className={toggle(!mineOnly)} onClick={() => setMineOnly(false)}>All</button>
                 </span>
             ) : null}
+            <span className="inline-flex gap-1" role="group" aria-label="Layout">
+                <button type="button" aria-pressed={view === 'lanes'} className={toggle(view === 'lanes')} onClick={() => setView('lanes')}>Lanes</button>
+                <button type="button" aria-pressed={view === 'one'} className={toggle(view === 'one')} onClick={() => setView('one')}>One at a time</button>
+            </span>
             <span className="ml-auto max-md:basis-full" />
             {tabs ? <span className="max-md:order-first max-md:w-full">{tabs(waitingCount)}</span> : (
                 <span className="text-xs text-muted-foreground">{waitingCount}{total > (rows?.length ?? 0) ? ` of ${total}` : ''} waiting</span>
@@ -238,6 +275,22 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                 ? <Button type="button" size="sm" variant="outline" className="mt-3 h-7" onClick={clearFilters}>Clear filters</Button>
                 : onClose ? <Button type="button" size="sm" variant="outline" className="mt-3 h-7" onClick={onClose}>Back to the board</Button> : null}
         </div>
+    )
+
+    if (view === 'lanes') return (
+        <section aria-labelledby="review-queue-heading" data-review-full className="flex flex-col text-sm">
+            <h2 id="review-queue-heading" className="sr-only">To review</h2>
+            {filters}
+            {error ? <p role="alert" className="mx-4 mt-3 shrink-0 rounded-md border border-border bg-[var(--status-danger-soft)] px-3 py-2 text-[13px] text-destructive sm:mx-5">{error}</p> : null}
+            {incoming.length ? <button type="button" onClick={showIncoming} className="mx-4 mt-3 h-7 self-start rounded-md border border-border bg-[var(--status-info-soft)] px-3 text-xs font-medium text-primary sm:mx-5">{incoming.length} new · Show</button> : null}
+            <ReviewLanes waiting={shown}
+                returned={lanes.returned.filter((r) => assignment === 'all' || r.masterId === assignment)}
+                approved={lanes.approved.filter((r) => assignment === 'all' || r.masterId === assignment)}
+                recentReasons={reasons} onDecide={(row, decision, reason, fixBy) => decide(row, decision, reason, fixBy)}
+                onReturnApproved={returnApproved} onApproveAll={approveAll}
+                onOpen={(row) => { setCurrentId(row.copyId); setView('one') }} />
+            {cursor ? <button type="button" onClick={loadMore} disabled={loadingMore} className="mx-4 mb-4 h-7 self-start rounded-md border border-border px-3 text-xs text-muted-foreground hover:bg-muted sm:mx-5">{loadingMore ? 'Loading…' : 'Load more'}</button> : null}
+        </section>
     )
 
     const meta = (r: ReviewQueueRow) => [r.kind === 'task' ? 'Task' : r.title, short(r.submittedAt), r.version ? `v${r.version}` : null].filter(Boolean).join(' · ')

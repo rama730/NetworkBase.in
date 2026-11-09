@@ -13,8 +13,8 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { agentMadeFiles, aiUseByCopy, type AiUsed } from '@/lib/organizations/ai-labels';
 import { orgRoleNames } from '@/lib/organizations/config';
-import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState, weeklyRepeats, type AiPolicy } from '@/lib/organizations/assignment-rules';
-import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
+import { assignmentHref, canStillSubmit, copyState, reviewDeadlock, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState, weeklyRepeats, type AiPolicy } from '@/lib/organizations/assignment-rules';
+import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients, startCopyQuietly } from '@/lib/organizations/assignments';
 import { publishMaster } from '@/lib/organizations/assignment-publish';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
@@ -32,6 +32,8 @@ import { normalizeSprintOptions } from '@/lib/workspaces/task-presentation';
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
 
 type Failure = { success: false; error: string };
+/** Assignment flow decision 8: publishing would leave nobody able to review; the composer offers Turn review off. */
+type NoReviewer = Failure & { noReviewer: true };
 const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
 /** The signed-in person: a browser session, or a CLI token (`nb assignment`, `nb review`; CLI report A8.4–A8.5). */
@@ -52,6 +54,14 @@ async function orgRole(orgId: string, mode: 'read' | 'write' = 'write') {
 }
 
 const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?? id}`);
+
+/** Decision 8: everyone in the org who could review, by role, for reviewDeadlock. */
+async function reviewerRoles(orgId: string) {
+    const rows = await db.select({ role: workspaceMembers.role }).from(workspaceMembers).where(eq(workspaceMembers.projectId, orgId));
+    const [owner] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const roles = rows.map((r) => orgRoleOf(r.role));
+    return owner?.ownerId && !roles.includes('owner') ? [...roles, orgRoleOf('owner')] : roles;
+}
 
 const targetSchema: z.ZodType<AssignmentTarget> = z.union([
     z.object({ mode: z.literal('everyone') }),
@@ -122,7 +132,7 @@ function scheduleFields(schedule: z.infer<typeof scheduleSchema> | null | undefi
 }
 
 /** New assignment: a master, and copies when published (report §16.2). Drafts make no copies. */
-export async function createAssignmentAction(input: z.input<typeof createSchema>): Promise<{ success: true; masterId: string; copies: number; drafts?: number } | Failure> {
+export async function createAssignmentAction(input: z.input<typeof createSchema>): Promise<{ success: true; masterId: string; copies: number; drafts?: number } | Failure | NoReviewer> {
     const parsed = createSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? 'Check the assignment details.' };
     const data = parsed.data;
@@ -138,6 +148,11 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
         const checked = await checkReviewers(data.projectId, data.reviewers);
         if ('error' in checked) return { success: false, error: checked.error };
         reviewers = checked.reviewers;
+    }
+    if (data.publish) {
+        const [org] = await db.select({ reviewDefault: workspaces.taskReviewRequired }).from(workspaces).where(eq(workspaces.id, data.projectId)).limit(1);
+        const deadlock = reviewDeadlock(data.target, data.reviewRequired ?? org?.reviewDefault ?? false, await reviewerRoles(data.projectId));
+        if (deadlock) return { success: false, error: deadlock, noReviewer: true } satisfies NoReviewer;
     }
     try {
         const result = await db.transaction(async (tx) => {
@@ -217,10 +232,17 @@ async function adminOfMaster(masterId: string, action: OrgAction) {
 }
 
 /** Publish a draft: copies are made now. */
-export async function publishAssignmentAction(masterId: string, options: { dropMissing?: boolean } = {}): Promise<{ success: true; copies: number } | (Failure & { left?: number })> {
+export async function publishAssignmentAction(masterId: string, options: { dropMissing?: boolean; reviewOff?: boolean } = {}): Promise<{ success: true; copies: number } | (Failure & { left?: number }) | NoReviewer> {
     const ctx = await adminOfMaster(masterId, 'create_assignments');
     if (!ctx) return DENIED;
     if (ctx.master.settings.publishedAt) return { success: false, error: 'Already published.' };
+    // Decision 8: Turn review off and publish, or say why it can't be published as it is.
+    if (options.reviewOff && ctx.master.settings.reviewRequired) {
+        await db.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, reviewRequired: false }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
+    } else {
+        const deadlock = reviewDeadlock(ctx.master.settings.target, ctx.master.settings.reviewRequired, await reviewerRoles(ctx.master.projectId));
+        if (deadlock) return { success: false, error: deadlock, noReviewer: true };
+    }
     try {
         const copies = await publishMaster(masterId, ctx.viewer.userId, options);
         if (copies === null) return { success: false, error: 'Already published.' };
@@ -710,6 +732,26 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     if (locked) return { success: false, error: 'Approved work is locked.' };
     revalidatePath(`/workspaces/${copy.projectId}`);
     await notifyAssignmentSubmitted(copyId, userId);
+    return { success: true };
+}
+
+/**
+ * Assignment flow decision 1: the holder began the answer (a link or text typed into Hand in). The draft itself stays
+ * in their browser; this only starts a copy that's still in To do.
+ */
+export async function startCopyAction(copyId: string): Promise<{ success: true } | Failure> {
+    if (!z.string().uuid().safeParse(copyId).success) return DENIED;
+    const userId = await viewerId();
+    if (!userId) return DENIED;
+    const loaded = await loadCopy(copyId);
+    if (!loaded) return DENIED;
+    const { copy } = loaded;
+    const [teammate] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
+    const access = copy.assigneeId === userId || teammate ? null : await getWorkspaceAccessById(copy.projectId, userId);
+    // A group workspace's copy belongs to everyone who works in that workspace (decision 149).
+    const groupMember = Boolean(access && access.project?.kind !== 'organization' && access.memberRole && !access.writeBlocked);
+    if (copy.assigneeId !== userId && !teammate && !groupMember) return DENIED;
+    await startCopyQuietly(copyId, userId, { kind: 'answer' });
     return { success: true };
 }
 
@@ -1360,4 +1402,39 @@ export async function readOrgTabBadgesAction(orgId: string): Promise<OrgTabBadge
             ? sql`(SELECT count(*)::int FROM role_applications WHERE workspace_id = ${orgId} AND role_id IS NULL AND status = 'pending')`
             : sql`0`} AS members`);
     return row ? { tasks: viewer.isAdmin ? board.review.needsYou : board.assignments.needsYou, updates: row.updates, members: row.members } : null;
+}
+
+/** Assignment flow decision 5: a copy in the review lanes that isn't waiting — returned, or approved recently. */
+export type ReviewLaneRow = {
+    copyId: string; masterId: string; title: string; who: string; projectId: string; updatedAt: string; dueDate: string | null;
+    people: Array<{ id: string; name: string; avatarUrl: string | null }>; at: string; by: string | null; reason: string | null; fixBy: string | null; version: number | null;
+};
+
+/**
+ * The Returned and Approved lanes beside To review (decision 5): copies returned and not handed in again, and copies
+ * approved in the last 14 days, 100 of each, newest first. To review keeps reading readReviewQueueAction.
+ */
+export async function readReviewLanesAction(orgId: string): Promise<{ success: true; returned: ReviewLaneRow[]; approved: ReviewLaneRow[] } | Failure> {
+    const viewer = await orgRole(orgId, 'read');
+    if (!viewer || !orgCan(orgRoleOf(viewer.role), 'approve_return')) return DENIED;
+    const lane = (where: ReturnType<typeof sql>, event: string) => db.execute<{ copy_id: string; master_id: string; title: string; who: string; workspace_id: string; updated_at: string; due_date: string | null;
+        people: ReviewLaneRow['people'] | null; at: string | null; by: string | null; reason: string | null; fix_by: string | null; version: number | null }>(sql`
+        SELECT c.id AS copy_id, m.id AS master_id, m.title, c.workspace_id, c.updated_at::text, c.due_date::text, (c.submission->>'version')::int AS version,
+               coalesce(c.team_name, (SELECT w.title FROM workspaces w WHERE w.id = c.workspace_id AND w.id <> m.workspace_id), (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = c.assignee_id), 'Member') AS who,
+               (SELECT jsonb_agg(jsonb_build_object('id', p.id, 'name', coalesce(p.full_name, p.username, 'Member'), 'avatarUrl', p.avatar_url) ORDER BY p.full_name) FROM profiles p
+                  WHERE p.id = c.assignee_id OR p.id IN (SELECT tm.user_id FROM task_team_members tm WHERE tm.task_id = c.id)) AS people,
+               e.created_at::text AS at, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = e.actor_id) AS by, e.payload->>'reason' AS reason,
+               coalesce(e.payload->>'fixBy', c.submit_until::text) AS fix_by
+        FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+        LEFT JOIN LATERAL (SELECT x.created_at, x.actor_id, x.payload FROM task_activity_events x WHERE x.task_id = c.id AND x.event_type = ${event} ORDER BY x.created_at DESC LIMIT 1) e ON true
+        WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND ${where}
+        ORDER BY coalesce(e.created_at, c.updated_at) DESC LIMIT 100`);
+    const [returned, approved] = await Promise.all([
+        lane(sql`c.review_status = 'rejected'`, 'changes_requested'),
+        lane(sql`c.status = 'done' AND c.review_status = 'none' AND c.completion_source = 'review' AND c.completed_at > now() - interval '14 days'`, 'review_approved'),
+    ]);
+    const shape = (r: (typeof returned)[number]): ReviewLaneRow => ({ copyId: r.copy_id, masterId: r.master_id, title: r.title, who: r.who, projectId: r.workspace_id, updatedAt: new Date(r.updated_at).toISOString(),
+        dueDate: r.due_date ? new Date(r.due_date).toISOString() : null, people: r.people ?? [], at: new Date(r.at ?? r.updated_at).toISOString(), by: r.by, reason: r.reason,
+        fixBy: r.fix_by ? new Date(r.fix_by).toISOString() : null, version: r.version });
+    return { success: true, returned: Array.from(returned).map(shape), approved: Array.from(approved).map(shape) };
 }

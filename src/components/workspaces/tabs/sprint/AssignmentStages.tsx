@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { toast } from "@/lib/feedback";
 import { ASSIGNMENT_STATE_LABELS } from "@/lib/copy/terms";
 import type { AssignmentStages, CopyStage } from "@/lib/organizations/assignments";
-import type { CopyState } from "@/lib/organizations/assignment-rules";
+import { stuckPart, type CopyState } from "@/lib/organizations/assignment-rules";
 import { cn } from "@/lib/utils";
 import { ClipboardCheck, ClipboardList } from "lucide-react";
 import type { AssignmentChipTone } from "@/lib/organizations/assignment-chip";
@@ -29,17 +29,23 @@ export function stageSummary(stages: AssignmentStages | null | undefined) {
   if (!stages || stages.total + stages.counts.excused === 0) return "Nobody has it yet";
   const c = stages.counts;
   return [`${c.done} of ${stages.total} ${stages.reviewRequired ? "approved" : "done"}`,
-    c.submitted ? `${c.submitted} in review` : null, c.returned ? `${c.returned} returned` : null, c.missing ? `${c.missing} missing` : null]
+    c.submitted ? `${c.submitted} in review` : null, c.returned ? `${c.returned} returned` : null, stuckPart(stages.stuck ?? 0), c.missing ? `${c.missing} missing` : null]
     .filter(Boolean).join(" · ");
 }
 
 /** A thin bar split by stage (excused left out). */
 export function StageBar({ stages, className }: { stages: AssignmentStages; className?: string }) {
   if (!stages.total) return null;
+  // Assignment flow decision 6: stuck copies get their own red part, taken out of In progress (or Returned).
+  const stuck = stages.stuck ?? 0;
+  const fromProgress = Math.min(stuck, stages.counts.in_progress);
+  const width = (s: CopyState) => stages.counts[s] - (s === "in_progress" ? fromProgress : s === "returned" ? stuck - fromProgress : 0);
+  const shown = ORDER.filter((s) => s !== "excused" && width(s) > 0);
   return (
-    <span role="img" aria-label={ORDER.filter((s) => s !== "excused" && stages.counts[s]).map((s) => `${stages.counts[s]} ${stageLabel(s, stages.reviewRequired).toLowerCase()}`).join(", ")}
+    <span role="img" aria-label={[...shown.map((s) => `${width(s)} ${stageLabel(s, stages.reviewRequired).toLowerCase()}`), stuck ? `${stuck} stuck` : null].filter(Boolean).join(", ")}
       className={cn("flex h-1 w-full overflow-hidden rounded-[2px] bg-muted", className)}>
-      {ORDER.filter((s) => s !== "excused" && stages.counts[s]).map((s) => <span key={s} className={TONE[s]} style={{ width: `${(stages.counts[s] / stages.total) * 100}%` }} />)}
+      {shown.map((s) => <span key={s} className={TONE[s]} style={{ width: `${(width(s) / stages.total) * 100}%` }} />)}
+      {stuck ? <span data-stuck className="bg-[var(--status-danger)]" style={{ width: `${(stuck / stages.total) * 100}%` }} /> : null}
     </span>
   );
 }
@@ -147,7 +153,7 @@ export function cardLine(stages: AssignmentStages) {
   const word = stages.reviewRequired ? "approved" : "done";
   if (stages.total > 0 && c.done >= stages.total) return { text: `All ${stages.total} ${word}${c.excused ? ` · ${c.excused} excused` : ""}`, allDone: true };
   const parts = [`${c.done} of ${stages.total}${stages.teams ? " groups" : ""} ${word}`,
-    c.submitted ? `${c.submitted} in review` : null, c.returned ? `${c.returned} returned` : null, c.missing ? `${c.missing} missing` : null];
+    c.submitted ? `${c.submitted} in review` : null, c.returned ? `${c.returned} returned` : null, stuckPart(stages.stuck ?? 0), c.missing ? `${c.missing} missing` : null];
   if (!c.submitted && !c.returned && !c.missing && c.in_progress) parts.push(`${c.in_progress} working`);
   return { text: parts.filter(Boolean).join(" · "), allDone: false };
 }

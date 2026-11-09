@@ -42,9 +42,13 @@ test("live-fix 6: Assignments and Mine filters", () => {
   assert.match(filters, /\{ value: "mine", label: "Mine", orgOnly: true \}/);
 });
 
-test("live-fix 7: a main assignment card has no drag and no Move to…", () => {
+// Assignment flow decision 4 (2026-11-10) replaces live-fix 7: only an admin lifts a main card, and its drop never
+// moves it; it opens Publish, Close or Reopen, or snaps back saying why (the rule is tested in assignment-flow).
+test("assignment flow 4: a main card lifts for admins only, and its drop goes through the flow rule", () => {
   const board = source("src/components/workspaces/v2/tasks/KanbanBoard.tsx");
-  assert.match(board, /!isAssignmentMaster\(task\) &&/);
+  assert.match(board, /master \? !!isLeader :/);
+  assert.match(board, /const outcome = dropOutcome\(/);
+  assert.match(board, /\(master && sameColumn\)/, "a main card is never reordered");
 });
 
 test("live-fix 8: a main assignment's panel hides Status, Section and Assignee", () => {

@@ -2,10 +2,10 @@
 
 
 import { ViaLabel } from '@/components/ui/via-label'
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { readHandInAction, submitAssignmentAction, type HandIn, type HandInFile } from '@/app/actions/assignments'
+import { readHandInAction, startCopyAction, submitAssignmentAction, type HandIn, type HandInFile } from '@/app/actions/assignments'
 import { toggleSubtaskAction } from '@/app/actions/subtask'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -102,6 +102,26 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
     }
     // Failure keeps the text (report §32.6); a fresh load starts from what was last handed in.
     useEffect(() => { if (h?.latest) { setLink((v) => v || h.latest!.link || ''); setText((v) => v || h.latest!.text || '') } }, [h?.latest])
+    // Assignment flow decision 1: an answer not handed in yet is kept as a draft in this browser, and the first words of
+    // it start a copy that's still in To do. The draft never hands anything in.
+    const draftKey = `nb:handin-draft:${copyId}`
+    useEffect(() => {
+        if (!h || h.latest) return
+        try {
+            const saved = JSON.parse(window.localStorage.getItem(draftKey) ?? 'null') as { link?: string; text?: string } | null
+            if (saved) { setLink((v) => v || saved.link || ''); setText((v) => v || saved.text || '') }
+        } catch { /* no draft */ }
+    }, [h, draftKey])
+    const started = useRef(false)
+    const typed = (next: { link?: string; text?: string }) => {
+        if (next.link !== undefined) setLink(next.link)
+        if (next.text !== undefined) setText(next.text)
+        try { window.localStorage.setItem(draftKey, JSON.stringify({ link: next.link ?? link, text: next.text ?? text })) } catch { /* private window */ }
+        if (!started.current && h?.holder && h.state === 'not_started' && (next.link ?? next.text ?? '').trim()) {
+            started.current = true
+            void startCopyAction(copyId).then(() => refresh()).catch(() => { started.current = false })
+        }
+    }
     if (!h) return null
     // Decision 173: waiting for review or approved, the files are locked until it's returned.
     const canAttach = Boolean(onUploadFiles) && h.state !== 'submitted' && !h.approved
@@ -113,6 +133,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
         if (!result.success) return setError(`Couldn’t hand it in. Your work is still here. ${result.error}`)
         setError(null)
         setNote('')
+        try { window.localStorage.removeItem(draftKey) } catch { /* nothing kept */ }
         await refresh()
         onSubmitted(h.reviewRequired)
     })
@@ -204,12 +225,12 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                 <div className="space-y-3">
                     {h.submissionType === 'link' ? (
                         <label className="block space-y-1"><span className="font-medium">Link to your work</span>
-                            <Input type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-invalid={Boolean(link.trim()) && !webLink(link.trim())} />
+                            <Input type="url" value={link} onChange={(e) => typed({ link: e.target.value })} placeholder="https://" aria-invalid={Boolean(link.trim()) && !webLink(link.trim())} />
                         </label>
                     ) : null}
                     {h.submissionType === 'text' ? (
                         <label className="block space-y-1"><span className="font-medium">Your answer</span>
-                            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} maxLength={TEXT_MAX} className="nb-textarea" aria-describedby="hand-in-count" />
+                            <textarea value={text} onChange={(e) => typed({ text: e.target.value })} rows={5} maxLength={TEXT_MAX} className="nb-textarea" aria-describedby="hand-in-count" />
                             <span id="hand-in-count" className="block text-right font-mono text-[11px] text-muted-foreground">{text.length.toLocaleString()} / {TEXT_MAX.toLocaleString()}</span>
                         </label>
                     ) : null}
@@ -240,7 +261,9 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <Button type="button" disabled={pending || Boolean(uploading) || Boolean(blocked)} aria-describedby={blocked ? 'hand-in-blocked' : undefined}
                             onClick={() => (openSteps ? setConfirmSteps(true) : submit())}>{pending ? 'Handing in…' : button.label}</Button>
-                        {blocked ? <span id="hand-in-blocked" className="text-[12px] text-muted-foreground">{blocked}</span> : null}
+                        {blocked ? <span id="hand-in-blocked" className="text-[12px] text-muted-foreground">{blocked}</span>
+                            // Assignment flow decision 3: ticking every step never hands it in; the button says it's ready.
+                            : h.steps.length && !openSteps ? <span className="text-[12px] font-medium text-[var(--status-success)]">All steps done</span> : null}
                     </div>
                     {h.wouldBeLate ? <p className="font-mono text-[12px] text-[var(--status-warning)]">This will be marked Late.</p> : null}
                 </div>

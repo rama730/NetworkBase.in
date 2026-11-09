@@ -422,3 +422,74 @@ export function queueOrder<T extends { who: string; submittedBy: string | null; 
   return rows.filter((r) => !q || [r.who, r.submittedBy ?? "", r.title].some((s) => s.toLowerCase().includes(q)))
     .sort((a, b) => (sort === "late" && a.late !== b.late ? (a.late ? -1 : 1) : sort === "newest" ? at(b) - at(a) : at(a) - at(b)));
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Assignment flow (2026-11-10, docs: claude.ai/artifact/GffgcrZ7kNLj7MnBXviiyM). People move their own copy, the main
+// card follows the copies, and every drop is a real action or snaps back with one line saying why.
+
+export type StartTrigger = { kind: "file" | "step" | "answer"; name?: string | null };
+
+/** What the copy's card says after the first real work moved it to In progress (decision 1). */
+export function autoStartLine(t: StartTrigger, mine = true): string {
+  const who = mine ? "you" : "someone";
+  if (t.kind === "file") return t.name ? `Started when ${who} added ${t.name}` : `Started when ${who} added a file`;
+  if (t.kind === "step") return t.name ? `Started when ${who} ticked “${t.name}”` : `Started when ${who} ticked a step`;
+  return `Started when ${who} began the answer`;
+}
+
+/** A column a card can land in, by its workflow status. */
+export type DropColumn = "todo" | "in_progress" | "blocked" | "done";
+
+/**
+ * What dropping a card on a column means (decisions 2, 4). The board and Move to both ask this, and the server
+ * refuses the same moves on its own. "move" is a plain move; the others open that action's sheet first.
+ */
+export type DropOutcome =
+  | { kind: "move" }
+  | { kind: "block" }
+  | { kind: "hand_in" }
+  | { kind: "publish" }
+  | { kind: "close" }
+  | { kind: "reopen" }
+  | { kind: "refuse"; message: string };
+
+export function dropOutcome(card: {
+  master: boolean; copy: boolean; from: DropColumn; to: DropColumn;
+  /** Copies: handed in and waiting, approved, or excused. */
+  state?: CopyState | null; approved?: boolean; reviewer?: string;
+  /** Main cards: draft, closed, or completed by itself (every copy approved or excused). */
+  draft?: boolean; closed?: boolean; allDone?: boolean;
+}): DropOutcome {
+  if (card.from === card.to) return { kind: "move" };
+  if (card.master) {
+    if (card.draft) return card.to === "in_progress" ? { kind: "publish" } : card.to === "todo" ? { kind: "move" } : { kind: "refuse", message: "Publish it first. Drop it on In progress to publish." };
+    if (card.closed) return card.to === "in_progress" ? { kind: "reopen" } : { kind: "refuse", message: "It’s closed. Drop it on In progress to reopen it." };
+    if (card.allDone && card.from === "done") return { kind: "refuse", message: "Everyone is approved. Return someone’s work to reopen it." };
+    if (card.to === "done") return { kind: "close" };
+    if (card.to === "todo") return { kind: "refuse", message: "Published work can’t go back to To do. Close it instead." };
+    if (card.to === "blocked") return { kind: "refuse", message: "An assignment isn’t blocked as a whole. Stuck copies show on its card." };
+    return { kind: "refuse", message: "It moves by itself as people start." };
+  }
+  if (card.copy) {
+    if (card.state === "submitted") return { kind: "refuse", message: `Waiting for ${card.reviewer ?? "review"}. It moves when it’s reviewed.` };
+    if (card.state === "excused") return { kind: "refuse", message: "You’re excused from this one." };
+    if (card.state === "done" && card.approved) return { kind: "refuse", message: "Approved work is locked." };
+    if (card.to === "done") return { kind: "hand_in" };
+    if (card.to === "blocked") return { kind: "block" };
+    return { kind: "move" };
+  }
+  return { kind: "move" };
+}
+
+/**
+ * Decision 8: nobody reviews their own copy, so an assignment for admins with review on needs a second person who
+ * can approve. Null when someone can always review; the message otherwise.
+ */
+export function reviewDeadlock(target: AssignmentTarget, reviewRequired: boolean, reviewerRoles: OrgRole[]): string | null {
+  if (!reviewRequired || target.mode !== "role" || target.role !== "admin") return null;
+  const reviewers = reviewerRoles.filter((role) => orgCan(role, "approve_return")).length;
+  return reviewers >= 2 ? null : "Only one person can review this, and nobody reviews their own work. Turn review off to publish it.";
+}
+
+/** The admin card's line part for copies in Blocked (decision 6). */
+export const stuckPart = (n: number) => (n > 0 ? `${n} stuck` : null);

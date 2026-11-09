@@ -50,10 +50,14 @@ export type TaskSurfaceRecord = {
   fromLabel?: string | null;
   /** A main assignment on an organization's board (decision 14): its class progress, worked out from the copies. */
   kind?: "task" | "assignment";
-  assignmentProgress?: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number; teams?: boolean } | null;
+  assignmentProgress?: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number; teams?: boolean; stuck?: number } | null;
   /** Board view dropdown §6a: everyone's stage on a main assignment, and a copy's own stage (the sprint list's read). */
   assignmentStages?: import("@/lib/organizations/assignments").AssignmentStages | null;
   copyStage?: import("@/lib/organizations/assignments").CopyStage | null;
+  /** Assignment flow: why this copy last moved (an auto start, a teammate's move), shown once to its person. */
+  lastMove?: { text: string; at: string } | null;
+  /** Assignment flow decision 6: what's in the way, while the copy sits in Blocked. */
+  stuckNote?: string | null;
   /** Who a main assignment goes to, and how many. */
   audience?: { mode: string; count: number } | null;
   /** When a scheduled assignment publishes. */
@@ -318,6 +322,8 @@ export function normalizeTaskSurfaceRecord(value: any): TaskSurfaceRecord {
     assignmentProgress: value?.assignmentProgress ?? null,
     assignmentStages: value?.assignmentStages ?? null,
     copyStage: value?.copyStage ?? null,
+    lastMove: value?.lastMove ?? null,
+    stuckNote: asTrimmedString(value?.stuckNote),
     audience: value?.audience ?? null,
     publishAt: asIsoString(value?.publishAt) ?? null,
     dueDate: asIsoString(value?.dueDate) ?? asIsoString(value?.due_date),
@@ -387,6 +393,8 @@ export function mergeTaskSurfaceRecords(
     assignmentProgress: incoming.assignmentProgress ?? current.assignmentProgress,
     assignmentStages: incoming.assignmentStages ?? current.assignmentStages,
     copyStage: incoming.copyStage ?? current.copyStage,
+    lastMove: incoming.lastMove !== undefined ? incoming.lastMove : current.lastMove,
+    stuckNote: incoming.stuckNote !== undefined ? incoming.stuckNote : current.stuckNote,
     audience: incoming.audience ?? current.audience,
     publishAt: incoming.publishAt ?? current.publishAt,
     fromLabel: incoming.fromLabel ?? current.fromLabel,

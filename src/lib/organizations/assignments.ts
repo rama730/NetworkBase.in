@@ -5,9 +5,9 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { workspaceMembers, workspaceSprints, workspaceWorkflowColumns, workspaces, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
+import { taskActivityEvents, workspaceMembers, workspaceSprints, workspaceWorkflowColumns, workspaces, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
-import { assignmentWriteBlock, copyState, lateAfterMs, type AssignmentSettings, type AssignmentTarget, type AssignmentWrite, type CopyState } from "@/lib/organizations/assignment-rules";
+import { assignmentWriteBlock, autoStartLine, copyState, lateAfterMs, type AssignmentSettings, type AssignmentTarget, type AssignmentWrite, type CopyState, type StartTrigger } from "@/lib/organizations/assignment-rules";
 import { orgCan, type OrgRole } from "@/lib/organizations/permissions";
 
 // Assignments (report §16, §16.11): a master task on the org and one copy per person, team or child project.
@@ -55,14 +55,16 @@ export function assignmentColumn(p: { draft: boolean; closed: boolean; started: 
 
 /** Class progress for main assignments, from their copies in one query (the board card and the sprint list). */
 export async function readMasterProgress(masterIds: string[]) {
-  if (masterIds.length === 0) return new Map<string, { total: number; started: number; done: number; to_review: number; excused: number }>();
-  const rows = await db.execute<{ master_id: string; total: number; started: number; done: number; to_review: number; excused: number }>(sql`
+  if (masterIds.length === 0) return new Map<string, { total: number; started: number; done: number; to_review: number; excused: number; stuck: number }>();
+  const rows = await db.execute<{ master_id: string; total: number; started: number; done: number; to_review: number; excused: number; stuck: number }>(sql`
     SELECT c.assignment_id AS master_id,
            count(*) FILTER (WHERE c.excused_at IS NULL)::int AS total,
            count(*) FILTER (WHERE c.excused_at IS NULL AND (c.status <> 'todo' OR c.submission IS NOT NULL))::int AS started,
            count(*) FILTER (WHERE c.excused_at IS NULL AND c.status = 'done' AND c.review_status <> 'pending')::int AS done,
            count(*) FILTER (WHERE c.excused_at IS NULL AND c.review_status = 'pending')::int AS to_review,
-           count(*) FILTER (WHERE c.excused_at IS NOT NULL)::int AS excused
+           count(*) FILTER (WHERE c.excused_at IS NOT NULL)::int AS excused,
+           -- Assignment flow decision 6: copies in Blocked, so the main card can say who's stuck.
+           count(*) FILTER (WHERE c.excused_at IS NULL AND c.status = 'blocked' AND c.review_status <> 'pending')::int AS stuck
     FROM tasks c WHERE c.assignment_id IN (${sql.join(masterIds.map((id) => sql`${id}::uuid`), sql`, `)}) AND c.deleted_at IS NULL
     GROUP BY c.assignment_id`);
   return new Map(Array.from(rows).map((r) => [r.master_id, r]));
@@ -70,8 +72,10 @@ export async function readMasterProgress(masterIds: string[]) {
 
 const STAGES: CopyState[] = ["not_started", "in_progress", "submitted", "returned", "done", "missing", "excused"];
 export type AssignmentStages = { counts: Record<CopyState, number>; names: Record<CopyState, string[]>; total: number; reviewRequired: boolean; teams: boolean;
+  /** Assignment flow decision 6: copies in Blocked (counted inside In progress or Returned too). */ stuck: number;
   /** Copies still to hand in (Not started, Missing), for Remind. */ remind: { not_started: string[]; missing: string[] } };
-export type CopyStage = { state: CopyState; late: boolean; since: string | null; reason: string | null; fixBy: string | null; version: number | null; reviewRequired: boolean; handIn: { link: string | null; text: string | null } | null };
+export type CopyStage = { state: CopyState; late: boolean; since: string | null; reason: string | null; fixBy: string | null; version: number | null; reviewRequired: boolean; handIn: { link: string | null; text: string | null } | null;
+  /** Assignment flow decision 6: the copy sits in Blocked. */ stuck?: boolean };
 const NAMES_PER_STAGE = 5;
 
 /**
@@ -101,12 +105,13 @@ export async function readAssignmentStages(masterIds: string[], copyIds: string[
     if (copyIds.includes(r.id)) {
       const since = state === "submitted" ? r.submitted_at : state === "done" ? r.completed_at ?? r.submitted_at : state === "excused" ? r.excused_at : state === "returned" ? r.updated_at : null;
       copies.set(r.id, { state, late, since: since ? new Date(since).toISOString() : null, reason: r.reason, fixBy: r.submit_until ? new Date(r.submit_until).toISOString() : null, version: r.version, reviewRequired: r.settings?.reviewRequired !== false,
-        handIn: r.hand_link || r.hand_text ? { link: r.hand_link, text: r.hand_text } : null });
+        handIn: r.hand_link || r.hand_text ? { link: r.hand_link, text: r.hand_text } : null, stuck: r.status === "blocked" && r.review_status !== "pending" });
     }
     if (!masterIds.includes(r.master_id)) continue;
     const entry = stages.get(r.master_id) ?? { counts: Object.fromEntries(STAGES.map((k) => [k, 0])) as Record<CopyState, number>, names: Object.fromEntries(STAGES.map((k) => [k, []])) as unknown as Record<CopyState, string[]>,
-      total: 0, reviewRequired: r.settings?.reviewRequired !== false, teams: false, remind: { not_started: [], missing: [] } };
+      total: 0, reviewRequired: r.settings?.reviewRequired !== false, teams: false, remind: { not_started: [], missing: [] }, stuck: 0 };
     entry.counts[state] += 1;
+    if (r.status === "blocked" && (state === "in_progress" || state === "returned")) entry.stuck += 1;
     if (r.is_team) entry.teams = true;
     if (state === "not_started" || state === "missing") entry.remind[state].push(r.id);
     if (state !== "excused") entry.total += 1;
@@ -114,6 +119,61 @@ export async function readAssignmentStages(masterIds: string[], copyIds: string[
     stages.set(r.master_id, entry);
   }
   return { stages, copies };
+}
+
+/**
+ * Assignment flow decision 1: the first real work on a copy (a file, a ticked step, a started answer) moves it from To
+ * do to In progress. Only a copy, only from To do, never once handed in or excused; one guarded UPDATE, so two at once
+ * move it once. Returns whether it moved. Opening, reading and asking questions never call this.
+ */
+export async function startCopyOnWork(executor: Executor, taskId: string, actorId: string, trigger: StartTrigger): Promise<boolean> {
+  const [moved] = await executor.execute<{ id: string; workspace_id: string; sprint_id: string | null; title: string; task_number: number | null }>(sql`
+    UPDATE tasks t SET status = 'in_progress', updated_at = now(),
+           workflow_column_id = coalesce((SELECT c.id FROM workspace_workflow_columns c WHERE c.workspace_id = t.workspace_id AND c.status = 'in_progress' AND c.is_default LIMIT 1), t.workflow_column_id)
+    WHERE t.id = ${taskId}::uuid AND t.assignment_id IS NOT NULL AND t.status = 'todo' AND t.review_status = 'none'
+      AND t.excused_at IS NULL AND t.deleted_at IS NULL
+    RETURNING t.id, t.workspace_id, t.sprint_id, t.title, t.task_number`);
+  if (!moved) return false;
+  await executor.insert(taskActivityEvents).values({
+    taskId, projectId: moved.workspace_id, sprintId: moved.sprint_id, actorId, eventType: "status_changed",
+    payload: { version: 1, source: "auto_start", trigger: trigger.kind, name: trigger.name ?? null, taskTitle: moved.title, taskNumber: moved.task_number, taskStatus: "in_progress", from: "todo", to: "in_progress" },
+  });
+  return true;
+}
+
+/** Best effort after the work itself saved: a failed start never fails the upload, tick or draft. */
+export async function startCopyQuietly(taskId: string | null | undefined, actorId: string, trigger: StartTrigger) {
+  if (!taskId) return;
+  try { await startCopyOnWork(db, taskId, actorId, trigger); } catch { /* the work is saved; the card can still be dragged */ }
+}
+
+/**
+ * Assignment flow card lines: why a copy last moved (an auto start, or a teammate's move), and the Blocked note while
+ * it's stuck. The viewer's own moves say nothing; the card hides the line once its person has opened it (client).
+ */
+export async function readCopyMoves(copyIds: string[], viewerId: string | null) {
+  const moves = new Map<string, { text: string; at: string }>();
+  const stuck = new Map<string, string>();
+  if (!copyIds.length) return { moves, stuck };
+  const rows = await db.execute<{ task_id: string; actor_id: string | null; payload: Record<string, unknown> | null; created_at: string; who: string | null; status: string }>(sql`
+    SELECT DISTINCT ON (e.task_id) e.task_id, e.actor_id, e.payload, e.created_at::text, coalesce(p.full_name, p.username) AS who, t.status
+    FROM task_activity_events e JOIN tasks t ON t.id = e.task_id LEFT JOIN profiles p ON p.id = e.actor_id
+    WHERE e.task_id IN (${sql.join(copyIds.map((id) => sql`${id}::uuid`), sql`, `)}) AND e.event_type = 'status_changed'
+    ORDER BY e.task_id, e.created_at DESC`);
+  const COLUMN: Record<string, string> = { todo: "To do", in_progress: "In progress", blocked: "Blocked", done: "Completed" };
+  for (const r of rows) {
+    const p = r.payload ?? {};
+    const at = new Date(r.created_at).toISOString();
+    const mine = Boolean(viewerId && r.actor_id === viewerId);
+    if (r.status === "blocked" && typeof p.note === "string" && p.note.trim()) stuck.set(r.task_id, p.note.trim());
+    if (p.source === "auto_start") {
+      const line = autoStartLine({ kind: (p.trigger as StartTrigger["kind"]) ?? "file", name: (p.name as string | null) ?? null }, mine);
+      moves.set(r.task_id, { text: mine || !r.who ? line : line.replace("someone", r.who), at });
+    } else if (!mine && r.who && typeof p.to === "string" && COLUMN[p.to] && p.to !== "done") {
+      moves.set(r.task_id, { text: `Moved to ${COLUMN[p.to]} by ${r.who}`, at });
+    }
+  }
+  return { moves, stuck };
 }
 
 /** Whether one task passes the same rule (task detail, sprint rows, the extension). */

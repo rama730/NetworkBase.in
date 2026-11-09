@@ -337,7 +337,9 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
 
     // The announcement says the due date in the organization's zone, like everything else on the form.
     const defaultAnnouncement = `${title.trim() || 'A new assignment'} is out${dueLocal ? ` · due ${formatInZone(at(dueLocal), { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }, timeZone)}` : ''}.`
-    const save = (late = false) => startTransition(async () => {
+    // Assignment flow decision 8: publishing would leave nobody able to review; offer Turn review off.
+    const [noReviewer, setNoReviewer] = useState(false)
+    const save = (late = false, reviewOff = false) => startTransition(async () => {
         const publish = when === 'now'
         const missing: Record<string, string> = {}
         if (!title.trim()) missing.title = 'Add a title.'
@@ -353,14 +355,15 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
         if (publish && !late && new Date(at(dueLocal)).getTime() < Date.now()) return setLateAsk(true)
         const result = await createAssignmentAction({
             projectId: orgId, title, description, dueDate: at(dueLocal), sprintId: sprintId || null, publish,
-            submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntil ? at(lateUntil) : null,
+            submissionType, reviewRequired: reviewOff ? false : reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntil ? at(lateUntil) : null,
             target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
-            ...(reviewRequired && reviewers.length ? { reviewers } : {}),
+            ...(reviewRequired && !reviewOff && reviewers.length ? { reviewers } : {}),
             aiPolicy, ...(aiNote.trim() ? { aiNote: aiNote.trim() } : {}),
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
             ...(repeatUntil ? { repeatWeeklyUntil: at(`${repeatUntil}T23:59`) } : {}),
         })
+        setNoReviewer(!result.success && 'noReviewer' in result && result.noReviewer === true)
         if (!result.success) return setError(result.error)
         // Student check 17: say it worked, and to how many.
         // Student check 24: a team assignment with nobody in the teams reaches no one, and says so.
@@ -437,7 +440,9 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     return (
         <>
             <div ref={bodyRef} className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-                {error ? <div role="alert" className="rounded-md border border-border bg-[var(--status-danger-soft)] px-3 py-2 text-xs font-mono text-destructive">{error}</div> : null}
+                {error ? <div role="alert" className="rounded-md border border-border bg-[var(--status-danger-soft)] px-3 py-2 text-xs font-mono text-destructive">{error}
+                    {noReviewer ? <button type="button" className="ml-2 font-sans font-medium text-foreground underline underline-offset-4" onClick={() => { setReviewRequired(false); setNoReviewer(false); setError(null); save(false, true) }}>Turn review off and publish</button> : null}
+                </div> : null}
 
                 <div className="space-y-3.5">
                     <SectionDivider title="Basics" />

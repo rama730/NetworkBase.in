@@ -23,7 +23,9 @@ test("student check 5: a copy's set fields are read-only, Submit is the only way
   assert.match(details, /id="task-due-date"[\s\S]{0,300}disabled=\{!canEditSet \|\| isMutating\}/, "the due date");
   assert.match(details, /TASK_WORKFLOW_STATUSES\.filter\(\(s\) => !\(task\.assignmentId && s === "done"\)\)/);
   assert.match(details, /disabled=\{!canEdit \|\| copyKeepsPerson \|\| isMutating\}\s*className="[^"]*"\s*aria-label="Select assignee"/);
-  assert.match(source("src/components/workspaces/v2/tasks/KanbanBoard.tsx"), /!\(c\.done && task\.assignmentId\)/);
+  // Assignment flow decision 2: Completed is offered, and dropping a copy there opens Hand in instead of moving it.
+  assert.match(source("src/components/workspaces/v2/tasks/KanbanBoard.tsx"), /else if \(outcome\.kind !== "move"\) setDropSheet\(\{ kind: outcome\.kind, task: draggedTask \}\)/);
+  assert.match(source("src/components/workspaces/v2/tasks/AssignmentDropSheets.tsx"), /<HandInSection copyId=\{task\.id\}/);
 });
 
 test("student check 6: a refused edit is taken back from every cached list, not only the ones snapshotted", () => {

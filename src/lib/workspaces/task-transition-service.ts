@@ -236,6 +236,8 @@ export async function transitionTaskTx(
     position?: number;
     resubmit?: boolean;
     reviewReason?: string;
+    /** Assignment flow decision 6: what's in the way, kept on a move to Blocked. */
+    note?: string;
   },
 ): Promise<TaskTransitionResult> {
   const column = await tx.query.workspaceWorkflowColumns.findFirst({
@@ -262,6 +264,8 @@ export async function transitionTaskTx(
   if (
     !locked.isLeader &&
     !locked.isTeamMember &&
+    // Assignment flow decision 7: whoever holds a copy (a teammate, a group workspace's member) moves it.
+    !locked.isHolder &&
     locked.previousAssigneeId &&
     locked.previousAssigneeId !== input.userId
   )
@@ -368,6 +372,7 @@ export async function transitionTaskTx(
                 ...(input.reviewReason && {
                   reason: input.reviewReason.trim(),
                 }),
+                ...(input.note && status === "blocked" && { note: input.note }),
                 ...(reviewContentHash && { reviewContentHash }),
                 taskTitle: locked.title,
                 taskNumber: locked.taskNumber,

@@ -8,6 +8,7 @@ import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { taskSubtaskTitleSchema } from "@/lib/validations/task";
 
 import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
+import { startCopyOnWork } from "@/lib/organizations/assignments";
 
 async function requireSubtaskWriter() {
     // Browser session or a CLI/agent token on an allowed route (report A2.1).
@@ -84,6 +85,8 @@ export async function toggleSubtaskAction(
                 updatedAt: new Date(),
             }).where(eq(taskSubtasks.id, subtaskId)).returning();
             if (!row) throw new Error("Subtask not found");
+            // Assignment flow decision 1: ticking the first step on a copy in To do starts it.
+            if (completed) await startCopyOnWork(tx, row.taskId, user.id, { kind: "step", name: row.title });
             return row;
         });
 

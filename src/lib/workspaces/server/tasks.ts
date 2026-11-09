@@ -1,4 +1,4 @@
-import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter, readAssignmentStages, readMasterProgress } from "@/lib/organizations/assignments";
+import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter, readAssignmentStages, readCopyMoves, readMasterProgress } from "@/lib/organizations/assignments";
 import { assignmentWriteBlock, type AssignmentTarget } from "@/lib/organizations/assignment-rules";
 import { orgCan, orgRoleOf } from "@/lib/organizations/permissions";
 import { assignmentPeopleOf, notifyAssignmentRemoved } from "@/lib/organizations/assignment-notify";
@@ -464,7 +464,12 @@ async function fetchProjectTasksForActor(
       const masters = limitedTasks.filter((task) => task.kind === "assignment" && !task.assignmentId);
       const progressByMaster = await readMasterProgress(masters.map((m) => m.id));
       // Board view dropdown §6a: the card's stages and a copy's own stage — the sprint list's read, so they match.
-      const { stages: stagesByMaster, copies: stageByCopy } = await readAssignmentStages(masters.map((m) => m.id), limitedTasks.filter((t) => t.assignmentId).map((t) => t.id));
+      const copyIds = limitedTasks.filter((t) => t.assignmentId).map((t) => t.id);
+      const [{ stages: stagesByMaster, copies: stageByCopy }, { moves: moveByCopy, stuck: stuckByCopy }] = await Promise.all([
+        readAssignmentStages(masters.map((m) => m.id), copyIds),
+        // Assignment flow: why a copy moved, and what's in the way while it's Blocked.
+        readCopyMoves(copyIds, actorId),
+      ]);
       // Who a draft would go to (no copies yet): the organization's members, admins or child workspaces.
       const drafts = masters.filter((m) => !m.assignmentSettings?.publishedAt);
       const [sizes] = drafts.length ? await db.execute<{ members: number; admins: number; children: number }>(sql`
@@ -486,7 +491,7 @@ async function fetchProjectTasksForActor(
         const counts = countsByTaskId.get(task.id);
         const isMaster = task.kind === "assignment" && !task.assignmentId;
         const p = isMaster ? progressByMaster.get(task.id) : undefined;
-        const progress = isMaster ? { draft: !task.assignmentSettings?.publishedAt, closed: Boolean(task.assignmentSettings?.closedAt), done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), toReview: Number(p?.to_review ?? 0), excused: Number(p?.excused ?? 0),
+        const progress = isMaster ? { draft: !task.assignmentSettings?.publishedAt, closed: Boolean(task.assignmentSettings?.closedAt), done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), toReview: Number(p?.to_review ?? 0), excused: Number(p?.excused ?? 0), stuck: Number(p?.stuck ?? 0),
           // Mockup task 4: group work reads Groups on its card.
           teams: ['teams', 'each_child', 'children'].includes(String((task.assignmentSettings as { target?: { mode?: string } } | null)?.target?.mode ?? '')) } : null;
         const column = progress ? assignmentColumn({ ...progress, started: Number(p?.started ?? 0) }) : null;
@@ -497,6 +502,8 @@ async function fetchProjectTasksForActor(
           assignmentProgress: progress,
           assignmentStages: isMaster ? stagesByMaster.get(task.id) ?? null : null,
           copyStage: task.assignmentId ? stageByCopy.get(task.id) ?? null : null,
+          lastMove: task.assignmentId ? moveByCopy.get(task.id) ?? null : null,
+          stuckNote: task.assignmentId ? stuckByCopy.get(task.id) ?? null : null,
           audience: isMaster ? audienceOf(task) : null,
           publishAt: isMaster && !task.assignmentSettings?.publishedAt ? task.assignmentSettings?.publishAt ?? null : null,
           fromLabel: task.assignmentId ? parentOrgTitle ?? (task as { creator?: { fullName?: string | null } }).creator?.fullName ?? null : null,

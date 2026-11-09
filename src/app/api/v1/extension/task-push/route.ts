@@ -1,4 +1,5 @@
 import {requireAuthenticatedUser,requireTokenScope,jsonSuccess,jsonError,getRequestId,idempotentWrite} from '@/app/api/v1/_shared';
+import { startCopyOnWork } from "@/lib/organizations/assignments";
 import {db} from '@/lib/db';
 import {taskPushes,tasks,workspaceNodes,taskNodeLinks,fileVersions,workspaceGitCommits} from '@/lib/db/schema';
 import {eq,and,inArray,isNull,sql} from 'drizzle-orm';
@@ -69,6 +70,8 @@ async function handlePost(request:Request){
      const fileRole = roleByNodeId.get(node.id) ?? resolvedDefaultRole;
      return {taskId,nodeId:node.id,createdBy:user.id,order:Math.max(0,...links.map(link=>link.order))+index+1,annotation:annotationForRole(fileRole),tags:replaceTaskFileRoleTag([],fileRole)};
     })).onConflictDoNothing({target:[taskNodeLinks.taskId,taskNodeLinks.nodeId]});
+    // Assignment flow decision 1: files pushed to a copy in To do start it.
+    await startCopyOnWork(tx, taskId, user.id, { kind: "file", name: additions.length === 1 ? additions[0]!.name ?? null : null });
    }
    // Update existing linked files when their role changes (e.g. promoting working -> deliverable)
    for(const existingNode of nodes.filter(n=>linkedMap.has(n.id))){

@@ -47,6 +47,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { moveTaskToWorkflowColumnAction } from "@/app/actions/task";
+import { createTaskCommentAction } from "@/app/actions/task-comment";
+import { dropOutcome, type DropColumn } from "@/lib/organizations/assignment-rules";
+import { AssignmentDropSheets, type DropSheet } from "./AssignmentDropSheets";
 import { toast, feedbackError } from "@/lib/feedback";
 import { patchWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
 import { isAssignmentMaster, taskSurfaceVersionMs } from "@/lib/workspaces/task-presentation";
@@ -92,12 +95,14 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   onMoveTo?: (task: Task, columnId: string) => void;
 }) {
   // Mirrors the server rule in moveTaskToWorkflowColumnAction.
-  // A main assignment moves by itself, from its copies (problem 7); the server refuses a move too.
+  // Assignment flow: a main assignment moves by itself, and an admin drops it only to publish, close or reopen
+  // (decision 4). A copy is moved by whoever holds it, teammates and group members included (decision 7); a locked
+  // one still lifts so its drop can say why it stays (decision 3). The server checks both again.
+  const master = isAssignmentMaster(task);
   const canDrag =
-    !isAssignmentMaster(task) &&
     !isDragLocked &&
     !!canEditTasks &&
-    (isLeader || !task.assigneeId || task.assigneeId === currentUserId);
+    (master ? !!isLeader : Boolean(task.assignmentId) || isLeader || !task.assigneeId || task.assigneeId === currentUserId);
 
   const {
     attributes,
@@ -160,8 +165,8 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
         <select aria-label={`Move ${task.title} to…`} value="" className="mt-1 h-7 w-full rounded-[5px] border border-border bg-background px-1.5 text-[12px] text-muted-foreground md:sr-only md:focus:not-sr-only"
           onChange={(e) => { if (e.target.value) onMoveTo(task, e.target.value); }}>
           <option value="">Move to…</option>
-          {/* Student check 5: a copy reaches Completed only through Submit. */}
-          {moveTargets.filter((c) => c.id !== (task.workflowColumnId ?? "") && !(c.done && task.assignmentId)).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+          {/* Assignment flow: the same columns as a drag; Completed opens Hand in for a copy, Close for a main card. */}
+          {moveTargets.filter((c) => c.id !== (task.workflowColumnId ?? "")).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
         </select>
       ) : null}
     </div>
@@ -530,6 +535,8 @@ export default function KanbanBoard({
   const queryClient = useQueryClient();
   const dragTasksRef = React.useRef<Task[] | null>(null);
   const [isTaskMovePending, setIsTaskMovePending] = useState(false);
+  // Assignment flow: the sheet a drop opened (Hand in, Blocked note, Publish, Close, Reopen).
+  const [dropSheet, setDropSheet] = useState<DropSheet | null>(null);
 
   const DEFAULT_VISIBLE = 20;
   const STEP = 20;
@@ -698,7 +705,7 @@ export default function KanbanBoard({
   const moveTargets = workflow.map((col) => ({ id: String(col.id), title: String(col.title ?? col.name ?? "Column"), done: col.status === "done" }));
 
   // One move path for a drop and for a card's Move to (report §32.3, §32.7: every drag has a Move to alternative).
-  async function commitTaskMove(taskId: string, target: { columnId: string; beforeTaskId?: string | null } | null) {
+  async function commitTaskMove(taskId: string, target: { columnId: string; beforeTaskId?: string | null } | null, options: { note?: string; confirmed?: boolean } = {}) {
     if (taskMovePendingRef.current) {
       toast.error("Wait for the current task move to finish");
       return;
@@ -712,6 +719,30 @@ export default function KanbanBoard({
       clearDragSnapshot();
       onTaskDragStateChange?.(null);
       return;
+    }
+
+    // Assignment flow: what this drop means. Anything but a plain move opens its sheet or snaps back saying why.
+    const sourceColumn = workflow.find((column) => column.id === getWorkflowColumnId(draggedTask));
+    const master = isAssignmentMaster(draggedTask);
+    if ((master || draggedTask.assignmentId) && !options.confirmed) {
+      const stage = draggedTask.copyStage ?? null;
+      const progress = draggedTask.assignmentProgress ?? null;
+      const outcome = dropOutcome({
+        master, copy: Boolean(draggedTask.assignmentId),
+        from: (sourceColumn?.status ?? draggedTask.status) as DropColumn, to: targetColumn.status as DropColumn,
+        state: stage?.state ?? null, approved: Boolean(stage && stage.state === "done" && stage.reviewRequired), reviewer: draggedTask.fromLabel ?? undefined,
+        draft: progress?.draft, closed: progress?.closed, allDone: Boolean(progress && !progress.closed && progress.total > 0 && progress.done >= progress.total),
+      });
+      // A main card can't be reordered: its place comes from its copies.
+      const sameColumn = sourceColumn?.id === targetColumn.id;
+      if (outcome.kind !== "move" || (master && sameColumn)) {
+        clearDragSnapshot();
+        onTaskDragStateChange?.(null);
+        if (outcome.kind === "refuse") toast.error(outcome.message);
+        else if (outcome.kind === "block") setDropSheet({ kind: "block", task: draggedTask, columnId: targetColumn.id });
+        else if (outcome.kind !== "move") setDropSheet({ kind: outcome.kind, task: draggedTask });
+        return;
+      }
     }
 
     // Display order (position, then newest), exactly as the board renders it.
@@ -792,6 +823,7 @@ export default function KanbanBoard({
         targetColumn.id,
         newPosition,
         draggedTask.updatedAt,
+        options.note ? { note: options.note } : {},
       );
       if (!result.success) {
         setTasks((current) =>
@@ -809,6 +841,11 @@ export default function KanbanBoard({
         return;
       }
       syncTaskCompletionPolicy(queryClient, projectId, result);
+      // Decision 6: the Blocked note also reaches the admins as a message on the copy.
+      if (options.note && draggedTask.assignmentId) {
+        const sent = await createTaskCommentAction(draggedTask.id, projectId, `Stuck: ${options.note}`).catch(() => null);
+        if (!sent || !("success" in sent) || !sent.success) toast.error("Moved to Blocked, but your note didn’t send. Add it as a message.");
+      }
       if (targetColumn.status === "done" && draggedTask.status !== "done") toast.success(completionOutcomeLabel(result.reviewStatus));
       const persistedTask = result.updatedAt
         ? {
@@ -1119,6 +1156,14 @@ export default function KanbanBoard({
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <AssignmentDropSheets
+        sheet={dropSheet}
+        onClose={() => setDropSheet(null)}
+        onChanged={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })}
+        onOpenTask={onTaskClick}
+        onBlock={(task, columnId, note) => commitTaskMove(task.id, { columnId, beforeTaskId: null }, { note, confirmed: true })}
+      />
 
       {hasNextPage && (
         <div className="mt-4 flex flex-col items-center gap-2">
