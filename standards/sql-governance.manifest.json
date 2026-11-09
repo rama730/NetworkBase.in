@@ -80,7 +80,8 @@
     "drizzle/0074_agent_policy_undo.sql",
     "drizzle/0075_agent_questions.sql",
     "drizzle/0076_token_country.sql",
-    "drizzle/0077_agent_fk_indexes.sql"
+    "drizzle/0077_agent_fk_indexes.sql",
+    "drizzle/0078_agent_questions_to_user_index.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
