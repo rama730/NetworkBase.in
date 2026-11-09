@@ -1,10 +1,10 @@
 import { validateCsrf } from "@/lib/security/csrf";
-import {
-  requireAuthenticatedUser,
+import {requireAuthenticatedUser,
   requireTokenScope,
   jsonSuccess,
   jsonError,
   getRequestId,
+  idempotentWrite
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
@@ -56,7 +56,7 @@ const inputSchema = z.discriminatedUnion("kind", [
     expectedUpdatedAt: z.string().datetime(),
   }),
 ]);
-export async function PATCH(request: Request) {
+async function handlePatch(request: Request) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
   try {
@@ -214,4 +214,9 @@ export async function PATCH(request: Request) {
       fallback: "Task update failed",
     });
   }
+}
+
+/** Retries with the same Idempotency-Key and body write once (report A2.4, F72). */
+export async function PATCH(request: Request) {
+  return idempotentWrite(request, "extension.task-update", handlePatch);
 }

@@ -1,4 +1,4 @@
-import {requireAuthenticatedUser,requireTokenScope,jsonSuccess,jsonError,getRequestId} from '@/app/api/v1/_shared';
+import {requireAuthenticatedUser,requireTokenScope,jsonSuccess,jsonError,getRequestId,idempotentWrite} from '@/app/api/v1/_shared';
 import {db} from '@/lib/db';
 import {taskPushes,tasks,workspaceNodes,taskNodeLinks,fileVersions,workspaceGitCommits} from '@/lib/db/schema';
 import {eq,and,inArray,isNull,sql} from 'drizzle-orm';
@@ -41,7 +41,7 @@ function annotationForRole(role: TaskFileRole) {
   return '#editor_working';
 }
 
-export async function POST(request:Request){
+async function handlePost(request:Request){
  const csrfError=validateCsrf(request);if(csrfError)return csrfError;
  try{
   const auth=await requireAuthenticatedUser();if(auth.response)return auth.response;if(!auth.user)return jsonError('Sign in to continue',401,'UNAUTHORIZED');const user=auth.user;
@@ -110,4 +110,9 @@ export async function POST(request:Request){
   }).catch(() => {});
   return jsonSuccess({pushId:pushRow.id,commitSha:commitSha.slice(0,8),role:resolvedFinalRole,timestamp:pushRow.pushedAt.toISOString(),filesCount:pushRow.filesCount,transition});
  }catch(error){return routeErrorResponse(error,{requestId:getRequestId(request),scope:'api/v1/extension/task-push',fallback:'Couldn’t link task file versions'});}
+}
+
+/** Retries with the same Idempotency-Key and body write once (report A2.4, F72); the key is required. */
+export async function POST(request: Request) {
+  return idempotentWrite(request, "extension.task-push", handlePost, { required: true });
 }

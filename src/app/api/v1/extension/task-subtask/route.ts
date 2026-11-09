@@ -1,9 +1,9 @@
 import { validateCsrf } from "@/lib/security/csrf";
-import {
-  requireAuthenticatedUser,
+import {requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
   getRequestId,
+  idempotentWrite
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
@@ -22,7 +22,7 @@ const schema = z.object({
   title: taskSubtaskTitleSchema,
 });
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
 
@@ -134,4 +134,9 @@ export async function POST(request: Request) {
       fallback: "Subtask creation failed",
     });
   }
+}
+
+/** Retries with the same Idempotency-Key and body write once (report A2.4, F72). */
+export async function POST(request: Request) {
+  return idempotentWrite(request, "extension.task-subtask", handlePost);
 }

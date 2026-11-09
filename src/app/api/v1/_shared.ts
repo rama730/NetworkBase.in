@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSessionIdentifierFromSession } from "@/lib/auth/session-identifier";
 import { consumeRateLimitForRoute } from "@/lib/security/rate-limit";
+import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { logger } from "@/lib/logger";
 import { getTrustedRequestIp } from "@/lib/security/request-ip";
 import type { User } from "@supabase/supabase-js";
@@ -401,4 +402,29 @@ export async function fetchWithBoundedRetry(
   }
 
   throw lastError instanceof Error ? lastError : new Error("fetchWithBoundedRetry failed");
+}
+
+/**
+ * Retried token writes happen once (report A2.4, finding 72), using the existing route wrapper
+ * (`withIdempotentRoute`). The key is scoped to the caller's credential and the exact body, so the same
+ * key with a different body runs as a new request instead of replaying the wrong answer. The handler
+ * gets a fresh Request with the same body, so it reads it as before.
+ */
+export async function idempotentWrite(
+  request: Request,
+  namespace: string,
+  handler: (request: Request) => Promise<Response>,
+  options: { required?: boolean } = {},
+) {
+  const key = request.headers.get("idempotency-key")?.trim();
+  if (!key && options.required) {
+    return jsonError("Send an Idempotency-Key header so a retry can't write twice", 400, "BAD_REQUEST");
+  }
+  if (!key) return handler(request);
+  if (key.length > 200) return jsonError("Idempotency-Key must be at most 200 characters", 400, "BAD_REQUEST");
+  const raw = await request.text();
+  const credential = request.headers.get("authorization") ?? request.headers.get("cookie") ?? "";
+  const scopeId = crypto.createHash("sha256").update(`${credential}\n${raw}`).digest("hex");
+  const replayable = new Request(request.url, { method: request.method, headers: request.headers, body: raw });
+  return withIdempotentRoute(request, { namespace, scopeId }, () => handler(replayable));
 }

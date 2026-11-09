@@ -1,9 +1,9 @@
 import { validateCsrf } from "@/lib/security/csrf";
-import {
-  requireAuthenticatedUser,
+import {requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
   getRequestId,
+  idempotentWrite
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { createTaskAction } from "@/app/actions/workspace";
@@ -15,7 +15,7 @@ const schema = z.object({
   description: z.string().max(10000).optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
 });
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
   try {
@@ -39,4 +39,9 @@ export async function POST(request: Request) {
       fallback: "Task creation failed",
     });
   }
+}
+
+/** Retries with the same Idempotency-Key and body write once (report A2.4, F72). */
+export async function POST(request: Request) {
+  return idempotentWrite(request, "extension.create-task", handlePost);
 }

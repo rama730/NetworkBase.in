@@ -1,12 +1,12 @@
 import crypto from "node:crypto";
 import { z } from "zod";
 import { and, eq, gt, inArray, isNull, max } from "drizzle-orm";
-import {
-  getRequestId,
+import {getRequestId,
   jsonError,
   jsonSuccess,
   requireAuthenticatedUser,
   requireTokenScope,
+  idempotentWrite
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -90,7 +90,7 @@ function annotationForRole(role: TaskFileRole) {
   return "#editor_working";
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
 
@@ -705,4 +705,9 @@ export async function POST(request: Request) {
       fallback: "Couldn’t complete fast push",
     });
   }
+}
+
+/** Retries with the same Idempotency-Key and body write once (report A2.4, F72); the key is required. */
+export async function POST(request: Request) {
+  return idempotentWrite(request, "extension.fast-push", handlePost, { required: true });
 }

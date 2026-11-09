@@ -11,11 +11,11 @@ import {
   tasks,
 } from "@/lib/db/schema";
 import { createTaskCommentAs } from "@/lib/domain/task-comments";
-import {
-  requireAuthenticatedUser,
+import {requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
   getRequestId,
+  idempotentWrite
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import {
@@ -180,7 +180,7 @@ async function postTaskComment(
     : jsonError(result.error, result.error === "Task not found" ? 404 : 400, result.error === "Task not found" ? "NOT_FOUND" : "BAD_REQUEST");
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
   try {
@@ -288,4 +288,9 @@ export async function POST(request: Request) {
       fallback: "Comment update failed",
     });
   }
+}
+
+/** Retries with the same Idempotency-Key and body write once (report A2.4, F72). */
+export async function POST(request: Request) {
+  return idempotentWrite(request, "extension.comments", handlePost);
 }
