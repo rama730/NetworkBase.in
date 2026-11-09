@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBack } from "@/hooks/useBack";
@@ -24,12 +24,11 @@ function useBackArrow() {
   const target = backTargetFor(pathname);
   const parent = useUIStore((state) => state.backParent);
   const go = useBack(parent ?? target.fallback);
-  // A fresh load or refresh shows the final state; motion starts with the first in-app move.
-  const firstPath = useRef(pathname);
+  // A fresh load or refresh shows the final state; motion starts with the first in-app move. Set during
+  // render (not in an effect), so the very first move already has the transition when the arrow appears.
+  const [firstPath] = useState(pathname);
   const [animate, setAnimate] = useState(false);
-  useEffect(() => {
-    if (pathname !== firstPath.current) setAnimate(true);
-  }, [pathname]);
+  if (!animate && pathname !== firstPath) setAnimate(true);
   return { show: target.show, animate, label: useBackLabel(), go };
 }
 

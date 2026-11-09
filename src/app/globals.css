@@ -1471,6 +1471,10 @@ html[data-reduce-motion="true"][data-welcome-flight="reveal"] :is(.nb-sidebar, .
 .nb-back-slot { display:flex; align-items:center; flex-shrink:0; width:0; overflow:hidden; }
 .nb-back-slot[data-show="true"] { width:44px; }
 .nb-back-slot[data-animate="true"] { transition:width 220ms cubic-bezier(.2, 0, 0, 1); }
+/* The search box (fixed width) narrows by the arrow's width, so its right edge stays put. */
+.nb-back-slot[data-show="true"] + div { width:calc(15rem - 44px); }
+@media (min-width: 1024px) { .nb-back-slot[data-show="true"] + div { width:calc(20rem - 44px); } }
+.nb-back-slot[data-animate="true"] + div { transition:width 220ms cubic-bezier(.2, 0, 0, 1), color 130ms, background-color 130ms, border-color 130ms; }
 .nb-back-slot .nb-back-arrow,
 .nb-back-swap-arrow { opacity:0; transform:translateX(-8px); }
 .nb-back-slot[data-show="true"] .nb-back-arrow,
