@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { TerminalBlock } from '@/components/ui/terminal-block';
 import Link from 'next/link'
 import { FolderOpen } from 'lucide-react'
 import { FileTypeChip } from '@/components/workspaces/v2/files-tab/FileTypeChip'
@@ -168,7 +169,7 @@ function OrgFilePeek({ orgId, orgTitle, file, href, onClose }: { orgId: string; 
                 </DialogHeader>
                 {body === null ? <div className="nb-skeleton h-64 rounded-md" role="status" aria-label={`Loading ${file.name}`} />
                     : body.kind === 'image' ? <img src={body.url} alt={file.name} className="max-h-[70dvh] w-full object-contain" />
-                        : body.kind === 'text' ? <pre className="max-h-[70dvh] overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-[13px] leading-[1.55]">{body.text}</pre>
+                        : body.kind === 'text' ? <TerminalBlock variant="code" label={file.name} lines collapseAfter={400} wrap className="max-h-[70dvh] overflow-auto">{body.text}</TerminalBlock>
                             : <p className="text-[13px] text-muted-foreground">This file opens in {orgTitle}.</p>}
             </DialogContent>
         </Dialog>

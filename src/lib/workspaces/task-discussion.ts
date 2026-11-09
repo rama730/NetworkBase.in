@@ -22,6 +22,9 @@ export type TaskDiscussionBaseEntry = {
   updatedAt: string;
   deletedAt: string | null;
   deletedBy: string | null;
+  /** "cli" or "agent" when posted that way (report A9.7). */
+  via?: string | null;
+  agentName?: string | null;
   author: TaskDiscussionAuthor | null;
   likeCount: number;
   likedByViewer: boolean;

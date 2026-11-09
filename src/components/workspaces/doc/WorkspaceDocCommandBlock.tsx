@@ -4,7 +4,12 @@ import { useMemo, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { projectDocEditorTargetId } from "@/lib/workspaces/doc-editor-source-map";
 import { cn } from "@/lib/utils";
-import { copyText } from "@/lib/clipboard";
+import { COPY_FAILED, copyText } from "@/lib/clipboard";
+import { toast } from "@/lib/feedback";
+import { commandsOf } from "@/lib/terminal/ansi";
+import terminal from "@/components/ui/terminal-block.module.css";
+
+const SHELLS = new Set(["bash", "sh", "zsh", "shell", "console", "terminal", "powershell", "ps1", "cmd"]);
 
 export type WorkspaceDocCommandLineTarget = {
     id: string;
@@ -36,13 +41,15 @@ export function WorkspaceDocCommandBlock({
     }, [lineTargets]);
     const rootEditorTargetId = projectDocEditorTargetId("command", sourceLine ?? null, sourceOffset ?? null);
 
+    const isShell = !language || SHELLS.has(language.toLowerCase());
+    // Commands are copied without their `$ ` prompts; a failed copy says so (report A9.1, finding 115).
     const handleCopy = async () => {
         try {
-            await copyText(code.trimEnd());
+            await copyText(isShell ? commandsOf(code) : code.trimEnd());
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1400);
-        } catch (error) {
-            console.error("[WorkspaceDocCommandBlock] Copy failed", error);
+        } catch {
+            toast.error(COPY_FAILED);
         }
     };
 
@@ -58,11 +65,11 @@ export function WorkspaceDocCommandBlock({
             data-readme-source-offset={sourceOffset ?? undefined}
             data-readme-source-kind="command"
             data-readme-editor-target-id={rootEditorTargetId}
-            className="group relative my-4 scroll-mt-28 overflow-hidden rounded-[5px] border border-border bg-card text-foreground shadow-none outline-none"
+            className={cn(terminal.block, "group relative my-4 scroll-mt-28 outline-none")}
         >
             {language ? (
-                <div className="border-b border-border px-4 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground bg-muted/20">
-                    {language}
+                <div className={terminal.header}>
+                    <span className="nb-micro">{language}</span>
                 </div>
             ) : null}
             <button
@@ -72,7 +79,7 @@ export function WorkspaceDocCommandBlock({
                 title={copied ? "Copied" : "Copy"}
                 aria-label={copied ? "Copied" : "Copy command"}
                 className={cn(
-                    "nb-touch-target absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-[5px] border bg-card text-muted-foreground transition-colors hover:text-foreground hover:bg-muted",
+                    "nb-touch-target absolute right-1.5 top-1 inline-flex size-7 items-center justify-center rounded-[5px] border bg-muted text-muted-foreground transition-colors hover:text-foreground hover:bg-card",
                     copied ? "border-foreground/20 text-foreground" : "border-border",
                 )}
             >
@@ -81,7 +88,7 @@ export function WorkspaceDocCommandBlock({
                     : <Copy key="copy" className="size-3.5 animate-in fade-in duration-150 motion-reduce:animate-none" />}
                 <span className="sr-only" aria-live="polite">{copied ? "Copied" : "Copy command"}</span>
             </button>
-            <pre className="whitespace-pre-wrap break-words px-4 py-4 pr-12 font-mono text-[13px] leading-[1.6] [overflow-wrap:anywhere] pointer-coarse:text-[14px]">
+            <pre className={cn(terminal.body, terminal.wrap, "pr-12")}>
                 <code className="break-words [overflow-wrap:anywhere]">
                     {codeLines.map((line, index) => {
                         const target = lineTargetByStartLine.get(index);
@@ -99,7 +106,9 @@ export function WorkspaceDocCommandBlock({
                                 data-readme-editor-target-id={projectDocEditorTargetId("command", sourceLineForCode, null)}
                                 className="block min-w-0 scroll-mt-32 outline-none [overflow-wrap:anywhere]"
                             >
-                                {line || " "}
+                                {isShell && /^\s*\$\s?/.test(line)
+                                    ? <><span aria-hidden="true" className={terminal.prompt}>$</span>{line.replace(/^\s*\$\s?/, "")}</>
+                                    : line || " "}
                             </span>
                         );
                     })}

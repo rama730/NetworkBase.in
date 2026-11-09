@@ -379,22 +379,15 @@ export function TextViewer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedRange]);
 
-  // ── Dark theme extension (lazy-loaded) ─────────────────────────────
-  // Loaded asynchronously to keep the initial chunk lean. The resolved
-  // value is cached in state so the editor re-renders with the correct
-  // theme within 500ms of a runtime theme change (Req 19.4).
-  const [oneDarkTheme, setOneDarkTheme] = React.useState<
-    import("@codemirror/state").Extension | null
-  >(null);
+  // ── Editor theme from the app's tokens (CLI report A9.3) ──────────────
+  // Loaded with the editor; light and dark come from the same CSS variables.
+  const [appTheme, setAppTheme] = React.useState<import("@codemirror/state").Extension | null>(null);
 
   React.useEffect(() => {
-    if ((mode !== "edit" && mode !== "view") || resolvedTheme !== "dark") {
-      setOneDarkTheme(null);
-      return;
-    }
+    if (mode !== "edit" && mode !== "view") return;
     let cancelled = false;
-    void import("@codemirror/theme-one-dark").then((mod) => mod.oneDark).then((ext) => {
-      if (!cancelled) setOneDarkTheme(ext);
+    void import("@/lib/editor/codemirror-theme").then((mod) => {
+      if (!cancelled) setAppTheme(mod.appEditorTheme(resolvedTheme === "dark"));
     });
     return () => {
       cancelled = true;
@@ -602,11 +595,7 @@ export function TextViewer({
             value={content}
             editable={false}
             readOnly={true}
-            theme={
-              resolvedTheme === "dark"
-                ? oneDarkTheme ?? "dark"
-                : "light"
-            }
+            theme={appTheme ?? (resolvedTheme === "dark" ? "dark" : "light")}
             height="100%"
             width="100%"
             className="h-full font-mono text-[13px] leading-[1.55] pointer-coarse:text-[14px]"
@@ -721,11 +710,7 @@ export function TextViewer({
           onChange={(next) => setContent(next)}
           editable={canEdit}
           readOnly={!canEdit}
-          theme={
-            resolvedTheme === "dark"
-              ? oneDarkTheme ?? "dark"
-              : "light"
-          }
+          theme={appTheme ?? (resolvedTheme === "dark" ? "dark" : "light")}
           height="100%"
           width="100%"
           className="h-full font-mono text-[13px] leading-[1.55] pointer-coarse:text-[14px]"

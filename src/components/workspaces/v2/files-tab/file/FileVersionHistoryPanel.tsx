@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { useFileVersions } from "@/hooks/useFileVersions";
 import { useFilesStore } from "@/stores/filesStore";
+import { ViaLabel } from "@/components/ui/via-label";
 import type { FileVersion } from "@/lib/db/schema";
 import { VersionPill } from "../VersionPill";
 import { FileInspectorPanelHeader } from "./FileInspectorPanelHeader";
@@ -421,6 +422,7 @@ export function FileVersionHistoryPanel({
                     <span className="font-medium text-[#141A1E] dark:text-foreground truncate max-w-[140px]">
                       {uploaderLabel(version)}
                     </span>
+                    <ViaLabel via={version.via} agentName={version.agentName} />
                     <span className="text-[#DBD5C8] dark:text-muted-foreground/40">·</span>
                     <span className="font-mono text-[11px] text-[#6B7880] dark:text-muted-foreground whitespace-nowrap">
                       {formatFileVersionDate(version.uploadedAt)}

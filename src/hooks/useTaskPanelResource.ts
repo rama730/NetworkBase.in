@@ -103,7 +103,7 @@ function mergeFileWarnings(...warningSets: TaskFileReadinessWarning[][]) {
 
 const SUBTASK_PAGE_SIZE = 200;
 
-const SUBTASK_COLUMNS = "id, task_id, title, completed, completed_by, position, created_at, updated_at";
+const SUBTASK_COLUMNS = "id, task_id, title, completed, completed_by, via, agent_name, position, created_at, updated_at";
 
 function toPanelSubtask(value: Record<string, unknown> | null): TaskPanelSubtask | null {
   if (!value) return null;
@@ -121,6 +121,8 @@ function toPanelSubtask(value: Record<string, unknown> | null): TaskPanelSubtask
     title: String(value.title ?? ""),
     completed: Boolean(value.completed),
     completedBy: typeof (value.completed_by ?? value.completedBy) === "string" ? String(value.completed_by ?? value.completedBy) : null,
+    via: typeof value.via === "string" ? value.via : null,
+    agentName: typeof (value.agent_name ?? value.agentName) === "string" ? String(value.agent_name ?? value.agentName) : null,
     position: Number(value.position ?? 0),
     createdAt: toIsoDate(value.created_at ?? value.createdAt),
     updatedAt: toIsoDate(value.updated_at ?? value.updatedAt),

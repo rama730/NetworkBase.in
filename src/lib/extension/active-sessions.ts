@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, desc, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
 import {
   extensionDeviceSessionEvents,
   extensionDeviceSessions,
+  workspaces,
 } from "@/lib/db/schema";
 import { EXTENSION_DEVICE_SESSION_EVENTS } from "@/lib/extension/session-events";
 import type { ExtensionSessionAuthMethod } from "@/types/settingsTypes";
@@ -16,8 +17,10 @@ const sessionCursorSchema = z.object({
   id: z.string().uuid(),
 });
 
-export type ActiveExtensionSession = typeof extensionDeviceSessions.$inferSelect & {
+// The token's hash stays on the server; the settings page gets the agent's workspace by name (CLI report A9.5).
+export type ActiveExtensionSession = Omit<typeof extensionDeviceSessions.$inferSelect, "tokenHash"> & {
   authMethod: ExtensionSessionAuthMethod;
+  workspaceTitle: string | null;
 };
 
 export function normalizeExtensionAuthMethod(
@@ -147,8 +150,13 @@ export async function listActiveExtensionSessionsForUser(
     }
   }
 
-  const enriched: ActiveExtensionSession[] = sessions.map((session) => ({
+  const workspaceIds = [...new Set(sessions.map((s) => s.workspaceId).filter((id): id is string => Boolean(id)))];
+  const titles = workspaceIds.length
+    ? new Map((await db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(inArray(workspaces.id, workspaceIds))).map((w) => [w.id, w.title]))
+    : new Map<string, string>();
+  const enriched: ActiveExtensionSession[] = sessions.map(({ tokenHash: _hash, ...session }) => ({
     ...session,
+    workspaceTitle: session.workspaceId ? titles.get(session.workspaceId) ?? null : null,
     authMethod:
       loginEventBySessionId.get(session.id)?.authMethod
       ?? normalizeExtensionAuthMethod(null, session.deviceName),

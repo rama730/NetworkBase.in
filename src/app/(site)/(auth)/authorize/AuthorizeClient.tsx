@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import { TerminalBlock } from "@/components/ui/terminal-block";
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -339,9 +340,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                     <AuthAlert tone="error">
                         {errorMsg}
                         {isDev && debugDetails ? (
-                            <pre className="mt-2 max-h-36 overflow-auto rounded border border-border bg-background/90 p-2.5 font-mono text-[11px] leading-relaxed text-foreground">
-                                {debugDetails}
-                            </pre>
+                            <TerminalBlock variant="output" label="Details" className="mt-2">{debugDetails}</TerminalBlock>
                         ) : null}
                     </AuthAlert>
                 ) : null}

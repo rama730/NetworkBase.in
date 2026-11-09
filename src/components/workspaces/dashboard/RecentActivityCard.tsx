@@ -26,7 +26,7 @@ export function RecentActivityCard({ projectId }: { projectId: string }) {
         <button type="button" onClick={() => void activity.refetch()} className="font-medium text-primary underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Try again</button>
       </div> : <ol className="space-y-3">
         {/* Report §5.3: the same activity item as the organization's About and Overview. */}
-        {activity.data.map((item) => <ActivityItem key={item.id} kind={item.type} text={item.text} href={item.href} at={item.occurredAt} />)}
+        {activity.data.map((item) => <ActivityItem key={item.id} kind={item.type} text={item.text} href={item.href} at={item.occurredAt} via={item.via} agentName={item.agentName} />)}
       </ol>}
   </RailSection>;
 }

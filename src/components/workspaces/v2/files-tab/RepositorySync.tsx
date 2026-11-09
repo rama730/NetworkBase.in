@@ -77,6 +77,7 @@ import {
   TransferRoute,
 } from "./github-sync/SyncPrimitives";
 import styles from "./github-sync/RepositorySync.module.css";
+import { TerminalBlock } from "@/components/ui/terminal-block";
 import { formatRelativeTime } from "./folder/format";
 
 type Success<T> =
@@ -125,24 +126,11 @@ function DiffContentPane({
   content?: string | null;
   emptyLabel?: string;
 }) {
-  if (!content) {
-    return <pre className={styles.code}>{emptyLabel}</pre>;
-  }
-  const lines = content.split("\n");
-  if (lines.length <= 500) {
-    return <pre className={styles.code}>{content}</pre>;
-  }
-
+  // The shared code style (CLI report A9.9): line numbers never copied, long files collapse with "Show all".
   return (
-    <div>
-      <pre className={styles.code}>{lines.slice(0, 500).join("\n")}</pre>
-      <details className={styles.limits}>
-        <summary style={{ cursor: "pointer", fontSize: "11px", marginTop: "4px" }}>
-          Remaining {lines.length - 500} lines of {lines.length} total
-        </summary>
-        <pre className={styles.code}>{lines.slice(500).join("\n")}</pre>
-      </details>
-    </div>
+    <TerminalBlock variant="code" lines={Boolean(content)} collapseAfter={500} copy={Boolean(content)}>
+      {content || emptyLabel}
+    </TerminalBlock>
   );
 }
 

@@ -426,9 +426,10 @@ test("Section 4 (NetworkBase Integration) contracts", () => {
         /Open in IDE|buildIdeLaunchUri/,
         "CodeSnippetBlock must not offer an IDE launch it can't fulfil",
     );
+    // One code style app-wide (CLI report A9.9): TerminalBlock copies the code without line numbers or prompts.
     assert.match(
         codeSnippetSource,
-        /copyWithToast\(cleanCode/,
+        /<TerminalBlock[\s\S]*\{code\}/,
         "CodeSnippetBlock copies the code",
     );
     assert.match(

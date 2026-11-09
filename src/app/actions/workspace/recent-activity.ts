@@ -15,6 +15,12 @@ const actor = alias(profiles, "recent_activity_actor");
 const member = alias(profiles, "recent_activity_member");
 
 /** Only the three latest publishable project events cross this server-action boundary. */
+
+/** The via label's fields from an event's payload, when it was made from the CLI or by an agent. */
+function viaOf(payload: unknown): { via?: string; agentName?: string | null } {
+  const p = (payload ?? {}) as { via?: unknown; agentName?: unknown };
+  return p.via === "cli" || p.via === "agent" ? { via: p.via, agentName: typeof p.agentName === "string" ? p.agentName : null } : {};
+}
 export async function readWorkspaceRecentActivityAction(projectId: string): Promise<WorkspaceRecentActivityItem[]> {
   const viewer = await getViewerIdentityContext();
   const access = await getWorkspaceAccessById(projectId, viewer.userId);
@@ -63,7 +69,7 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
 
   const fileEventsPromise = audience.mayReadFiles
     ? db.select({ id: workspaceNodeEvents.id, createdAt: workspaceNodeEvents.createdAt,
-      nodeId: workspaceNodes.id, name: workspaceNodes.name, path: workspaceNodes.path, taskId: workspaceNodes.taskId,
+      nodeId: workspaceNodes.id, name: workspaceNodes.name, path: workspaceNodes.path, taskId: workspaceNodes.taskId, eventMetadata: workspaceNodeEvents.metadata,
       metadata: workspaceNodes.metadata, actorName: actor.fullName, actorUsername: actor.username, actorVisibility: actor.visibility })
       .from(workspaceNodeEvents)
       .innerJoin(workspaceNodes, and(eq(workspaceNodes.id, workspaceNodeEvents.nodeId), eq(workspaceNodes.projectId, projectId),
@@ -116,13 +122,15 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
     const actorName = activityActorName(!isMember && event.actorVisibility !== "public" ? null : { fullName: event.actorName, username: event.actorUsername });
     items.push({ id: `task:${event.id}`, type: "task",
       text: event.eventType === "review_submitted" ? `${actorName} submitted ${event.title} for review` : event.eventType === "review_approved" ? `${actorName} approved and completed ${event.title}` : event.eventType === "changes_requested" ? `${actorName} requested changes on ${event.title}` : `${actorName} moved ${event.title} to ${destination === "done" ? "Completed" : "In progress"}`,
-      occurredAt: event.createdAt.toISOString(), href: `${projectHref}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(event.taskId)}` });
+      occurredAt: event.createdAt.toISOString(), href: `${projectHref}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(event.taskId)}`,
+      ...viaOf(event.payload) });
   }
   for (const event of fileEvents) {
     if (!isMember && !isPublishableFileMetadata(event.metadata)) continue;
     const actorName = activityActorName(!isMember && event.actorVisibility !== "public" ? null : { fullName: event.actorName, username: event.actorUsername });
     items.push({ id: `file:${event.id}`, type: "file", text: `${actorName} added ${event.name}`,
-      occurredAt: event.createdAt.toISOString(), href: `${projectHref}?tab=files&fileId=${encodeURIComponent(event.nodeId)}` });
+      occurredAt: event.createdAt.toISOString(), href: `${projectHref}?tab=files&fileId=${encodeURIComponent(event.nodeId)}`,
+      ...viaOf(event.eventMetadata) });
   }
   for (const event of githubEvents) {
     const mode = event.manifest.mode === "pr" ? "pr" : "direct";

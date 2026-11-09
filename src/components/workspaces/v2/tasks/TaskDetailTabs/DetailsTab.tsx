@@ -1,5 +1,6 @@
 "use client";
 
+import { WorkWithAgent } from "../components/WorkWithAgent";
 import { HandInSection } from "@/components/organizations/HandInSection";
 import { MasterEditButton } from "@/components/organizations/MasterEditButton";
 import { isAssignmentMaster } from "@/lib/workspaces/task-presentation";
@@ -101,6 +102,8 @@ interface DetailsTabProps {
   onRemoveFile?: (nodeId: string) => Promise<{ success: boolean; error?: string }>;
   workflowColumns?: { id: string; name: string }[];
   onMoveToColumn?: (columnId: string) => Promise<{ success: boolean; error?: string }>;
+  /** For "Work with an agent" (CLI report A9.6). */
+  projectSlug?: string | null;
 }
 
 export default function DetailsTab({
@@ -127,6 +130,7 @@ export default function DetailsTab({
   onOpenConversation,
   workflowColumns,
   onMoveToColumn,
+  projectSlug = null,
 }: DetailsTabProps) {
   const policy = useTaskCompletionPolicy(task.projectId ?? "");
   const master = isAssignmentMaster(task);
@@ -1109,6 +1113,7 @@ export default function DetailsTab({
         </div>
       </div>
       </MoreDetails>
+      <WorkWithAgent projectSlug={projectSlug} taskNumber={task.taskNumber} canEdit={canEdit} />
     </div>
   );
 }

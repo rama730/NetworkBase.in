@@ -404,6 +404,7 @@ export default function TaskDetailPanel({
                       projectId={projectId}
                       projectSlug={projectSlug}
                       taskId={resource.task.id}
+                      taskNumber={resource.task.taskNumber ?? null}
                     />
                   </span>
                 )}
@@ -601,6 +602,7 @@ export default function TaskDetailPanel({
               >
                 <DetailsTab
                   task={resource.task}
+                  projectSlug={projectSlug ?? null}
                   onUploadFiles={(files) => resource.fileMutations.uploadFiles(files)}
                   onRemoveFile={resource.fileMutations.unlinkAttachment}
                   canEdit={canEditTask}

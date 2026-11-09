@@ -41,6 +41,7 @@ import { createVisibilityAwareInterval } from "@/lib/utils/visibility";
 
 import MentionComposer, { type MentionComposerHandle } from "../components/MentionComposer";
 import CommentBody from "../components/CommentBody";
+import { ViaLabel } from "@/components/ui/via-label";
 import { readSessionDraft, sessionDraftStore, useSessionDraft } from "@/hooks/useSessionDraft";
 import { copyOrSay } from "@/lib/clipboard";
 
@@ -233,6 +234,7 @@ function DiscussionEntry({
                   {roleLabel}
                 </span>
               )}
+              <ViaLabel via={entry.via} agentName={entry.agentName} />
               <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                 · {timeAgo(entry.createdAt)}
               </span>

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronDown, Copy, ExternalLink, Laptop, KeyRound, Terminal } from "lucide-react";
+import { ChevronDown, ExternalLink, Laptop, KeyRound } from "lucide-react";
 import {
   SUPPORTED_IDES,
   type SupportedIde,
@@ -28,8 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { copyText } from "@/lib/clipboard";
-import { toast } from "@/lib/feedback";
+import { TerminalBlock } from "@/components/ui/terminal-block";
 import { DesktopIdePicker } from "./DesktopIdePicker";
 import { IdeWorkspacePicker, type IdeWorkspace } from "./IdeWorkspacePicker";
 import type { CurrentLocation } from "./navigation";
@@ -40,6 +39,8 @@ interface OpenInIdeButtonProps {
   projectSlug?: string;
   location?: CurrentLocation | null;
   taskId?: string | null;
+  /** The task's number, for the terminal command (`--task 4`, never a UUID: finding 108). */
+  taskNumber?: number | null;
   className?: string;
   /** Report §24.2: organization members open files here but can't change them; the button and picker say so. */
   readOnlyNote?: string | null;
@@ -53,6 +54,7 @@ export function OpenInIdeButton({
   projectSlug,
   location,
   taskId,
+  taskNumber = null,
   className,
   readOnlyNote = null,
 }: OpenInIdeButtonProps): React.JSX.Element {
@@ -72,17 +74,16 @@ export function OpenInIdeButton({
   const [projectPickerIde, setProjectPickerIde] = useState<SupportedIde | null>(
     null,
   );
-  const [copiedCli, setCopiedCli] = useState(false);
-  const cliCommand =
-    taskId && projectId
-      ? `npx @networkbase/cli init --workspace=${projectId} --task=${taskId}`
-      : taskId
-        ? `npx @networkbase/cli init --task=${taskId}`
-        : projectId
-          ? `npx @networkbase/cli init --workspace=${projectId}`
-          : `npx @networkbase/cli init`;
+  // Slug and task number, wrapped between flags (report A9.4, findings 108–110). Read-only members only pull.
+  const cliCommand = [
+    `$ npx @networkbase/cli init${projectSlug ? ` ${projectSlug}` : ""}${taskNumber && !readOnlyNote ? " \\" : ""}`,
+    ...(taskNumber && !readOnlyNote ? [`    --task ${taskNumber}`] : []),
+    ...(readOnlyNote ? ["$ nb pull"] : []),
+  ].join("\n");
+  const cliNext = readOnlyNote
+    ? "Links a folder and downloads the files. You can read them; changes stay on your computer."
+    : `Links a folder to this ${taskNumber ? "task" : "workspace"}. Then: nb push <files>${taskNumber ? ` --task ${taskNumber}` : ""}`;
   const pickerRef = useRef<HTMLDivElement>(null);
-  const cliRef = useRef<HTMLElement>(null);
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
@@ -271,43 +272,16 @@ export function OpenInIdeButton({
                 setFallbackOpen(true);
               }}
             />
-            <div className="border-t border-border bg-muted/30 px-3 py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                  <Terminal className="size-3.5 text-foreground" />
-                  Terminal / CLI Push
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Root cause (2026-11-09): a refused clipboard write was dropped, so Copy did nothing and said
-                    // nothing. Fall back inside the picker (it traps focus), and on failure select the command to copy by hand.
-                    void copyText(cliCommand, pickerRef.current).then(() => {
-                      setCopiedCli(true);
-                      setTimeout(() => setCopiedCli(false), 2000);
-                    }, () => {
-                      if (cliRef.current) window.getSelection()?.selectAllChildren(cliRef.current);
-                      toast.error("Couldn’t copy. The command is selected: press ⌘C or Ctrl+C.");
-                    });
-                  }}
-                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted"
-                >
-                  {copiedCli ? (
-                    <>
-                      <Check className="size-3 text-[var(--status-success)]" />
-                      Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="size-3" />
-                      Copy
-                    </>
-                  )}
-                </button>
+            <div className="space-y-2 border-t border-border px-3 py-2.5">
+              <TerminalBlock variant="command" label="Terminal" wrap>{cliCommand}</TerminalBlock>
+              <p className="text-[12px] leading-snug text-muted-foreground">{cliNext}</p>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="nb-micro">AI agents</p>
+                <p className="truncate text-[12px] text-muted-foreground">Claude Code · Codex · Cursor</p>
               </div>
-              <code ref={cliRef} title={cliCommand} className="mt-1.5 block select-all truncate rounded border border-border bg-background px-2 py-1 font-mono text-[11px] text-foreground">
-                {cliCommand}
-              </code>
+              <Link href="/docs/agents" className="nb-link shrink-0 text-[12px] font-medium">Set up</Link>
             </div>
           </Dropdown.Content>
         </Dropdown.Portal>

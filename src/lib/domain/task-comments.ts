@@ -69,6 +69,9 @@ export type DiscussionRow = {
   updatedAt: Date | string;
   deletedAt: Date | string | null;
   deletedBy: string | null;
+  /** Posted from the CLI or by an agent (0073); the label shows "via …" (report A9.7). */
+  via?: string | null;
+  agentName?: string | null;
   authorId: string | null;
   authorFullName: string | null;
   authorUsername: string | null;
@@ -100,6 +103,8 @@ export function normalizeTaskDiscussionEntry(params: {
     updatedAt: toIsoString(params.row.updatedAt) ?? new Date().toISOString(),
     deletedAt: toIsoString(params.row.deletedAt),
     deletedBy: params.row.deletedBy,
+    via: params.row.via ?? null,
+    agentName: params.row.agentName ?? null,
     author: normalizeTaskDiscussionAuthor(params.row),
     likeCount: params.likeCounts.get(params.row.id) ?? 0,
     likedByViewer: params.likedIds.has(params.row.id),
@@ -266,6 +271,8 @@ export async function readDiscussionRows(params: {
       updatedAt: taskComments.updatedAt,
       deletedAt: taskComments.deletedAt,
       deletedBy: taskComments.deletedBy,
+      via: taskComments.via,
+      agentName: taskComments.agentName,
       authorId: profiles.id,
       authorFullName: profiles.fullName,
       authorUsername: profiles.username,
@@ -297,6 +304,8 @@ export async function readDiscussionRows(params: {
       updatedAt: taskComments.updatedAt,
       deletedAt: taskComments.deletedAt,
       deletedBy: taskComments.deletedBy,
+      via: taskComments.via,
+      agentName: taskComments.agentName,
       rank: sql<number>`row_number() over (partition by ${taskComments.parentCommentId} order by ${taskComments.createdAt} desc, ${taskComments.id} desc)`.as("rank"),
       replyTotal: sql<number>`(count(*) over (partition by ${taskComments.parentCommentId}))::int`.as("reply_total"),
     })
@@ -318,6 +327,8 @@ export async function readDiscussionRows(params: {
           updatedAt: ranked.updatedAt,
           deletedAt: ranked.deletedAt,
           deletedBy: ranked.deletedBy,
+          via: ranked.via,
+          agentName: ranked.agentName,
           replyTotal: ranked.replyTotal,
           authorId: profiles.id,
           authorFullName: profiles.fullName,
@@ -457,6 +468,8 @@ export async function readTaskDiscussionCommentInternal(params: {
       updatedAt: taskComments.updatedAt,
       deletedAt: taskComments.deletedAt,
       deletedBy: taskComments.deletedBy,
+      via: taskComments.via,
+      agentName: taskComments.agentName,
       authorId: profiles.id,
       authorFullName: profiles.fullName,
       authorUsername: profiles.username,

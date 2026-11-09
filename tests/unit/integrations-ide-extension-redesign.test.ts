@@ -8,11 +8,11 @@ describe("IDE & Editor Extensions Redesign Contract", () => {
     const filePath = path.resolve(process.cwd(), "src/components/settings/IntegrationsSettings.tsx");
     const content = fs.readFileSync(filePath, "utf-8");
 
-    assert.ok(content.includes('title="Connected editors"'), "Must use the concise settings section title");
+    assert.ok(content.includes('title="CLI, agents and editors"'), "Must use the concise settings section title");
 
     // Universal copy without mentioning specific IDEs in the general card description
     assert.ok(
-      content.includes('description="Editors signed in to your account, and access tokens."'),
+      content.includes('description="Devices, AI agents and editors signed in to your account, and personal tokens."'),
       "Must state universal editor description",
     );
 

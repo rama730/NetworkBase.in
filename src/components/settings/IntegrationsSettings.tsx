@@ -30,12 +30,13 @@ import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { revokeExtensionSession, generateExtensionToken, getActiveExtensionSessions } from "@/app/actions/extension-sessions";
 import {
   listPersonalAccessTokens,
-  createPersonalAccessToken,
   revokePersonalAccessToken,
   type PersonalAccessTokenSummary,
 } from "@/app/actions/personal-access-tokens";
 import type { AuthConnectionMethod, ExtensionSessionData, ExtensionSessionsData, IntegrationsAuthProvider } from "@/types/settingsTypes";
 import { copyText } from "@/lib/clipboard";
+import { TerminalBlock } from "@/components/ui/terminal-block";
+import { PersonalTokenForm, scopeWords } from "@/components/settings/PersonalTokenForm";
 
 const PROVIDER_ICONS: Partial<Record<IntegrationsAuthProvider, string>> = {
   google: "/skill-icons/v1/logos-google-icon.svg",
@@ -93,38 +94,17 @@ function formatPlatform(platform: string) {
 
 function ExtensionAppCard() {
   return (
-    <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-3 border-b border-border pb-4">
       <div className="flex min-w-0 items-center gap-3">
-        <Image
-          src="/icon-paper-192.png"
-          alt=""
-          width={48}
-          height={48}
-          className="size-10 shrink-0 rounded-md object-cover"
-        />
+        <Image src="/icon-paper-192.png" alt="" width={48} height={48} className="size-10 shrink-0 rounded-md object-cover" />
         <div className="min-w-0">
-          <h4 className="nb-ui-label text-foreground">NetworkBase editor extension & CLI</h4>
+          <h4 className="nb-ui-label text-foreground">NetworkBase CLI, AI agents and editors</h4>
           <p className="nb-compact mt-1 text-muted-foreground">
-            Open workspace work in your editor or run <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">npx @networkbase/cli init</code> in your terminal.
+            Sign in from your editor or terminal, then link a folder with nb init. AI agents get their own sign-in, limited to one workspace. Revoke any time below. <Link href="/docs/cli" className="nb-link">CLI docs</Link> · <Link href="/docs/agents" className="nb-link">Agents</Link>
           </p>
         </div>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="shrink-0 gap-1.5 font-mono text-xs"
-        onClick={() => {
-          copyText("npx @networkbase/cli init").then(
-            () => toast.success("Copied CLI setup command"),
-            () => toast.warning("Couldn’t copy command"),
-          );
-        }}
-      >
-        <Terminal className="size-3.5" strokeWidth={1.75} />
-        npx @networkbase/cli init
-        <Copy className="size-3 text-muted-foreground" strokeWidth={1.75} />
-      </Button>
+      <TerminalBlock variant="command" label="Terminal">{"$ npx @networkbase/cli login\n$ nb agent setup claude"}</TerminalBlock>
     </div>
   );
 }
@@ -142,9 +122,11 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
     : session.editorPlatform
       ? formatPlatform(session.editorPlatform)
       : "Connected";
-  const title = isPending
-    ? session.deviceName?.trim() || "Access token"
-    : session.editorName?.trim() || session.deviceName?.trim() || (isCliSession ? "NetworkBase CLI" : "Editor extension");
+  const title = session.tokenType === "agent"
+    ? `${session.agentName?.trim() || "AI agent"} on ${session.deviceName?.trim() || "a computer"}`
+    : isPending
+      ? session.deviceName?.trim() || "Access token"
+      : session.editorName?.trim() || session.deviceName?.trim() || (isCliSession ? "NetworkBase CLI" : "Editor extension");
 
   return (
     <div className="flex min-h-16 flex-col justify-center gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
@@ -167,7 +149,11 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="truncate nb-ui-label text-foreground" title={title}>{title}</p>
-            {isCliSession ? (
+            {session.tokenType === "agent" ? (
+              <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Agent
+              </span>
+            ) : isCliSession ? (
               <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 CLI
               </span>
@@ -188,7 +174,7 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
                 Created {formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })} · Awaiting initial connection from your editor or CLI
               </p>
               <p className="nb-meta mt-1 truncate text-muted-foreground">
-                Access token · Paste it into your editor or run <code className="font-mono">nb auth login --token</code>
+                Access token · Paste it when your editor or nb login --with-token asks for it
               </p>
             </>
           ) : (
@@ -197,8 +183,12 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
                 Active {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })} · v{session.clientVersion || "unknown"}
               </p>
               <p className="nb-meta mt-1 truncate text-muted-foreground">
-                {isCliSession ? "Signed in from NetworkBase CLI" : session.authMethod === "web_login" ? "Signed in from the editor" : "Access token"}
+                {session.tokenType === "agent"
+                  ? `Only ${session.workspaceTitle ?? "one workspace"} · reads and small changes; big ones wait for your yes`
+                  : isCliSession ? "Signed in from NetworkBase CLI" : session.authMethod === "web_login" ? "Signed in from the editor" : "Access token"}
                 {session.editorVersion ? ` · ${session.editorVersion}` : ""}
+                {session.lastCountry ? ` · last used from ${session.lastCountry}` : ""}
+                {` · expires ${formatDistanceToNow(new Date(session.expiresAt), { addSuffix: true })}`}
               </p>
             </>
           )}
@@ -246,10 +236,7 @@ export default function IntegrationsSettings() {
   const [replacingGithub, setReplacingGithub] = useState(false);
   const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [patTokens, setPatTokens] = useState<PersonalAccessTokenSummary[]>([]);
-  const [patLabel, setPatLabel] = useState("");
   const [showPatGen, setShowPatGen] = useState(false);
-  const [generatingPat, setGeneratingPat] = useState(false);
-  const [generatedPat, setGeneratedPat] = useState<string | null>(null);
   const [revokingPatId, setRevokingPatId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -257,26 +244,6 @@ export default function IntegrationsSettings() {
       if (res.success) setPatTokens(res.tokens);
     });
   }, []);
-
-  const handleGeneratePat = async () => {
-    setGeneratingPat(true);
-    try {
-      const res = await createPersonalAccessToken({
-        label: patLabel.trim() || "CLI & Git HTTPS Token",
-        scopes: ["repo:read", "repo:write", "task:write"],
-        expiresInDays: 90,
-      });
-      if (!res.success) {
-        toast.error(res.error);
-        return;
-      }
-      setGeneratedPat(res.rawToken);
-      setPatTokens((prev) => [res.token, ...prev]);
-      toast.success("Personal Access Token created");
-    } finally {
-      setGeneratingPat(false);
-    }
-  };
 
   const handleRevokePat = async (tokenId: string) => {
     setRevokingPatId(tokenId);
@@ -553,12 +520,12 @@ export default function IntegrationsSettings() {
       <div className="pt-5"><GitHubCommitAttributionSettings /></div>
     </SettingsSectionCard>
 
-    <SettingsSectionCard id="settings-integrations-editors" title="Connected editors" description="Editors signed in to your account, and access tokens.">
+    <SettingsSectionCard id="settings-integrations-editors" title="CLI, agents and editors" description="Devices, AI agents and editors signed in to your account, and personal tokens.">
       <div className="space-y-4">
         <ExtensionAppCard />
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
-            <h4 className="nb-ui-label text-foreground">Signed-in devices</h4>
+            <h4 className="nb-ui-label text-foreground">Signed-in devices and agents</h4>
             <span className="nb-meta text-muted-foreground">
               {activeSessions.length} active · {pendingSessions.length} pending
             </span>
@@ -663,11 +630,7 @@ export default function IntegrationsSettings() {
                   <div className="flex items-start gap-2 rounded-md border border-border bg-background p-3 nb-compact text-muted-foreground">
                     <KeyRound className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
                     <span>
-                      Paste it into your editor’s authentication prompt or run{" "}
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
-                        nb auth login --token {generatedToken}
-                      </code>{" "}
-                      in your terminal. It is shown only once and works for one year.
+                      Paste it into your editor’s sign-in prompt, or when nb login --with-token asks for it. Don’t put it in a command. It is shown only once and works for one year.
                     </span>
                   </div>
                 </div>
@@ -678,100 +641,25 @@ export default function IntegrationsSettings() {
 
         <div id="settings-integrations-pat" className="scroll-mt-6 border-t border-border pt-4">
           <SettingsRow
-            title="Personal access tokens (CLI & Git HTTPS)"
-            description="Fine-grained tokens (nb_pat_...) for the NetworkBase CLI, Git credential helper, and CI/CD pipelines."
+            title="Personal access tokens"
+            description="For scripts and CI (NETWORKBASE_TOKEN). Choose what each token may do and which workspace it reaches."
             right={
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  if (showPatGen) {
-                    setGeneratedPat(null);
-                    setPatLabel("");
-                  }
                   setShowPatGen(!showPatGen);
                 }}
                 className="pointer-coarse:h-11"
               >
-                {showPatGen ? "Cancel" : "New CLI token"}
+                {showPatGen ? "Cancel" : "New token"}
               </Button>
             }
           />
 
           {showPatGen && (
             <div className="mt-3 border-t border-border pt-4">
-              {!generatedPat ? (
-                <div className="space-y-3">
-                  <div className="max-w-xs space-y-1.5">
-                    <label htmlFor="cli-pat-label" className="nb-ui-label text-foreground">
-                      Token label
-                    </label>
-                    <Input
-                      id="cli-pat-label"
-                      type="text"
-                      maxLength={80}
-                      value={patLabel}
-                      onChange={(e) => setPatLabel(e.target.value)}
-                      placeholder="e.g. MacBook Pro CLI"
-                    />
-                  </div>
-                  <Button size="sm" onClick={() => void handleGeneratePat()} disabled={generatingPat}>
-                    {generatingPat ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Terminal className="size-4" strokeWidth={1.75} />
-                    )}
-                    Create personal access token
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Input
-                      type="text"
-                      readOnly
-                      aria-label="Your new personal access token"
-                      value={generatedPat}
-                      className="nb-meta font-mono"
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        copyText(generatedPat).then(
-                          () => toast.success("Copied to clipboard"),
-                          () => toast.warning("Couldn’t copy"),
-                        );
-                      }}
-                      className="shrink-0"
-                    >
-                      <Copy className="size-4" strokeWidth={1.75} /> Copy
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setGeneratedPat(null);
-                        setShowPatGen(false);
-                        setPatLabel("");
-                      }}
-                      className="shrink-0"
-                    >
-                      Done
-                    </Button>
-                  </div>
-                  <div className="flex items-start gap-2 rounded-md border border-border bg-background p-3 nb-compact text-muted-foreground">
-                    <Terminal className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
-                    <span>
-                      Run{" "}
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
-                        nb auth login --token {generatedPat}
-                      </code>{" "}
-                      to sign in from your terminal.
-                    </span>
-                  </div>
-                </div>
-              )}
+              <PersonalTokenForm onCreated={(token) => setPatTokens((prev) => [token, ...prev])} onDone={() => setShowPatGen(false)} />
             </div>
           )}
 
@@ -789,13 +677,13 @@ export default function IntegrationsSettings() {
                         {pat.tokenPrefix}
                       </code>
                       {pat.isExpiringSoon && (
-                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                        <span className="nb-status" data-tone="warning">
                           Expiring soon
                         </span>
                       )}
                     </div>
                     <p className="nb-meta mt-1 text-muted-foreground">
-                      Scopes: {pat.scopes.join(", ")} · Created{" "}
+                      Can {scopeWords(pat.scopes)} · {pat.workspaceTitle ? `only ${pat.workspaceTitle}` : "all workspaces"} · Created{" "}
                       {formatDistanceToNow(new Date(pat.createdAt), { addSuffix: true })}
                       {pat.lastUsedAt
                         ? ` · Last used ${formatDistanceToNow(new Date(pat.lastUsedAt), { addSuffix: true })}`

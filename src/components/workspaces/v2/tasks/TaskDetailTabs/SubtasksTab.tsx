@@ -15,6 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { TaskPanelSubtask } from "@/hooks/useTaskPanelResource";
+import { ViaLabel } from "@/components/ui/via-label";
 import { copyOrSay } from "@/lib/clipboard";
 
 type MutationResult = { success: boolean; error?: string };
@@ -260,6 +261,7 @@ export default function SubtasksTab({
             {subtask.title}
           </span>
         )}
+        <ViaLabel via={subtask.via} agentName={subtask.agentName} className="shrink-0" />
         {subtask.completed && subtask.completedBy && nameOf?.(subtask.completedBy) ? (
           <span className="shrink-0 text-[11px] text-muted-foreground">· {nameOf(subtask.completedBy)}</span>
         ) : null}

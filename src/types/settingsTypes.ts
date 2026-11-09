@@ -225,6 +225,12 @@ export interface ExtensionSessionData {
   lastSeenAt: string;
   createdAt: string;
   authMethod?: ExtensionSessionAuthMethod;
+  /** device (CLI or editor) or agent (one workspace only), report A3.3. */
+  tokenType?: "device" | "agent" | null;
+  agentName?: string | null;
+  workspaceId?: string | null;
+  workspaceTitle?: string | null;
+  lastCountry?: string | null;
 }
 
 export interface ExtensionSessionsData {

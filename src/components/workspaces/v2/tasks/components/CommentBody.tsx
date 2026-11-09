@@ -14,6 +14,8 @@
 
 import * as React from "react";
 
+import { CodeSnippetBlock } from "@/components/messages/CodeSnippetBlock";
+import { ReportCard, parseReport } from "./ReportCard";
 import { parseMentions } from "@/lib/workspaces/mention-tokens";
 import { cn } from "@/lib/utils";
 
@@ -98,7 +100,7 @@ function renderInlineChunks(text: string, keyPrefix: string): React.ReactNode {
 }
 
 function renderFormattedText(text: string, keyPrefix: string): React.ReactNode {
-    const codeBlockRegex = /```(?:[a-zA-Z0-9_-]*\n)?([\s\S]*?)```/g;
+    const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match: RegExpExecArray | null;
@@ -107,15 +109,8 @@ function renderFormattedText(text: string, keyPrefix: string): React.ReactNode {
         if (match.index > lastIndex) {
             parts.push(renderInlineChunks(text.slice(lastIndex, match.index), `${keyPrefix}-${lastIndex}`));
         }
-        const codeContent = match[1]?.trim() ?? "";
-        parts.push(
-            <pre
-                key={`${keyPrefix}-cb-${match.index}`}
-                className="my-1.5 max-h-60 overflow-x-auto rounded-[5px] border border-border bg-muted/40 p-2.5 font-mono text-[12px] leading-relaxed text-foreground"
-            >
-                <code>{codeContent}</code>
-            </pre>,
-        );
+        const codeContent = match[2]?.trim() ?? "";
+        parts.push(<CodeSnippetBlock key={`${keyPrefix}-cb-${match.index}`} language={match[1] || "text"} code={codeContent} />);
         lastIndex = match.index + match[0].length;
     }
 
@@ -128,6 +123,8 @@ function renderFormattedText(text: string, keyPrefix: string): React.ReactNode {
 
 export function CommentBody({ content, viewerUserId, memberNames, className }: CommentBodyProps) {
     const { segments } = React.useMemo(() => parseMentions(content), [content]);
+    const report = React.useMemo(() => parseReport(content), [content]);
+    if (report) return <ReportCard report={report} />;
 
     return (
         <div className={cn("whitespace-pre-wrap break-words", className)}>

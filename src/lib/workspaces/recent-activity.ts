@@ -6,6 +6,9 @@ export type WorkspaceRecentActivityItem = {
   text: string;
   occurredAt: string;
   href: string;
+  /** Made from the CLI or by an AI agent (report A9.7). */
+  via?: string | null;
+  agentName?: string | null;
 };
 
 export function recentActivityAudience(isMember: boolean, tabs: { tasks: boolean; files: boolean }) {

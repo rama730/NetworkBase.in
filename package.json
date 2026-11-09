@@ -90,9 +90,10 @@
     "test:release-gate": "npm run lint -- --no-error-on-unmatched-pattern \"src/**/*.ts\" \"src/**/*.tsx\" \"src/**/*.js\" \"src/**/*.jsx\" \"tests/**/*.ts\" \"tests/**/*.tsx\" \"tests/**/*.js\" \"tests/**/*.jsx\" \"scripts/**/*.ts\" \"scripts/**/*.tsx\" \"scripts/**/*.js\" \"scripts/**/*.jsx\" \"scripts/**/*.cjs\" \"scripts/**/*.mjs\" \"*.js\" \"*.mjs\" \"*.cjs\" \"*.ts\" && npm run typecheck && npm run check:deps:audit && npm run check:deps:lockfile && npm run check:db:migration-journal && npm run check:db:migration-sources && npm run check:db:remigration-replay && npm run check:db:live-lineage && npm run check:db:runtime-role && npm run check:security-env-contract && npm run check:rls-contract && npm run check:authz-contract && npm run check:csp-contract && npm run check:trusted-proxy-contract && npm run check:webhook-identity-contract && npm run check:realtime-origin-contract && npm run check:e2e-auth-bundle-contract && npm run check:security-evidence && npm run test:unit:coverage && npm run check:scroll-contract && npm run check:query-key-contract && npm run check:theme-contract && npm run check:page-contract && npm run check:force-dynamic-allowlist && npm run check:runtime-boundaries && npm run check:api-versioning-contract && npm run check:api-envelope-contract && npm run check:review-guardrails && npm run check:engineering-standards && npm run test:e2e:critical:prod && npm run check:build-rendering-contract && npm run check:e2e:perf && npm run check:route-baseline-regression"
   },
   "dependencies": {
+    "@codemirror/language": "^6.12.1",
     "@codemirror/state": "^6.6.0",
-    "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.39.11",
+    "@lezer/highlight": "^1.2.3",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

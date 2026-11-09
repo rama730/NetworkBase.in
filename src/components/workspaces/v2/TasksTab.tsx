@@ -888,6 +888,7 @@ export default function TasksTab({
                 projectId={projectId}
                 projectSlug={projectSlug}
                 taskId={editingTask?.id}
+                taskNumber={editingTask?.taskNumber ?? null}
               />
             </span>
 

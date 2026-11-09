@@ -154,7 +154,7 @@ test("integrations settings shows extension app identity before sessions", () =>
 
   assert.match(integrations, /function ExtensionAppCard/);
   assert.match(integrations, /\/icon-(?:paper-|ink-)?192\.png/);
-  assert.match(integrations, /NetworkBase editor extension/);
+  assert.match(integrations, /NetworkBase CLI, AI agents and editors/);
   assert.match(integrations, /\/ide-icons\/vscode\.png/);
   assert.match(integrations, /\/ide-icons\/cursor\.png/);
   assert.match(integrations, /\/ide-icons\/windsurf\.svg/);
