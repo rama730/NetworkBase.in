@@ -15,7 +15,13 @@ const PAIRS: Array<[string, string]> = [
   ['src/app/api/v1/extension/project-tasks', 'src/app/api/v1/extension/workspace-tasks'],
 ];
 // Routes made after the rename have no old callers, so they get no old address (and none may add "project").
-const BORN_AFTER_RENAME = new Set(['src/app/api/v1/workspaces/[id]/view/route.ts']);
+const BORN_AFTER_RENAME = new Set([
+  'src/app/api/v1/workspaces/[id]/view/route.ts',
+  // CLI 2.0 and agent routes (report A2.5), 2026-11-09.
+  'src/app/api/v1/workspaces/[id]/manifest/route.ts',
+  'src/app/api/v1/workspaces/[id]/docs/route.ts',
+  'src/app/api/v1/workspaces/[id]/docs/[slug]/route.ts',
+]);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 const routes = (dir: string): string[] => readdirSync(dir).flatMap((name) => {
   const p = path.join(dir, name);
