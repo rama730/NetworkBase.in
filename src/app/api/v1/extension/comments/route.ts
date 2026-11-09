@@ -153,23 +153,21 @@ const taskCommentSchema = z.union([
 ]);
 
 async function postTaskComment(
-  user: { id: string; user_metadata?: Record<string, unknown> },
+  user: { id: string },
   input: z.infer<typeof taskCommentSchema>,
 ) {
   const projectId =
     input.projectId ??
     (await db.query.tasks.findFirst({ where: and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)), columns: { projectId: true } }))?.projectId;
   if (!projectId) return jsonError("Task not found", 404, "NOT_FOUND");
-  const meta = user.user_metadata ?? {};
+  // Name and avatar come from the profile row, never from session metadata the person can edit.
+  const [profile] = await db
+    .select({ fullName: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl })
+    .from(profiles)
+    .where(eq(profiles.id, user.id))
+    .limit(1);
   const result = await createTaskCommentAs(
-    {
-      userId: user.id,
-      profile: {
-        fullName: typeof meta.full_name === "string" ? meta.full_name : null,
-        username: typeof meta.username === "string" ? meta.username : null,
-        avatarUrl: typeof meta.avatar_url === "string" ? meta.avatar_url : null,
-      },
-    },
+    { userId: user.id, profile: profile ?? null },
     input.taskId,
     projectId,
     input.text,
