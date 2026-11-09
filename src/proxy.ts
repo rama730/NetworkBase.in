@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { MIN_CLI_VERSION, tooOldCli } from "@/lib/api/client-version";
 import { updateSession } from "@/lib/supabase/middleware";
 import { CSRF_COOKIE_NAME, DEV_CSRF_SECRET_FALLBACK, MINIMUM_CSRF_SECRET_LENGTH } from "@/lib/security/csrf-constants";
 import { toPrivacySafeRouteMetric } from "@/lib/routing/route-metric";
@@ -165,11 +166,20 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set(REQUEST_METHOD_HEADER, request.method);
 
   if (request.nextUrl.pathname.startsWith("/api/")) {
-    return NextResponse.next({
+    const cli = tooOldCli(request.headers.get("x-nb-client"));
+    if (cli) {
+      return NextResponse.json(
+        { success: false, errorCode: "CLIENT_TOO_OLD", message: `nb ${cli} is too old for this server (needs ${MIN_CLI_VERSION} or newer)` },
+        { status: 426, headers: { "x-nb-min-client": `cli/${MIN_CLI_VERSION}` } },
+      );
+    }
+    const response = NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     });
+    response.headers.set("x-nb-min-client", `cli/${MIN_CLI_VERSION}`);
+    return response;
   }
 
   const isStaticLegalPage = STATIC_LEGAL_PATHS.has(request.nextUrl.pathname);

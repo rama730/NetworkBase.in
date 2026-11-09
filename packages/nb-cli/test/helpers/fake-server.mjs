@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -63,6 +63,13 @@ const exact = {
     const q = { schema: "nb.question/1", id: crypto.randomUUID(), workspaceId: req.body.projectId, taskId: req.body.taskId ?? null, to: req.body.to ?? "me", agentName: null, context: req.body.context ?? null, questions: req.body.questions, status: "open", answer: /** @type {any} */ (null), polls: 0 };
     state.questions.push(q);
     return { data: q };
+  },
+  "GET /api/v1/tokens": (req) => {
+    const current = String(req.headers.authorization ?? "").replace(/^Bearer /, "");
+    return { data: { tokens: [
+      { id: "aaaa1111-0000-4000-8000-000000000001", type: "device", name: "laptop", agentName: null, workspace: null, lastUsedAt: now(), current: current === TOKEN },
+      { id: "bbbb2222-0000-4000-8000-000000000002", type: "agent", name: "laptop", agentName: "Claude Code", workspace: "Design Lab", lastUsedAt: null, current: false },
+    ] } };
   },
   "GET /api/v1/questions": (_req, state) => ({ data: { questions: state.questions.filter((q) => q.status === "open") } }),
   "POST /api/v1/device/code": (req, state) => {
@@ -115,6 +122,18 @@ const exact = {
       s.updatedAt = now();
       return { data: { subtask: s } };
     }
+    if (req.body.kind === "edit") { /** @type {any} */ (t)[req.body.field === "dueDate" ? "dueDate" : req.body.field] = req.body.value; t.updatedAt = now(); return { data: { success: true, undoToken: crypto.randomUUID() } }; }
+    if (req.body.kind === "assign") { t.assigneeUsername = req.body.assigneeId?.startsWith("aaaaaaaa") ? "tester" : req.body.assigneeId?.startsWith("bbbbbbbb") ? "sam" : null; return { data: { success: true } }; }
+    if (req.body.kind === "delete") { state.tasks.splice(state.tasks.indexOf(t), 1); return { data: { deleted: true } }; }
+    if (req.body.kind === "subtask_edit") { const s = t.subtasks.find((x) => x.id === req.body.subtaskId); if (!s) return fail(404, "NOT_FOUND", "Subtask not found"); s.title = req.body.title; return { data: { success: true } }; }
+    if (req.body.kind === "subtask_delete") { t.subtasks = t.subtasks.filter((x) => x.id !== req.body.subtaskId); return { data: { deleted: true } }; }
+    if (req.body.kind === "subtask_move") {
+      const s = t.subtasks.find((x) => x.id === req.body.subtaskId);
+      if (!s) return fail(404, "NOT_FOUND", "Subtask not found");
+      t.subtasks = t.subtasks.filter((x) => x !== s);
+      t.subtasks.splice(req.body.position, 0, s);
+      return { data: { order: t.subtasks.map((x) => x.id) } };
+    }
     if (t.updatedAt !== req.body.expectedUpdatedAt) return fail(409, "CONFLICT", "Task changed elsewhere. Reload before retrying.");
     if (req.body.kind === "status") {
       t.status = req.body.status;
@@ -128,6 +147,11 @@ const exact = {
     return fail(400, "BAD_REQUEST", "Invalid task update");
   },
   "POST /api/v1/extension/comments": (req, state) => {
+    if (req.body.kind === "create" || req.body.kind === "resolve") {
+      const threadId = req.body.threadId ?? crypto.randomUUID();
+      state.fileComments.push({ id: crypto.randomUUID(), sequence: state.fileComments.length + 1, name: "Test User", createdAt: now(), metadata: { threadId, ...(req.body.text ? { text: req.body.text } : {}), ...(req.body.anchor ? { anchor: req.body.anchor } : {}), ...(req.body.kind === "resolve" ? { resolved: req.body.resolved, expectedSequence: req.body.expectedSequence } : {}) } });
+      return { data: { threadId } };
+    }
     const t = findTask(state, req.body.taskId);
     if (!t) return fail(404, "NOT_FOUND", "Task not found");
     t.comments.push({ authorUsername: "tester", content: req.body.text ?? req.body.content });
@@ -138,13 +162,26 @@ const exact = {
     const f = state.files.get(req.query.get("path") ?? "");
     if (!f) return fail(404, "NOT_FOUND", "File not found");
     if (req.query.get("transfer") === "raw") return { raw: f.content };
+    if (req.query.get("transfer") === "metadata") return { data: { ...meta(f), id: f.nodeId, currentVersion: f.version } };
     return { data: { ...meta(f), currentVersion: f.version, encoding: "base64", content: f.content.toString("base64") } };
   },
   "POST /api/v1/extension/file-operation": (req, state) => {
-    if (req.body.kind !== "trash") return fail(400, "BAD_REQUEST", "Unsupported");
+    state.fileOps.push(req.body);
+    if (req.body.kind === "rename") {
+      const hit = [...state.files].find(([, f]) => f.nodeId === req.body.nodeId);
+      if (hit) { const [p, f] = hit; state.files.delete(p); const np = `${p.slice(0, p.lastIndexOf("/"))}/${req.body.name}`; state.files.set(np, { ...f, path: np }); }
+      return { data: { renamed: true } };
+    }
+    if (req.body.kind !== "trash") return { data: { moved: true } };
     for (const [p, f] of state.files) if (f.nodeId === req.body.nodeId) state.files.delete(p);
     return { data: { trashed: true } };
   },
+  "GET /api/v1/extension/file-history": (req, state) => {
+    const f = [...state.files.values()].find((x) => x.nodeId === req.query.get("nodeId"));
+    if (!f) return fail(404, "NOT_FOUND", "File not found");
+    return { data: { versions: Array.from({ length: f.version }, (_, i) => ({ version: f.version - i, uploadedAt: f.updatedAt, uploadedByUsername: "tester", via: i === 0 ? "agent" : null, agentName: i === 0 ? "Claude Code" : null, comment: null })) } };
+  },
+  "GET /api/v1/extension/comments": (_req, state) => ({ data: { events: state.fileComments } }),
   "POST /api/v1/files/place": (req, state) => {
     if (!state.canWrite) return fail(403, "FORBIDDEN", "You don’t have write access to this workspace");
     const files = req.body.files ?? [];
@@ -174,6 +211,17 @@ const exact = {
 
 /** Routes with ids in the path. @type {Array<[RegExp, string, Handler]>} */
 const patterns = [
+  [/^\/api\/v1\/workspaces\/([^/]+)$/, "GET", (_req, /** @type {FakeState} */ state) => ({ data: { id: WORKSPACE_ID, title: state.workspace.title, slug: state.workspace.slug, description: null, role: "owner", canWrite: true, openTasks: state.tasks.filter((t) => t.status !== "done").length, files: state.files.size, currentSprint: null, words: { main: "Sprint", inner: "Sprint", plan: "Plan", isClass: false }, organization: null, agents: { policy: "ask_important", paused: false } } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/activity$/, "GET", (_req, /** @type {FakeState} */ state) => ({ data: { items: state.tasks.map((t) => ({ at: t.updatedAt, kind: "task", type: "status_changed", by: "tester", via: "agent", agentName: "Claude Code", task: { id: t.id, number: t.taskNumber, title: t.title }, detail: `→ ${t.status}` })), nextBefore: null } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/sprints$/, "GET", (req, /** @type {FakeState} */ state) => ({ data: { words: { main: "Unit", inner: "Week", plan: "Term", isClass: true }, sprints: [{ id: "s1111111-1111-4111-8111-111111111111", number: 1, name: "Unit 1", goal: "Basics", status: "active", startDate: now(), endDate: now(), open: state.tasks.length, done: 0 }], unplanned: 0, ...(req.query.get("sprint") ? { tasks: state.tasks.map((t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status })) } : {}) } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/updates$/, "POST", (req, /** @type {FakeState} */ state) => { state.updates.push(req.body.content); return { data: { success: true } }; }],
+  [/^\/api\/v1\/tasks\/([^/]+)\/files$/, "POST", (req, /** @type {FakeState} */ state) => {
+    const t = findTask(state, req.params[0] ?? "");
+    if (!t) return fail(404, "NOT_FOUND", "Task not found");
+    if (req.body.detach) t.files = t.files.filter((f) => f.path !== req.body.path);
+    else t.files.push({ path: req.body.path, name: req.body.path.split("/").pop(), role: req.body.as === "final" ? "deliverable" : req.body.as === "reference" ? "reference" : "working" });
+    return { data: { ok: true } };
+  }],
   [/^\/api\/v1\/questions\/([^/]+)$/, "GET", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
     const q = state.questions.find((x) => x.id === req.params[0]);
     if (!q) return fail(404, "NOT_FOUND", "Question not found");
@@ -188,6 +236,7 @@ const patterns = [
     Object.assign(q, { status: "answered", answer: req.body.answers });
     return { data: q };
   }],
+  [/^\/api\/v1\/tokens\/([^/]+)\/revoke$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => { state.revoked.add(req.params[0] ?? ""); return { data: { revoked: true } }; }],
   [/^\/api\/v1\/undo\/([^/]+)$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
     const op = state.undos.get(req.params[0] ?? "");
     if (!op) return fail(410, "EXPIRED", "Nothing to undo: it was undone already, is older than 24 hours, or isn't yours");
@@ -195,7 +244,7 @@ const patterns = [
     state.undone.push(op);
     return { data: { undone: op.kind === "push" ? `Pushed ${op.paths.length} file(s)` : op.kind, result: "Undid it", operation: op.kind } };
   }],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "u1", username: "tester", fullName: "Test User", role: "owner" }, { id: "u2", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || m.username.includes(String(req.query.get("q")))) } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", role: "owner" }, { id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || m.username.includes(String(req.query.get("q")))) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...state.files.values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: state.files.get(d.nodePath)?.nodeId ?? null })) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {
@@ -211,7 +260,7 @@ const patterns = [
  */
 export async function startFakeServer({ routes = {}, fault = {} } = {}) {
   /** @type {FakeState} */
-  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" }, undos: new Map(), undone: [], questions: [], autoAnswer: /** @type {string | null} */ (null), sessionsEnded: 0 };
+  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" }, undos: new Map(), undone: [], questions: [], autoAnswer: /** @type {string | null} */ (null), sessionsEnded: 0, fileOps: [], fileComments: [], updates: [] };
   /** @type {FakeRequest[]} */
   const requests = [];
   const faults = new Map(Object.entries(fault));

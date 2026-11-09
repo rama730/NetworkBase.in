@@ -4,8 +4,9 @@ import http from "node:http";
 import os from "node:os";
 
 import { createApi } from "../api.mjs";
-import { saveProfile } from "../config.mjs";
+import { listProfiles, saveProfile } from "../config.mjs";
 import { CliError, usage } from "../errors.mjs";
+import { storageWords } from "../keychain.mjs";
 import { safe } from "../print/style.mjs";
 import { openInBrowser } from "./misc.mjs";
 
@@ -18,6 +19,13 @@ const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 async function whoIs(ctx, token) {
   const api = createApi({ origin: ctx.profile.origin, token, version: ctx.version });
   return /** @type {any} */ (await api.get("/api/v1/me"));
+}
+
+/** Saves a token under a profile after checking it works. @param {Context} ctx @param {string} profileName @param {string} token */
+export async function saveToken(ctx, profileName, token) {
+  const me = await whoIs(ctx, token);
+  saveProfile(profileName, { origin: ctx.profile.origin, token, user: { id: me.user.id, username: me.user.username, email: me.user.email } }, ctx.env);
+  return me;
 }
 
 /** @param {Context} ctx @param {string} token @param {string} method */
@@ -37,9 +45,9 @@ const noBrowserHere = (env) => Boolean(env.SSH_CONNECTION || env.SSH_TTY || (pro
  * @param {Context} ctx
  * @returns {Promise<string>}
  */
-async function deviceLogin(ctx) {
+export async function deviceLogin(ctx, agentName = /** @type {string | null} */ (null)) {
   const api = createApi({ origin: ctx.profile.origin, token: null, version: ctx.version });
-  const agent = typeof ctx.flags.agent === "string" ? ctx.flags.agent.trim() : "";
+  const agent = agentName ?? (typeof ctx.flags.agent === "string" ? ctx.flags.agent.trim() : "");
   const start = /** @type {any} */ (await api.post("/api/v1/device/code", {
     clientName: "NetworkBase CLI",
     deviceName: os.hostname().slice(0, 120) || "terminal",
@@ -184,6 +192,12 @@ const page = (title, text) =>
 
 /** @param {Context} ctx */
 export async function logout(ctx) {
+  if (ctx.flags.all) {
+    // Signing out everywhere revokes every device and agent; that needs the browser's fresh check (report A3.9).
+    const url = `${ctx.profile.origin}/settings?tab=integrations`;
+    const opened = await openInBrowser(url);
+    return ctx.out.result("nb.logout.all/1", { url, opened }, (d) => [`${d.opened ? "Opened" : "Open"} ${d.url}`, ctx.out.c.muted("  Choose \"Sign out all devices\" there; it asks you to confirm it's you. Or revoke one with nb token revoke <id>.")]);
+  }
   if (!ctx.profile.token) throw new CliError("NOT_SIGNED_IN", `You're not signed in to ${new URL(ctx.profile.origin).host}`);
   if (ctx.profile.profile?.source === "env") throw usage("The token comes from NETWORKBASE_TOKEN; unset it to sign out");
   let revoked = true;
@@ -203,13 +217,77 @@ export async function logout(ctx) {
 
 /** @param {Context} ctx */
 export async function whoami(ctx) {
+  if (ctx.flags.all) return whoamiAll(ctx);
   const me = /** @type {any} */ (await ctx.api.get("/api/v1/me"));
-  const data = { origin: ctx.profile.origin, profile: ctx.profile.name, tokenSource: ctx.profile.profile?.source ?? null, ...me };
+  const data = { origin: ctx.profile.origin, profile: ctx.profile.name, tokenSource: ctx.profile.profile?.source ?? null, storage: ctx.profile.profile?.storage ?? "file", ...me };
   ctx.out.result("nb.whoami/1", data, (d) => [
     `${ctx.out.c.brand(ctx.out.sym.brand)} ${safe(d.user.username ? `@${d.user.username}` : d.user.email ?? d.user.id)}${d.user.fullName ? ` · ${safe(d.user.fullName)}` : ""}`,
     `  server   ${new URL(d.origin).host}${d.profile !== "default" ? ` (profile ${d.profile})` : ""}`,
-    `  token    ${d.credential.type ? `${d.credential.type === "agent" ? "agent" : d.credential.type === "pat" ? "personal access" : "device"} · ` : ""}${d.tokenSource === "env" ? "from NETWORKBASE_TOKEN" : "saved in ~/.networkbase"} · ${d.credential.scopes.length} permissions${d.credential.workspaceId ? " · one workspace only" : ""}`,
+    `  token    ${d.credential.type ? `${d.credential.type === "agent" ? "agent" : d.credential.type === "pat" ? "personal access" : "device"} · ` : ""}${d.tokenSource === "env" ? "from NETWORKBASE_TOKEN" : `kept in ${storageWords(d.storage)}`} · ${d.credential.scopes.length} permissions${d.credential.workspaceId ? " · one workspace only" : ""}`,
     `  files    up to ${Math.round(d.limits.largestFileBytes / 1024 / 1024)} MB each`,
     ...(ctx.flags.verbose ? [`  can      ${d.credential.scopes.join(", ")}`] : []),
   ]);
+}
+
+/** Every saved profile with who it is and where (`nb whoami --all`, report A3.5). @param {Context} ctx */
+export async function whoamiAll(ctx) {
+  const profiles = Object.entries(listProfiles(ctx.env));
+  const rows = [];
+  for (const [name, p] of profiles) {
+    const { currentProfile } = await import("../config.mjs");
+    const prof = currentProfile({ flags: { profile: name, "api-url": p.origin }, env: { ...ctx.env, NB_TOKEN: "", NETWORKBASE_TOKEN: "" } });
+    let user = p.user?.username ?? p.user?.email ?? null;
+    let ok = false;
+    if (prof.token) {
+      try {
+        const me = /** @type {any} */ (await createApi({ origin: p.origin, token: prof.token, version: ctx.version }).get("/api/v1/me"));
+        user = me.user.username ?? me.user.email ?? user;
+        ok = true;
+      } catch {
+        ok = false;
+      }
+    }
+    rows.push({ profile: name, server: new URL(p.origin).host, user, signedIn: ok, storage: p.storage ?? "file", current: name === ctx.profile.name });
+  }
+  ctx.out.result("nb.whoami.all/1", { profiles: rows }, (d) =>
+    d.profiles.length
+      ? ctx.out.table([
+          { title: "", value: (r) => (r.current ? ctx.out.c.brand(ctx.out.sym.brand) : " ") },
+          { title: "Profile", value: (r) => safe(r.profile) },
+          { title: "Server", value: (r) => r.server, flex: true },
+          { title: "User", value: (r) => (r.user ? safe(r.user) : "—") },
+          { title: "Status", value: (r) => (r.signedIn ? ctx.out.c.success("signed in") : ctx.out.c.warning("sign in again")) },
+        ], d.profiles)
+      : "No saved sign-ins. Run nb login");
+}
+
+/** Your signed-in devices, agents and personal tokens (`nb token list`, report A3.9). @param {Context} ctx */
+export async function tokenList(ctx) {
+  const { tokens } = /** @type {any} */ (await ctx.api.get("/api/v1/tokens"));
+  ctx.out.result("nb.token.list/1", { tokens }, (d) =>
+    d.tokens.length
+      ? ctx.out.table([
+          { title: "", value: (t) => (t.current ? ctx.out.c.brand(ctx.out.sym.brand) : " ") },
+          { title: "Id", value: (t) => String(t.id).slice(0, 8) },
+          { title: "Type", value: (t) => t.type },
+          { title: "Name", value: (t) => safe(t.type === "agent" && t.agentName ? `${t.agentName} on ${t.name}` : t.name), flex: true },
+          { title: "Workspace", value: (t) => (t.workspace ? safe(t.workspace) : "all"), optional: true },
+          { title: "Last used", value: (t) => (t.lastUsedAt ? String(t.lastUsedAt).slice(0, 10) : "—"), optional: true },
+        ], d.tokens)
+      : "No signed-in devices or tokens");
+}
+
+/** @param {Context} ctx */
+export async function tokenRevoke(ctx) {
+  const id = ctx.positionals[0];
+  if (!id) throw usage("nb token revoke <id>  (ids from nb token list)");
+  const { tokens } = /** @type {any} */ (await ctx.api.get("/api/v1/tokens"));
+  const hit = tokens.filter((/** @type {any} */ t) => String(t.id).startsWith(id));
+  if (hit.length !== 1) throw new CliError("NOT_FOUND", hit.length ? `${id} matches ${hit.length} tokens; give more of the id` : `No token ${id}`, { hint: "nb token list" });
+  const t = hit[0];
+  const { confirm } = await import("../tui/ask.mjs");
+  if (!(await confirm(ctx, { key: "revoke", question: `Revoke ${t.type === "agent" ? `${t.agentName ?? "the agent"} on ${t.name}` : t.name}${t.current ? " (this one: you'll be signed out here)" : ""}?`, yesLabel: "Revoke", defaultYes: false }))) return 130;
+  await ctx.api.post(`/api/v1/tokens/${t.id}/revoke`, {});
+  if (t.current) saveProfile(ctx.profile.name, null, ctx.env);
+  ctx.out.result("nb.token.revoke/1", { id: t.id, type: t.type }, () => `${ctx.out.c.success(ctx.out.sym.done)} Revoked`);
 }

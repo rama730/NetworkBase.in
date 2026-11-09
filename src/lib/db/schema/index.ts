@@ -5316,6 +5316,8 @@ export const extensionDeviceSessions = pgTable("extension_device_sessions", {
   tokenType: text("token_type").$type<"device" | "agent">().default("device").notNull(),
   agentName: text("agent_name"),
   workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+  /** Two-letter country the token was last used from (0076, report A3.10). */
+  lastCountry: text("last_country"),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   editorHost: text("editor_host"),

@@ -6,6 +6,8 @@ Usage
 Account and setup
   login            Sign in (browser, a code, or a token from stdin)
   logout           Revoke this device's token and sign out
+  token list       Your signed-in devices, agents and personal tokens
+  token revoke     Revoke a device, agent or personal token
   whoami           Who you are, what this token may do, limits
   init             Link this folder to a workspace
   unlink           Remove the link, keep your files
@@ -28,6 +30,12 @@ Files
   resolve          Settle a conflict
   watch            Push saves of tracked files as drafts (foreground)
   file list        Files in the workspace
+  file history     A file's versions: who, when, how
+  file move        Move a file to another folder (asks first)
+  file rename      Rename a file (asks first)
+  file delete      Move a file to the workspace Trash (asks first)
+  file attach      Attach a workspace file to a task with a role
+  file detach      Take a file off a task
   file view        Print a file (pipe-safe)
 
 Tasks
@@ -41,19 +49,31 @@ Tasks
   task done        Finish a task (sends it for review when required)
   task review      Approve or ask for changes (reviewers)
   task resubmit    Send for review again after changes
+  task edit        Change a task's title, description, priority or due date
+  task assign      Assign a task to someone, you, or nobody
+  task report      Report progress with checks, without finishing
+  task delete      Delete a task (owner; asks first)
+  task open        Open a task in the browser
   task pull        Bring a task's panel files into .tasks/
   subtask list     Numbered subtasks
   subtask add      Add subtasks
   subtask check    Tick subtasks by number
   subtask uncheck  Untick subtasks by number
+  subtask edit     Rename a subtask
+  subtask delete   Delete a subtask (asks first)
+  subtask move     Move a subtask to another position
   comment add      Comment on a task
+  comment list     A task's comments, or a file's line comments
+  comment resolve  Resolve (or --reopen) a file comment thread
 
 Agents
-  ask              Ask a person a question in NetworkBase (and wait for the answer)
+  ask              Ask a person a question in NetworkBase (and wait for the
+                   answer)
   ask wait         Wait for the answer to a question
   ask list         Questions agents asked you
   ask answer       Answer a question an agent asked you
-  agent setup      Connect Claude Code, Codex or Cursor to this workspace (asks first)
+  agent setup      Connect Claude Code, Codex or Cursor to this workspace (asks
+                   first)
   agent status     Which agents are connected here
   agent remove     Disconnect an agent and remove its NetworkBase notes
   mcp              MCP server for Claude Code, Codex and Cursor (stdio)
@@ -64,6 +84,12 @@ Docs and workspaces
   doc edit         Edit a doc in your editor, saved as a new version
   doc set          Replace a doc's text from a file or stdin (asks first)
   workspace list   Your workspaces
+  workspace view   The workspace at a glance
+  workspace open   Open the workspace in the browser
+  activity         What happened, newest first
+  sprint list      Sprints (or the workspace's own word for them)
+  sprint view      One sprint and its tasks
+  update post      Post an update to the workspace (asks first)
   member list      People in the workspace
   search           Find files by name
 

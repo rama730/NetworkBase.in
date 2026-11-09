@@ -1,0 +1,16 @@
+name: Check
+on: [push, pull_request]
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: The MCP server lists every tool the skill names
+        run: |
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | NB_NO_UPDATE_CHECK=1 npx -y @networkbase/cli@2 mcp > out.jsonl
+          for tool in $(grep -o 'networkbase_[a-z_]*' plugins/networkbase/skills/networkbase/SKILL.md | sort -u); do
+            grep -q "\"$tool\"" out.jsonl || { echo "::error::missing tool $tool"; exit 1; }
+          done

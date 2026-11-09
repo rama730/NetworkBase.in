@@ -12,3 +12,11 @@ it("public/api/v1/openapi.json and packages/nb-cli/schema/api.json are up to dat
   assert.deepEqual(read("public/api/v1/openapi.json"), JSON.parse(JSON.stringify(openApiDocument(version))));
   assert.deepEqual(read("packages/nb-cli/schema/api.json"), JSON.parse(JSON.stringify(cliSchemas())));
 });
+
+it("the CLI's exit codes agree with the error catalog", async () => {
+  const { ERROR_CATALOG } = await import("../../src/lib/api/errors");
+  const src = fs.readFileSync("packages/nb-cli/lib/errors.mjs", "utf8");
+  const exits = { usage: 2, auth: 3, conflict: 4, blocked: 5, needsInput: 6, needsConfirmation: 7, offline: 8, cancelled: 130 } as Record<string, number>;
+  const cli = Object.fromEntries([...src.matchAll(/^ {2}([A-Z_]+): EXIT\.(\w+),$/gm)].map(([, code, kind]) => [code!, exits[kind!]!]));
+  for (const [code, entry] of Object.entries(ERROR_CATALOG)) assert.equal(cli[code] ?? 1, entry.exit, `${code}: catalog says exit ${entry.exit}`);
+});

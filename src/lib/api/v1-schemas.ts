@@ -83,6 +83,18 @@ export const taskUpdateSchema = z.discriminatedUnion("kind", [
     evidence: extensionReviewEvidenceSchema.optional(),
   }),
   z.object({
+    kind: z.literal("edit"),
+    projectId: z.string().uuid(),
+    taskId: z.string().uuid(),
+    field: z.enum(["title", "description", "priority", "dueDate"]),
+    value: z.string().max(10000).nullable(),
+  }),
+  z.object({ kind: z.literal("assign"), projectId: z.string().uuid(), taskId: z.string().uuid(), assigneeId: z.string().uuid().nullable() }),
+  z.object({ kind: z.literal("delete"), projectId: z.string().uuid(), taskId: z.string().uuid() }),
+  z.object({ kind: z.literal("subtask_edit"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid(), title: z.string().trim().min(1).max(500) }),
+  z.object({ kind: z.literal("subtask_delete"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid() }),
+  z.object({ kind: z.literal("subtask_move"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid(), position: z.number().int().min(0).max(1000) }),
+  z.object({
     kind: z.literal("subtask"),
     projectId: z.string().uuid(),
     taskId: z.string().uuid(),

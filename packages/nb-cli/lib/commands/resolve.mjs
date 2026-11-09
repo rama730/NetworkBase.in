@@ -6,7 +6,7 @@ import { CliError, usage } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { unifiedDiff } from "../sync/diff.mjs";
 import { acquireLock, readBaseCopy, writeState } from "../sync/state.mjs";
-import { downloadTo, uploadFiles } from "../sync/transfer.mjs";
+import { downloadTo, renameRetry, uploadFiles } from "../sync/transfer.mjs";
 import { ask } from "../tui/ask.mjs";
 import { buildPlan, localPathOf, moveToLocalTrash, recordBase, relativeArgs } from "./files.mjs";
 
@@ -80,7 +80,7 @@ export async function resolve(ctx) {
       if (path.posix.dirname(copy.path) !== path.posix.dirname(item.path)) throw new CliError("UNEXPECTED_RESPONSE", `The server put your copy at ${safe(copy.path)}, not next to ${safe(item.path)}`, { hint: "Your file is unchanged here; run nb pull" });
       const copyAbs = localPathOf(root, project.remoteRoot, copy.path);
       if (fs.existsSync(copyAbs)) throw new CliError("LOCAL_CONFLICT", `${safe(copy.path)} already exists here`, { hint: "Move it aside, then run nb pull" });
-      fs.renameSync(item.local.abs, copyAbs);
+      renameRetry(item.local.abs, copyAbs);
       recordBase(state, copy.path, { nodeId: copy.nodeId, version: copy.version, hash: item.local.hash, abs: copyAbs });
       const got = await downloadTo(ctx.api, project.workspaceId, item.path, item.local.abs, item.remote.hash);
       recordBase(state, item.path, { nodeId: item.remote.nodeId, version: item.remote.version, hash: got.hash, abs: item.local.abs });

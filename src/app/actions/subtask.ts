@@ -4,15 +4,15 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { workspaceMembers, workspaces, taskSubtasks, tasks } from "@/lib/db/schema";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
-import { createClient } from "@/lib/supabase/server";
+import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { taskSubtaskTitleSchema } from "@/lib/validations/task";
 
 import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
 
 async function requireSubtaskWriter() {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error("Sign in to continue");
+    // Browser session or a CLI/agent token on an allowed route (report A2.1).
+    const { user } = await requireAuthenticatedUser();
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`task:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     return user;

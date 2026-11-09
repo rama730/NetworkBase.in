@@ -9,6 +9,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 
 import { CliError } from "./errors.mjs";
+import { readSecret, removeSecret, secureStore, storeSecret } from "./keychain.mjs";
 
 export const DEFAULT_ORIGIN = "https://networkbase.in";
 export const DIR_NAME = ".networkbase";
@@ -26,7 +27,25 @@ export function writeAtomic(file, data, mode = 0o600) {
   } finally {
     fs.closeSync(fd);
   }
-  fs.renameSync(tmp, file);
+  renameRetry(tmp, file);
+}
+
+/**
+ * fs.renameSync that waits out Windows' brief locks (antivirus, indexer, an open preview: EBUSY/EPERM/EACCES),
+ * up to ~1.5 s (A12.16). Elsewhere it's a plain rename.
+ * @param {string} from @param {string} to
+ */
+export function renameRetry(from, to) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.renameSync(from, to);
+      return;
+    } catch (error) {
+      const code = /** @type {NodeJS.ErrnoException} */ (error).code;
+      if (process.platform !== "win32" || attempt >= 5 || !["EBUSY", "EPERM", "EACCES"].includes(String(code))) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100 * (attempt + 1));
+    }
+  }
 }
 
 /** @param {string} file @returns {any} */
@@ -54,13 +73,16 @@ export function normalizeOrigin(origin) {
 }
 
 /**
- * @typedef {{ origin: string, token: string, user?: { id: string, username?: string | null, email?: string | null } | null, savedAt?: string, source?: "file" | "env" }} Profile
+ * @typedef {{ origin: string, token: string, user?: { id: string, username?: string | null, email?: string | null } | null, savedAt?: string, source?: "file" | "env", storage?: "keychain" | "secret-service" | "dpapi" | "file", sealed?: string }} Profile
  */
 
 /** Settings: flag > environment > project > user > default. @param {{ profile?: string }} [flags] @param {NodeJS.ProcessEnv} [env] @param {any} [project] */
 export function resolveProfileName(flags = {}, env = process.env, project = null) {
   return /** @type {string} */ (flags.profile || env.NB_PROFILE || /** @type {any} */ (project)?.profile || "default");
 }
+
+/** The keychain entry's name: one per profile and server. @param {string} name @param {string} origin */
+const account = (name, origin) => `${name}@${new URL(origin).host}`;
 
 /** @param {NodeJS.ProcessEnv} env */
 function readCredentialFile(env) {
@@ -91,7 +113,10 @@ export function currentProfile(ctx = {}) {
   const saved = readCredentialFile(env).profiles?.[name] ?? null;
   const origin = normalizeOrigin(wanted || saved?.origin || DEFAULT_ORIGIN);
   // A token is only ever sent to the server that issued it.
-  if (saved && saved.origin === origin) return { name, origin, token: saved.token, profile: { ...saved, source: "file" } };
+  if (saved && saved.origin === origin) {
+    const token = saved.storage && saved.storage !== "file" ? readSecret(saved.storage, account(name, origin), saved.sealed) : saved.token;
+    return { name, origin, token: token ?? null, profile: { ...saved, token: token ?? "", source: "file" } };
+  }
   return { name, origin, token: null, profile: null };
 }
 
@@ -100,8 +125,22 @@ export function saveProfile(name, profile, env = process.env) {
   const file = path.join(globalDir(env), "credentials.json");
   const data = readCredentialFile(env);
   data.profiles = data.profiles ?? {};
-  if (profile) data.profiles[name] = { ...profile, savedAt: new Date().toISOString() };
-  else delete data.profiles[name];
+  const old = data.profiles[name];
+  if (old?.storage && old.storage !== "file") removeSecret(old.storage, account(name, old.origin));
+  if (profile) {
+    // The OS keychain when there is one (report A3.4); the file only holds which store and the user.
+    const store = secureStore(env);
+    let kept = /** @type {Profile} */ ({ ...profile, storage: "file" });
+    if (store) {
+      try {
+        const extra = storeSecret(store, account(name, profile.origin), profile.token);
+        kept = { ...profile, token: "", storage: store, ...extra };
+      } catch {
+        kept = { ...profile, storage: "file" };
+      }
+    }
+    data.profiles[name] = { ...kept, savedAt: new Date().toISOString() };
+  } else delete data.profiles[name];
   writeAtomic(file, `${JSON.stringify(data, null, 2)}\n`, 0o600);
 }
 

@@ -22,7 +22,6 @@ import {
   taskNodeLinks,
   tasks,
 } from "@/lib/db/schema";
-import { createClient } from "@/lib/supabase/server";
 import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
@@ -77,12 +76,9 @@ export async function updateTaskFieldAction(
       };
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // Browser session or a CLI/agent token on an allowed route (report A2.1: one implementation for both).
+    const { user } = await requireAuthenticatedUser();
+    if (!user) {
       return { success: false, error: "Sign in to continue" };
     }
     const { allowed: taskRlOk } = await consumeRateLimit(
@@ -499,12 +495,9 @@ export async function assignTaskAction(
       };
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // Browser session or a CLI/agent token on an allowed route (report A2.1: one implementation for both).
+    const { user } = await requireAuthenticatedUser();
+    if (!user) {
       return { success: false, error: "Sign in to continue" };
     }
     const { allowed: taskRlOk } = await consumeRateLimit(

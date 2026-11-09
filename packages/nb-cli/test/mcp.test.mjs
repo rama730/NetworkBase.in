@@ -101,6 +101,22 @@ describe("nb mcp (report A7)", () => {
     assert.ok(placed?.body.files[0].versionOf && placed.body.files[0].baseVersion, "versionOf + baseVersion sent");
   });
 
+  it("reads a task as a resource and sends progress when asked (A7.2 item 4)", async () => {
+    const t = addTask(api.state, { title: "Resource task", description: "Brief here" });
+    const templates = await mcp.request("resources/templates/list");
+    assert.equal(templates.result.resourceTemplates[0].uriTemplate, "networkbase://task/{number}");
+    const read = await mcp.request("resources/read", { uri: `networkbase://task/${t.taskNumber}` });
+    assert.match(read.result.contents[0].text, /Resource task/);
+    fs.writeFileSync(path.join(cwd, "p1.md"), "a");
+    fs.writeFileSync(path.join(cwd, "p2.md"), "b");
+    const before = mcp.lines.length;
+    const pushed = await mcp.request("tools/call", { name: "networkbase_file_push", arguments: { paths: ["p1.md", "p2.md"], message: "two" }, _meta: { progressToken: "pt-1" } });
+    assert.equal(pushed.result.structuredContent.status, "ok", pushed.result.content[0].text);
+    const progress = mcp.lines.slice(before).map((l) => JSON.parse(l)).filter((m) => m.method === "notifications/progress");
+    assert.ok(progress.length >= 1, "at least one progress notification");
+    assert.equal(progress[0].params.progressToken, "pt-1");
+  });
+
   it("stdout carried nothing but JSON-RPC (finding 5)", async () => {
     mcp.raw("{not json");
     await mcp.request("ping");

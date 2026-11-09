@@ -35,8 +35,12 @@ export async function list(ctx) {
 export async function view(ctx) {
   const doc = await readDoc(ctx, ctx.positionals[0] ?? "readme");
   if (ctx.out.json) return ctx.out.result("nb.doc.view/1", doc, () => null);
-  ctx.out.raw(ctx.flags.raw || !process.stdout.isTTY ? doc.content : safe(doc.content));
-  if (!String(doc.content).endsWith("\n")) ctx.out.raw("\n");
+  if (ctx.flags.raw || !process.stdout.isTTY) {
+    ctx.out.raw(doc.content);
+    if (!String(doc.content).endsWith("\n")) ctx.out.raw("\n");
+    return;
+  }
+  ctx.out.result("nb.doc.view/1", doc, (d) => safe(d.content), { page: true });
 }
 
 /** The editor for doc edits: setting, then VISUAL / EDITOR, then a sensible default. @param {Context} ctx */

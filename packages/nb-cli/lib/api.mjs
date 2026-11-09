@@ -20,6 +20,7 @@ const HINTS = /** @type {Record<string, string>} */ ({
   RATE_LIMITED: "Wait a minute and try again",
   VERSION_CONFLICT: "Run nb pull, then push again — or nb resolve <path>",
   SECRET_DETECTED: "Remove the secret, or push again with --confirm-secrets if it's safe to share",
+  CLIENT_TOO_OLD: "Update: npm i -g @networkbase/cli@latest (or use npx @networkbase/cli@latest)",
 });
 
 /**

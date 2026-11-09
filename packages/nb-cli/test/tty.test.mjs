@@ -30,6 +30,22 @@ describe("nb in a terminal", { skip: !TTY_SUPPORTED && "needs a pseudo-terminal 
     assert.ok(fs.existsSync(path.join(cwd, ".networkbase", "config.json")));
   });
 
+  // The matrix (A5.1, A5.5): widths × color levels × plain. Text must fit; color only when allowed.
+  for (const cols of [40, 80, 120]) {
+    for (const [name, env] of /** @type {Array<[string, Record<string, string>]>} */ ([["none", {}], ["16", { FORCE_COLOR: "1" }], ["truecolor", { FORCE_COLOR: "3", COLORTERM: "truecolor" }], ["plain", { FORCE_COLOR: "3", NB_PLAIN: "1" }]])) {
+      it(`whoami and help at ${cols} columns, ${name} color`, async () => {
+        const help = await runTty(["help"], { api: api.url, cols });
+        for (const line of help.output.split("\n")) assert.ok([...line].length <= cols, `help wider than ${cols}: ${line}`);
+        const r = await runTty(["whoami"], { api: api.url, cols, env: name === "none" ? env : { ...env, NO_COLOR: "" }, raw: true });
+        assert.equal(r.code, 0, r.output);
+        const colored = /\x1b\[[0-9;]*m/.test(r.output);
+        assert.equal(colored, name === "16" || name === "truecolor", `color ${name}`);
+        if (name === "truecolor") assert.match(r.output, /38;2;/);
+        if (name === "plain") assert.doesNotMatch(r.output, /[●✓✗→…]/);
+      });
+    }
+  }
+
   for (const cols of [40, 120]) {
     it(`task list fits ${cols} columns`, async () => {
       const cwd = await tempDir("nb-tty-proj-");

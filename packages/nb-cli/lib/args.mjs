@@ -100,8 +100,16 @@ export function commandHelp(spec) {
 
 const EXIT_WORDS = /** @type {Record<number, string>} */ ({ 0: "ok", 1: "error", 2: "usage", 3: "not signed in", 4: "conflict", 5: "blocked", 6: "needs input", 7: "needs confirmation", 8: "offline (queued)" });
 
-/** Overview help: every command by group. */
-export function overviewHelp() {
+/** Words wrapped to `width` columns. @param {string} text @param {number} width */
+const wrap = (text, width) => text.split(" ").reduce((/** @type {string[]} */ out, word) => {
+  const last = out.at(-1);
+  if (last !== undefined && last.length + 1 + word.length <= width) out[out.length - 1] = `${last} ${word}`;
+  else out.push(word);
+  return out;
+}, []);
+
+/** Overview help: every command by group, summaries wrapped to the terminal. @param {number} [columns] */
+export function overviewHelp(columns = 80) {
   const groups = new Map();
   for (const c of COMMANDS) {
     if (c.hidden) continue;
@@ -112,10 +120,13 @@ export function overviewHelp() {
   const lines = ["NetworkBase CLI", "", "Usage", "  nb <command> [flags]", ""];
   for (const [group, cmds] of groups) {
     lines.push(group);
-    for (const c of cmds) lines.push(`  ${c.name.padEnd(w)}  ${c.summary}`);
+    for (const c of cmds) {
+      const [first = "", ...rest] = wrap(c.summary, Math.max(16, (columns || 80) - w - 4));
+      lines.push(`  ${c.name.padEnd(w)}  ${first}`, ...rest.map((l) => `  ${" ".repeat(w)}  ${l}`));
+    }
     lines.push("");
   }
-  lines.push("Every command takes --json, --quiet, --plain and --help.", "Docs: https://networkbase.in/docs/cli");
+  lines.push(...wrap("Every command takes --json, --quiet, --plain and --help.", columns || 80), "Docs: https://networkbase.in/docs/cli");
   return lines.join("\n");
 }
 

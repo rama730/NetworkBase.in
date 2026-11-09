@@ -6,7 +6,7 @@ import { globalDir, readJson, writeAtomic } from "./config.mjs";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** @typedef {{ token: string, at: number, method: string, path: string, origin: string }} UndoEntry */
+/** @typedef {{ token: string, at: number, method: string, path: string, origin: string, session?: string | null }} UndoEntry */
 
 /** @param {NodeJS.ProcessEnv} env */
 const file = (env) => path.join(globalDir(env), "undo.json");

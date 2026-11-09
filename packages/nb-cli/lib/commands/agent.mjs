@@ -10,7 +10,10 @@ import { confirm } from "../tui/ask.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
-const SERVER = { command: "npx", args: ["-y", "@networkbase/cli@2", "mcp"] };
+const BASE_ARGS = ["-y", "@networkbase/cli@2", "mcp"];
+/** @param {string | null} profile */
+const server = (profile) => ({ command: "npx", args: profile ? [...BASE_ARGS, "--profile", profile] : BASE_ARGS });
+const AGENT_NAMES = /** @type {Record<string, string>} */ ({ claude: "Claude Code", codex: "Codex", cursor: "Cursor" });
 const START = "<!-- networkbase:start -->";
 const END = "<!-- networkbase:end -->";
 const TOML_HEADER = "[mcp_servers.networkbase]";
@@ -39,7 +42,8 @@ const AGENTS = (root, env) => ({
 });
 
 const read = (/** @type {string} */ file) => (fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "");
-const tomlBlock = () => `${TOML_HEADER}\ncommand = "${SERVER.command}"\nargs = [${SERVER.args.map((a) => `"${a}"`).join(", ")}]\n`;
+/** @param {string | null} profile */
+const tomlBlock = (profile) => `${TOML_HEADER}\ncommand = "npx"\nargs = [${server(profile).args.map((a) => `"${a}"`).join(", ")}]\n`;
 /** The [mcp_servers.networkbase] table, up to the next table header. @param {string} text */
 const tomlRange = (text) => {
   const start = text.indexOf(TOML_HEADER);
@@ -72,18 +76,22 @@ function pickAgent(ctx) {
 /** @param {Context} ctx */
 export async function setup(ctx) {
   const { project, agent, key } = pickAgent(ctx);
+  const mode = ctx.flags.token ?? "agent";
+  if (!["agent", "mine"].includes(mode)) throw usage("--token is agent (its own token, one workspace) or mine (your sign-in)");
   const configText = read(agent.config);
+  // The agent gets its own token, tied to this workspace (report A3.3, A7.8), in a profile of its own.
+  const profile = mode === "agent" ? `agent-${key}` : null;
   /** @type {Array<{ file: string, write: string, change: string }>} */
   const changes = [];
   if (!hasServer(agent.kind, configText)) {
     if (agent.kind === "toml") {
-      changes.push({ file: agent.config, write: `${configText}${configText && !configText.endsWith("\n") ? "\n" : ""}${configText ? "\n" : ""}${tomlBlock()}`, change: tomlBlock() });
+      changes.push({ file: agent.config, write: `${configText}${configText && !configText.endsWith("\n") ? "\n" : ""}${configText ? "\n" : ""}${tomlBlock(profile)}`, change: tomlBlock(profile) });
     } else {
       /** @type {any} */
       let json;
       try { json = JSON.parse(configText || "{}"); } catch { throw new CliError("CORRUPT_STATE", `${agent.config} isn't valid JSON`, { hint: "Fix or move it, then run this again" }); }
-      json.mcpServers = { ...(json.mcpServers ?? {}), networkbase: SERVER };
-      changes.push({ file: agent.config, write: `${JSON.stringify(json, null, 2)}\n`, change: `"networkbase": ${JSON.stringify(SERVER)}` });
+      json.mcpServers = { ...(json.mcpServers ?? {}), networkbase: server(profile) };
+      changes.push({ file: agent.config, write: `${JSON.stringify(json, null, 2)}\n`, change: `"networkbase": ${JSON.stringify(server(profile))}` });
     }
   }
   const notesText = read(agent.notes);
@@ -93,6 +101,16 @@ export async function setup(ctx) {
   if (!changes.length) return ctx.out.result("nb.agent.setup/1", { agent: key, changed: [] }, () => `${agent.name} is already set up here`);
   const preview = changes.map((c) => `${c.file}\n${c.change.split("\n").map((l) => `  + ${l}`).join("\n")}`).join("\n\n");
   if (!(await confirm(ctx, { key: "agent", question: `Connect ${agent.name} to NetworkBase?`, preview, yesLabel: "Connect", defaultYes: true }))) return EXIT.cancelled;
+  if (profile && !hasServer(agent.kind, configText)) {
+    const { currentProfile } = await import("../config.mjs");
+    const existing = currentProfile({ flags: { profile, "api-url": ctx.profile.origin }, env: { ...ctx.env, NB_TOKEN: "", NETWORKBASE_TOKEN: "" } });
+    if (!existing.token) {
+      ctx.out.note(`${agent.name} gets its own sign-in, limited to ${safe(project.title ?? project.slug ?? "this workspace")}. Approve it in your browser:`);
+      const { deviceLogin, saveToken } = await import("./account.mjs");
+      const token = await deviceLogin(ctx, AGENT_NAMES[key] ?? agent.name);
+      await saveToken(ctx, profile, token);
+    }
+  }
   for (const c of changes) {
     fs.mkdirSync(path.dirname(c.file), { recursive: true });
     fs.writeFileSync(c.file, c.write);
@@ -104,10 +122,13 @@ export async function setup(ctx) {
   ]);
 }
 
+/** Which agents are connected in this folder. @param {string} root @param {NodeJS.ProcessEnv} env */
+export const agentRows = (root, env) => Object.entries(AGENTS(root, env)).map(([key, a]) => ({ agent: key, name: a.name, server: hasServer(a.kind, read(a.config)), instructions: Boolean(notesRange(read(a.notes))) }));
+
 /** @param {Context} ctx */
 export async function status(ctx) {
   const { root } = ctx.requireRoot();
-  const rows = Object.entries(AGENTS(root, ctx.env)).map(([key, a]) => ({ agent: key, name: a.name, server: hasServer(a.kind, read(a.config)), instructions: Boolean(notesRange(read(a.notes))) }));
+  const rows = agentRows(root, ctx.env);
   ctx.out.result("nb.agent.status/1", { agents: rows }, (d) => ctx.out.table([
     { title: "Agent", value: (r) => r.name },
     { title: "MCP server", value: (r) => (r.server ? ctx.out.c.success("connected") : ctx.out.c.muted("—")) },

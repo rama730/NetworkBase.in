@@ -104,18 +104,10 @@ describe("NetworkBase High-EQ CLI & Unified Ecosystem", () => {
       const helpOut = execFileSync("node", [cliPath, "--help"], {
         encoding: "utf8",
       });
-      assert.ok(helpOut.includes("npx @networkbase/cli init"));
-      assert.ok(helpOut.includes("nb status"));
-      assert.ok(helpOut.includes("nb sync"));
-      assert.ok(helpOut.includes("nb watch"));
-      assert.ok(helpOut.includes("nb task check"));
-      assert.ok(helpOut.includes("nb task subtask add"));
-      assert.ok(helpOut.includes("nb task create"));
-      assert.ok(helpOut.includes("--deliverable"));
-      assert.ok(helpOut.includes("--draft"));
-      assert.ok(helpOut.includes("--reference"));
-      assert.ok(helpOut.includes("-y, --yes, --auto"));
-      assert.ok(helpOut.includes("nb mcp"));
+      // CLI 2.0 command language (report §17.4); the 1.x daemon, --done and git commands are gone.
+      for (const words of ["init", "status", "push", "pull", "watch", "task create", "task done", "subtask add", "subtask check", "mcp", "agent setup"]) {
+        assert.ok(helpOut.includes(`  ${words} `), `help lists ${words}`);
+      }
     });
 
     it("responds to MCP initialize and tools/list over JSON-RPC stdio", () => {
@@ -136,20 +128,11 @@ describe("NetworkBase High-EQ CLI & Unified Ecosystem", () => {
         .map((line) => JSON.parse(line));
 
       assert.equal(lines.length, 2);
-      assert.equal(lines[0].result.serverInfo.name, "networkbase-cli-mcp");
+      assert.equal(lines[0].result.serverInfo.name, "networkbase");
       const toolNames = lines[1].result.tools.map((t: { name: string }) => t.name);
-      assert.ok(toolNames.includes("nb_auth_status"));
-      assert.ok(toolNames.includes("nb_auth_login"));
-      assert.ok(toolNames.includes("nb_workspace_list"));
-      assert.ok(toolNames.includes("nb_init"));
-      assert.ok(toolNames.includes("nb_pre_push_analyze"));
-      assert.ok(toolNames.includes("nb_push"));
-      assert.ok(toolNames.includes("nb_task_list"));
-      assert.ok(toolNames.includes("nb_task_view"));
-      assert.ok(toolNames.includes("nb_task_work"));
-      assert.ok(toolNames.includes("nb_task_check"));
-      assert.ok(toolNames.includes("nb_subtask_create"));
-      assert.ok(toolNames.includes("nb_task_create"));
+      for (const name of ["networkbase_whoami", "networkbase_task_count", "networkbase_task_list", "networkbase_task_create", "networkbase_task_done", "networkbase_subtask_add", "networkbase_file_push", "networkbase_doc_update", "networkbase_ask_user", "networkbase_undo"]) {
+        assert.ok(toolNames.includes(name), name);
+      }
     });
   });
 });

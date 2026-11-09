@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { profiles, workspaceNodes, workspaces, tasks, taskNodeLinks } from "@/lib/db/schema";
 import { escapeLikePattern, MAX_TASK_ATTACHMENTS } from "@/app/actions/files/_constants";
 import { eq, and, isNull, inArray, sql, desc, ilike } from "drizzle-orm";
-import { createClient } from "@/lib/supabase/server";
+import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { notifyTaskParticipantsForFileEvent } from "@/lib/notifications/task-file";
 import {
     assertWorkspaceFileReadAccess,
@@ -25,8 +25,7 @@ const MAX_ANNOTATION_LENGTH = 2000;
 async function requireLinkWriter(annotation: string | null | undefined) {
     if (typeof annotation === "string" && annotation.length > MAX_ANNOTATION_LENGTH)
         throw new Error(`Notes are limited to ${MAX_ANNOTATION_LENGTH} characters.`);
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
@@ -58,8 +57,7 @@ function withStoredApprovalTags(tags: readonly string[]) {
 }
 
 export async function getTaskLinkCounts(projectId: string, nodeIds: string[]) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await requireAuthenticatedUser();
     const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null);
     if (!canReadWorkspaceTaskFiles(access)) return {} as Record<string, number>;
 
@@ -99,8 +97,7 @@ export interface LinkedTask {
 }
 
 export async function getTaskLinksForNode(projectId: string, nodeId: string): Promise<LinkedTask[]> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await requireAuthenticatedUser();
     const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null);
     if (!canReadWorkspaceTaskFiles(access)) return [];
 
@@ -210,8 +207,7 @@ export async function linkNodeToTask(
 }
 
 export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Sign in to continue");
 
     const projectId = await getTaskWorkspaceId(taskId);
@@ -245,8 +241,7 @@ export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
 }
 
 export async function getTaskAttachments(projectId: string, taskId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Sign in to continue");
 
     const access = await assertWorkspaceFileReadAccess(projectId, user.id);
@@ -331,8 +326,7 @@ export async function searchWorkspaceTasks(
     query: string,
     limit: number = 30,
 ): Promise<SearchableTask[]> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await requireAuthenticatedUser();
     const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null);
     // Task titles, status and assignees are Tasks-tab data, not Files data (COR-003).
     if (!canReadWorkspaceTaskFiles(access)) return [];

@@ -7,7 +7,10 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import { CliError } from "../errors.mjs";
+import { renameRetry } from "../config.mjs";
 import { hashFile } from "./state.mjs";
+
+export { renameRetry };
 
 /** @typedef {import("../api.mjs").Api} Api */
 
@@ -33,7 +36,7 @@ export function safeJoin(root, rel) {
   const inside = path.relative(root, target);
   if (!inside || inside.startsWith("..") || path.isAbsolute(inside)) throw new CliError("UNSAFE_PATH", `Refusing a path outside this folder: ${JSON.stringify(rel)}`);
   if (process.platform === "win32" && inside.split(path.sep).some((part) => /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(part))) {
-    throw new CliError("UNSAFE_PATH", `Windows can't hold a file named ${JSON.stringify(rel)}`);
+    throw new CliError("RESERVED_NAME", `Windows can't hold a file named ${JSON.stringify(rel)}`);
   }
   return target;
 }
@@ -62,7 +65,7 @@ export async function downloadTo(api, workspaceId, remotePath, dest, expectedHas
     if (expectedHash && hash !== expectedHash) throw new CliError("CORRUPT_DOWNLOAD", `${remotePath} didn't arrive intact`, { hint: "Run the command again" });
     const size = fs.statSync(tmp).size;
     const content = size <= 1024 * 1024 ? fs.readFileSync(tmp) : null;
-    fs.renameSync(tmp, dest);
+    renameRetry(tmp, dest);
     return { hash, size, content };
   } finally {
     fs.rmSync(tmp, { force: true });

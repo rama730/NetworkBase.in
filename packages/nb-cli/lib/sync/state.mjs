@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DIR_NAME, readJson, writeAtomic } from "../config.mjs";
+import { DIR_NAME, readJson, renameRetry, writeAtomic } from "../config.mjs";
 import { CliError } from "../errors.mjs";
 
 export const STATE_VERSION = 1;
@@ -95,7 +95,7 @@ export function saveBaseCopy(root, hash, content) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const tmp = `${file}.nbtmp-${crypto.randomBytes(4).toString("hex")}`;
   fs.writeFileSync(tmp, content, { mode: 0o600 });
-  fs.renameSync(tmp, file);
+  renameRetry(tmp, file);
 }
 
 /** @param {string} root @param {string} hash */

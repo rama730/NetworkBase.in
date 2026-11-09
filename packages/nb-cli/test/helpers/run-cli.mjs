@@ -22,7 +22,7 @@ export const tempDir = (prefix) => fsp.mkdtemp(path.join(os.tmpdir(), prefix));
  */
 export function cleanEnv(home) {
   /** @type {Record<string, string>} */
-  const env = { HOME: home, USERPROFILE: home, NO_COLOR: "1", NB_NO_UPDATE_CHECK: "1" };
+  const env = { HOME: home, USERPROFILE: home, NO_COLOR: "1", NB_NO_UPDATE_CHECK: "1", NB_CREDENTIAL_STORE: "file", NB_PAGER: "cat" };
   for (const key of ["PATH", "SYSTEMROOT", "TMPDIR", "TEMP", "TMP", "LANG"]) {
     const value = process.env[key];
     if (value) env[key] = value;

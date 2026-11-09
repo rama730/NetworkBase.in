@@ -10,7 +10,7 @@ import { scanLocal, toRelative, toRemote } from "../sync/local.mjs";
 import { planSync, stateLabel } from "../sync/plan.mjs";
 import { enqueue, QUEUE_TTL_MS, readQueue, writeQueue } from "../sync/queue.mjs";
 import { acquireLock, pruneBaseCopies, readState, saveBaseCopy, writeState } from "../sync/state.mjs";
-import { conflictCopyPath, downloadTo, fetchManifest, safeJoin, uploadFiles } from "../sync/transfer.mjs";
+import { conflictCopyPath, downloadTo, fetchManifest, renameRetry, safeJoin, uploadFiles } from "../sync/transfer.mjs";
 import { confirm } from "../tui/ask.mjs";
 import { resolveTask } from "./tasks.mjs";
 
@@ -61,7 +61,7 @@ export const localPathOf = (root, remoteRoot, remotePath) => safeJoin(root, /** 
 export function moveToLocalTrash(root, abs) {
   const dest = path.join(root, DIR_NAME, "trash", new Date().toISOString().replace(/[:.]/g, "-"), path.relative(root, abs));
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.renameSync(abs, dest);
+  renameRetry(abs, dest);
   return dest;
 }
 
@@ -122,7 +122,20 @@ export async function pull(ctx, options = {}) {
     const plan = await buildPlan(ctx, { only });
     if (plan.offline) throw new CliError("OFFLINE", "Can't reach the server to pull", { hint: "Try again when you're online" });
     const { project, state } = plan;
-    const todo = plan.items.filter((i) => ["pull", "restore", "adopt", "remove-local", "conflict"].includes(i.action));
+    let todo = plan.items.filter((i) => ["pull", "restore", "adopt", "remove-local", "conflict"].includes(i.action));
+    // On disks that ignore letter case (macOS, Windows), Report.md and report.md would be one file: the first one
+    // wins and the other is skipped with a note, never overwritten (A1.16).
+    /** @type {Array<{ path: string, reason: string }>} */
+    const skipped = [];
+    if (process.platform === "darwin" || process.platform === "win32") {
+      const taken = new Map(Object.keys(state.files).concat(todo.map((i) => i.path)).sort().map((p) => [p.toLowerCase(), p]));
+      todo = todo.filter((i) => {
+        const owner = taken.get(i.path.toLowerCase());
+        if (owner === i.path || state.files[i.path]) return true;
+        skipped.push({ path: i.path, reason: `same name as ${owner} except for letter case` });
+        return false;
+      });
+    }
     if (ctx.flags["dry-run"]) {
       return ctx.out.result("nb.pull.plan/1", { files: todo.map((i) => ({ path: i.path, action: i.action })) }, (d) => (d.files.length ? d.files.map((f) => `  would ${f.action.replace("-", " ")}  ${safe(f.path)}`) : "Nothing to pull"));
     }
@@ -131,7 +144,14 @@ export async function pull(ctx, options = {}) {
     /** @param {PlanItem} item */
     const apply = async (item) => {
       const r = /** @type {import("../sync/plan.mjs").RemoteFile} */ (item.remote);
-      const abs = localPathOf(root, project.remoteRoot, item.path);
+      let abs;
+      try {
+        abs = localPathOf(root, project.remoteRoot, item.path);
+      } catch (error) {
+        if (!(error instanceof CliError) || error.code !== "RESERVED_NAME") throw error;
+        skipped.push({ path: item.path, reason: "Windows can't hold a file with this name" });
+        return;
+      }
       if (item.action === "adopt") {
         recordBase(state, item.path, { nodeId: r.nodeId, version: r.version, hash: r.hash ?? "", abs });
         return;
@@ -166,13 +186,15 @@ export async function pull(ctx, options = {}) {
     pruneBaseCopies(root, state, Number(readUserConfig(ctx.env)["base-cache-mb"] ?? 200) * 1024 * 1024);
     const conflicts = results.filter((r) => r.did === "conflict");
     if (!options.quietResult) {
-      ctx.out.result("nb.pull/1", { files: results }, (d) => {
-        if (!d.files.length) return "Up to date";
+      ctx.out.result("nb.pull/1", { files: results, skipped }, (d) => {
+        const skippedLines = d.skipped.map((x) => ctx.out.c.warning(`  skipped   ${safe(x.path)} (${x.reason})`));
+        if (!d.files.length) return skippedLines.length ? ["Up to date", ...skippedLines] : "Up to date";
         const { c, sym } = ctx.out;
         return [
           `${c.success(sym.done)} Pulled ${d.files.length - conflicts.length} ${d.files.length - conflicts.length === 1 ? "file" : "files"}${conflicts.length ? ` · ${c.danger(`${conflicts.length} conflict${conflicts.length > 1 ? "s" : ""}`)}` : ""}`,
           ...d.files.map((f) => `  ${f.did === "conflict" ? c.danger("conflict") : f.did.padEnd(8)}  ${safe(f.path)}${f.version ? c.muted(` v${f.version}`) : ""}${f.copy ? c.muted(` → ${safe(f.copy)}`) : ""}`),
           ...(conflicts.length ? [c.muted(`  Server's version saved next to yours. Settle with nb resolve <path> --mine|--theirs|--both`)] : []),
+          ...skippedLines,
         ];
       });
     }
@@ -216,6 +238,9 @@ export async function push(ctx) {
     if (!plan.manifest.canWrite) throw new CliError("READ_ONLY", "You can read this workspace but not change it", { hint: "Ask an owner for member access" });
     // With no paths, only files NetworkBase already tracks; new files are pushed by naming them (A1.6, §17.4).
     let items = plan.items.filter((i) => i.action === "push" && (only.length || i.base));
+    let moves = plan.items.filter((i) => i.action === "move");
+    // --recreate: files deleted on the server that you still have go back up as new files (§17.4.1).
+    if (ctx.flags.recreate) items = items.concat(plan.items.filter((i) => (i.action === "remove-local" || i.action === "keep-local") && i.local).map((i) => ({ ...i, base: undefined })));
     const conflicts = plan.items.filter((i) => i.action === "conflict");
     const deletions = only.length ? plan.items.filter((i) => i.action === "delete-remote") : [];
     const behind = plan.items.filter((i) => i.action === "pull" || i.action === "restore");
@@ -233,8 +258,24 @@ export async function push(ctx) {
       if (!ok) return EXIT.cancelled;
     }
     if (ctx.flags["dry-run"]) {
-      return ctx.out.result("nb.push.plan/1", { files: items.map((i) => ({ path: i.path, state: i.state })), deletions: deletions.map((i) => i.path) }, (d) => (d.files.length || d.deletions.length ? [...d.files.map((f) => `  would push    ${safe(f.path)}`), ...d.deletions.map((p) => `  would delete  ${safe(p)}`)] : "Nothing to push"));
+      return ctx.out.result("nb.push.plan/1", { files: items.map((i) => ({ path: i.path, state: i.state })), moves: moves.map((m) => ({ from: m.from, to: m.path })), deletions: deletions.map((i) => i.path) }, (d) => (d.files.length || d.deletions.length || d.moves.length ? [...d.files.map((f) => `  would push    ${safe(f.path)}`), ...d.moves.map((m) => `  would move    ${safe(m.from)} ${ctx.out.sym.arrow} ${safe(m.to)}`), ...d.deletions.map((p) => `  would delete  ${safe(p)}`)] : "Nothing to push"));
     }
+    // Moves and renames keep the file's history (A1.17). One the server can't do in place (a new folder, or both
+    // name and folder changed) goes up as a new file and the old one to Trash, like before.
+    let moved = 0;
+    for (const m of moves) {
+      const done = await moveOnServer(ctx, project.workspaceId, m).catch(() => false);
+      const local = /** @type {import("../sync/local.mjs").LocalFile} */ (m.local);
+      if (done) {
+        delete state.files[/** @type {string} */ (m.from)];
+        recordBase(state, m.path, { nodeId: /** @type {any} */ (m.remote).nodeId, version: /** @type {any} */ (m.remote).version, hash: local.hash, abs: local.abs });
+        moved++;
+      } else {
+        items.push({ ...m, action: "push", state: "added", base: undefined, remote: undefined });
+        deletions.push({ ...m, path: /** @type {string} */ (m.from), action: "delete-remote", state: "deleted" });
+      }
+    }
+    moves = moves.filter((m) => state.files[m.path]);
     const task = ctx.flags.task ? await resolveTask(ctx, String(ctx.flags.task)) : null;
     const uploaded = items.length
       ? await uploadFiles(ctx.api, {
@@ -267,12 +308,13 @@ export async function push(ctx) {
     writeState(root, state);
 
     const changedFiles = uploaded.files.filter((/** @type {any} */ f) => f.status !== "unchanged");
-    const data = { files: uploaded.files.map((/** @type {any} */ f) => ({ path: f.path, status: f.status, version: f.version, versionTransition: f.versionTransition })), task: task ? { id: task.id, number: task.taskNumber, title: task.title } : null, as, transition: uploaded.transition, deleted, behind: behind.map((b) => b.path) };
+    const data = { files: uploaded.files.map((/** @type {any} */ f) => ({ path: f.path, status: f.status, version: f.version, versionTransition: f.versionTransition })), task: task ? { id: task.id, number: task.taskNumber, title: task.title } : null, as, transition: uploaded.transition, deleted, moved, moves: moves.map((m) => ({ from: m.from, to: m.path })), behind: behind.map((b) => b.path) };
     ctx.out.result("nb.push/1", data, (d) => {
       const { c, sym } = ctx.out;
-      if (!changedFiles.length && !d.deleted) return `Nothing changed${d.behind.length ? c.muted(` · ${d.behind.length} newer on the server: nb pull`) : ""}`;
+      if (!changedFiles.length && !d.deleted && !d.moved) return `Nothing changed${d.behind.length ? c.muted(` · ${d.behind.length} newer on the server: nb pull`) : ""}`;
       const where = d.task ? ` to #${d.task.number ?? ""} ${safe(d.task.title ?? "")}${d.as ? ` as ${d.as}` : ""}` : d.as ? ` as ${d.as}` : "";
-      const lines = [`${c.success(sym.done)} Pushed ${changedFiles.length} ${changedFiles.length === 1 ? "file" : "files"}${where}${d.deleted ? ` · ${d.deleted} moved to Trash` : ""}`];
+      const lines = [`${c.success(sym.done)} Pushed ${changedFiles.length} ${changedFiles.length === 1 ? "file" : "files"}${where}${d.moved ? ` · ${d.moved} moved` : ""}${d.deleted ? ` · ${d.deleted} moved to Trash` : ""}`];
+      for (const m of d.moves.slice(0, 20)) lines.push(`  ${safe(m.from)} ${c.muted(sym.arrow)} ${safe(m.to)}`);
       for (const f of changedFiles.slice(0, 20)) lines.push(`  ${safe(f.path)} ${c.muted(f.status === "new" ? "v1 (new)" : `v${f.version - 1} ${sym.arrow} v${f.version}`)}`);
       if (d.transition) lines.push(d.transition.ok ? `  ${d.transition.outcome === "submitted" ? "Sent for review" : `Task moved to ${String(d.transition.status).replace("_", " ")}`}` : c.warning(`  Task status didn't change: ${safe(d.transition.message)}`));
       if (d.behind.length) lines.push(c.muted(`  ${d.behind.length} newer on the server: nb pull`));
@@ -282,6 +324,28 @@ export async function push(ctx) {
   } finally {
     release();
   }
+}
+
+/**
+ * Renames in place, or moves to a folder that exists on the server. False when it can't (then: upload + Trash).
+ * @param {Context} ctx @param {string} workspaceId @param {PlanItem} m
+ */
+async function moveOnServer(ctx, workspaceId, m) {
+  const from = /** @type {string} */ (m.from);
+  const [fromDir, toDir] = [path.posix.dirname(from), path.posix.dirname(m.path)];
+  const [fromName, toName] = [path.posix.basename(from), path.posix.basename(m.path)];
+  if (fromDir !== toDir && fromName !== toName) return false;
+  const nodeId = /** @type {any} */ (m.remote).nodeId;
+  const meta = /** @type {any} */ (await ctx.api.get("/api/v1/extension/file", { query: { projectId: workspaceId, path: from, transfer: "metadata" } }));
+  const expectedUpdatedAt = new Date(meta.updatedAt).toISOString();
+  if (fromDir === toDir) {
+    await ctx.api.post("/api/v1/extension/file-operation", { kind: "rename", projectId: workspaceId, nodeId, name: toName, expectedUpdatedAt });
+    return true;
+  }
+  const parentId = toDir === "/" ? null : (/** @type {any} */ (await ctx.api.get("/api/v1/extension/file", { query: { projectId: workspaceId, path: toDir, transfer: "metadata" } }))).nodeId;
+  if (toDir !== "/" && !parentId) return false;
+  await ctx.api.post("/api/v1/extension/file-operation", { kind: "move", projectId: workspaceId, nodeId, parentId, expectedUpdatedAt });
+  return true;
 }
 
 /**

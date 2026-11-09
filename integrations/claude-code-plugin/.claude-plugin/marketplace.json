@@ -1,0 +1,11 @@
+{
+  "name": "networkbase",
+  "owner": { "name": "NetworkBase", "email": "support@networkbase.in" },
+  "plugins": [
+    {
+      "name": "networkbase",
+      "source": "./plugins/networkbase",
+      "description": "Work on NetworkBase tasks, files and docs from Claude Code: \"how many tasks do I have\", \"create a task\", \"change the README\"."
+    }
+  ]
+}

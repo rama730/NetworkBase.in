@@ -26,6 +26,8 @@ export const SECURITY_ACTIVITY_EVENT_TYPES = [
   "sign_in_method_linked",
   "sign_in_method_unlinked",
   "editor_token_created",
+  // A device, agent or personal token revoked from the CLI (nb token revoke, report A3.9).
+  "editor_token_revoked",
   "account_deletion_scheduled",
   "account_deletion_cancelled",
   // Handing a project to someone else is a change of who holds the keys: it shows in the log of both people.

@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 
+import { ERROR_CATALOG } from "@/lib/api/errors";
 import * as s from "@/lib/api/v1-schemas";
 
 type Operation = { method: "post" | "patch"; path: string; summary: string; body: z.ZodType; auth: "token" | "none" };
@@ -30,6 +31,7 @@ export function cliSchemas() {
   return {
     $comment: "Generated from src/lib/api/v1-schemas.ts by scripts/api/export-schemas.ts. Don't edit.",
     operations: Object.fromEntries(API_OPERATIONS.map((op) => [`${op.method.toUpperCase()} ${op.path}`, jsonSchema(op.body)])),
+    errors: ERROR_CATALOG,
   };
 }
 
@@ -53,6 +55,7 @@ export function openApiDocument(version: string) {
     openapi: "3.1.0",
     info: { title: "NetworkBase API (CLI and agents)", version, description: "Routes the NetworkBase CLI, its MCP server and AI agents write to. Tokens: `Authorization: Bearer nb_dev_… | nb_agt_… | nb_pat_…`." },
     components: { securitySchemes: { bearer: { type: "http", scheme: "bearer" } } },
+    "x-error-codes": ERROR_CATALOG,
     paths,
   };
 }

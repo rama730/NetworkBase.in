@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import type { User } from "@supabase/supabase-js";
 import { and, eq, isNull } from "drizzle-orm";
 import type { AuthSnapshot, AuthSnapshotResolution } from "@/lib/auth/snapshot";
@@ -78,6 +79,19 @@ async function getAuthResolution(client: Awaited<ReturnType<typeof createClient>
 
 export const getViewerAuthContext = cache(async (): Promise<ViewerAuthContext> => {
   const supabase = await getSupabaseClient();
+  // A CLI or agent token (report A2.1: one implementation for app and API): the token's person, but only on the
+  // API routes tokens may call (token-access.ts); anywhere else this reads as signed out.
+  let authorization: string | null = null;
+  try {
+    authorization = (await headers()).get("authorization");
+  } catch {
+    authorization = null; // outside a request (jobs, scripts)
+  }
+  if (/^bearer\s/i.test(authorization ?? "")) {
+    const { requireAuthenticatedUser } = await import("@/app/api/v1/_shared");
+    const tokenUser = (await requireAuthenticatedUser()).user;
+    return { supabase, snapshot: null, user: tokenUser, userId: tokenUser?.id ?? null, emailVerified: Boolean(tokenUser) };
+  }
   const { snapshot, user } = await getAuthResolution(supabase);
 
   return {

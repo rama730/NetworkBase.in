@@ -18,6 +18,26 @@ export async function undo(ctx) {
     return ctx.out.result("nb.undo.list/1", { changes: log.slice().reverse().map((e) => ({ token: e.token, at: new Date(e.at).toISOString(), what: WHAT[e.path] ?? e.path })) }, (d) =>
       d.changes.length ? d.changes.map((c, i) => `  ${i === 0 ? ctx.out.c.brand(ctx.out.sym.brand) : " "} ${c.at.slice(11, 16)}  ${c.what}  ${ctx.out.c.muted(c.token.slice(0, 8))}`) : "Nothing to undo from the last 24 hours");
   }
+  if (ctx.flags.session) {
+    // Everything this agent session did, newest first (report A7.7): `nb mcp` tags its changes with a session id.
+    const session = ctx.env.NB_AGENT_SESSION;
+    if (!session) throw new CliError("USAGE", "--session works inside an agent session (nb mcp)");
+    const mine = log.filter((e) => e.session === session).reverse();
+    if (!mine.length) throw new CliError("NOT_FOUND", "This agent session hasn't changed anything that can be undone");
+    /** @type {Array<{ token: string, ok: boolean, message: string }>} */
+    const results = [];
+    for (const e of mine) {
+      try {
+        const res = /** @type {any} */ (await ctx.api.post(`/api/v1/undo/${encodeURIComponent(e.token)}`, {}));
+        dropUndo(ctx.env, e.token);
+        results.push({ token: e.token, ok: true, message: String(res.result ?? res.undone) });
+      } catch (error) {
+        results.push({ token: e.token, ok: false, message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    ctx.out.result("nb.undo.session/1", { results }, (d) => d.results.map((r) => `${r.ok ? ctx.out.c.success(ctx.out.sym.done) : ctx.out.c.warning(ctx.out.sym.warn)} ${safe(r.message)}`));
+    return results.every((r) => r.ok) ? 0 : 4;
+  }
   const given = ctx.positionals[0];
   const entry = given ? log.find((e) => e.token.startsWith(given)) ?? { token: given } : log.at(-1);
   if (!entry) throw new CliError("NOT_FOUND", "Nothing to undo from the last 24 hours on this machine", { hint: "nb undo --list" });

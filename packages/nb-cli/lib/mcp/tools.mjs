@@ -160,6 +160,47 @@ export const TOOLS = [
   { name: "networkbase_search", title: "Search files", tier: "read", props: { query: { type: "string", description: "Words in file names" }, workspace: workspaceProp }, required: ["query"],
     description: "Find files in the workspace by name.",
     run: (nb, a) => nb("search", [a.query], ws(a)) },
+  { name: "networkbase_workspace_view", title: "Workspace at a glance", tier: "read", props: { workspace: workspaceProp },
+    description: "A workspace's title, your role, open tasks, files, the current sprint (in its own words, like Unit or Week) and what agents may do there.",
+    run: (nb, a) => nb("workspace view", [], ws(a)) },
+  { name: "networkbase_activity", title: "Recent activity", tier: "read",
+    props: { task: { type: "string", description: "Only this task (number or id)" }, since: { type: "string", description: "30m, 3h, 1d, 2w or a date (default: everything recent)" }, workspace: workspaceProp },
+    description: `What happened in the workspace or on a task, newest first, with who did it and whether through an agent. Use for "what changed since yesterday". ${UNTRUSTED}`,
+    run: (nb, a) => nb("activity", [], { ...ws(a), ...(a.task ? { task: String(a.task) } : {}), ...(a.since ? { since: a.since } : {}) }) },
+  { name: "networkbase_sprint_list", title: "Sprints", tier: "read", props: { workspace: workspaceProp },
+    description: "The workspace's sprints (or its own word for them) with open and done counts.",
+    run: (nb, a) => nb("sprint list", [], ws(a)) },
+  { name: "networkbase_task_edit", title: "Edit a task", tier: "small",
+    props: { task: taskProp, title: { type: "string", description: "New title" }, description: { type: "string", description: "New description (Markdown)" }, priority: { type: "string", enum: ["low", "medium", "high", "urgent"], description: "Priority" }, due: { type: "string", description: "Due date like 2026-11-14, or none" }, workspace: workspaceProp },
+    required: ["task"],
+    description: `Change a task's title, description, priority or due date. ${CONFIRM}`,
+    run: (nb, a) => nb("task edit", [String(a.task)], { ...ws(a), ...(a.title ? { title: a.title } : {}), ...(a.description !== undefined ? { message: a.description } : {}), ...(a.priority ? { priority: a.priority } : {}), ...(a.due ? { due: a.due } : {}) }) },
+  { name: "networkbase_task_assign", title: "Assign a task", tier: "small",
+    props: { task: taskProp, to: { type: "string", description: "@username, me, or none" }, workspace: workspaceProp }, required: ["task", "to"],
+    description: `Assign a task to a member, the user, or nobody. Assigning someone else needs the user's yes. ${CONFIRM}`,
+    run: (nb, a) => nb("task assign", [String(a.task), String(a.to)], ws(a)) },
+  { name: "networkbase_task_report", title: "Report progress", tier: "small",
+    props: { task: taskProp, summary: { type: "string", description: "What was done" }, checks: { type: "array", items: { type: "object", properties: { name: { type: "string" }, passed: { type: "boolean" }, note: { type: "string" } }, required: ["name", "passed"] }, description: "Checks you ran" }, workspace: workspaceProp },
+    required: ["summary"],
+    description: "Post a progress report (summary and checks) on a task without finishing it. Use networkbase_task_done to finish.",
+    run: (nb, a) => nb("task report", a.task ? [String(a.task)] : [], { ...ws(a), message: a.summary, check: (a.checks ?? []).map((/** @type {any} */ c) => `${c.name}=${c.passed ? "pass" : "fail"}${c.note ? `:${c.note}` : ""}`) }) },
+  { name: "networkbase_comment_list", title: "Read comments", tier: "read", props: { task: taskProp, file: { type: "string", description: "A file path for its line comments instead" }, workspace: workspaceProp },
+    description: `A task's comments, or a file's line comments. ${UNTRUSTED}`,
+    run: (nb, a) => nb("comment list", [], { ...ws(a), ...(a.task ? { task: String(a.task) } : {}), ...(a.file ? { file: a.file } : {}) }) },
+  { name: "networkbase_file_history", title: "File history", tier: "read", props: { path: { type: "string", description: "Workspace path" }, workspace: workspaceProp }, required: ["path"],
+    description: "A file's versions: who saved each, when, and whether through an agent.",
+    run: (nb, a) => nb("file history", [a.path], ws(a)) },
+  { name: "networkbase_file_attach", title: "Attach a file to a task", tier: "small",
+    props: { path: { type: "string", description: "Workspace path of a file already there" }, task: taskProp, as: { type: "string", enum: ["reference", "draft", "final"], description: "Role (default draft)" }, detach: { type: "boolean", description: "Take it off the task instead" }, workspace: workspaceProp },
+    required: ["path"],
+    description: `Attach a workspace file to a task with a role, or take it off. Final needs the user's yes. ${CONFIRM}`,
+    run: (nb, a) => nb(a.detach ? "file detach" : "file attach", [a.path], { ...ws(a), ...(a.task ? { task: String(a.task) } : {}), ...(a.as && !a.detach ? { as: a.as } : {}) }) },
+  { name: "networkbase_file_move", title: "Move, rename or delete a file", tier: "yes",
+    props: { path: { type: "string", description: "Workspace path" }, action: { type: "string", enum: ["move", "rename", "delete"], description: "What to do" }, to: { type: "string", description: "Folder (move) or new name (rename)" }, workspace: workspaceProp },
+    required: ["path", "action"],
+    description: `Move a file to another folder, rename it, or move it to the Trash. Always needs the user's yes. ${CONFIRM}`,
+    needsYes: (a) => `${a.action === "delete" ? "Move to Trash" : a.action === "move" ? `Move to ${a.to}` : `Rename to ${a.to}`}: ${a.path}`,
+    run: (nb, a) => nb(a.action === "delete" ? "file delete" : a.action === "move" ? "file move" : "file rename", a.action === "delete" ? [a.path] : [a.path, String(a.to ?? "")], ws(a)) },
   { name: "networkbase_ask_user", title: "Ask a person", tier: "small",
     props: {
       question: { type: "string", description: "One clear question" },
@@ -172,9 +213,9 @@ export const TOOLS = [
     required: ["question", "options"],
     description: "Ask a person in NetworkBase when you can't decide and they aren't in this chat (for example a cloud agent, or the task's reviewer). They answer in the app; with wait you get the answer back. Prefer asking the user in this chat when they're here.",
     run: async (nb, a) => nb("ask", [a.question], { ...ws(a), option: a.options, ...(a.to ? { to: a.to } : {}), ...(a.task ? { task: String(a.task) } : {}), ...(a.wait === false ? {} : { wait: true, timeout: "600" }) }) },
-  { name: "networkbase_undo", title: "Undo", tier: "small", props: { token: { type: "string", description: "An undoToken from an earlier result (default: the last change from this machine)" } },
+  { name: "networkbase_undo", title: "Undo", tier: "small", props: { token: { type: "string", description: "An undoToken from an earlier result (default: the last change from this machine)" }, all: { type: "boolean", description: "Undo everything you changed in this session, newest first" } },
     description: "Undo a change made through NetworkBase tools in the last 24 hours (a push, a task, a subtask, a comment, a status change). Refused if someone changed it since.",
-    run: (nb, a) => nb("undo", a.token ? [String(a.token)] : []) },
+    run: (nb, a) => (a.all ? nb("undo", [], { session: true }) : nb("undo", a.token ? [String(a.token)] : [])) },
   { name: "networkbase_member_list", title: "Members", tier: "read", props: { query: { type: "string", description: "Part of a name (at most 10 shown)" }, workspace: workspaceProp },
     description: "People in the workspace, with their role.",
     run: (nb, a) => nb("member list", a.query ? [a.query] : [], ws(a)) },
@@ -206,7 +247,11 @@ function takeConfirmation(name, args) {
   return true;
 }
 
-/** Runs one CLI command and returns its result instead of printing it. @param {{ cwd: string, env: NodeJS.ProcessEnv }} where @param {Record<string, any>} extraFlags */
+/**
+ * Runs one CLI command and returns its result instead of printing it. Its progress lines ("Uploading 3 of 9") go to
+ * `onProgress` when the MCP client asked for progress (A7.2 item 4).
+ * @param {{ cwd: string, env: NodeJS.ProcessEnv, onProgress?: (message: string) => void }} where @param {Record<string, any>} extraFlags
+ */
 function executor(where, extraFlags) {
   /** @type {RunCommand} */
   return async (command, positionals = [], flags = {}) => {
@@ -215,7 +260,8 @@ function executor(where, extraFlags) {
     /** @type {Result | null} */
     let captured = null;
     const sink = /** @type {any} */ ({ write: () => true, isTTY: false });
-    const ctx = createContext({ flags: { ...flags, ...extraFlags, json: true, plain: true }, positionals, cwd: where.cwd, env: where.env, io: { stdout: sink, stderr: process.stderr, onResult: (r) => { captured = r; } } });
+    const progress = where.onProgress ? /** @type {any} */ ({ write: (/** @type {unknown} */ text) => { const line = String(text).trim(); if (line) where.onProgress?.(line); return true; }, isTTY: false }) : process.stderr;
+    const ctx = createContext({ flags: { ...flags, ...extraFlags, json: true, plain: true }, positionals, cwd: where.cwd, env: where.env, io: { stdout: sink, stderr: progress, onResult: (r) => { captured = r; } } });
     await ctx.resolveWorkspace();
     const mod = await import(`../commands/${spec.module}.mjs`);
     await mod[spec.fn](ctx);
@@ -223,7 +269,7 @@ function executor(where, extraFlags) {
   };
 }
 
-/** A tool call → an MCP CallToolResult. @param {string} name @param {any} args @param {{ cwd: string, env: NodeJS.ProcessEnv }} where */
+/** A tool call → an MCP CallToolResult. @param {string} name @param {any} args @param {{ cwd: string, env: NodeJS.ProcessEnv, onProgress?: (message: string) => void }} where */
 export async function callTool(name, args = {}, where) {
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) return errorResult(new CliError("UNKNOWN_TOOL", `No tool ${name}`, { hint: "See tools/list" }));

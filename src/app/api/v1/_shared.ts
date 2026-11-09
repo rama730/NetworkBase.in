@@ -5,8 +5,14 @@ import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { logger } from "@/lib/logger";
 import { getIsolationScope } from "@sentry/nextjs";
 import { workspaceAgentPolicy } from "@/lib/agents/policy";
+import { queueSecurityEmail } from "@/lib/email/security-queue";
 
 const AGENT_DAILY_WRITES = 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const IDLE_REAPPROVE_MS = 90 * DAY_MS;
+const DEVICE_LIFE_MS = 90 * DAY_MS;
+const EXTEND_WHEN_LEFT_MS = 30 * DAY_MS;
+const MAX_DEVICE_LIFE_MS = 365 * DAY_MS;
 import { getTrustedRequestIp } from "@/lib/security/request-ip";
 import type { User } from "@supabase/supabase-js";
 import { jsonError, jsonSuccess } from "@/app/api/v1/_envelope";
@@ -255,6 +261,10 @@ export async function requireAuthenticatedUser() {
           // An account that scheduled its deletion no longer accepts editor tokens; the prefix must match the
           // token's type, so a device token can't be presented as an agent one or the other way round.
           const session = found?.deletedAt || (found?.session.tokenType === "agent") !== token.startsWith("nb_agt_") ? undefined : found?.session;
+          // A sign-in nobody used for 90 days has to be approved again (report A3.10 item 2).
+          if (session && now.getTime() - session.lastSeenAt.getTime() > IDLE_REAPPROVE_MS) {
+            return deniedPrincipal(jsonError("This sign-in wasn't used for 90 days. Sign in again: nb login", 401, "UNAUTHORIZED"));
+          }
 
           if (session) {
             const extensionVersion = normalizeSessionHeader(headerStore.get("x-extension-version"), 40);
@@ -283,13 +293,31 @@ export async function requireAuthenticatedUser() {
               updates.userAgent = userAgent;
             }
 
+            const clientChanged = Object.keys(updates).length > 0;
+            // Device tokens last 90 days and extend while used, up to a year from approval (report A3.3).
+            if (session.tokenType === "device" && session.expiresAt.getTime() - now.getTime() < EXTEND_WHEN_LEFT_MS) {
+              const cap = session.createdAt.getTime() + MAX_DEVICE_LIFE_MS;
+              const next = Math.min(now.getTime() + DEVICE_LIFE_MS, cap);
+              if (next > session.expiresAt.getTime()) updates.expiresAt = new Date(next);
+            }
+            // Used from a country this token hasn't been used from: tell its owner (report A3.10 item 1). Not a block.
+            const country = normalizeSessionHeader(headerStore.get("cf-ipcountry"), 2)?.toUpperCase() ?? null;
+            if (country && /^[A-Z]{2}$/.test(country) && country !== "XX" && country !== session.lastCountry) {
+              updates.lastCountry = country;
+              if (session.lastCountry) {
+                void queueSecurityEmail(session.userId, "security_new_sign_in", {
+                  detail: `${session.tokenType === "agent" ? session.agentName ?? "an AI agent" : "the NetworkBase CLI or an editor"} on ${session.deviceName}, from a new country (${country})`,
+                });
+              }
+            }
+
             // lastSeenAt is a presence hint, not an authorization input: refresh it at most once per
             // interval, but always persist changed client metadata. Failures are observed, never fatal.
             const seenIsStale = now.getTime() - session.lastSeenAt.getTime() > EXTENSION_LAST_SEEN_INTERVAL_MS;
             if (seenIsStale || Object.keys(updates).length > 0) {
               void db
                 .update(extensionDeviceSessions)
-                .set({ ...updates, lastSeenAt: now })
+                .set({ ...updates, ...(seenIsStale || clientChanged ? { lastSeenAt: now } : {}) })
                 .where(eq(extensionDeviceSessions.id, session.id))
                 .catch((error: unknown) =>
                   logger.warn("api.v1.shared.extension_last_seen_failed", {

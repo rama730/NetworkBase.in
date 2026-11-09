@@ -9,6 +9,9 @@ const EXEMPT_MUTATING_ROUTES = new Set([
   path.resolve(API_V1_ROOT, "webhooks/resend/route.ts"),
   path.resolve(API_V1_ROOT, "extension/auth-code/route.ts"),
   path.resolve(API_V1_ROOT, "email/org-mute/route.ts"),
+  // The device sign-in (RFC 8628) runs before there is any session: no cookie is read, nothing ambient to forge.
+  path.resolve(API_V1_ROOT, "device/code/route.ts"),
+  path.resolve(API_V1_ROOT, "device/token/route.ts"),
 ]);
 
 function collectRouteFiles(root: string, files: string[] = []) {
@@ -42,6 +45,9 @@ test("mutating API v1 routes require CSRF validation unless explicitly exempted"
         assert.match(source, /verifyResendEvent\(Buffer\.concat\(chunks\)/);
         assert.ok(source.indexOf("verified = verifyResendEvent") < source.indexOf("await recordResendEvent"));
         assert.match(fs.readFileSync(path.resolve("src/lib/email/contracts.ts"), "utf8"), /new Webhook\(secret\)\.verify\(raw, headers\)/);
+      }
+      if (filePath.includes(`${path.sep}device${path.sep}`)) {
+        assert.doesNotMatch(source, /requireAuthenticatedUser|cookies\(/, "device sign-in routes read no session");
       }
       if (filePath.endsWith("email/org-mute/route.ts")) {
         // One-click unsubscribe (RFC 8058) posts from the mail provider with no session: the signed

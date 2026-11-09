@@ -116,6 +116,9 @@ export type UndoInverse =
   | { kind: "subtask.set"; subtaskId: string; taskId: string; projectId: string; completed: boolean }
   | { kind: "comment.delete"; commentId: string; taskId: string; projectId: string }
   | { kind: "task.status"; taskId: string; projectId: string; to: string; expectFrom: string }
+  | { kind: "task.field"; taskId: string; projectId: string; field: "title" | "description" | "priority" | "dueDate"; value: string | null; expect: string | null }
+  | { kind: "task.assign"; taskId: string; projectId: string; assigneeId: string | null; expect: string | null }
+  | { kind: "subtask.title"; subtaskId: string; taskId: string; projectId: string; title: string; expect: string }
   | { kind: "files.restore"; projectId: string; files: Array<{ nodeId: string; created: boolean; version: number; previousVersion: number | null }> };
 
 /** Records how to undo a change made with a token (any token, so `nb undo` works too); returns the undo token. */

@@ -1,9 +1,11 @@
 // The only place the CLI writes to the terminal (report A4.5, A4.7, A4.8, A13.1). stdout carries results
 // (text or one JSON envelope); stderr carries progress, hints, warnings and prompts.
-import { colorLevel, palette, pad, safe, symbols, truncateEnd, truncateMiddle, asciiOnly, width } from "./style.mjs";
+import { spawnSync } from "node:child_process";
+
+import { colorLevel, palette, pad, safe, symbols, truncateEnd, truncateMiddle, asciiOnly, width, hyperlinks } from "./style.mjs";
 
 /**
- * @typedef {{ json: boolean, quiet: boolean, plain: boolean, verbose: boolean }} OutputMode
+ * @typedef {{ json: boolean, quiet: boolean, plain: boolean, verbose: boolean, fields: string[] | null, pager: boolean }} OutputMode
  * @typedef {ReturnType<typeof createOutput>} Output
  */
 
@@ -25,6 +27,7 @@ export function createOutput(mode, io = {}) {
   const columns = () => Math.max(40, stderr.columns || stdout.columns || 80);
   /** @type {string[]} */
   const warnings = [];
+  const links = !plain && level > 0 && hyperlinks(stdout, env);
 
   /** @param {string} text */
   const err = (text) => {
@@ -51,27 +54,41 @@ export function createOutput(mode, io = {}) {
     /** Raw text to stdout (file contents, piped output). @param {string | Uint8Array} chunk */
     raw: (chunk) => stdout.write(chunk),
     /**
+     * Clickable text in terminals that support OSC 8 links (A5.9); only for the NetworkBase server's own pages, and
+     * the text alone everywhere else.
+     * @param {string} text @param {string} url @param {string} origin
+     */
+    link: (text, url, origin) => (links && url.startsWith(`${origin}/`) && !/[\x00-\x1f\x7f]/.test(url) ? `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\` : text),
+    /**
      * Print a command's result: one JSON envelope in --json, else the human lines on stdout.
      * @template T
      * @param {string} schema e.g. "nb.task.list/1"
      * @param {T} data
      * @param {(data: T) => string | string[] | null} human
+     * @param {{ page?: boolean }} [options] page: long views (help, task view, file view) go through $PAGER in a terminal
      */
-    result(schema, data, human) {
+    result(schema, data, human, options = {}) {
       if (io.onResult) {
         const lines = human(data);
         io.onResult({ schema, data, text: lines == null ? "" : Array.isArray(lines) ? lines.join("\n") : lines, warnings });
         return;
       }
       if (json) {
-        const envelope = { ok: true, schema, data, ...(warnings.length ? { meta: { warnings } } : {}) };
+        const envelope = { ok: true, schema, data: mode.fields?.length ? pickFields(data, mode.fields) : data, ...(warnings.length ? { meta: { warnings } } : {}) };
         stdout.write(`${JSON.stringify(envelope)}\n`);
         return;
       }
       const lines = human(data);
       if (lines === null || lines === undefined) return;
       const text = Array.isArray(lines) ? lines.join("\n") : lines;
-      if (text !== "") stdout.write(text.endsWith("\n") ? text : `${text}\n`);
+      if (text === "") return;
+      const out = text.endsWith("\n") ? text : `${text}\n`;
+      if (options.page && mode.pager !== false && stdout.isTTY && process.stdin.isTTY && out.split("\n").length > (stdout.rows || 24)) {
+        // less -F quits when it fits, -R keeps colors, -X leaves the text on screen (A4.10).
+        const [cmd, ...args] = (env.NB_PAGER ?? env.PAGER ?? "less -FRX").split(" ").filter(Boolean);
+        if (cmd && cmd !== "cat" && spawnSync(cmd, args, { input: out, stdio: ["pipe", "inherit", "inherit"] }).status === 0) return;
+      }
+      stdout.write(out);
     },
     /** @param {import("../errors.mjs").CliError} error */
     error(error) {
@@ -113,6 +130,18 @@ export function createOutput(mode, io = {}) {
       return [head, ...cells.map((r) => `  ${r.map((cell, i) => fit(cell, i)).join("  ")}`.trimEnd())];
     },
   };
+}
+
+/**
+ * `--fields id,title`: keeps those keys on each object in the result's lists (or on the result itself).
+ * @param {any} data @param {string[]} fields
+ */
+export function pickFields(data, fields) {
+  const pick = (/** @type {any} */ o) => (o && typeof o === "object" && !Array.isArray(o) ? Object.fromEntries(fields.filter((f) => f in o).map((f) => [f, o[f]])) : o);
+  if (Array.isArray(data)) return data.map(pick);
+  if (!data || typeof data !== "object") return data;
+  const lists = Object.entries(data).filter(([, v]) => Array.isArray(v) && v.some((x) => x && typeof x === "object"));
+  return lists.length ? { ...data, ...Object.fromEntries(lists.map(([k, v]) => [k, /** @type {any[]} */ (v).map(pick)])) } : pick(data);
 }
 
 /** @param {string} s */

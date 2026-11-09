@@ -44,6 +44,8 @@ export async function ask(ctx, q) {
 
 /** A yes/no that defaults to the safe answer (A4.11). @param {import("../context.mjs").Context} ctx @param {{ key: string, question: string, yesLabel?: string, noLabel?: string, preview?: string, defaultYes?: boolean }} c */
 export async function confirm(ctx, c) {
+  // --yes means yes, even where the safe default is No (delete, unlink); --answer key=no still says no.
+  if (ctx.flags.yes && answered(ctx, c.key) === null) return true;
   try {
     const value = await ask(ctx, {
       key: c.key,

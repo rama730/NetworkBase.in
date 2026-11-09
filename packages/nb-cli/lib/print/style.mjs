@@ -5,7 +5,7 @@
 
 /** @param {NodeJS.WriteStream} stream @param {NodeJS.ProcessEnv} env @returns {ColorLevel} */
 export function colorLevel(stream, env = process.env) {
-  if (env.NB_PLAIN === "1" || "NO_COLOR" in env) return 0;
+  if (env.NB_PLAIN === "1" || env.NO_COLOR) return 0; // no-color.org: set and not empty
   if (env.FORCE_COLOR !== undefined) {
     const forced = Number(env.FORCE_COLOR);
     return /** @type {ColorLevel} */ (Number.isInteger(forced) ? Math.max(0, Math.min(3, forced)) : 1);
@@ -14,6 +14,16 @@ export function colorLevel(stream, env = process.env) {
   if (/^(truecolor|24bit)$/i.test(env.COLORTERM ?? "")) return 3;
   if (/256/.test(env.TERM ?? "")) return 2;
   return 1;
+}
+
+/**
+ * Terminals known to show OSC 8 links; others would print the escape as text. NB_LINKS=0/1 overrides.
+ * @param {NodeJS.WriteStream} stream @param {NodeJS.ProcessEnv} env
+ */
+export function hyperlinks(stream, env = process.env) {
+  if (env.NB_LINKS) return env.NB_LINKS === "1";
+  if (!stream.isTTY || env.CI) return false;
+  return Boolean(env.WT_SESSION || /^(iTerm\.app|WezTerm|vscode|ghostty|Hyper|Tabby)$/.test(env.TERM_PROGRAM ?? "") || /kitty|alacritty|foot/.test(env.TERM ?? "") || Number(env.VTE_VERSION ?? 0) >= 5000);
 }
 
 /** Body text uses the terminal's own foreground; color marks meaning only (A5.2). @param {ColorLevel} level */

@@ -17,8 +17,8 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 - Needs Node.js 20 or newer.
 
 ### Added
-- `nb mcp` rebuilt: 22 tools for Claude Code, Codex and Cursor that run the same checks as the commands; finishing a task, final files and doc changes need the user's yes; tasks and workspaces found by words; stdout carries only protocol messages.
-- `nb agent setup claude|codex|cursor` connects an agent to `nb mcp` and adds a short NetworkBase section to its instructions file (asks first); `nb agent status`, `nb agent remove`.
+- `nb mcp` rebuilt: 35 tools for Claude Code, Codex and Cursor that run the same checks as the commands; finishing a task, final files and doc changes need the user's yes; tasks and workspaces found by words; tasks readable as `networkbase://task/{n}`; progress for long pushes; stdout carries only protocol messages.
+- `nb agent setup claude|codex|cursor` connects an agent to `nb mcp` with its own sign-in limited to this workspace (`--token mine` uses yours) and adds a short NetworkBase section to its instructions file (asks first); `nb agent status`, `nb agent remove`.
 - `nb doc set` replaces a doc's text from a file or stdin.
 - `--workspace` takes a slug.
 - `nb task count`, `nb task view --context` (agent brief), `nb task review`, `nb task resubmit`, `nb task pull`.
@@ -32,6 +32,14 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 - `nb login --device` signs in with a code you approve at networkbase.in/device on any device (used automatically over SSH or without a display); `--agent "Claude Code"` asks for an agent token that only reaches the one workspace you pick.
 - `nb login --with-token` reads a token from stdin; `NETWORKBASE_TOKEN` works without a file.
 - Questions show as a numbered card in a terminal; scripts answer with `--answer key=value` or `--yes`.
+- `nb undo` reverses the last change from this computer within 24 hours (`--list`, `--session` for everything one agent session did).
+- `nb ask` puts a question to you, the assignee or the reviewer in the app and waits for the answer (`nb ask list|answer|wait`).
+- `nb task edit|assign|report|delete|open`, `nb subtask edit|delete|move`, `nb comment list|resolve`, `nb comment add --file path:line`.
+- `nb workspace view|open`, `nb activity --since 3h`, `nb sprint list|view` (in your organization's words), `nb update post`.
+- `nb file history|move|rename|delete|attach|detach`.
+- `nb token list|revoke`, `nb whoami --all`, `nb logout --all`.
+- Tokens are kept in the macOS Keychain, the Linux keyring or Windows-encrypted storage when available (`NB_CREDENTIAL_STORE=file` keeps the file).
+- `--confirm <token>` sends the yes for a change the server held for one.
 
 ### Removed
 - The background auto-push process and `.networkbase/mirror`.
@@ -44,6 +52,8 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 - Text from other people (task titles, comments, file names) is printed with terminal control characters removed.
 - Files are only written inside the linked folder.
 - Pushing a file that looks like it holds a secret needs a yes.
+- Device sign-ins last 90 days and extend while used (at most a year); one unused for 90 days needs a new sign-in. Use from a new country emails you.
+- An agent's big changes (finishing a task, final files, deleting, someone else's task) wait for your yes; the workspace can ask for everything or pause agents.
 
 ## 1.0.4 and earlier
 

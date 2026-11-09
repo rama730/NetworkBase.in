@@ -32,7 +32,7 @@ try {
     if (argv.includes("--json")) {
       const { helpData } = await import("../lib/args.mjs");
       process.stdout.write(`${JSON.stringify({ ok: true, schema: "nb.help/1", data: helpData() })}\n`);
-    } else process.stdout.write(`${overviewHelp()}\n`);
+    } else process.stdout.write(`${overviewHelp(process.stdout.columns)}\n`);
     process.exit(argv.length === 0 || argv.includes("--help") || argv.includes("-h") || argv.includes("--json") ? EXIT.ok : EXIT.usage);
   }
   const { positionals, flags } = parseFlags(spec, rest);

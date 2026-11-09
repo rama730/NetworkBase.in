@@ -60,6 +60,7 @@ export interface SecurityActivityEntry {
     | "sign_in_method_linked"
     | "sign_in_method_unlinked"
     | "editor_token_created"
+    | "editor_token_revoked"
     | "account_deletion_scheduled"
     | "account_deletion_cancelled"
     | "project_ownership_transferred_out"

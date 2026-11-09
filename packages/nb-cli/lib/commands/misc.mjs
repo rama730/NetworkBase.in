@@ -16,7 +16,7 @@ import { safe } from "../print/style.mjs";
 export async function help(ctx) {
   const name = ctx.positionals.join(" ");
   if (!name) {
-    ctx.out.result("nb.help/1", helpData(), () => overviewHelp());
+    ctx.out.result("nb.help/1", helpData(), () => overviewHelp(process.stdout.columns), { page: true });
     return;
   }
   const spec = COMMANDS.find((c) => c.name === name);
@@ -178,6 +178,18 @@ async function runChecks(ctx) {
   const major = Number(process.versions.node.split(".")[0]);
   add("Node", major >= 20, process.versions.node, major >= 20 ? "" : "Install Node 22 LTS from nodejs.org");
 
+  // Version: what the daily update check last saw (no extra request here).
+  const { newer } = await import("../print/notices.mjs");
+  const { globalDir, readJson } = await import("../config.mjs");
+  const latest = (() => { try { return readJson(path.join(globalDir(ctx.env), "update.json"))?.latest ?? null; } catch { return null; } })();
+  add("Version", !(latest && newer(latest, ctx.version)), latest && newer(latest, ctx.version) ? `${ctx.version}; ${latest} is out` : ctx.version, latest && newer(latest, ctx.version) ? "npm i -g @networkbase/cli" : "");
+
+  // Proxy and company certificates (A6.4): Node ignores HTTPS_PROXY unless told to.
+  const proxy = ctx.env.HTTPS_PROXY || ctx.env.https_proxy || ctx.env.HTTP_PROXY || ctx.env.http_proxy;
+  if (proxy) add("Proxy", Boolean(ctx.env.NODE_USE_ENV_PROXY), ctx.env.NODE_USE_ENV_PROXY ? "used (NODE_USE_ENV_PROXY=1)" : "set but Node won't use it", ctx.env.NODE_USE_ENV_PROXY ? "" : "export NODE_USE_ENV_PROXY=1");
+  const ca = ctx.env.NODE_EXTRA_CA_CERTS;
+  if (ca) add("Certificates", fs.existsSync(ca), fs.existsSync(ca) ? `extra certificates from ${ca}` : `NODE_EXTRA_CA_CERTS points to a missing file: ${ca}`, fs.existsSync(ca) ? "" : "Fix the path or unset it");
+
   const started = Date.now();
   let serverDate = null;
   try {
@@ -217,6 +229,34 @@ async function runChecks(ctx) {
     if (ctx.flags.repair) for (const f of leftovers) fs.rmSync(path.join(dir, f), { force: true });
     add("State", !leftovers.length || Boolean(ctx.flags.repair), leftovers.length ? `${leftovers.length} leftover file(s)${ctx.flags.repair ? " removed" : ""}` : "clean",
       leftovers.length && !ctx.flags.repair ? `Run nb doctor --repair${lockStale ? " (only when no other nb is running)" : ""}` : "");
+
+    // Case: on a case-insensitive disk, Report.md and report.md in the workspace are one file here (A1.16).
+    const probe = path.join(dir, `CaseProbe-${process.pid}`);
+    let insensitive = false;
+    try { fs.writeFileSync(probe, ""); insensitive = fs.existsSync(path.join(dir, path.basename(probe).toLowerCase())); } catch { /* read-only */ } finally { fs.rmSync(probe, { force: true }); }
+    add("Names", true, insensitive ? "this disk ignores letter case: files differing only in case are skipped on pull" : "this disk keeps letter case");
+
+    // Free space: a pull needs room for the files plus a temp copy of the largest one.
+    try {
+      const st = fs.statfsSync(ctx.root);
+      const free = st.bavail * st.bsize;
+      add("Disk", free > 500 * 1024 * 1024, `${(free / 1024 / 1024 / 1024).toFixed(1)} GB free`, free > 500 * 1024 * 1024 ? "" : "Free some space before pulling");
+    } catch { /* statfs isn't on every platform */ }
+
+    // Role: viewers can pull but not push.
+    if (ctx.profile.token && ctx.project?.workspaceId) {
+      try {
+        const w = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.project.workspaceId)}`));
+        add("Role", true, `${w.role ?? "member"}${w.canWrite === false ? " (can pull, can't push)" : ""}`);
+      } catch (error) {
+        add("Role", false, error instanceof Error ? error.message : String(error), "Ask the workspace owner to add you, or nb init another workspace");
+      }
+    }
+
+    // Agents connected here (A7.8).
+    const { agentRows } = await import("./agent.mjs");
+    const on = agentRows(ctx.root, ctx.env).filter((a) => a.server).map((a) => a.name);
+    add("Agents", true, on.length ? `${on.join(", ")} connected` : "none connected (nb agent setup claude)");
   }
 
   return checks;

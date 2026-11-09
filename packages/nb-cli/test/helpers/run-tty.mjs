@@ -19,10 +19,11 @@ export const plainText = (s) =>
 
 /**
  * @param {string[]} args
- * @param {{ api: string, keys?: string[], cols?: number, rows?: number, token?: string | null, env?: Record<string, string>, timeoutMs?: number, cwd?: string }} options
+ * @param {{ api: string, keys?: string[], cols?: number, rows?: number, token?: string | null, env?: Record<string, string>, timeoutMs?: number, cwd?: string, raw?: boolean }} options
+ *   raw: keep ANSI escapes in the output (color checks)
  * @returns {Promise<{ code: number | null, output: string }>}
  */
-export async function runTty(args, { api, keys = [], cols = 80, rows = 24, token = "nb_pat_test", env = {}, timeoutMs = 15_000, cwd: givenCwd }) {
+export async function runTty(args, { api, keys = [], cols = 80, rows = 24, token = "nb_pat_test", env = {}, timeoutMs = 15_000, cwd: givenCwd, raw = false }) {
   if (!TTY_SUPPORTED) throw new Error("runTty needs macOS or Linux");
   const home = await tempDir("nb-tty-home-");
   const cwd = givenCwd ?? (await tempDir("nb-tty-cwd-"));
@@ -43,7 +44,7 @@ export async function runTty(args, { api, keys = [], cols = 80, rows = 24, token
     child.stderr.on("data", (d) => { output += d; });
     const timer = setTimeout(() => { child.kill("SIGKILL"); reject(new Error(`tty nb ${args.join(" ")} timed out\n${plainText(output)}`)); }, timeoutMs);
     child.on("error", reject);
-    child.on("close", (code) => { clearTimeout(timer); resolve({ code, output: plainText(output) }); });
+    child.on("close", (code) => { clearTimeout(timer); resolve({ code, output: raw ? output : plainText(output) }); });
     // Keys are typed with a short gap so raw-mode readers see them as separate presses.
     let delay = 300;
     for (const key of keys) { setTimeout(() => child.stdin.write(key), delay); delay += 150; }

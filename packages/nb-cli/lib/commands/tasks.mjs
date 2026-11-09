@@ -32,7 +32,7 @@ export async function resolveTask(ctx, ref) {
 }
 
 /** The task a command means: an argument, --task, or the folder's started task. @param {Context} ctx @param {string | undefined} given */
-function taskRef(ctx, given) {
+export function taskRef(ctx, given) {
   const ref = given ?? ctx.flags.task ?? (ctx.project?.startedTask?.number ? String(ctx.project.startedTask.number) : ctx.project?.startedTask?.id);
   if (!ref) throw usage("Which task?", "Pass a task number, --task <n>, or start one with nb task start <n>");
   return String(ref);
@@ -106,13 +106,15 @@ export async function view(ctx) {
     files: task.files.map((/** @type {any} */ f) => ({ path: f.path ?? f.name, as: ROLE[f.role] ?? "draft", version: f.currentVersion ?? null })),
   };
   const { c, sym } = ctx.out;
+  const slug = ctx.project?.slug ?? ctx.flags.workspace;
+  const taskUrl = slug ? `${ctx.profile.origin}/workspaces/${encodeURIComponent(String(slug))}?tab=tasks&task=${data.number}` : null;
   ctx.out.result("nb.task.view/1", data, (d) => [
-    `${c.brand(sym.brand)} #${d.number} ${c.bold(safe(d.title))}`,
+    `${c.brand(sym.brand)} ${taskUrl ? ctx.out.link(`#${d.number}`, taskUrl, ctx.profile.origin) : `#${d.number}`} ${c.bold(safe(d.title))}`,
     `  ${statusWord(d)}${d.priority ? ` · ${d.priority}` : ""}${d.assignee ? ` · @${safe(d.assignee)}` : ""}${d.sprint ? ` · ${safe(d.sprint)}` : ""}`,
     ...(d.description.trim() ? ["", ...safe(d.description.trim()).split("\n").map((l) => `  ${l}`)] : []),
     ...(d.subtasks.length ? ["", `  Subtasks (${d.subtasks.filter((/** @type {any} */ s) => s.done).length}/${d.subtasks.length})`, ...d.subtasks.map((/** @type {any} */ s) => `  ${s.done ? c.success("[x]") : "[ ]"} ${s.n}. ${safe(s.title)}`)] : []),
     ...(d.files.length ? ["", "  Files", ...d.files.map((/** @type {any} */ f) => `  ${safe(f.path)} ${c.muted(`${f.as}${f.version ? ` · v${f.version}` : ""}`)}`)] : []),
-  ]);
+  ], { page: true });
 }
 
 /**
@@ -336,6 +338,7 @@ export const subtaskUncheck = (ctx) => setSubtasks(ctx, false);
 
 /** @param {Context} ctx */
 export async function commentAdd(ctx) {
+  if (ctx.flags.file) return (await import("./work.mjs")).commentOnFile(ctx);
   const text = String(ctx.flags.message ?? ctx.positionals.join(" ")).trim();
   if (!text) throw usage('nb comment add -m "<text>" [--task 4]');
   const task = await resolveTask(ctx, taskRef(ctx, undefined));

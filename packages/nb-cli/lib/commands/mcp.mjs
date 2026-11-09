@@ -1,6 +1,7 @@
 // nb mcp: the local MCP server for Claude Code, Codex and Cursor (report A7.1, A7.2, A7.5). stdout carries only
 // JSON-RPC messages, one per line (finding 5); everything else goes to stderr. Answers ping and unknown methods
 // (finding 6), negotiates the protocol version (finding 122), and reports tool failures as results (finding 123).
+import crypto from "node:crypto";
 import readline from "node:readline";
 
 import { callTool, toolList } from "../mcp/tools.mjs";
@@ -38,7 +39,8 @@ const RESOURCES = [
  */
 export async function serve(ctx, io = {}) {
   const output = io.output ?? process.stdout;
-  const where = { cwd: ctx.cwd, env: ctx.env };
+  // One agent session per connection (report A7.7): its changes are tagged so "undo everything" finds them.
+  const where = { cwd: ctx.cwd, env: { ...ctx.env, NB_AGENT_SESSION: crypto.randomUUID() } };
   /** @param {any} message */
   const send = (message) => output.write(`${JSON.stringify(message)}\n`);
   const cancelled = new Set();
@@ -68,9 +70,15 @@ export async function serve(ctx, io = {}) {
         return reply({});
       case "tools/list":
         return reply({ tools: toolList() });
-      case "tools/call":
+      case "tools/call": {
         if (typeof params?.name !== "string") return fail(-32602, "tools/call needs a tool name");
-        return reply(await callTool(params.name, params.arguments ?? {}, where));
+        const progressToken = params?._meta?.progressToken;
+        let step = 0;
+        const onProgress = progressToken !== undefined ? (/** @type {string} */ message) => send({ jsonrpc: "2.0", method: "notifications/progress", params: { progressToken, progress: ++step, message } }) : undefined;
+        return reply(await callTool(params.name, params.arguments ?? {}, { ...where, ...(onProgress ? { onProgress } : {}) }));
+      }
+      case "resources/templates/list":
+        return reply({ resourceTemplates: [{ uriTemplate: "networkbase://task/{number}", name: "A task's brief", description: "Status, description, comments, subtasks and files of a task in this folder's workspace", mimeType: "text/plain" }] });
       case "prompts/list":
         return reply({ prompts: PROMPTS.map(({ text: _t, ...p }) => p) });
       case "prompts/get": {
@@ -81,6 +89,11 @@ export async function serve(ctx, io = {}) {
       case "resources/list":
         return reply({ resources: RESOURCES.map(({ tool: _t, ...r }) => r) });
       case "resources/read": {
+        const task = /^networkbase:\/\/task\/(\d+)$/.exec(String(params?.uri ?? ""));
+        if (task) {
+          const result = await callTool("networkbase_task_context", { task: task[1] }, where);
+          return reply({ contents: [{ uri: params.uri, mimeType: "text/plain", text: result.content[0]?.text ?? "" }] });
+        }
         const resource = RESOURCES.find((r) => r.uri === params?.uri);
         if (!resource) return fail(-32602, `No resource ${params?.uri}`);
         const result = await callTool(resource.tool, {}, where);

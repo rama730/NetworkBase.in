@@ -3,6 +3,8 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { denyOutsideTokenWorkspace, getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { bulkTrashNodes } from "@/app/actions/files/mutations";
+import { updateSubtaskAction } from "@/app/actions/subtask";
+import { assignTaskAction, updateTaskFieldAction } from "@/app/actions/task";
 import { findUndo, type UndoInverse } from "@/lib/agents/policy";
 import { db } from "@/lib/db";
 import { fileVersions, taskComments, taskSubtasks, tasks, undoOperations, workspaceNodes } from "@/lib/db/schema";
@@ -68,6 +70,31 @@ async function runInverse(user: { id: string; email?: string; user_metadata?: Re
       });
       await afterTaskTransition(user as Parameters<typeof afterTaskTransition>[0], changed.locked, inverse.taskId, changed.result);
       return `Moved the task back to ${inverse.to.replace("_", " ")}`;
+    }
+    case "task.field": {
+      const [task] = await db.select({ title: tasks.title, description: tasks.description, priority: tasks.priority, dueDate: tasks.dueDate }).from(tasks).where(eq(tasks.id, inverse.taskId)).limit(1);
+      const current = task ? task[inverse.field] : undefined;
+      const now = current instanceof Date ? current.toISOString() : current ?? null;
+      const same = inverse.field === "dueDate" ? (now ? Date.parse(now) : null) === (inverse.expect ? Date.parse(inverse.expect) : null) : now === inverse.expect;
+      if (!same) throw new Changed(`Someone changed the ${inverse.field} since`);
+      const result = await updateTaskFieldAction(inverse.taskId, inverse.field, inverse.value, inverse.projectId);
+      if (!result.success) throw new Error(result.error ?? "Couldn’t change it back");
+      return `Changed the ${inverse.field} back`;
+    }
+    case "task.assign": {
+      const [task] = await db.select({ assigneeId: tasks.assigneeId }).from(tasks).where(eq(tasks.id, inverse.taskId)).limit(1);
+      if ((task?.assigneeId ?? null) !== inverse.expect) throw new Changed("Someone reassigned the task since");
+      const result = await assignTaskAction(inverse.taskId, inverse.assigneeId, inverse.projectId);
+      if (!result.success) throw new Error(result.error ?? "Couldn’t reassign it");
+      return inverse.assigneeId ? "Gave the task back to who had it" : "Unassigned the task again";
+    }
+    case "subtask.title": {
+      const [sub] = await db.select({ title: taskSubtasks.title }).from(taskSubtasks).where(eq(taskSubtasks.id, inverse.subtaskId)).limit(1);
+      if (!sub) throw new Changed("The subtask is already gone");
+      if (sub.title !== inverse.expect) throw new Changed("Someone renamed the subtask since");
+      const result = await updateSubtaskAction(inverse.subtaskId, inverse.title, inverse.projectId);
+      if (!result.success) throw new Error(result.error ?? "Couldn’t rename it back");
+      return "Renamed the subtask back";
     }
     case "files.restore": {
       const created = inverse.files.filter((f) => f.created).map((f) => f.nodeId);

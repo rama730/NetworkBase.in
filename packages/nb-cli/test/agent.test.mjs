@@ -18,13 +18,13 @@ describe("nb agent setup (report A7.8, A7.9)", () => {
     await nb(["init", "design-lab"]);
     fs.writeFileSync(path.join(cwd, "CLAUDE.md"), "# My project\n");
     fs.writeFileSync(path.join(cwd, ".mcp.json"), JSON.stringify({ mcpServers: { other: { command: "x" } } }));
-    assert.equal((await nb(["agent", "setup", "claude"])).code, 7, "needs a yes");
-    assert.equal((await nb(["agent", "setup", "claude", "--yes"])).code, 0);
+    assert.equal((await nb(["agent", "setup", "claude", "--token", "mine"])).code, 7, "needs a yes");
+    assert.equal((await nb(["agent", "setup", "claude", "--token", "mine", "--yes"])).code, 0);
     const mcp = JSON.parse(fs.readFileSync(path.join(cwd, ".mcp.json"), "utf8"));
     assert.deepEqual(mcp.mcpServers.networkbase, { command: "npx", args: ["-y", "@networkbase/cli@2", "mcp"] });
     assert.ok(mcp.mcpServers.other, "keeps other servers");
     assert.match(fs.readFileSync(path.join(cwd, "CLAUDE.md"), "utf8"), /# My project\n\n<!-- networkbase:start -->\n## NetworkBase\nThis folder is linked to the NetworkBase workspace "Design Lab"/);
-    assert.match((await nb(["agent", "setup", "claude", "--yes"])).stdout, /already set up/);
+    assert.match((await nb(["agent", "setup", "claude", "--token", "mine", "--yes"])).stdout, /already set up/);
     assert.match((await nb(["agent", "status"])).stdout, /Claude Code\s+connected\s+added/);
     assert.equal((await nb(["agent", "remove", "claude", "--yes"])).code, 0);
     assert.equal(fs.readFileSync(path.join(cwd, "CLAUDE.md"), "utf8"), "# My project\n");
@@ -38,12 +38,25 @@ describe("nb agent setup (report A7.8, A7.9)", () => {
     fs.writeFileSync(path.join(codexHome, "config.toml"), 'model = "gpt-5"\n\n[mcp_servers.other]\ncommand = "y"\n');
     const nb = (/** @type {string[]} */ args) => runCli(args, { api: api.url, cwd, home, env: { CODEX_HOME: codexHome } });
     await nb(["init", "design-lab"]);
-    assert.equal((await nb(["agent", "setup", "codex", "--yes"])).code, 0);
+    assert.equal((await nb(["agent", "setup", "codex", "--token", "mine", "--yes"])).code, 0);
     const toml = fs.readFileSync(path.join(codexHome, "config.toml"), "utf8");
     assert.match(toml, /\[mcp_servers\.networkbase\]\ncommand = "npx"\nargs = \["-y", "@networkbase\/cli@2", "mcp"\]/);
     assert.ok(fs.existsSync(path.join(cwd, "AGENTS.md")));
     await nb(["agent", "remove", "codex", "--yes"]);
     assert.equal(fs.readFileSync(path.join(codexHome, "config.toml"), "utf8"), 'model = "gpt-5"\n\n[mcp_servers.other]\ncommand = "y"\n');
     assert.ok(!fs.existsSync(path.join(cwd, "AGENTS.md")), "the file it created is gone");
+  });
+
+  it("by default the agent gets its own workspace-bound sign-in, in its own profile", async () => {
+    const cwd = await tempDir("nb-agent-");
+    const home = await tempDir("nb-agent-home-");
+    await runCli(["init", "design-lab"], { api: api.url, cwd, home });
+    Object.assign(api.state.device, { answer: "approve", afterPolls: 1, tokenType: "agent" });
+    const r = await runCli(["agent", "setup", "claude", "--yes"], { api: api.url, cwd, home });
+    assert.equal(r.code, 0, r.stderr);
+    assert.deepEqual([api.state.device.lastBody.type, api.state.device.lastBody.agentName], ["agent", "Claude Code"]);
+    const mcp = JSON.parse(fs.readFileSync(path.join(cwd, ".mcp.json"), "utf8"));
+    assert.deepEqual(mcp.mcpServers.networkbase.args, ["-y", "@networkbase/cli@2", "mcp", "--profile", "agent-claude"]);
+    assert.match(fs.readFileSync(path.join(home, ".networkbase", "credentials.json"), "utf8"), /"agent-claude"/);
   });
 });
