@@ -37,6 +37,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { copyOrSay } from '@/lib/clipboard';
 
 interface MyWorkTasksTabProps {
     isActive?: boolean;
@@ -358,13 +359,8 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
         const projectId = task.project?.id || task.projectId;
         const projectIdentifier = task.project?.slug || projectId;
         const url = `${window.location.origin}/workspaces/${projectIdentifier}?tab=tasks`;
-        if (navigator?.clipboard?.writeText) {
-            navigator.clipboard.writeText(url).then(() => {
-                toast.success("Task link copied");
-            }).catch(() => {
-                toast.info("Task link copied");
-            });
-        }
+        // A failed copy used to say "copied" too; it says so now.
+        copyOrSay(url, () => toast.success("Task link copied"));
     };
 
     const handleOpenTaskInNewTab = (e: React.MouseEvent, task: MyWorkTask) => {

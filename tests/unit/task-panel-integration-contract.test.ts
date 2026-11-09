@@ -192,7 +192,8 @@ test("details tab supports Estimate with Fibonacci presets and clean un-carded d
     "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
   );
   assert.match(panel, /copiedTaskId/);
-  assert.match(panel, /navigator\.clipboard\.writeText/);
+  // 2026-11-09: copies go through copyText (falls back when the browser refuses); copyOrSay says when it fails.
+  assert.match(panel, /copyOrSay\(/);
   assert.match(panel, /Click to copy task link/);
 });
 

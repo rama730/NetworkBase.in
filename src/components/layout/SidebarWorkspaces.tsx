@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
+import { copyText } from "@/lib/clipboard";
 
 // Workspaces in the left navigation (docs/superpowers/plans/2026-11-05-sidebar-workspaces-findings.md): names only,
 // each organization a group with its workspaces one step in under a guide line, one "All workspaces" link, the
@@ -47,7 +48,7 @@ function RowMenu({ id, title, href, pinned, onPin }: { id: string; title: string
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="right" className="w-44">
                 <DropdownMenuItem onSelect={() => onPin(id, !pinned)}>{pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}{pinned ? "Unpin" : "Pin to top"}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void navigator.clipboard?.writeText(`${window.location.origin}${href}`).then(() => toast.success("Link copied"), () => toast.error("Couldn’t copy the link"))}><Link2 aria-hidden="true" />Copy link</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void copyText(`${window.location.origin}${href}`).then(() => toast.success("Link copied"), () => toast.error("Couldn’t copy the link"))}><Link2 aria-hidden="true" />Copy link</DropdownMenuItem>
                 <DropdownMenuItem asChild><a href={href} target="_blank" rel="noopener"><ExternalLink aria-hidden="true" />Open in new tab</a></DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

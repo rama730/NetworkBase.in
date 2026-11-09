@@ -15,6 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { TaskPanelSubtask } from "@/hooks/useTaskPanelResource";
+import { copyOrSay } from "@/lib/clipboard";
 
 type MutationResult = { success: boolean; error?: string };
 
@@ -175,11 +176,10 @@ export default function SubtasksTab({
   };
 
   const copySubtaskTitle = (subtask: TaskPanelSubtask) => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      void navigator.clipboard.writeText(subtask.title);
+    copyOrSay(subtask.title, () => {
       setCopiedId(subtask.id);
       setTimeout(() => setCopiedId(null), 1800);
-    }
+    });
   };
 
   const startEditing = (subtask: TaskPanelSubtask) => {

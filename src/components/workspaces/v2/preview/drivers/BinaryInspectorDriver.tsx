@@ -15,6 +15,7 @@ import type { WorkspaceNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";
 import { toast } from "@/lib/feedback";
 import { DownloadLink } from "@/components/ui/download-link";
+import { copyText } from "@/lib/clipboard";
 
 interface BinaryInspectorDriverProps {
   node: WorkspaceNode;
@@ -84,7 +85,7 @@ export function BinaryInspectorDriver({
   const copyHex = React.useCallback(async () => {
     if (!hexDump) return;
     try {
-      await navigator.clipboard.writeText(hexDump);
+      await copyText(hexDump);
       setCopied(true);
       toast.success("Hex dump copied");
       setTimeout(() => setCopied(false), 2000);

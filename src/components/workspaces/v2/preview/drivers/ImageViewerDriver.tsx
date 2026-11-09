@@ -21,6 +21,7 @@ import type { WorkspaceNode } from "@/lib/db/schema";
 import { extOf } from "../../utils/fileKind";
 import { toast } from "@/lib/feedback";
 import { DownloadLink } from "@/components/ui/download-link";
+import { copyText } from "@/lib/clipboard";
 
 interface ImageViewerDriverProps {
   node: WorkspaceNode;
@@ -122,6 +123,8 @@ export function ImageViewerDriver({
         setCopied(true);
         toast.success("Image copied");
         setTimeout(() => setCopied(false), 2000);
+      } else {
+        toast.error("This browser can’t copy images. Download it instead.");
       }
     } catch {
       toast.error("Couldn’t copy the image");
@@ -228,7 +231,7 @@ export function ImageViewerDriver({
   const copySvgSource = React.useCallback(async () => {
     if (!svgSource) return;
     try {
-      await navigator.clipboard.writeText(svgSource);
+      await copyText(svgSource);
       setCopied(true);
       toast.success("Code copied");
       setTimeout(() => setCopied(false), 2000);

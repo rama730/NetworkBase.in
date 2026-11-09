@@ -79,6 +79,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
+import { copyOrSay } from "@/lib/clipboard";
+import { toast } from "@/lib/feedback";
 
 const TONE_STATUS = { info: "active", warn: "draft", muted: "archived" } as const;
 
@@ -353,13 +355,10 @@ export default function TaskDetailPanel({
                               resource.task.taskNumber,
                             )
                           : "Task";
-                      if (typeof navigator !== "undefined" && navigator.clipboard) {
-                        void navigator.clipboard.writeText(
-                          `${window.location.origin}${projectTaskHref(projectSlug || projectId, resource.task.id)}`,
-                        );
-                      }
-                      setCopiedTaskId(true);
-                      setTimeout(() => setCopiedTaskId(false), 2000);
+                      copyOrSay(`${window.location.origin}${projectTaskHref(projectSlug || projectId, resource.task.id)}`, () => {
+                        setCopiedTaskId(true);
+                        setTimeout(() => setCopiedTaskId(false), 2000);
+                      });
                     }}
                     title="Click to copy task link"
                     aria-label="Copy task link"
@@ -436,7 +435,7 @@ export default function TaskDetailPanel({
                   <DropdownMenuContent align="end" className="z-[210] w-52">
                     <DropdownMenuItem
                       onSelect={() => {
-                        void navigator.clipboard?.writeText(`${window.location.origin}${projectTaskHref(projectSlug || projectId, resource.task.id)}`);
+                        copyOrSay(`${window.location.origin}${projectTaskHref(projectSlug || projectId, resource.task.id)}`, () => toast.success("Task link copied"));
                       }}
                     >
                       <Copy className="size-4" />

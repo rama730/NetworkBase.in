@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 import { DownloadLink } from "@/components/ui/download-link";
+import { copyText } from "@/lib/clipboard";
 
 export interface SheetData {
   name: string;
@@ -197,7 +198,7 @@ export function DataGridDriver({
 
   const copyCell = React.useCallback(async (text: string, coord: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       setCopiedCell(coord);
       toast.success("Cell value copied");
       setTimeout(() => setCopiedCell(null), 1500);
@@ -211,7 +212,7 @@ export function DataGridDriver({
       const headerLine = currentSheet.headers.join("\t");
       const dataLines = filteredRows.map((r) => r.join("\t")).join("\n");
       const tsv = `${headerLine}\n${dataLines}`;
-      await navigator.clipboard.writeText(tsv);
+      await copyText(tsv);
       toast.success(`Table copied`);
     } catch {
       toast.error("Couldn’t copy the table");

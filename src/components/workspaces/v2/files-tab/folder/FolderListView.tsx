@@ -88,6 +88,7 @@ import { validateUploadSelection } from "@/lib/files/upload-validator";
 import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
 import { downloadWorkspaceNode } from "../file/downloadWorkspaceNode";
 import { downloadFile, workspaceExportUrl } from "@/lib/download";
+import { copyText } from "@/lib/clipboard";
 
 const FilesTabUploadModal = dynamic(() => import("../upload/FilesTabUploadModal").then((mod) => mod.FilesTabUploadModal), { ssr: false });
 const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
@@ -839,7 +840,7 @@ export function FolderListView({
 
   const copyLink = React.useCallback(async (node: FolderListRowNode) => {
     const url = new URL(window.location.href); url.searchParams.set("tab", "files"); url.searchParams.set("fileId", node.id); url.searchParams.delete("path");
-    try { await navigator.clipboard.writeText(url.toString()); toast.success("File link copied"); } catch { toast.error("Couldn’t copy the link"); }
+    try { await copyText(url.toString()); toast.success("File link copied"); } catch { toast.error("Couldn’t copy the link"); }
   }, []);
 
   const openInspector = React.useCallback((node: FolderListRowNode, panel: string) => {

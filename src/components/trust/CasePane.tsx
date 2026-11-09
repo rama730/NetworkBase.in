@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { ACTION_LABEL, caseLabel, KIND_NOUN, REPORT_REASON_LABEL, ruleLabel, type ModerationActionKind, type Severity } from '@/lib/trust/rules'
+import { copyOrSay } from '@/lib/clipboard';
 
 const SEVERITY_TONE: Record<Severity, string> = { urgent: 'text-[var(--status-danger)]', high: 'text-[var(--status-warning)]', normal: 'text-muted-foreground' }
 const EVENT_TEXT: Record<string, string> = {
@@ -284,7 +285,7 @@ function CaseMenu({ c, onMerged }: { c: CaseDetail; onMerged: () => void }) {
                             <DropdownMenuSeparator />
                         </>
                     ) : null}
-                    <DropdownMenuItem onSelect={() => { void navigator.clipboard.writeText(`${window.location.origin}/admin/trust?case=${label}`); toast('Case link copied') }}>Copy case link</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => { copyOrSay(`${window.location.origin}/admin/trust?case=${label}`, () => toast('Case link copied')) }}>Copy case link</DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => run(() => legalHoldAction(c.id, !c.legal_hold), c.legal_hold ? 'Legal hold removed' : 'Legal hold added')}>{c.legal_hold ? 'Remove legal hold' : 'Add to legal hold'}</DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

@@ -35,6 +35,7 @@ import {
   type PersonalAccessTokenSummary,
 } from "@/app/actions/personal-access-tokens";
 import type { AuthConnectionMethod, ExtensionSessionData, ExtensionSessionsData, IntegrationsAuthProvider } from "@/types/settingsTypes";
+import { copyText } from "@/lib/clipboard";
 
 const PROVIDER_ICONS: Partial<Record<IntegrationsAuthProvider, string>> = {
   google: "/skill-icons/v1/logos-google-icon.svg",
@@ -114,7 +115,7 @@ function ExtensionAppCard() {
         size="sm"
         className="shrink-0 gap-1.5 font-mono text-xs"
         onClick={() => {
-          navigator.clipboard.writeText("npx @networkbase/cli init").then(
+          copyText("npx @networkbase/cli init").then(
             () => toast.success("Copied CLI setup command"),
             () => toast.warning("Couldn’t copy command"),
           );
@@ -637,7 +638,7 @@ export default function IntegrationsSettings() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        navigator.clipboard.writeText(generatedToken).then(
+                        copyText(generatedToken).then(
                           () => toast.success("Copied to clipboard"),
                           () => toast.warning("Couldn’t copy", { description: "Select the token and copy it by hand." }),
                         );
@@ -737,7 +738,7 @@ export default function IntegrationsSettings() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        navigator.clipboard.writeText(generatedPat).then(
+                        copyText(generatedPat).then(
                           () => toast.success("Copied to clipboard"),
                           () => toast.warning("Couldn’t copy"),
                         );

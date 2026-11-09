@@ -35,6 +35,8 @@ import { formatBytes } from "../../files-tab/folder/format";
 import { cn } from "@/lib/utils";
 import { DownloadLink } from "@/components/ui/download-link";
 import { saveBlob } from "@/lib/download";
+import { COPY_FAILED, copyText } from "@/lib/clipboard";
+import { toast } from "@/lib/feedback";
 
 interface MediaViewerDriverProps {
   node: WorkspaceNode;
@@ -608,10 +610,10 @@ export function MediaViewerDriver({
   }, []);
 
   const handleCopyLink = React.useCallback(() => {
-    navigator.clipboard.writeText(fileUrl).then(() => {
+    copyText(fileUrl).then(() => {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
-    }).catch(() => {});
+    }, () => toast.error(COPY_FAILED));
   }, [fileUrl]);
 
   const handleCopyTimestampLink = React.useCallback(() => {
@@ -619,11 +621,11 @@ export function MediaViewerDriver({
     const curSec = Math.floor(mediaRef.current?.currentTime ?? 0);
     const url = new URL(window.location.href);
     url.hash = `t=${curSec}`;
-    navigator.clipboard.writeText(url.toString()).then(() => {
+    copyText(url.toString()).then(() => {
       setCopiedTimestampLink(true);
       setTimeout(() => setCopiedTimestampLink(false), 2000);
       setShowShareMenu(false);
-    }).catch(() => {});
+    }, () => toast.error(COPY_FAILED));
   }, []);
 
   // Fullscreen change listener

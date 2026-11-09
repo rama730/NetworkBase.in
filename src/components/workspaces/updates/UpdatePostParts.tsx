@@ -15,6 +15,7 @@ import { patchUpdateEverywhere } from '@/hooks/useUpdateLive';
 import { WorkspaceUpdateLikersModal } from '@/components/workspaces/updates/WorkspaceUpdateLikersModal';
 import { cn } from '@/lib/utils';
 import type { UpdatePreview } from '@/lib/workspaces/update-previews';
+import { copyText } from '@/lib/clipboard';
 
 // The parts every post card shares, on Discover and on the Updates tab (UP9).
 
@@ -55,7 +56,7 @@ export function ShareUpdateButton({ path }: { path: string }) {
         await navigator.share({ url });
         return;
       }
-      await navigator.clipboard.writeText(url);
+      await copyText(url);
       toast.success('Link copied');
     } catch (error) {
       if ((error as Error)?.name !== 'AbortError') toast.error('Couldn’t copy the link');

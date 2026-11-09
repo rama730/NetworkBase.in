@@ -44,6 +44,7 @@ import { useFilesStore } from "@/stores/filesStore";
 import { Star, FolderInput, Trash2 } from "lucide-react";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 import { downloadWorkspaceNode } from "./downloadWorkspaceNode";
+import { copyText } from "@/lib/clipboard";
 
 const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
 const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
@@ -317,7 +318,7 @@ export function FileActionsBar({
     } else {
       url.hash = "";
     }
-    try { await navigator.clipboard.writeText(url.toString()); toast.success("File link copied", { description: "Recipients still need access." }); }
+    try { await copyText(url.toString()); toast.success("File link copied", { description: "Recipients still need access." }); }
     catch { toast.error("Couldn’t copy the link", { description: "Check browser clipboard permissions." }); }
   }
 

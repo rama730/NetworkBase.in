@@ -32,6 +32,7 @@ import type { MfaFactor, SecurityData } from "@/types/settingsTypes";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { formatCalendarDate, formatDateTime } from "@/lib/ui/date-formatting";
 import { saveBlob } from "@/lib/download";
+import { copyText } from "@/lib/clipboard";
 
 interface MfaSetupProps {
   initialFactors?: MfaFactor[];
@@ -263,7 +264,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
     if (!pendingFactor) return;
 
     try {
-      await navigator.clipboard.writeText(pendingFactor.secret);
+      await copyText(pendingFactor.secret);
       toast.success("Setup key copied");
     } catch {
       toast.error("Couldn’t copy the secret on this device");
@@ -273,7 +274,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
   const handleCopyRecoveryCodes = async () => {
     if (!revealedRecoveryCodes) return;
     try {
-      await navigator.clipboard.writeText(formatRecoveryCodesForExport(revealedRecoveryCodes.codes));
+      await copyText(formatRecoveryCodesForExport(revealedRecoveryCodes.codes));
       toast.success("Recovery codes copied");
     } catch {
       toast.error("Couldn’t copy the recovery codes on this device");

@@ -42,6 +42,7 @@ import { createVisibilityAwareInterval } from "@/lib/utils/visibility";
 import MentionComposer, { type MentionComposerHandle } from "../components/MentionComposer";
 import CommentBody from "../components/CommentBody";
 import { readSessionDraft, sessionDraftStore, useSessionDraft } from "@/hooks/useSessionDraft";
+import { copyOrSay } from "@/lib/clipboard";
 
 type CommentMutationResult = { success: boolean; error?: string };
 type PresenceStatus = "connecting" | "connected" | "disconnected" | "error";
@@ -155,16 +156,18 @@ function DiscussionEntry({
     const url = new URL(window.location.href);
     url.searchParams.set("panelTab", "comments");
     url.searchParams.set("commentId", entry.id);
-    void navigator.clipboard.writeText(url.toString());
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    copyOrSay(url.toString(), () => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    });
   };
 
   const handleCopyText = () => {
     if (typeof window === "undefined") return;
-    void navigator.clipboard.writeText(entry.content);
-    setCopiedText(true);
-    setTimeout(() => setCopiedText(false), 2000);
+    copyOrSay(entry.content, () => {
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
+    });
   };
 
   return (

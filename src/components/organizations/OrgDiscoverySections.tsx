@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { fieldError, fieldHint, fieldLabel } from '@/lib/organizations/display'
 import { Notice } from '@/components/ui/notice'
 import { VerifiedMark } from '@/components/organizations/org-ui'
+import { copyText } from '@/lib/clipboard';
 
 // Settings → Visibility and discovery (2026-11-05-org-address-discovery-verification-findings.md §4, §5, §10): how
 // outsiders find the organization — On Discover, the Web address and the Verified badge, each split by a hairline
@@ -31,7 +32,7 @@ const helpClass = fieldHint
 const linkClass = 'nb-link text-[13px]'
 const SITE = 'networkbase.in'
 
-const copy = (text: string, done: string) => void navigator.clipboard?.writeText(text).then(() => toast.success(done), () => toast.error('Couldn’t copy. Select it and copy it yourself.'))
+const copy = (text: string, done: string) => void copyText(text).then(() => toast.success(done), () => toast.error('Couldn’t copy. Select it and copy it yourself.'))
 
 /** One part of the rule: ✓ when met, otherwise what's missing and its action. */
 function Part({ met, label, missing, action }: { met: boolean; label: string; missing: string; action?: ReactNode }) {

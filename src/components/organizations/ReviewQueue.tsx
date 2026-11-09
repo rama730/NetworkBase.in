@@ -19,6 +19,7 @@ import { toast } from '@/lib/feedback'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { readUrlParam, useUrlMirror } from '@/lib/navigation/url-state'
+import { copyOrSay } from '@/lib/clipboard';
 
 // Review queue report (2026-11-04-review-queue-layout-findings.md): who's waiting on the left, the work in the middle
 // with the decision on its own header, and only the discussion on the right — on one 8px grid, the three tops level.
@@ -324,7 +325,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem asChild><a href={current.href}>Open the hand-in</a></DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(window.location.href).then(() => toast.success('Link copied.')).catch(() => undefined) }}>Copy link</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => { copyOrSay(window.location.href, () => toast.success('Link copied.')) }}>Copy link</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 )} />

@@ -22,6 +22,7 @@ import { getSessionIdentifierFromSession } from '@/lib/auth/session-identifier';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { SharePreviewCard } from './SharePreviewCard';
+import { copyText } from '@/lib/clipboard';
 
 export type SharePreviewResponse = { publicPreview: SharePreview; viewerPreview: SharePreview; viewerId: string | null };
 export async function fetchSharePreview(url: string, signal?: AbortSignal): Promise<SharePreviewResponse> {
@@ -113,7 +114,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
   const changeScope=(next:ConversationScope)=>{if(!pending.current){setScope(next);setTarget('');setMessage('');}};
   const copy = async () => {
     if (!canonicalUrl) return;
-    try { await navigator.clipboard.writeText(canonicalUrl); if (alive.current) { setManual(false); setMessage('Link copied'); } }
+    try { await copyText(canonicalUrl); if (alive.current) { setManual(false); setMessage('Link copied'); } }
     catch { if (alive.current) { setManual(true); setMessage('Select and copy the link manually.'); field.current?.focus(); field.current?.select(); } }
   };
   const nativeShare = async () => {

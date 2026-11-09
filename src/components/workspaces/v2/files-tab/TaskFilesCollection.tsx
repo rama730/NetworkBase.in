@@ -53,6 +53,7 @@ import {
 import { FileTypeChip } from "./FileTypeChip";
 import styles from "./folder/FolderList.module.css";
 import { cn } from "@/lib/utils";
+import { copyOrSay } from "@/lib/clipboard";
 
 function deliverableReviewLabel(
   entry: TaskCollectionEntry,
@@ -951,8 +952,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                                 url.searchParams.set("tab", "files");
                                 url.searchParams.set("filesView", view);
                                 url.searchParams.set("filesTask", group.id);
-                                void navigator.clipboard.writeText(url.toString());
-                                toast.success("Task link copied");
+                                copyOrSay(url.toString(), () => toast.success("Task link copied"));
                               }}
                             >
                               <Link2 className="mr-2 size-4 text-muted-foreground" />

@@ -15,6 +15,7 @@ import {
     OTHER_WORKSPACE_TYPE_ID,
     WORKSPACE_TYPE_OPTIONS,
 } from "@/lib/workspaces/workspace-create-options";
+import { copyText } from '@/lib/clipboard';
 
 export function SettingsCard({
     title,
@@ -136,9 +137,9 @@ export function ReadOnlySlugField({ slug }: { slug: string }) {
     const normalizedSlug = slug.trim() || "Not set";
     const handleCopy = useCallback(async () => {
         const trimmedSlug = slug.trim();
-        if (!trimmedSlug || typeof navigator === "undefined" || !navigator.clipboard?.writeText) return;
+        if (!trimmedSlug) return;
         try {
-            await navigator.clipboard.writeText(trimmedSlug);
+            await copyText(trimmedSlug);
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1600);
         } catch (error) {
