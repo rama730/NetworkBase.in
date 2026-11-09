@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { docTitle } from "@/lib/organizations/doc-rules";
 import { profiles, workspaceMembers, workspaces, workspaceSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
-import { copyState } from "@/lib/organizations/assignment-rules";
+import { copyState, lateAfterMs } from "@/lib/organizations/assignment-rules";
 import { reviewRow } from "@/lib/organizations/dashboard-rules";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { memberStatus } from "@/lib/organizations/member-rules";
@@ -219,8 +219,9 @@ export async function readMemberStanding(orgId: string, now: Date) {
         db.select({ userId: workspaceMembers.userId, joinedAt: workspaceMembers.joinedAt, lastActiveAt: workspaceMembers.lastActiveHereAt })
             .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
             .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, 'member'), isNull(profiles.deletedAt))),
-        db.execute<{ id: string; assignee_id: string | null; status: string; review_status: string; due_date: Date | null; review_submitted_at: Date | null; completed_at: Date | null; excused_at: Date | null; sprint_id: string | null }>(sql`
-            SELECT c.id, c.assignee_id, c.status, c.review_status, c.due_date, c.review_submitted_at, c.completed_at, c.excused_at, m.sprint_id
+        db.execute<{ id: string; assignee_id: string | null; status: string; review_status: string; due_date: Date | null; review_submitted_at: Date | null; completed_at: Date | null; excused_at: Date | null; sprint_id: string | null; late_after: number | null }>(sql`
+            SELECT c.id, c.assignee_id, c.status, c.review_status, c.due_date, c.review_submitted_at, c.completed_at, c.excused_at, m.sprint_id,
+                   (m.assignment_settings->>'lateAfterMinutes')::int AS late_after
             FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${orgId} AND m.deleted_at IS NULL
             WHERE c.deleted_at IS NULL`),
         db.select({ taskId: taskTeamMembers.taskId, userId: taskTeamMembers.userId }).from(taskTeamMembers)
@@ -234,7 +235,8 @@ export async function readMemberStanding(orgId: string, now: Date) {
     for (const t of teams) teamOf.set(t.taskId, [...(teamOf.get(t.taskId) ?? []), t.userId]);
     for (const c of copies) {
         const date = (d: Date | string | null) => (d ? new Date(d) : null);
-        if (copyState({ status: c.status, reviewStatus: c.review_status, dueDate: date(c.due_date), submittedAt: date(c.review_submitted_at), completedAt: date(c.completed_at), excusedAt: date(c.excused_at) }, now).state === 'missing') {
+        // Audit N76: the assignment's own Late after, as the Members tab counts it.
+        if (copyState({ status: c.status, reviewStatus: c.review_status, dueDate: date(c.due_date), submittedAt: date(c.review_submitted_at), completedAt: date(c.completed_at), excusedAt: date(c.excused_at) }, now, lateAfterMs({ lateAfterMinutes: c.late_after ?? undefined })).state === 'missing') {
             add(c.assignee_id, c.sprint_id);
             for (const userId of teamOf.get(c.id) ?? []) add(userId, c.sprint_id);
         }

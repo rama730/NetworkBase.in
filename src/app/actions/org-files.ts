@@ -11,7 +11,7 @@ import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { effectiveAccess, folderAccessBlock, readFolderAccess, type FolderAccess } from '@/lib/organizations/file-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { ORG_LIMITS } from '@/lib/organizations/config';
-import { copyState } from '@/lib/organizations/assignment-rules';
+import { copyState, lateAfterMs } from '@/lib/organizations/assignment-rules';
 import { orgGrant, type OrgAction } from '@/lib/organizations/permissions';
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms';
 import { scheduleAssetDeletionIfUnreferenced } from '@/lib/storage/asset-deletion';
@@ -286,8 +286,9 @@ export async function readOrgSubmissionsAction(orgId: string): Promise<{ success
     if (!(await orgAdmin(orgId, 'read', 'download_all'))) return DENIED;
     const rows = await db.execute<{ master_id: string; title: string; master_due: string | null; copy_id: string; who: string; files: number; version: number | null;
         status: string; review_status: string; due_date: string | null; submitted_at: string | null; completed_at: string | null; excused_at: string | null;
-        by: string | null; project_id: string; avatar_url: string | null; team: boolean; review_required: boolean; closed: boolean }>(sql`
+        by: string | null; project_id: string; avatar_url: string | null; team: boolean; review_required: boolean; closed: boolean; late_after: number | null }>(sql`
         SELECT m.id AS master_id, m.title, m.due_date::text AS master_due, c.id AS copy_id, c.workspace_id AS project_id,
+               (m.assignment_settings->>'lateAfterMinutes')::int AS late_after,
                (SELECT coalesce(pr.full_name, pr.username) FROM profiles pr WHERE pr.id = (c.submission->>'by')::uuid) AS by,
                (SELECT pr.avatar_url FROM profiles pr WHERE pr.id = c.assignee_id AND c.team_name IS NULL) AS avatar_url,
                (c.team_name IS NOT NULL OR c.workspace_id <> m.workspace_id) AS team,
@@ -304,7 +305,8 @@ export async function readOrgSubmissionsAction(orgId: string): Promise<{ success
     const groups = new Map<string, SubmissionGroup>();
     const at = (v: string | null) => (v ? new Date(v) : null);
     for (const r of rows) {
-        const { state, late } = copyState({ status: r.status, reviewStatus: r.review_status, dueDate: at(r.due_date), submittedAt: at(r.submitted_at), completedAt: at(r.completed_at), excusedAt: at(r.excused_at) });
+        // Audit N76: each assignment's own Late after, as its roster and list use.
+        const { state, late } = copyState({ status: r.status, reviewStatus: r.review_status, dueDate: at(r.due_date), submittedAt: at(r.submitted_at), completedAt: at(r.completed_at), excusedAt: at(r.excused_at) }, new Date(), lateAfterMs({ lateAfterMinutes: r.late_after ?? undefined }));
         const group = groups.get(r.master_id) ?? { id: r.master_id, title: r.title, dueDate: r.master_due, rows: [], reviewRequired: r.review_required, closed: r.closed };
         // Files report D2: accepted work reads Approved when the assignment needs review, as on the board.
         const status = state === 'done' && r.review_required ? 'Approved' : ASSIGNMENT_STATE_LABELS[state];

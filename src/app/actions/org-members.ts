@@ -12,7 +12,7 @@ import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { formatDueDay } from '@/lib/organizations/notify-rules';
 import { zonedInputToIso } from '@/lib/organizations/zoned-time';
-import { copyState } from '@/lib/organizations/assignment-rules';
+import { copyState, lateAfterMs } from '@/lib/organizations/assignment-rules';
 import { createCopiesAfterJoin, createCopiesForNewMember, handedInSql, releaseCopiesOnLeave } from '@/lib/organizations/assignments';
 import { ORG_LIMITS, orgRoleNames } from '@/lib/organizations/config';
 import { buildOrgEmail } from '@/lib/email/org-templates';
@@ -109,7 +109,8 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
             .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))),
         db.select({ id: workspaceOpenRoles.id, projectId: workspaceOpenRoles.projectId, title: sql<string>`coalesce(${workspaceOpenRoles.title}, ${workspaceOpenRoles.role})` })
             .from(workspaceOpenRoles).innerJoin(workspaces, eq(workspaces.id, workspaceOpenRoles.projectId)).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))),
-        db.select({ id: tasks.id, assigneeId: tasks.assigneeId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt })
+        db.select({ id: tasks.id, assigneeId: tasks.assigneeId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt,
+            lateAfter: sql<number | null>`(SELECT (m.assignment_settings->>'lateAfterMinutes')::int FROM tasks m WHERE m.id = ${tasks.assignmentId})` })
             .from(tasks).where(and(ofOrgMasters(orgId), isNull(tasks.deletedAt))),
         db.select({ taskId: taskTeamMembers.taskId, userId: taskTeamMembers.userId }).from(taskTeamMembers)
             .innerJoin(tasks, eq(tasks.id, taskTeamMembers.taskId)).where(and(ofOrgMasters(orgId), isNull(tasks.deletedAt))),
@@ -130,7 +131,8 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
         SELECT profile_id AS id FROM profile_contributions WHERE workspace_id = ${orgId} AND verified_at IS NOT NULL AND deleted_at IS NULL`)).map((r) => r.id));
 
     const now = new Date();
-    const stateByCopy = new Map(copies.map((c) => [c.id, copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now).state]));
+    // Audit N76: each assignment's own Late after, so Behind matches the assignment's roster.
+    const stateByCopy = new Map(copies.map((c) => [c.id, copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now, lateAfterMs({ lateAfterMinutes: c.lateAfter ?? undefined })).state]));
     const copiesByUser = new Map<string, Set<string>>();
     const addCopy = (userId: string | null, copyId: string) => {
         if (!userId) return;

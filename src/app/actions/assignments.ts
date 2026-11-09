@@ -892,7 +892,7 @@ export async function listAssignmentsAction(orgId: string, options: { masterId?:
         const counts = emptyCounts();
         let mine: AssignmentRow['mine'] = null;
         for (const c of copiesOf.get(m.id) ?? []) {
-            const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now);
+            const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now, lateAfterMs(settings));
             counts[s.state] += 1;
             if (s.state !== 'excused') counts.total += 1;
             // Their own date, marked Extended when it isn't the assignment's (report §42.10 problem 14).
@@ -901,7 +901,7 @@ export async function listAssignmentsAction(orgId: string, options: { masterId?:
         }
         const teamPeople = settings.target.mode === 'teams' ? (copiesOf.get(m.id) ?? []).reduce((acc, c) => {
             const size = Math.max(1, teamSizes.get(c.id) ?? 0);
-            const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now);
+            const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now, lateAfterMs(settings));
             return s.state === 'excused' ? acc : { done: acc.done + (s.state === 'done' ? size : 0), total: acc.total + size };
         }, { done: 0, total: 0 }) : undefined;
         return {
@@ -1046,7 +1046,7 @@ export async function listWorkspaceGroupCopiesAction(projectId: string): Promise
         success: true,
         rows: copies.map((c) => ({
             copyId: c.id, title: c.title, orgTitle: c.orgTitle, dueDate: c.dueDate?.toISOString() ?? null,
-            ...copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now),
+            ...copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now, c.settings ? lateAfterMs(c.settings) : undefined),
             submissionType: c.settings?.submissionType ?? 'none',
             canSubmit: c.assigneeId === userId,
         })),
