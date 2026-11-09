@@ -113,6 +113,14 @@ export const COMMANDS = [
   { group: "Tasks", name: "comment add", summary: "Comment on a task", usage: "nb comment add -m \"<text>\" [--task 4]", module: "tasks", fn: "commentAdd", flags: { ...TASK, ...MESSAGE } },
 
   // Docs and workspaces
+  { group: "Agents", name: "ask", summary: "Ask a person a question in NetworkBase (and wait for the answer)", usage: "nb ask \"<question>\" --option A --option B [--to me|assignee|reviewer] [--task 4] [--wait]", module: "ask", fn: "ask",
+    flags: { option: { type: "string", multiple: true, describe: "An answer to offer (2–4; the first is recommended). \"Label: description\"", valueName: "text" }, to: { type: "string", describe: "me (default), assignee or reviewer", valueName: "who" },
+      ...TASK, header: { type: "string", describe: "Short label, up to 12 characters", valueName: "text" }, context: { type: "string", describe: "What it's about", valueName: "text" },
+      wait: { type: "boolean", describe: "Wait for the answer" }, timeout: { type: "string", describe: "Seconds to wait (default 600)", valueName: "s" } },
+    examples: ["nb ask \"Export as CSV or Excel?\" --option CSV --option Excel --to reviewer --task 4 --wait"], exit: [0, 1, 8] },
+  { group: "Agents", name: "ask wait", summary: "Wait for the answer to a question", usage: "nb ask wait <id> [--timeout 600]", module: "ask", fn: "askWait", flags: { timeout: { type: "string", describe: "Seconds to wait (default 600)", valueName: "s" } }, exit: [0, 1, 8] },
+  { group: "Agents", name: "ask list", summary: "Questions agents asked you", usage: "nb ask list", module: "ask", fn: "askList" },
+  { group: "Agents", name: "ask answer", summary: "Answer a question an agent asked you", usage: "nb ask answer <id> <option number or text>", module: "ask", fn: "askAnswer" },
   { group: "Agents", name: "agent setup", summary: "Connect Claude Code, Codex or Cursor to this workspace (asks first)", usage: "nb agent setup claude|codex|cursor", module: "agent", fn: "setup",
     examples: ["nb agent setup claude", "nb agent setup codex"] },
   { group: "Agents", name: "agent status", summary: "Which agents are connected here", usage: "nb agent status", module: "agent", fn: "status" },

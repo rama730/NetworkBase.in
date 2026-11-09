@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { inArray } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { holdAgentWrites } from "@/lib/agents/notifications";
 import {
     createNotification,
     getNotificationPreferencesMap,
@@ -93,7 +94,8 @@ export type NotificationFanoutEnqueueResult = {
 };
 
 export async function enqueueNotificationFanout(event: NotificationFanoutEvent): Promise<NotificationFanoutEnqueueResult> {
-    const writes = normalizeWrites(event.writes);
+    // An agent session's notifications wait for one summary (report A11.6).
+    const writes = await holdAgentWrites(normalizeWrites(event.writes), event.source);
     if (writes.length === 0) return { enqueued: 0 };
 
     const payload: NotificationFanoutEvent = {

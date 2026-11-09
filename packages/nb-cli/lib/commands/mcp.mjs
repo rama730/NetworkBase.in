@@ -116,4 +116,6 @@ export async function serve(ctx, io = {}) {
     running.add(job);
   }
   await Promise.all(running);
+  // The agent disconnected: send its held notifications now as one summary (report A11.6). Best effort.
+  await ctx.api.post("/api/v1/agent-sessions/end", {}).catch(() => {});
 }

@@ -12,7 +12,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { extensionDeviceSessions } from "@/lib/db/schema";
 
-export type RequestVia = { via: "cli" | "agent"; agentName: string | null } | null;
+export type RequestVia = { via: "cli" | "agent"; agentName: string | null; sessionId?: string | null } | null;
 
 const memo = new WeakMap<object, Promise<RequestVia>>();
 
@@ -21,11 +21,11 @@ async function resolve(authorization: string | null): Promise<RequestVia> {
   if (!/^nb_(dev|pat|agt)_/.test(token)) return null;
   if (!token.startsWith("nb_agt_")) return { via: "cli", agentName: null };
   const [row] = await db
-    .select({ agentName: extensionDeviceSessions.agentName })
+    .select({ agentName: extensionDeviceSessions.agentName, id: extensionDeviceSessions.id })
     .from(extensionDeviceSessions)
     .where(eq(extensionDeviceSessions.tokenHash, crypto.createHash("sha256").update(token).digest("hex")))
     .limit(1);
-  return { via: "agent", agentName: row?.agentName ?? null };
+  return { via: "agent", agentName: row?.agentName ?? null, sessionId: row?.id ?? null };
 }
 
 export async function requestVia(): Promise<RequestVia> {

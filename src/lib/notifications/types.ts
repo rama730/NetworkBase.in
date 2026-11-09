@@ -37,7 +37,13 @@ export type NotificationKind =
     | "org_announcement"
     | "org_credit"
     /** Reports, decisions, restrictions and appeals (docs/trust-and-safety-concept.md). Always delivered. */
-    | "trust_safety";
+    | "trust_safety"
+    /** An AI agent asks the person something (report §20.4, §26.4). Sent at once. */
+    | "agent_question"
+    /** One summary of what an agent session changed (report A11.6). */
+    | "agent_session_summary"
+    /** A task was finished with a report and is waiting for review (report A2.10). */
+    | "task_report_submitted";
 
 export type NotificationImportance = "important" | "more";
 

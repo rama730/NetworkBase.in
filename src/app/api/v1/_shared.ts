@@ -121,6 +121,7 @@ function deniedPrincipal(response: ReturnType<typeof jsonError>) {
     extensionSessionId: null as string | null,
     tokenScopes: null as Set<TokenScope> | null,
     tokenWorkspaceId: null as string | null,
+    tokenKind: null as "device" | "agent" | "pat" | null,
     response: response as ReturnType<typeof jsonError> | null,
   };
 }
@@ -385,6 +386,7 @@ export async function requireAuthenticatedUser() {
         extensionSessionId: null,
         tokenScopes: null,
         tokenWorkspaceId: null,
+        tokenKind: null,
         response: jsonError("Invalid or expired editor session", 401, "UNAUTHORIZED"),
       };
     }
@@ -399,6 +401,7 @@ export async function requireAuthenticatedUser() {
         extensionSessionId: null,
         tokenScopes: null,
         tokenWorkspaceId: null,
+        tokenKind: null,
         response: jsonError("Editor session verification failed", 401, "UNAUTHORIZED"),
       };
   }
@@ -415,6 +418,7 @@ export async function requireAuthenticatedUser() {
       extensionSessionId: null as string | null,
       tokenScopes: null as Set<TokenScope> | null,
       tokenWorkspaceId: null as string | null,
+      tokenKind: null as "device" | "agent" | "pat" | null,
       response: jsonError("Sign in to continue", 401, "UNAUTHORIZED"),
     };
   }
@@ -424,6 +428,7 @@ export async function requireAuthenticatedUser() {
     extensionSessionId: null as string | null,
     tokenScopes: null as Set<TokenScope> | null,
     tokenWorkspaceId: null as string | null,
+    tokenKind: null as "device" | "agent" | "pat" | null,
     response: null as ReturnType<typeof jsonError> | null,
   };
 }

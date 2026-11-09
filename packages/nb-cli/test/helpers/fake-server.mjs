@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -58,6 +58,13 @@ const exact = {
     return { data: { revoked: true } };
   },
   "POST /api/v1/extension/auth-code": (req) => (req.body?.code === "good-code" && req.body?.codeVerifier ? { data: { token: TOKEN } } : fail(401, "UNAUTHORIZED", "Bad code")),
+  "POST /api/v1/agent-sessions/end": (_req, state) => { state.sessionsEnded += 1; return { data: { sent: 0 } }; },
+  "POST /api/v1/questions": (req, state) => {
+    const q = { schema: "nb.question/1", id: crypto.randomUUID(), workspaceId: req.body.projectId, taskId: req.body.taskId ?? null, to: req.body.to ?? "me", agentName: null, context: req.body.context ?? null, questions: req.body.questions, status: "open", answer: /** @type {any} */ (null), polls: 0 };
+    state.questions.push(q);
+    return { data: q };
+  },
+  "GET /api/v1/questions": (_req, state) => ({ data: { questions: state.questions.filter((q) => q.status === "open") } }),
   "POST /api/v1/device/code": (req, state) => {
     state.device.lastBody = req.body;
     state.device.polls = 0;
@@ -167,6 +174,20 @@ const exact = {
 
 /** Routes with ids in the path. @type {Array<[RegExp, string, Handler]>} */
 const patterns = [
+  [/^\/api\/v1\/questions\/([^/]+)$/, "GET", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
+    const q = state.questions.find((x) => x.id === req.params[0]);
+    if (!q) return fail(404, "NOT_FOUND", "Question not found");
+    // The person answers on the second wait, like someone opening the notification.
+    q.polls += 1;
+    if (q.status === "open" && state.autoAnswer && q.polls >= 2) Object.assign(q, { status: "answered", answer: { [q.questions[0].key]: state.autoAnswer } });
+    return { data: q };
+  }],
+  [/^\/api\/v1\/questions\/([^/]+)\/answer$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
+    const q = state.questions.find((x) => x.id === req.params[0]);
+    if (!q || q.status !== "open") return fail(409, "CONFLICT", "Already answered");
+    Object.assign(q, { status: "answered", answer: req.body.answers });
+    return { data: q };
+  }],
   [/^\/api\/v1\/undo\/([^/]+)$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
     const op = state.undos.get(req.params[0] ?? "");
     if (!op) return fail(410, "EXPIRED", "Nothing to undo: it was undone already, is older than 24 hours, or isn't yours");
@@ -190,7 +211,7 @@ const patterns = [
  */
 export async function startFakeServer({ routes = {}, fault = {} } = {}) {
   /** @type {FakeState} */
-  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" }, undos: new Map(), undone: [] };
+  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" }, undos: new Map(), undone: [], questions: [], autoAnswer: /** @type {string | null} */ (null), sessionsEnded: 0 };
   /** @type {FakeRequest[]} */
   const requests = [];
   const faults = new Map(Object.entries(fault));

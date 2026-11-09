@@ -49,6 +49,10 @@ Tasks
   comment add      Comment on a task
 
 Agents
+  ask              Ask a person a question in NetworkBase (and wait for the answer)
+  ask wait         Wait for the answer to a question
+  ask list         Questions agents asked you
+  ask answer       Answer a question an agent asked you
   agent setup      Connect Claude Code, Codex or Cursor to this workspace (asks first)
   agent status     Which agents are connected here
   agent remove     Disconnect an agent and remove its NetworkBase notes

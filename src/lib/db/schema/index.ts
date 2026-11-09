@@ -5338,6 +5338,43 @@ export const extensionDeviceSessions = pgTable("extension_device_sessions", {
     .where(sql`${t.revokedAt} IS NULL`),
 }));
 
+/** An agent asking a person something (0075, report §20.4, §26.4). */
+export const agentQuestions = pgTable("agent_questions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+  askerUserId: uuid("asker_user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  askerSessionId: uuid("asker_session_id"),
+  agentName: text("agent_name"),
+  toRole: text("to_role").$type<"me" | "assignee" | "reviewer">().notNull(),
+  toUserId: uuid("to_user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  context: text("context"),
+  questions: jsonb("questions").$type<unknown[]>().notNull(),
+  answer: jsonb("answer").$type<Record<string, unknown>>(),
+  status: text("status").$type<"open" | "answered" | "cancelled">().default("open").notNull(),
+  answeredBy: uuid("answered_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  answeredAt: timestamp("answered_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
+/** "Mute this agent on this task" (0075, report §26.4). */
+export const agentQuestionMutes = pgTable("agent_question_mutes", {
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  sessionId: uuid("session_id").notNull(),
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.userId, t.sessionId, t.taskId] }) }));
+
+/** Notifications from an agent session, held for one summary (0075, report A11.6). */
+export const agentNotificationBuffer = pgTable("agent_notification_buffer", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull(),
+  recipientUserId: uuid("recipient_user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  write: jsonb("write").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /** A "yes" token is used once (0074, report A2.8). */
 export const agentConfirmationsUsed = pgTable("agent_confirmations_used", {
   tokenHash: text("token_hash").primaryKey(),

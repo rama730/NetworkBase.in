@@ -34,6 +34,7 @@ function getWorkerOnlyFunctions() {
   const { storageAssetBackup } = loadModule("./functions/storage-asset-backup");
   const { trustUrgentAlert, trustDecisionNotices, trustDeadlines, trustRestrictions, trustDailySummary, trustRetention } = loadModule("./functions/trust-safety");
   const { reportFailureToSentry } = loadModule("./functions/report-failure-to-sentry");
+  const { agentNotificationFlush } = loadModule("./functions/agent-notifications");
 
   return [
     projectImport,
@@ -58,6 +59,7 @@ function getWorkerOnlyFunctions() {
     refreshSocialGraphSuggestionsForCandidate,
     notificationsRetention,
     notificationsRetentionWatchdog,
+    agentNotificationFlush,
     notificationFanout,
     notificationPushDelivery,
     emailDelivery,

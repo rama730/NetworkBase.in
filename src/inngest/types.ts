@@ -86,6 +86,8 @@ type ConnectionsRefreshSuggestionCandidateEvent = {
 
 export const schemas = new EventSchemas().fromRecord<{
     "workspace/import": ProjectImportEvent;
+    /** An agent session held a notification for its summary (report A11.6). */
+    "agent/notifications.held": { data: { sessionId: string } };
     /** Old name (report §12.5): queued before the rename; drop after one release. */
     "project/import": ProjectImportEvent;
     "workspace/import.hydrate": ProjectImportEvent;

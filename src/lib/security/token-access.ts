@@ -120,6 +120,12 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/workspaces/${ID}/docs/${ID}`), read: "workspace:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/manifest`), read: "file:read", agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/image`), read: "workspace:read" },
+  // Agents asking people (report §20.4); the routes check the workspace and who may answer.
+  { pattern: route("/api/v1/questions"), read: "task:read", write: "task:write", agent: "route" },
+  { pattern: route(`/api/v1/questions/${ID}`), read: "task:read", agent: "route" },
+  { pattern: route(`/api/v1/questions/${ID}/(answer|mute)`), write: "task:write", agent: "route" },
+  // The agent disconnected: send its held notifications (report A11.6).
+  { pattern: route("/api/v1/agent-sessions/end"), write: null, agent: "self" },
   // Undo a change made with this person's token (report A2.9); the route checks the workspace.
   { pattern: route(`/api/v1/undo/${ID}`), write: null, agent: "route" },
 ];

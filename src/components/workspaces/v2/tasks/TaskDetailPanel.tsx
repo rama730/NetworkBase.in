@@ -81,6 +81,7 @@ import {
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { copyOrSay } from "@/lib/clipboard";
 import { toast } from "@/lib/feedback";
+import { TaskAgentQuestions } from "@/components/questions/TaskAgentQuestions";
 
 const TONE_STATUS = { info: "active", warn: "draft", muted: "archived" } as const;
 
@@ -326,6 +327,7 @@ export default function TaskDetailPanel({
           className="bottom-0 left-auto right-0 top-0 z-[201] flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 border-l border-border bg-card p-0 shadow-2xl sm:w-[580px] sm:max-w-[580px]"
         >
           <DialogTitle className="sr-only">{resource.task.title}</DialogTitle>
+          <TaskAgentQuestions taskId={resource.task.id} />
           <div className="flex-shrink-0 border-b border-border">
             {deleteError ? (
               <div className="mx-4 mt-4 rounded-[5px] border border-destructive/20 md:mx-6 bg-destructive/10 px-3 py-2 text-xs text-destructive">
