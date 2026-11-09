@@ -545,13 +545,25 @@ Checked in the built-in browser, signed in, on the local dev server (port 3001),
 - **Not-found and Terms pages** have their own arrow.
 - **Back** returns to the same history entry and exact position on Discover, Network, a workspace and My profile, with no loading screen.
 
-### Not checked in the browser yet
-- The motion itself, frame by frame, and reduce motion.
-- Drawers closing on back (task, My work, media, member, Trust case).
-- Reopening the search on back.
-- The GitHub round trip.
-- The upload warning.
-- Sign-out and then back.
-- Half-typed comments.
-- Edit profile save → back.
-- Offline back.
+### Checked in Chrome (2026-11-09, localhost:3000, 62 frames/s)
+- **Motion:** opening a workspace from Discover, the slot grows 4 → 44 px over about 170 ms while the search narrows 316 → 276 px with its right edge fixed (576 px). Going back reverses it.
+  - Two fixes were needed:
+    - the first move jumped with no motion, because the animate flag came one render late;
+    - the fixed-width search slid right instead of narrowing.
+  - Your dev server didn't pick up the CSS change (its built stylesheet dates from 07:03), so the narrowing was checked with the rule added to the page by hand. It shows normally after a dev-server restart.
+- **Tabs:** switching tabs on a workspace adds no history step.
+- **Task drawer:**
+  - opening adds one marked step;
+  - back closes it and stays on Tasks;
+  - Esc closes it and takes that step back;
+  - forward reopens it.
+- **Back to search:** back reopens the search with the same query and the opened result highlighted. Fixed: the top bar had re-subscribed on every address change and missed the back step.
+- **Kept comments:** a half-typed task comment was saved, survived back and forward, and came back in the box. (The test draft was cleared afterwards.)
+- **Browser tab titles:** an open task shows its name in the browser tab title.
+
+### Not checked in the browser
+- **Edit profile save → back, and the upload warning:** both change real data (a profile save, a file upload), so they weren't run.
+- **Sign-out → back:** this needs signing you out.
+- **Offline back:** the browser tools can't switch the network off.
+- **The GitHub round trip:** needs your GitHub sign-in.
+- **Reduced motion, frame by frame.**
