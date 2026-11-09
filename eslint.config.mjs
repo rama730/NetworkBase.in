@@ -94,6 +94,13 @@ const eslintConfig = defineConfig([
       "react-hooks/globals": "off",
     },
   },
+  {
+    // CLI modules return data; only the entry file and the printers write to the
+    // terminal, so stray output can't corrupt --json or the MCP stdio stream (report F5, A13.3).
+    files: ["packages/nb-cli/lib/**/*.mjs"],
+    ignores: ["packages/nb-cli/lib/print/**"],
+    rules: { "no-console": "error" },
+  },
 ]);
 
 export default eslintConfig;
