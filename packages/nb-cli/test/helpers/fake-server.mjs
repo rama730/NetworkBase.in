@@ -2,6 +2,12 @@
 // shapes (Phase 1: /me, /files/place, /workspaces/:id/manifest, /tasks/count, docs; and the extension routes).
 import http from "node:http";
 import crypto from "node:crypto";
+import fs from "node:fs";
+
+import { validate } from "./json-schema.mjs";
+
+/** The real server's request schemas (generated, schema/api.json): a body it would refuse is refused here too. */
+const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", import.meta.url), "utf8")).operations;
 
 /** @typedef {"drop" | "429" | "503" | "slow" | "corrupt"} Fault */
 /** @typedef {{ method: string, path: string, query: URLSearchParams, headers: http.IncomingHttpHeaders, body: any, params: string[] }} FakeRequest */
@@ -187,6 +193,14 @@ export async function startFakeServer({ routes = {}, fault = {} } = {}) {
     /** @type {FakeRequest} */
     const fakeReq = { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, headers: req.headers, body, params: [] };
     requests.push(fakeReq);
+
+    const bodySchema = API_SCHEMAS[`${fakeReq.method} ${url.pathname}`];
+    const problems = bodySchema ? validate(bodySchema, body) : [];
+    if (problems.length) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ success: false, errorCode: "BAD_REQUEST", message: `The real server would refuse this body: ${problems.slice(0, 5).join("; ")}` }));
+      return;
+    }
 
     const f = faults.get(url.pathname);
     if (f === "drop") { req.socket.destroy(); return; }

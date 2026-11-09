@@ -3,6 +3,7 @@ import { z } from "zod";
 import { enforceRouteLimit, getRequestId, jsonError, jsonSuccess } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { pollDeviceCode } from "@/lib/extension/device-codes";
+import { deviceTokenSchema } from "@/lib/api/v1-schemas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +11,6 @@ export const dynamic = "force-dynamic";
 // CSRF exemption: no cookies; the caller proves itself with the 256-bit device code only the terminal holds.
 const csrfProtection = "device-code-bearer" as const;
 void csrfProtection;
-
-const schema = z.object({ deviceCode: z.string().min(20).max(200) });
 
 /**
  * The terminal polls every few seconds (report A3.1): pending, slow_down, denied, expired, or approved with the
@@ -21,7 +20,7 @@ export async function POST(request: Request) {
   const limited = await enforceRouteLimit(request, "api:v1:device:token", 60, 60);
   if (limited) return limited;
   try {
-    const parsed = schema.safeParse(await request.json().catch(() => null));
+    const parsed = deviceTokenSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return jsonError("Invalid sign-in code", 400, "BAD_REQUEST");
     const result = await pollDeviceCode(parsed.data.deviceCode);
     if (result.status === "denied") return jsonError("Sign-in was denied in the browser", 403, "FORBIDDEN", { status: "denied" });

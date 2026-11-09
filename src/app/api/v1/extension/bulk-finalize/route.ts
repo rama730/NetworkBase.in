@@ -18,23 +18,10 @@ import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { FILE_REVISION_MODES, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
 import { validateCsrf } from "@/lib/security/csrf";
 import { recordExtensionMetric } from "@/lib/extension/observability";
+import { bulkFinalizeItemSchema, bulkFinalizeSchema } from "@/lib/api/v1-schemas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const bulkFinalizeItemSchema = z.object({
-  path: z.string().min(1).max(2_048),
-  uploadIntentId: z.string().uuid(),
-  checksum: checksumSchema,
-  revisionMode: z.enum(FILE_REVISION_MODES).optional(),
-  comment: z.string().max(500).optional().nullable(),
-});
-
-const bulkFinalizeSchema = z.object({
-  projectId: z.string().uuid(),
-  uploadSessionId: z.string().optional().nullable(),
-  files: z.array(bulkFinalizeItemSchema).min(1).max(50),
-});
 
 function readIntentMetadata(intent: typeof uploadIntents.$inferSelect): Record<string, unknown> {
   return intent.metadata && typeof intent.metadata === "object" && !Array.isArray(intent.metadata)

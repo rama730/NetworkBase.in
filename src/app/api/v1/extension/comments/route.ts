@@ -25,47 +25,8 @@ import {
   recordNodeEvent,
 } from "@/lib/files/internal-helpers";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
+import { fileCommentSchema, taskCommentSchema } from "@/lib/api/v1-schemas";
 export const runtime = "nodejs";
-const anchor = z
-  .object({
-    version: z.number().int().positive(),
-    hash: z.string().regex(/^[a-f0-9]{64}$/i),
-    startLine: z.number().int().min(0).max(1000000),
-    endLine: z.number().int().min(0).max(1000000),
-  })
-  .refine((a) => a.endLine >= a.startLine);
-const schema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("create"),
-    projectId: z.string().uuid(),
-    nodeId: z.string().uuid(),
-    text: z.string().trim().min(1).max(4000),
-    anchor,
-  }),
-  z.object({
-    kind: z.literal("reply"),
-    projectId: z.string().uuid(),
-    nodeId: z.string().uuid(),
-    threadId: z.string().uuid(),
-    text: z.string().trim().min(1).max(4000),
-  }),
-  z.object({
-    kind: z.literal("resolve"),
-    projectId: z.string().uuid(),
-    nodeId: z.string().uuid(),
-    threadId: z.string().uuid(),
-    expectedSequence: z.number().int().nonnegative(),
-    resolved: z.boolean(),
-  }),
-  z.object({
-    kind: z.literal("relocate"),
-    projectId: z.string().uuid(),
-    nodeId: z.string().uuid(),
-    threadId: z.string().uuid(),
-    expectedSequence: z.number().int().nonnegative(),
-    anchor,
-  }),
-]);
 async function readable(projectId: string, nodeId: string, userId: string) {
   const access = await assertWorkspaceFileReadAccess(projectId, userId);
   const node = await db.query.workspaceNodes.findFirst({
@@ -136,24 +97,6 @@ export async function GET(request: Request) {
     });
   }
 }
-/**
- * Task comments (report F1, §42.10). `{ kind: "task", taskId, text }` from CLI 2.0 and agents, and
- * `{ taskId, content }` from CLI 1.x, which sent that shape to this route and always got "Invalid comment".
- */
-const taskCommentSchema = z.union([
-  z.object({
-    kind: z.literal("task"),
-    projectId: z.string().uuid().optional(),
-    taskId: z.string().uuid(),
-    text: z.string().trim().min(1).max(4000),
-    replyTo: z.string().uuid().nullable().optional(),
-  }),
-  z
-    .object({ taskId: z.string().uuid(), content: z.string().trim().min(1).max(4000) })
-    .strict()
-    .transform((v) => ({ kind: "task" as const, taskId: v.taskId, text: v.content, projectId: undefined, replyTo: null })),
-]);
-
 async function postTaskComment(
   user: { id: string },
   input: z.infer<typeof taskCommentSchema>,
@@ -194,7 +137,7 @@ async function handlePost(request: Request) {
       const outside = await denyOutsideTokenWorkspace(auth, { projectId: taskComment.data.projectId, taskId: taskComment.data.taskId });
       return outside ?? (await postTaskComment(auth.user, taskComment.data));
     }
-    const parsed = schema.safeParse(body);
+    const parsed = fileCommentSchema.safeParse(body);
     if (!parsed.success)
       return jsonError("Invalid comment", 400, "BAD_REQUEST");
     const input = parsed.data;

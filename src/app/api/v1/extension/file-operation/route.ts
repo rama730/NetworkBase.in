@@ -12,29 +12,8 @@ import {
   bulkTrashNodes,
 } from "@/app/actions/files/mutations";
 import { z } from "zod";
+import { fileOperationSchema } from "@/lib/api/v1-schemas";
 export const runtime = "nodejs";
-const schema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("move"),
-    projectId: z.string().uuid(),
-    nodeId: z.string().uuid(),
-    parentId: z.string().uuid().nullable(),
-    expectedUpdatedAt: z.string().datetime(),
-  }),
-  z.object({
-    kind: z.literal("rename"),
-    projectId: z.string().uuid(),
-    nodeId: z.string().uuid(),
-    name: z.string().min(1).max(255),
-    expectedUpdatedAt: z.string().datetime(),
-  }),
-  z.object({
-    kind: z.literal("trash"),
-    projectId: z.string().uuid(),
-    nodeId: z.string().uuid(),
-    expectedUpdatedAt: z.string().datetime(),
-  }),
-]);
 export async function POST(request: Request) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
@@ -42,7 +21,7 @@ export async function POST(request: Request) {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
-    const parsed = schema.safeParse(await request.json());
+    const parsed = fileOperationSchema.safeParse(await request.json());
     if (!parsed.success)
       return jsonError("Invalid file operation", 400, "BAD_REQUEST");
     const i = parsed.data;

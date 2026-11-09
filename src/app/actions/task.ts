@@ -47,6 +47,7 @@ import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspac
 import { childGrant, orgCan } from "@/lib/organizations/permissions";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
 import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition, MAIN_ASSIGNMENT_NOT_REVIEWED } from "@/lib/workspaces/task-transition-service";
+import { viaPayload } from "@/lib/server/request-via";
 
 type Priority = "low" | "medium" | "high" | "urgent";
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
@@ -217,7 +218,7 @@ export async function updateTaskFieldAction(
         sprintId: locked.previousSprintId,
         actorId: user.id,
         eventType: "field_updated",
-        payload: {
+        payload: { ...(await viaPayload()),
           version: 1,
           field,
           taskTitle:
@@ -241,7 +242,7 @@ export async function updateTaskFieldAction(
                   sprintId: locked.previousSprintId,
                   actorId: user.id,
                   eventType: "removed_from_sprint",
-                  payload: {
+                  payload: { ...(await viaPayload()),
                     version: 1,
                     taskTitle: locked.title,
                     taskNumber: locked.taskNumber,
@@ -259,7 +260,7 @@ export async function updateTaskFieldAction(
                   sprintId: requestedSprintId,
                   actorId: user.id,
                   eventType: "added_to_sprint",
-                  payload: {
+                  payload: { ...(await viaPayload()),
                     version: 1,
                     taskTitle: locked.title,
                     taskNumber: locked.taskNumber,
@@ -742,7 +743,7 @@ export async function approveTaskReviewAction(
         })
         .where(eq(tasks.id, taskId));
 
-      const [event] = await tx.insert(taskActivityEvents).values({ taskId, projectId, sprintId: locked.previousSprintId, actorId: user.id, eventType: "review_approved", payload: { version: 1, taskTitle: locked.title, taskNumber: locked.taskNumber, taskStatus: "done", from: "in_review", to: "done", reviewContentHash: snapshot } }).returning({ id: taskActivityEvents.id });
+      const [event] = await tx.insert(taskActivityEvents).values({ taskId, projectId, sprintId: locked.previousSprintId, actorId: user.id, eventType: "review_approved", payload: { ...(await viaPayload()), version: 1, taskTitle: locked.title, taskNumber: locked.taskNumber, taskStatus: "done", from: "in_review", to: "done", reviewContentHash: snapshot } }).returning({ id: taskActivityEvents.id });
       return { updatedAt, locked, activityEventId: event?.id ?? null } as const;
     });
 

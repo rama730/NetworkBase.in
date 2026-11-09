@@ -2407,6 +2407,9 @@ export const tasks = pgTable(
   "tasks",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** "cli" or "agent" when made with a token; null = made in the app (0073, report A7.11). */
+    via: text("via").$type<"cli" | "agent">(),
+    agentName: text("agent_name"),
     projectId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
@@ -2597,6 +2600,9 @@ export const taskSubtasks = pgTable(
   "task_subtasks",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** "cli" or "agent" when made with a token; null = made in the app (0073, report A7.11). */
+    via: text("via").$type<"cli" | "agent">(),
+    agentName: text("agent_name"),
     taskId: uuid("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
@@ -2656,6 +2662,9 @@ export const taskComments = pgTable(
   "task_comments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** "cli" or "agent" when made with a token; null = made in the app (0073, report A7.11). */
+    via: text("via").$type<"cli" | "agent">(),
+    agentName: text("agent_name"),
     taskId: uuid("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
@@ -3355,6 +3364,9 @@ export const fileVersions = pgTable(
   "file_versions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** "cli" or "agent" when made with a token; null = made in the app (0073, report A7.11). */
+    via: text("via").$type<"cli" | "agent">(),
+    agentName: text("agent_name"),
     nodeId: uuid("node_id")
       .notNull()
       .references(() => workspaceNodes.id, { onDelete: "cascade" }),
@@ -5975,6 +5987,9 @@ export const workspaceGitCommits = pgTable(
   "workspace_git_commits",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** "cli" or "agent" when made with a token; null = made in the app (0073, report A7.11). */
+    via: text("via").$type<"cli" | "agent">(),
+    agentName: text("agent_name"),
     projectId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),

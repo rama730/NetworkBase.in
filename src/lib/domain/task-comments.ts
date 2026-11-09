@@ -43,6 +43,7 @@ import {
   TASK_COMMENT_MAX_MENTIONS,
   taskCommentContentSchema,
 } from "@/lib/validations/task";
+import { viaColumns } from "@/lib/server/request-via";
 
 /**
  * Task discussion reads and writes for a known author. Server actions (browser sessions) and API
@@ -602,6 +603,7 @@ export async function createTaskCommentAs(
       }
 
       const commentValues: typeof taskComments.$inferInsert = {
+        ...(await viaColumns()),
         taskId,
         userId: actorUserId,
         content: trimmedContent,

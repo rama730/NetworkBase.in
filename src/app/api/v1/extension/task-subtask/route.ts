@@ -13,14 +13,10 @@ import { z } from "zod";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
 import { taskSubtaskTitleSchema } from "@/lib/validations/task";
+import { viaColumns } from "@/lib/server/request-via";
+import { addSubtaskSchema } from "@/lib/api/v1-schemas";
 
 export const runtime = "nodejs";
-
-const schema = z.object({
-  projectId: z.string().uuid(),
-  taskId: z.string().min(1),
-  title: taskSubtaskTitleSchema,
-});
 
 async function handlePost(request: Request) {
   const csrf = validateCsrf(request);
@@ -33,7 +29,7 @@ async function handlePost(request: Request) {
     if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
     const body = await request.json().catch(() => null);
-    const parsed = schema.safeParse(body);
+    const parsed = addSubtaskSchema.safeParse(body);
     if (!parsed.success) {
       return jsonError(parsed.error.issues[0]?.message || "Invalid subtask payload", 400, "BAD_REQUEST");
     }
@@ -104,6 +100,7 @@ async function handlePost(request: Request) {
       const [next] = await tx
         .insert(taskSubtasks)
         .values({
+          ...(await viaColumns()),
           taskId: resolvedTaskId,
           title,
           completed: false,

@@ -7,6 +7,7 @@ import { isWithParent } from "@/app/actions/files/_constants";
 import { requireWorkspaceCapability } from "@/lib/workspaces/collaborator-lifecycle";
 import { canWorkspaceMemberUploadFiles, projectMemberCan } from "@/lib/workspaces/settings-policies";
 import { orgGrant, type OrgAction } from "@/lib/organizations/permissions";
+import { viaPayload } from "@/lib/server/request-via";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type ExistingProjectAccess = WorkspaceAccess & { project: NonNullable<WorkspaceAccess["project"]> };
@@ -550,6 +551,8 @@ export async function recordNodeEvent(
     metadata: Record<string, unknown> = {},
     clientTx?: DbTransaction
 ) {
+    // "via Claude Code" on file history (report A7.11): token requests add who made the change.
+    metadata = { ...(await viaPayload()), ...metadata };
     const run = async (tx: any) => {
         const [counter] = await tx
             .insert(workspaceEventCounters)
@@ -601,6 +604,8 @@ export async function recordNodeEventsBatch(
     metadata: Record<string, unknown> | Record<string, unknown>[] = {},
     clientTx?: DbTransaction
 ) {
+    const via = await viaPayload();
+    if (Object.keys(via).length) metadata = Array.isArray(metadata) ? metadata.map((m) => ({ ...via, ...m })) : { ...via, ...metadata };
     const run = async (tx: any) => {
         const count = Math.max(1, nodeIds.length);
         const [counter] = await tx

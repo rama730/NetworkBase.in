@@ -18,6 +18,7 @@ import { orgCan, orgRoleOf, type ChildRole, type OrgRole } from "@/lib/organizat
 import { projectTaskHref } from "@/lib/workspaces/task-presentation";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
 import { assertAssignmentWrite } from "@/lib/organizations/assignments";
+import { viaPayload } from "@/lib/server/request-via";
 
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
 export function taskActorSnapshot(user: {
@@ -340,6 +341,7 @@ export async function transitionTaskTx(
   const columnChanged = locked.currentWorkflowColumnId !== column.id;
   let activityEventId: string | null = null;
   if (statusChanged || columnChanged || input.resubmit || outcome === "changes_requested") {
+    const via = await viaPayload();
     const [event] = await tx
       .insert(taskActivityEvents)
       .values({
@@ -358,6 +360,7 @@ export async function transitionTaskTx(
         payload:
           statusChanged || input.resubmit || outcome === "changes_requested"
             ? {
+                ...via,
                 version: 1,
                 outcome,
                 reviewRequired: locked.reviewRequired,
@@ -373,6 +376,7 @@ export async function transitionTaskTx(
                 to: status,
               }
             : {
+                ...via,
                 version: 1,
                 taskTitle: locked.title,
                 taskNumber: locked.taskNumber,

@@ -3,6 +3,7 @@ import type { db } from "@/lib/db";
 import { taskActivityEvents } from "@/lib/db/schema";
 import { queueEmail } from "@/lib/email/outbox";
 import type { EnqueueWorkspaceNotificationEventInput } from "@/lib/notifications/workspace-events";
+import { viaPayload } from "@/lib/server/request-via";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Snapshot = { fullName: string | null; avatarUrl: string | null };
@@ -32,7 +33,7 @@ export async function recordTaskAssignment(tx: Executor, input: Assignment) {
     actorId: input.actorId, eventType: "assigned",
     // Timestamp after the task lock, not transaction start: concurrent assignments stay ordered.
     createdAt: sql`clock_timestamp()`,
-    payload: {
+    payload: { ...(await viaPayload()),
       version: 2, taskTitle: input.title, taskNumber: input.taskNumber,
       taskStatus: input.status, sprintId: input.sprintId,
       actorName: input.actorName, actorAvatarUrl: input.actorAvatarUrl,

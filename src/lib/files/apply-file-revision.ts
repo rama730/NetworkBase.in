@@ -16,6 +16,7 @@ import {
   nextFileRevisionNumber,
   type FileRevisionMode,
 } from "@/lib/files/revision-policy";
+import { viaColumns } from "@/lib/server/request-via";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -65,6 +66,7 @@ export interface ApplyFileRevisionResult {
 export async function applyFileRevision(
   input: ApplyFileRevisionInput,
 ): Promise<ApplyFileRevisionResult> {
+  const via = await viaColumns();
   const result = await db.transaction(async (tx) => {
     if (input.accessRequirement === "write") {
       await assertWorkspaceWriteAccessTx(tx, input.projectId, input.actorUserId, { nodeId: input.nodeId });
@@ -170,6 +172,7 @@ export async function applyFileRevision(
       const [inserted] = await tx
         .insert(fileVersions)
         .values({
+          ...via,
           nodeId: input.nodeId,
           version: versionNumber,
           s3Key: input.storageKey,
@@ -207,6 +210,7 @@ export async function applyFileRevision(
       const [inserted] = await tx
         .insert(fileVersions)
         .values({
+          ...via,
           nodeId: input.nodeId,
           version: currentVersionNumber,
           s3Key: input.storageKey,

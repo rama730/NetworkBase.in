@@ -3,6 +3,7 @@ import { getSessionIdentifierFromSession } from "@/lib/auth/session-identifier";
 import { consumeRateLimit, consumeRateLimitForRoute } from "@/lib/security/rate-limit";
 import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { logger } from "@/lib/logger";
+import { getIsolationScope } from "@sentry/nextjs";
 import { getTrustedRequestIp } from "@/lib/security/request-ip";
 import type { User } from "@supabase/supabase-js";
 import { jsonError, jsonSuccess } from "@/app/api/v1/_envelope";
@@ -132,12 +133,20 @@ async function bearerPrincipal(
   scopes: Set<TokenScope>,
   workspaceId: string | null,
   kind: "device" | "agent" | "pat",
+  agentName: string | null = null,
 ) {
   const target = headerStore.get(TRUSTED_TARGET_HEADER);
+  // Errors and logs from this request say which client, token type and agent made it (report A2.13).
+  const client = normalizeSessionHeader(headerStore.get("x-nb-client"), 40) ?? normalizeSessionHeader(headerStore.get("x-extension-version"), 40);
+  getIsolationScope().setTags({ "nb.token": kind, "nb.via": kind === "agent" ? "agent" : "cli", ...(client ? { "nb.client": client } : {}), ...(agentName ? { "nb.agent": agentName.slice(0, 60) } : {}) });
   const denial = checkTokenAccess({ method: headerStore.get(TRUSTED_METHOD_HEADER), path: target, scopes, workspaceId });
   if (denial) {
     logger.warn("api.v1.token_route_denied", {
       path: target?.split("?")[0] ?? null,
+      requestId: headerStore.get("x-request-id") ?? undefined,
+      via: kind === "agent" ? "agent" : "cli",
+      agent: agentName,
+      client,
       errorCode: denial.errorCode,
       scope: denial.scope ?? null,
     });
@@ -295,7 +304,7 @@ export async function requireAuthenticatedUser() {
             const scopes = effectiveScopes(session.tokenType === "agent" ? "agent" : "device", session.scopes);
             // An agent token without a workspace can't exist (DB check); refuse rather than allow everything.
             if (session.tokenType === "agent" && !session.workspaceId) return deniedPrincipal(jsonError("Invalid token", 401, "UNAUTHORIZED"));
-            return bearerPrincipal(headerStore, mockUser, session.id, scopes, session.workspaceId ?? null, session.tokenType === "agent" ? "agent" : "device");
+            return bearerPrincipal(headerStore, mockUser, session.id, scopes, session.workspaceId ?? null, session.tokenType === "agent" ? "agent" : "device", session.agentName ?? null);
           }
         } else if (token.startsWith("nb_pat_")) {
           const [found] = await db

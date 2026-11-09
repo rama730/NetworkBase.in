@@ -53,47 +53,14 @@ import {
 } from "@/lib/db/schema";
 import { inngest } from "@/inngest/client";
 import { pushTransitionTarget, transitionAfterPush } from "@/lib/domain/task-transition";
+import { viaColumns } from "@/lib/server/request-via";
+import { filePlaceSchema, MAX_FAST_PUSH_BATCH_BYTES } from "@/lib/api/v1-schemas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_FAST_PUSH_BATCH_BYTES = 4 * 1024 * 1024; // 4 MiB total inline fast-path ceiling
-const MAX_FAST_PUSH_FILES = 50;
 
 // Stored words (CLI 1.x) and the app's words (report D11): draft = working, final = deliverable.
-const roleEnum = z.enum(["deliverable", "working", "reference", "final", "draft"]);
-
-const fastPushFileSchema = z.object({
-  path: z.string().min(1).max(2048),
-  contentHash: checksumSchema,
-  size: z.number().int().nonnegative().max(MAX_FAST_PUSH_BATCH_BYTES),
-  mimeType: z.string().min(1).max(180),
-  contentBase64: z.string().optional(),
-  comment: z.string().max(500).optional().nullable(),
-  /** The version this edit started from; a newer version on the server is a conflict, not an overwrite (A1.8, F18). */
-  baseVersion: z.number().int().positive().optional().nullable(),
-  /** Save as a new version of this file wherever it lives (a drop on a file row, report §19.3). */
-  versionOf: z.string().uuid().optional(),
-});
-
-const fastPushSchema = z.object({
-  projectId: z.string().uuid(),
-  taskId: z.string().max(120).optional().nullable(),
-  role: roleEnum.optional(),
-  transitionStatus: z.enum(["in_progress", "done"]).optional().nullable(),
-  completeSubtaskIds: z.array(z.string().uuid()).max(100).optional(),
-  completeAllSubtasks: z.boolean().optional(),
-  message: z.string().max(500).optional().nullable(),
-  operationId: z.string().min(8).max(200).optional().nullable(),
-  files: z.array(fastPushFileSchema).min(1).max(MAX_FAST_PUSH_FILES),
-  /** Same name in the target folder: a new version (default, report D13) or a separate copy `name (2).ext`. */
-  onSameName: z.enum(["version", "keep-both"]).optional(),
-  /** Workspace folder the paths are relative to (a drop on a folder). */
-  folder: z.string().max(1024).optional(),
-  /** The person saw the secret warning and still wants these files saved (never for agents, Phase 3). */
-  confirmSecrets: z.boolean().optional(),
-});
-
 function normalizePath(rawPath: string) {
   const trimmed = rawPath.replace(/\\/g, "/").replace(/^\/+/, "").trim();
   return trimmed ? `/${trimmed}` : "/";
@@ -146,7 +113,7 @@ async function handlePost(request: Request) {
     const user = auth.user;
 
     const body = await request.json().catch(() => null);
-    const parsed = fastPushSchema.safeParse(body);
+    const parsed = filePlaceSchema.safeParse(body);
     if (!parsed.success) {
       return jsonError("Invalid fast-push request payload", 400, "BAD_REQUEST");
     }
@@ -586,6 +553,7 @@ async function handlePost(request: Request) {
             : nextFileRevisionNumber(Math.max(1, file.currentVersion), history?.highestVersion);
 
         await tx.insert(fileVersions).values({
+          ...(await viaColumns()),
           nodeId: file.nodeId,
           version: nextVer,
           s3Key: file.storageKey!,
@@ -779,6 +747,7 @@ async function handlePost(request: Request) {
       void db
         .insert(workspaceGitCommits)
         .values({
+          ...(await viaColumns()),
           projectId,
           commitSha: txResult.taskReceipt.commitSha,
           authorId: user.id,

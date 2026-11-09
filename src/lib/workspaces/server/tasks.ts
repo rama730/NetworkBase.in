@@ -35,6 +35,7 @@ import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import { revalidatePath } from "next/cache";
 import { actorNotificationSnapshot, enqueueWorkspaceNotificationBestEffort } from "./common";
 import { refusePeerAssignmentAcrossBlock } from "@/lib/workspaces/task-assignment";
+import { viaColumns, viaPayload } from "@/lib/server/request-via";
 
 
 type TaskPaginationCursor = {
@@ -1101,6 +1102,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       await refusePeerAssignmentAcrossBlock(db, validated.projectId, user.id, validated.assigneeId);
     }
 
+    const via = await viaColumns();
     const createdTask = await db.transaction(async (tx) => {
       // Lock row to ensure strictly monotonic task number under concurrent creates.
       const counterRows = await tx.execute<{ current_task_number: number }>(sql`
@@ -1148,6 +1150,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       const [newTask] = await tx
         .insert(tasks)
         .values({
+          ...via,
           projectId: validated.projectId,
           title: validated.title.trim(),
           description: validated.description?.trim() || null,
@@ -1196,7 +1199,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
           sprintId: validated.sprintId,
           actorId: user.id,
           eventType: "created",
-          payload: {
+          payload: { ...(await viaPayload()),
             version: 1,
             sprintId: validated.sprintId,
             taskTitle: validated.title.trim(),
@@ -1212,7 +1215,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
             sprintId: validated.sprintId,
             actorId: user.id,
             eventType: "assigned",
-            payload: {
+            payload: { ...(await viaPayload()),
               version: 1,
               sprintId: validated.sprintId,
               assigneeId: validated.assigneeId,
@@ -1264,6 +1267,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
           validated.subtasks
             .filter((st) => st.title.trim().length > 0)
             .map((st, index) => ({
+              ...via,
               taskId: newTask.id,
               title: st.title.trim(),
               completed: st.completed,
@@ -1510,7 +1514,7 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
         sprintId: existingTask.sprintId,
         actorId: user.id,
         eventType: "deleted",
-        payload: {
+        payload: { ...(await viaPayload()),
           version: 1,
           taskTitle: existingTask.title,
           taskNumber: existingTask.taskNumber,

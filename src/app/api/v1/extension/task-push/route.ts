@@ -11,6 +11,7 @@ import {inngest} from '@/inngest/client';
 import {pushTransitionTarget,transitionAfterPush} from '@/lib/domain/task-transition';
 import crypto from 'crypto';
 import {z} from 'zod';
+import { viaColumns } from "@/lib/server/request-via";
 export const runtime='nodejs';
 
 const roleEnum = z.enum(['deliverable', 'working', 'reference']);
@@ -85,7 +86,9 @@ async function handlePost(request:Request){
   const transition = statusTarget ? await transitionAfterPush(user, taskId, statusTarget) : null;
   const commitSha = crypto.createHash('sha1').update(`${pushRow.id}:${operationId}`).digest('hex');
   const resolvedFinalRole = defaultRole ?? (taskAction === 'replace_task_version' ? 'deliverable' : 'working');
+  const via = await viaColumns();
   void db.insert(workspaceGitCommits).values({
+   ...via,
    projectId,
    commitSha,
    authorId: user.id,

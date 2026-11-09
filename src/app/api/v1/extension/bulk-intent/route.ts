@@ -10,26 +10,10 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createUploadIntents } from "@/lib/upload/upload-intents";
 import { validateCsrf } from "@/lib/security/csrf";
+import { bulkIntentItemSchema, bulkIntentSchema } from "@/lib/api/v1-schemas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const bulkIntentItemSchema = z.object({
-  path: z.string().min(1).max(2_048),
-  size: z.number().int().nonnegative(),
-  mimeType: z.string().min(1).max(180),
-  contentHash: checksumSchema,
-  leaseId: z.string().uuid().optional().nullable(),
-  fencingToken: z.number().int().positive().optional().nullable(),
-  comment: z.string().max(500).optional().nullable(),
-});
-
-const bulkIntentSchema = z.object({
-  projectId: z.string().uuid(),
-  clientSessionId: z.string().uuid().optional(),
-  operationId: z.string().min(8).max(200).optional().nullable(),
-  files: z.array(bulkIntentItemSchema).min(1).max(50),
-});
 
 export async function POST(request: Request) {
   const csrfError = validateCsrf(request);

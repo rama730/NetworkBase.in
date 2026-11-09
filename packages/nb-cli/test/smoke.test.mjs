@@ -124,4 +124,10 @@ describe("nb 2.0 basics", () => {
     assert.equal(q?.query.get("projectId"), WORKSPACE_ID);
     assert.match((await runCli(["task", "list", "-w", "nope"], { api: api.url })).stderr, /No workspace nope/);
   });
+
+  it("the fake server refuses bodies the real server's schema would (schema/api.json)", async () => {
+    const res = await fetch(`${api.url}/api/v1/extension/create-task`, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer nb_pat_test0123456789abcdef" }, body: JSON.stringify({ projectId: "not-a-uuid", title: "" }) });
+    assert.equal(res.status, 400);
+    assert.match((await res.json()).message, /projectId/);
+  });
 });

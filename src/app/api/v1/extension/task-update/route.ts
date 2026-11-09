@@ -29,33 +29,9 @@ import {
   extensionReviewEvidenceSchema,
   classifyReportedCheck,
 } from "@/lib/extension/review-evidence";
+import { viaPayload } from "@/lib/server/request-via";
+import { taskUpdateSchema } from "@/lib/api/v1-schemas";
 export const runtime = "nodejs";
-const inputSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("request_changes"), projectId: z.string().uuid(), taskId: z.string().uuid(), reason: z.string().trim().min(1).max(2000), expectedUpdatedAt: z.string().datetime() }),
-  z.object({ kind: z.literal("resubmit"), projectId: z.string().uuid(), taskId: z.string().uuid(), expectedUpdatedAt: z.string().datetime() }),
-  z.object({
-    kind: z.literal("approve"),
-    projectId: z.string().uuid(),
-    taskId: z.string().uuid(),
-    expectedUpdatedAt: z.string().datetime(),
-  }),
-  z.object({
-    kind: z.literal("status"),
-    projectId: z.string().uuid(),
-    taskId: z.string().uuid(),
-    status: z.enum(["todo", "in_progress", "done", "blocked"]),
-    expectedUpdatedAt: z.string().datetime(),
-    evidence: extensionReviewEvidenceSchema.optional(),
-  }),
-  z.object({
-    kind: z.literal("subtask"),
-    projectId: z.string().uuid(),
-    taskId: z.string().uuid(),
-    subtaskId: z.string().uuid(),
-    completed: z.boolean(),
-    expectedUpdatedAt: z.string().datetime(),
-  }),
-]);
 async function handlePatch(request: Request) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
@@ -64,7 +40,7 @@ async function handlePatch(request: Request) {
     if (auth.response) return auth.response;
     const user = auth.user;
     if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
-    const parsed = inputSchema.safeParse(await request.json());
+    const parsed = taskUpdateSchema.safeParse(await request.json());
     if (!parsed.success)
       return jsonError("Invalid task update", 400, "BAD_REQUEST");
     const input = parsed.data;
@@ -173,7 +149,7 @@ async function handlePatch(request: Request) {
             sprintId: locked.previousSprintId,
             actorId: user.id,
             eventType: result.reviewStatus === "pending" ? "extension_review_evidence" : "extension_completion_evidence",
-            payload: {
+            payload: { ...(await viaPayload()),
               version: 1,
               summary: input.evidence.summary,
               issues: input.evidence.issues,

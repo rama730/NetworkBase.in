@@ -135,6 +135,8 @@ export async function listFileVersionsPage(
         uploadedAt: fileVersions.uploadedAt,
         comment: fileVersions.comment,
         attribution: fileVersions.attribution,
+        via: fileVersions.via,
+        agentName: fileVersions.agentName,
         uploadedByName: profiles.fullName,
         uploadedByUsername: profiles.username,
       })

@@ -8,13 +8,8 @@ import {requireAuthenticatedUser,
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { createTaskAction } from "@/app/actions/workspace";
 import { z } from "zod";
+import { createTaskSchema } from "@/lib/api/v1-schemas";
 export const runtime = "nodejs";
-const schema = z.object({
-  projectId: z.string().uuid(),
-  title: z.string().trim().min(1).max(200),
-  description: z.string().max(10000).optional(),
-  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
-});
 async function handlePost(request: Request) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
@@ -22,7 +17,7 @@ async function handlePost(request: Request) {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
-    const parsed = schema.safeParse(await request.json());
+    const parsed = createTaskSchema.safeParse(await request.json());
     if (!parsed.success) return jsonError("Invalid task", 400, "BAD_REQUEST");
     const outside = await denyOutsideTokenWorkspace(auth, { projectId: parsed.data.projectId });
     if (outside) return outside;

@@ -48,6 +48,7 @@ import {
     escapeLikePattern,
     UUID_RE,
 } from "./_constants";
+import { viaPayload } from "@/lib/server/request-via";
 
 function actorNotificationSnapshot(user: { user_metadata?: Record<string, unknown> | null }) {
     return {
@@ -990,6 +991,7 @@ export async function moveWorkspaceNodes(
             })),
             tx,
         );
+        const via = await viaPayload();
         const activityRows = moves.flatMap(({ node, oldPath, newPath }) =>
             linkedTasks
                 .filter((link) => link.nodeId === node.id)
@@ -999,7 +1001,7 @@ export async function moveWorkspaceNodes(
                     sprintId: link.sprintId,
                     actorId: user.id,
                     eventType: isPublishing ? "file_published" : "file_relocated",
-                    payload: { operationId, fileName: node.name, oldPath, newPath },
+                    payload: { ...via, operationId, fileName: node.name, oldPath, newPath },
                     createdAt: now,
                 })),
         );
