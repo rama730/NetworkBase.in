@@ -208,3 +208,84 @@ test('A2: forgot password sends a code that works on any device, checked as a re
     await page.getByLabel('Reset code').fill('123456');
     await expect.poll(() => verified(page)).toEqual([{ email: 'me@test.local', token: '123456', type: 'recovery' }]);
 });
+
+// "Last used": one chip for every way in, inside the button, never on its border.
+const box = async (locator: import('@playwright/test').Locator) => (await locator.boundingBox())!;
+const inside = (inner: { x: number; y: number; width: number; height: number }, outer: { x: number; y: number; width: number; height: number }) =>
+    inner.x >= outer.x + 1 && inner.y >= outer.y + 1 && inner.x + inner.width <= outer.x + outer.width - 1 && inner.y + inner.height <= outer.y + outer.height - 1;
+
+test('Last used: a chip inside the Google button, clear of the words and the border; the old tag is gone', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('nb_last_sign_in', JSON.stringify({ method: 'google', at: Date.now() })));
+    await open(page, 'page=login');
+    const button = page.getByRole('button', { name: /Google/ });
+    const chip = button.locator('.nb-last-used');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText('Last used');
+    const b = await box(button), c = await box(chip);
+    expect(inside(c, b), 'inside the button, not on its edge').toBe(true);
+    expect(c.x + c.width, 'at the right end').toBeGreaterThan(b.x + b.width - 24);
+    const label = await box(button.getByText('Google', { exact: true }));
+    expect(label.x + label.width, 'clear of the label').toBeLessThanOrEqual(c.x);
+    expect(label.x, 'the label is left-aligned beside the icon').toBeLessThan(b.x + 50);
+    expect(await chip.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe('1px');
+    expect(await chip.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(11);
+    // GitHub has none, and is left-aligned too.
+    await expect(page.getByRole('button', { name: /GitHub/ }).locator('.nb-last-used')).toHaveCount(0);
+});
+
+test('Last used: the same chip on the Sign in button', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('nb_last_sign_in', 'password'));
+    await open(page, 'page=login');
+    const signIn = page.getByRole('button', { name: /^Sign in/ });
+    const chip = signIn.locator('.nb-last-used');
+    await expect(chip).toBeVisible();
+    expect(inside(await box(chip), await box(signIn))).toBe(true);
+    const textRight = await signIn.evaluate((el) => { const range = document.createRange(); range.selectNodeContents(el.firstChild as Node); return range.getBoundingClientRect().right; });
+    expect(textRight, 'clear of the label').toBeLessThanOrEqual((await box(chip)).x);
+    await expect(page.locator('.nb-last-used')).toHaveCount(1);
+});
+
+test('Last used: inline after the sign-in code link, inside its button', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('nb_last_sign_in', 'code'));
+    await open(page, 'page=login');
+    const link = page.getByRole('button', { name: /Email me a sign-in code instead/ });
+    await expect(link.locator('.nb-last-used')).toBeVisible();
+    expect(inside(await box(link.locator('.nb-last-used')), await box(link))).toBe(true);
+});
+
+test('Last used: where the provider buttons are too narrow for the words the chip is a dot, and the words are still there for screen readers', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('nb_last_sign_in', 'google'));
+    await open(page, 'page=login');
+    await page.setViewportSize({ width: 340, height: 800 });
+    const button = page.getByRole('button', { name: /Google/ });
+    const chip = button.locator('.nb-last-used');
+    const c = await box(chip);
+    expect(c.width).toBeLessThanOrEqual(8.5);
+    expect(inside(c, await box(button))).toBe(true);
+    await expect(button).toContainText('Last used');
+    await expect(page.getByRole('button', { name: 'Google Last used' })).toBeVisible();
+});
+
+test('Last used: readable in both themes (text against its own fill at least 4.5 to 1)', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('nb_last_sign_in', 'github'));
+    await open(page, 'page=login');
+    for (const theme of ['light', 'dark']) {
+        await page.evaluate((t) => document.documentElement.classList.toggle('dark', t === 'dark'), theme);
+        const ratio = await page.getByRole('button', { name: /GitHub/ }).locator('.nb-last-used').evaluate((el) => {
+            const parse = (v: string) => (v.match(/[\d.]+/g) ?? []).map(Number);
+            const lum = ([r, g, b]: number[]) => { const f = (x: number) => { const s = x / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r!) + 0.7152 * f(g!) + 0.0722 * f(b!); };
+            const style = getComputedStyle(el);
+            const a = lum(parse(style.color)), b = lum(parse(style.backgroundColor));
+            return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        });
+        expect(ratio, theme).toBeGreaterThanOrEqual(4.5);
+    }
+});
+
+test('Last used: a way not used for three months is not marked', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('nb_last_sign_in', JSON.stringify({ method: 'google', at: Date.now() - 100 * 24 * 60 * 60 * 1000 })));
+    await open(page, 'page=login');
+    await expect(page.getByRole('button', { name: /Google/ })).toBeVisible();
+    await expect(page.locator('.nb-last-used')).toHaveCount(0);
+});
+

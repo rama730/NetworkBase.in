@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { GoogleOneTap } from '@/components/auth/GoogleOneTap'
-import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, EmailCodeForm, LastUsedTag, OAuthButtons, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, EmailCodeForm, LastUsedMarker, OAuthButtons, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
 import { buildAuthPageHref, resolveAuthRedirectPath } from '@/lib/auth/redirects'
 import { resolveAuthPageErrorMessage, toFriendlyAuthError } from '@/lib/auth/error-messages'
 import { getTotpVerificationErrorMessage, needsSecondFactor } from '@/lib/auth/mfa-ui'
@@ -535,11 +535,11 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                     </div>
                 ) : null}
                 <SubmitButton data-signin-submit="" busy={busy && !accepted} disabled={busy || accepted} busyLabel="Signing in…" className="relative h-11 w-full font-medium">
-                    {accepted ? <><Check className="size-4" aria-hidden="true" /><span className="sr-only">Signed in</span></> : <>Sign in{lastUsed === 'password' ? <LastUsedTag /> : null}</>}
+                    {accepted ? <><Check className="size-4" aria-hidden="true" /><span className="sr-only">Signed in</span></> : <>Sign in{lastUsed === 'password' ? <LastUsedMarker place="primary" /> : null}</>}
                 </SubmitButton>
                 {showWrongPasswordHelp ? null : (
                     <Button type="button" variant="ghost" className="relative h-11 w-full" onClick={() => void startEmailCode()} disabled={busy}>
-                        Email me a sign-in code instead{lastUsed === 'code' ? <LastUsedTag /> : null}
+                        Email me a sign-in code instead{lastUsed === 'code' ? <LastUsedMarker place="inline" /> : null}
                     </Button>
                 )}
             </form>

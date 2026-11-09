@@ -1,20 +1,35 @@
 /** How this browser last signed in, so the sign-in page can mark that way "Last used". Kept only in this browser. */
 export type SignInMethod = 'google' | 'github' | 'password' | 'code'
-const KEY = 'nb_last_sign_in'
+export const LAST_SIGN_IN_KEY = 'nb_last_sign_in'
+/** A way of signing in not used for three months is no longer "last used": it would only be guessing. */
+export const LAST_SIGN_IN_TTL_MS = 90 * 24 * 60 * 60 * 1000
 const METHODS: readonly SignInMethod[] = ['google', 'github', 'password', 'code']
+
+/** The stored value: the method and when, or (saved before the date was kept) just the method. */
+export function parseLastSignIn(raw: string | null | undefined, now: number): SignInMethod | null {
+    if (!raw) return null
+    if (METHODS.includes(raw as SignInMethod)) return raw as SignInMethod
+    try {
+        const value = JSON.parse(raw) as { method?: unknown; at?: unknown } | null
+        if (!value || typeof value.at !== 'number' || !METHODS.includes(value.method as SignInMethod)) return null
+        if (now - value.at > LAST_SIGN_IN_TTL_MS || value.at - now > 60_000) return null
+        return value.method as SignInMethod
+    } catch {
+        return null
+    }
+}
 
 export function rememberSignInMethod(method: SignInMethod) {
     try {
-        localStorage.setItem(KEY, method)
+        localStorage.setItem(LAST_SIGN_IN_KEY, JSON.stringify({ method, at: Date.now() }))
     } catch {
-        // Storage can be blocked; the label just doesn't show.
+        // Storage can be blocked; the marker just doesn't show.
     }
 }
 
 export function readSignInMethod(): SignInMethod | null {
     try {
-        const value = localStorage.getItem(KEY)
-        return METHODS.includes(value as SignInMethod) ? (value as SignInMethod) : null
+        return parseLastSignIn(localStorage.getItem(LAST_SIGN_IN_KEY), Date.now())
     } catch {
         return null
     }

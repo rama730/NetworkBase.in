@@ -250,10 +250,10 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
         <div>
             <div className="grid grid-cols-2 gap-3">
                 {(['google', 'github'] as const).map((provider) => (
-                    <Button key={provider} type="button" variant="outline" className="relative h-11 w-full font-medium" onClick={() => void start(provider)} disabled={busy}>
+                    <Button key={provider} type="button" variant="outline" className="nb-oauth-btn relative h-11 w-full justify-start font-medium" onClick={() => void start(provider)} disabled={busy}>
                         {loading === provider ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : provider === 'google' ? <GoogleIcon /> : <Github className="size-4" aria-hidden="true" />}
                         <span className="truncate">{loading === provider ? 'Redirecting…' : provider === 'google' ? 'Google' : 'GitHub'}</span>
-                        {lastUsed === provider && loading !== provider ? <LastUsedTag /> : null}
+                        {lastUsed === provider && loading !== provider ? <LastUsedMarker place="oauth" /> : null}
                     </Button>
                 ))}
             </div>
@@ -261,9 +261,16 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
     )
 }
 
-/** Marks how this browser signed in last time. */
-export function LastUsedTag() {
-    return <span className="pointer-events-none absolute -top-2 right-2 rounded-sm bg-foreground px-1.5 py-px text-[10px] font-medium leading-4 text-background">Last used</span>
+/**
+ * Marks how this browser signed in last time: a small chip inside the button (styles: .nb-last-used in globals.css).
+ * Where a button is too narrow for the words it shrinks to a dot, and the words stay for screen readers.
+ */
+export function LastUsedMarker({ place }: { place: 'oauth' | 'primary' | 'inline' }) {
+    return (
+        <span className="nb-last-used" data-place={place} title="You last signed in this way on this browser">
+            <span className="nb-last-used-text">Last used</span>
+        </span>
+    )
 }
 
 /** "Open Gmail" and the like on a "Check your email" screen, when the address is at a service with a web inbox. */
