@@ -11,7 +11,6 @@ import {
   signInAnnouncement,
   signInLines,
   signInTimings,
-  wordDelays,
   worthWaitingFor,
   type SignInFlightEventType,
 } from '@/lib/auth/signin-flight'
@@ -70,7 +69,6 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
   const lines = signInLines(flight.fullName)
   const [reduced] = useState(() => isReducedMotionEnabled({ root: document.documentElement, matchMedia: window.matchMedia?.bind(window) }))
   const light = flight.version === 'light' && !reduced
-  const staggered = !light && !reduced
   const fromButton = flight.from !== null
   const [layout, setLayout] = useState(() => centerBox({ width: window.innerWidth, height: window.innerHeight }))
   // The start never changes after the first render: React must not reset what the animation does to these styles.
@@ -547,7 +545,6 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const captionDelay = staggered ? 'delay-150 duration-150' : 'delay-150 duration-300'
   return (
     <div data-signin-overlay className={cn('fixed inset-0 z-[1000] cursor-default', clickable && 'pointer-events-none')} onClick={() => skip.current()}>
       <div
@@ -562,7 +559,7 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
           data-signin-caption="first"
           aria-hidden="true"
           dir="auto"
-          className={cn(CAPTION, 'absolute inset-x-4 text-center transition-opacity', caption === 1 ? 'opacity-100 duration-[400ms]' : 'opacity-0 duration-150')}
+          className={cn(CAPTION, 'absolute inset-x-4 text-center transition-opacity', caption === 1 ? 'opacity-100 duration-300' : 'opacity-0 duration-150')}
         >
           {lines.first}
         </p>
@@ -570,16 +567,9 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
           data-signin-caption="second"
           aria-hidden="true"
           dir="auto"
-          className={cn(CAPTION, 'absolute inset-x-4 text-center transition-opacity', caption === 2 ? `opacity-100 ${captionDelay}` : 'opacity-0 duration-150')}
+          className={cn(CAPTION, 'absolute inset-x-4 text-center transition-opacity', caption === 2 ? 'opacity-100 delay-150 duration-300' : 'opacity-0 duration-150')}
         >
-          {staggered
-            ? wordDelays(lines.second).map(({ word, delay }, index, all) => (
-                <span key={index} className="transition-opacity duration-[350ms]" style={{ opacity: caption === 2 ? 1 : 0, transitionDelay: caption === 2 ? `${delay}ms` : '0ms' }}>
-                  {word}
-                  {index < all.length - 1 ? ' ' : ''}
-                </span>
-              ))
-            : lines.second}
+          {lines.second}
         </p>
       </div>
       <p className={cn('absolute inset-x-0 bottom-5 text-center text-xs text-muted-foreground transition-opacity duration-[400ms]', hint ? 'opacity-100' : 'opacity-0')}>

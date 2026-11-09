@@ -321,3 +321,6 @@ Reported: too fast, the words and the photo. Measured on Chromium: in the full v
 - The photo fades in over 0.4 to 0.6 s (was 0.25 to 0.5 s), line 1 fades in over 0.4 s, and each word of line 2 over 0.35 s.
 The timings table in section 6.1 above is superseded by these numbers.
 
+### Pace, after the third live check (2026-11-10)
+Reported: now too slow; it should match onboarding. The full version now uses onboarding's exact timings (photo 0.85 s, line 1 held 1.7 s, line 2 held 0.8 s, flight 1.0 s, about 4.4 s) and line 2 fades in whole, like onboarding's welcome line. The word-by-word reveal (enhancement 18) is removed: it cannot fit that pace. The light version keeps its short rest (0.7 s) and moves at onboarding's flight speed (1.0 s), about 1.7 s in all. The two earlier timing notes above are superseded.
+

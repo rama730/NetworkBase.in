@@ -124,15 +124,10 @@ export function signInTimings(version: SignInVersion, reduced: boolean): SignInT
     return { ...base, rise: 0, appear: 100, fadeIn: 100, presenceHold: 250, secondHold: 300, fly: 260, scrimIn: 100, scrimOut: 200, navigateAt: 100, lightRest: 0, captionInAt: 0, captionOutAt: 0, revealAt: 0, scrimOutAt: 0, hintAfter: 0 }
   }
   if (version === 'light') {
-    return { ...base, rise: 0, appear: 450, fadeIn: 450, presenceHold: 0, secondHold: 0, fly: 1700, scrimIn: 200, scrimOut: 300, navigateAt: 150, lightRest: 900, captionInAt: 250, captionOutAt: 900, revealAt: 500, scrimOutAt: 600, hintAfter: 0 }
+    return { ...base, rise: 0, appear: 400, fadeIn: 400, presenceHold: 0, secondHold: 0, fly: 1000, scrimIn: 200, scrimOut: 300, navigateAt: 150, lightRest: 700, captionInAt: 200, captionOutAt: 800, revealAt: 400, scrimOutAt: 500, hintAfter: 0 }
   }
-  return { ...base, rise: 750, appear: 400, fadeIn: 600, presenceHold: 1500, secondHold: 1600, fly: 1100, scrimIn: 600, scrimOut: 600, navigateAt: 560, lightRest: 0, captionInAt: 0, captionOutAt: 0, revealAt: 0, scrimOutAt: 0 }
-}
-
-/** The second line one word at a time, each word's delay in ms; the name (the last word) arrives a beat after the rest. */
-export function wordDelays(text: string): Array<{ word: string; delay: number }> {
-  const words = text.split(' ')
-  return words.map((word, index) => ({ word, delay: index * 60 + (index === words.length - 1 && words.length > 1 ? 140 : 0) }))
+  // The same pace as onboarding's flight (lib/onboarding/welcome-flight.ts): 850, 1700, 800 and 1000 ms.
+  return { ...base, rise: 850, appear: 400, fadeIn: 500, presenceHold: 1700, secondHold: 800, fly: 1000, scrimIn: 600, scrimOut: 600, navigateAt: 560, lightRest: 0, captionInAt: 0, captionOutAt: 0, revealAt: 0, scrimOutAt: 0 }
 }
 
 /** True when an image URL's decode may be waited for; data and blob URLs are already here. */

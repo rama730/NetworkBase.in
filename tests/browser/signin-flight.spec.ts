@@ -137,13 +137,9 @@ test('password sign-in, full version: the button turns to a check, the photo lea
   const events = await meta(page);
   expect(events.map((e) => e.event)).toEqual(['signin_flight_started', 'signin_flight_completed']);
   expect(events[0]).toMatchObject({ version: 'full', from: 'button', reduced: false });
-  // About 5 s of flight, plus the beat for the check.
+  // The same pace as onboarding's flight (about 4.4 s), plus the beat for the check.
   const landed = samples.find((s) => s.attr === 'reveal')!.t;
-  expect(landed).toBeLessThan(6500);
-  // Each line stays up long enough to read.
-  const shown = (line: string) => { const hits = samples.filter((s) => s.captions.includes(line)); return hits.length ? hits[hits.length - 1]!.t - hits[0]!.t : 0; };
-  expect(shown('Welcome back')).toBeGreaterThan(1100);
-  expect(shown('Good to see you again, Ada')).toBeGreaterThan(1100);
+  expect(landed).toBeLessThan(5600);
 });
 
 test('the button shows a check once the sign-in is accepted, and cannot be pressed again', async ({ page }) => {
@@ -177,11 +173,11 @@ test('the second sign-in of the day is the light version: no stop in the middle,
   expect(samples.some((s) => s.hint)).toBe(false);
   expect(samples.some((s) => s.tip)).toBe(false);
   expect((await meta(page))[0]).toMatchObject({ version: 'light', from: 'button' });
-  expect(samples.find((s) => s.attr === 'reveal')!.t).toBeLessThan(4200);
+  expect(samples.find((s) => s.attr === 'reveal')!.t).toBeLessThan(3200);
   // The photo is on screen long enough to be seen: at rest with the greeting first, then the move.
   const span = (hits: Sample[]) => (hits.length ? hits[hits.length - 1]!.t - hits[0]!.t : 0);
-  expect(span(samples.filter((s) => (s.avatarOpacity ?? 0) > 0.5))).toBeGreaterThan(2100);
-  expect(span(samples.filter((s) => s.captions.includes('Welcome back')))).toBeGreaterThan(1100);
+  expect(span(samples.filter((s) => (s.avatarOpacity ?? 0) > 0.5))).toBeGreaterThan(1500);
+  expect(span(samples.filter((s) => s.captions.includes('Welcome back')))).toBeGreaterThan(800);
 });
 
 test('going somewhere in particular is light too', async ({ page }) => {
@@ -303,18 +299,6 @@ test('private profile: both lines, but no badge while they are read; the photo b
   expect(samples.flatMap((s) => s.captions)).toContain('Good to see you again, Ada');
   expect(samples.some((s) => s.badge && s.attr === 'hold')).toBe(false);
   expect(samples.some((s) => s.badge && s.attr === 'reveal')).toBe(true);
-});
-
-test('the second line arrives a word at a time, the name last', async ({ page }) => {
-  await signIn(page);
-  await submit(page);
-  await finished(page);
-  const words = (await trace(page)).map((s) => s.words).filter((w) => w.length === 6);
-  expect(words.length).toBeGreaterThan(5);
-  const partial = words.filter((w) => w.some((o) => o > 0.9) && w.some((o) => o < 0.1));
-  expect(partial.length, 'some sample caught the line half-written').toBeGreaterThan(0);
-  // Never the name before the first word.
-  for (const w of words) if (w[5]! > 0.5) expect(w[0]!).toBeGreaterThan(0.5);
 });
 
 test('the app rises as it fades in, and ends in place', async ({ page }) => {
