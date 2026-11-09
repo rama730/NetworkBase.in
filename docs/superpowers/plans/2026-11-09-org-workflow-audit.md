@@ -431,10 +431,30 @@ Where the build differs from the plan, on purpose:
 - N65/N66: shared locks are `FOR SHARE` (not `FOR KEY SHARE`), so a soft delete or role removal still waits for writers.
 - N88: left as is: the document list carries the visibility rule and is capped at 500.
 
-Not done yet (open):
-- 8.4 moving a file into a more open folder should ask first (needs a confirm step in the move UI).
-- N77 progress export as a streaming CSV route; 10.3 paging the Submissions read; N87 template copy as one server action; N32 case-insensitive invite matching (check how Supabase stores emails first).
-- N18, N21, N35 Members-open duplicate reads; N50 shared posts live in the org feed and an un-hide action.
-- C4 role-view browser spec (owner/admin/member/viewer/visitor × every tab); C5 member Settings check; C11/4.4 skeleton sizes; C12 "frees within 2 h" on Storage; C14 hiding reply/like controls for viewers in the UI (the server already refuses).
-- Phase 0/6 measurements (tab timings on a seeded org) and E0 items 1–9 (signed-in live checks with an owner and a student account, compat cleanup, ponytail ceilings).
-- Production: apply 0067 and 0068, set `DB_POOL_MAX` on Railway only if needed, deploy, then the signed-in checks.
+Second pass (same day, "Finish open items"): `239ec381f` 8.4, `8ee93afc7` N77/10.3/N87, `f83d4d645` N18/N21/N35/N50 (migration `0070_org_feed_shared_live`; 0069 was taken by another session's auth migration), `682947823` 4.4/C11/C12/C14, `7abd067c3` C4/C5 (role-view matrix as a unit test over the shared tab rules), `974edd73b` measured speed fixes, `f61c5afb1` contract update.
+
+- 8.4: a move into a more open folder returns `confirmAccess` without moving; the explorer, drag and drop and task files show it with "Move anyway".
+- N77: the export reads one row past 50,000 and says the sheet was cut (streaming not built: no organization is near the cap). 10.3: Submissions keeps whole assignments past 5,000 hand-ins and says older ones aren't listed.
+- N87: a template copy that can't be linked into Docs is moved to Trash (the upload goes browser to storage, so one server action isn't possible).
+- N32: not a bug. Profile emails come from Supabase Auth, which lowercases them; matching on `lower()` would only add a profiles scan.
+- N50: 0070 makes sharing up, hiding and showing again bump `activity_seq` and send the org feed `update.created` / `update.removed`; Hide has Undo (`unhideSharedFromOrgAction`).
+- C14: viewers get no comment box (`canComment` uses the server's interaction rule) and a disabled Like.
+- 4.5: superseded. Another session has since rewritten tab navigation ("tabs and filters replace history"); its design stands.
+
+Measured (local Postgres, seeded org: 2,000 members, 200 workspaces, 30 assignments = 60,000 copies, 30% handed in; median of 15 runs, owner viewing; before = `7f9dd966b`, after = `974edd73b`, same database):
+
+| Read | Before | After |
+|---|---|---|
+| Overview (`readOrgDashboardAction`) | 110 ms | 114 ms |
+| Members (`readOrgMembersAction`) | 149 ms | 146 ms |
+| Workspaces (`readOrgWorkspacesAction`) | 285 ms | 21 ms |
+| Assignments (`listAssignmentsAction`) | 615 ms | 127 ms |
+| Submissions (`readOrgSubmissionsAction`) | 82 ms | 87 ms |
+| Tab badges (`readBoardCounts`, every org page) | 691 ms | 23 ms |
+
+The two big wins came from measuring: the badge counts re-scanned every assignment's copies in each of six counts (a correlated EXISTS the planner ran as a table scan), and the Workspaces tab cast the profile key to text, so each of 200 rows scanned profiles. Members and Overview stay near 150 ms because they read all 60,000 copies, the documented ceiling (`org-members.ts` "server paging" upgrade).
+
+Still open, and why:
+- E0 signed-in checks (owner and student on the live site, notifications and emails, two browsers, calendar link): need the user's accounts and a deploy.
+- E0 compat cleanup (terminology views, workspace `status_*` columns): a production schema change, for the next release with the user's go-ahead.
+- Production: apply 0067, 0068 (non-transactional), 0070; deploy; set `DB_POOL_MAX` only if pool waits show.
