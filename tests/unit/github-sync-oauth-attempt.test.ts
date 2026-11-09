@@ -62,6 +62,8 @@ function fixture(identities: Array<{ provider: string; identity_data?: Record<st
         };
       if (name === "@/lib/github/oauth-errors")
         return { clearGithubOAuthReturn: () => {} };
+      if (name === "@/lib/navigation/in-app-history")
+        return { noteExternalDeparture: () => {} };
       if (name === "@/lib/supabase/client")
         return {
           createSupabaseBrowserClient: () => ({

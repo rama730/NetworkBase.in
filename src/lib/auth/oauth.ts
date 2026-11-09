@@ -1,3 +1,5 @@
+import { noteExternalDeparture } from '@/lib/navigation/in-app-history'
+
 type OAuthResultLike = {
     data?: {
         url?: string | null
@@ -50,5 +52,6 @@ export function continueBrowserOAuthRedirect(result: OAuthResultLike): void {
 
     if (!isAllowedOAuthRedirectTarget(resolvedTargetUrl, currentUrl)) return
     if (normalizeComparableUrl(currentUrl) === normalizeComparableUrl(resolvedTargetUrl)) return
+    noteExternalDeparture()
     window.location.assign(resolvedTargetUrl.href)
 }

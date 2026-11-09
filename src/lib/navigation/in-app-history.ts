@@ -4,6 +4,8 @@
 // drifts. MainLayout stamps after each URL change; instrumentation-client reports each router
 // transition so a stamp-less entry is known to be a push or a replace.
 
+import { rememberDeparture, takeDeparture } from "@/lib/navigation/external-return";
+
 export type HistoryEntry = {
   id: string;
   depth: number;
@@ -43,6 +45,12 @@ function isEntry(value: unknown): value is HistoryEntry {
   return Boolean(v && typeof v.id === "string" && typeof v.depth === "number");
 }
 
+/** Leaving the app for another site that sends you back (OAuth): remember where you were (R4). */
+export function noteExternalDeparture() {
+  if (!current || typeof sessionStorage === "undefined" || typeof window === "undefined") return;
+  rememberDeparture(sessionStorage, window.history.length, Date.now(), { path: currentPath, title: document.title });
+}
+
 /** A router navigation is starting (from `onRouterTransitionStart`). */
 export function noteTransition(type: TransitionType) {
   pending = type;
@@ -57,7 +65,9 @@ export function stampEntry(win: WinLike): HistoryEntry {
   if (isEntry(stored)) {
     entry = stored;
   } else if (!current) {
-    entry = { id: newId(), depth: 0, from: null };
+    // A fresh page load. Back from another site (GitHub)? Skip that site's entries (R4).
+    const returned = typeof sessionStorage === "undefined" ? null : takeDeparture(sessionStorage, win.history.length, Date.now());
+    entry = returned ? { id: newId(), depth: 0, from: returned.from, skip: returned.skip } : { id: newId(), depth: 0, from: null };
   } else {
     const type = pending ?? (win.history.length > lastLength ? "push" : "replace");
     entry = type === "push"

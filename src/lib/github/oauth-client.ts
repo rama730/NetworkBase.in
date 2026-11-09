@@ -3,6 +3,7 @@
 import type { UserIdentity } from "@supabase/supabase-js";
 import { buildOAuthRedirectTo, resolveAuthBaseUrl } from "@/lib/auth/redirects";
 import { continueBrowserOAuthRedirect } from "@/lib/auth/oauth";
+import { noteExternalDeparture } from "@/lib/navigation/in-app-history";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { clearGithubOAuthReturn } from "@/lib/github/oauth-errors";
 
@@ -100,6 +101,7 @@ export async function startGithubRepositoryAuthorization({
       throw new Error(
         "GitHub sign-in returned an unexpected authorization destination. Try again.",
       );
+    noteExternalDeparture();
     window.location.assign(target.href);
   } else continueBrowserOAuthRedirect(result);
 }
@@ -135,6 +137,7 @@ export async function startGithubIdentityLink({
   if (!result.data?.url)
     throw new Error("GitHub account linking could not be started.");
   await beforeRedirect?.();
+  noteExternalDeparture();
   window.location.assign(result.data.url);
 }
 
