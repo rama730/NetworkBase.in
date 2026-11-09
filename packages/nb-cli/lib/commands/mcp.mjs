@@ -4,7 +4,7 @@
 import crypto from "node:crypto";
 import readline from "node:readline";
 
-import { callTool, toolList } from "../mcp/tools.mjs";
+import { HOSTED_EXCLUDED, callTool as runTool, toolList as listTools } from "../mcp/tools.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -34,20 +34,20 @@ const RESOURCES = [
 ];
 
 /**
- * @param {Context} ctx
- * @param {{ input?: NodeJS.ReadableStream, output?: { write: (s: string) => unknown } }} [io]
+ * One MCP message handler for both servers (report A7.1): `nb mcp` over stdio, and the hosted one over HTTP
+ * (src/app/api/mcp, P6.1). `hosted` leaves out tools that need a local folder and the local undo log.
+ * @param {{ where: { cwd: string, env: NodeJS.ProcessEnv }, send: (message: any) => void, version: string, hosted?: boolean }} options
  */
-export async function serve(ctx, io = {}) {
-  const output = io.output ?? process.stdout;
-  // One agent session per connection (report A7.7): its changes are tagged so "undo everything" finds them.
-  const where = { cwd: ctx.cwd, env: { ...ctx.env, NB_AGENT_SESSION: crypto.randomUUID() } };
-  /** @param {any} message */
-  const send = (message) => output.write(`${JSON.stringify(message)}\n`);
+export function createMcpHandler({ where, send, version, hosted = false }) {
   const cancelled = new Set();
-  const running = new Set();
-
+  const ctx = { version };
+  const toolList = () => listTools(hosted);
+  const callTool = (/** @type {string} */ name, /** @type {any} */ args, /** @type {any} */ w) =>
+    hosted && HOSTED_EXCLUDED.has(name)
+      ? Promise.resolve({ isError: true, content: [{ type: "text", text: `${name} needs NetworkBase on your computer (nb mcp); the hosted server can't use local files` }] })
+      : runTool(name, args, w);
   /** @param {any} msg */
-  async function handle(msg) {
+  return async function handle(msg) {
     const { id, method, params } = msg;
     const isRequest = id !== undefined && id !== null;
     /** @param {any} result */
@@ -108,7 +108,22 @@ export async function serve(ctx, io = {}) {
         if (method === undefined) return;
         return fail(-32601, `Method not found: ${method}`);
     }
-  }
+  };
+}
+
+/**
+ * @param {Context} ctx
+ * @param {{ input?: NodeJS.ReadableStream, output?: { write: (s: string) => unknown } }} [io]
+ */
+export async function serve(ctx, io = {}) {
+  const output = io.output ?? process.stdout;
+  // One agent session per connection (report A7.7): its changes are tagged so "undo everything" finds them.
+  const where = { cwd: ctx.cwd, env: { ...ctx.env, NB_AGENT_SESSION: crypto.randomUUID() } };
+  /** @param {any} message */
+  const send = (message) => output.write(`${JSON.stringify(message)}\n`);
+  const running = new Set();
+
+  const handle = createMcpHandler({ where, send, version: ctx.version });
 
   const lines = readline.createInterface({ input: io.input ?? process.stdin, crlfDelay: Infinity });
   for await (const line of lines) {

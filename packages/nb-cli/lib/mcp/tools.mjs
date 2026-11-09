@@ -319,8 +319,11 @@ function errorResult(error) {
   return { isError: true, content: [{ type: "text", text: `${e.code}: ${e.message}${e.hint ? `. ${e.hint}` : ""}` }], structuredContent: { status: "error", error: { code: e.code, message: e.message, ...(e.hint ? { hint: e.hint } : {}), ...(e.details !== undefined ? { details: e.details } : {}) } } };
 }
 
-/** tools/list entries, with tier hints for clients (A7.3). */
-export const toolList = () => TOOLS.map((t) => ({
+/** Tools that read or write files in a linked folder, or the local undo log: only `nb mcp` on your computer has them. */
+export const HOSTED_EXCLUDED = new Set(["networkbase_status", "networkbase_file_push", "networkbase_file_pull", "networkbase_undo"]);
+
+/** tools/list entries, with tier hints for clients (A7.3). @param {boolean} [hosted] */
+export const toolList = (hosted = false) => TOOLS.filter((t) => !hosted || !HOSTED_EXCLUDED.has(t.name)).map((t) => ({
   name: t.name,
   title: t.title,
   description: t.description,

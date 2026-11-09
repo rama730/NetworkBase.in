@@ -33,6 +33,17 @@ export default function AgentsDocsPage() {
           ),
         },
         {
+          id: "cloud",
+          title: "1b. Agents in the cloud",
+          content: (
+            <>
+              <p>An agent without your computer (a cloud runner, a hosted assistant) connects to the hosted server at <code>https://networkbase.in/api/mcp</code>. Give it an agent sign-in, approved from any device, limited to one workspace:</p>
+              <TerminalBlock variant="command" label="Terminal">{"$ npx @networkbase/cli login --device --agent \"Cloud agent\" --profile cloud\n$ claude mcp add --transport http networkbase https://networkbase.in/api/mcp \\\n    --header \"Authorization: Bearer $NB_AGENT_TOKEN\""}</TerminalBlock>
+              <p>It has the same tools as on your computer, except the ones that use local files. Revoke it any time in Settings.</p>
+            </>
+          ),
+        },
+        {
           id: "ask",
           title: "2. What you can ask",
           content: (

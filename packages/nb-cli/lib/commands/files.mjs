@@ -216,6 +216,15 @@ function oldStatusFlags(ctx) {
 export async function push(ctx) {
   oldStatusFlags(ctx);
   const { root } = ctx.requireRoot();
+  // --from-git: what the last commit changed, its subject as the message, its NetworkBase-Task trailer as the task.
+  if (ctx.flags["from-git"]) {
+    const { filesFromLastCommit } = await import("./extras.mjs");
+    const last = await filesFromLastCommit(ctx.cwd);
+    if (!last.paths.length) throw usage("The last commit changed no files in this folder");
+    ctx.positionals = last.paths;
+    ctx.flags.message ??= last.subject || undefined;
+    if (last.task && !ctx.flags.task) ctx.flags.task = last.task;
+  }
   const only = relativeArgs(ctx, root);
   if (!only.length && !ctx.flags.all && !ctx.out.interactive) {
     // Never upload a whole folder without being told which files (finding 21).

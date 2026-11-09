@@ -50,6 +50,8 @@ async function setStatus(ctx, task, status, extra = {}) {
 
 /** @param {Context} ctx */
 export async function list(ctx) {
+  const { applySavedFilter } = await import("./extras.mjs");
+  applySavedFilter(ctx);
   const workspaceId = ctx.requireWorkspace();
   const scope = ctx.flags.all ? "all" : "mine";
   const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query: { projectId: workspaceId, scope } }));
@@ -162,6 +164,7 @@ function printContext(ctx, task) {
 
 /** @param {Context} ctx */
 export async function create(ctx) {
+  if (ctx.flags.from) return (await import("./extras.mjs")).createFromMarkdown(ctx, String(ctx.flags.from));
   const title = ctx.positionals.join(" ").trim();
   if (!title) throw usage('nb task create "<title>"');
   const priority = ctx.flags.priority;
@@ -183,9 +186,17 @@ export async function start(ctx) {
     const res = await setStatus(ctx, task, "in_progress").catch((error) => ({ error: error instanceof Error ? error.message : String(error) }));
     moved = res?.error ? { ok: false, message: res.error } : { ok: true, status: "in_progress" };
   }
-  ctx.out.result("nb.task.start/1", { id: task.id, number: task.taskNumber, title: task.title, moved }, (d) => [
+  // --branch: a git branch per task (finding 146), created the first time.
+  let branch = null;
+  if (ctx.flags.branch) {
+    const { branchName, switchToBranch } = await import("./extras.mjs");
+    const name = branchName(task.taskNumber, task.title);
+    branch = { name, did: await switchToBranch(root, name) };
+  }
+  ctx.out.result("nb.task.start/1", { id: task.id, number: task.taskNumber, title: task.title, moved, branch }, (d) => [
     `${ctx.out.c.success(ctx.out.sym.done)} Started #${d.number} ${safe(d.title)}`,
     ...(d.moved ? [d.moved.ok ? "  Moved to In progress" : ctx.out.c.warning(`  Status not changed: ${safe(d.moved.message)}`)] : []),
+    ...(d.branch ? [`  On branch ${d.branch.name} (${d.branch.did}). Link commits: git commit --trailer "NetworkBase-Task: ${d.number}"`] : []),
     ctx.out.c.muted(`  nb push <files> links to it · nb task done when finished`),
   ]);
 }

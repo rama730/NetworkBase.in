@@ -43,6 +43,10 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 - `nb inbox` shows your notifications as in the app (`--unread`, `read`, `open`); `--follow` waits for new ones and `--notify` also shows them as desktop notifications.
 - `nb watch` also pulls teammates' new versions as they land (`--no-pull` to only push); your edits are never overwritten.
 - Classes: `nb assignment list|view|pull|hand-in|question` with the app's late and lock rules and the assignment's AI policy; reviewers get `nb review list|view|approve|return|pull`.
+- `nb task start 4 --branch` switches to a git branch `nb/4-…`; `nb push --from-git` pushes what the last commit changed, using its subject as the message and its `NetworkBase-Task: 4` trailer as the task.
+- `nb task list --save <name>` keeps filters for `nb task list @name`; `nb task create --from tasks.md` makes one task per heading, with `- [ ]` lines as subtasks, after one yes.
+- `NB_WORKSPACE` sets a default workspace for scripts and CI.
+- Hosted MCP for agents in the cloud: `https://networkbase.in/api/mcp` with an agent sign-in (`nb login --device --agent …`).
 - `--fields`, a pager for long views (`--no-pager`), clickable links in terminals that support them, and server errors link to their entry on /docs/cli.
 
 ### Removed

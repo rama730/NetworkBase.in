@@ -140,6 +140,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/assignments/${ID}/question`), write: "task:write" },
   { pattern: route("/api/v1/reviews"), read: "task:read" },
   { pattern: route(`/api/v1/reviews/${ID}`), write: "task:review" },
+  // The hosted MCP server (P6.1): agent tokens only (the route checks); each tool calls the routes above.
+  { pattern: route("/api/mcp"), write: "workspace:read", agent: "self" },
   // Your inbox and live changes (report A11.1–A11.2). Agents get file changes in their workspace, never the inbox.
   { pattern: route("/api/v1/inbox"), read: "workspace:read" },
   { pattern: route("/api/v1/inbox/read"), write: "workspace:read" },

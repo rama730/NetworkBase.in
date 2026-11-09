@@ -339,6 +339,10 @@
           "type": "boolean",
           "describe": "Upload again files that were deleted on the server but you still have"
         },
+        "from-git": {
+          "type": "boolean",
+          "describe": "Push what the last git commit changed (its NetworkBase-Task trailer picks the task)"
+        },
         "confirm-secrets": {
           "type": "boolean",
           "describe": "Upload even though a file looks like it holds a password or key"
@@ -588,7 +592,7 @@
     {
       "name": "task list",
       "summary": "Tasks (default: yours, not done)",
-      "usage": "nb task list [--mine|--all] [--status list]",
+      "usage": "nb task list [@saved] [--mine|--all] [--status list] [--save name]",
       "flags": {
         "mine": {
           "type": "boolean",
@@ -607,9 +611,17 @@
           "type": "string",
           "describe": "At most this many",
           "valueName": "n"
+        },
+        "save": {
+          "type": "string",
+          "describe": "Save these filters under a name (nb task list @name)",
+          "valueName": "name"
         }
       },
-      "examples": [],
+      "examples": [
+        "nb task list --all --status blocked --save stuck",
+        "nb task list @stuck"
+      ],
       "exitCodes": [
         0,
         1
@@ -663,11 +675,17 @@
           "multiple": true,
           "describe": "Add a subtask (repeatable)",
           "valueName": "title"
+        },
+        "from": {
+          "type": "string",
+          "describe": "Create one task per heading in a Markdown file; - [ ] lines become subtasks",
+          "valueName": "file.md"
         }
       },
       "examples": [
         "nb task create \"Fix login\" --priority high",
-        "nb task create \"Write report\" --subtask Outline --subtask Draft"
+        "nb task create \"Write report\" --subtask Outline --subtask Draft",
+        "nb task create --from tasks.md"
       ],
       "exitCodes": [
         0,
@@ -677,9 +695,16 @@
     {
       "name": "task start",
       "summary": "Make it this folder's task and move it to In progress",
-      "usage": "nb task start <task>",
-      "flags": {},
-      "examples": [],
+      "usage": "nb task start <task> [--branch]",
+      "flags": {
+        "branch": {
+          "type": "boolean",
+          "describe": "Also switch to a git branch for it (nb/4-fix-login)"
+        }
+      },
+      "examples": [
+        "nb task start 4 --branch"
+      ],
       "exitCodes": [
         0,
         1

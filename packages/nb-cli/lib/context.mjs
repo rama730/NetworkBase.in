@@ -47,6 +47,8 @@ export function createContext({ flags, positionals, cwd = process.cwd(), env = p
     requireWorkspace() {
       if (flags.workspace) return /** @type {string} */ (flags.workspace);
       if (project?.workspaceId) return project.workspaceId;
+      // A default for scripts, CI and the hosted MCP server (an agent token's own workspace).
+      if (env.NB_WORKSPACE) return env.NB_WORKSPACE;
       throw new CliError("NOT_LINKED", "This folder isn't linked to a workspace", { hint: "Run nb init <workspace>, or pass --workspace <slug>" });
     },
     /** --workspace takes a slug or title; the API needs the id, so it's looked up once before the command runs. */
