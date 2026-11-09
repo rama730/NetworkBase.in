@@ -18,6 +18,7 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.61" }), cookies: async () => ({ get: () => undefined, set: () => undefined, delete: () => undefined }) });
 
 let members: typeof import("../../src/app/actions/org-members");
+let dashboard: typeof import("../../src/app/actions/org-dashboard");
 let orgs: typeof import("../../src/app/actions/organizations");
 let units: typeof import("../../src/app/actions/child-units");
 before(async () => {
@@ -28,6 +29,7 @@ before(async () => {
     getViewerProfileContext: async () => ({ userId: viewerId || null, profile: null }),
   });
   members = await loadAppModule(() => import("../../src/app/actions/org-members"));
+  dashboard = await loadAppModule(() => import("../../src/app/actions/org-dashboard"));
   orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
   units = await loadAppModule(() => import("../../src/app/actions/child-units"));
 });
@@ -60,7 +62,7 @@ test("D-A: members see the organization's people, read-only; viewers don't", asy
   const [member, viewer] = [await user(), await user()];
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role, title) VALUES (${o.id}, ${member}, 'member', 'Section B'), (${o.id}, ${viewer}, 'viewer', NULL)`;
   viewerId = member;
-  const people = await members.readOrgPeopleAction(o.id);
+  const people = await dashboard.readOrgPeopleAction(o.id);
   assert.equal(people.success, true);
   const rows = people.success ? people.people : [];
   assert.equal(rows.length, 3);
@@ -68,7 +70,7 @@ test("D-A: members see the organization's people, read-only; viewers don't", asy
   assert.deepEqual(Object.keys(rows[0]!).sort(), ["avatarUrl", "id", "name", "role", "title"], "no email, work or activity");
   assert.ok(rows.some((r) => r.role === "Student" && r.title === "Section B"), "the organization's own role names");
   viewerId = viewer;
-  assert.equal((await members.readOrgPeopleAction(o.id)).success, false);
+  assert.equal((await dashboard.readOrgPeopleAction(o.id)).success, false);
 });
 
 test("6.4: renaming a team carries its open team tasks", async () => {

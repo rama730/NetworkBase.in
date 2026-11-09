@@ -436,28 +436,6 @@ export async function cancelOrgInviteAction(orgId: string, inviteId: string): Pr
     return { success: true };
 }
 
-/**
- * Decision D-A (audit 5.7): the people in an organization, for its members. Name, photo, role and title only: no
- * email, work, activity or actions (those stay on the admins' Members tab). Viewers and visitors don't get it.
- */
-export async function readOrgPeopleAction(orgId: string): Promise<{ success: true; people: Array<{ id: string; name: string; avatarUrl: string | null; role: string; title: string | null }> } | Failure> {
-    const { userId } = await getViewerAuthContext();
-    if (!userId || !UUID_RE.test(orgId)) return DENIED;
-    const access = await getWorkspaceAccessById(orgId, userId);
-    if (access.project?.kind !== 'organization' || !(access.isOwner || access.memberRole === 'admin' || access.memberRole === 'member')) return DENIED;
-    const org = await orgLabel(orgId);
-    const rows = await db.select({ id: workspaceMembers.userId, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, role: workspaceMembers.role, title: workspaceMembers.title })
-        .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
-        .where(and(eq(workspaceMembers.projectId, orgId), isNull(profiles.deletedAt),
-            // Someone blocked by, or blocking, the viewer isn't listed to them.
-            sql`NOT EXISTS (SELECT 1 FROM user_blocks b WHERE (b.blocker_id = ${userId}::uuid AND b.blocked_id = ${workspaceMembers.userId}) OR (b.blocker_id = ${workspaceMembers.userId} AND b.blocked_id = ${userId}::uuid))`))
-        .orderBy(sql`CASE ${workspaceMembers.role} WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'member' THEN 2 ELSE 3 END`, asc(profiles.fullName))
-        .limit(ORG_LIMITS.membersPerOrg);
-    const names = org?.roleNames;
-    return { success: true, people: rows.map((r) => ({ id: r.id, name: r.name || r.username || 'Member', avatarUrl: r.avatarUrl, title: r.title,
-        role: names?.[r.role as 'owner' | 'admin' | 'member' | 'viewer'] ?? r.role })) };
-}
-
 /** Invites waiting for the signed-in person (exact address match). */
 export async function listMyOrgInvitesAction() {
     const { userId } = await getViewerAuthContext();
