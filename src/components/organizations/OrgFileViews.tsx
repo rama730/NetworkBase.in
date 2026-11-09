@@ -21,6 +21,7 @@ import { DownloadLink } from '@/components/ui/download-link'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { assignmentHref } from '@/lib/organizations/assignment-rules'
 import { Notice } from '@/components/ui/notice'
+import { readUrlParam, useUrlMirror } from '@/lib/navigation/url-state'
 
 // Files report §1–§2: Submissions, Sprint materials and a team's Final files, browsed the Task files way.
 
@@ -46,11 +47,13 @@ const statusTone = (s: string) => (s === 'In review' ? 'warning' : s === 'Approv
 
 export function SubmissionsBrowser({ org }: { org: OrgRef }) {
     const [data, setData] = useState<SubmissionGroup[] | null>(null)
-    const [status, setStatus] = useState<Status>('all')
-    const [query, setQuery] = useState('')
-    const [only, setOnly] = useState('')
-    const [sort, setSort] = useState<'name' | 'updated' | 'size'>('updated')
-    const [dir, setDir] = useState<'asc' | 'desc'>('desc')
+    const [status, setStatus] = useState<Status>(() => { const s = readUrlParam('ofstatus'); return STATUS.find((x) => x.id === s)?.id ?? 'all' })
+    const [query, setQuery] = useState(() => readUrlParam('ofq') ?? '')
+    const [only, setOnly] = useState(() => readUrlParam('ofonly') ?? '')
+    const [sort, setSort] = useState<'name' | 'updated' | 'size'>(() => { const s = readUrlParam('ofsort'); return s === 'name' || s === 'size' ? s : 'updated' })
+    const [dir, setDir] = useState<'asc' | 'desc'>(() => (readUrlParam('ofdir') === 'asc' ? 'asc' : 'desc'))
+    // The view lives in the address (unified back R3).
+    useUrlMirror({ ofstatus: status !== 'all' ? status : null, ofq: query || null, ofonly: only || null, ofsort: sort !== 'updated' ? sort : null, ofdir: dir !== 'desc' ? dir : null })
     const { place, go } = useBrowserPlace(['assignment', 'copy', 'version', 'file'] as const)
     const [truncated, setTruncated] = useState(false)
     useEffect(() => { void readOrgSubmissionsAction(org.orgId).then((r) => { setData(r.success ? r.assignments : []); setTruncated(r.success && r.truncated) }) }, [org.orgId])
@@ -176,8 +179,9 @@ const phaseOf = (s: string): Exclude<Phase, 'all'> => (s === 'active' ? 'running
 
 export function SprintMaterialsBrowser({ org }: { org: OrgRef }) {
     const [groups, setGroups] = useState<SprintMaterialsGroup[] | null>(null)
-    const [phase, setPhase] = useState<Phase>('all')
-    const [query, setQuery] = useState('')
+    const [phase, setPhase] = useState<Phase>(() => { const s = readUrlParam('ofphase'); return s === 'running' || s === 'upcoming' || s === 'closed' ? s : 'all' })
+    const [query, setQuery] = useState(() => readUrlParam('ofmq') ?? '')
+    useUrlMirror({ ofphase: phase !== 'all' ? phase : null, ofmq: query || null })
     const { place, go } = useBrowserPlace(['sprint', 'file'] as const)
     useEffect(() => { void readOrgSprintMaterialsAction(org.orgId).then((r) => setGroups(r.success ? r.groups : [])) }, [org.orgId])
     if (!groups) return <div className="nb-skeleton m-4 h-24 rounded-md" aria-label="Loading sprint materials" />
@@ -237,8 +241,9 @@ export function SprintMaterialsBrowser({ org }: { org: OrgRef }) {
 
 export function FinalFilesBrowser({ projectId }: { projectId: string }) {
     const [rows, setRows] = useState<ChildFinalFileRow[] | null>(null)
-    const [state, setState] = useState<'all' | 'review' | 'reviewed'>('all')
-    const [query, setQuery] = useState('')
+    const [state, setState] = useState<'all' | 'review' | 'reviewed'>(() => { const s = readUrlParam('ofstate'); return s === 'review' || s === 'reviewed' ? s : 'all' })
+    const [query, setQuery] = useState(() => readUrlParam('offq') ?? '')
+    useUrlMirror({ ofstate: state !== 'all' ? state : null, offq: query || null })
     const { place, go } = useBrowserPlace(['assignment', 'file'] as const)
     useEffect(() => { void readChildFinalFilesAction(projectId).then((r) => setRows(r.success ? r.rows : [])) }, [projectId])
     if (!rows) return <div className="nb-skeleton m-4 h-24 rounded-md" aria-label="Loading final files" />

@@ -21,6 +21,7 @@ import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
+import { readUrlParam, useUrlMirror } from '@/lib/navigation/url-state'
 
 // Review UX phase 2 (Board artboard, findings 1.1–1.6, 1.14, 5.5, 6.2): the whole class in the Assignment tab —
 // tiles that filter, search and sort, everyone in sections by state, each row's own actions, and the bulk tools
@@ -44,9 +45,11 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
     const [closed, setClosed] = useState(false)
     // Sprint cleanup §4: a stage on a sprint's work list opens the roster on that stage (?rosterTile=).
     const [tile, setTile] = useState<Tile>(() => { const asked = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('rosterTile'); return asked && asked in TILE_SECTIONS ? asked as Tile : 'all' })
-    const [query, setQuery] = useState('')
-    const [sort, setSort] = useState<'name' | 'handedIn'>('name')
-    const [lateOnly, setLateOnly] = useState(false)
+    const [query, setQuery] = useState(() => readUrlParam('rtq') ?? '')
+    const [sort, setSort] = useState<'name' | 'handedIn'>(() => (readUrlParam('rtsort') === 'handedIn' ? 'handedIn' : 'name'))
+    const [lateOnly, setLateOnly] = useState(() => readUrlParam('rtlate') === '1')
+    // The roster's view lives in the address (unified back R3).
+    useUrlMirror({ rosterTile: tile !== 'all' ? tile : null, rtq: query || null, rtsort: sort !== 'name' ? sort : null, rtlate: lateOnly ? '1' : null })
     const [picked, setPicked] = useState<Set<string>>(new Set())
     const [ask, setAsk] = useState<Ask>(null)
     const [teamExcuse, setTeamExcuse] = useState<{ copyId: string; userId: string; name: string } | null>(null)

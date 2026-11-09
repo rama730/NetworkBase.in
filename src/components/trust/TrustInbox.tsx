@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Skeleton } from '@/components/ui/skeleton'
 import type { InboxFilters, InboxItem } from '@/lib/trust/inbox'
 import { caseLabel, parseCaseLabel } from '@/lib/trust/rules'
+import { keepStamp } from '@/lib/navigation/in-app-history'
 
 // The Inbox (Trust & Safety Console Redesign R2, R3, R8, S6, S8): list, case and decision as separate pieces of
 // data, updated in place by actions and live events; the URL holds the view and the open case without reloading.
@@ -64,7 +65,7 @@ export function TrustInbox() {
         const next = new URLSearchParams(window.location.search)
         for (const [k, v] of Object.entries(changes)) { if (v) next.set(k, v); else next.delete(k) }
         const url = `${window.location.pathname}${next.toString() ? `?${next}` : ''}`
-        if (replace) window.history.replaceState(window.history.state, '', url); else window.history.pushState(null, '', url)
+        if (replace) window.history.replaceState(keepStamp(window.history.state), '', url); else window.history.pushState(null, '', url)
     }, [])
     // Filters replace: back leaves the inbox in one step (unified back A2).
     const setFilters = useCallback((changes: Partial<InboxFilters>) => { setChecked([]); setUrl(changes as Record<string, string | undefined>, true) }, [setUrl])

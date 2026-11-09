@@ -18,6 +18,7 @@ import { queueOrder } from '@/lib/organizations/assignment-rules'
 import { toast } from '@/lib/feedback'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/utils/date'
+import { readUrlParam, useUrlMirror } from '@/lib/navigation/url-state'
 
 // Review queue report (2026-11-04-review-queue-layout-findings.md): who's waiting on the left, the work in the middle
 // with the decision on its own header, and only the discussion on the right — on one 8px grid, the three tops level.
@@ -52,11 +53,13 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
     // §4b.1, §4b.3: the place is the hand-in itself (and the link), never a position that shifts when the list changes.
     const [currentId, setCurrentId] = useState<string | null>(() => (typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('review')))
     const [assignment, setAssignment] = useState(() => (typeof window === 'undefined' ? 'all' : new URLSearchParams(window.location.search).get('assignment') ?? 'all'))
-    const [lateOnly, setLateOnly] = useState(false)
+    const [lateOnly, setLateOnly] = useState(() => readUrlParam('rqlate') === '1')
     // Reviewers (report §33.5): Mine is the work you review, plus anything nobody was picked for.
-    const [mineOnly, setMineOnly] = useState(false)
-    const [query, setQuery] = useState('')
-    const [sort, setSort] = useState<'oldest' | 'newest' | 'late'>('oldest')
+    const [mineOnly, setMineOnly] = useState(() => readUrlParam('rqmine') === '1')
+    const [query, setQuery] = useState(() => readUrlParam('rqq') ?? '')
+    const [sort, setSort] = useState<'oldest' | 'newest' | 'late'>(() => { const s = readUrlParam('rqsort'); return s === 'newest' || s === 'late' ? s : 'oldest' })
+    // The queue's filters live in the address (unified back R3).
+    useUrlMirror({ assignment: assignment !== 'all' ? assignment : null, rqlate: lateOnly ? '1' : null, rqmine: mineOnly ? '1' : null, rqq: query || null, rqsort: sort !== 'oldest' ? sort : null })
     // Review UX 3.9: decisions waiting out their 10 seconds, hidden from the list until sent or taken back.
     const [held, setHeld] = useState<Set<string>>(new Set())
     const [error, setError] = useState<string | null>(null)

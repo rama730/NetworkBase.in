@@ -46,6 +46,7 @@ import { userTopic } from '@/lib/messaging/constants'
 import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { formatDistanceToNow } from '@/lib/utils/date'
+import { useUrlMirror } from '@/lib/navigation/url-state'
 import { cn } from '@/lib/utils'
 import { ErrorNotice } from '@/components/ui/ErrorNotice'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -76,10 +77,31 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
     const [data, setData] = useState<OrgMembersData | null>(null)
     const [error, setError] = useState<string | null>(null)
     // Workspaces report §4 F5: "Place them" (and the Overview's standing links) open Members already filtered.
+    // The filter lives in the address (unified back R3), so back returns to it; `project`/`status` are links already sent.
     const [filter, setFilter] = useState<RosterFilter & { invited?: boolean; outside?: boolean; former?: boolean }>(() => {
         const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)
-        const project = params.get('project'); const status = params.get('status')
-        return { sort: 'name', ...(project ? { project } : {}), ...(status === 'behind' || status === 'inactive' ? { status } : {}) }
+        const project = params.get('mproject') ?? params.get('project'); const status = params.get('mstatus') ?? params.get('status')
+        const role = params.get('mrole'); const sort = params.get('msort'); const q = params.get('mq')
+        return {
+            sort: sort === 'joined' || sort === 'active' || sort === 'behind' ? sort : 'name',
+            ...(q ? { q } : {}),
+            ...(role === 'admins' || role === 'members' || role === 'guests' ? { role } : {}),
+            ...(project ? { project } : {}),
+            ...(status === 'behind' || status === 'inactive' ? { status } : {}),
+            ...(params.get('minv') === '1' ? { invited: true } : {}),
+            ...(params.get('mout') === '1' ? { outside: true } : {}),
+            ...(params.get('mformer') === '1' ? { former: true } : {}),
+        }
+    })
+    useUrlMirror({
+        mq: filter.q || null,
+        mrole: filter.role && filter.role !== 'all' ? filter.role : null,
+        msort: filter.sort && filter.sort !== 'name' ? filter.sort : null,
+        mproject: filter.project && filter.project !== 'all' ? filter.project : null,
+        mstatus: filter.status && filter.status !== 'all' ? filter.status : null,
+        minv: filter.invited ? '1' : null,
+        mout: filter.outside ? '1' : null,
+        mformer: filter.former ? '1' : null,
     })
     const [cameFromWorkspaces] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('from') === 'workspaces')
     const [selected, setSelected] = useState<Set<string>>(new Set())

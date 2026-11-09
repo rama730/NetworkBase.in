@@ -79,6 +79,15 @@ export function stampEntry(win: WinLike): HistoryEntry {
   return entry;
 }
 
+/**
+ * State for a raw history.pushState/replaceState: our stamp only. Next's patched history copies its own
+ * current internals in; passing the old state would keep Next's stale route tree for the new address.
+ */
+export function keepStamp(state: unknown): { nb?: HistoryEntry } {
+  const nb = (state as { nb?: unknown } | null)?.nb;
+  return isEntry(nb) ? { nb } : {};
+}
+
 export function currentEntry(): HistoryEntry | null {
   return current;
 }

@@ -60,6 +60,8 @@ import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesStore } from '@/stores/filesStore';
 import { useReloadOnNotice } from '@/hooks/useReloadOnNotice';
 import { useBackParent } from '@/hooks/useBackParent';
+import { TAB_STATE_PARAMS } from '@/lib/navigation/url-state';
+import { keepStamp } from '@/lib/navigation/in-app-history';
 
 const EditWorkspaceModal = dynamic(() => import('@/components/workspaces/EditWorkspaceModal'), { ssr: false, loading: () => null });
 
@@ -141,6 +143,12 @@ function clearProjectDetailScopedParams(params: URLSearchParams, activeTab: stri
 
     for (const key of ['analyticsTab', 'memberId', 'analyticsMember', 'analyticsSource', 'analyticsWindow']) {
         changed = deleteParam(params, key) || changed;
+    }
+
+    // Each tab's own searches and filters (unified back R3) go when you leave that tab.
+    for (const [tab, keys] of Object.entries(TAB_STATE_PARAMS)) {
+        if (!resetActiveTab && activeTab === tab) continue;
+        for (const key of keys) changed = deleteParam(params, key) || changed;
     }
 
     return changed;
@@ -678,7 +686,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             const nextUrl = nextQuery ? `${safePath}?${nextQuery}` : safePath;
             // A tab click replaces the entry; back leaves the page (unified back A2). Audit 4.5: the address
             // changes without a server round trip (the tabs read their own data), as Files and Messages already do.
-            window.history.replaceState(window.history.state, '', nextUrl);
+            window.history.replaceState(keepStamp(window.history.state), '', nextUrl);
         },
         [activeTab, canOpenSettingsTab, canSeeAllTabs, isOrganization, pathname, publicTabVisibility, router],
     );

@@ -21,7 +21,7 @@ test("the canonical slug redirect keeps repeated params repeated", () => {
 
 test("tab and settings-section clicks replace; opening a doc is a history entry", () => {
   // Unified back A2: a tab click replaces the entry (no server round trip), so back leaves the page in one step.
-  assert.match(read(PDC), /window\.history\.replaceState\(window\.history\.state, '', nextUrl\)/);
+  assert.match(read(PDC), /window\.history\.replaceState\(keepStamp\(window\.history\.state\), '', nextUrl\)/);
   assert.match(read("src/components/workspaces/doc/WorkspaceDocRail.tsx"), /router\[replace \? "replace" : "push"\]/);
   assert.match(read("src/hooks/useWorkspaceSettingsNavigation.ts"), /router\.replace\(`\?\$\{next\.toString\(\)\}#project-settings-/);
 });

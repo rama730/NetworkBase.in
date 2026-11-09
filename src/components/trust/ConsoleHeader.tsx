@@ -11,6 +11,7 @@ import { LiveLine, useLiveEvents } from '@/components/trust/live'
 import { NewCaseDialog } from '@/components/trust/NewCaseDialog'
 import { Button } from '@/components/ui/button'
 import type { InboxCounts } from '@/lib/trust/inbox'
+import { keepStamp } from '@/lib/navigation/in-app-history'
 
 const TABS = [
     { id: 'inbox', label: 'Inbox', count: (c: InboxCounts) => c.open + c.appeals + c.verification },
@@ -32,7 +33,7 @@ export function ConsoleHeader({ counts: initial, isAdmin }: { counts: InboxCount
         if (c.urgent > lastUrgent.current) {
             const text = c.urgent - lastUrgent.current === 1 ? 'New urgent case' : `${c.urgent - lastUrgent.current} new urgent cases`
             setAnnounce(text)
-            toast(text, { action: { label: 'Open', onClick: () => window.history.replaceState(window.history.state, '', '/admin/trust?view=urgent') } })
+            toast(text, { action: { label: 'Open', onClick: () => window.history.replaceState(keepStamp(window.history.state), '', '/admin/trust?view=urgent') } })
         }
         lastUrgent.current = c.urgent
     }, [c.urgent])

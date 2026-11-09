@@ -69,6 +69,7 @@ import { SkeletonTasks } from "@/components/workspaces/skeletons/SkeletonTasks";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 import { serverFirst } from "@/lib/server-first";
 import type { TasksBoot } from "@/lib/workspaces/server/tasks-boot";
+import { readUrlParam, useUrlMirror } from "@/lib/navigation/url-state";
 
 const PAGE_NORMALIZED_TASKS_CACHE = new WeakMap<object, TaskSurfaceRecord[]>();
 
@@ -680,7 +681,8 @@ export default function TasksTab({
     });
     return () => { unsubscribe(); if (timer) clearTimeout(timer); };
   }, [countsKey, projectId, queryClient]);
-  const [unitFilter, setUnitFilter] = useState("");
+  const [unitFilter, setUnitFilter] = useState(() => readUrlParam("team") ?? "");
+  useUrlMirror({ team: unitFilter || null }); // unified back R3
   const [teamTaskOpen, setTeamTaskOpen] = useState(false);
   const unitMembers = units.find((unit) => unit.id === unitFilter)?.memberIds;
   const inRunning = scope === "sprint" && runningOnBoard ? sprintAwareTasks.filter((task) => Boolean(task.sprintId && runningOnBoard.ids.has(task.sprintId))) : sprintAwareTasks;

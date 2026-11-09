@@ -5,6 +5,7 @@ import { useCallback, useMemo } from 'react';
 
 import { WORKSPACE_STATUS, WORKSPACE_TYPE } from '@/constants/discover';
 import { activeFilterCount, isDefaultDiscoverQuery, parseDiscoverQuery, type DiscoverQuery } from '@/lib/discover/query';
+import { keepStamp } from '@/lib/navigation/in-app-history';
 
 // What an empty URL means: a value equal to it is left out of the URL.
 const DEFAULTS = parseDiscoverQuery(() => null);
@@ -36,7 +37,7 @@ export function useDiscoverUrlFilters() {
         // Nothing changed (Enter on the same search, the selected option again): no history entry.
         if (url === `${window.location.pathname}${window.location.search}`) return;
         // Filters replace: back leaves Discover in one step and comes back to these filters (unified back A2).
-        window.history.replaceState(window.history.state, '', url);
+        window.history.replaceState(keepStamp(window.history.state), '', url);
     }, [pathname]);
 
     /** Clears the filter tags, and the search too unless `keepSearch`. Scope and sort stay. */

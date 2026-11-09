@@ -8,7 +8,7 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
 // entry, so back leaves the page in one step and comes back to the same tab or filter.
 test("tab and filter changes replace history instead of pushing", () => {
   const dashboard = read("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx");
-  assert.match(dashboard, /window\.history\.replaceState\(window\.history\.state, '', nextUrl\)/);
+  assert.match(dashboard, /window\.history\.replaceState\(keepStamp\(window\.history\.state\), '', nextUrl\)/);
   assert.doesNotMatch(dashboard, /window\.history\.pushState\(null, '', nextUrl\)/);
 
   const network = read("src/components/network/NetworkClient.tsx");

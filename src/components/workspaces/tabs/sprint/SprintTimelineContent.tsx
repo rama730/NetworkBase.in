@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { readUrlParam, useUrlMirror } from "@/lib/navigation/url-state";
 import { formatTaskDueDate } from "@/lib/workspaces/task-presentation";
 import Link from "next/link";
 import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Link2, ListTodo } from "lucide-react";
@@ -57,8 +58,9 @@ export function SprintTimelineContent({
     .map((r) => r.task);
   const lifecycleRows = rows.filter((row) => row.kind !== "task");
   const { user } = useAuth();
-  const [by, setBy] = useState<"state" | "person">("state");
-  const [mine, setMine] = useState(false);
+  const [by, setBy] = useState<"state" | "person">(() => (readUrlParam("tlby") === "person" ? "person" : "state"));
+  const [mine, setMine] = useState(() => readUrlParam("tlmine") === "1");
+  useUrlMirror({ tlby: by !== "state" ? by : null, tlmine: mine ? "1" : null }); // unified back R3
   const view = workGroups(tasks, by, mine ? user?.id : null);
   const visibleCount = view.groups.reduce((n, g) => n + g.tasks.length, 0);
   const time = sprint ? sprintTime(sprint) : null;
