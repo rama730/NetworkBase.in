@@ -216,6 +216,17 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 260,
     allowForceDynamic: true,
   }),
+  // Sign-in with a code (CLI report A3.1): approve a terminal or an AI agent from any device.
+  "/device": buildUserShellContract("/device", "src/app/(site)/(auth)/device/page.tsx", {
+    renderingMode: "dynamic",
+    cacheTtlSeconds: 0,
+    cacheStrategy: "none",
+    invalidationOwner: "server-action",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "auth_snapshot",
+    maxInitialPayloadKb: 260,
+    allowForceDynamic: true,
+  }),
   "/onboarding": buildUserShellContract("/onboarding", "src/app/(site)/(onboarding)/onboarding/page.tsx", {
     renderingMode: "dynamic",
     cacheStrategy: "none",
@@ -483,6 +494,23 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 200,
   }),
   "/subprocessors": buildPublicContract("/subprocessors", "src/app/(legal)/subprocessors/page.tsx", {
+    renderingMode: "static",
+    cacheTtlSeconds: 86400,
+    invalidationOwner: "none",
+    hydrationBoundary: "minimal",
+    bootstrapReadModel: "static",
+    maxInitialPayloadKb: 200,
+  }),
+  // CLI and agent guides (CLI report A6.8): static, the command reference built from the CLI's own table.
+  "/docs/cli": buildPublicContract("/docs/cli", "src/app/(legal)/docs/cli/page.tsx", {
+    renderingMode: "static",
+    cacheTtlSeconds: 86400,
+    invalidationOwner: "none",
+    hydrationBoundary: "minimal",
+    bootstrapReadModel: "static",
+    maxInitialPayloadKb: 260,
+  }),
+  "/docs/agents": buildPublicContract("/docs/agents", "src/app/(legal)/docs/agents/page.tsx", {
     renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",

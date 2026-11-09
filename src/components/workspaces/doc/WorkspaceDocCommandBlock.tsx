@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { COPY_FAILED, copyText } from "@/lib/clipboard";
 import { toast } from "@/lib/feedback";
 import { commandsOf } from "@/lib/terminal/ansi";
-import terminal from "@/components/ui/terminal-block.module.css";
+import { terminal } from "@/components/ui/terminal-classes";
 
 const SHELLS = new Set(["bash", "sh", "zsh", "shell", "console", "terminal", "powershell", "ps1", "cmd"]);
 

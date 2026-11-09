@@ -39,9 +39,9 @@ test("Docs Tab Design Specification Conformance Contract (Section 22 & Sections 
 
     await t.test("WorkspaceDocCommandBlock adheres to Section 04/22 code block specification", () => {
         // One terminal style app-wide (CLI report A9.9): 13px mono at 1.6 from the shared block, header in .nb-micro (0.09em).
-        const terminalCss = fs.readFileSync(path.join(process.cwd(), "src/components/ui/terminal-block.module.css"), "utf-8");
-        assert.match(commandBlock, /terminal-block\.module\.css/, "Code blocks use the shared terminal style");
-        assert.match(terminalCss, /font: 400 13px\/1\.6 var\(--font-mono\)/, "Code blocks must use 13px mono at 1.6 leading");
+        const terminalClasses = fs.readFileSync(path.join(process.cwd(), "src/components/ui/terminal-classes.ts"), "utf-8");
+        assert.match(commandBlock, /components\/ui\/terminal-classes/, "Code blocks use the shared terminal style");
+        assert.match(terminalClasses, /font-mono text-\[13px\] leading-\[1\.6\]/, "Code blocks must use 13px mono at 1.6 leading");
         assert.match(commandBlock, /className="nb-micro"/, "Language header must use the .nb-micro label (0.09em tracking)");
         assert.match(commandBlock, /size-7.*rounded-\[5px\]/, "Copy button must be 28px square with 5px radius");
     });

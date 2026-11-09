@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 import { CopyButton } from "@/components/ui/copy-button";
 import { commandsOf, parseAnsi, stripAnsi } from "@/lib/terminal/ansi";
 
-import styles from "./terminal-block.module.css";
+import { cn } from "@/lib/utils";
+
+import { terminal as styles } from "./terminal-classes";
 
 type Props = {
   /** command: `$ …` lines, copied without the prompt; output: program output (ANSI colors kept); code: source. */
@@ -39,14 +41,14 @@ export function TerminalBlock({ variant, children, label, lines = false, collaps
   const runsByLine = useMemo(() => (variant === "output" ? shown.map((l) => parseAnsi(l)) : null), [variant, shown]);
 
   return (
-    <div role="region" aria-label={label ?? (variant === "code" ? "Code" : variant === "output" ? "Output" : "Command")} className={`${styles.block} ${className ?? ""}`}>
+    <div role="region" aria-label={label ?? (variant === "code" ? "Code" : variant === "output" ? "Output" : "Command")} className={cn(styles.block, className)}>
       {(label || copy) && (
         <div className={styles.header}>
           <span className="nb-micro">{label ?? (variant === "command" ? "Terminal" : variant === "output" ? "Output" : "")}</span>
           {copy && <CopyButton text={copyText} variant="ghost" className="nb-touch-target" />}
         </div>
       )}
-      <pre tabIndex={0} className={`${styles.body} ${wrap ? styles.wrap : ""} app-scroll`}>
+      <pre tabIndex={0} className={cn(styles.body, wrap && styles.wrap, "app-scroll")}>
         <code>
           {shown.map((line, i) => {
             const n = i + 1;

@@ -74,7 +74,13 @@
     "drizzle/0068_org_hot_path_indexes.sql",
     "drizzle/0069_auth_codes_and_devices.sql",
     "drizzle/0070_org_feed_shared_live.sql",
-    "drizzle/0071_drop_calendar_feed_tokens.sql"
+    "drizzle/0071_drop_calendar_feed_tokens.sql",
+    "drizzle/0072_device_codes_agent_tokens.sql",
+    "drizzle/0073_via_labels.sql",
+    "drizzle/0074_agent_policy_undo.sql",
+    "drizzle/0075_agent_questions.sql",
+    "drizzle/0076_token_country.sql",
+    "drizzle/0077_agent_fk_indexes.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

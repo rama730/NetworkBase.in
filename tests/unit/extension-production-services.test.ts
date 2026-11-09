@@ -45,7 +45,7 @@ function load(file: string, mocks: Record<string, unknown>) {
           }
         : name === "@/lib/db/schema"
           ? schema
-          : mocks[name] || {},
+          : mocks[name] || (name === "@/lib/server/request-via" ? { viaPayload: async () => ({}), viaColumns: async () => ({}), requestVia: async () => null } : {}),
     Date,
     Set,
     Map,

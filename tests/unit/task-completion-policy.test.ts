@@ -61,7 +61,8 @@ function load(file: string, mocks: Record<string, unknown>) {
         };
       if (name === "@/lib/db/schema") return schema;
       if (name === "zod") return { z };
-      return mocks[name] ?? {};
+      // "via CLI" labels (CLI report A9.7): made in the app here, so no label.
+      return mocks[name] ?? (name === "@/lib/server/request-via" ? { viaPayload: async () => ({}), viaColumns: async () => ({}), requestVia: async () => null } : {});
     },
   });
   return exports;

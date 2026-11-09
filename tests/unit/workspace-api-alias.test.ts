@@ -21,6 +21,11 @@ const BORN_AFTER_RENAME = new Set([
   'src/app/api/v1/workspaces/[id]/manifest/route.ts',
   'src/app/api/v1/workspaces/[id]/docs/route.ts',
   'src/app/api/v1/workspaces/[id]/docs/[slug]/route.ts',
+  // CLI 2.0 workspace view, activity, sprints and updates (report A2.5, A8.7), 2026-11-09.
+  'src/app/api/v1/workspaces/[id]/route.ts',
+  'src/app/api/v1/workspaces/[id]/activity/route.ts',
+  'src/app/api/v1/workspaces/[id]/sprints/route.ts',
+  'src/app/api/v1/workspaces/[id]/updates/route.ts',
 ]);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 const routes = (dir: string): string[] => readdirSync(dir).flatMap((name) => {
