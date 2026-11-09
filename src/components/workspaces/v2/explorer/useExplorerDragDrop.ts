@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { moveWorkspaceNodes } from "@/app/actions/files/mutations";
+import { toast } from "@/lib/feedback";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { getErrorMessage, type ExplorerOperation } from "./explorerTypes";
 
@@ -57,11 +58,17 @@ export function useExplorerDragDrop(options: {
             if (oldParentId !== folderId) staleParents.add(oldParentId);
           }
 
-          const updatedNodes = (await moveWorkspaceNodes(
-            sortedIds,
-            folderId,
-            projectId,
-          )).nodes;
+          const moved = await moveWorkspaceNodes(sortedIds, folderId, projectId);
+          // Audit 8.4: a drop that would show these files to more people waits for "Move anyway".
+          if (moved.confirmAccess) {
+            toast.warning(moved.confirmAccess.message, { action: { label: "Move anyway", onClick: () => void (async () => {
+              const again = await moveWorkspaceNodes(sortedIds, folderId, projectId, { confirmWiderAccess: true });
+              if (again.nodes.length) upsertNodes(projectId, again.nodes);
+              await Promise.all([...Array.from(staleParents).map((pid) => loadFolderContent(pid, "refresh")), loadFolderContent(folderId, "refresh")]);
+            })() } });
+            return { count: 0, originalParents };
+          }
+          const updatedNodes = moved.nodes;
           if (updatedNodes.length > 0) upsertNodes(projectId, updatedNodes);
 
           if (updatedNodes.length > 0) {

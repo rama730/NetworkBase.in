@@ -631,7 +631,8 @@ function isNonRetryableUploadError(message?: string): boolean {
     [canManageFiles]
   );
 
-  const confirmMove = useCallback(async () => {
+  const confirmMove = useCallback(async (opts?: { confirmWiderAccess?: boolean }) => {
+    const widen = opts?.confirmWiderAccess === true;
     const nodes = moveDialog.nodes;
     if (!nodes.length || !canManageFiles) return;
 
@@ -651,7 +652,12 @@ function isNonRetryableUploadError(message?: string): boolean {
           if (oldParentId !== target) staleParents.add(oldParentId);
         }
 
-        const moveResult = await moveWorkspaceNodes(nodeIds, target, projectId);
+        const moveResult = await moveWorkspaceNodes(nodeIds, target, projectId, { confirmWiderAccess: widen });
+        // Audit 8.4: a move that would show these files to more people waits for "Move anyway".
+        if (moveResult.confirmAccess) {
+          toast.warning(moveResult.confirmAccess.message, { action: { label: "Move anyway", onClick: () => void confirmMove({ confirmWiderAccess: true }) } });
+          return null;
+        }
         const updatedNodes = moveResult.nodes;
         if (updatedNodes.length > 0) upsertNodes(projectId, updatedNodes);
 

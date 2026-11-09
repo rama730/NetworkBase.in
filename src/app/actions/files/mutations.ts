@@ -1,5 +1,6 @@
 "use server";
 
+import { effectiveAccess, type FolderAccess } from "@/lib/organizations/file-rules";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 
 import { db } from "@/lib/db";
@@ -824,7 +825,27 @@ export type MoveWorkspaceNodesResult = {
     nodes: WorkspaceNode[];
     operationId: string | null;
     affectedParentIds: Array<string | null>;
+    /** Audit 8.4: nothing moved, because the move would show these files to more people; ask, then pass confirmWiderAccess. */
+    confirmAccess?: { message: string };
 };
+
+/** Audit 8.4: the sentence to confirm when moving these paths under `targetPath` opens them up, or null. */
+async function orgMoveWidensAccess(tx: Pick<typeof db, "execute">, projectId: string, paths: string[], targetPath: string): Promise<string | null> {
+    const marked = Array.from(await tx.execute<{ path: string; access: FolderAccess | null; org: boolean }>(sql`
+        SELECT n.path, n.metadata->>'access' AS access, true AS org FROM workspace_nodes n
+        JOIN workspaces w ON w.id = n.workspace_id AND w.kind = 'organization'
+        WHERE n.workspace_id = ${projectId}::uuid AND n.type = 'folder' AND n.deleted_at IS NULL AND n.metadata ? 'access'`));
+    if (marked.length === 0) return null;
+    const under = (path: string) => marked.filter((f) => path === f.path || path.startsWith(`${f.path}/`)).map((f) => f.access);
+    const target = effectiveAccess(under(targetPath));
+    const rank = { public: 0, members: 1, admins: 2 } as const;
+    const opened = paths.some((path) => {
+        const from = effectiveAccess(under(path));
+        return (from ? rank[from] : 1) > (target ? rank[target] : 1);
+    });
+    if (!opened) return null;
+    return target === "public" ? "Moving these into a Public folder makes them visible to visitors." : "Moving these here lets members see them.";
+}
 
 export async function moveWorkspaceNodes(
     nodeIds: string[],
@@ -834,6 +855,7 @@ export async function moveWorkspaceNodes(
         expectedParentByNode?: Record<string, string | null>;
         expectedUpdatedAtByNode?: Record<string,string>;
         mode?: "move" | "publish";
+        confirmWiderAccess?: boolean;
     },
 ): Promise<MoveWorkspaceNodesResult> {
     const { user } = await requireAuthenticatedUser();
@@ -924,6 +946,12 @@ export async function moveWorkspaceNodes(
         const movedNodes: WorkspaceNode[] = [];
         const affectedParentIds = new Set<string | null>([newParentId]);
         const newParentPath = await getParentPath(tx, projectId, newParentId);
+        // Audit 8.4: in an organization, folder access comes from the path. Moving into a more open folder shows the
+        // files to more people, so it asks first, as changing a folder's access does.
+        if (!options?.confirmWiderAccess) {
+            const widened = await orgMoveWidensAccess(tx, projectId, movers.map((node) => node.path), newParentPath);
+            if (widened) return { nodes: [] as WorkspaceNode[], operationId: null, affectedParentIds: [] as Array<string | null>, confirmAccess: { message: widened } };
+        }
         const now = new Date();
         const linkedTasks = await tx
             .select({ nodeId: taskNodeLinks.nodeId, taskId: taskNodeLinks.taskId, sprintId: tasks.sprintId })

@@ -107,3 +107,25 @@ test("6.6, 6.1: an archived workspace can't move in; a lead who left can be repl
   const [row] = await sql<{ owner_id: string }[]>`SELECT owner_id FROM workspaces WHERE id = ${ws}`;
   assert.equal(row!.owner_id, next);
 });
+
+test("8.4: moving a file from Admins only into a Public folder asks first", async () => {
+  const o = await org();
+  const mutations = await loadAppModule(() => import("../../src/app/actions/files/mutations"));
+  const node = async (parent: string | null, type: "file" | "folder", name: string, path: string, access?: string) =>
+    (await sql<{ id: string }[]>`INSERT INTO workspace_nodes (workspace_id, parent_id, type, name, path, metadata)
+      VALUES (${o.id}, ${parent}, ${type}, ${name}, ${path}, ${sql.json(access ? { access } : {})}) RETURNING id`)[0]!.id;
+  const secret = await node(null, "folder", "Marks", "/Marks", "admins");
+  const file = await node(secret, "file", "grades.csv", "/Marks/grades.csv");
+  const open = await node(null, "folder", "Handouts", "/Handouts", "public");
+  viewerId = o.owner;
+  const asked = await mutations.moveWorkspaceNodes([file], open, o.id);
+  assert.equal(asked.nodes.length, 0, "nothing moved yet");
+  assert.match(asked.confirmAccess?.message ?? "", /visible to visitors/);
+  const [still] = await sql<{ parent_id: string }[]>`SELECT parent_id FROM workspace_nodes WHERE id = ${file}`;
+  assert.equal(still!.parent_id, secret);
+  const moved = await mutations.moveWorkspaceNodes([file], open, o.id, { confirmWiderAccess: true });
+  assert.equal(moved.nodes.length, 1);
+  // Moving the other way (more private) never asks.
+  const back = await mutations.moveWorkspaceNodes([file], secret, o.id);
+  assert.equal(back.nodes.length, 1);
+});

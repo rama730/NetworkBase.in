@@ -75,13 +75,19 @@ export function TaskFilesExplorer({
     mode: "move" | "publish";
   }>({ open: false, nodes: [], targetFolderId: null, mode: "move" });
 
-  const confirmLocationChange = useCallback(async () => {
+  const confirmLocationChange = useCallback(async (opts?: { confirmWiderAccess?: boolean }) => {
     if (!locationDialog.nodes.length || !canManageFiles) return;
     const ids = locationDialog.nodes.map((node) => node.id);
+    const confirmWiderAccess = opts?.confirmWiderAccess === true;
     try {
       const result = locationDialog.mode === "publish"
-        ? await moveWorkspaceNodes(ids, locationDialog.targetFolderId, projectId, { mode: "publish" })
-        : await moveWorkspaceNodes(ids, locationDialog.targetFolderId, projectId);
+        ? await moveWorkspaceNodes(ids, locationDialog.targetFolderId, projectId, { mode: "publish", confirmWiderAccess })
+        : await moveWorkspaceNodes(ids, locationDialog.targetFolderId, projectId, { confirmWiderAccess });
+      // Audit 8.4: a move that would show the files to more people waits for "Move anyway".
+      if (result.confirmAccess) {
+        toast.warning(result.confirmAccess.message, { action: { label: "Move anyway", onClick: () => void confirmLocationChange({ confirmWiderAccess: true }) } });
+        return;
+      }
       if (result.nodes.length > 0) {
         toast.success(
           locationDialog.mode === "publish"
