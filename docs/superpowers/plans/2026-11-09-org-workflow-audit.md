@@ -408,3 +408,33 @@ Coverage check: all 53 real report findings and N1–N91 appear exactly once abo
 Defaults already taken (Ponytail): 1.1 starter doc stays off; 2.9 decline is immediate with no Undo; 3.2 delete needs step-up; 8.1 no new storage columns; no new infrastructure (Part F).
 
 On "implement", this file is copied to `docs/superpowers/plans/2026-11-09-org-workflow-audit.md`.
+
+---
+
+## Status (2026-11-09): implemented on local main, not pushed
+
+Commits (organization work only; auth commits in between belong to another session): `326cc5393` phase 1, `ae5c1176e` phase 2, `e6061b8f3` phase 3, `cb548624d` phase 4, `321e769b3` phase 5a, `62a42ac4e` + `a82dde76d` decision D-A, `18b9b3312` phase 5b, `4859b9d33` N76.
+
+Tests added: `tests/db/org-audit-phase1.test.ts`, `org-audit-phase1-work.test.ts`, `org-audit-phase2.test.ts`, `org-audit-phase3.test.ts`, `org-audit-phase5.test.ts` (24 tests), plus updates to older tests whose expectations the agreed fixes changed. Last full runs: org/assignment/join/update database tests pass except two that also fail before this work (`task-push-receipts`, `update-activity-notifications` preview); unit suite fails only the 3 older ones (IDE redesign, personal settings, integrations); organization and settings browser specs 91/91 (Chromium). Typecheck: `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit -p .` clean (without the flag tsc runs out of memory silently).
+
+Migrations (local disposable database only; production needs the user's go-ahead): `0067_org_chat_viewers` (transactional: viewers out of org chat, 7.2/7.3/N40), `0068_org_hot_path_indexes` (non-transactional, 13 concurrent indexes, listed in `NON_TRANSACTIONAL_MIGRATIONS`). The plan's two NULL-only indexes to drop don't exist; the Realtime publication is already empty (N91 already done). Index entries were not mirrored into `schema/index.ts` (the drift check doesn't require them; the repo's hand-written migrations are the source). The planner was checked on a seeded set (120k tasks): the masters list, review queue and drafts scan use the new indexes (under 0.1 ms).
+
+Where the build differs from the plan, on purpose:
+- 2.6: not real after all. One application per person per organization (`role_applications_unique_idx`), so the lookup must stay; a waiting role application is left as it is.
+- N89: not a bug. Excused work leaving the queue and coming back pending when un-excused is the agreed behaviour (smaller bug 4).
+- N29: entries are re-verified when another admin verifies (joining already sets `verifiedAt`); only an admin's own repeat is skipped.
+- N57: the deletion date stays visible to visitors (Join needs it to hide, N56); the workspace count for visitors is public-only.
+- D-A: members open the read-only People list from the Overview (dialog) instead of a Members tab, which avoids threading the org role through eight tab-visibility call sites. Same data rule (name, photo, role, title; members and admins only), read by `readOrgPeopleAction` in `org-dashboard.ts`.
+- B8: the five audience copies were aligned (deleted workspaces excluded everywhere) rather than merged into one function.
+- B6: notices to many copies are batched in one helper (`notifyCopiesDueChanged`, one read of org, people and zones) instead of a new Inngest fan-out.
+- 8.3: asset deletion loops up to five batches inside its one Inngest step; trash expiry stays at 20 a run (each item is an Inngest step; the free-plan budget, see memory).
+- N65/N66: shared locks are `FOR SHARE` (not `FOR KEY SHARE`), so a soft delete or role removal still waits for writers.
+- N88: left as is: the document list carries the visibility rule and is capped at 500.
+
+Not done yet (open):
+- 8.4 moving a file into a more open folder should ask first (needs a confirm step in the move UI).
+- N77 progress export as a streaming CSV route; 10.3 paging the Submissions read; N87 template copy as one server action; N32 case-insensitive invite matching (check how Supabase stores emails first).
+- N18, N21, N35 Members-open duplicate reads; N50 shared posts live in the org feed and an un-hide action.
+- C4 role-view browser spec (owner/admin/member/viewer/visitor × every tab); C5 member Settings check; C11/4.4 skeleton sizes; C12 "frees within 2 h" on Storage; C14 hiding reply/like controls for viewers in the UI (the server already refuses).
+- Phase 0/6 measurements (tab timings on a seeded org) and E0 items 1–9 (signed-in live checks with an owner and a student account, compat cleanup, ponytail ceilings).
+- Production: apply 0067 and 0068, set `DB_POOL_MAX` on Railway only if needed, deploy, then the signed-in checks.
