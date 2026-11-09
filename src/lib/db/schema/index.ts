@@ -1087,13 +1087,6 @@ export const assignmentSubmissions = pgTable("assignment_submissions", {
   late: boolean("late").default(false).notNull(),
 });
 
-/** Calendar (report §33.5, "Later"): one private feed token per person. Server only. */
-export const calendarFeedTokens = pgTable("calendar_feed_tokens", {
-    userId: uuid("user_id").primaryKey().references(() => profiles.id, { onDelete: "cascade" }),
-    tokenHash: text("token_hash").notNull().unique(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
 /** Browsers a person signed in from (0069): the "new sign-in" email and "Trust this browser". Server only. */
 export const userDevices = pgTable("user_devices", {
     userId: uuid("user_id").notNull(),

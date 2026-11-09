@@ -41,8 +41,6 @@ import CreateSprintModal from "@/components/workspaces/v2/sprints/CreateSprintMo
 import { SprintPeople } from "@/components/workspaces/tabs/sprint/SprintPeople";
 import { SprintInsights } from "@/components/workspaces/tabs/sprint/SprintInsights";
 import { Notice } from "@/components/ui/notice";
-import { SprintCalendarButton } from "@/components/workspaces/tabs/sprint/SprintCalendar";
-import { SprintAddWork } from "@/components/workspaces/tabs/sprint/SprintAddWork";
 import { formatSprintTimelineStamp } from "@/lib/workspaces/sprint-detail";
 import { PHASE_WORDS, sprintPath, sprintPhase } from "@/lib/workspaces/sprint-plan";
 import { ChildSprintLine, LinkedWorkspacesBlock, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, sprintEmptyLine } from "@/components/organizations/OrgSprintParts";
@@ -98,7 +96,6 @@ export default function SprintPlanning({
   const [isMutatingLifecycle, setIsMutatingLifecycle] = useState(false);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<"complete" | "archive" | "cancel" | null>(null);
-  const [addingWork, setAddingWork] = useState(false);
 
   const routeSprintId = useMemo(() => {
     const match = pathname?.match(/\/(?:workspaces|projects)\/[^/]+\/sprints\/([^/?#]+)/);
@@ -521,10 +518,8 @@ export default function SprintPlanning({
                 onComplete={() => setActiveModal("complete")}
                 onArchive={() => setActiveModal("archive")}
                 onCancel={() => setActiveModal("cancel")}
-                onAddWork={() => setAddingWork(true)}
                 autoStart={orgContext?.sprintFlags[selectedSprint.id]?.autoStart ?? true}
                 main={selectedSprint.parentSprintId ? detail.sprints.find((s) => s.id === selectedSprint.parentSprintId) ?? null : null}
-                calendar={isOwnerOrMember ? <SprintCalendarButton projectId={projectId} /> : null}
                 isMain={orgContext?.kind === "org" && !selectedSprint.parentSprintId}
                 startNow={selectedSprint.status === "planning" && permissions.canStart ? <StartNowButton projectId={projectId} sprintId={selectedSprint.id} onStarted={refreshSprints} announceAs={orgContext?.kind === "org" ? selectedSprint.name : null} /> : null}
               />
@@ -591,15 +586,15 @@ export default function SprintPlanning({
           existingSprints={existingSprints}
           onRepeat={editorState?.mode === "edit" ? undefined : handleRepeatSprints}
           onPlanEach={editorState?.mode === "edit" ? undefined : handlePlanEach}
+          addWork={editorState?.mode === "edit" ? null : {
+            // 2026-11-09: Add work is New's last tab; it fills an upcoming or running sprint, the one in view by default.
+            sprints: detail.sprints.filter((s) => s.status === "planning" || s.status === "active").map((s) => ({ id: s.id, name: sprintPath(s, detail.sprints) })),
+            defaultSprintId: selectedSprint?.id ?? null, plannedPoints: detail.summary?.totalStoryPoints ?? 0, velocity: detail.velocity,
+            onAdded: () => { refreshSprints(); void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) }); },
+          }}
           initialInsideOf={editorState?.insideOf ?? null}
           initialOrgFields={editingFlags ? { autoStart: editingFlags.autoStart, showInChildren: editingFlags.showInChildren, sharedWith: editingFlags.sharedWith, sharedWorkspaceIds: editingFlags.sharedWorkspaceIds, parentSprintId: editingFlags.parentSprintId, notifyOnStart: editingFlags.notifyOnStart } : { parentSprintId: editorState?.parentSprintId ?? null }}
         />
-      ) : null}
-
-      {selectedSprint && addingWork ? (
-        <SprintAddWork projectId={projectId} sprintId={selectedSprint.id} sprintName={selectedSprint.name} open onClose={() => setAddingWork(false)}
-          onAdded={() => { refreshSprints(); void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) }); }}
-          plannedPoints={detail.summary?.totalStoryPoints ?? 0} velocity={detail.velocity} />
       ) : null}
 
       {activeModal ? (

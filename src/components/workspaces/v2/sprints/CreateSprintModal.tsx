@@ -20,6 +20,7 @@ import {
 import { recordSprintMetric } from "@/lib/workspaces/sprint-observability";
 import { termStrip } from "@/lib/workspaces/sprint-plan";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
+import { SprintAddWorkPanel, type AddWorkTargets } from "@/components/workspaces/tabs/sprint/SprintAddWork";
 import { cn } from "@/lib/utils";
 import { Notice } from "@/components/ui/notice";
 import { aWord, type SprintWords } from "@/lib/organizations/sprint-words";
@@ -73,6 +74,8 @@ interface SprintEditorModalProps {
   onRepeat?: (input: { prefix: string; count: number; lengthDays: number; startDate: string; goal: string; description: string; autoStart: boolean; parentSprintId?: string | null }) => Promise<SprintEditorSubmitResult>;
   /** Workspaces in an organization: Plan one for each planned organization sprint (report §18.2). Off by default. */
   onPlanEach?: (name: string) => Promise<SprintEditorSubmitResult>;
+  /** 2026-11-09: Add work is New's last tab (Unit · Week · Add work); the sprints it can fill and their numbers. */
+  addWork?: AddWorkTargets | null;
 }
 
 const DAY_MS = 86_400_000;
@@ -111,6 +114,7 @@ export default function SprintEditorModal({
   onRepeat,
   onPlanEach,
   initialInsideOf = null,
+  addWork = null,
 }: SprintEditorModalProps) {
   // Sprint redesign (2026-11-09): an organization plans Units with Weeks inside (a class), or Phases with Sprints inside.
   const words: SprintWords = org?.words ?? { main: typeProfile(org?.orgType).mainSprintWord, inner: typeProfile(org?.orgType).innerSprintWord, plan: "Plan", isClass: false };
@@ -124,7 +128,7 @@ export default function SprintEditorModal({
   const insidePick = () => (mode === "create" && org?.kind === "org"
     ? (initialInsideOf && mains.some((m) => m.id === initialInsideOf) ? initialInsideOf : null) ?? mains.find((m) => m.status === "active")?.id ?? mains[0]?.id ?? ""
     : initialInsideOf ?? "");
-  const [level, setLevel] = React.useState<"main" | "inside">(() => (insidePick() ? "inside" : "main"));
+  const [level, setLevel] = React.useState<"main" | "inside" | "work">(() => (insidePick() ? "inside" : "main"));
   const [insideOf, setInsideOf] = React.useState<string>(insidePick);
   const nestedHere = org?.kind === "org" && (mode === "create" ? level === "inside" : Boolean(sprint?.parentSprintId));
   const insideParent = nestedHere ? existingSprints.find((s) => s.id === (mode === "create" ? insideOf : sprint?.parentSprintId)) ?? null : null;
@@ -289,7 +293,9 @@ export default function SprintEditorModal({
   // Sprint redesign: the words for what this form makes, and its one-line caption under the tabs.
   const kindWord = org?.kind === "org" ? (nestedHere ? innerWord : mainWord) : "sprint";
   const kindPlural = org?.kind === "org" ? (nestedHere ? `${innerWord.toLowerCase()}s` : mainPlural) : "sprints";
-  const caption = org?.kind !== "org" || mode !== "create" ? null : level === "main"
+  // New's tabs: an organization's two kinds, then Add work; a workspace gets Sprint and Add work.
+  const showTabs = mode === "create" && (org?.kind === "org" || Boolean(addWork));
+  const caption = mode !== "create" ? null : level === "work" ? "Open work that isn’t in a sprint yet." : org?.kind !== "org" ? null : level === "main"
     ? (words.isClass ? `A longer part of the term. ${innerWord}s go inside it.` : `A longer stretch of work. ${innerWord}s go inside it.`)
     : `A short stretch inside ${aWord(mainWord)}.`;
   const innerBlocked = mode === "create" && org?.kind === "org" && level === "inside" && !mains.length;
@@ -443,9 +449,9 @@ export default function SprintEditorModal({
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <div className="space-y-0.5">
             <DialogTitle className="text-base font-semibold text-foreground">
-              {mode === "create" ? (org?.kind === "org" ? "New" : "New sprint") : `Edit ${sprint?.name ?? "sprint"}`}
+              {mode === "create" ? (showTabs ? "New" : "New sprint") : `Edit ${sprint?.name ?? "sprint"}`}
             </DialogTitle>
-            <DialogDescription className={cn("text-xs text-muted-foreground", org?.kind === "org" && mode === "create" && "sr-only")}>
+            <DialogDescription className={cn("text-xs text-muted-foreground", showTabs && "sr-only")}>
               {mode === "create"
                 ? "A stretch of time with one goal. Work goes into it; when it ends, you close it."
                 : "Change the name, goal or dates."}
@@ -462,15 +468,16 @@ export default function SprintEditorModal({
           </button>
         </div>
 
-        {/* Sprint redesign: an organization's two kinds as New's tabs — Unit | Week, or Phase | Sprint — with a caption. */}
-        {mode === "create" && org?.kind === "org" ? (
+        {/* Sprint redesign: New's tabs — Unit | Week | Add work (Phase | Sprint | Add work), or Sprint | Add work — with a caption. */}
+        {showTabs ? (
           <div className="shrink-0 px-6">
-            <UnderlineTabs label="Which kind of sprint?" idPrefix="sprint-level" controls={false} value={level} onChange={(next) => { setLevel(next); if (next === "main") setDraft(initialDraft()); }}
-              tabs={[{ key: "main", label: mainWord }, { key: "inside", label: innerWord }] as const} />
+            <UnderlineTabs label="What are you adding?" idPrefix="sprint-level" controls={false} value={level} onChange={(next) => { setLevel(next); if (next === "main") setDraft(initialDraft()); }}
+              tabs={[{ key: "main" as const, label: org?.kind === "org" ? mainWord : "Sprint" }, ...(org?.kind === "org" ? [{ key: "inside" as const, label: innerWord }] : []), ...(addWork ? [{ key: "work" as const, label: "Add work" }] : [])]} />
             {caption ? <p className="pt-2 text-[13px] text-muted-foreground">{caption}</p> : null}
           </div>
         ) : null}
 
+        {level === "work" && addWork ? <SprintAddWorkPanel projectId={projectId} targets={addWork} onDone={onClose} /> : (
         <form id="sprint-editor-form" onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
           <div ref={bodyRef} className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
             {errorMessage ? <div role="alert" className="rounded-md border border-border bg-[var(--status-danger-soft)] px-3 py-2 text-xs font-mono text-destructive">{errorMessage}</div> : null}
@@ -746,6 +753,7 @@ export default function SprintEditorModal({
             </button>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

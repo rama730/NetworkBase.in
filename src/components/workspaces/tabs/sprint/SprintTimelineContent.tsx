@@ -122,7 +122,7 @@ export function SprintTimelineContent({
         <div className="nb-empty-state nb-grid-ground rounded-[8px] py-16" role="status">
           <ListTodo className="nb-empty-state-icon mb-3" aria-hidden="true" />
           <h3 className="nb-empty-state-title">No work in this sprint yet</h3>
-          <p className="nb-empty-state-desc">Use Add work to bring tasks from the backlog.</p>
+          <p className="nb-empty-state-desc">Open New sprint and pick Add work to bring tasks from the backlog.</p>
         </div>
       ) : (
       <div className="space-y-4">

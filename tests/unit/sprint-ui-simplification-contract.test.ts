@@ -51,7 +51,8 @@ describe("sprint tab target architecture contract", () => {
 
   it("implements the schedule-owned lifecycle instead of a manual status toggle", () => {
     // Sprint redesign §4: Close sprint once it has ended, Complete early while it runs, Cancel and Archive in ⋯.
-    for (const control of ["Close sprint", "Complete early", "Cancel sprint", "Archive sprint", "Add work"]) {
+    // 2026-11-09: Close names the sprint; Add work moved to New sprint's last tab.
+    for (const control of ["Close \\{sprint\\.name\\}", "Complete early", "Cancel sprint", "Archive sprint"]) {
       assert.match(sprintHeaderSource, new RegExp(control));
     }
     assert.match(sprintHeaderSource, /Starts by itself/);
@@ -69,7 +70,7 @@ describe("sprint tab target architecture contract", () => {
   it("uses compact lifecycle and health summaries with explicit pagination", () => {
     assert.match(sprintTimelineSource, /aria-label="Sprint summary"/);
     assert.match(sprintTimelineSource, /aria-label="Sprint history"/);
-    assert.match(sprintTimelineSource, /Use Add work to bring tasks from the backlog\./);
+    assert.match(sprintTimelineSource, /Open New sprint and pick Add work to bring tasks from the backlog\./);
     assert.match(sprintTimelineSource, /workGroups\(tasks, by, mine \? user\?\.id : null\)/);
     assert.match(sprintTimelineSource, /Taken out of this sprint · \{view\.removed\.length\}/);
     assert.match(sprintTimelineSource, /hasMore && onLoadMore/);

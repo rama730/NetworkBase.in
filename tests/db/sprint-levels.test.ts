@@ -22,7 +22,6 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
 let sprints: typeof import("../../src/lib/workspaces/server/sprints");
 let schedule: typeof import("../../src/lib/workspaces/sprint-schedule");
 let orgSprints: typeof import("../../src/lib/organizations/sprints");
-let calendar: typeof import("../../src/lib/calendar/feed");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -33,7 +32,6 @@ before(async () => {
   sprints = await loadAppModule(() => import("../../src/lib/workspaces/server/sprints"));
   schedule = await loadAppModule(() => import("../../src/lib/workspaces/sprint-schedule"));
   orgSprints = await loadAppModule(() => import("../../src/lib/organizations/sprints"));
-  calendar = await loadAppModule(() => import("../../src/lib/calendar/feed"));
 });
 
 const created: string[] = [];
@@ -174,8 +172,5 @@ test("§6 D3: a team's sprint sits inside the class's main sprint or a sprint in
   await sql`UPDATE workspace_sprints SET status = 'planning' WHERE workspace_id = ${team}`;
   const teamPage = await orgSprints.readSprintOrgContext(team, null);
   assert.deepEqual([teamPage?.runningOrgSprint?.id, teamPage?.runningOrgSprint?.name], [w1, "CO1 · Week 1"]);
-  // The calendar names a sprint inside a CO with it; the CO keeps its own span.
-  const names = (await calendar.readCalendarEntries(o.owner, o.id)).filter((e) => e.kind === "sprint").map((e) => e.title);
-  assert.ok(names.includes("CO1") && names.includes("CO1 · Week 1"), JSON.stringify(names));
   viewerId = "";
 });

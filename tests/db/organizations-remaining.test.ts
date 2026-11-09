@@ -258,33 +258,3 @@ test("33.5 Repeat: later weeks are made as drafts with their own due dates", asy
   assert.ok(drafts[0]!.published, "the first week is published");
 });
 
-test("33.5 Calendar: the private link's feed holds only the person's own due work and their sprints; a wrong token finds no one", async () => {
-  const o = await org();
-  const master = await published(o, `Essay ${o.tag}`);
-  await sql`UPDATE tasks SET due_date = now() + interval '5 days' WHERE assignment_id = ${master}`;
-  await sql`INSERT INTO workspace_sprints (workspace_id, name, sprint_number, start_date, end_date, status) VALUES (${o.id}, ${`CO-${o.tag}`}, 1, now(), now() + interval '7 days', 'active')`;
-  const feed = await loadAppModule(() => import("../../src/lib/calendar/feed"));
-  const token = (await feed.calendarToken(o.a))!;
-  assert.equal(await feed.userForCalendarToken(token), o.a);
-  // Only the hash is stored, and an existing link isn't handed out again.
-  const [stored] = await sql`SELECT token_hash FROM calendar_feed_tokens WHERE user_id = ${o.a}`;
-  assert.match(stored!.token_hash, /^[0-9a-f]{64}$/);
-  assert.notEqual(stored!.token_hash, token);
-  assert.equal(await feed.calendarToken(o.a), null, "the link is shown once");
-  assert.equal(await feed.userForCalendarToken(token), o.a, "asking again keeps the link working");
-  assert.equal(await feed.userForCalendarToken("x".repeat(43)), null);
-  const entries = await feed.readCalendarEntries(o.a);
-  assert.equal(entries.filter((e) => e.kind === "due" && e.title === `Essay ${o.tag}`).length, 1, "their own copy only, not b's");
-  assert.ok(entries.some((e) => e.kind === "sprint" && e.title === `CO-${o.tag}`));
-  const ics = feed.toIcs(entries, "https://networkbase.test");
-  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
-  assert.match(ics, new RegExp(`SUMMARY:Due: Essay ${o.tag}`));
-  // A hostile title can't start a property or an event of its own (RFC 5545 §3.3.11).
-  const hostile = feed.toIcs([{ id: "1", kind: "due", title: "A;B,C\\D\r\nBEGIN:VEVENT\rX\u0001", start: new Date().toISOString(), end: null, place: "P", href: "/x" }], "https://networkbase.test");
-  assert.equal(hostile.split("\r\n").find((l) => l.startsWith("SUMMARY")), "SUMMARY:Due: A\\;B\\,C\\\\D\\nBEGIN:VEVENT\\nX");
-  assert.equal(hostile.split("\r\n").filter((l) => l === "BEGIN:VEVENT").length, 1);
-  const fresh = (await feed.calendarToken(o.a, true))!;
-  assert.notEqual(fresh, token);
-  assert.equal(await feed.userForCalendarToken(token), null, "a reset link stops the old one");
-  assert.equal(await feed.userForCalendarToken(fresh), o.a);
-});
