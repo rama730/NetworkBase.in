@@ -15,6 +15,7 @@ import { resolveAuthPageErrorMessage, toFriendlyAuthError } from '@/lib/auth/err
 import { getTotpVerificationErrorMessage, needsSecondFactor } from '@/lib/auth/mfa-ui'
 import { readSignInMethod, rememberSignInMethod, type SignInMethod } from '@/lib/auth/last-method'
 import { prepareSignInFlight, preloadSignInFlight, startSignInFlight } from '@/components/auth/SignInFlight'
+import { logger } from '@/lib/logger'
 import { chooseSignInVersion, clearSignInMarker, markSignIn, readSignInPlayedAt, welcomeAnimationOff } from '@/lib/auth/signin-flight'
 
 const LOGIN_REQUEST_TIMEOUT_MS = 25_000
@@ -153,6 +154,13 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
             router.replace(redirectPath)
             return
         }
+        // Anything below that cannot start the flight is the plain move, and leaves no marker: the next page is
+        // already showing when it arrives, and an animation starting over it then would be worse than none.
+        const plain = (reason: string) => {
+            logger.warn('auth.signin_flight.plain_move', { reason })
+            clearSignInMarker()
+            router.replace(redirectPath)
+        }
         router.prefetch(redirectPath)
         setAccepted(true)
         const shownAt = Date.now()
@@ -164,8 +172,10 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
             const from = button && button.width > 0 ? { left: button.left + button.width / 2 - 24, top: button.top + button.height / 2 - 24, width: 48, height: 48 } : null
             const version = chooseSignInVersion({ playedAt: readSignInPlayedAt(), now: Date.now(), next: redirectPath })
             if (startSignInFlight({ ...identity, next: redirectPath, version, from, navigate: true })) return
+            plain('not-started')
+            return
         }
-        router.replace(redirectPath)
+        plain('no-identity')
     }
 
     const handleSignIn = async (event: FormEvent) => {

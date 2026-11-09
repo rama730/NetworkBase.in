@@ -1,5 +1,6 @@
 import { APPEARANCE_STORAGE_KEYS } from "@/lib/theme/appearance";
 import { COOKIE_CONSENT_STORAGE_KEY } from "@/lib/privacy/cookie-consent";
+import { SIGNIN_PLAYED_KEY } from "@/lib/auth/signin-flight";
 
 const KNOWN_INDEXED_DB_NAMES = ["keyval-store"] as const;
 // Clearing the cache must not undo choices the person made: appearance, the cookie decision (or the consent
@@ -7,6 +8,8 @@ const KNOWN_INDEXED_DB_NAMES = ["keyval-store"] as const;
 const PRESERVED_LOCAL_STORAGE_KEYS = [
     ...Object.values(APPEARANCE_STORAGE_KEYS),
     COOKIE_CONSENT_STORAGE_KEY,
+    // Sign-out clears the device; whether the welcome animation already played today must survive it.
+    SIGNIN_PLAYED_KEY,
     "networkbase:sidebar-collapsed",
 ];
 

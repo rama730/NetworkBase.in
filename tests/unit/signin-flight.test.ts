@@ -12,6 +12,8 @@ import {
   parseSignInMarker,
   readSignInMarker,
   readSignInPlayedAt,
+  SIGNIN_CURTAIN_CSS,
+  SIGNIN_CURTAIN_FAILSAFE_MS,
   SIGNIN_FLIGHT_EVENT_TYPES,
   SIGNIN_MARKER_KEY,
   SIGNIN_MARKER_TTL_MS,
@@ -173,6 +175,7 @@ test("the person's own switch is read from this device's copy", () => {
 function runCurtain(options: { marker?: object | string | null; path: string; off?: boolean; now?: number }) {
   const attributes = new Map<string, string>();
   const timers: Array<() => void> = [];
+  const styles: Array<{ id?: string; textContent?: string }> = [];
   const session = fakeStore();
   if (options.marker !== undefined && options.marker !== null) {
     session.setItem(SIGNIN_MARKER_KEY, typeof options.marker === "string" ? options.marker : JSON.stringify(options.marker));
@@ -185,6 +188,8 @@ function runCurtain(options: { marker?: object | string | null; path: string; of
     localStorage: local,
     location: { pathname: options.path },
     document: {
+      createElement: () => ({}) as { id?: string; textContent?: string },
+      head: { appendChild: (el: { id?: string; textContent?: string }) => void styles.push(el) },
       documentElement: {
         setAttribute: (name: string, value: string) => void attributes.set(name, value),
         removeAttribute: (name: string) => void attributes.delete(name),
@@ -199,13 +204,24 @@ function runCurtain(options: { marker?: object | string | null; path: string; of
     JSON,
   };
   runInNewContext(buildSignInCurtainScript(), context);
-  return { covered: attributes.has("data-signin-curtain"), lift: () => timers.forEach((fn) => fn()), attributes };
+  return { covered: attributes.has("data-signin-curtain"), lift: () => timers.forEach((fn) => fn()), attributes, styles };
 }
 
 test("the curtain covers the page from the first paint when this tab just signed in", () => {
   const marker = { t: NOW - 5000, next: "/discover" };
   assert.equal(runCurtain({ marker, path: "/discover" }).covered, true);
   assert.equal(runCurtain({ marker, path: "/projects/abc" }).covered, true);
+});
+
+test("the curtain brings its own style, so it covers the page whatever the stylesheet is doing", () => {
+  const marker = { t: NOW - 5000, next: "/discover" };
+  const covered = runCurtain({ marker, path: "/discover" });
+  assert.equal(covered.styles.length, 1);
+  assert.equal(covered.styles[0]!.textContent, SIGNIN_CURTAIN_CSS);
+  assert.match(SIGNIN_CURTAIN_CSS, /html\[data-signin-curtain\]::before\{content:"";position:fixed;inset:0;z-index:999;background:var\(--background,#FAF8F4\)\}/);
+  assert.match(SIGNIN_CURTAIN_CSS, /html\.dark\[data-signin-curtain\]::before\{background:var\(--background,#0D1114\)\}/);
+  assert.equal(runCurtain({ path: "/discover" }).styles.length, 0, "nothing is injected when there is no marker");
+  assert.ok(SIGNIN_CURTAIN_FAILSAFE_MS >= 15_000, "a cold start can take a while: the curtain must not lift before the page can");
 });
 
 test("the curtain stays down when there is nothing to play, and lifts itself if nothing else does", () => {

@@ -1465,8 +1465,7 @@ html[data-welcome-flight="reveal"] .nb-main-frame > main { animation:nb-welcome-
 }
 html[data-reduce-motion="true"][data-welcome-flight="reveal"] :is(.nb-sidebar, .nb-main-frame > header, .nb-main-frame > main) { animation:none; }
 
-/* Sign-in welcome flight (components/auth/SignInFlight*): the same hold and reveal as above, with the header and main rising a few pixels as they fade in. The curtain covers the page from the first paint after a full page load, until the flight takes over. Onboarding never sets these attributes. */
-html[data-signin-curtain]::before { content:""; position:fixed; inset:0; z-index:999; background:var(--background); }
+/* Sign-in welcome flight (components/auth/SignInFlight*): the same hold and reveal as above, with the header and main rising a few pixels as they fade in. The curtain that covers the page from the first paint after a full page load lives with its script (lib/auth/signin-flight.ts), not here. Onboarding never sets these attributes. */
 html[data-signin-flight][data-welcome-flight="reveal"] .nb-main-frame > header,
 html[data-signin-flight][data-welcome-flight="reveal"] .nb-main-frame > main { animation-name:nb-signin-rise; }
 @keyframes nb-signin-rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }

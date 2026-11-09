@@ -306,3 +306,11 @@ Section 5 (all nine) and items 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 17, 1
 - `tests/browser/signin-flight.spec.ts` (29), on the real sign-in form, the real overlay and the real app shell; the same fixture pattern as onboarding's.
 - Onboarding's `welcome-flight.spec.ts` (10) is the guard. Its fixture had been failing because the app shell now needs a tooltip provider; the fixture was fixed, the flight was not touched.
 
+### Fix after first live use (2026-11-09)
+Reported: after signing in, Discover showed first and the animation covered it afterwards. Causes found:
+- **The curtain depended on the stylesheet.** The rule that covers the page lived in `globals.css`; the running dev server was serving a stale stylesheet without it, so nothing covered Discover while the flight loaded. My browser test only checked the sidebar's opacity and never saw it. The curtain now carries its own style with the head script (and the test checks that a fixed, opaque layer really covers the page).
+- **A late animation was possible.** If the page was already showing when the flight started (any fallback, or a curtain that had lifted), the flight played over it. Now a flight over an arrival page starts only if the page was covered from its first paint; otherwise the marker is dropped and there is no animation. The sign-in form's fallback to the plain move also clears the marker and logs why (`auth.signin_flight.plain_move`).
+- **Sign-out wiped the "played today" record**, so every sign-in was the full version. It is now kept across sign-out.
+- The curtain's self-lift is 20 s (was 9 s), so a cold development start cannot lift it before the page can.
+- The CSS (rise, reduced motion) still lives in `globals.css`; a dev server that is not picking up stylesheet changes needs a restart.
+

@@ -150,6 +150,12 @@ async function arrive(pathname: string) {
     releaseSignInCurtain()
     return
   }
+  // The page is already showing (the curtain never went up, or has lifted): a flight starting over it now would be
+  // worse than none. Only a page covered from its first paint plays.
+  if (!document.documentElement.hasAttribute('data-signin-curtain')) {
+    clearSignInMarker()
+    return
+  }
   if (current || arriving) return
   arriving = true
   try {

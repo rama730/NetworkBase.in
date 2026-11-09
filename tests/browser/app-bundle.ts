@@ -31,6 +31,9 @@ export async function buildApp(entry: string) {
   const bundle = await build({
     entryPoints: [path.resolve(entry)], bundle: true, write: false, platform: 'browser', format: 'iife', logLevel: 'error', define: { 'process.env.NODE_ENV': '"test"' },
     plugins: [{ name: 'edges', setup(b) {
+      // CSS modules: a class name is its own name. The app's stylesheet is compiled separately below.
+      b.onResolve({ filter: /\.module\.css$/ }, (args) => ({ path: args.path, namespace: 'cssmodule' }));
+      b.onLoad({ filter: /.*/, namespace: 'cssmodule' }, () => ({ contents: 'export default new Proxy({}, { get: (_, key) => String(key) });', loader: 'js' }));
       b.onResolve({ filter: /.*/ }, (args) => {
         if (args.path in MOCKS) return { path: args.path, namespace: 'mock' };
         if (EDGES.some((re) => re.test(args.path))) return { path: args.path, namespace: 'action' };

@@ -208,6 +208,18 @@ export function welcomeAnimationOff(store: Store | null = local()): boolean {
 }
 
 /**
+ * The curtain's own style. It travels with the script rather than living in the stylesheet: the script runs before
+ * the first paint, the stylesheet may be late (or, in development, stale), and a curtain that depends on both is a
+ * curtain that can fail to cover the page. The fallback colours are the app's background in light and dark.
+ */
+export const SIGNIN_CURTAIN_CSS =
+  'html[data-signin-curtain]::before{content:"";position:fixed;inset:0;z-index:999;background:var(--background,#FAF8F4)}' +
+  'html.dark[data-signin-curtain]::before{background:var(--background,#0D1114)}'
+
+/** If nothing ever lifts the curtain (the page's scripts never ran), it lifts itself. Long: a cold start can be slow. */
+export const SIGNIN_CURTAIN_FAILSAFE_MS = 20_000
+
+/**
  * Runs before the first paint. After a full page load (a two-step code, Google or GitHub) it covers the page in its
  * own background colour the moment a sign-in marker is found, so neither the sign-in page nor the app shows before
  * the flight takes over. The flight lifts it; if nothing ever does, it lifts itself.
@@ -223,8 +235,12 @@ export function buildSignInCurtainScript(): string {
     if (${INTERIM_PATH}.test(location.pathname) || ${ONBOARDING_PATH}.test(location.pathname)) return;
     if (localStorage.getItem("app-welcome-animation") === "false") return;
     var root = document.documentElement;
+    var style = document.createElement("style");
+    style.id = "signin-curtain-style";
+    style.textContent = ${JSON.stringify(SIGNIN_CURTAIN_CSS)};
+    (document.head || root).appendChild(style);
     root.setAttribute("data-signin-curtain", "");
-    setTimeout(function () { root.removeAttribute("data-signin-curtain"); }, 9000);
+    setTimeout(function () { root.removeAttribute("data-signin-curtain"); }, ${SIGNIN_CURTAIN_FAILSAFE_MS});
   } catch (_) {}
 })();`
 }

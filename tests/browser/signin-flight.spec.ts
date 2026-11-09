@@ -79,7 +79,7 @@ const FRAME_ROOT = '[data-signin-overlay]';
 const near = (a: number[], b: number[], tolerance = 1.5) => { for (let i = 0; i < 4; i += 1) expect(Math.abs(a[i]! - b[i]!), `value ${i}`).toBeLessThanOrEqual(tolerance); };
 
 /** A fresh page that starts on the destination, as after a two-step code, Google or GitHub: the marker is already in this tab. */
-async function arrive(context: BrowserContext, options: { visibility?: string; contentDelay?: number; hidden?: boolean; off?: boolean; marker?: boolean; path?: string; played?: number } = {}) {
+async function arrive(context: BrowserContext, options: { visibility?: string; contentDelay?: number; hidden?: boolean; off?: boolean; marker?: boolean; path?: string; played?: number; curtain?: boolean } = {}) {
   const page = await context.newPage();
   await page.addInitScript(({ marker, hidden, off, path, played }) => {
     const w = window as any;
@@ -93,11 +93,11 @@ async function arrive(context: BrowserContext, options: { visibility?: string; c
     w.__earlyTrace = [] as unknown[]; const t0 = performance.now();
     w.__early = setInterval(() => {
       const root = document.documentElement; const sidebar = document.querySelector('.nb-sidebar');
-      w.__earlyTrace.push({ t: Math.round(performance.now() - t0), curtain: root.hasAttribute('data-signin-curtain'), overlay: !!document.querySelector('[data-signin-overlay]'), sidebar: sidebar ? Number(getComputedStyle(sidebar).opacity) : null, main: !!document.querySelector('.nb-main-frame') });
+      w.__earlyTrace.push({ t: Math.round(performance.now() - t0), curtain: root.hasAttribute('data-signin-curtain'), overlay: !!document.querySelector('[data-signin-overlay]'), sidebar: sidebar ? Number(getComputedStyle(sidebar).opacity) : null, main: !!document.querySelector('.nb-main-frame'), covers: (() => { const c = getComputedStyle(document.documentElement, '::before'); return root.hasAttribute('data-signin-curtain') && c.content !== 'none' && c.position === 'fixed' && c.zIndex === '999' && c.backgroundColor !== 'rgba(0, 0, 0, 0)'; })() });
     }, 10);
   }, options);
   // The curtain script sits in the page's head, as it does in the real document.
-  await openApp(page, ENTRY, { path: options.path ?? '/discover', head: buildSignInCurtainScript() });
+  await openApp(page, ENTRY, { path: options.path ?? '/discover', head: options.curtain === false ? undefined : buildSignInCurtainScript() });
   await page.evaluate(({ visibility, contentDelay }) => { const w = window as any; w.__visibility = visibility ?? 'public'; w.__contentDelay = contentDelay ?? 0; }, options);
   return page;
 }
@@ -207,18 +207,40 @@ test('the account\'s own setting is respected on a device that has never seen it
 test('after a full page load the curtain covers the page from the first paint, and the flight starts from the middle', async ({ context }) => {
   const page = await arrive(context);
   await finished(page);
-  const early = await page.evaluate(() => (window as any).__earlyTrace as Array<{ t: number; curtain: boolean; overlay: boolean; sidebar: number | null; main: boolean }>);
+  const early = await page.evaluate(() => (window as any).__earlyTrace as Array<{ t: number; curtain: boolean; overlay: boolean; sidebar: number | null; main: boolean; covers: boolean }>);
   const firstOverlay = early.findIndex((s) => s.overlay);
   expect(firstOverlay).toBeGreaterThan(0);
   // From the first sample until the overlay is up, the curtain is down or the app is not showing: never a flash of the page.
   for (const s of early.slice(0, firstOverlay)) expect(s.curtain || s.sidebar === null || s.sidebar === 0, `no flash at ${s.t}ms`).toBe(true);
   expect(early.slice(0, firstOverlay).some((s) => s.curtain), 'the curtain was down before the flight').toBe(true);
+  // And it really covers: while it is up, the page is under a fixed, opaque layer in the app's background colour.
+  expect(early.slice(0, firstOverlay).some((s) => s.covers), 'a layer covered the page').toBe(true);
   // The curtain is lifted by the flight, and the app is shown at the end.
   expect(await page.evaluate(() => document.documentElement.hasAttribute('data-signin-curtain'))).toBe(false);
   expect(await page.evaluate(() => (window as any).__pushed)).toEqual([]);
   const events = await meta(page);
   expect(events[0]).toMatchObject({ version: 'full', from: 'center' });
   await expect(page.locator('[data-welcome-slot]')).toBeVisible();
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), MARKER)).toBeNull();
+});
+
+test('a page that is already showing is never played over: no curtain, no animation, marker gone', async ({ context }) => {
+  const page = await arrive(context, { curtain: false });
+  await page.waitForTimeout(1800);
+  await expect(page.locator(FRAME_ROOT)).toHaveCount(0);
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), MARKER)).toBeNull();
+  expect(await calls(page)).toEqual([]);
+  await expect(page.locator('[data-welcome-slot]')).toBeVisible();
+});
+
+test('when the flight cannot start from the sign-in page it is the plain move, with no late animation after the page shows', async ({ page }) => {
+  await signIn(page);
+  await page.evaluate(() => { (window as any).__signedOut = true; });
+  await submit(page);
+  await expect.poll(() => page.evaluate(() => (window as any).__router.get())).toBe('/discover');
+  await page.waitForTimeout(2000);
+  expect((await trace(page)).some((s) => s.overlay)).toBe(false);
+  expect(await calls(page)).toEqual([]);
   expect(await page.evaluate((key) => sessionStorage.getItem(key), MARKER)).toBeNull();
 });
 

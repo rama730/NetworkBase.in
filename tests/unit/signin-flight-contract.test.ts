@@ -28,7 +28,8 @@ test("onboarding's flight is untouched: its own words, its own events, nothing o
 
 test("the sign-in flight sets its own attributes, and the shared hold and reveal rules add a rise only for it", () => {
   const css = read("src/app/globals.css");
-  assert.match(css, /html\[data-signin-curtain\]::before \{ content:""; position:fixed; inset:0; z-index:999; background:var\(--background\); \}/);
+  assert.doesNotMatch(css, /data-signin-curtain\]::before/, "the curtain lives with its script, not in a stylesheet that may be late or stale");
+  assert.match(read("src/lib/auth/signin-flight.ts"), /style\.textContent = \$\{JSON\.stringify\(SIGNIN_CURTAIN_CSS\)\}/);
   assert.match(css, /html\[data-signin-flight\]\[data-welcome-flight="reveal"\] \.nb-main-frame > header,\s*html\[data-signin-flight\]\[data-welcome-flight="reveal"\] \.nb-main-frame > main \{ animation-name:nb-signin-rise; \}/);
   assert.match(css, /@keyframes nb-signin-rise \{ from \{ opacity:0; transform:translateY\(8px\); \} to \{ opacity:1; transform:none; \} \}/);
   assert.match(css, /@media \(prefers-reduced-motion:reduce\) \{\s*html\[data-signin-flight\]\[data-welcome-flight="reveal"\] :is\(/);
@@ -55,7 +56,9 @@ test("the sign-in form: the button turns to a check, the flight starts from it, 
   assert.match(form, /busy=\{busy && !accepted\} disabled=\{busy \|\| accepted\}/, "no second press once accepted");
   assert.match(form, /welcomeAnimationOff\(\) \|\| document\.hidden/);
   assert.match(form, /router\.prefetch\(redirectPath\)/, "the next page loads while the check shows");
-  assert.match(form, /startSignInFlight\(\{ \.\.\.identity, next: redirectPath, version, from, navigate: true \}\)\) return\s*\}\s*router\.replace\(redirectPath\)/);
+  assert.match(form, /startSignInFlight\(\{ \.\.\.identity, next: redirectPath, version, from, navigate: true \}\)\) return\s*plain\('not-started'\)/);
+  assert.match(form, /plain\('no-identity'\)/);
+  assert.match(form, /const plain = \(reason: string\) => \{\s*logger\.warn\('auth\.signin_flight\.plain_move', \{ reason \}\)\s*clearSignInMarker\(\)\s*router\.replace\(redirectPath\)/, "a fallback says why and leaves no marker for a late animation");
 });
 
 test("the overlay never leaves the person behind a curtain, and stops when nobody is looking", () => {
@@ -77,6 +80,17 @@ test("the host consumes the marker when a flight starts, waits on pages on the w
   assert.match(host, /clearSignInMarker\(\)\s*\n\s*writeSignInPlayedAt\(\)/);
   assert.match(host, /action === 'wait'\) return/);
   assert.match(host, /action === 'drop' \|\| welcomeAnimationOff\(\) \|\| document\.hidden/);
+});
+
+test("a flight starts over a page only when the page was covered from its first paint", () => {
+  const host = read("src/components/auth/SignInFlight.tsx");
+  assert.match(host, /if \(!document\.documentElement\.hasAttribute\('data-signin-curtain'\)\) \{\s*clearSignInMarker\(\)\s*return\s*\}/);
+});
+
+test("signing out clears the device but keeps the record of when the animation last played, so the second sign-in of the day is light", () => {
+  const cache = read("src/lib/utils/cache-manager.ts");
+  assert.match(cache, /import \{ SIGNIN_PLAYED_KEY \} from "@\/lib\/auth\/signin-flight"/);
+  assert.match(cache, /COOKIE_CONSENT_STORAGE_KEY,\s*\/\/[^\n]*\n\s*SIGNIN_PLAYED_KEY,/);
 });
 
 test("the account's own switch is read while the picture loads, so a device that never saw it still respects it", () => {
