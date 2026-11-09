@@ -73,10 +73,13 @@ const exact = {
     return { data: { read: ids.length } };
   },
   "GET /api/v1/events": async (req, state) => {
-    // Hands out queued events once; with none, waits a little like the real long-poll.
-    if (!state.events.length) await new Promise((r) => setTimeout(r, 150));
-    const next = state.events.shift() ?? { notifications: [], files: [] };
-    return { data: { cursor: now(), ...next } };
+    // Hands out queued events once; with none, waits a little like the real long-poll and answers empty. It never
+    // takes an event after the wait: nb exits at once on Ctrl+C, and a dead client's held request would swallow the
+    // next test's event (seen on fast macOS runners).
+    const next = state.events.shift();
+    if (next) return { data: { cursor: now(), ...next } };
+    await new Promise((r) => setTimeout(r, 150));
+    return { data: { cursor: now(), notifications: [], files: [] } };
   },
   "GET /api/v1/tokens": (req) => {
     const current = String(req.headers.authorization ?? "").replace(/^Bearer /, "");
