@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { routeErrorResponse } from "@/app/api/v1/_error";
-import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser, denyOutsideTokenWorkspace } from "@/app/api/v1/_shared";
 import {
   buildExtensionRevisionStorageKey,
   checksumSchema,
@@ -49,6 +49,8 @@ export async function POST(request: Request) {
     }
 
     const { projectId, files, operationId } = parsed.data;
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId });
+    if (outside) return outside;
     const clientSessionId = parsed.data.clientSessionId ?? crypto.randomUUID();
 
     // 1. Verify project write access

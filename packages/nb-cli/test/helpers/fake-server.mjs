@@ -9,7 +9,7 @@ import crypto from "node:crypto";
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string> }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -44,7 +44,7 @@ const exact = {
   "GET /api/v1/health": () => ({ data: { status: "ok" } }),
   "GET /api/v1/extension/session": (req, state) => {
     const token = String(req.headers.authorization ?? "").replace(/^Bearer /, "");
-    if (!/^nb_(pat|dev)_/.test(token)) return fail(401, "UNAUTHORIZED", "Sign in to continue");
+    if (!/^nb_(pat|dev|agt)_/.test(token)) return fail(401, "UNAUTHORIZED", "Sign in to continue");
     return { data: { sessionId: "s1", active: !state.revoked.has(token), tokenType: "pat", user: { id: "u1", email: "t@example.com", username: "tester", fullName: "Test User" } } };
   },
   "POST /api/v1/extension/session": (req, state) => {
@@ -52,7 +52,22 @@ const exact = {
     return { data: { revoked: true } };
   },
   "POST /api/v1/extension/auth-code": (req) => (req.body?.code === "good-code" && req.body?.codeVerifier ? { data: { token: TOKEN } } : fail(401, "UNAUTHORIZED", "Bad code")),
-  "GET /api/v1/me": () => ({ data: { user: { id: "u1", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 } } }),
+  "POST /api/v1/device/code": (req, state) => {
+    state.device.lastBody = req.body;
+    state.device.polls = 0;
+    return { data: { deviceCode: "dc_0123456789abcdefghijklmnop", userCode: "ABCD-EFGH", verificationUri: "http://fake/device", verificationUriComplete: "http://fake/device?code=ABCD-EFGH", interval: 0, expiresIn: 600 } };
+  },
+  "POST /api/v1/device/token": (_req, state) => {
+    const d = state.device;
+    d.polls += 1;
+    if (d.polls < d.afterPolls || d.answer === "never") return { data: { status: d.polls === 1 ? "slow_down" : "pending" } };
+    if (d.answer === "deny") return fail(403, "FORBIDDEN", "Sign-in was denied in the browser", { status: "denied" });
+    return { data: { status: "approved", token: d.tokenType === "agent" ? "nb_agt_0123456789abcdef0123" : TOKEN, tokenType: d.tokenType, workspaceId: d.tokenType === "agent" ? WORKSPACE_ID : null } };
+  },
+  "GET /api/v1/me": (req) => {
+    const agent = String(req.headers.authorization ?? "").startsWith("Bearer nb_agt_");
+    return { data: { user: { id: "u1", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", type: agent ? "agent" : "pat", workspaceId: agent ? WORKSPACE_ID : null, scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 } } };
+  },
   "GET /api/v1/extension/workspaces": (_req, state) => ({ data: { workspaces: [state.workspace] } }),
   "GET /api/v1/extension/workspace-tasks": (req, state) => ({ data: { tasks: state.tasks.filter((t) => req.query.get("scope") !== "mine" || t.assigneeUsername === "tester").map((t) => ({ ...t, subtaskSummary: { completed: t.subtasks.filter((s) => s.completed).length, total: t.subtasks.length } })) } }),
   "GET /api/v1/extension/task-detail": (req, state) => {
@@ -156,7 +171,7 @@ const patterns = [
  */
 export async function startFakeServer({ routes = {}, fault = {} } = {}) {
   /** @type {FakeState} */
-  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set() };
+  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" } };
   /** @type {FakeRequest[]} */
   const requests = [];
   const faults = new Map(Object.entries(fault));

@@ -42,6 +42,8 @@ export async function GET(request: Request) {
       .where(
         and(
           isNull(workspaces.deletedAt),
+          // A token tied to one workspace sees only that one.
+          authResult.tokenWorkspaceId ? eq(workspaces.id, authResult.tokenWorkspaceId) : undefined,
           or(
             eq(workspaces.ownerId, user.id),
             eq(workspaceMembers.userId, user.id),

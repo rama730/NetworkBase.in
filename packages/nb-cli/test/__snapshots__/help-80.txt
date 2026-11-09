@@ -4,7 +4,7 @@ Usage
   nb <command> [flags]
 
 Account and setup
-  login            Sign in (browser, or a token from stdin)
+  login            Sign in (browser, a code, or a token from stdin)
   logout           Revoke this device's token and sign out
   whoami           Who you are, what this token may do, limits
   init             Link this folder to a workspace

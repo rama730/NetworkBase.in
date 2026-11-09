@@ -12,7 +12,7 @@ const ROUTE_METRIC_HEADER = "x-route-metric";
 const REQUEST_TARGET_HEADER = "x-networkbase-request-target";
 const REQUEST_METHOD_HEADER = "x-networkbase-request-method";
 const CSRF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
-const AUTH_PROTECTED_PREFIXES = ["/discover", "/settings", "/messages", "/my-profile", "/network", "/my-work", "/u/", "/workspaces", "/org/", "/admin", "/authorize"];
+const AUTH_PROTECTED_PREFIXES = ["/discover", "/settings", "/messages", "/my-profile", "/network", "/my-work", "/u/", "/workspaces", "/org/", "/admin", "/authorize", "/device"];
 // /legal/accept resolves the session so an unfinished two-step sign-in is sent to the code step first.
 const AUTH_PROTECTED_EXACT = new Set(["/", "/login", "/signup", "/verify-email", "/legal/accept"]);
 

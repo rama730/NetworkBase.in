@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
-    return jsonSuccess(await countMyOpenTasks(auth.user.id), undefined, { headers: { "Cache-Control": "private, no-store" } });
+    return jsonSuccess(await countMyOpenTasks(auth.user.id, new Date(), auth.tokenWorkspaceId), undefined, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/tasks/count", fallback: "Couldn’t count your tasks" });
   }

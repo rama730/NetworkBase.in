@@ -3,7 +3,7 @@ import {requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
   getRequestId,
-  idempotentWrite
+  idempotentWrite, denyOutsideTokenWorkspace
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
@@ -39,6 +39,8 @@ async function handlePost(request: Request) {
     }
 
     const { projectId, taskId: rawTaskId, title } = parsed.data;
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId, taskId: rawTaskId });
+    if (outside) return outside;
 
     const limit = await consumeRateLimit(`task:${user.id}`, 60, 60);
     if (!limit.allowed) {

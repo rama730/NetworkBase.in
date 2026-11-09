@@ -15,7 +15,7 @@ import {requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
   getRequestId,
-  idempotentWrite
+  idempotentWrite, denyOutsideTokenWorkspace
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import {
@@ -94,6 +94,8 @@ export async function GET(request: Request) {
     if (!parsed.success)
       return jsonError("Invalid comment query", 400, "BAD_REQUEST");
     const { projectId, nodeId, threadId, after } = parsed.data;
+    const outsideRead = await denyOutsideTokenWorkspace(auth, { projectId });
+    if (outsideRead) return outsideRead;
     const { access } = await readable(projectId, nodeId, auth.user.id);
     const rows = await db
       .select({
@@ -188,7 +190,10 @@ async function handlePost(request: Request) {
     const userId = auth.user.id;
     const body = await request.json().catch(() => null);
     const taskComment = taskCommentSchema.safeParse(body);
-    if (taskComment.success) return await postTaskComment(auth.user, taskComment.data);
+    if (taskComment.success) {
+      const outside = await denyOutsideTokenWorkspace(auth, { projectId: taskComment.data.projectId, taskId: taskComment.data.taskId });
+      return outside ?? (await postTaskComment(auth.user, taskComment.data));
+    }
     const parsed = schema.safeParse(body);
     if (!parsed.success)
       return jsonError("Invalid comment", 400, "BAD_REQUEST");
@@ -197,6 +202,8 @@ async function handlePost(request: Request) {
       !(await consumeRateLimit(`extension-comments:${userId}`, 30, 60)).allowed
     )
       return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId: input.projectId });
+    if (outside) return outside;
     await readable(input.projectId, input.nodeId, userId);
     const event = await db.transaction(async (tx) => {
       const authority = await assertWorkspaceWriteAccessTx(

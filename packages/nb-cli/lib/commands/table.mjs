@@ -44,9 +44,10 @@ const DRY = { "dry-run": { type: "boolean", describe: "Show what would happen, c
 /** @type {CommandSpec[]} */
 export const COMMANDS = [
   // Account and setup
-  { group: "Account and setup", name: "login", summary: "Sign in (browser, or a token from stdin)", usage: "nb login [--with-token]", module: "account", fn: "login",
-    flags: { "with-token": { type: "boolean", describe: "Read a token from stdin (CI, scripts)" }, device: { type: "boolean", describe: "Sign in with a code on another device (coming with agent sign-in)" } },
-    examples: ["nb login", "echo $NB_TOKEN | nb login --with-token"], exit: [0, 3] },
+  { group: "Account and setup", name: "login", summary: "Sign in (browser, a code, or a token from stdin)", usage: "nb login [--device] [--agent name] [--with-token]", module: "account", fn: "login",
+    flags: { "with-token": { type: "boolean", describe: "Read a token from stdin (CI, scripts)" }, device: { type: "boolean", describe: "Sign in with a code you approve on another device (automatic over SSH)" },
+      agent: { type: "string", describe: "Sign in an AI agent; you pick the one workspace it may use", valueName: "name" } },
+    examples: ["nb login", "nb login --device", "nb login --device --agent \"Claude Code\"", "echo $NB_TOKEN | nb login --with-token"], exit: [0, 3, 130] },
   { group: "Account and setup", name: "logout", summary: "Revoke this device's token and sign out", usage: "nb logout", module: "account", fn: "logout" },
   { group: "Account and setup", name: "whoami", summary: "Who you are, what this token may do, limits", usage: "nb whoami", module: "account", fn: "whoami", exit: [0, 3] },
   { group: "Account and setup", name: "init", summary: "Link this folder to a workspace", usage: "nb init [workspace] [--task 4]", module: "link", fn: "init",

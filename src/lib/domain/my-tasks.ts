@@ -53,7 +53,8 @@ export type MyTaskCounts = {
 };
 
 /** "How many tasks do I have": the person's open work, the same set My work counts (report §18.2). */
-export async function countMyOpenTasks(userId: string, now = new Date()): Promise<MyTaskCounts> {
+/** `onlyWorkspaceId`: a token tied to one workspace counts only there. */
+export async function countMyOpenTasks(userId: string, now = new Date(), onlyWorkspaceId: string | null = null): Promise<MyTaskCounts> {
   const nowIso = now.toISOString();
   const weekAheadIso = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
   const [row] = await db
@@ -74,6 +75,7 @@ export async function countMyOpenTasks(userId: string, now = new Date()): Promis
         mineSql(userId),
         orgCopyRules(userId),
         memberWorkspaceSql(userId),
+        onlyWorkspaceId ? eq(tasks.projectId, onlyWorkspaceId) : undefined,
       ),
     );
   return {

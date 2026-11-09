@@ -3,7 +3,7 @@ import {
   requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
-  getRequestId,
+  getRequestId, denyOutsideTokenWorkspace
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import {
@@ -46,6 +46,8 @@ export async function POST(request: Request) {
     if (!parsed.success)
       return jsonError("Invalid file operation", 400, "BAD_REQUEST");
     const i = parsed.data;
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId: i.projectId });
+    if (outside) return outside;
     if (i.kind === "move")
       return jsonSuccess(
         await moveWorkspaceNodes([i.nodeId], i.parentId, i.projectId, {

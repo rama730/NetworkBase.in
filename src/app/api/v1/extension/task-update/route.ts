@@ -4,7 +4,7 @@ import {requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
   getRequestId,
-  idempotentWrite
+  idempotentWrite, denyOutsideTokenWorkspace
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
@@ -68,6 +68,8 @@ async function handlePatch(request: Request) {
     if (!parsed.success)
       return jsonError("Invalid task update", 400, "BAD_REQUEST");
     const input = parsed.data;
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId: input.projectId, taskId: input.taskId });
+    if (outside) return outside;
     // Finishing and reviewing need their own token permissions (report A3.6).
     const scopeDenied =
       input.kind === "approve" || input.kind === "request_changes"

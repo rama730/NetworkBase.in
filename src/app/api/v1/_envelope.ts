@@ -25,7 +25,9 @@ export type ApiErrorCode =
   | "FILE_LOCKED"
   | "SCOPE_MISSING"
   | "VERSION_CONFLICT"
-  | "SECRET_DETECTED";
+  | "SECRET_DETECTED"
+  | "EXPIRED"
+  | "WORKSPACE_NOT_ALLOWED";
 
 export function jsonSuccess<T>(
   data?: T,

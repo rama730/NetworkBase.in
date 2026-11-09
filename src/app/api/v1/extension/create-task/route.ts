@@ -3,7 +3,7 @@ import {requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
   getRequestId,
-  idempotentWrite
+  idempotentWrite, denyOutsideTokenWorkspace
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { createTaskAction } from "@/app/actions/workspace";
@@ -24,6 +24,8 @@ async function handlePost(request: Request) {
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return jsonError("Invalid task", 400, "BAD_REQUEST");
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId: parsed.data.projectId });
+    if (outside) return outside;
     const result = await createTaskAction({
       ...parsed.data,
       status: "todo",

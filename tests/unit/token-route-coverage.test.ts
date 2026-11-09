@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { tokenRouteScope } from "../../src/lib/security/token-access";
+import { tokenRouteRule, tokenRouteScope } from "../../src/lib/security/token-access";
 
 /**
  * Every API route that signs people in must be classified on purpose (report A3.7): either listed in
@@ -74,4 +74,19 @@ it("classifies every signed-in API route for CLI and agent tokens", () => {
 it("the proxy runs on every API path, so the trusted method/path headers can't come from the client", () => {
   const proxy = fs.readFileSync(path.join(process.cwd(), "src/proxy.ts"), "utf8");
   assert.match(proxy, /matcher: \[\s*(\/\/[^\n]*\n\s*)*"\/api\/:path\*"/, 'src/proxy.ts matcher must list "/api/:path*" first');
+});
+
+it("every route that checks a token's workspace itself calls denyOutsideTokenWorkspace (agent tokens, report A3.3)", () => {
+  const missing: string[] = [];
+  for (const file of fs.readdirSync(ROOT, { recursive: true, encoding: "utf8" })) {
+    if (path.basename(file) !== "route.ts") continue;
+    const rel = path.dirname(file).split(path.sep).join("/");
+    if (tokenRouteRule(`/api/v1/${rel.replace(/\[[^\]]+\]/g, "x")}`)?.agent !== "route") continue;
+    let source = fs.readFileSync(path.join(ROOT, file), "utf8");
+    // Follow `export { POST } from "@/app/api/v1/…/route"` to the handler that does the work.
+    const reexport = /export \{[^}]*\} from "@\/app\/api\/v1\/([^"]+)"/.exec(source);
+    if (reexport) source = fs.readFileSync(path.join(ROOT, `${reexport[1]}.ts`), "utf8");
+    if (!source.includes("denyOutsideTokenWorkspace(")) missing.push(rel);
+  }
+  assert.deepEqual(missing, []);
 });

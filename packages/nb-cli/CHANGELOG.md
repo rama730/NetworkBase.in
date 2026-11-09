@@ -29,6 +29,7 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 - `nb setup shell` adds completions (asks first); `nb prompt` prints the workspace and task for your shell prompt.
 - `nb feedback` prints a report for support with no tokens, names or paths.
 - A once-a-day notice on stderr when a newer version is out (never with `--json`, in CI, or with `NB_NO_UPDATE_CHECK=1`).
+- `nb login --device` signs in with a code you approve at networkbase.in/device on any device (used automatically over SSH or without a display); `--agent "Claude Code"` asks for an agent token that only reaches the one workspace you pick.
 - `nb login --with-token` reads a token from stdin; `NETWORKBASE_TOKEN` works without a file.
 - Questions show as a numbered card in a terminal; scripts answer with `--answer key=value` or `--yes`.
 

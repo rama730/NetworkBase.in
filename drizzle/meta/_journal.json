@@ -498,6 +498,13 @@
       "when": 1793988960000,
       "tag": "0071_drop_calendar_feed_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1793989020000,
+      "tag": "0072_device_codes_agent_tokens",
+      "breakpoints": true
     }
   ]
 }

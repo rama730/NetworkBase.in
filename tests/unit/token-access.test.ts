@@ -70,3 +70,29 @@ it("reads method and path from the same headers the proxy sets", () => {
   assert.match(proxy, new RegExp(`REQUEST_TARGET_HEADER = "${TRUSTED_TARGET_HEADER}"`));
   assert.match(proxy, new RegExp(`REQUEST_METHOD_HEADER = "${TRUSTED_METHOD_HEADER}"`));
 });
+
+describe("tokens tied to one workspace (agent tokens, report A3.3)", () => {
+  const W = "11111111-1111-4111-8111-111111111111";
+  const OTHER = "22222222-2222-4222-8222-222222222222";
+  const agent = effectiveScopes("agent", []);
+  const check = (method: string, target: string, workspaceId: string | null = W) => checkTokenAccess({ method, path: target, scopes: agent, workspaceId });
+
+  it("agents get reads and small writes by default, nothing that finishes, publishes or deletes", () => {
+    assert.deepEqual([...agent].sort(), ["file:read", "file:write", "task:read", "task:write", "workspace:read"]);
+  });
+
+  it("checks the workspace in the path and in the projectId query", () => {
+    assert.equal(check("GET", `/api/v1/workspaces/${W}/manifest`), null);
+    assert.equal(check("GET", `/api/v1/workspaces/${OTHER}/manifest`)?.errorCode, "WORKSPACE_NOT_ALLOWED");
+    assert.equal(check("GET", `/api/v1/extension/workspace-tasks?projectId=${W}`), null);
+    assert.equal(check("GET", `/api/v1/extension/workspace-tasks?projectId=${OTHER}`)?.errorCode, "WORKSPACE_NOT_ALLOWED");
+    assert.equal(check("GET", "/api/v1/extension/workspace-tasks")?.errorCode, "WORKSPACE_NOT_ALLOWED", "no id: refused");
+  });
+
+  it("refuses routes that don't know how to stay inside one workspace (fail closed)", () => {
+    assert.equal(check("POST", "/api/v1/extension/task-push")?.errorCode, "WORKSPACE_NOT_ALLOWED");
+    assert.equal(check("POST", "/api/v1/extension/task-push", null), null, "an unbound token with file:write may");
+    assert.equal(check("GET", "/api/v1/me"), null);
+    assert.equal(check("POST", "/api/v1/files/place"), null, "body routes check inside the route");
+  });
+});

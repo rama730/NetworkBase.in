@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     return jsonSuccess(
       {
         user: { id: auth.user.id, username: profile?.username ?? null, fullName: profile?.fullName ?? null, email: profile?.email ?? null, avatarUrl: profile?.avatarUrl ?? null },
-        credential: auth.tokenScopes ? { kind: "token", sessionId: auth.extensionSessionId, scopes } : { kind: "browser", scopes },
+        credential: auth.tokenScopes ? { kind: "token", sessionId: auth.extensionSessionId, scopes, type: "tokenKind" in auth ? auth.tokenKind : null, workspaceId: auth.tokenWorkspaceId } : { kind: "browser", scopes },
         limits: { largestFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES },
       },
       undefined,

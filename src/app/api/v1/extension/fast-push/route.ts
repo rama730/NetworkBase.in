@@ -6,7 +6,7 @@ import {getRequestId,
   jsonSuccess,
   requireAuthenticatedUser,
   requireTokenScope,
-  idempotentWrite
+  idempotentWrite, denyOutsideTokenWorkspace
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -165,6 +165,8 @@ async function handlePost(request: Request) {
       folder,
       confirmSecrets,
     } = parsed.data;
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId, taskId: rawTaskId });
+    if (outside) return outside;
     const requestedRole: TaskFileRole | undefined = rawRole ? (fromPublicRole(rawRole) ?? undefined) : undefined;
 
     // Where each file goes: a chosen file (versionOf), else the path under the target folder.

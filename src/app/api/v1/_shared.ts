@@ -88,12 +88,13 @@ export function enforceDownloadLimit(request: Request, userId?: string | null) {
 
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { extensionDeviceSessions, personalAccessTokens, profiles } from "@/lib/db/schema";
+import { extensionDeviceSessions, personalAccessTokens, profiles, tasks } from "@/lib/db/schema";
 import crypto from "crypto";
 import { and, eq, gt, isNull, or } from "drizzle-orm";
 import {
   checkTokenAccess,
   effectiveScopes,
+  OUTSIDE_WORKSPACE_MESSAGE,
   TRUSTED_METHOD_HEADER,
   TRUSTED_TARGET_HEADER,
   type TokenScope,
@@ -115,6 +116,7 @@ function deniedPrincipal(response: ReturnType<typeof jsonError>) {
     user: null as User | null,
     extensionSessionId: null as string | null,
     tokenScopes: null as Set<TokenScope> | null,
+    tokenWorkspaceId: null as string | null,
     response: response as ReturnType<typeof jsonError> | null,
   };
 }
@@ -128,9 +130,11 @@ async function bearerPrincipal(
   user: User,
   extensionSessionId: string,
   scopes: Set<TokenScope>,
+  workspaceId: string | null,
+  kind: "device" | "agent" | "pat",
 ) {
   const target = headerStore.get(TRUSTED_TARGET_HEADER);
-  const denial = checkTokenAccess({ method: headerStore.get(TRUSTED_METHOD_HEADER), path: target, scopes });
+  const denial = checkTokenAccess({ method: headerStore.get(TRUSTED_METHOD_HEADER), path: target, scopes, workspaceId });
   if (denial) {
     logger.warn("api.v1.token_route_denied", {
       path: target?.split("?")[0] ?? null,
@@ -152,8 +156,33 @@ async function bearerPrincipal(
     user: user as User | null,
     extensionSessionId: extensionSessionId as string | null,
     tokenScopes: scopes as Set<TokenScope> | null,
+    /** Set for agent tokens and workspace PATs: the only workspace this token may reach. */
+    tokenWorkspaceId: workspaceId as string | null,
+    tokenKind: kind as "device" | "agent" | "pat" | null,
     response: null as ReturnType<typeof jsonError> | null,
   };
+}
+
+/**
+ * Keeps a token tied to one workspace inside it, for routes whose workspace comes from the body or from a task
+ * (TOKEN_ROUTES `agent: "route"`; tests/unit/token-route-coverage checks every such route calls this).
+ */
+export async function denyOutsideTokenWorkspace(
+  auth: { tokenWorkspaceId?: string | null },
+  ids: { projectId?: string | null; taskId?: string | null },
+) {
+  const bound = auth.tokenWorkspaceId;
+  if (!bound) return null;
+  const outside = () => jsonError(OUTSIDE_WORKSPACE_MESSAGE, 403, "WORKSPACE_NOT_ALLOWED");
+  if (ids.projectId && ids.projectId.toLowerCase() !== bound.toLowerCase()) return outside();
+  if (ids.taskId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ids.taskId)) {
+    const [task] = await db.select({ projectId: tasks.projectId }).from(tasks).where(eq(tasks.id, ids.taskId)).limit(1);
+    if (task && task.projectId !== bound) return outside();
+  } else if (ids.taskId && !ids.projectId) {
+    // A task number means nothing without its workspace.
+    return outside();
+  }
+  return null;
 }
 
 /** For checks that depend on the request body (finishing a task, approving, final files): 403 when a token lacks the scope. */
@@ -172,13 +201,13 @@ export async function requireAuthenticatedUser() {
     if (authHeader && /^bearer(\s|$)/i.test(authHeader)) {
       bearerAttempted = true;
       const token = authHeader.substring(6).trim();
-      if (token.startsWith("nb_dev_") || token.startsWith("nb_pat_")) {
+      if (token.startsWith("nb_dev_") || token.startsWith("nb_agt_") || token.startsWith("nb_pat_")) {
         // No in-process cache: every request reads revocation and expiry, so revoking a token works at once
         // on every server (API-009; a 15 s cache added with CLI 1.0 broke this, finding 43).
         const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
         const now = new Date();
-        if (token.startsWith("nb_dev_")) {
+        if (token.startsWith("nb_dev_") || token.startsWith("nb_agt_")) {
           // One bounded read: the session and the profile email together; revocation and expiry are checked on every call.
           const [found] = await db
             .select({
@@ -199,8 +228,9 @@ export async function requireAuthenticatedUser() {
               ),
             )
             .limit(1);
-          // An account that scheduled its deletion no longer accepts editor tokens.
-          const session = found?.deletedAt ? undefined : found?.session;
+          // An account that scheduled its deletion no longer accepts editor tokens; the prefix must match the
+          // token's type, so a device token can't be presented as an agent one or the other way round.
+          const session = found?.deletedAt || (found?.session.tokenType === "agent") !== token.startsWith("nb_agt_") ? undefined : found?.session;
 
           if (session) {
             const extensionVersion = normalizeSessionHeader(headerStore.get("x-extension-version"), 40);
@@ -262,8 +292,10 @@ export async function requireAuthenticatedUser() {
               updated_at: session.lastSeenAt.toISOString(),
             } as any;
 
-            const scopes = effectiveScopes("device", session.scopes);
-            return bearerPrincipal(headerStore, mockUser, session.id, scopes);
+            const scopes = effectiveScopes(session.tokenType === "agent" ? "agent" : "device", session.scopes);
+            // An agent token without a workspace can't exist (DB check); refuse rather than allow everything.
+            if (session.tokenType === "agent" && !session.workspaceId) return deniedPrincipal(jsonError("Invalid token", 401, "UNAUTHORIZED"));
+            return bearerPrincipal(headerStore, mockUser, session.id, scopes, session.workspaceId ?? null, session.tokenType === "agent" ? "agent" : "device");
           }
         } else if (token.startsWith("nb_pat_")) {
           const [found] = await db
@@ -320,7 +352,7 @@ export async function requireAuthenticatedUser() {
             } as any;
 
             const scopes = effectiveScopes("pat", pat.scopes);
-            return bearerPrincipal(headerStore, mockUser, pat.id, scopes);
+            return bearerPrincipal(headerStore, mockUser, pat.id, scopes, pat.workspaceId ?? null, "pat");
           }
         }
       }
@@ -329,6 +361,7 @@ export async function requireAuthenticatedUser() {
         user: null,
         extensionSessionId: null,
         tokenScopes: null,
+        tokenWorkspaceId: null,
         response: jsonError("Invalid or expired editor session", 401, "UNAUTHORIZED"),
       };
     }
@@ -342,6 +375,7 @@ export async function requireAuthenticatedUser() {
         user: null,
         extensionSessionId: null,
         tokenScopes: null,
+        tokenWorkspaceId: null,
         response: jsonError("Editor session verification failed", 401, "UNAUTHORIZED"),
       };
   }
@@ -357,6 +391,7 @@ export async function requireAuthenticatedUser() {
       user: null as User | null,
       extensionSessionId: null as string | null,
       tokenScopes: null as Set<TokenScope> | null,
+      tokenWorkspaceId: null as string | null,
       response: jsonError("Sign in to continue", 401, "UNAUTHORIZED"),
     };
   }
@@ -365,6 +400,7 @@ export async function requireAuthenticatedUser() {
     user,
     extensionSessionId: null as string | null,
     tokenScopes: null as Set<TokenScope> | null,
+    tokenWorkspaceId: null as string | null,
     response: null as ReturnType<typeof jsonError> | null,
   };
 }

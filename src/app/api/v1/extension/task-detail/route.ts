@@ -1,5 +1,5 @@
 import { canSeeOrgTask } from "@/lib/organizations/assignments";
-import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId } from "@/app/api/v1/_shared";
+import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId, denyOutsideTokenWorkspace } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
 import {
@@ -70,6 +70,8 @@ export async function GET(request: Request) {
 
     const row = rows[0];
     if (!row) return jsonError("Task not found", 404, "NOT_FOUND");
+    const outside = await denyOutsideTokenWorkspace(authResult, { projectId: row.projectId });
+    if (outside) return outside;
     const taskId = row.id;
 
     // Canonical rule: drafts/private for owners+members only, task data needs

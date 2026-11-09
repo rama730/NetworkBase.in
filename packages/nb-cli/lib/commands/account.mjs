@@ -1,6 +1,7 @@
-// login, logout, whoami (report A3.1 browser row, A3.9, A3.14, A3.16).
+// login, logout, whoami (report A3.1, A3.9, A3.14, A3.16).
 import crypto from "node:crypto";
 import http from "node:http";
+import os from "node:os";
 
 import { createApi } from "../api.mjs";
 import { saveProfile } from "../config.mjs";
@@ -27,6 +28,48 @@ async function finish(ctx, token, method) {
     `${ctx.out.c.success(ctx.out.sym.done)} Signed in as ${safe(d.user.username ? `@${d.user.username}` : d.user.email ?? d.user.id)} on ${new URL(d.origin).host}${d.profile !== "default" ? ` (profile ${d.profile})` : ""}`);
 }
 
+/** Over SSH, or on Linux without a display, a browser can't open here, so the code flow is used (A3.1). @param {NodeJS.ProcessEnv} env */
+const noBrowserHere = (env) => Boolean(env.SSH_CONNECTION || env.SSH_TTY || (process.platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY));
+
+/**
+ * Sign-in with a code (report A3.1): the server gives a code, the person approves it at /device on any device
+ * where they're signed in, and this terminal polls until then (10 minutes at most).
+ * @param {Context} ctx
+ * @returns {Promise<string>}
+ */
+async function deviceLogin(ctx) {
+  const api = createApi({ origin: ctx.profile.origin, token: null, version: ctx.version });
+  const agent = typeof ctx.flags.agent === "string" ? ctx.flags.agent.trim() : "";
+  const start = /** @type {any} */ (await api.post("/api/v1/device/code", {
+    clientName: "NetworkBase CLI",
+    deviceName: os.hostname().slice(0, 120) || "terminal",
+    clientVersion: ctx.version,
+    platform: `${process.platform} ${process.arch}`,
+    type: agent ? "agent" : "device",
+    ...(agent ? { agentName: agent } : {}),
+  }, { auth: false }));
+  const { c } = ctx.out;
+  ctx.out.note(`Open ${c.bold(start.verificationUri)} and enter ${c.bold(start.userCode)}`);
+  ctx.out.note(c.muted(`  or go straight to ${start.verificationUriComplete}`));
+  ctx.out.note(c.muted(`Waiting for you to approve… (code works for ${Math.round(start.expiresIn / 60)} minutes; Ctrl+C to cancel)`));
+  let interval = Number(start.interval ?? 5);
+  const until = Date.now() + Number(start.expiresIn ?? 600) * 1000;
+  while (Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, interval * 1000));
+    const res = /** @type {any} */ (await api.post("/api/v1/device/token", { deviceCode: start.deviceCode }, { auth: false }).catch((/** @type {unknown} */ error) => {
+      if (error instanceof CliError && error.status === 403) throw new CliError("CANCELLED", "Sign-in was denied in the browser");
+      if (error instanceof CliError && error.status === 410) throw new CliError("TIMEOUT", "The sign-in code expired before it was approved", { hint: "Run nb login --device again" });
+      throw error;
+    }));
+    if (res.status === "approved") {
+      if (res.tokenType === "agent") ctx.out.note(c.muted("Signed in as an agent: this token only reaches the workspace you picked."));
+      return String(res.token);
+    }
+    if (res.status === "slow_down") interval += 5;
+  }
+  throw new CliError("TIMEOUT", "The sign-in code expired before it was approved", { hint: "Run nb login --device again" });
+}
+
 /** @param {NodeJS.ReadStream} stream */
 async function readAll(stream) {
   const chunks = [];
@@ -45,11 +88,12 @@ export async function login(ctx) {
     if (!TOKEN_SHAPE.test(token)) throw usage("That doesn't look like a NetworkBase token (nb_pat_…, nb_dev_…)");
     return finish(ctx, token, "token");
   }
-  if (ctx.flags.device) {
-    throw new CliError("NOT_SUPPORTED", "Signing in with a code from another device arrives with agent sign-in", { hint: "For now: make a token in Settings → Integrations and run nb login --with-token" });
+  if (ctx.flags.device || ctx.flags.agent || noBrowserHere(ctx.env)) {
+    const token = await deviceLogin(ctx);
+    return finish(ctx, token, "device");
   }
   if (!process.stdin.isTTY && !ctx.env.NB_FORCE_BROWSER_LOGIN) {
-    throw new CliError("NEEDS_INPUT", "Browser sign-in needs a terminal", { hint: "In scripts and CI: echo $TOKEN | nb login --with-token, or set NETWORKBASE_TOKEN" });
+    throw new CliError("NEEDS_INPUT", "Browser sign-in needs a terminal", { hint: "Use nb login --device to sign in with a code; in CI: echo $TOKEN | nb login --with-token, or set NETWORKBASE_TOKEN" });
   }
   const token = await browserLogin(ctx);
   return finish(ctx, token, "browser");
@@ -164,7 +208,7 @@ export async function whoami(ctx) {
   ctx.out.result("nb.whoami/1", data, (d) => [
     `${ctx.out.c.brand(ctx.out.sym.brand)} ${safe(d.user.username ? `@${d.user.username}` : d.user.email ?? d.user.id)}${d.user.fullName ? ` · ${safe(d.user.fullName)}` : ""}`,
     `  server   ${new URL(d.origin).host}${d.profile !== "default" ? ` (profile ${d.profile})` : ""}`,
-    `  token    ${d.tokenSource === "env" ? "from NETWORKBASE_TOKEN" : "saved in ~/.networkbase"} · ${d.credential.scopes.length} permissions`,
+    `  token    ${d.credential.type ? `${d.credential.type === "agent" ? "agent" : d.credential.type === "pat" ? "personal access" : "device"} · ` : ""}${d.tokenSource === "env" ? "from NETWORKBASE_TOKEN" : "saved in ~/.networkbase"} · ${d.credential.scopes.length} permissions${d.credential.workspaceId ? " · one workspace only" : ""}`,
     `  files    up to ${Math.round(d.limits.largestFileBytes / 1024 / 1024)} MB each`,
     ...(ctx.flags.verbose ? [`  can      ${d.credential.scopes.join(", ")}`] : []),
   ]);

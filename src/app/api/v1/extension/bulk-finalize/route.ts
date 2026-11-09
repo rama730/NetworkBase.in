@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { and, eq, inArray } from "drizzle-orm";
-import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser, denyOutsideTokenWorkspace } from "@/app/api/v1/_shared";
 import {
   checksumSchema,
   parseExtensionLeaseMetadata,
@@ -71,6 +71,8 @@ export async function POST(request: Request) {
     }
 
     const { projectId, files, uploadSessionId } = parsed.data;
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId });
+    if (outside) return outside;
 
     const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project) return jsonError("Workspace not found", 404, "NOT_FOUND");

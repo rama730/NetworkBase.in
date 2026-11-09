@@ -18,7 +18,7 @@ npm install -g @networkbase/cli
 ## A first session
 
 ```bash
-nb login                 # opens the browser; on a server use: echo $TOKEN | nb login --with-token
+nb login                 # opens the browser; over SSH it shows a code to approve at networkbase.in/device
 nb init design-lab       # link this folder (asks which workspace if you leave it out)
 nb pull                  # get the files
 nb task start 4          # this folder works on task 4; moves it to In progress

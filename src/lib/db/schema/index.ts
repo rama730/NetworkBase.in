@@ -5296,6 +5296,10 @@ export const extensionDeviceSessions = pgTable("extension_device_sessions", {
   deviceName: text("device_name").notNull(),
   clientVersion: text("client_version").notNull(),
   scopes: jsonb("scopes").default([]),
+  /** device = a person's CLI or editor; agent = Claude Code, Codex…, always tied to one workspace (0072, report A3.3). */
+  tokenType: text("token_type").$type<"device" | "agent">().default("device").notNull(),
+  agentName: text("agent_name"),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   editorHost: text("editor_host"),
@@ -5316,6 +5320,34 @@ export const extensionDeviceSessions = pgTable("extension_device_sessions", {
   userLastSeenIdx: index("extension_device_sessions_user_last_seen_idx")
     .on(t.userId, t.lastSeenAt.desc(), t.id.desc())
     .where(sql`${t.revokedAt} IS NULL`),
+}));
+
+/** Sign-in with a code from a terminal without a browser (0072, report A3.1). Only the device code's hash is kept. */
+export const deviceCodes = pgTable("device_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  deviceCodeHash: text("device_code_hash").unique().notNull(),
+  userCode: text("user_code").unique().notNull(),
+  clientName: text("client_name").notNull(),
+  deviceName: text("device_name").notNull(),
+  clientVersion: text("client_version"),
+  platform: text("platform"),
+  requestedType: text("requested_type").$type<"device" | "agent">().default("device").notNull(),
+  agentName: text("agent_name"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  status: text("status").$type<"pending" | "approved" | "denied" | "consumed">().default("pending").notNull(),
+  userId: uuid("user_id").references(() => profiles.id, { onDelete: "cascade" }),
+  tokenType: text("token_type").$type<"device" | "agent">(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+  scopes: jsonb("scopes").$type<string[]>(),
+  tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+  sessionId: uuid("session_id").references(() => extensionDeviceSessions.id, { onDelete: "set null" }),
+  lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  expiresIdx: index("device_codes_expires_idx").on(t.expiresAt),
 }));
 
 // ============================================================================
@@ -5902,6 +5934,8 @@ export const personalAccessTokens = pgTable(
       .$type<string[]>()
       .default(["repo:read", "repo:write", "task:write"])
       .notNull(),
+    /** Optional: the token only reaches this workspace (0072). */
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
