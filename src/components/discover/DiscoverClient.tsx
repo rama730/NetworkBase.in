@@ -346,24 +346,28 @@ export default function DiscoverClient({
     const renderFeedItem = useCallback((_: number, item: DiscoverFeedItem) => {
         if (item.kind === 'update') {
             return (
-                <div className="pb-4" data-restore-id={feedItemKey(item)}>
-                    {/* One card that throws must not take the whole list down with it. */}
-                    <ComponentErrorBoundary fallbackMessage="This update couldn’t be shown.">
-                        <DiscoverUpdateCard
-                            update={item.data}
-                            viewerId={viewerId}
-                            onOpen={thread.open}
-                            onHide={hideUpdate}
-                            onVisitProject={markSeen}
-                        />
-                    </ComponentErrorBoundary>
+                <div className="pb-4">
+                    {/* The back marker sits on the card itself, not the spacing below it (unified back B9). */}
+                    <div data-restore-id={feedItemKey(item)}>
+                        {/* One card that throws must not take the whole list down with it. */}
+                        <ComponentErrorBoundary fallbackMessage="This update couldn’t be shown.">
+                            <DiscoverUpdateCard
+                                update={item.data}
+                                viewerId={viewerId}
+                                onOpen={thread.open}
+                                onHide={hideUpdate}
+                                onVisitProject={markSeen}
+                            />
+                        </ComponentErrorBoundary>
+                    </div>
                 </div>
             );
         }
 
         const project = item.data;
         return (
-            <div className="pb-4" data-restore-id={feedItemKey(item)}>
+            <div className="pb-4">
+                <div data-restore-id={feedItemKey(item)}>
                 <ProjectCard
                     project={project}
                     // In Following every card is followed; no flash of "not following" while that loads.
@@ -373,6 +377,7 @@ export default function DiscoverClient({
                     onOpenProject={markSeen}
                     live
                 />
+                </div>
             </div>
         );
     }, [followed, following, hideUpdate, markSeen, myApplications, thread.open, viewerId]);

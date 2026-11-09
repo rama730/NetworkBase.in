@@ -1495,4 +1495,8 @@ html[data-reduce-motion="true"][data-welcome-flight="reveal"] :is(.nb-sidebar, .
 @keyframes nb-link-pending { 0% { opacity:1; transform:scaleX(0); } 70% { opacity:1; transform:scaleX(1); } 100% { opacity:0; transform:scaleX(1); } }
 
 /* Unified back B9: the card you opened, tinted for a moment when you come back to it. */
-[data-returned] { background:color-mix(in srgb, var(--primary) 6%, transparent); transition:background-color 600ms ease-out; }
+/* A soft layer over the card itself (not the spacing around it), fading out. Cards are 8px rounded. */
+[data-returned] { position:relative; }
+[data-returned]::after { content:""; position:absolute; inset:0; border-radius:8px; pointer-events:none; background:color-mix(in srgb, var(--primary) 8%, transparent); animation:nb-returned 1000ms ease-out forwards; }
+@keyframes nb-returned { from { opacity:1; } to { opacity:0; } }
+@media (prefers-reduced-motion: reduce) { [data-returned]::after { animation:none; } }

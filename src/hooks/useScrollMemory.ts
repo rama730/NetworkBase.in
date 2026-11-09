@@ -56,7 +56,9 @@ function restore(record: ScrollRecord) {
     const opened = record.opened ? byRestoreId(root, record.opened) : null;
     if (!opened) return;
     const target = opened.matches("a[href],button,[tabindex]") ? opened : opened.querySelector<HTMLElement>('a[href],button,[tabindex]:not([tabindex="-1"])');
-    target?.focus({ preventScroll: true });
+    // Focus for keyboard users (Tab continues from here) without the keyboard-focus look: that look is
+    // what lit the card's border and the title's band on every return.
+    target?.focus({ preventScroll: true, focusVisible: false } as FocusOptions);
     opened.setAttribute("data-returned", "");
     window.setTimeout(() => opened.removeAttribute("data-returned"), RETURNED_TINT_MS);
   };
