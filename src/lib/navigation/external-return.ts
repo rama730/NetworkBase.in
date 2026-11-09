@@ -4,7 +4,8 @@
 // so the in-app arrow lands where you were. (The browser's own back may still show GitHub once.)
 // Assumes no Forward entries existed when leaving, which is normal right after clicking Connect.
 
-type StorageLike = { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void };
+import type { StorageLike } from "@/lib/navigation/scroll-memory";
+
 type Departure = { length: number; at: number; from: { path: string; title: string } };
 
 const KEY = "nb-external-departure";

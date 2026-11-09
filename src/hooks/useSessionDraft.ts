@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-export type StorageLike = {
-  getItem(k: string): string | null;
-  setItem(k: string, v: string): void;
-  removeItem(k: string): void;
-};
+import type { StorageLike } from "@/lib/navigation/scroll-memory";
 
 // Pages rebuild on back, so text held only in state is lost (unified back B12).
 // Drafts live in sessionStorage: same tab only, gone when the tab closes.

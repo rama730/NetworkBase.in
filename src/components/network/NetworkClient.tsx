@@ -30,7 +30,6 @@ import { LegalLinks } from "@/components/legal/LegalLinks";
 import { useBottomStickyRail } from "@/hooks/useBottomStickyRail";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { needsInitialSkeleton } from "@/lib/network/initial-skeleton";
 
 const TabLoading = () => (
     <div
@@ -88,10 +87,10 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
     const activeTab: TabKey = networkTab(tabParam);
     const queryClient = useQueryClient();
     // Back to Network with its people still in memory: no skeleton, they show at once.
-    const [initialLoadPending, setInitialLoadPending] = useState(() => needsInitialSkeleton(
-        isAuthed || activeTab === "suggested",
-        queryClient.getQueriesData({ queryKey: queryKeys.connections.root() }).some(([, data]) => data !== undefined),
-    ));
+    const [initialLoadPending, setInitialLoadPending] = useState(() =>
+        (isAuthed || activeTab === "suggested") &&
+        !queryClient.getQueriesData({ queryKey: queryKeys.connections.root() }).some(([, data]) => data !== undefined),
+    );
     const markInitialReady = useCallback(
         () => setInitialLoadPending(false),
         [],

@@ -12,12 +12,17 @@ import { useUIStore } from "@/stores/ui-store";
 
 const serverEntry = () => null;
 
+/** "Back to <the page you came from>", or "Back" (B14). */
+function useBackLabel() {
+  const entry = useSyncExternalStore(subscribeEntry, currentEntry, serverEntry);
+  return backLabel(entry?.from ? { title: shortTitle(entry.from.title) } : null);
+}
+
 /** Whether this page shows the arrow, where it goes, and whether it may animate (§7.4). */
 function useBackArrow() {
   const pathname = usePathname() ?? "";
   const target = backTargetFor(pathname);
   const parent = useUIStore((state) => state.backParent);
-  const entry = useSyncExternalStore(subscribeEntry, currentEntry, serverEntry);
   const go = useBack(parent ?? target.fallback);
   // A fresh load or refresh shows the final state; motion starts with the first in-app move.
   const firstPath = useRef(pathname);
@@ -25,8 +30,7 @@ function useBackArrow() {
   useEffect(() => {
     if (pathname !== firstPath.current) setAnimate(true);
   }, [pathname]);
-  const label = backLabel(entry?.from ? { title: shortTitle(entry.from.title) } : null);
-  return { show: target.show, animate, label, go };
+  return { show: target.show, animate, label: useBackLabel(), go };
 }
 
 function ArrowButton({ label, onClick, className = "" }: { label: string; onClick: () => void; className?: string }) {
@@ -67,8 +71,5 @@ export function BackLogoSwap({ logo }: { logo: ReactNode }) {
 
 /** Outside the top bar (not-found, legal, admin pages): the same arrow, always shown (A1). */
 export function BackButton({ fallback = "/discover", className = "" }: { fallback?: string; className?: string }) {
-  const entry = useSyncExternalStore(subscribeEntry, currentEntry, serverEntry);
-  const go = useBack(fallback);
-  const label = backLabel(entry?.from ? { title: shortTitle(entry.from.title) } : null);
-  return <ArrowButton label={label} onClick={go} className={className} />;
+  return <ArrowButton label={useBackLabel()} onClick={useBack(fallback)} className={className} />;
 }

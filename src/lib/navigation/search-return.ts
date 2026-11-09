@@ -2,9 +2,9 @@
 // the query and the result, for this tab only. Going back to the page you searched from reopens
 // the search with them; Esc or a click outside closes it, and Forward still reaches the result.
 
-export type SearchReturn = { entryId: string; query: string; context?: string; activeIndex: number };
+import type { StorageLike } from "@/lib/navigation/scroll-memory";
 
-type StorageLike = { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void };
+export type SearchReturn = { entryId: string; query: string; context?: string; activeIndex: number };
 
 const KEY = "nb-search-return";
 

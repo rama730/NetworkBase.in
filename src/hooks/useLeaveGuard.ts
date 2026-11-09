@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { APP_BEFORE_NAVIGATE_EVENT, type AppBeforeNavigateEvent } from '@/lib/navigation/confirm-navigation';
+import { isPlainLeftClick } from '@/lib/navigation/links';
 
 /**
  * Ask before leaving while something would be lost: unsaved profile edits (report §32.3) or a running upload
@@ -36,7 +37,7 @@ export function useLeaveGuard(dirty: boolean, saving = false) {
             event.returnValue = '';
         };
         const click = (event: MouseEvent) => {
-            if ((!state.current.dirty && !state.current.saving) || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            if ((!state.current.dirty && !state.current.saving) || !isPlainLeftClick(event)) return;
             const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null;
             if (!anchor || anchor.hasAttribute('download') || (anchor.target && anchor.target !== '_self')) return;
             const target = new URL(anchor.href, state.current.url);
