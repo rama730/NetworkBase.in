@@ -31,6 +31,8 @@ type GenerateExtensionTokenOptions = {
     editorVersion?: string;
     requestState?: string | null;
     callbackUri?: string | null;
+    /** PKCE S256 challenge from the CLI; the code exchange then needs the matching verifier (report A3.1, F37). */
+    codeChallenge?: string | null;
 };
 
 const extensionSessionIdSchema = z.string().uuid();
@@ -270,6 +272,10 @@ export async function generateExtensionAuthCode(
     if (!callbackUri || !requestState || requestState.length > 256) {
         return { success: false as const, error: "Invalid editor authorization request" };
     }
+    const codeChallenge = options.codeChallenge ?? null;
+    if (codeChallenge !== null && !/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) {
+        return { success: false as const, error: "Invalid editor authorization request" };
+    }
 
     const requestStateHash = crypto.createHash("sha256").update(requestState).digest("hex");
     const result = await generateExtensionToken(deviceName, {
@@ -301,6 +307,7 @@ export async function generateExtensionAuthCode(
                     codeId: issued.codeId,
                     expiresAt: issued.expiresAt.toISOString(),
                     requestStateHash,
+                    ...(codeChallenge ? { codeChallenge } : {}),
                 },
                 createdAt: new Date(),
             });

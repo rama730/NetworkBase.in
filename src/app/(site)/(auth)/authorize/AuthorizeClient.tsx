@@ -203,6 +203,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                 editorName,
                 requestState: callbackState,
                 callbackUri: callbackUrl,
+                codeChallenge: searchParams.get('code_challenge'),
             })
 
             if (res.success) {

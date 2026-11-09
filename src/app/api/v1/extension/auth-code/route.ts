@@ -22,6 +22,8 @@ void csrfProtection;
 const exchangeSchema = z.object({
   code: z.string().min(16),
   state: z.string().max(256).optional().nullable(),
+  /** PKCE verifier (RFC 7636): required when the authorization carried a code challenge. */
+  codeVerifier: z.string().min(43).max(128).optional().nullable(),
 });
 
 function readMetadata(event: { metadata: unknown }) {
@@ -120,6 +122,17 @@ export async function POST(request: Request) {
         || !crypto.timingSafeEqual(Buffer.from(requestStateHash), Buffer.from(receivedStateHash))
       ) {
         throw new Error("Authorization state did not match this editor request.");
+      }
+
+      // PKCE: a code issued with a challenge only works with the verifier that only the requesting CLI holds,
+      // so a code seen in a browser history or by another local process is useless (report A3.1, F37).
+      const codeChallenge = typeof issuedMetadata.codeChallenge === "string" ? issuedMetadata.codeChallenge : null;
+      if (codeChallenge) {
+        const verifier = parsed.data.codeVerifier ?? "";
+        const computed = crypto.createHash("sha256").update(verifier).digest("base64url");
+        if (!verifier || computed.length !== codeChallenge.length || !crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(codeChallenge))) {
+          throw new Error("This sign-in code needs the verifier from the terminal that started it.");
+        }
       }
 
       const alreadyConsumed = events.some((event) => {
