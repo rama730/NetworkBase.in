@@ -118,12 +118,20 @@ function scopeWhere(scope: TaskListScope, actorId: string | null, sprintIds?: st
 export type BoardViewCount = { open: number; total: number; needsYou: number };
 export type BoardCounts = Record<TaskListScope, BoardViewCount>;
 
-/** Open = not done; a main assignment is open until it's closed or everyone is done (its board column, decision 14). */
-const OPEN = sql`(CASE WHEN ${tasks.kind} = 'assignment' AND ${tasks.assignmentId} IS NULL THEN NOT (
-    ${tasks.assignmentSettings}->>'closedAt' IS NOT NULL OR (
-      EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = ${tasks.id} AND c.deleted_at IS NULL AND c.excused_at IS NULL)
-      AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = ${tasks.id} AND c.deleted_at IS NULL AND c.excused_at IS NULL AND NOT (c.status = 'done' AND c.review_status <> 'pending'))))
-  ELSE ${tasks.status} <> 'done' END)`;
+/**
+ * Open = not done; a main assignment is open until it's closed or everyone is done (its board column, decision 14).
+ * Audit B10: which main assignments are finished is read once (one indexed aggregate per assignment) and passed in, so
+ * the six counts don't each re-scan every assignment's copies (a correlated EXISTS the planner ran as a table scan).
+ */
+async function openSql(projectId: string, org: boolean) {
+  if (!org) return sql`(${tasks.status} <> 'done')`;
+  const finished = Array.from(await db.execute<{ id: string }>(sql`
+    SELECT m.id FROM tasks m WHERE m.workspace_id = ${projectId}::uuid AND m.kind = 'assignment' AND m.assignment_id IS NULL AND m.deleted_at IS NULL
+      AND (m.assignment_settings->>'closedAt' IS NOT NULL OR coalesce((SELECT bool_and(c.status = 'done' AND c.review_status <> 'pending') FROM tasks c
+        WHERE c.assignment_id = m.id AND c.deleted_at IS NULL AND c.excused_at IS NULL), false))`)).map((r) => r.id);
+  const done = finished.length ? sql`${tasks.id} IN (${sql.join(finished.map((id) => sql`${id}::uuid`), sql`, `)})` : sql`false`;
+  return sql`(CASE WHEN ${tasks.kind} = 'assignment' AND ${tasks.assignmentId} IS NULL THEN NOT (${done}) ELSE ${tasks.status} <> 'done' END)`;
+}
 
 /**
  * Board view dropdown §3, §5: each view's open count and what needs the viewer now, in one statement, by the list's
@@ -143,7 +151,9 @@ export async function readBoardCounts(access: WorkspaceAccess, actorId: string |
     const running = runningSprint(live);
     sprintIds = !running ? undefined : running.parentSprintId && live.some((m) => m.id === running.parentSprintId) ? [running.id] : [running.id, ...live.filter((x) => x.parentSprintId === running.id).map((x) => x.id)];
   }
-  const own = actorId ? sql`(${tasks.assigneeId} = ${actorId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${actorId}))` : sql`false`;
+  // Audit B10: the viewer's team tasks are read once (uncorrelated IN), not checked per row across every copy.
+  const OPEN = await openSql(projectId, org);
+  const own = actorId ? sql`(${tasks.assigneeId} = ${actorId} OR ${tasks.id} IN (SELECT tm.task_id FROM task_team_members tm WHERE tm.user_id = ${actorId}))` : sql`false`;
   const notHandedIn = sql`(${tasks.status} <> 'done' AND ${tasks.reviewStatus} <> 'pending' AND ${tasks.submission} IS NULL AND ${tasks.excusedAt} IS NULL)`;
   const masterOpen = sql`EXISTS (SELECT 1 FROM tasks m WHERE m.id = ${tasks.assignmentId} AND m.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL)`;
   const copyNeedsYou = sql`(${tasks.assignmentId} IS NOT NULL AND ${own} AND ${notHandedIn} AND ${masterOpen} AND ${tasks.dueDate} < now() + interval '2 days')`;

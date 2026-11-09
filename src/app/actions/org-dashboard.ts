@@ -484,7 +484,8 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
         // Audit 6.1: a lead who left the organization needs replacing too ("lead left" gets Assign workspace lead).
         needsLead: sql<boolean>`(${workspaces.orgSettings} ? 'leadHandover' OR NOT EXISTS (SELECT 1 FROM workspace_members lm WHERE lm.workspace_id = ${orgId} AND lm.user_id = ${workspaces.ownerId}))`,
         archivedByAdmin: sql<boolean | null>`(${workspaces.orgSettings}->'archivedBy'->>'admin')::boolean`,
-        archivedByName: sql<string | null>`(SELECT coalesce(ap.full_name, ap.username) FROM profiles ap WHERE ap.id::text = ${workspaces.orgSettings}->'archivedBy'->>'userId')`,
+        // Audit B10: cast the value, not the key, so the lookup uses the primary key (was a profiles scan per row).
+        archivedByName: sql<string | null>`(SELECT coalesce(ap.full_name, ap.username) FROM profiles ap WHERE ap.id = CASE WHEN ${workspaces.orgSettings}->'archivedBy'->>'userId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN (${workspaces.orgSettings}->'archivedBy'->>'userId')::uuid END)`,
         mine: v.userId ? sql<boolean>`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})` : sql<boolean>`false`,
         leadInOrg: sql<boolean>`(${workspaces.ownerId} = ${v.access.project!.ownerId} OR EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${orgId} AND pm.user_id = ${workspaces.ownerId}))`,
         archivedAt: sql<string | null>`${workspaces.orgSettings}->'archivedBy'->>'at'`,
