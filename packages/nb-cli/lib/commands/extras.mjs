@@ -32,11 +32,16 @@ export const taskTrailer = (message) => /^NetworkBase-Task:\s*#?(\d+)\s*$/im.exe
  * trailer as the task. Returns paths relative to `cwd`. @param {string} cwd
  */
 export async function filesFromLastCommit(cwd) {
-  const top = (await git(cwd, ["rev-parse", "--show-toplevel"])).trim();
+  // This folder's place in the repository, from git itself ("" at the top, else "sub/dir/"). Comparing absolute
+  // paths broke on Windows, where git prints C:/Users/runneradmin/… and Node C:\Users\RUNNER~1\….
+  const prefix = (await git(cwd, ["rev-parse", "--show-prefix"])).trim();
   const names = (await git(cwd, ["diff-tree", "--no-commit-id", "--name-only", "--diff-filter=ACMR", "-r", "HEAD"])).split("\n").filter(Boolean);
   const message = await git(cwd, ["log", "-1", "--format=%B"]);
   return {
-    paths: names.map((n) => path.relative(cwd, path.join(top, n))).filter((p) => !p.startsWith("..") && fs.existsSync(path.join(cwd, p))),
+    paths: names.filter((n) => n.startsWith(prefix)).map((n) => n.slice(prefix.length))
+      // git never lists ".." or absolute names; checked anyway so nothing outside this folder is ever pushed.
+      .filter((n) => n && !n.startsWith("/") && !n.split("/").includes(".."))
+      .map((n) => n.split("/").join(path.sep)).filter((p) => fs.existsSync(path.join(cwd, p))),
     subject: message.split("\n")[0]?.trim() ?? "",
     task: taskTrailer(message),
   };

@@ -15,15 +15,22 @@ describe("inbox and live changes", () => {
   /** @type {string} */
   let home;
   const nb = (/** @type {string[]} */ args) => runCli(args, { api: api.url, cwd, home });
-  /** Runs nb until `until` says so (or 10 s), then stops it. @param {string[]} args @param {(out: string) => boolean} until */
+  /**
+   * Runs nb until `until` says so (checked on output and every 100 ms; 15 s at most), stops it, and resolves once it
+   * has exited, so a leftover process can't take the next test's events from the shared fake server.
+   * @param {string[]} args @param {(out: string) => boolean} until @returns {Promise<string>}
+   */
   const runUntil = (args, until) => new Promise((resolve) => {
     const child = spawn(process.execPath, [CLI_PATH, ...args], { cwd, env: { ...cleanEnv(home), NETWORKBASE_API_URL: api.url, NETWORKBASE_TOKEN: "nb_pat_test" } });
     let out = "";
-    const done = () => { clearTimeout(timer); child.kill("SIGINT"); resolve(out); };
-    const timer = setTimeout(done, 10_000);
+    let stopped = false;
+    const done = () => { if (stopped) return; stopped = true; clearTimeout(timer); clearInterval(poll); child.kill("SIGINT"); };
+    const timer = setTimeout(done, 15_000);
+    const poll = setInterval(() => { if (until(out)) done(); }, 100);
     const check = (/** @type {Buffer} */ d) => { out += d; if (until(out)) done(); };
     child.stdout.on("data", check);
     child.stderr.on("data", check);
+    child.on("exit", () => { done(); resolve(out); });
   });
   before(async () => {
     api = await startFakeServer();
@@ -60,7 +67,7 @@ describe("inbox and live changes", () => {
     await nb(["pull"]);
     const { file } = putFile(api.state, "/plan.md", Buffer.from("v2 from Sam"));
     api.state.events.push({ notifications: [], files: [{ path: "/plan.md", nodeId: file.nodeId, version: file.version, at: new Date().toISOString(), by: "sam", mine: false }] });
-    await runUntil(["watch"], () => fs.readFileSync(path.join(cwd, "plan.md"), "utf8") === "v2 from Sam");
-    assert.equal(fs.readFileSync(path.join(cwd, "plan.md"), "utf8"), "v2 from Sam");
+    const out = await runUntil(["watch"], () => fs.readFileSync(path.join(cwd, "plan.md"), "utf8") === "v2 from Sam");
+    assert.equal(fs.readFileSync(path.join(cwd, "plan.md"), "utf8"), "v2 from Sam", `nb watch said:\n${out}`);
   });
 });
