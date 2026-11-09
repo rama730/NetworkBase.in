@@ -14,10 +14,12 @@ export const origin = 'https://app-bundle.test';
 const EDGES = [/^@\/app\/actions\//, /^@\/lib\/files-tab-batch$/, /^@\/lib\/supabase\/(client|server)$/];
 const MOCKS: Record<string, string> = {
   'next/navigation': `import React from 'react';const r={push:h=>window.__router.push(h),replace:h=>window.__router.push(h),refresh(){},prefetch(){},back(){}};export const useRouter=()=>r;export const useSearchParams=()=>new URLSearchParams(location.search);export const usePathname=()=>React.useSyncExternalStore(window.__router.subscribe,window.__router.get);export const useParams=()=>({});export const redirect=()=>{};export const notFound=()=>{};`,
-  'next/link': `import React from 'react';export default React.forwardRef(({href,children,prefetch,scroll,replace,...p},ref)=>React.createElement('a',{href:typeof href==='string'?href:'#',ref,...p},children));`,
+  'next/link': `import React from 'react';export default React.forwardRef(({href,children,prefetch,scroll,replace,...p},ref)=>React.createElement('a',{href:typeof href==='string'?href:'#',ref,...p},children));export const useLinkStatus=()=>({pending:false});`,
   'next/image': `import React from 'react';export default ({src,alt,width,height,fill,priority,unoptimized,sizes,quality,placeholder,blurDataURL,loader,fetchPriority,...p})=>React.createElement('img',{src:typeof src==='string'?src:(src&&src.src)||'',alt,width,height,...p});`,
   'next/dynamic': `import React from 'react';export default (loader)=>{const L=React.lazy(()=>loader().then(m=>({default:m.default??m})));return (props)=>React.createElement(React.Suspense,{fallback:null},React.createElement(L,props));};`,
   'server-only': `export {};`,
+  'next/script': `import {useEffect} from 'react';export default function Script({onReady,onLoad}){useEffect(()=>{onReady?.();onLoad?.();},[]);return null;}`,
+  '@/components/providers/SecurityRuntimeProvider': `export const useSecurityRuntime=()=>({nonce:null});`,
   '@/hooks/use-auth': `export const useAuth=()=>window.__auth;`,
   '@/components/providers/AuthProvider': `export const useAuthContext=()=>window.__auth;export const AuthProvider=({children})=>children;export default {};`,
 };
@@ -52,7 +54,7 @@ export async function buildApp(entry: string) {
   return built;
 }
 
-export async function openApp(page: Page, entry: string, init: { auth?: Record<string, unknown>; path?: string } = {}) {
+export async function openApp(page: Page, entry: string, init: { auth?: Record<string, unknown>; path?: string; head?: string } = {}) {
   const assets = await buildApp(entry);
   await page.addInitScript(() => { (window as any).process = { env: { NODE_ENV: 'test' } }; });
   await page.addInitScript(({ auth }) => {
@@ -65,7 +67,7 @@ export async function openApp(page: Page, entry: string, init: { auth?: Record<s
     if (p === '/app.js') return route.fulfill({ contentType: 'application/javascript', body: assets.script });
     if (p === '/app.css') return route.fulfill({ contentType: 'text/css', body: assets.css });
     if (p.startsWith('/api/')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: {} }) });
-    return route.fulfill({ contentType: 'text/html', body: '<html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>app</title><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>' });
+    return route.fulfill({ contentType: 'text/html', body: '<html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>app</title>' + (init.head ? '<script>' + init.head + '</script>' : '') + '<link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>' });
   });
   await page.goto(origin + (init.path ?? '/onboarding'));
 }

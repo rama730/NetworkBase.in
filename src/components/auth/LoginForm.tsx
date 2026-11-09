@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Check } from 'lucide-react'
 import { adoptServerSessionIfMissing, loadBrowserSupabase, signInWithPassword as signIn, syncBrowserSessionToServer } from '@/lib/auth/browser-auth-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,8 @@ import { buildAuthPageHref, resolveAuthRedirectPath } from '@/lib/auth/redirects
 import { resolveAuthPageErrorMessage, toFriendlyAuthError } from '@/lib/auth/error-messages'
 import { getTotpVerificationErrorMessage, needsSecondFactor } from '@/lib/auth/mfa-ui'
 import { readSignInMethod, rememberSignInMethod, type SignInMethod } from '@/lib/auth/last-method'
+import { prepareSignInFlight, preloadSignInFlight, startSignInFlight } from '@/components/auth/SignInFlight'
+import { chooseSignInVersion, clearSignInMarker, markSignIn, readSignInPlayedAt, welcomeAnimationOff } from '@/lib/auth/signin-flight'
 
 const LOGIN_REQUEST_TIMEOUT_MS = 25_000
 /** After this many wrong passwords in a row, the page offers a code or a reset instead. */
@@ -72,6 +75,8 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
     const [recoveryMode, setRecoveryMode] = useState(false)
     const [recoveryCode, setRecoveryCode] = useState('')
     const [recovered, setRecovered] = useState(false)
+    // Sign-in accepted: the button turns to a check and the photo leaves it.
+    const [accepted, setAccepted] = useState(false)
     const [trustBrowser, setTrustBrowser] = useState(false)
     const [canTrust, setCanTrust] = useState(true)
     const emailRef = useRef<HTMLInputElement | null>(null)
@@ -85,6 +90,10 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
     useEffect(() => {
         if (step === 'mfa') codeRef.current?.focus()
     }, [step])
+    // The welcome flight is loaded while the person types, so it can paint the moment the sign-in is accepted.
+    useEffect(() => {
+        void preloadSignInFlight()
+    }, [])
     useEffect(() => {
         setLastUsed(readSignInMethod())
         // The email typed on the reset page comes along after a new password (never in the address).
@@ -117,6 +126,8 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
     /** Signed in (password or code): on to the code step if the account has one, unless this browser is trusted. */
     const continueAfterFirstStep = async (method: SignInMethod) => {
         rememberSignInMethod(method)
+        // A deliberate sign-in: kept for the whole way in, including the code step and a full page load after it.
+        markSignIn(redirectPath)
         const supabase = await loadBrowserSupabase()
         const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
         if (aal && needsSecondFactor(aal.currentLevel, aal.nextLevel === 'aal2')) {
@@ -127,8 +138,34 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                 return false
             }
         }
-        router.replace(redirectPath)
+        await leaveWithWelcome()
         return true
+    }
+
+    /**
+     * Signed in all the way: the button turns to a check, the picture and name load, and the welcome flight carries
+     * the person to the next page. Anything that cannot happen (setting off, hidden tab, nothing loaded in time) is
+     * the plain move this always was.
+     */
+    const leaveWithWelcome = async () => {
+        if (welcomeAnimationOff() || document.hidden) {
+            clearSignInMarker()
+            router.replace(redirectPath)
+            return
+        }
+        router.prefetch(redirectPath)
+        setAccepted(true)
+        const shownAt = Date.now()
+        const [identity] = await Promise.all([prepareSignInFlight(), preloadSignInFlight()])
+        // A moment for the check to be seen.
+        await new Promise((resolve) => setTimeout(resolve, Math.max(0, 180 - (Date.now() - shownAt))))
+        if (identity) {
+            const button = document.querySelector<HTMLElement>('[data-signin-submit]')?.getBoundingClientRect()
+            const from = button && button.width > 0 ? { left: button.left + button.width / 2 - 24, top: button.top + button.height / 2 - 24, width: 48, height: 48 } : null
+            const version = chooseSignInVersion({ playedAt: readSignInPlayedAt(), now: Date.now(), next: redirectPath })
+            if (startSignInFlight({ ...identity, next: redirectPath, version, from, navigate: true })) return
+        }
+        router.replace(redirectPath)
     }
 
     const handleSignIn = async (event: FormEvent) => {
@@ -487,8 +524,8 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                         <Button asChild variant="outline" className="h-11"><Link href="/forgot-password">Reset password</Link></Button>
                     </div>
                 ) : null}
-                <SubmitButton busy={busy} busyLabel="Signing in…" className="relative h-11 w-full font-medium">
-                    Sign in{lastUsed === 'password' ? <LastUsedTag /> : null}
+                <SubmitButton data-signin-submit="" busy={busy && !accepted} disabled={busy || accepted} busyLabel="Signing in…" className="relative h-11 w-full font-medium">
+                    {accepted ? <><Check className="size-4" aria-hidden="true" /><span className="sr-only">Signed in</span></> : <>Sign in{lastUsed === 'password' ? <LastUsedTag /> : null}</>}
                 </SubmitButton>
                 {showWrongPasswordHelp ? null : (
                     <Button type="button" variant="ghost" className="relative h-11 w-full" onClick={() => void startEmailCode()} disabled={busy}>

@@ -1,0 +1,37 @@
+{
+  "id": "impact-2026-11-09-signin-welcome-flight",
+  "title": "Sign-in: the welcome flight after a deliberate sign-in, and its Appearance setting",
+  "summary": "After a person signs in (password, code, Google, GitHub) the photo travels to its place in the top bar with two short lines, in a full version (first sign-in of the day on a device, going to the default page) or a light one (later that day, or going somewhere in particular). A marker in the tab's session storage, consumed once, makes it play only in the tab that signed in and never on a refresh; after a full page load a curtain script in the document head covers the page until the flight takes over. One overlay in the root document, separate from onboarding's, which is untouched. A new Appearance preference, welcomeAnimation, joins the existing snapshot (on by default; saved snapshots without it read as on) and is stored with the other appearance choices in user metadata. One new server action records started, completed and skipped events in onboarding_events under separate event names, rate limited per person. No migration.",
+  "riskLevel": "medium",
+  "runtimePlanes": ["request"],
+  "routeClasses": ["active_surface"],
+  "dataSourcesChanged": ["onboarding_events"],
+  "canonicalLogicDomains": ["profile_display"],
+  "concurrencyRisk": "None added. The flight is client state keyed to one tab; a second sign-in while one plays is refused by the host, and the marker is consumed when a flight starts. The telemetry action only inserts rows. The appearance snapshot keeps its existing newest-wins sync; the new field travels inside it.",
+  "observability": {
+    "metrics": [],
+    "logs": [],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert the commit. Nothing is stored apart from rows in onboarding_events (the existing retention job trims them) and the welcomeAnimation field inside the saved appearance snapshot, which older code ignores. Sign-in goes back to the plain move to the next page.",
+    "validation": [
+      "npm run typecheck",
+      "npm run test:unit",
+      "npm run check:impact-review"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npx tsx --test tests/unit/signin-flight.test.ts tests/unit/signin-flight-contract.test.ts tests/unit/theme-appearance.test.ts",
+      "npx playwright test --config tests/browser/playwright.config.ts signin-flight.spec.ts welcome-flight.spec.ts"
+    ],
+    "reports": [
+      "docs/signin-welcome-back-animation-report.md"
+    ]
+  },
+  "paths": [
+    "src/app/actions/signin-flight.ts",
+    "standards/impact-reviews/signin-welcome-flight.json"
+  ]
+}

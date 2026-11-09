@@ -4,6 +4,8 @@ import { SecurityRuntimeProvider } from "@/components/providers/SecurityRuntimeP
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CookieConsentRuntime } from "@/components/privacy/CookieConsentRuntime";
 import { WelcomeFlightHost } from "@/components/onboarding/WelcomeFlight";
+import { SignInFlightHost } from "@/components/auth/SignInFlight";
+import { buildSignInCurtainScript } from "@/lib/auth/signin-flight";
 import "@/lib/env";
 import "./globals.css";
 import { instrumentSans, instrumentSerif, jetbrainsMono } from "./app-fonts";
@@ -11,6 +13,7 @@ import { buildThemePrehydrateScript } from "@/lib/theme/appearance";
 import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
 
 const THEME_PREHYDRATE_SCRIPT = buildThemePrehydrateScript();
+const SIGNIN_CURTAIN_SCRIPT = buildSignInCurtainScript();
 const APP_METADATA_BASE = new URL(
   resolveAuthBaseUrl({ requireConfiguredBaseInProduction: false }),
 );
@@ -90,6 +93,7 @@ function ThemeProviders({
       {children}
       <CookieConsentRuntime />
       <WelcomeFlightHost />
+      <SignInFlightHost />
     </ThemeProvider>
   );
 }
@@ -109,6 +113,12 @@ export function RootDocument({
           id="theme-prehydrate"
           nonce={nonce}
           dangerouslySetInnerHTML={{ __html: THEME_PREHYDRATE_SCRIPT }}
+          suppressHydrationWarning
+        />
+        <script
+          id="signin-curtain"
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: SIGNIN_CURTAIN_SCRIPT }}
           suppressHydrationWarning
         />
         <script

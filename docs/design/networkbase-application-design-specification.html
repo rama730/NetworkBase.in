@@ -11279,13 +11279,42 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             applies: go straight to the page. Started, completed and skipped
             are recorded in <code>onboarding_events</code>.
           </p>
+          <p>
+            <strong>Sign-in welcome flight.</strong> The same photo-to-top-bar
+            flight plays after a deliberate sign-in, with its own words and
+            its own code (onboarding&rsquo;s is untouched). The sign-in
+            button turns to a check, the photo leaves it, and two lines show:
+            &ldquo;Welcome back&rdquo; while the real badge wakes ring by
+            ring, then &ldquo;Good to see you again, name&rdquo; a word at a
+            time, the name last. No exclamation marks, no tooltip. The first
+            sign-in of the day on a device, going to Discover, gets the full
+            version (about three and a half seconds); a later one, or any
+            sign-in to somewhere in particular, gets the light version: one
+            continuous move of about one and a half seconds, with the page
+            clickable about half a second in. A marker kept in this tab&rsquo;s
+            session storage (ten minutes, consumed once) means a refresh, a
+            new tab or another tab never replays it, and after a full page
+            load (a two-step code, Google, GitHub) a curtain in the
+            page&rsquo;s background colour covers the page from the first
+            paint until the flight takes over. Hidden tabs, the setting
+            &ldquo;Welcome animation&rdquo; in Settings, Appearance (on by
+            default), and onboarding all skip it. The landing place is read
+            again while the photo flies, the picture is loaded before it
+            moves, the app rises a few pixels as it fades in, and focus goes
+            to the main content. Reduced motion shortens it to under a second
+            with crossfades. Screen readers hear one sentence. Started,
+            completed and skipped are recorded as <code>signin_flight_*</code>
+            events in <code>onboarding_events</code>.
+          </p>
           <div class="sources">
             <b>Source anchors</b
             ><code>src/app/(onboarding)/onboarding/page.tsx</code
             ><code>src/components/onboarding</code
             ><code>src/components/onboarding/WelcomeFlight.tsx</code
             ><code>src/lib/onboarding/welcome-flight.ts</code
-            ><code>src/styles/onboarding-tokens.css</code>
+            ><code>src/styles/onboarding-tokens.css</code
+            ><code>src/components/auth/SignInFlight.tsx</code
+            ><code>src/lib/auth/signin-flight.ts</code>
           </div>
         </section>
         <section id="discover" aria-labelledby="heading-discover">

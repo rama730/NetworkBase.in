@@ -7,6 +7,7 @@ import { LegalLinks } from '@/components/legal/LegalLinks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { startOAuthSignIn } from '@/lib/auth/browser-auth-actions'
+import { clearSignInMarker, markSignIn } from '@/lib/auth/signin-flight'
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { mailAppFor, readSignInMethod, rememberSignInMethod, type SignInMethod } from '@/lib/auth/last-method'
 import { cn } from '@/lib/utils'
@@ -227,14 +228,18 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
         const legalNext = `/legal/accept?context=oauth_signup&next=${encodeURIComponent(next)}`
         try {
             rememberSignInMethod(provider)
+            // The page leaves and comes back: the marker tells the welcome flight this tab signed in.
+            markSignIn(next)
             const { error } = await startOAuthSignIn(provider, legalNext, requiresCaptcha ? captchaToken : null)
             if (error) {
+                clearSignInMarker()
                 onError(error.message)
                 setLoading(null)
                 // Cloudflare's tokens are single-use: a failed attempt needs a fresh check.
                 if (requiresCaptcha) onCaptchaUsed?.()
             }
         } catch {
+            clearSignInMarker()
             onError(`Couldn’t start ${provider === 'google' ? 'Google' : 'GitHub'} sign-in. Try again.`)
             setLoading(null)
             if (requiresCaptcha) onCaptchaUsed?.()

@@ -41,6 +41,9 @@ interface AppearanceContextValue {
     setDensity: (density: Density) => void;
     reduceMotion: boolean;
     setReduceMotion: (reduce: boolean) => void;
+    /** Whether the welcome animation plays after signing in. */
+    welcomeAnimation: boolean;
+    setWelcomeAnimation: (show: boolean) => void;
     syncState: AppearanceSyncState;
     /** The operating system already asks for less motion, whatever the setting here says. */
     systemReduceMotion: boolean;
@@ -109,6 +112,7 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
     const [accentColor, setAccentColorState] = useState<AccentColor>(DEFAULT_APPEARANCE_SNAPSHOT.accentColor)
     const [density, setDensityState] = useState<Density>(DEFAULT_APPEARANCE_SNAPSHOT.density)
     const [reduceMotion, setReduceMotionState] = useState<boolean>(DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion)
+    const [welcomeAnimation, setWelcomeAnimationState] = useState<boolean>(DEFAULT_APPEARANCE_SNAPSHOT.welcomeAnimation)
     const [systemReduceMotion, setSystemReduceMotion] = useState(false)
     const [viewerId, setViewerId] = useState<string | null>(null)
     const [syncState, setSyncState] = useState<AppearanceSyncState>('idle')
@@ -146,6 +150,7 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
             accentColor: patch.accentColor ?? accentColor,
             density: patch.density ?? density,
             reduceMotion: patch.reduceMotion ?? reduceMotion,
+            welcomeAnimation: patch.welcomeAnimation ?? welcomeAnimation,
             updatedAt: new Date().toISOString(),
         })
         persistLocalSnapshot(snapshot)
@@ -159,20 +164,21 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
         setSyncState('saving')
         if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current)
         syncTimerRef.current = window.setTimeout(() => void flushRemoteSync(), REMOTE_SYNC_DEBOUNCE_MS)
-    }, [accentColor, density, flushRemoteSync, reduceMotion, theme, viewerId])
+    }, [accentColor, density, flushRemoteSync, reduceMotion, theme, viewerId, welcomeAnimation])
 
     // Push the current appearance to the account again (after a failed or queued sync).
     const retrySync = useCallback(() => {
         if (!viewerId) return
-        pendingSyncRef.current = createAppearanceSnapshot({ theme, accentColor, density, reduceMotion, updatedAt: new Date().toISOString() })
+        pendingSyncRef.current = createAppearanceSnapshot({ theme, accentColor, density, reduceMotion, welcomeAnimation, updatedAt: new Date().toISOString() })
         setSyncState('saving')
         void flushRemoteSync()
-    }, [accentColor, density, flushRemoteSync, reduceMotion, theme, viewerId])
+    }, [accentColor, density, flushRemoteSync, reduceMotion, theme, viewerId, welcomeAnimation])
 
     const applySnapshot = useCallback((snapshot: AppearanceSnapshot) => {
         setAccentColorState(snapshot.accentColor)
         setDensityState(snapshot.density)
         setReduceMotionState(snapshot.reduceMotion)
+        setWelcomeAnimationState(snapshot.welcomeAnimation)
         setNextTheme(snapshot.theme)
         persistLocalSnapshot(snapshot)
     }, [setNextTheme])
@@ -214,6 +220,12 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
         setReduceMotionState(next)
         commitSnapshot({ reduceMotion: next })
     }, [commitSnapshot, reduceMotion])
+
+    const setWelcomeAnimation = useCallback((next: boolean) => {
+        if (next === welcomeAnimation) return
+        setWelcomeAnimationState(next)
+        commitSnapshot({ welcomeAnimation: next })
+    }, [commitSnapshot, welcomeAnimation])
 
     const resetAppearance = useCallback(async () => {
         const snapshot = createAppearanceSnapshot(DEFAULT_APPEARANCE_SNAPSHOT)
@@ -298,12 +310,14 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
         setDensity,
         reduceMotion,
         setReduceMotion,
+        welcomeAnimation,
+        setWelcomeAnimation,
         syncState,
         systemReduceMotion,
         retrySync,
         lastSyncedAt,
         resetAppearance,
-    }), [accentColor, density, lastSyncedAt, reduceMotion, resetAppearance, retrySync, setAccentColor, setDensity, setReduceMotion, syncState, systemReduceMotion])
+    }), [accentColor, density, lastSyncedAt, reduceMotion, resetAppearance, retrySync, setAccentColor, setDensity, setReduceMotion, setWelcomeAnimation, syncState, systemReduceMotion, welcomeAnimation])
 
     return (
         <ThemeContext.Provider value={themeValue}>

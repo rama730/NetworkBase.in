@@ -9,6 +9,7 @@ import {
   getGoogleOneTapClientId,
 } from "@/lib/auth/google-one-tap";
 import { normalizeAuthNextPath } from "@/lib/auth/redirects";
+import { markSignIn } from "@/lib/auth/signin-flight";
 import { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from "@/components/auth/TurnstileWidget";
 
 type GoogleCredentialResponse = {
@@ -109,6 +110,7 @@ export function GoogleOneTap({
 
                 // Use a hard navigation so the server immediately observes the
                 // bridged Supabase cookies and applies onboarding/legal gates.
+                markSignIn(normalizedNextPath);
                 window.location.assign(normalizedNextPath);
               })
               .catch(() => {

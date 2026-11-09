@@ -26,7 +26,7 @@ const DENSITY_PREVIEW_GAP: Record<Density, string> = { compact: "gap-0.5", defau
 
 export default function AppearanceSettings() {
   const { theme, resolvedTheme, setThemeWithTransition } = useTheme();
-  const { accentColor, setAccentColor, density, setDensity, reduceMotion, setReduceMotion, systemReduceMotion, syncState, lastSyncedAt, resetAppearance, retrySync } = useAppearance();
+  const { accentColor, setAccentColor, density, setDensity, reduceMotion, setReduceMotion, welcomeAnimation, setWelcomeAnimation, systemReduceMotion, syncState, lastSyncedAt, resetAppearance, retrySync } = useAppearance();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -34,7 +34,7 @@ export default function AppearanceSettings() {
     return <div className="space-y-8"><SettingsSectionsSkeleton /></div>;
   }
 
-  const isDefaultAppearance = theme === DEFAULT_APPEARANCE_SNAPSHOT.theme && accentColor === DEFAULT_APPEARANCE_SNAPSHOT.accentColor && density === DEFAULT_APPEARANCE_SNAPSHOT.density && reduceMotion === DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion;
+  const isDefaultAppearance = theme === DEFAULT_APPEARANCE_SNAPSHOT.theme && accentColor === DEFAULT_APPEARANCE_SNAPSHOT.accentColor && density === DEFAULT_APPEARANCE_SNAPSHOT.density && reduceMotion === DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion && welcomeAnimation === DEFAULT_APPEARANCE_SNAPSHOT.welcomeAnimation;
   const syncMessage = syncState === "saving" ? "Syncing to your account…"
     : syncState === "save_failed" ? "Couldn’t sync to your account. It is saved on this device."
     : syncState === "queued" ? "Saved on this device. It will sync to your account shortly."
@@ -109,6 +109,11 @@ export default function AppearanceSettings() {
           title="Reduce motion"
           description={systemReduceMotion && !reduceMotion ? "Your device already asks for less motion, so animation is reduced. Turn this on to keep it that way everywhere." : "Minimize animation, hover movement, and smooth scrolling throughout the interface."}
           right={<SettingsSwitch showLabel checked={reduceMotion} onCheckedChange={setReduceMotion} data-testid="appearance-reduce-motion-toggle" aria-label="Reduce motion" />}
+        />
+        <SettingsRow
+          title="Welcome animation"
+          description="Show a short welcome animation when you sign in."
+          right={<SettingsSwitch showLabel checked={welcomeAnimation} onCheckedChange={setWelcomeAnimation} data-testid="appearance-welcome-animation-toggle" aria-label="Welcome animation" />}
         />
       </div>
     </SettingsSectionCard>

@@ -13,6 +13,8 @@ export interface AppearanceSnapshot {
   accentColor: AccentColor;
   density: Density;
   reduceMotion: boolean;
+  /** Whether the welcome animation plays after signing in. Snapshots saved before this setting existed read as on. */
+  welcomeAnimation: boolean;
   updatedAt: string;
 }
 
@@ -22,6 +24,7 @@ export const APPEARANCE_STORAGE_KEYS = {
   accent: "app-accent-color",
   density: "app-density",
   reduceMotion: "app-reduce-motion",
+  welcomeAnimation: "app-welcome-animation",
   synced: "app-appearance-synced-v1",
 } as const;
 
@@ -43,6 +46,7 @@ export const DEFAULT_APPEARANCE_SNAPSHOT: AppearanceSnapshot = {
   accentColor: "default",
   density: "default",
   reduceMotion: false,
+  welcomeAnimation: true,
   updatedAt: "1970-01-01T00:00:00.000Z",
 };
 
@@ -107,6 +111,7 @@ export function parseAppearanceSnapshot(value: unknown): AppearanceSnapshot | nu
     accentColor,
     density,
     reduceMotion: value.reduceMotion,
+    welcomeAnimation: typeof value.welcomeAnimation === "boolean" ? value.welcomeAnimation : true,
     updatedAt: normalizeUpdatedAt(value.updatedAt, nowIso),
   };
 }
@@ -131,6 +136,7 @@ export function createAppearanceSnapshot(
     accentColor: normalizeAccentColor(input.accentColor),
     density: normalizeDensity(input.density),
     reduceMotion: typeof input.reduceMotion === "boolean" ? input.reduceMotion : DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion,
+    welcomeAnimation: typeof input.welcomeAnimation === "boolean" ? input.welcomeAnimation : DEFAULT_APPEARANCE_SNAPSHOT.welcomeAnimation,
     updatedAt: normalizeUpdatedAt(input.updatedAt, nowIso),
   };
 }
@@ -162,7 +168,8 @@ export function areAppearanceSnapshotsEquivalent(
     left.theme === right.theme &&
     left.accentColor === right.accentColor &&
     left.density === right.density &&
-    left.reduceMotion === right.reduceMotion
+    left.reduceMotion === right.reduceMotion &&
+    left.welcomeAnimation === right.welcomeAnimation
   );
 }
 
@@ -182,6 +189,7 @@ export function readLocalAppearanceSnapshot(
       accentColor: legacyAccent,
       density: legacyDensity,
       reduceMotion: readStorage(APPEARANCE_STORAGE_KEYS.reduceMotion) === "true",
+      welcomeAnimation: readStorage(APPEARANCE_STORAGE_KEYS.welcomeAnimation) !== "false",
       updatedAt: DEFAULT_APPEARANCE_SNAPSHOT.updatedAt,
     },
   );
@@ -200,6 +208,7 @@ export function writeAppearanceSnapshot(
   writeStorage(APPEARANCE_STORAGE_KEYS.accent, snapshot.accentColor);
   writeStorage(APPEARANCE_STORAGE_KEYS.density, snapshot.density);
   writeStorage(APPEARANCE_STORAGE_KEYS.reduceMotion, String(snapshot.reduceMotion));
+  writeStorage(APPEARANCE_STORAGE_KEYS.welcomeAnimation, String(snapshot.welcomeAnimation));
 }
 
 export function buildThemePrehydrateScript(): string {
