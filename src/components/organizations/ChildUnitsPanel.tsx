@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { createUnitAction, moveMemberToUnitAction, readChildUnitsAction, readTeamMovePreviewAction, removeUnitAction, updateUnitAction, type ChildUnits } from '@/app/actions/child-units'
 import { Button } from '@/components/ui/button'
@@ -23,7 +24,9 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
     const [removing, setRemoving] = useState<ChildUnits['units'][number] | null>(null)
     const [moving, setMoving] = useState<{ userId: string; unitId: string | null; openTasks: number } | null>(null)
     const [moveTasks, setMoveTasks] = useState(true)
-    const load = useCallback(() => void readChildUnitsAction(projectId).then((r) => { setFailed(!r.success); setData(r.success ? r : null) }), [projectId])
+    const client = useQueryClient()
+    // Audit N60: a team change here also refreshes the Overview's team list (['child-units']), not only this panel.
+    const load = useCallback(() => void readChildUnitsAction(projectId).then((r) => { setFailed(!r.success); setData(r.success ? r : null); void client.invalidateQueries({ queryKey: ['child-units', projectId] }) }), [projectId, client])
     useEffect(() => { load() }, [load])
     if (failed) return <ErrorNotice what="Teams" onRetry={load} />
     if (!data) return <div className="nb-skeleton h-40 rounded-lg" role="status" aria-label="Loading teams" />

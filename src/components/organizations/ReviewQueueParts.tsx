@@ -2,9 +2,6 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 
-import { useAuth as useAuthContext } from '@/hooks/use-auth'
-import { userTopic } from '@/lib/messaging/constants'
-import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
 
 import { readReviewQueueAction, reviewAssignmentCopyAction, type ReviewQueueRow } from '@/app/actions/assignments'
 import { createTaskCommentAction } from '@/app/actions/task-comment'
@@ -22,23 +19,7 @@ import { isoToZonedInput } from '@/lib/organizations/zoned-time'
 import { deferredFeedback, toast } from '@/lib/feedback'
 import { cn } from '@/lib/utils'
 
-/**
- * Live roster and queue (report §32.4, decision 76): a new submission reaches admins as a notice, so a notice on their
- * own topic reloads the list, combined over 2 seconds.
- */
-export function useReloadOnNotice(reload: () => void) {
-    const viewerId = useAuthContext().user?.id
-    const latest = useRef(reload)
-    latest.current = reload
-    useEffect(() => {
-        if (!viewerId) return
-        let timer: ReturnType<typeof setTimeout> | null = null
-        const live = subscribeBroadcast(userTopic(viewerId), (event) => {
-            if (event === 'notification.changed' && !timer) timer = setTimeout(() => { timer = null; latest.current() }, 2_000)
-        })
-        return () => { live.unsubscribe(); if (timer) clearTimeout(timer) }
-    }, [viewerId])
-}
+export { useReloadOnNotice } from '@/hooks/useReloadOnNotice'
 
 
 // Mockup task 2 (Review artboard) and review UX phase 4: the work in the middle — every file, every version, Compare —

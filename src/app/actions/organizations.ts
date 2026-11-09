@@ -85,13 +85,17 @@ export async function getJoinPreviewAction(rawCode: string): Promise<{ success: 
     if (!org) return NO_MATCH;
     const isPublic = isWorkspacePubliclyReadableVisibility(org.visibility);
     // Report §26.2, gap 14: every state the page can show, decided here so nothing is created for the others.
-    const memberCount = await countOrgMembers(org.id);
-    const status = userId ? await viewerOrgStatus(org.id, org.ownerId, userId) : null;
-    const [standing] = userId ? await db.execute<{ blocked: boolean; declined: boolean }>(sql`
-        SELECT EXISTS (SELECT 1 FROM org_join_blocks b WHERE b.org_id = ${org.id} AND b.user_id = ${userId}) AS blocked,
-          EXISTS (SELECT 1 FROM role_applications a WHERE a.workspace_id = ${org.id} AND a.applicant_id = ${userId} AND a.role_id IS NULL
-            AND a.status = 'rejected' AND a.updated_at > now() - interval '1 day') AS declined`) : [];
-    const limit = userId && status !== 'member' ? await accountOrgLimit(db, userId, 'join') : null;
+    // Audit N19: these reads don't depend on each other, so they go together (they were 4 round trips in a row).
+    const [memberCount, status, [standing], joinLimit] = await Promise.all([
+        countOrgMembers(org.id),
+        userId ? viewerOrgStatus(org.id, org.ownerId, userId) : null,
+        userId ? db.execute<{ blocked: boolean; declined: boolean }>(sql`
+            SELECT EXISTS (SELECT 1 FROM org_join_blocks b WHERE b.org_id = ${org.id} AND b.user_id = ${userId}) AS blocked,
+              EXISTS (SELECT 1 FROM role_applications a WHERE a.workspace_id = ${org.id} AND a.applicant_id = ${userId} AND a.role_id IS NULL
+                AND a.status = 'rejected' AND a.updated_at > now() - interval '1 day') AS declined`) : [],
+        userId ? accountOrgLimit(db, userId, 'join') : null,
+    ]);
+    const limit = status !== 'member' ? joinLimit : null;
     const state = joinPageState({
         available: org.status !== 'archived' && !org.suspendedAt && !org.deletionScheduledAt,
         isMember: status === 'member', pending: status === 'pending', blocked: Boolean(standing?.blocked), declinedRecently: Boolean(standing?.declined),

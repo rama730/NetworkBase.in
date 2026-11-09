@@ -6,7 +6,7 @@ import { and, asc, eq, gte, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { readOrgDocsAction } from "@/app/actions/org-docs";
 import { db } from "@/lib/db";
 import { docTitle } from "@/lib/organizations/doc-rules";
-import { workspaceMembers, workspaces, workspaceSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
+import { profiles, workspaceMembers, workspaces, workspaceSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { reviewRow } from "@/lib/organizations/dashboard-rules";
@@ -215,14 +215,18 @@ export async function leadSprintRows(orgId: string, userId: string): Promise<Nee
  */
 export async function readMemberStanding(orgId: string, now: Date) {
     const [people, copies, teams] = await Promise.all([
+        // Audit 5.4: the Members tab's population too, so the numbers match: people waiting on account deletion aren't counted.
         db.select({ userId: workspaceMembers.userId, joinedAt: workspaceMembers.joinedAt, lastActiveAt: workspaceMembers.lastActiveHereAt })
-            .from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, 'member'))),
+            .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
+            .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, 'member'), isNull(profiles.deletedAt))),
         db.execute<{ id: string; assignee_id: string | null; status: string; review_status: string; due_date: Date | null; review_submitted_at: Date | null; completed_at: Date | null; excused_at: Date | null; sprint_id: string | null }>(sql`
             SELECT c.id, c.assignee_id, c.status, c.review_status, c.due_date, c.review_submitted_at, c.completed_at, c.excused_at, m.sprint_id
             FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${orgId} AND m.deleted_at IS NULL
             WHERE c.deleted_at IS NULL`),
         db.select({ taskId: taskTeamMembers.taskId, userId: taskTeamMembers.userId }).from(taskTeamMembers)
-            .innerJoin(tasks, eq(tasks.id, taskTeamMembers.taskId)).where(and(eq(tasks.projectId, orgId), isNull(tasks.deletedAt))),
+            // Audit 5.5: team members of group copies too, which live in the team's workspace.
+            .innerJoin(tasks, eq(tasks.id, taskTeamMembers.taskId)).where(and(isNull(tasks.deletedAt),
+                sql`${tasks.assignmentId} IN (SELECT m.id FROM tasks m WHERE m.workspace_id = ${orgId}::uuid AND m.kind = 'assignment' AND m.assignment_id IS NULL)`)),
     ]);
     const missing = new Map<string, Set<string | null>>();
     const add = (userId: string | null, sprintId: string | null) => { if (userId) missing.set(userId, (missing.get(userId) ?? new Set()).add(sprintId)); };

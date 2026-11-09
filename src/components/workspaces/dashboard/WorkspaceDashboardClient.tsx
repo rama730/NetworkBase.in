@@ -58,6 +58,7 @@ import { serverFirst } from '@/lib/server-first';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesStore } from '@/stores/filesStore';
+import { useReloadOnNotice } from '@/hooks/useReloadOnNotice';
 
 const EditWorkspaceModal = dynamic(() => import('@/components/workspaces/EditWorkspaceModal'), { ssr: false, loading: () => null });
 
@@ -372,8 +373,10 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const handleProjectSettingsUpdated = useCallback(
         (_updates?: { coverImage?: string | null }) => {
             refreshProjectData();
+            // Audit N60: About's details come from their own read.
+            void queryClient.invalidateQueries({ queryKey: ['org-about', project.id] });
         },
-        [refreshProjectData],
+        [refreshProjectData, queryClient, project.id],
     );
 
     // Initial Onboarding Check (Workspace Bridge)
@@ -657,6 +660,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             if (tabId === 'readme') {
                 // No made-up doc=readme: the Documents tab opens the first document and puts its real slug in the address.
                 nextParams.set('tab', 'docs');
+            } else if (tabId === (isOrganization && !canSeeAllTabs ? 'about' : 'dashboard')) {
+                // Audit 4.5: the landing tab has no ?tab=, so the clean-up below has nothing to undo.
+                nextParams.delete('tab');
             } else {
                 nextParams.set('tab', tabId);
             }
@@ -667,8 +673,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             const nextQuery = nextParams.toString();
             const safePath = pathname ?? window.location.pathname;
             const nextUrl = nextQuery ? `${safePath}?${nextQuery}` : safePath;
-            // A user's tab click is a history entry; canonicalising below stays a replace.
-            router.push(nextUrl, { scroll: false });
+            // A user's tab click is a history entry; canonicalising below stays a replace. Audit 4.5: the address
+            // changes without a server round trip (the tabs read their own data), as Files and Messages already do.
+            window.history.pushState(null, '', nextUrl);
         },
         [activeTab, canOpenSettingsTab, canSeeAllTabs, isOrganization, pathname, publicTabVisibility, router],
     );
@@ -707,8 +714,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
 
         if (allowedTab === 'readme') {
             const currentDocSlug = nextParams.get('doc');
-            const normalizedDocSlug = normalizeWorkspaceDocSlug(currentDocSlug || 'readme');
-            if (currentDocSlug !== normalizedDocSlug) {
+            // Audit 4.6: only a doc that is in the address is normalized; none is added (the tab picks its first one).
+            const normalizedDocSlug = currentDocSlug ? normalizeWorkspaceDocSlug(currentDocSlug) : null;
+            if (currentDocSlug && normalizedDocSlug && currentDocSlug !== normalizedDocSlug) {
                 nextParams.set('doc', normalizedDocSlug);
                 changed = true;
             }
@@ -1064,12 +1072,15 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     useState(() => offerStartedRoot(project.id, filesStarted));
     const orgIdForBadges = isOrganization && isOwnerOrMember ? project.id : null;
     const [readBadges] = useState(() => serverFirst(orgStarted?.badges, () => readOrgTabBadgesAction(project.id)));
+    // Audit 5.6: a new request or hand-in updates the counts without a tab change.
+    const [badgeTick, setBadgeTick] = useState(0);
+    useReloadOnNotice(() => setBadgeTick((n) => n + 1));
     useEffect(() => {
         if (!orgIdForBadges) return;
         let live = true;
         void readBadges().then((b) => { if (live) setOrgBadges(b); });
         return () => { live = false; };
-    }, [orgIdForBadges, activeTab, readBadges]);
+    }, [orgIdForBadges, activeTab, readBadges, badgeTick]);
     const tabBadges = useMemo(() => orgBadges ? {
         tasks: orgBadges.tasks || undefined,
         updates: orgBadges.updates && activeTab !== 'updates' ? 'dot' as const : undefined,
@@ -1131,7 +1142,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             compactChip={organization ? (activeSprintName ? <span className="nb-status shrink-0" data-status="active">{activeSprintName}</span> : null) : undefined}
             compactPrefix={parentOrg ? <OrgCompactMark parentOrg={parentOrg} /> : null}
             compactMenuItems={canStartNew ? <OrgNewItems onNew={startNew} prefix="New " /> : null}
-            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
+            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended && !organization.deletionScheduledAt ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
             actionsEnd={currentUserId && !isOwner ? (
                 <HeaderReportMenu targetId={project.id} noun={organization ? 'organization' : 'workspace'}>
                     {/* A member of a team inside an organization can ask to move, privately (Blocking B48). */}
@@ -1170,7 +1181,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             {isOrganization && activeTab === 'about' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="About">
-                        <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} memberRole={isOwner ? 'owner' : (currentProjectRole as 'admin' | 'member' | 'viewer' | null) ?? null} visitorActions={organization && !isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : undefined} />
+                        <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} memberRole={isOwner ? 'owner' : (currentProjectRole as 'admin' | 'member' | 'viewer' | null) ?? null} visitorActions={organization && !isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended && !organization.deletionScheduledAt ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : undefined} />
                     </TabErrorBoundary>
                 </div>
             )}

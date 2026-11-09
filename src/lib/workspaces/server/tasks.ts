@@ -154,7 +154,9 @@ export async function readBoardCounts(access: WorkspaceAccess, actorId: string |
     allTotal: view("all"), sprintTotal: view("sprint"), backlogTotal: view("backlog"), reviewTotal: view("review"), assignmentsTotal: view("assignments"), mineTotal: view("mine"),
     assignmentsNeed: sql<number>`count(*) FILTER (WHERE ${copyNeedsYou})::int`,
     mineNeed: view("mine", taskNeedsYou),
-  }).from(tasks).where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)));
+  // Audit N79: in an organization no count needs other people's copies (an admin's In review is the queue below),
+  // so the scan skips them instead of filtering thousands of copy rows in every count.
+  }).from(tasks).where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), org ? sql`(${tasks.assignmentId} IS NULL OR ${own})` : undefined));
   const n = (v: unknown) => Number(v ?? 0);
   // An organization admin's In review is the review queue (readReviewQueueAction): the hand-ins of this organization's
   // assignments wherever they were handed in (team workspaces' group work too), and its own tasks waiting.

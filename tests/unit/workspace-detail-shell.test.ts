@@ -20,7 +20,8 @@ test("the canonical slug redirect keeps repeated params repeated", () => {
 });
 
 test("tab, doc and settings-section clicks are history entries", () => {
-  assert.match(read(PDC), /router\.push\(nextUrl, \{ scroll: false \}\)/);
+  // Audit 4.5: a tab click is a history entry without a server round trip (window.history.pushState, as Files does).
+  assert.match(read(PDC), /window\.history\.pushState\(null, '', nextUrl\)|router\.push\(nextUrl, \{ scroll: false \}\)/);
   assert.match(read("src/components/workspaces/doc/WorkspaceDocRail.tsx"), /router\[replace \? "replace" : "push"\]/);
   assert.match(read("src/hooks/useWorkspaceSettingsNavigation.ts"), /router\.push\(`\?\$\{next\.toString\(\)\}#project-settings-/);
 });

@@ -92,9 +92,10 @@ function InviteEmailDialog({ orgId, data, open, onOpenChange, onSent }: { orgId:
     const [pending, startTransition] = useTransition()
     const parsed = useMemo(() => parseInviteEmails(emails), [emails])
     // The preview waits until typing pauses, so it isn't rebuilt on every key.
-    const [previewMessage, setPreviewMessage] = useState('')
-    useEffect(() => { const t = window.setTimeout(() => setPreviewMessage(message), 400); return () => window.clearTimeout(t) }, [message])
-    const preview = useQuery({ queryKey: ['org-invite-preview', orgId, role, title, previewMessage], queryFn: () => previewOrgInviteEmailAction(orgId, { role, title, message: previewMessage }), enabled: open, staleTime: 60_000 })
+    // Audit N20: the title waits too, so typing one doesn't fetch a preview per key.
+    const [previewText, setPreviewText] = useState({ message: '', title: '' })
+    useEffect(() => { const t = window.setTimeout(() => setPreviewText({ message, title }), 400); return () => window.clearTimeout(t) }, [message, title])
+    const preview = useQuery({ queryKey: ['org-invite-preview', orgId, role, previewText.title, previewText.message], queryFn: () => previewOrgInviteEmailAction(orgId, { role, title: previewText.title, message: previewText.message }), enabled: open, staleTime: 60_000 })
     const units = data.children.find((c) => c.id === childId)?.units ?? []
     const send = () => startTransition(async () => {
         const r = await inviteByEmailAction(orgId, { emails, role, title: title || null, childProjectId: childId || null, unitId: unitId || null, message: message.trim() || null })

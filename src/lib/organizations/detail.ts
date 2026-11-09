@@ -132,8 +132,9 @@ export async function readOrgDetail(
       verificationMethod: workspaces.verificationMethod,
       verifiedAgainst: workspaces.verifiedAgainst,
     }).from(workspaces).where(and(eq(workspaces.id, orgId), eq(workspaces.kind, "organization"))).limit(1),
-    // ponytail: counts every live child project; P11's Projects tab filters by what the viewer may see.
-    db.select({ n: count() }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))),
+    // ponytail: counts every live child project for people in the org; P11's Projects tab filters by what they may see.
+    // Audit N57: a visitor's count is the public ones only, so private and org-only workspaces aren't revealed.
+    db.select({ n: count() }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), viewer.isInOrg ? undefined : eq(workspaces.visibility, "public"))),
     db.select({ n: count() }).from(workspaceMembers).where(eq(workspaceMembers.projectId, orgId)),
     viewer.userId && !viewer.isInOrg
       ? db.select({ id: roleApplications.id }).from(roleApplications)

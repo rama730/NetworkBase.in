@@ -64,6 +64,12 @@ async function rolesOf(orgId: string, ownerId: string, userIds: string[]) {
     return new Map<string, OrgMemberRole>(rows.map((r) => [r.userId, r.userId === ownerId ? 'owner' : (r.role as OrgMemberRole)]));
 }
 
+/**
+ * Copies of this organization's assignments wherever they live (audit 5.5): group copies sit in the team's workspace,
+ * so "behind" and the work summary must find them through their main assignment, not by workspace.
+ */
+const ofOrgMasters = (orgId: string) => sql`${tasks.assignmentId} IN (SELECT m.id FROM tasks m WHERE m.workspace_id = ${orgId}::uuid AND m.kind = 'assignment' AND m.assignment_id IS NULL)`;
+
 export type OrgMembersData = {
     success: true;
     viewerRole: 'owner' | 'admin';
@@ -104,9 +110,9 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
         db.select({ id: workspaceOpenRoles.id, projectId: workspaceOpenRoles.projectId, title: sql<string>`coalesce(${workspaceOpenRoles.title}, ${workspaceOpenRoles.role})` })
             .from(workspaceOpenRoles).innerJoin(workspaces, eq(workspaces.id, workspaceOpenRoles.projectId)).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))),
         db.select({ id: tasks.id, assigneeId: tasks.assigneeId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt })
-            .from(tasks).where(and(eq(tasks.projectId, orgId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt))),
+            .from(tasks).where(and(ofOrgMasters(orgId), isNull(tasks.deletedAt))),
         db.select({ taskId: taskTeamMembers.taskId, userId: taskTeamMembers.userId }).from(taskTeamMembers)
-            .innerJoin(tasks, eq(tasks.id, taskTeamMembers.taskId)).where(and(eq(tasks.projectId, orgId), isNull(tasks.deletedAt))),
+            .innerJoin(tasks, eq(tasks.id, taskTeamMembers.taskId)).where(and(ofOrgMasters(orgId), isNull(tasks.deletedAt))),
         db.select({ id: roleApplications.id, userId: roleApplications.applicantId, note: roleApplications.message, createdAt: roleApplications.createdAt, name: profiles.fullName, username: profiles.username })
             .from(roleApplications).innerJoin(profiles, eq(profiles.id, roleApplications.applicantId))
             .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'),
@@ -133,6 +139,8 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     copies.forEach((c) => addCopy(c.assigneeId, c.id));
     teamCopies.forEach((t) => addCopy(t.userId, t.taskId));
 
+    // Audit N64: each person's workspaces grouped once, not a scan of every membership per person.
+    const childrenOf = Map.groupBy(childRows, (c) => c.userId);
     const since = await lastActiveHereSince();
     const rows = people.map((p) => {
         const role: OrgMemberRole = p.userId === viewer.ownerId ? 'owner' : (p.role as OrgMemberRole);
@@ -148,7 +156,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
             verified: verified.has(p.userId),
             role,
             title: p.title,
-            projects: childRows.filter((c) => c.userId === p.userId).map((c) => ({ id: c.projectId, title: c.title, unit: c.unit })),
+            projects: (childrenOf.get(p.userId) ?? []).map((c) => ({ id: c.projectId, title: c.title, unit: c.unit })),
             work,
             lastActiveAt: p.lastActiveAt?.toISOString() ?? null,
             joinedAt: p.joinedAt?.toISOString() ?? null,

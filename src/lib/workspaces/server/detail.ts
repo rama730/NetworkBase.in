@@ -726,10 +726,13 @@ async function readProjectDetailShellForActor(input: {
         );
 
         const isOrganization = project.kind === "organization";
-        const organization = isOrganization
-          ? await readOrgDetail(project.id, { userId: actorUserId, isAdmin: isOwner || memberRole === "admin", isInOrg: isOwner || isMember })
-          : null;
-        const childOrg = await readChildOrgLink(project, { userId: actorUserId, isLead: isOwner, parentOrgRole });
+        // Audit N45: the two reads don't depend on each other.
+        const [organization, childOrg] = await Promise.all([
+          isOrganization
+            ? readOrgDetail(project.id, { userId: actorUserId, isAdmin: isOwner || memberRole === "admin", isInOrg: isOwner || isMember })
+            : null,
+          readChildOrgLink(project, { userId: actorUserId, isLead: isOwner, parentOrgRole }),
+        ]);
         // A hidden Dashboard hides its data too: visitors get no roles, team or overview text.
         // An org's overview is its About tab, which every reader sees.
         const hidesDashboard =

@@ -231,7 +231,9 @@ export type OrgSearchResult = { id: string; kind: 'org' | 'assignment' | 'task' 
 export async function searchOrgPreviewsAction(query: string, orgIdentifier?: string | null): Promise<OrgSearchResult[]> {
     const userId = await viewer();
     const q = query.trim().slice(0, 80);
-    if (!userId || q.length < 2) return [];
+    // Audit N80: across organizations, 3 characters (trigram indexes can't help with 2, so it would scan every task);
+    // inside one organization 2 is fine.
+    if (!userId || q.length < (orgIdentifier ? 2 : 3)) return [];
     const pattern = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     const results: OrgSearchResult[] = [];
     const memberOf = sql`(o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid))`;

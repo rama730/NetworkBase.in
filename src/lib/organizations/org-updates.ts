@@ -94,7 +94,10 @@ export function orgFeedWhere(ctx: OrgUpdateContext, viewerId: string | null, fil
   )!;
   if (filter === "from_projects") return shared;
   if (filter === "announcement" || filter === "discussion") return and(own, eq(workspaceUpdates.updateType, filter))!;
-  return or(own, shared)!;
+  // Audit N81: both branches already mean "the org or one of its workspaces"; saying so up front lets the planner use
+  // the (workspace_id, created_at) index instead of scanning every update for the OR.
+  const scope = sql`${workspaceUpdates.projectId} IN (SELECT ${ctx.orgId}::uuid UNION ALL SELECT id FROM ${workspaces} WHERE parent_id = ${ctx.orgId} AND deleted_at IS NULL)`;
+  return and(scope, or(own, shared))!;
 }
 
 /** Titles for the "From <project>" chip on shared posts. */

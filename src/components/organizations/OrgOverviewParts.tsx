@@ -36,6 +36,7 @@ import { useBottomStickyRail } from '@/hooks/useBottomStickyRail'
 import { AvatarStack, OrgCard, PinnedLine, StatusBadge, WelcomeNote, WorkspaceRow } from '@/components/organizations/org-ui'
 import { sprintStatusLabel } from '@/lib/organizations/display'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
+import { useReloadOnNotice } from '@/hooks/useReloadOnNotice'
 
 // Org Dashboard (report §27), Projects tab (§28) and the child project's org line (§22.5, §27.5).
 
@@ -240,6 +241,8 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
         const subscriptions = [subscribeBroadcast(liveTopics.tasks(orgId), reload)]
         return () => { subscriptions.forEach((s) => s.unsubscribe()); if (timer) clearTimeout(timer) }
     }, [client, orgId])
+    // Audit 5.1: join requests and hand-ins reach admins on their own topic, so the Overview listens there too.
+    useReloadOnNotice(() => void client.invalidateQueries({ queryKey: ['org-dashboard', orgId] }))
     if (query.isPending) return <DashboardSkeleton />
     const data = query.data
     if (!data || !data.success) return <ErrorNotice what="Overview" onRetry={() => void query.refetch()} />

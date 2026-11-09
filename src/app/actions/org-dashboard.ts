@@ -182,8 +182,10 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), v.isAdmin ? undefined : published)),
         readNeedsYou(v, now),
         readActivity(v, activityFilter, { audience }),
-        db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, joinedAt: workspaceMembers.joinedAt, show: workspaceMembers.showOnProfile })
-            .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId)).where(eq(workspaceMembers.projectId, orgId)).orderBy(desc(workspaceMembers.joinedAt)),
+        // Audit N43: the 8 faces only; how many people there are is counted below, not loaded (up to 2,000 rows).
+        db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl })
+            .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
+            .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.showOnProfile, true))).orderBy(desc(workspaceMembers.joinedAt)).limit(8),
         db.select({
             requests: sql<number>`(SELECT count(*)::int FROM role_applications WHERE workspace_id = ${orgId} AND role_id IS NULL AND status = 'pending')`,
             files: sql<number>`(SELECT count(*)::int FROM workspace_nodes WHERE workspace_id = ${orgId} AND type = 'file' AND deleted_at IS NULL)`,
@@ -192,13 +194,18 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             tasks: sql<number>`(SELECT count(*)::int FROM tasks WHERE workspace_id = ${orgId} AND deleted_at IS NULL)`,
             workspaces: sql<number>`(SELECT count(*)::int FROM workspaces c WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL)`,
             documents: sql<number>`(SELECT count(*)::int FROM workspace_documents WHERE workspace_id = ${orgId})`,
+            members: sql<number>`(SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${orgId})`,
+            joinedThisWeek: sql<number>`(SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${orgId} AND joined_at > now() - interval '7 days')`,
+            viewerName: sql<string | null>`(SELECT coalesce(full_name, username) FROM profiles WHERE id = ${v.userId})`,
             termStart: workspaces.termStart, termEnd: workspaces.termEnd, timeZone: workspaces.timeZone, orgType: workspaces.orgType,
             welcomeNote: workspaces.welcomeNote, restrictedAt: workspaces.restrictedAt,
         }).from(workspaces).where(eq(workspaces.id, orgId)),
     ]);
     const zone = counts?.timeZone ?? null;
-    const me = people.find((p) => p.id === v.userId);
-    const viewerName = me?.name ?? me?.username ?? null;
+    const viewerName = counts?.viewerName ?? null;
+    // Audit N43: the viewer's own copies are read once, however many parts of the page need them.
+    let own: ReturnType<typeof ownCopies> | null = null;
+    const myCopies = () => (own ??= ownCopies(orgId, v.userId!));
     const profile = typeProfile(counts?.orgType);
     // Board/review report §6: when a CO and a sprint inside it both run, "this sprint" is the one inside, named
     // "CO1 · Week 3–4", and its assignments include the ones given to the CO itself.
@@ -211,7 +218,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         .from(tasks).where(and(eq(tasks.projectId, orgId), eq(tasks.sprintId, active.id), eq(tasks.kind, 'task'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), orgTaskReadFilter(v.access, v.userId)))
         .orderBy(asc(tasks.createdAt)) : [];
     const copies = inSprint.length ? await db.select(copyColumns).from(tasks).where(and(inArray(tasks.assignmentId, inSprint.map((m) => m.id)), isNull(tasks.deletedAt))) : [];
-    const mine = v.userId && !v.isAdmin ? new Set((await ownCopies(orgId, v.userId)).map((c) => c.id)) : new Set<string>();
+    const mine = v.userId && !v.isAdmin ? new Set((await myCopies()).map((c) => c.id)) : new Set<string>();
     const items: SprintItem[] = inSprint.map((m) => {
         const of = copies.filter((c) => c.assignmentId === m.id).map((c) => ({ c, s: stateOf(c, now) }));
         const counted = of.filter(({ s }) => s.state !== 'excused');
@@ -220,7 +227,8 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         const extended = Boolean(own?.c.dueDate && m.dueDate && own.c.dueDate.getTime() !== m.dueDate.getTime());
         return {
             masterId: m.id, title: m.title, dueDate: (own?.c.dueDate ?? m.dueDate)?.toISOString() ?? null,
-            ...(v.isAdmin || v.isGuest ? { counts: { done: counted.filter(({ s }) => s.state === 'done').length, total: counted.length, missing: counted.filter(({ s }) => s.state === 'missing').length } } : {}),
+            // Audit N41: class-wide counts are the class overview, which viewers don't get (permissions see_class_overview).
+            ...(v.isAdmin ? { counts: { done: counted.filter(({ s }) => s.state === 'done').length, total: counted.length, missing: counted.filter(({ s }) => s.state === 'missing').length } } : {}),
             ...(own ? { own: { ...own.s, extended } } : {}),
         };
     });
@@ -232,7 +240,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         if (s.status !== 'active' && within(s.startDate)) comingUp.push({ date: s.startDate.toISOString(), label: `${s.name} starts`, kind: 'sprint' });
     }
     if (v.isAdmin || v.isGuest) for (const m of masters) { if (within(m.dueDate)) comingUp.push({ date: m.dueDate!.toISOString(), label: `${m.title} due`, kind: 'due' }) }
-    else if (v.userId) for (const c of await ownCopies(orgId, v.userId)) { if (within(c.dueDate) && stateOf(c, now).state !== 'done') comingUp.push({ date: c.dueDate!.toISOString(), label: `${c.title} due`, kind: 'due' }) }
+    else if (v.userId) for (const c of await myCopies()) { if (within(c.dueDate) && stateOf(c, now).state !== 'done') comingUp.push({ date: c.dueDate!.toISOString(), label: `${c.title} due`, kind: 'due' }) }
     // Ordinary tasks due this week too (report §7.2 "task and assignment dues"); members see their own.
     const dueTasks = await db.select({ title: tasks.title, dueDate: tasks.dueDate }).from(tasks).where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'task'), isNull(tasks.assignmentId),
         isNull(tasks.deletedAt), ne(tasks.status, 'done'), gte(tasks.dueDate, now), lt(tasks.dueDate, new Date(now.getTime() + 8 * DAY)), orgTaskReadFilter(v.access, v.userId))).limit(20);
@@ -275,7 +283,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     if (membership && !membership.dismissed && !archivedNow && !v.access.isOwner) {
         const base = `/org/${encodeURIComponent(v.org.slug ?? orgId)}`;
         const start: Array<{ kind: string; label: string; href: string }> = [];
-        const next = v.userId && !v.isAdmin ? (await ownCopies(orgId, v.userId)).filter((c) => c.dueDate && stateOf(c, now).state !== 'done').sort((a, b) => a.dueDate!.getTime() - b.dueDate!.getTime())[0] : null;
+        const next = v.userId && !v.isAdmin ? (await myCopies()).filter((c) => c.dueDate && stateOf(c, now).state !== 'done').sort((a, b) => a.dueDate!.getTime() - b.dueDate!.getTime())[0] : null;
         if (next) start.push({ kind: 'assignment', label: `${next.title} · due ${new Intl.DateTimeFormat('en', { timeZone: zone ?? 'UTC', weekday: 'short' }).format(next.dueDate!)}`, href: `${base}?tab=tasks&drawerType=task&drawerId=${next.id}` });
         if (v.isAdmin) start.push({ kind: 'invite', label: 'Invite people', href: `${base}?tab=members` });
         else if (v.userId) {
@@ -302,7 +310,6 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), ne(workspaces.status, 'archived'),
             v.isAdmin ? undefined : sql`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})`))
         .orderBy(v.isAdmin ? sql`(SELECT count(*) FROM tasks t WHERE t.workspace_id = workspaces.id AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now()) DESC` : sql`1`, desc(workspaces.updatedAt)).limit(5);
-    const weekAgo = now.getTime() - 7 * DAY;
     const archived = v.org.status === 'archived';
     let archivedSummary: string | null = null;
     let termSummary: OrgDashboardData['termSummary'] = null;
@@ -310,7 +317,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         const [org] = await db.select({ title: workspaces.title, termEnd: workspaces.termEnd, updatedAt: workspaces.updatedAt }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
         const ended = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' }).format(org?.termEnd ? new Date(org.termEnd) : org?.updatedAt ?? now);
         const n = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
-        archivedSummary = `${org?.title ?? 'This organization'} ended ${ended} · ${n(counts?.allSprints ?? 0, 'sprint')} · ${n(masters.length, 'assignment')} · ${n(people.length, 'member')}`;
+        archivedSummary = `${org?.title ?? 'This organization'} ended ${ended} · ${n(counts?.allSprints ?? 0, 'sprint')} · ${n(masters.length, 'assignment')} · ${n(counts?.members ?? 0, 'member')}`;
         const copies = await db.select(copyColumns).from(tasks).innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
             .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), or(eq(tasks.projectId, orgId), eq(workspaces.parentId, orgId)),
                 v.isAdmin ? undefined : sql`(${tasks.assigneeId} = ${v.userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${v.userId}))`));
@@ -350,16 +357,16 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         timeZone: zone,
         projects: projectRows.map((p) => ({ id: p.id, title: p.title, slug: p.slug, coverImage: p.coverImage, lead: p.lead, members: p.members, overdue: p.overdue })),
         people: {
-            avatars: people.filter((p) => p.show).slice(0, 8).map((p) => ({ id: p.id, name: p.name || p.username || 'Member', avatarUrl: p.avatarUrl })),
-            total: people.length,
-            joinedThisWeek: people.filter((p) => p.joinedAt && p.joinedAt.getTime() > weekAgo).length,
+            avatars: people.map((p) => ({ id: p.id, name: p.name || p.username || 'Member', avatarUrl: p.avatarUrl })),
+            total: counts?.members ?? 0,
+            joinedThisWeek: counts?.joinedThisWeek ?? 0,
             requests: v.isAdmin ? counts?.requests ?? 0 : 0,
         },
         archivedSummary,
         catchUp: v.isAdmin || v.isGuest || archived ? null : await readCatchUp(v, orgId, now, counts?.termStart ?? null, counts?.termEnd ?? null, zone, profile.termDates),
         termSummary,
         // Report §7.2, decision 7: only while the organization is truly empty; any real thing makes it go.
-        getStarted: v.isAdmin && !archived ? getStartedCards({ members: people.length, sprints: counts?.allSprints ?? 0, tasks: counts?.tasks ?? 0, workspaces: counts?.workspaces ?? 0,
+        getStarted: v.isAdmin && !archived ? getStartedCards({ members: counts?.members ?? 0, sprints: counts?.allSprints ?? 0, tasks: counts?.tasks ?? 0, workspaces: counts?.workspaces ?? 0,
             announcements: counts?.announcements ?? 0, documents: counts?.documents ?? 0, files: counts?.files ?? 0 }) : [],
     };
 }
