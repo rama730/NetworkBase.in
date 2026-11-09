@@ -107,8 +107,8 @@ test('Setup: the calendar and Work defaults follow the type and can change', asy
     await page.getByLabel('Late work').selectOption('none');
     await expect(page.getByTestId('create-org-work-summary')).toContainText('Late work not accepted');
     await expect(page.getByText('Term (optional)')).toBeVisible();
-    await page.getByLabel('Plan a series of sprints now').check();
-    expect(((await values(page)).organization.plan_sprints as { prefix: string }).prefix).toBe('CO');
+    await page.getByLabel('Plan a few now').check();
+    expect(((await values(page)).organization.plan_sprints as { prefix: string }).prefix).toBe('Unit ');
 });
 
 test('Done: the code, what was sent, and an invite message in your name', async ({ page, context }) => {

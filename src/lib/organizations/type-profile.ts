@@ -8,9 +8,12 @@ export type OrgTypeProfile = {
   /** C3: what finished work is called. */
   finishedWork: "Submissions" | "Final files";
   termDates: boolean;
-  sprintPrefix: "CO" | "Sprint ";
-  /** Board/review report §6, D1: the word for a main sprint ("CO" in Education, "Phase" elsewhere). */
-  mainSprintWord: "CO" | "Phase";
+  /** Sprint redesign (2026-11-09): a new main sprint's name, "Unit 1" in a class, "Phase 1" elsewhere. */
+  sprintPrefix: "Unit " | "Phase ";
+  /** The word for a main sprint (it replaced "CO"); Settings → Work can rename it (sprint-words.ts). */
+  mainSprintWord: "Unit" | "Phase";
+  /** A sprint inside a main one: "Week 2" in a class, "Sprint 2" elsewhere. */
+  innerSprintWord: "Week" | "Sprint";
   joinMode: "instant" | "approval";
   visibility: "public" | "private";
   /** Members can post discussions and create channels. */
@@ -29,7 +32,7 @@ export type OrgTypeProfile = {
 };
 
 const WORK: Omit<OrgTypeProfile, "roleNames" | "joinMode" | "visibility" | "starterFolders"> = {
-  finishedWork: "Final files", termDates: false, sprintPrefix: "Sprint ", mainSprintWord: "Phase", membersPost: true, generalNotify: "all",
+  finishedWork: "Final files", termDates: false, sprintPrefix: "Phase ", mainSprintWord: "Phase", innerSprintWord: "Sprint", membersPost: true, generalNotify: "all",
   reviewRequired: false, lateRule: "always", storyPoints: "shown", showCompensation: true, planLabel: "Plan your sprints", verifyFirst: "proof",
 };
 const ADMINS: OrgTypeProfile["starterFolders"] = ["Shared", "Docs", "Templates", "Admins"];
@@ -37,7 +40,7 @@ const ADMINS: OrgTypeProfile["starterFolders"] = ["Shared", "Docs", "Templates",
 export const ORG_TYPE_PROFILES: Record<OrgType, OrgTypeProfile> = {
   education: {
     roleNames: { owner: "Teacher", admin: "TA", member: "Student", viewer: "Viewer" },
-    finishedWork: "Submissions", termDates: true, sprintPrefix: "CO", mainSprintWord: "CO", joinMode: "instant", visibility: "private", membersPost: false,
+    finishedWork: "Submissions", termDates: true, sprintPrefix: "Unit ", mainSprintWord: "Unit", innerSprintWord: "Week", joinMode: "instant", visibility: "private", membersPost: false,
     generalNotify: "mentions", reviewRequired: true, lateRule: "until", storyPoints: "hidden",
     starterFolders: ["Course materials", "Docs", "Templates", "Staff"], showCompensation: false, planLabel: "Plan your term", verifyFirst: "institution",
   },

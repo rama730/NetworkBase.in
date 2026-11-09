@@ -243,10 +243,10 @@ function PlanFirstSprints() {
     const set = (next: NonNullable<typeof plan> | undefined) => setValue('organization.plan_sprints', next, { shouldDirty: true })
     return (
         <fieldset>
-            <legend className={labelClass}>Plan your first sprints (optional)</legend>
+            <legend className={labelClass}>Plan your first {typeProfile(type ?? 'other').mainSprintWord.toLowerCase()}s (optional)</legend>
             <label className="mt-2 flex items-center gap-2.5 text-[13px] text-foreground">
                 <input type="checkbox" className="nb-check" checked={Boolean(plan)} onChange={(e) => set(e.target.checked ? { prefix: orgTypeDefaults(type ?? 'other').sprintPrefix, count: 5, length_days: 7, start_date: termStart || today } : undefined)} />
-                Plan a series of sprints now
+                Plan a few now
             </label>
             {plan ? (
                 <div className="mt-2 grid gap-3 sm:grid-cols-4">

@@ -68,7 +68,7 @@ test("live-fix 32, 33: a new org sprint is named after the last one and starts t
 test("live-fix 34: the sprint form shares with All, Selected or None, in plain words, with an optional announcement", async () => {
   const modal = (await import("node:fs")).readFileSync("src/components/workspaces/v2/sprints/CreateSprintModal.tsx", "utf8");
   assert.match(modal, /Share with workspaces/);
-  assert.match(modal, /\[\["all", "All"\], \["selected", "Selected"\], \["none", "None"\]\]/);
+  assert.match(modal, /\[\["all", children \? `All \$\{children\}` : "All"\], \["selected", "Selected"\], \["none", "None"\]\]/);
   assert.match(modal, /Teams plan their own sprint inside it/);
   assert.doesNotMatch(modal, /Create a matching sprint|Notify members when it starts|Add to every workspace/);
   assert.match(modal, /Post an announcement/);

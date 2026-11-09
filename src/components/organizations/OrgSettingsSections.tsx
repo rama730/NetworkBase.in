@@ -13,6 +13,8 @@ import {
     type LeavePreview,
     previewVisibilityCapAction,
     readOrgSettingsFactsAction,
+    readSprintRenameOfferAction,
+    renameOldSprintNamesAction,
     regenerateJoinCodeAction,
     updateMyOrgMembershipAction,
     updateOrgSettingsAction,
@@ -31,6 +33,8 @@ import { ORG_SETTING_LABELS, joinModeHint } from '@/lib/organizations/settings-l
 import { ORG_LIMITS, ORG_TYPES, orgRoleNames, orgTypeLabel } from '@/lib/organizations/config'
 import { GRANT_WORDS, PERMISSION_AREAS } from '@/lib/organizations/permission-labels'
 import { typeProfile } from '@/lib/organizations/type-profile'
+import { cleanMainWord, MAIN_WORD_CHOICES } from '@/lib/organizations/sprint-words'
+import { Notice } from '@/components/ui/notice'
 import { orgChatSettings } from '@/lib/organizations/chat-rules'
 import { updateOrgChatSettingsAction } from '@/app/actions/org-chat'
 import { PartOfField } from '@/components/organizations/OrgDiscoverySections'
@@ -605,13 +609,66 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                         {status}
                     </div>
                     <h3 className="nb-micro border-t border-border pt-5">Sprints</h3>
-                    <InstantSwitch label="Start automatically" help="A sprint starts on its start date, for example CO1 on Aug 5." checked={organization.work.sprintAutoStart} save={instant('sprint_auto_start')} />
+                    <SprintWordSetting orgId={orgId} type={organization.type} saved={organization.work.mainSprintWord} />
+                    <InstantSwitch label="Start automatically" help={`A sprint starts on its start date, for example ${typeProfile(organization.type).sprintPrefix}1 on Aug 5.`} checked={organization.work.sprintAutoStart} save={instant('sprint_auto_start')} />
                     <InstantSwitch label="Notify on start" help="Members hear when a sprint starts." checked={organization.work.sprintNotifyOnStart} save={instant('sprint_notify_on_start')} />
                     <InstantSwitch label="Show in every workspace in the organization" help="Workspaces see the running organization sprint and can link theirs to it." checked={organization.work.sprintShowInChildren} save={instant('sprint_show_in_children')} />
                     <InstantSwitch label="Create matching sprints" help="Off by default. Each workspace following organization sprints gets its own sprint with the same dates." checked={organization.work.sprintCreateMatching} save={instant('sprint_create_matching')} />
                 </div>
             </SettingsCard>
         </Section>
+    )
+}
+
+/**
+ * Sprint redesign (2026-11-09): what a main sprint is called — the type's word (Unit, Phase), one of the common ones,
+ * or the organization's own — and a one-time offer to rename old names like CO1 to it.
+ */
+function SprintWordSetting({ orgId, type, saved }: { orgId: string; type: string | null; saved: string | null }) {
+    const typeWord = typeProfile(type).mainSprintWord
+    const current = saved ?? typeWord
+    const known = (MAIN_WORD_CHOICES as readonly string[]).includes(current)
+    const [choice, setChoice] = useState(known ? current : 'other')
+    const [own, setOwn] = useState(known ? '' : current)
+    const { pending, save, status } = useSave()
+    const offer = useQuery({ queryKey: ['sprint-rename-offer', orgId, current], queryFn: () => readSprintRenameOfferAction(orgId) })
+    const changes = offer.data?.success ? offer.data.changes : []
+    const [renaming, startRename] = useTransition()
+    const router = useRouter()
+    const word = choice === 'other' ? own : choice
+    const L = ORG_SETTING_LABELS.mainSprintWord
+    return (
+        <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col"><span className={labelClass}>{L.label}</span><span className={`block pb-2 ${helpClass}`}>{L.help(current, typeProfile(type).innerSprintWord)}</span>
+                    <select className="nb-select mt-auto w-full" value={choice} onChange={(e) => setChoice(e.target.value)}>
+                        {MAIN_WORD_CHOICES.map((w) => <option key={w} value={w}>{w}{w === typeWord ? ' (default)' : ''}</option>)}
+                        <option value="other">Your own word…</option>
+                    </select>
+                </label>
+                {choice === 'other' ? (
+                    <label className="flex flex-col"><span className={labelClass}>Your word</span><span className={`block pb-2 ${helpClass}`}>One short word, like Block or Quarter.</span>
+                        <Input value={own} maxLength={20} onChange={(e) => setOwn(e.target.value)} className="mt-auto" aria-invalid={Boolean(own.trim()) && !cleanMainWord(own)} />
+                    </label>
+                ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+                <Button variant="outline" disabled={pending || !cleanMainWord(word) || cleanMainWord(word) === current}
+                    onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', { main_sprint_word: cleanMainWord(word) === typeWord ? null : cleanMainWord(word) }))}>Save the word</Button>
+                {status}
+            </div>
+            {changes.length ? (
+                <Notice action={<Button size="sm" variant="outline" disabled={renaming} onClick={() => startRename(async () => {
+                    const r = await renameOldSprintNamesAction(orgId)
+                    if (!r.success) return void toast.error(r.error)
+                    toast.success(`Renamed ${r.renamed} ${r.renamed === 1 ? 'sprint' : 'sprints'}.`)
+                    void offer.refetch()
+                    router.refresh()
+                })}>{renaming ? 'Renaming…' : 'Rename them'}</Button>}>
+                    {changes.length === 1 ? 'One sprint still has an old name' : `${changes.length} sprints still have old names`}: {changes.slice(0, 3).map((c) => `${c.from} becomes ${c.to}`).join(', ')}{changes.length > 3 ? ` and ${changes.length - 3} more` : ''}. Rename them? Nothing else changes.
+                </Notice>
+            ) : null}
+        </div>
     )
 }
 

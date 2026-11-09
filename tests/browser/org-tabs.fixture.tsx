@@ -11,6 +11,7 @@ import { ChildUnitsPanel } from '@/components/organizations/ChildUnitsPanel';
 import { CreateLocationProvider } from '@/components/organizations/CreateLocation';
 import WorkspaceLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
 import CreateSprintModal from '@/components/workspaces/v2/sprints/CreateSprintModal';
+import { OrgWorkSection } from '@/components/organizations/OrgSettingsSections';
 import { OrgNewItems, OrgNewMenu } from '@/components/organizations/OrgHeaderParts';
 import { WorkspaceUpdateComposer } from '@/components/workspaces/updates/WorkspaceUpdateComposer';
 
@@ -47,18 +48,18 @@ function Header() {
     );
 }
 
-// The sprint form (report §16.2, §18.2, §28.2): Repeat on an organization, and a team sprint inside CO1.
+// The sprint form (report §16.2, §18.2, §28.2): Repeat on an organization, and a team sprint inside Unit 1.
 const done = async () => ({ success: true });
 function SprintForm({ kind }: { kind: 'org' | 'child' }) {
-    const co1 = { id: 'co1', name: 'CO1', status: 'active', startDate: '2027-01-04T00:00:00.000Z', endDate: '2027-01-17T00:00:00.000Z' };
+    const co1 = { id: 'co1', name: 'Unit 1', status: 'active', startDate: '2027-01-04T00:00:00.000Z', endDate: '2027-01-17T00:00:00.000Z' };
     return kind === 'org' ? (
         <CreateSprintModal projectId="org" isOpen mode="create" onClose={() => undefined} onSubmit={done} onRepeat={done}
             org={{ kind: 'org', orgTitle: 'CSE-3A', orgSprints: [], orgType: 'education', termEnd: '2027-02-20' }}
-            existingSprints={[{ id: 's1', name: 'CO1', startDate: '2026-12-01T00:00:00.000Z', endDate: '2026-12-14T00:00:00.000Z', status: 'completed' },
+            existingSprints={[{ id: 's1', name: 'Unit 1', startDate: '2026-12-01T00:00:00.000Z', endDate: '2026-12-14T00:00:00.000Z', status: 'completed' },
                 { id: 'b', name: 'Mid-term break', startDate: '2027-01-20T00:00:00.000Z', endDate: '2027-01-24T00:00:00.000Z', status: 'planning' }]} />
     ) : (
         <CreateSprintModal projectId="child" isOpen mode="create" onClose={() => undefined} onSubmit={done}
-            org={{ kind: 'child', orgTitle: 'CSE-3A', orgSprints: [co1], followsOrgSprints: true, groupBacklog: 2 }} existingSprints={[]} />
+            org={{ kind: 'child', orgTitle: 'CSE-3A', orgSprints: [co1], followsOrgSprints: true, groupBacklog: 2, words: { main: 'Unit', inner: 'Week', plan: 'Term', isClass: true } }} existingSprints={[]} />
     );
 }
 
@@ -85,6 +86,9 @@ createRoot(document.getElementById('root')!).render(
             {tab === 'header' ? <Header /> : null}
             {tab === 'sprint-org' ? <SprintForm kind="org" /> : null}
             {tab === 'sprint-child' ? <SprintForm kind="child" /> : null}
+            {/* Sprint redesign (2026-11-09): Settings → Work names the main sprint and renames old names once. */}
+            {tab === 'work' ? <OrgWorkSection orgId="org" organization={{ type: 'education', changes: {}, timeZone: null, work: { reviewRequired: true, lateRule: 'until', reminders: 'both', storyPoints: 'hidden', dueTime: '23:59', mainSprintWord: null,
+                sprintAutoStart: true, sprintNotifyOnStart: true, sprintShowInChildren: true, sprintCreateMatching: false } } as never} /> : null}
         </main>
     </QueryClientProvider>,
 );

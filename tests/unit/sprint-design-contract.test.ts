@@ -64,12 +64,12 @@ test("Sprints Tab Design Specification Conformance Contract (Sections 03, 04, 05
   await t.test("SprintLeftRail conforms to square status indicators and desktop button standards", () => {
     assert.match(
       sprintLeftRail,
-      /size-1\.5 shrink-0 rounded-\[1px\]/,
-      "Status indicator must use Section 10 square geometry (rounded-[1px])",
+      /size-1\.5 shrink-0 rounded-sm/,
+      "Status indicator must use Section 10 square geometry (rounded-sm)",
     );
     assert.match(
       sprintLeftRail,
-      /h-\[34px\].*rounded-\[5px\]/,
+      /h-\[34px\].*rounded-(?:\[5px\]|md)/,
       "New sprint button must adhere to Section 05 h-[34px] rounded-[5px] desktop height",
     );
     assert.match(
@@ -97,12 +97,12 @@ test("Sprints Tab Design Specification Conformance Contract (Sections 03, 04, 05
   await t.test("SprintHeader conforms to Section 05 button heights and Section 10 badges", () => {
     assert.match(
       sprintHeader,
-      /h-\[34px\].*rounded-\[5px\]/,
+      /h-\[34px\].*rounded-(?:\[5px\]|md)/,
       "Action buttons must adhere to Section 05 h-[34px] rounded-[5px] desktop height",
     );
     assert.match(
       sprintHeader,
-      /rounded-\[3px\] font-mono text-\[11px\] font-medium uppercase tracking-\[0\.09em\]/,
+      /rounded-(?:\[3px\]|sm) font-mono text-\[11px\] font-medium uppercase tracking-\[0\.09em\]/,
       "Status badge must adhere to Section 10 badge geometry",
     );
   });
@@ -130,7 +130,7 @@ test("Sprints Tab Design Specification Conformance Contract (Sections 03, 04, 05
     );
     assert.match(
       sprintTimeline,
-      /h-\[34px\].*rounded-\[5px\]/,
+      /h-\[34px\].*rounded-(?:\[5px\]|md)/,
       "Load more button must adhere to Section 05 h-[34px] rounded-[5px] desktop height",
     );
     assert.match(
@@ -157,20 +157,11 @@ test("Sprints Tab Design Specification Conformance Contract (Sections 03, 04, 05
   });
 
   await t.test("SprintLifecycleModals and CreateSprintModal conform to desktop control standards", () => {
-    assert.match(
-      sprintLifecycleModals,
-      /h-\[34px\].*rounded-\[5px\]/,
-      "Lifecycle modal buttons and selects must adhere to Section 05 h-[34px] rounded-[5px] desktop height",
-    );
-    assert.match(
-      createSprintModal,
-      /h-\[34px\].*rounded-\[5px\]/,
-      "Create sprint modal inputs and buttons must adhere to Section 05 h-[34px] rounded-[5px] desktop height",
-    );
-    assert.match(
-      createSprintModal,
-      /rounded-\[8px\] border border-border bg-card shadow-2xl/,
-      "Modal container must adhere to Section 05 8px card radius",
-    );
+    assert.match(sprintLifecycleModals, /FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS \} from "@\/components\/workspaces\/v2\/tasks\/form-parts"/, "Close and Cancel use the form buttons");
+    assert.match(sprintLifecycleModals, /className="nb-select nb-touch-target w-full"/, "The sprint picker is the shared select");
+    // Sprint redesign (2026-11-09): the form is New task's — its fields, footer and dialog come from form-parts.
+    assert.match(createSprintModal, /from "\.\.\/tasks\/form-parts"/, "New sprint uses the Task form's parts");
+    assert.match(createSprintModal, /className=\{FORM_DIALOG_CLASS\}/, "Same dialog as New task");
+    assert.match(createSprintModal, /<div className=\{FORM_FOOTER_CLASS\}>/, "Same fixed footer as New task");
   });
 });

@@ -18,7 +18,7 @@ import { TASK_WORKING_FILES_TITLE } from "@/lib/files/task-working-files";
 import { calculateTaskTimeHealth, getTaskTitlePresentation } from "@/lib/workspaces/task-presentation";
 import { format } from "@/lib/utils/date";
 import { useAuth } from "@/hooks/use-auth";
-import { sprintPace, sprintPhase, sprintTime, workGroups, workProgress } from "@/lib/workspaces/sprint-plan";
+import { paceLine, sprintPace, sprintPhase, sprintTime, workGroups, workProgress } from "@/lib/workspaces/sprint-plan";
 import { AssignmentStagesPanel, copyStageLine, HandIn, Instructions, StageBar, stageSummary } from "@/components/workspaces/tabs/sprint/AssignmentStages";
 
 type Props = {
@@ -27,6 +27,8 @@ type Props = {
   sprintReference: string | null;
   sprint?: import("@/lib/workspaces/sprint-detail").SprintListItem | null;
   summary?: SprintHealthSummary | null;
+  /** Off on a Unit's page, where SprintInsights shows the same numbers. */
+  showSummary?: boolean;
   rows: SprintTimelineRow[];
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -41,6 +43,7 @@ export function SprintTimelineContent({
   sprintReference,
   sprint,
   summary,
+  showSummary = true,
   rows,
   hasMore = false,
   isLoadingMore = false,
@@ -70,21 +73,23 @@ export function SprintTimelineContent({
   return (
     <div className="space-y-4">
       {/* Sprint redesign §5.3: time passed and work done side by side, and whether the pace holds. */}
-      {summary ? (
+      {summary && showSummary ? (
         <div aria-label="Sprint summary" className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-          <div className="rounded-[6px] bg-muted/50 p-3">
+          <div className="rounded-md bg-muted p-3">
             <p className="text-[12px] text-muted-foreground">Time{time ? ` · day ${time.day} of ${time.days}` : ""}</p>
             <p className="text-[20px] font-semibold leading-tight text-foreground">{time ? `${time.percent}%` : "—"}</p>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-[2px] bg-background"><div className="h-full bg-muted-foreground/60" style={{ width: `${time?.percent ?? 0}%` }} /></div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-sm bg-background"><div className="h-full bg-muted-foreground" style={{ width: `${time?.percent ?? 0}%` }} /></div>
           </div>
-          <div className="rounded-[6px] bg-muted/50 p-3">
+          <div className="rounded-md bg-muted p-3">
             <p className="text-[12px] text-muted-foreground">{work.unit === "points" ? "Points" : "Tasks"} done · {work.done} of {work.total}</p>
             <p className="text-[20px] font-semibold leading-tight text-foreground">
               {work.percent}%
               {pace ? <span className={cn("ml-2 text-[12px] font-normal", pace === "behind" ? "text-[var(--status-danger)]" : pace === "ahead" ? "text-[var(--status-success)]" : "text-muted-foreground")}>{pace}</span> : null}
               {summary.blockedTasks > 0 ? <span className="ml-2 text-[12px] font-normal text-[var(--status-danger)]">{summary.blockedTasks} blocked</span> : null}
             </p>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-[2px] bg-background"><div className="h-full bg-primary transition-[width] duration-[180ms] motion-reduce:transition-none" style={{ width: `${Math.min(100, work.percent)}%` }} /></div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-sm bg-background"><div className="h-full bg-primary transition-[width] duration-[180ms] motion-reduce:transition-none" style={{ width: `${Math.min(100, work.percent)}%` }} /></div>
+            {/* Sprint redesign (2026-11-09): the pace says why. */}
+            {pace && time ? <p className={cn("mt-1 text-[12px]", pace === "behind" ? "text-[var(--status-danger)]" : "text-muted-foreground")}>{paceLine(time.percent, work.percent).replace(/^[a-z ]+ · /, "")}</p> : null}
           </div>
         </div>
       ) : null}

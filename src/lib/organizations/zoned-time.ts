@@ -78,7 +78,8 @@ export function relativeDay(days: number) {
   if (days === -1) return "yesterday";
   return days > 1 ? `in ${days} days` : `${-days} days ago`;
 }
-const dayText = (day: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`)).replace(",", "");
+/** "Sat 14 Nov" for a "YYYY-MM-DD" day. */
+export const dayText = (day: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`)).replace(",", "");
 
 /** "Sat 14 Nov, 11:59 PM", "in 5 days", and the viewer's own clock when it reads differently ("6:29 PM"). */
 export function describeLocal(local: string, timeZone: string | null | undefined, viewerZone: string | null | undefined, now = new Date()) {

@@ -9,7 +9,11 @@ import path from 'node:path'
 const root = process.cwd()
 const orgDir = path.join(root, 'src/components/organizations')
 const only = process.env.ORG_CONTRACT_FILES?.split(',').map((f) => f.trim()).filter(Boolean)
-const files = fs.readdirSync(orgDir).filter((f) => f.endsWith('.tsx') && (!only || only.includes(f))).map((f) => path.join(orgDir, f))
+// Sprint redesign (2026-11-09): the sprint screens an organization uses follow the same contract.
+const sprintFiles = ['src/components/workspaces/v2/sprints/CreateSprintModal.tsx', 'src/components/workspaces/tabs/sprint/SprintInsights.tsx',
+    'src/components/workspaces/tabs/sprint/SprintLifecycleModals.tsx', 'src/components/workspaces/tabs/sprint/SprintHeader.tsx', 'src/components/workspaces/tabs/sprint/SprintLeftRail.tsx']
+const files = [...fs.readdirSync(orgDir).filter((f) => f.endsWith('.tsx') && (!only || only.includes(f))).map((f) => path.join(orgDir, f)),
+    ...sprintFiles.filter((f) => !only || only.includes(path.basename(f))).map((f) => path.join(root, f))]
 
 /** Source without comments, line numbers kept. */
 function code(file: string) {

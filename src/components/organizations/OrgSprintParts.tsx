@@ -45,7 +45,8 @@ export function sprintEmptyLine(org: SprintOrgContext | null, canCreate: boolean
     }
     if (org?.kind === 'org') {
         return canCreate
-            ? { title: 'No sprints yet', line: 'Plan the term as sprints. Turn on “Plan more sprints like this” to plan several at once.', button: 'Plan your first sprint' }
+            // Sprint redesign (2026-11-09): in the organization's words; Several is the choice beside the dates.
+            ? { title: `No ${org.words.main.toLowerCase()}s yet`, line: `${org.words.isClass ? 'Plan the term' : 'Plan the work'} as ${org.words.main.toLowerCase()}s, with ${org.words.inner.toLowerCase()}s inside each. Pick Several beside the dates to plan a few at once.`, button: `Plan your first ${org.words.main.toLowerCase()}` }
             : { title: 'No sprints planned yet', line: 'Sprints your admins plan show here.', button: '' }
     }
     return canCreate

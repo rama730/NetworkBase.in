@@ -30,7 +30,7 @@ test.beforeAll(async () => {
             export const readFormerMembersAction=async()=>({success:true,rows:[{userId:'f1',name:'Asha Rao',how:'removed',at:new Date().toISOString(),by:'Ms. Rao',note:'Repeated no-shows',blocked:true,done:3,total:4}]});`,
         '@/app/actions/moderation-org': `export const unblockFromOrgAction=${ok};`,
         '@/hooks/use-auth': `export const useAuth=()=>({user:{id:'u1'}});`,
-        '@/app/actions/organizations': `export const joinOrganizationAction=${ok},updateJoinRequestNoteAction=${ok};export const updateOrgSettingsAction=async()=>({success:true});export const unarchiveChildAction=async()=>({success:true});export const readLeadCandidatesAction=async()=>({success:true});export const detachChildAction=async()=>({success:true});export const cancelMoveInAction=async()=>({success:true});export const cancelDetachRequestAction=async()=>({success:true});export const assignChildLeadAction=async()=>({success:true});export const approveMoveInAction=async()=>({success:true});export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},cancelJoinRequestAction=${ok},joinPublicOrgAction=${ok},childTitleTakenAction=async()=>false;
+        '@/app/actions/organizations': `export const joinOrganizationAction=${ok},updateJoinRequestNoteAction=${ok};export const updateOrgSettingsAction=async(_o,section,patch)=>{(window.saved??=[]).push([section,patch]);return {success:true}};export const renameOrgHandleAction=async()=>({success:true}),leaveOrgAction=async()=>({success:true}),readLeavePreviewAction=async()=>({success:false,error:'n/a'}),previewVisibilityCapAction=async()=>({success:true,count:0}),readOrgSettingsFactsAction=async()=>({success:false,error:'n/a'}),updateMyOrgMembershipAction=async()=>({success:true});export const readSprintRenameOfferAction=async()=>({success:true,changes:window.renamed?[]:[{from:'CO1',to:'Unit 1'},{from:'CO2 Trees',to:'Unit 2 Trees'}]});export const renameOldSprintNamesAction=async()=>{window.renamed=true;return {success:true,renamed:2}};export const unarchiveChildAction=async()=>({success:true});export const readLeadCandidatesAction=async()=>({success:true});export const detachChildAction=async()=>({success:true});export const cancelMoveInAction=async()=>({success:true});export const cancelDetachRequestAction=async()=>({success:true});export const assignChildLeadAction=async()=>({success:true});export const approveMoveInAction=async()=>({success:true});export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},cancelJoinRequestAction=${ok},joinPublicOrgAction=${ok},childTitleTakenAction=async()=>false;
             export const listOrgRosterAction=async(orgId,q,admins)=>[['u1','Ravi Kumar','member','In Compiler Lab',['React']],['u2','Asha Nair','member',null,['Testing']],['u3','Ms. Rao','owner',null,[]]]
               .filter((p)=>!admins||p[2]!=='member').map(([userId,name,role,projectHint,skills])=>({userId,name,username:null,avatarUrl:null,title:role==='owner'?'Teacher':null,role,projectHint,skills}));
             export const listOutsidePeopleAction=async()=>[{userId:'x1',name:'Client Person',username:'client',avatarUrl:null,title:'Mentor',role:'outside',projectHint:null}];`,
@@ -274,36 +274,42 @@ test('Files (§23): storage nearly full, Update copy and opening an org file in 
 
 test('Sprint form (§28.2): an organization names the next sprint, Repeat previews, blocks an overlap and fixes it in one click', async ({ page }) => {
     await open(page, 'sprint-org', 1280);
-    // Sprint cleanup §1 (D1): with a CO planned, New sprint opens on "Sprint inside a CO"; one click plans the next CO.
-    await expect(page.getByRole('tab', { name: 'Sprint inside a CO' })).toHaveAttribute('aria-selected', 'true');
-    await page.getByRole('tab', { name: 'CO', exact: true }).click();
-    await expect(page.locator('#sprint-name')).toHaveValue('CO2');
+    // Sprint redesign: a class plans Units with Weeks inside; with one planned, New opens on Week; one click plans the next Unit.
+    await expect(page.getByRole('tab', { name: 'Week', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('tab', { name: 'Unit', exact: true }).click();
+    await expect(page.locator('#sprint-name')).toHaveValue('Unit 2');
     await page.locator('#sprint-start-date').fill('2027-01-04');
     await page.locator('#sprint-end-date').fill('2027-01-17');
     // Sprint cleanup §2: one tab row; One or Several sits with the dates.
     await expect(page.getByRole('tablist')).toHaveCount(1);
     await page.getByRole('radiogroup', { name: 'How many sprints' }).getByRole('radio', { name: 'Several' }).click();
-    await expect(page.getByText('Plan 4 COs.')).toBeVisible();
+    await expect(page.getByText(/^4 units: Unit 2–Unit 5 · Jan 4–/)).toBeVisible();
     const list = page.getByRole('list', { name: 'Sprints to create' });
-    await expect(list).toContainText('CO3 · Jan 18–Jan 31 · Overlaps Mid-term break');
-    await expect(page.getByRole('button', { name: 'Create 4 sprints' })).toBeDisabled();
+    await expect(list).toContainText('Unit 3 · Jan 18–Jan 31 · Overlaps Mid-term break');
+    await expect(page.getByRole('button', { name: 'Create 4 units' })).toBeDisabled();
     await page.getByRole('button', { name: 'Start after Mid-term break' }).click();
     await expect(page.locator('#sprint-start-date')).toHaveValue('2027-01-25');
     await expect(list).not.toContainText('Overlaps');
     await expect(list).toContainText('Passes the term end');
-    await expect(page.getByRole('button', { name: 'Create 4 sprints' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Create 4 units' })).toBeEnabled();
     await page.screenshot({ path: test.info().outputPath('sprint-org.png') });
 });
 
-test('Sprint form (§18.2): a team sprint sits inside CO1, says its limit beside the dates, and offers the group work', async ({ page }) => {
+test('Sprint form (§18.2): a team sprint sits inside Unit 1, says its limit beside the dates, and offers the group work', async ({ page }) => {
     await open(page, 'sprint-child', 1280);
-    await expect(page.getByLabel('Inside the class sprint')).toHaveValue(/.+/);
-    await expect(page.getByText(/Your dates start as CO1’s \(Jan 4–Jan 17\)/)).toBeVisible();
-    await expect(page.getByRole('option', { name: 'Not inside a sprint' })).toHaveCount(0);
+    await expect(page.getByLabel('Inside CSE-3A’s unit')).toHaveValue(/.+/);
+    await expect(page.getByText(/Your dates start as Unit 1’s \(Jan 4–Jan 17\)/)).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Not inside one' })).toHaveCount(0);
     await expect(page.getByLabel('Also add 2 group assignments from the backlog')).toBeChecked();
     await page.locator('#sprint-end-date').fill('2027-01-20');
-    await expect(page.getByRole('alert').filter({ hasText: 'CO1 ends Jan 17. Pick an earlier date.' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Create / })).toBeDisabled();
+    await expect(page.getByRole('alert').filter({ hasText: 'Unit 1 ends Jan 17. Pick an earlier date.' })).toBeVisible();
+    // Sprint redesign: Create stays clickable and moves to the date that needs fixing, as on New task.
+    await page.getByRole('button', { name: /^Create / }).click();
+    await expect(page.locator('#sprint-name')).toBeFocused();
+    await expect(page.getByText('Sprint name is required').or(page.getByRole('alert').filter({ hasText: /name/i })).first()).toBeVisible();
+    await page.locator('#sprint-name').fill('Parser week');
+    await page.getByRole('button', { name: /^Create / }).click();
+    await expect(page.locator('#sprint-end-date')).toBeFocused();
     await expect(page.getByRole('radiogroup', { name: 'How many sprints' })).toHaveCount(0);
     await noSideScroll(page);
     await page.screenshot({ path: test.info().outputPath('sprint-child.png') });
@@ -430,4 +436,20 @@ test('Members opened from Workspaces → "Place them": filtered to people not in
     await expect(page.getByRole('link', { name: 'Workspaces', exact: true })).toHaveAttribute('href', '?tab=projects');
     await open(page, 'members&status=behind', 1280);
     await expect(page.getByRole('link', { name: 'Workspaces', exact: true })).toHaveCount(0);
+});
+
+test('Sprint redesign: Settings → Work names the main sprint, and offers once to rename old names', async ({ page }) => {
+    await open(page, 'work', 1280);
+    const word = page.getByLabel('Main sprint is called');
+    await expect(word).toHaveValue('Unit');
+    await expect(word.getByRole('option', { name: 'Unit (default)' })).toBeAttached();
+    const offer = page.getByRole('status').filter({ hasText: 'old names' });
+    await expect(offer).toContainText('2 sprints still have old names: CO1 becomes Unit 1, CO2 Trees becomes Unit 2 Trees.');
+    await page.screenshot({ path: test.info().outputPath('work-sprint-word.png') });
+    await offer.getByRole('button', { name: 'Rename them' }).click();
+    await expect(offer).toHaveCount(0);
+    await word.selectOption('other');
+    await page.getByLabel('Your word').fill('Block');
+    await page.getByRole('button', { name: 'Save the word' }).click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { saved?: unknown[] }).saved)).toContainEqual(['work', { main_sprint_word: 'Block' }]);
 });

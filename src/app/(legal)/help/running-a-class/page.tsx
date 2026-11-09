@@ -24,7 +24,7 @@ export default function RunningAClassPage() {
           title: "1. Create the organization",
           content: (
             <>
-              <p><Link href={START} className="underline">Create an organization</Link> and pick Education. It sets the words (Teacher, TA, Student), turns on review for hand-ins, and suggests sprint names like CO1.</p>
+              <p><Link href={START} className="underline">Create an organization</Link> and pick Education. It sets the words (Teacher, TA, Student), turns on review for hand-ins, and plans the term as Units (Unit 1, Unit 2), each with Weeks inside. Settings → Work can give them another name.</p>
               <p>Add a welcome note. Students see it once when they join, with what to do first.</p>
             </>
           ),

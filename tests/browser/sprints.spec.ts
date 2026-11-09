@@ -26,9 +26,9 @@ const person = (id, fullName) => ({ id, fullName, avatarUrl: null });
 const t = (id, title, status, points, assignee, extra = {}) => ({ id: 'r' + id, kind: 'task', occurredAt: day(-1), task: { assignmentProgress: null, id, projectId: 'w1', sprintId: 's4', taskNumber: Number(id.slice(1)), title, description: null,
   status, reviewStatus: 'none', priority: 'medium', storyPoints: points, dueDate: null, createdAt: day(-3), updatedAt: day(-1), completedAt: status === 'done' ? day(-1) : null, activityAt: day(-1),
   linkedFileCount: 0, isDeleted: false, membershipState: 'committed', addedAt: day(-3), removedAt: null, linkedFiles: [], subtasks: [], assignee, creator: null, ...extra } });
-// Board/review report §6: ?org= makes s4 a CO (CO1) holding two sprints, w1 running and w2 upcoming.
+// Board/review report §6: ?org= makes s4 a Unit (Unit 1) holding two weeks, w1 running and w2 upcoming.
 if (orgMode) {
-  sprints[1] = { ...sprints[1], name: 'CO1 Arrays and lists', startDate: day(-17), endDate: day(25) };
+  sprints[1] = { ...sprints[1], name: 'Unit 1 Arrays and lists', startDate: day(-17), endDate: day(25) };
   sprints.push({ ...base, id: 'w1', sprintNumber: 7, code: 'SPR-7', name: 'Week 3–4', status: 'active', startDate: day(-3), endDate: day(10), parentSprintId: 's4' },
     { ...base, id: 'w2', sprintNumber: 8, code: 'SPR-8', name: 'Week 5–6', status: 'planning', startDate: day(new URLSearchParams(location.search).has('gap') ? 14 : 11), endDate: day(20), parentSprintId: 's4' });
   sprints[2] = { ...sprints[2], startDate: day(26), endDate: day(40) };
@@ -55,7 +55,7 @@ export const useSprintDetail = () => ({ isLoading: false, isError: false, error:
   unassigned: { tasks: 1, points: 5 }, velocity: { last: 21, average: 23 },
   ...(orgMode ? {
     org: { kind: 'org', orgSprints: [], orgTitle: 'CSE 3B', orgSlug: 'cse', parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 1, notLinked: [{ projectId: 'c1', title: 'Team Falcon', slug: 'falcon' }],
-      groupBacklog: 0, followsOrgSprints: false, termEnd: null, sprintFlags: {}, children: [{ id: 'c1', title: 'Team Falcon' }], orgType: 'education', defaults: { autoStart: true, showInChildren: true, createMatching: false, notifyOnStart: true } },
+      groupBacklog: 0, followsOrgSprints: false, termEnd: null, sprintFlags: {}, children: [{ id: 'c1', title: 'Team Falcon' }], orgType: 'education', words: { main: 'Unit', inner: 'Week', plan: 'Term', isClass: true }, defaults: { autoStart: true, showInChildren: true, createMatching: false, notifyOnStart: true } },
     children: selected === 's4' ? [{ id: 'w1', name: 'Week 3–4', code: 'SPR-7', status: 'active', startDate: day(-3), endDate: day(10), done: 3, total: 9 }, { id: 'w2', name: 'Week 5–6', code: 'SPR-8', status: 'planning', startDate: day(11), endDate: day(20), done: 0, total: 0 }] : undefined,
     openAssignments: 2,
   } : {}),
@@ -92,7 +92,7 @@ async function open(page: Page, sprint = 'running', width = 1440) {
     return route.fulfill({ body, contentType: url.pathname.endsWith('.js') ? 'application/javascript' : url.pathname.endsWith('.css') ? 'text/css' : 'text/html' });
   });
   await page.goto(`${origin}/?sprint=${sprint}`);
-  await expect(page.getByRole('heading', { name: /Sprint [45]|CO1|Week 3–4/ }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Sprint [45]|Unit 1|Week 3–4/ }).first()).toBeVisible();
 }
 
 test('§5, §8: the rail is the term, the header has the goal and one main button, time and points sit side by side, work groups by state, People shows the load', async ({ page }) => {
@@ -107,7 +107,7 @@ test('§5, §8: the rail is the term, the header has the goal and one main butto
   await expect(page.getByText('Running', { exact: true })).toBeVisible();
   await expect(page.getByText('People can search projects by name and tag, under 300 ms.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add work' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Close sprint' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Close Sprint/ })).toHaveCount(0);
   const summary = page.getByLabel('Sprint summary');
   await expect(summary).toContainText('Points done · 5 of 26');
   await expect(summary).toContainText('1 blocked');
@@ -153,22 +153,23 @@ test('§6: New sprint offers one or several, folds notes, shows where it lands a
   const dialog = page.getByRole('dialog');
   // Sprint cleanup §2: no tab row in a workspace; One or Several sits with the dates.
   await expect(dialog.getByRole('tablist')).toHaveCount(0);
-  await expect(dialog.getByRole('radio', { name: 'One' })).toHaveAttribute('aria-checked', 'true');
-  await expect(dialog.getByRole('textbox', { name: 'Notes' })).toHaveCount(0);
-  await dialog.getByRole('button', { name: '+ Add notes' }).click();
+  await expect(dialog.getByRole('radio', { name: 'One', exact: true })).toHaveAttribute('aria-checked', 'true');
+  // Sprint redesign: the same sections as New task, Notes in Basics.
+  for (const heading of ['Basics', 'Dates']) await expect(dialog.getByText(heading, { exact: true })).toBeVisible();
   await expect(dialog.getByRole('textbox', { name: 'Notes' })).toBeVisible();
   await dialog.getByRole('textbox', { name: 'Name' }).fill('Sprint 7');
   await dialog.getByLabel('Starts').fill(new Date(Date.now() + 37 * 864e5).toISOString().slice(0, 10));
   await dialog.getByRole('button', { name: '2 weeks' }).click();
   await expect(dialog.getByRole('button', { name: '2 weeks' })).toHaveAttribute('aria-pressed', 'true');
   await expect(dialog.getByTestId('term-strip')).toContainText('Starts right after Sprint 6. No overlap.');
-  await expect(dialog.getByTestId('sprint-options-summary')).toContainText('Starts by itself on');
+  await expect(dialog.getByText(/^\w{3} \d{1,2} \w{3} – \w{3} \d{1,2} \w{3} · 14 days \(2 weeks\) · starts in 37 days$/)).toBeVisible();
+  await expect(dialog.getByText('More options')).toContainText('starts by itself');
   await expect(dialog.getByRole('button', { name: 'Create Sprint 7' })).toBeVisible();
   await page.screenshot({ path: test.info().outputPath('sprint-form.png') });
   await dialog.getByLabel('Starts').fill(new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
   await expect(dialog.getByTestId('term-strip')).toContainText('Overlaps Sprint 6.');
   await dialog.getByRole('radio', { name: 'Several' }).click();
-  await expect(dialog.getByText(/^Plan \d+ sprints\.$/)).toBeVisible();
+  await expect(dialog.getByText(/^\d+ sprints: Sprint 7–Sprint \d+ · .+\.$/)).toBeVisible();
   await expect(dialog.getByRole('list', { name: 'Sprints to create' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: /^Create \d+ sprints$/ })).toBeVisible();
   for (const width of [390]) {
@@ -181,7 +182,7 @@ test('§4, §5.6, §8.7: an ended sprint says it needs closing; Close names the 
   await open(page, 'ended');
   await expect(page.getByText('Ended', { exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Close it to count what’s done' })).toBeVisible();
-  await page.getByRole('button', { name: 'Close sprint' }).click();
+  await page.locator('header').getByRole('button', { name: 'Close Sprint 4 · Search' }).click();
   const dialog = page.getByRole('dialog', { name: 'Close Sprint 4 · Search?' });
   await expect(dialog).toContainText('5 of 26 points done');
   await expect(dialog).toContainText('4 tasks still open go to');
@@ -202,13 +203,14 @@ test('§4: an upcoming sprint offers Add work and Start now; phones get the pick
   await page.screenshot({ path: test.info().outputPath('sprints-390.png'), fullPage: true });
 });
 
-test('board/review report §6, sprint cleanup §1–§3: a CO holds its sprints; one New sprint button opens inside it; the header is Add work, Calendar, Edit', async ({ page }) => {
+test('board/review report §6, sprint redesign: a Unit holds its weeks; its numbers lead the page; one New sprint button opens inside it; the header is Add work, Calendar, Edit', async ({ page }) => {
   await open(page, 'running&org=1');
   const rail = page.getByRole('complementary', { name: 'Sprints' });
-  const inside = rail.getByRole('list', { name: 'Sprints in CO1 Arrays and lists' });
+  const inside = rail.getByRole('list', { name: 'Sprints in Unit 1 Arrays and lists' });
   await expect(inside.getByRole('link')).toHaveText([/Week 3–4/, /Week 5–6/]);
-  // The CO counts its weeks; no gap between back-to-back sprints inside it.
-  await expect(rail.getByRole('link', { name: /CO1 Arrays and lists/ })).toContainText(/week \d+ of 7/);
+  // The Unit counts its weeks; no gap between back-to-back weeks inside it. The class rail is the Term.
+  await expect(rail.getByRole('heading', { name: 'Term' })).toBeVisible();
+  await expect(rail.getByRole('link', { name: /Unit 1 Arrays and lists/ })).toContainText(/week \d+ of 7/);
   await expect(inside.getByText('No sprint planned')).toHaveCount(0);
   await expect(page.locator('header').getByText(/^week \d+ of 7$/)).toBeVisible();
   // One sprint button only, and Calendar sits right of Add work in the header.
@@ -216,42 +218,51 @@ test('board/review report §6, sprint cleanup §1–§3: a CO holds its sprints;
   const actions = page.locator('header').getByRole('button');
   await expect(actions).toHaveText([/Add work/, 'Calendar', /Edit/, '']);
   await expect(rail.getByRole('button', { name: 'Calendar' })).toHaveCount(0);
-  const strip = page.getByRole('region', { name: 'Sprints in CO1 Arrays and lists' });
-  await expect(strip.getByRole('link', { name: /Week 3–4\s*3\/9 done/ })).toBeVisible();
-  await expect(strip).toContainText('Across CO1 Arrays and lists: 1 of 5 done · 2 assignments open · 1 team has no sprint yet');
-  await expect(strip).not.toContainText('Add a sprint inside');
-  // New sprint opens on "Sprint inside a CO", inside this CO, starting after its last sprint.
+  // Sprint redesign: one row of numbers for the Unit, then its weeks with a bar each; no second set of sprint cards.
+  const glance = page.getByRole('region', { name: 'Unit 1 Arrays and lists at a glance' });
+  await expect(glance).toContainText('Points done · 5 of 26');
+  await expect(glance).toContainText(/behind · \d+% of the time gone, \d+% done/);
+  await expect(glance).toContainText(/Assignments open\s*2/);
+  await expect(glance).toContainText(/Teams without a sprint\s*1\s*See who/);
+  await expect(glance.getByRole('list', { name: 'Weeks in Unit 1 Arrays and lists' }).getByRole('link', { name: /Week 3–4.*3\/9 done/ })).toBeVisible();
+  await expect(page.getByLabel('Sprint summary')).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('unit-page.png'), fullPage: true });
+  // New sprint opens on the Week tab, inside this Unit, starting after its last week.
   await rail.getByRole('button', { name: 'New sprint' }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('tab', { name: 'Sprint inside a CO' })).toHaveAttribute('aria-selected', 'true');
-  await expect(dialog.getByLabel('Inside the CO')).toHaveValue('s4');
+  await expect(dialog.getByRole('tab', { name: 'Week' })).toHaveAttribute('aria-selected', 'true');
+  await expect(dialog.getByText('A short stretch inside a unit.')).toBeVisible();
+  await expect(dialog.getByLabel('Inside which unit')).toHaveValue('s4');
   await expect(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue(/^Week \d+$/);
   await expect(dialog.getByRole('tablist')).toHaveCount(1);
   await dialog.screenshot({ path: test.info().outputPath('new-sprint-inside.png') });
   await dialog.getByRole('radio', { name: 'Several' }).click();
-  await expect(dialog.getByText(/^Split CO1 Arrays and lists into \d+ sprints\.$/)).toBeVisible();
-  await dialog.getByRole('radio', { name: 'One' }).click();
-  await dialog.getByRole('tab', { name: 'CO', exact: true }).click();
-  await expect(dialog.getByLabel('Inside the CO')).toHaveCount(0);
-  // Closing the CO says it closes the running sprint and cancels the upcoming one.
+  await expect(dialog.getByText(/^\d+ weeks: Week \d+–Week \d+ · .+, inside Unit 1 Arrays and lists\.$/)).toBeVisible();
+  await dialog.getByRole('radio', { name: 'One', exact: true }).click();
+  await dialog.getByRole('tab', { name: 'Unit', exact: true }).click();
+  await expect(dialog.getByLabel('Inside which unit')).toHaveCount(0);
+  await expect(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue('Unit 2');
+  await dialog.screenshot({ path: test.info().outputPath('new-unit.png') });
+  // Closing the Unit says it closes the running week and cancels the upcoming one.
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Sprint actions' }).click();
   await page.getByRole('menuitem', { name: 'Complete early' }).click();
-  await expect(page.getByRole('note')).toHaveText('This also closes Week 3–4 and cancels Week 5–6.');
+  await expect(page.getByRole('dialog').getByRole('status').filter({ hasText: 'This also' })).toHaveText('This also closes Week 3–4 and cancels Week 5–6.');
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Close Unit 1 Arrays and lists' })).toBeVisible();
   await expect(page.getByRole('dialog').getByRole('radio', { name: /Week 5–6/ })).toHaveCount(0);
 });
 
-test('board/review report §6: days nobody planned between sprints inside a CO show as a gap', async ({ page }) => {
+test('board/review report §6: days nobody planned between weeks inside a Unit show as a gap', async ({ page }) => {
   await open(page, 'running&org=1&gap=1');
-  const inside = page.getByRole('complementary', { name: 'Sprints' }).getByRole('list', { name: 'Sprints in CO1 Arrays and lists' });
+  const inside = page.getByRole('complementary', { name: 'Sprints' }).getByRole('list', { name: 'Sprints in Unit 1 Arrays and lists' });
   await expect(inside.getByRole('listitem')).toHaveCount(3);
   await expect(inside.getByRole('listitem').nth(1)).toContainText(/Gap · .*No sprint planned/);
 });
 
-test('board/review report §6: a sprint inside a CO says where it sits, and the phone picker names it in full', async ({ page }) => {
+test('board/review report §6: a week inside a Unit says where it sits, and the phone picker names it in full', async ({ page }) => {
   await open(page, 'inside&org=1', 390);
-  await expect(page.getByText(/^Inside CO1 Arrays and lists · week \d+ of 7$/)).toBeVisible();
-  await expect(page.getByLabel('Select sprint').locator('option', { hasText: 'CO1 Arrays and lists · Week 3–4' })).toHaveCount(1);
+  await expect(page.getByText(/^Unit 1 Arrays and lists · week \d+ of 7$/)).toBeVisible();
+  await expect(page.getByLabel('Select sprint').locator('option', { hasText: 'Unit 1 Arrays and lists · Week 3–4' })).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 

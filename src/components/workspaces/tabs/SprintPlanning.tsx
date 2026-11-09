@@ -39,7 +39,8 @@ import {
 
 import CreateSprintModal from "@/components/workspaces/v2/sprints/CreateSprintModal";
 import { SprintPeople } from "@/components/workspaces/tabs/sprint/SprintPeople";
-import { SprintInsideStrip } from "@/components/workspaces/tabs/sprint/SprintInsideStrip";
+import { SprintInsights } from "@/components/workspaces/tabs/sprint/SprintInsights";
+import { Notice } from "@/components/ui/notice";
 import { SprintCalendarButton } from "@/components/workspaces/tabs/sprint/SprintCalendar";
 import { SprintAddWork } from "@/components/workspaces/tabs/sprint/SprintAddWork";
 import { formatSprintTimelineStamp } from "@/lib/workspaces/sprint-detail";
@@ -165,7 +166,9 @@ export default function SprintPlanning({
     insideOf: orgContext?.kind === "org" && selectedSprint ? selectedSprint.parentSprintId ?? selectedSprint.id : null });
   // Organizations and child projects (report §15): editor options, links and materials.
   const orgContext = detail?.org ?? null;
-  const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints, orgType: orgContext.orgType, defaults: orgContext.defaults, termEnd: orgContext.termEnd, followsOrgSprints: orgContext.followsOrgSprints, groupBacklog: orgContext.groupBacklog, children: orgContext.children } : null;
+  // An organization's main sprint (a Unit, a Phase): its page leads with the insights row instead of the sprint cards.
+  const isOrgMain = Boolean(selectedSprint && orgContext?.kind === "org" && !selectedSprint.parentSprintId);
+  const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints, orgType: orgContext.orgType, defaults: orgContext.defaults, termEnd: orgContext.termEnd, followsOrgSprints: orgContext.followsOrgSprints, groupBacklog: orgContext.groupBacklog, children: orgContext.children, words: orgContext.words } : null;
   const existingSprints = useMemo(() => (detail?.sprints ?? []).map((s) => ({ id: s.id, name: s.name, startDate: s.startDate, endDate: s.endDate, status: s.status, parentSprintId: s.parentSprintId ?? null })), [detail?.sprints]);
   const editingFlags = editorState?.sprint ? orgContext?.sprintFlags[editorState.sprint.id] : undefined;
   const refreshSprints = () => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
@@ -496,6 +499,7 @@ export default function SprintPlanning({
             selectedSprintId={selectedSprint?.id ?? null}
             canCreate={permissions.canCreate}
             onCreate={() => startNewSprint()}
+            heading={orgContext?.kind === "org" ? orgContext.words.plan : "Sprints"}
           />
         </div>
 
@@ -525,17 +529,18 @@ export default function SprintPlanning({
                 startNow={selectedSprint.status === "planning" && permissions.canStart ? <StartNowButton projectId={projectId} sprintId={selectedSprint.id} onStarted={refreshSprints} announceAs={orgContext?.kind === "org" ? selectedSprint.name : null} /> : null}
               />
             ) : null}
-            {/* Board/review report §6: a CO's sprints on one strip, with its roll-up. */}
-            {selectedSprint && orgContext?.kind === "org" && !selectedSprint.parentSprintId ? (
-              <SprintInsideStrip mainName={selectedSprint.name} projectSlug={projectSlug} sprints={detail.children ?? []} summary={detail.summary}
-                openAssignments={detail.openAssignments ?? 0} teamsWithoutSprint={orgContext.notLinked?.length ?? 0} />
+            {/* Sprint redesign (2026-11-09): a Unit's (Phase's) numbers in one row, then its Weeks, one bar each. */}
+            {selectedSprint && isOrgMain ? (
+              <SprintInsights main={selectedSprint} words={orgContext!.words} projectSlug={projectSlug} sprints={detail.children ?? []} summary={detail.summary}
+                openAssignments={detail.openAssignments ?? 0} teamsWithoutSprint={orgContext!.notLinked?.length ?? 0} />
             ) : null}
-            {/* Sprint redesign §5.6: an ended sprint waits to be closed; say so above its work. */}
+            {/* Sprint redesign §5.6: an ended sprint waits to be closed; say so above its work, with Close right there. */}
             {selectedSprint && sprintPhase(selectedSprint) === "ended" ? (
-              <div role="status" className="mb-4 rounded-[6px] border border-[var(--status-warning)]/40 bg-[var(--status-warning-soft)] px-4 py-3 text-sm">
+              <Notice tone="warning" className="mb-4" action={permissions.canComplete && selectedSprint.status === "active"
+                ? <button type="button" onClick={() => setActiveModal("complete")} className="nb-touch-target nb-ui-label inline-flex h-[30px] items-center rounded-md border border-border bg-card px-3 text-foreground hover:bg-muted">Close {selectedSprint.name}</button> : undefined}>
                 <span className="font-medium">{selectedSprint.name} ended {selectedSprint.endDate ? formatSprintTimelineStamp(selectedSprint.endDate) : ""}.</span>{" "}
                 {detail.summary ? `${detail.summary.completedTasks} of ${detail.summary.totalTasks} done. ` : ""}Close it to count what’s done and move what isn’t.
-              </div>
+              </Notice>
             ) : null}
             {selectedSprint && orgContext ? <ChildSprintLine org={orgContext} projectId={projectId} sprintId={selectedSprint.id} canManage={canManageSprints} onFixed={refreshSprints} /> : null}
             {/* Live-fix 31: assignments sit in the work list with their class progress, not in a block of their own. */}
@@ -546,6 +551,7 @@ export default function SprintPlanning({
               sprint={selectedSprint}
               canManageAssignments={orgContext?.kind === "org" && permissions.canWrite}
               summary={detail.summary}
+              showSummary={!isOrgMain}
               rows={rows}
               hasMore={Boolean(hasNextPage)}
               isLoadingMore={isFetchingNextPage}

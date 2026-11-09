@@ -15,7 +15,8 @@ import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { transactionThen } from '@/lib/db/after-commit';
-import { orgHandleHolds, profiles, workspaceMembers, workspaces, roleApplications, applicationEvents } from '@/lib/db/schema';
+import { orgHandleHolds, profiles, workspaceMembers, workspaces, workspaceSprints, roleApplications, applicationEvents } from '@/lib/db/schema';
+import { cleanMainWord, renamedSprint, sprintWords } from '@/lib/organizations/sprint-words';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { childGrant, orgGrant, type ChildAction, type ChildRole, type OrgRole } from '@/lib/organizations/permissions';
@@ -281,9 +282,10 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         // Names equal to the type's aren't saved, so a later type change still renames them.
         settingsPatch.roleNames = customRoleNames(current?.orgType, value.role_names as Record<string, string>);
     } else if (section === 'work') {
-        const keys = { review_required: 'assignmentReview', late_rule: 'assignmentLateRule', reminders: 'assignmentReminders', story_points: 'storyPoints', due_time: 'assignmentDueTime',
+        const keys = { review_required: 'assignmentReview', late_rule: 'assignmentLateRule', reminders: 'assignmentReminders', story_points: 'storyPoints', due_time: 'assignmentDueTime', main_sprint_word: 'mainSprintWord',
             sprint_auto_start: 'sprintAutoStart', sprint_notify_on_start: 'sprintNotifyOnStart', sprint_show_in_children: 'sprintShowInChildren', sprint_create_matching: 'sprintCreateMatching' } as const;
         for (const [field, key] of Object.entries(keys)) if (field in value) settingsPatch[key] = value[field];
+        if ('main_sprint_word' in value) settingsPatch.mainSprintWord = cleanMainWord(value.main_sprint_word);
     } else if (section === 'notifications') {
         if ('admin_digest' in value) settingsPatch.adminDigest = value.admin_digest;
     } else if (section === 'updates') {
@@ -315,6 +317,35 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
     if ('visibility_cap' in value) await applyChildVisibilityCap(orgId);
     revalidateOrg(viewer.slug, orgId);
     return { success: true };
+}
+
+/**
+ * Sprint redesign (2026-11-09): old main sprint names ("CO1", "Sprint 3") renamed to the organization's word, once, when
+ * an admin asks (Settings → Work). Sprints inside a main one and names without a number never change.
+ */
+async function sprintRenames(orgId: string) {
+    const [org] = await db.select({ orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const main = sprintWords(org?.orgType, org?.orgSettings).main;
+    const rows = await db.select({ id: workspaceSprints.id, name: workspaceSprints.name }).from(workspaceSprints)
+        .where(and(eq(workspaceSprints.projectId, orgId), isNull(workspaceSprints.parentSprintId))).orderBy(workspaceSprints.startDate);
+    return rows.flatMap((row) => { const to = renamedSprint(row.name, main); return to ? [{ id: row.id, from: row.name, to }] : []; });
+}
+
+export async function readSprintRenameOfferAction(orgId: string): Promise<{ success: true; changes: Array<{ from: string; to: string }> } | Failure> {
+    const viewer = await orgViewer(orgId, 'read');
+    if (!viewer || orgGrant(viewer.role, 'manage_joining') !== 'yes') return DENIED;
+    return { success: true, changes: (await sprintRenames(orgId)).map(({ from, to }) => ({ from, to })) };
+}
+
+export async function renameOldSprintNamesAction(orgId: string): Promise<{ success: true; renamed: number } | Failure> {
+    const viewer = await orgViewer(orgId);
+    if (!viewer || orgGrant(viewer.role, 'manage_joining') !== 'yes') return DENIED;
+    const changes = await sprintRenames(orgId);
+    await db.transaction(async (tx) => {
+        for (const change of changes) await tx.update(workspaceSprints).set({ name: change.to, updatedAt: new Date() }).where(eq(workspaceSprints.id, change.id));
+    });
+    revalidateOrg(viewer.slug, orgId);
+    return { success: true, renamed: changes.length };
 }
 
 /** A new code replaces the old one at once; the old code stops working (report §6.1). */

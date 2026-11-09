@@ -24,7 +24,7 @@ test("type defaults: open joining and public for communities and clubs, approval
   assert.deepEqual([orgTypeDefaults("club").joinMode, orgTypeDefaults("club").visibility], ["instant", "public"]);
   assert.deepEqual([orgTypeDefaults("company").joinMode, orgTypeDefaults("company").visibility], ["approval", "private"]);
   assert.equal(orgTypeDefaults("research").creatorTitle, "PI");
-  assert.equal(orgTypeDefaults("education").sprintPrefix, "CO");
+  assert.equal(orgTypeDefaults("education").sprintPrefix, "Unit ");
 });
 
 test("the starter doc uses the type's template and the org's words", () => {

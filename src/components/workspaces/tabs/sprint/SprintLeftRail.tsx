@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, Inbox, Plus } from "lucide-react";
 
 import { buildWorkspaceSprintDetailHref, formatSprintDateRange, type SprintListItem } from "@/lib/workspaces/sprint-detail";
@@ -21,6 +20,8 @@ interface SprintLeftRailProps {
   onCreate: () => void;
   /** A workspace plans from its backlog; an organization from its assignments. */
   showBacklog?: boolean;
+  /** Sprint redesign (2026-11-09): the rail's heading, "Term" for a class, "Plan" elsewhere, "Sprints" in a workspace. */
+  heading?: string;
 }
 
 const SHORT = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -39,10 +40,9 @@ function railLines(sprint: SprintListItem) {
   return { dates, note };
 }
 
-export function SprintLeftRail({ projectSlug, sprints, selectedSprintId, canCreate, onCreate, showBacklog = false }: SprintLeftRailProps) {
-  const router = useRouter();
+export function SprintLeftRail({ projectSlug, sprints, selectedSprintId, canCreate, onCreate, showBacklog = false, heading = "Sprints" }: SprintLeftRailProps) {
   const [pastOpen, setPastOpen] = useState(false);
-  // Board/review report §6: an organization's CO holds its sprints; the term lists COs, each with its sprints inside.
+  // Board/review report §6: an organization's Unit (Phase) holds its Weeks (Sprints); the rail lists each with its own inside.
   const nested = useMemo(() => nestTerm(sprints), [sprints]);
   const groups = useMemo(() => termRail(nested.top), [nested]);
   const groupContentId = "sprint-group-past";
@@ -50,36 +50,15 @@ export function SprintLeftRail({ projectSlug, sprints, selectedSprintId, canCrea
   const href = (sprint: SprintListItem) => buildWorkspaceSprintDetailHref(projectSlug, sprint.id, { sprintCode: sprint.code });
   return (
     <>
-      {/* Phones: one native picker, so the selected sprint stays on screen (spec §21). */}
-      <div className="flex items-center gap-2 md:hidden">
-        <label className="sr-only" htmlFor="sprint-picker">Sprint</label>
-        <select id="sprint-picker" value={selectedSprintId ?? ""} onChange={(event) => { const sprint = sprints.find((item) => item.id === event.target.value); if (sprint) router.replace(href(sprint), { scroll: false }); }}
-          className="h-11 min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[16px] text-foreground">
-          {!selectedSprintId ? <option value="">Select a sprint</option> : null}
-          {groups.map((group) => (
-            <optgroup key={group.key} label={group.title}>
-              {group.items.flatMap((item) => (item.type === "sprint" ? [
-                <option key={item.sprint.id} value={item.sprint.id}>{item.sprint.name}</option>,
-                ...(nested.inside.get(item.sprint.id) ?? []).map((child) => <option key={child.id} value={child.id}>{item.sprint.name} · {child.name}</option>),
-              ] : []))}
-            </optgroup>
-          ))}
-        </select>
-        {canCreate ? (
-          <button type="button" onClick={onCreate} aria-label="New sprint" className="inline-flex size-11 shrink-0 items-center justify-center rounded-[5px] bg-primary text-primary-foreground">
-            <Plus className="size-4" aria-hidden="true" />
-          </button>
-        ) : null}
-      </div>
       <aside aria-label="Sprints" className="w-full min-h-0 overflow-y-auto pr-2 max-md:hidden lg:border-r lg:border-border lg:pr-5 app-scroll app-scroll-y app-scroll-gutter lg:sticky lg:top-[calc(var(--workspace-tabs-height,0px)+1rem)] lg:max-h-[calc(100dvh-var(--workspace-tabs-height,0px)-2rem)]">
         <div className="space-y-4 pb-10">
           <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-2 px-1">
-              <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Term</h2>
+              <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{heading}</h2>
             </div>
             {canCreate ? (
               <button type="button" onClick={onCreate}
-                className="nb-touch-target nb-ui-label inline-flex h-[34px] w-full items-center justify-center gap-2 rounded-[5px] border border-primary bg-primary px-3 text-primary-foreground transition-[background-color,border-color,transform] duration-150 hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:translate-y-px">
+                className="nb-touch-target nb-ui-label inline-flex h-[34px] w-full items-center justify-center gap-2 rounded-md border border-primary bg-primary px-3 text-primary-foreground transition-[background-color,border-color,transform] duration-150 hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:translate-y-px">
                 <Plus aria-hidden="true" className="h-3.5 w-3.5" />
                 New sprint
               </button>
@@ -92,7 +71,7 @@ export function SprintLeftRail({ projectSlug, sprints, selectedSprintId, canCrea
                 <section key={group.key} className="space-y-1" aria-labelledby={`sprint-group-title-${group.key}`}>
                   {past ? (
                     <button type="button" id={`sprint-group-title-${group.key}`} onClick={() => setPastOpen(!pastOpen)} aria-expanded={!isCollapsed} aria-controls={groupContentId}
-                      className="nb-touch-target flex w-full items-center gap-1.5 rounded-[3px] px-1 py-1 text-left font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground hover:text-foreground">
+                      className="nb-touch-target flex w-full items-center gap-1.5 rounded-sm px-1 py-1 text-left font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground hover:text-foreground">
                       {isCollapsed ? <ChevronRight className="size-3" aria-hidden="true" /> : <ChevronDown className="size-3" aria-hidden="true" />}
                       Past · {group.items.length}
                     </button>
@@ -117,16 +96,16 @@ export function SprintLeftRail({ projectSlug, sprints, selectedSprintId, canCrea
                         return (
                           <li key={sprint.id}>
                             <Link href={href(sprint)} aria-current={isSelected ? "page" : undefined}
-                              className={cn("flex flex-col gap-1 rounded-[5px] border px-2.5 py-2 text-left transition-colors", isSelected ? "border-border bg-muted" : "border-transparent hover:border-border/60 hover:bg-muted/40")}>
+                              className={cn("flex flex-col gap-1 rounded-md border px-2.5 py-2 text-left transition-colors", isSelected ? "border-border bg-muted" : "border-transparent hover:border-border hover:bg-muted")}>
                               <span className="flex items-center gap-2 min-w-0">
-                                <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-[1px]", phase === "running" ? "bg-[var(--status-success)]" : phase === "ended" ? "bg-[var(--status-warning)]" : phase === "upcoming" ? "bg-primary" : "bg-muted-foreground/50")} />
+                                <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-sm", phase === "running" ? "bg-[var(--status-success)]" : phase === "ended" ? "bg-[var(--status-warning)]" : phase === "upcoming" ? "bg-primary" : "bg-muted-foreground")} />
                                 <span className="truncate text-sm font-medium leading-tight text-foreground">{sprint.name}</span>
                               </span>
                               <span className="pl-3.5 font-mono text-[11px] text-muted-foreground">{railLines(sprint).dates}<span className={cn("block", phase === "ended" && "text-[var(--status-warning)]")}>{railLines(sprint).note}</span>
-                                {/* Board/review report §6: a CO counts its weeks. */}
+                                {/* Board/review report §6: a Unit counts its weeks. */}
                                 {nested.inside.get(sprint.id)?.length && phase === "running" && weekOf(sprint) ? <span className="block">{weekOf(sprint)}</span> : null}</span>
                               {time ? (
-                                <span className="ml-3.5 block h-1 overflow-hidden rounded-[2px] bg-muted" role="img" aria-label={`${time.percent}% of the time gone`}>
+                                <span className="ml-3.5 block h-1 overflow-hidden rounded-sm bg-muted" role="img" aria-label={`${time.percent}% of the time gone`}>
                                   <span className="block h-full bg-primary" style={{ width: `${time.percent}%` }} />
                                 </span>
                               ) : null}
@@ -147,7 +126,7 @@ export function SprintLeftRail({ projectSlug, sprints, selectedSprintId, canCrea
                                   return (
                                     <li key={child.id}>
                                       <Link href={href(child)} aria-current={selectedSprintId === child.id ? "page" : undefined}
-                                        className={cn("flex flex-col rounded-[5px] px-2 py-1.5 text-left", selectedSprintId === child.id ? "bg-muted" : "hover:bg-muted/40")}>
+                                        className={cn("flex flex-col rounded-md px-2 py-1.5 text-left", selectedSprintId === child.id ? "bg-muted" : "hover:bg-muted")}>
                                         <span className={cn("truncate text-[13px]", childPhase === "running" ? "font-medium text-foreground" : "text-muted-foreground")}>{child.name}</span>
                                         <span className="font-mono text-[11px] text-muted-foreground">{childTime ? `day ${childTime.day} of ${childTime.days}` : railLines(child).note}</span>
                                       </Link>

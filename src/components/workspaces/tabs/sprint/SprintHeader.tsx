@@ -24,15 +24,15 @@ interface SprintHeaderProps {
   startNow?: React.ReactNode;
   /** "Starts by itself" is the sprint's own setting; without it the sprint waits for Start now. */
   autoStart?: boolean;
-  /** Board/review report §6: the CO this sprint sits inside (its dates give "week 3 of 6"). */
+  /** Board/review report §6: the Unit (Phase) this sprint sits inside (its dates give "week 3 of 6"). */
   main?: SprintListItem | null;
-  /** An organization's main sprint (a CO): its header counts its weeks. */
+  /** An organization's main sprint (a Unit, a Phase): its header counts its weeks. */
   isMain?: boolean;
   /** Sprint cleanup §3: Calendar, right of Add work. */
   calendar?: React.ReactNode;
 }
 
-const button = "nb-touch-target nb-ui-label inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border px-3 transition-[background-color,border-color,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50";
+const button = "nb-touch-target nb-ui-label inline-flex h-[34px] items-center gap-1.5 rounded-md border px-3 transition-[background-color,border-color,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50";
 const primary = cn(button, "border-primary bg-primary text-primary-foreground hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)]");
 const secondary = cn(button, "border-border bg-card text-foreground hover:border-input hover:bg-muted");
 
@@ -56,11 +56,12 @@ export function SprintHeader({ sprint, permissions, isMutatingLifecycle, onEdit,
     <header className="mb-5 flex items-start justify-between gap-4 max-md:flex-col max-md:gap-3">
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={cn("nb-status rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em]")} data-status={words.status}>{words.label}</span>
+          <span className={cn("nb-status rounded-sm font-mono text-[11px] font-medium uppercase tracking-[0.09em]")} data-status={words.status}>{words.label}</span>
           {sprint.startDate || sprint.endDate ? <span className="font-mono text-xs text-muted-foreground">{formatSprintDateRange(sprint.startDate, sprint.endDate)}</span> : null}
           {when ? <span className={cn("font-mono text-xs", phase === "ended" ? "text-[var(--status-warning)]" : "text-muted-foreground")}>· {when}</span> : null}
         </div>
-        {main ? <p className="font-mono text-[12px] text-muted-foreground">Inside {main.name}{weekOf(main) ? ` · ${weekOf(main)}` : ""}</p> : null}
+        {/* Sprint redesign (2026-11-09): where it sits, as a path — "Unit 1 · week 3 of 6". */}
+        {main ? <p className="font-mono text-[12px] text-muted-foreground">{main.name}{weekOf(main) ? ` · ${weekOf(main)}` : ""}</p> : null}
         {!main && isMain && weekOf(sprint) ? <p className="font-mono text-[12px] text-muted-foreground">{weekOf(sprint)}</p> : null}
         <h2 className="nb-section-title text-foreground">{sprint.name}</h2>
         {goal ? <p className="nb-body text-foreground"><span className="text-muted-foreground">Goal: </span>{goal}</p> : null}
@@ -70,7 +71,7 @@ export function SprintHeader({ sprint, permissions, isMutatingLifecycle, onEdit,
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {phase === "ended" && canClose ? (
             <button type="button" onClick={onComplete} disabled={isMutatingLifecycle} className={primary}>
-              <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />Close sprint
+              <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />Close {sprint.name}
             </button>
           ) : null}
           {canPlan ? (
@@ -90,7 +91,7 @@ export function SprintHeader({ sprint, permissions, isMutatingLifecycle, onEdit,
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button type="button" aria-label="Sprint actions" disabled={isMutatingLifecycle}
-                  className="nb-touch-target inline-flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:border-input hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50">
+                  className="nb-touch-target inline-flex h-[34px] w-[34px] items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:border-input hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50">
                   <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>

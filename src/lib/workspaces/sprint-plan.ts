@@ -36,6 +36,11 @@ export function sprintTime(sprint: Pick<SprintLike, "startDate" | "endDate">, no
   return { day, days, percent: Math.round((day / days) * 100), daysLeft: day === 0 ? days : Math.max(0, days - day) };
 }
 
+/** Sprint redesign (2026-11-09): the pace and why, "behind · 60% of the time gone, 30% done". */
+export function paceLine(timePercent: number, workPercent: number) {
+  return `${sprintPace(timePercent, workPercent)} · ${timePercent}% of the time gone, ${workPercent}% done`;
+}
+
 /** Work done against time passed: ahead by 10 points or more, behind by more than 15. */
 export function sprintPace(timePercent: number, workPercent: number): "ahead" | "on track" | "behind" {
   if (workPercent - timePercent >= 10) return "ahead";

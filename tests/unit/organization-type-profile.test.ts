@@ -21,12 +21,12 @@ test("21.2: the type profile matches the report's table", () => {
     const p = ORG_TYPE_PROFILES[type];
     return [Object.values(p.roleNames).join("/"), p.finishedWork, p.termDates, p.sprintPrefix, p.joinMode, p.visibility, p.membersPost, p.generalNotify, p.reviewRequired, p.lateRule, p.storyPoints, p.starterFolders.join(", ")];
   };
-  assert.deepEqual(row("education"), ["Teacher/TA/Student/Viewer", "Submissions", true, "CO", "instant", "private", false, "mentions", true, "until", "hidden", "Course materials, Docs, Templates, Staff"]);
-  assert.deepEqual(row("company"), ["Owner/Manager/Member/Viewer", "Final files", false, "Sprint ", "approval", "private", true, "all", false, "always", "shown", "Shared, Docs, Templates, Managers"]);
-  assert.deepEqual(row("research"), ["PI/Researcher/Member/Viewer", "Final files", false, "Sprint ", "approval", "private", true, "all", false, "always", "shown", "Shared, Docs, Templates, Admins"]);
-  assert.deepEqual(row("community"), ["Owner/Admin/Member/Viewer", "Final files", false, "Sprint ", "instant", "public", true, "all", false, "always", "shown", "Shared, Docs, Templates, Admins"]);
-  assert.deepEqual(row("club"), ["President/Coordinator/Member/Viewer", "Final files", false, "Sprint ", "instant", "public", true, "all", false, "always", "shown", "Shared, Docs, Templates, Admins"]);
-  assert.deepEqual(row("other"), ["Owner/Admin/Member/Viewer", "Final files", false, "Sprint ", "approval", "private", true, "all", false, "always", "shown", "Shared, Docs, Templates, Admins"]);
+  assert.deepEqual(row("education"), ["Teacher/TA/Student/Viewer", "Submissions", true, "Unit ", "instant", "private", false, "mentions", true, "until", "hidden", "Course materials, Docs, Templates, Staff"]);
+  assert.deepEqual(row("company"), ["Owner/Manager/Member/Viewer", "Final files", false, "Phase ", "approval", "private", true, "all", false, "always", "shown", "Shared, Docs, Templates, Managers"]);
+  assert.deepEqual(row("research"), ["PI/Researcher/Member/Viewer", "Final files", false, "Phase ", "approval", "private", true, "all", false, "always", "shown", "Shared, Docs, Templates, Admins"]);
+  assert.deepEqual(row("community"), ["Owner/Admin/Member/Viewer", "Final files", false, "Phase ", "instant", "public", true, "all", false, "always", "shown", "Shared, Docs, Templates, Admins"]);
+  assert.deepEqual(row("club"), ["President/Coordinator/Member/Viewer", "Final files", false, "Phase ", "instant", "public", true, "all", false, "always", "shown", "Shared, Docs, Templates, Admins"]);
+  assert.deepEqual(row("other"), ["Owner/Admin/Member/Viewer", "Final files", false, "Phase ", "approval", "private", true, "all", false, "always", "shown", "Shared, Docs, Templates, Admins"]);
   assert.equal(typeProfile(null).roleNames.owner, "Owner", "no type reads as Community");
   assert.equal(typeProfile("education").planLabel, "Plan your term");
   assert.equal(typeProfile("company").planLabel, "Plan your sprints");

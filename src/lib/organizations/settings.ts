@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { typeProfile } from "@/lib/organizations/type-profile";
 import { DEFAULT_DUE_TIME, isTimeOfDay } from "@/lib/organizations/zoned-time";
+import { cleanMainWord } from "@/lib/organizations/sprint-words";
 
 import type { WorkspaceSettingsSectionId } from "@/lib/workspaces/settings-policies";
 import { ORG_LIMITS, ORG_TYPES } from "@/lib/organizations/config";
@@ -99,6 +100,8 @@ export const ORG_SETTINGS_PATCH = {
     story_points: z.enum(["shown", "hidden"]).optional(),
     // Assignment form redesign (2026-11-09): the time a picked due date gets.
     due_time: z.string().refine(isTimeOfDay, "Pick a time like 23:59.").optional(),
+    // Sprint redesign (2026-11-09): what a main sprint is called; null goes back to the type's word.
+    main_sprint_word: z.string().refine((v) => cleanMainWord(v) !== null, "Use one short word, letters only.").nullable().optional(),
     sprint_auto_start: z.boolean().optional(),
     sprint_notify_on_start: z.boolean().optional(),
     sprint_show_in_children: z.boolean().optional(),
@@ -126,6 +129,8 @@ export type OrgWork = {
   reminders: "both" | "day_before" | "due_day" | "off";
   storyPoints: "shown" | "hidden";
   dueTime: string;
+  /** The organization's own word for a main sprint, or null for the type's ("Unit", "Phase"). */
+  mainSprintWord: string | null;
   sprintAutoStart: boolean;
   sprintNotifyOnStart: boolean;
   sprintShowInChildren: boolean;
@@ -147,6 +152,7 @@ export function readOrgWork(orgSettings: unknown, orgType: string | null | undef
     reminders: pick(s.assignmentReminders, ["both", "day_before", "due_day", "off"] as const, "both"),
     storyPoints: pick(s.storyPoints, ["shown", "hidden"] as const, type.storyPoints),
     dueTime: isTimeOfDay(s.assignmentDueTime) ? s.assignmentDueTime : DEFAULT_DUE_TIME,
+    mainSprintWord: cleanMainWord(s.mainSprintWord),
     sprintAutoStart: s.sprintAutoStart !== false,
     sprintNotifyOnStart: s.sprintNotifyOnStart !== false,
     sprintShowInChildren: s.sprintShowInChildren !== false,

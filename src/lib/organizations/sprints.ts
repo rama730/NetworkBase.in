@@ -1,5 +1,6 @@
 import "server-only";
 
+import { sprintWords, type SprintWords } from "@/lib/organizations/sprint-words";
 import { runningSprint, sprintPath } from "@/lib/workspaces/sprint-plan";
 import { and, eq, inArray, isNull, ne, notInArray, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
 
@@ -199,6 +200,8 @@ export type SprintOrgContext = {
   /** Orgs: the org type (name suggestions) and the Work defaults for a new sprint (report §15.2, §21). */
   orgType?: string | null;
   defaults?: { autoStart: boolean; showInChildren: boolean; createMatching: boolean; notifyOnStart: boolean };
+  /** Sprint redesign (2026-11-09): the organization's sprint words (Unit and Week, Phase and Sprint, or its own). */
+  words: SprintWords;
 };
 
 export async function readSprintOrgContext(projectId: string, selectedSprintId: string | null): Promise<SprintOrgContext | null> {
@@ -214,7 +217,7 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     sharedWith: !f.showInChildren ? 'none' as const : sharedIds(f.id).length ? 'selected' as const : 'all' as const, sharedWorkspaceIds: sharedIds(f.id) }]));
   const empty: SprintOrgContext = { kind: project.kind === "organization" ? "org" : "child", orgSprints: [], orgTitle: null, orgSlug: null, parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 0, notLinked: [], groupBacklog: 0, sprintFlags,
     followsOrgSprints: (project.orgSettings as { followOrgSprints?: unknown } | null)?.followOrgSprints === true,
-    termEnd: project.termEnd ? String(project.termEnd).slice(0, 10) : null };
+    termEnd: project.termEnd ? String(project.termEnd).slice(0, 10) : null, words: sprintWords(project.orgType, project.orgSettings) };
 
   if (project.kind === "organization") {
     const work = readOrgWork(project.orgSettings, project.orgType);
@@ -241,7 +244,7 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     return { ...empty, linkedProjects: linked, notLinkedCount: notLinked.length, notLinked };
   }
 
-  const [org] = await db.select({ title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, project.parentId!)).limit(1);
+  const [org] = await db.select({ title: workspaces.title, slug: workspaces.slug, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, project.parentId!)).limit(1);
   const orgSprints = await db
     .select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId })
     .from(workspaceSprints)
@@ -262,6 +265,8 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
   return {
     ...empty,
     groupBacklog: backlog?.n ?? 0,
+    // A team's sprints use its organization's words.
+    words: sprintWords(org?.orgType, org?.orgSettings),
     orgTitle: org?.title ?? null,
     orgSlug: org?.slug ?? null,
     orgSprints: orgSprints.map((s) => ({ id: s.id, name: sprintPath(s, orgSprints), status: s.status, startDate: s.startDate.toISOString(), endDate: s.endDate.toISOString() })),
