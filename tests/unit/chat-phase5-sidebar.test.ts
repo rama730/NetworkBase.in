@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { MARK_ALL_LABEL, needsMarkAllConfirm, sectionsFor, swipeButtons } from "@/lib/messaging/channel-view";
 import type { ChatBootstrap, ChatChannelSummary } from "@/lib/messaging/types";
-import { canGoBackInApp, noteNavigation, notePop, resetInAppHistory } from "@/lib/navigation/in-app-history";
+import { canGoBackInApp, noteTransition, resetInAppHistory, stampEntry, type WinLike } from "@/lib/navigation/in-app-history";
 
 const read = (path: string) => fs.readFileSync(path, "utf8");
 
@@ -52,13 +52,27 @@ test("mark all as read: one label, asks first above 5", () => {
 
 test("in-app Back: a deep link has nothing behind it; browser back steps down", () => {
   resetInAppHistory();
-  noteNavigation("/messages/inbox");
-  noteNavigation("/messages/inbox"); // effect re-run
+  const entries: { url: string; state: any }[] = [{ url: "/messages/inbox", state: null }];
+  let index = 0;
+  const win = {
+    get location() { const u = new URL(entries[index].url, "https://nb.test"); return { pathname: u.pathname, search: u.search, href: u.href }; },
+    history: {
+      get state() { return entries[index].state; },
+      get length() { return entries.length; },
+      replaceState(state: any) { entries[index] = { ...entries[index], state }; },
+    },
+  } as WinLike;
+  stampEntry(win);
+  stampEntry(win); // effect re-run
   assert.equal(canGoBackInApp(), false, "deep link");
-  noteNavigation("/messages/saved");
+  noteTransition("push");
+  entries.push({ url: "/messages/saved", state: null });
+  index = 1;
+  stampEntry(win);
   assert.equal(canGoBackInApp(), true);
-  notePop("/messages/inbox");
-  noteNavigation("/messages/inbox");
+  noteTransition("traverse");
+  index = 0;
+  stampEntry(win);
   assert.equal(canGoBackInApp(), false, "back at the landing page");
   assert.match(read("src/components/messages/useBack.ts"), /canGoBackInApp\(\) \? |if \(canGoBackInApp\(\)\)/);
   assert.doesNotMatch(read("src/components/messages/useBack.ts"), /history\.length/);
