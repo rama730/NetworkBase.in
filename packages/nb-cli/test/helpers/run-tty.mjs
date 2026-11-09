@@ -19,13 +19,13 @@ export const plainText = (s) =>
 
 /**
  * @param {string[]} args
- * @param {{ api: string, keys?: string[], cols?: number, rows?: number, token?: string | null, env?: Record<string, string>, timeoutMs?: number }} options
+ * @param {{ api: string, keys?: string[], cols?: number, rows?: number, token?: string | null, env?: Record<string, string>, timeoutMs?: number, cwd?: string }} options
  * @returns {Promise<{ code: number | null, output: string }>}
  */
-export async function runTty(args, { api, keys = [], cols = 80, rows = 24, token = "nb_pat_test", env = {}, timeoutMs = 15_000 }) {
+export async function runTty(args, { api, keys = [], cols = 80, rows = 24, token = "nb_pat_test", env = {}, timeoutMs = 15_000, cwd: givenCwd }) {
   if (!TTY_SUPPORTED) throw new Error("runTty needs macOS or Linux");
   const home = await tempDir("nb-tty-home-");
-  const cwd = await tempDir("nb-tty-cwd-");
+  const cwd = givenCwd ?? (await tempDir("nb-tty-cwd-"));
   /** @type {Record<string, string>} */
   const fullEnv = { ...cleanEnv(home), NETWORKBASE_API_URL: api, TERM: "xterm-256color", ...env };
   if (token) fullEnv.NETWORKBASE_TOKEN = token;

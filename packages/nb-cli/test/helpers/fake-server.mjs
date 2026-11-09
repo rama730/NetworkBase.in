@@ -1,72 +1,165 @@
-// A local stand-in for the NetworkBase API, so CLI tests never use the network.
-// Routes answer in the 1.x `/api/v1/extension/*` shapes; Phase 1 adds the resource API.
+// A local stand-in for the NetworkBase API, so CLI tests never use the network. It follows the real routes'
+// shapes (Phase 1: /me, /files/place, /workspaces/:id/manifest, /tasks/count, docs; and the extension routes).
 import http from "node:http";
 import crypto from "node:crypto";
 
 /** @typedef {"drop" | "429" | "503" | "slow" | "corrupt"} Fault */
-/** @typedef {{ method: string, path: string, query: URLSearchParams, headers: http.IncomingHttpHeaders, body: any }} FakeRequest */
-/** @typedef {{ status?: number, headers?: Record<string, string>, body?: any, data?: any }} FakeResponse */
+/** @typedef {{ method: string, path: string, query: URLSearchParams, headers: http.IncomingHttpHeaders, body: any, params: string[] }} FakeRequest */
+/** @typedef {{ status?: number, headers?: Record<string, string>, body?: any, data?: any, raw?: Buffer }} FakeResponse */
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
-/** @typedef {{ path: string, nodeId: string, version: number, content: Buffer }} FakeFile */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: any[] }} FakeState */
+/** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
+/** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string> }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
+export const TOKEN = "nb_pat_test0123456789abcdef";
 
 const sha256 = (/** @type {Buffer} */ buf) => crypto.createHash("sha256").update(buf).digest("hex");
+const now = () => new Date().toISOString();
 
 /** @param {FakeState} state @param {string} path @param {Buffer} content */
 export function putFile(state, path, content) {
   const prev = state.files.get(path);
-  const file = { path, nodeId: prev?.nodeId ?? crypto.randomUUID(), version: (prev?.version ?? 0) + 1, content };
+  const file = { path, nodeId: prev?.nodeId ?? crypto.randomUUID(), version: (prev?.version ?? 0) + 1, content, updatedAt: now() };
   state.files.set(path, file);
   return { file, prev };
 }
 
+/** @param {FakeState} state @param {Partial<FakeTask>} task */
+export function addTask(state, task) {
+  const t = { id: crypto.randomUUID(), taskNumber: state.tasks.length + 1, title: "Task", status: "todo", reviewStatus: "none", updatedAt: now(), description: "", priority: "medium", assigneeUsername: "tester", subtasks: [], files: [], comments: [], ...task };
+  state.tasks.push(t);
+  return t;
+}
+
 /** @param {FakeFile} f */
-const fileMeta = (f) => ({ id: f.nodeId, nodeId: f.nodeId, path: f.path, size: f.content.length, contentHash: sha256(f.content), currentVersion: f.version });
+const meta = (f) => ({ nodeId: f.nodeId, path: f.path, version: f.version, contentHash: sha256(f.content), size: f.content.length, updatedAt: f.updatedAt });
+const fail = (/** @type {number} */ status, /** @type {string} */ errorCode, /** @type {string} */ message, /** @type {any} */ details = undefined) => ({ status, body: { success: false, errorCode, message, ...(details ? { details } : {}) } });
+
+/** @param {FakeState} state @param {string} ref */
+const findTask = (state, ref) => state.tasks.find((t) => t.id === ref || String(t.taskNumber) === ref);
 
 /** @type {Record<string, Handler>} */
-const defaultRoutes = {
-  "GET /api/v1/extension/session": (req) => {
+const exact = {
+  "GET /api/v1/health": () => ({ data: { status: "ok" } }),
+  "GET /api/v1/extension/session": (req, state) => {
     const token = String(req.headers.authorization ?? "").replace(/^Bearer /, "");
-    if (!/^nb_(pat|dev)_/.test(token)) return { status: 401, body: { success: false, message: "Sign in to continue", errorCode: "UNAUTHORIZED" } };
-    return { data: { sessionId: "s1", active: true, tokenType: token.startsWith("nb_pat_") ? "pat" : "device", user: { id: "u1", email: "t@example.com", username: "tester", fullName: "Test User" } } };
+    if (!/^nb_(pat|dev)_/.test(token)) return fail(401, "UNAUTHORIZED", "Sign in to continue");
+    return { data: { sessionId: "s1", active: !state.revoked.has(token), tokenType: "pat", user: { id: "u1", email: "t@example.com", username: "tester", fullName: "Test User" } } };
   },
+  "POST /api/v1/extension/session": (req, state) => {
+    state.revoked.add(String(req.headers.authorization ?? "").replace(/^Bearer /, ""));
+    return { data: { revoked: true } };
+  },
+  "POST /api/v1/extension/auth-code": (req) => (req.body?.code === "good-code" && req.body?.codeVerifier ? { data: { token: TOKEN } } : fail(401, "UNAUTHORIZED", "Bad code")),
+  "GET /api/v1/me": () => ({ data: { user: { id: "u1", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 } } }),
   "GET /api/v1/extension/workspaces": (_req, state) => ({ data: { workspaces: [state.workspace] } }),
-  "GET /api/v1/extension/workspace-tasks": (_req, state) => ({ data: { tasks: state.tasks } }),
-  "GET /api/v1/extension/search": (_req, state) => ({ data: { files: [...state.files.values()].map(fileMeta), nextCursor: null } }),
+  "GET /api/v1/extension/workspace-tasks": (req, state) => ({ data: { tasks: state.tasks.filter((t) => req.query.get("scope") !== "mine" || t.assigneeUsername === "tester").map((t) => ({ ...t, subtaskSummary: { completed: t.subtasks.filter((s) => s.completed).length, total: t.subtasks.length } })) } }),
+  "GET /api/v1/extension/task-detail": (req, state) => {
+    const t = findTask(state, req.query.get("taskId") ?? req.query.get("taskNumber") ?? "");
+    if (!t) return fail(404, "NOT_FOUND", "Task not found");
+    return { data: { task: t, subtasks: t.subtasks, files: t.files, comments: t.comments, pushes: [] } };
+  },
+  "GET /api/v1/tasks/count": (_req, state) => {
+    const open = state.tasks.filter((t) => t.status !== "done" || t.reviewStatus === "pending");
+    const by = (/** @type {string} */ s) => open.filter((t) => t.status === s).length;
+    return { data: { open: open.length, byStatus: { todo: by("todo"), in_progress: by("in_progress"), blocked: by("blocked"), in_review: open.filter((t) => t.reviewStatus === "pending").length }, overdue: 0, dueThisWeek: 0 } };
+  },
+  "POST /api/v1/extension/create-task": (req, state) => ({ data: { task: addTask(state, { title: req.body.title, description: req.body.description ?? "", priority: req.body.priority ?? "medium" }) } }),
+  "POST /api/v1/extension/task-subtask": (req, state) => {
+    const t = findTask(state, req.body.taskId);
+    if (!t) return fail(404, "NOT_FOUND", "Task not found");
+    const s = { id: crypto.randomUUID(), title: req.body.title, completed: false, index: t.subtasks.length + 1, updatedAt: now() };
+    t.subtasks.push(s);
+    return { data: { subtask: s } };
+  },
+  "PATCH /api/v1/extension/task-update": (req, state) => {
+    const t = findTask(state, req.body.taskId);
+    if (!t) return fail(404, "NOT_FOUND", "Task not found");
+    if (req.body.kind === "subtask") {
+      const s = t.subtasks.find((x) => x.id === req.body.subtaskId);
+      if (!s || s.updatedAt !== req.body.expectedUpdatedAt) return fail(409, "CONFLICT", "Subtask changed elsewhere");
+      s.completed = req.body.completed;
+      s.updatedAt = now();
+      return { data: { subtask: s } };
+    }
+    if (t.updatedAt !== req.body.expectedUpdatedAt) return fail(409, "CONFLICT", "Task changed elsewhere. Reload before retrying.");
+    if (req.body.kind === "status") {
+      t.status = req.body.status;
+      t.reviewStatus = req.body.status === "done" && state.reviewRequired ? "pending" : "none";
+      t.updatedAt = now();
+      return { data: { status: t.status, reviewStatus: t.reviewStatus, outcome: t.reviewStatus === "pending" ? "submitted" : req.body.status === "done" ? "completed" : "moved", evidence: req.body.evidence ?? null, warnings: [] } };
+    }
+    if (req.body.kind === "approve") { t.reviewStatus = "none"; t.updatedAt = now(); return { data: { success: true } }; }
+    if (req.body.kind === "request_changes") { t.status = "in_progress"; t.reviewStatus = "rejected"; t.updatedAt = now(); return { data: { success: true } }; }
+    if (req.body.kind === "resubmit") { t.status = "done"; t.reviewStatus = "pending"; t.updatedAt = now(); return { data: { success: true } }; }
+    return fail(400, "BAD_REQUEST", "Invalid task update");
+  },
+  "POST /api/v1/extension/comments": (req, state) => {
+    const t = findTask(state, req.body.taskId);
+    if (!t) return fail(404, "NOT_FOUND", "Task not found");
+    t.comments.push({ authorUsername: "tester", content: req.body.text ?? req.body.content });
+    return { data: { comment: { id: crypto.randomUUID() } } };
+  },
+  "GET /api/v1/extension/search": (req, state) => ({ data: { files: [...state.files.values()].filter((f) => f.path.includes(req.query.get("q") ?? "")).map((f) => ({ ...meta(f), currentVersion: f.version })), nextCursor: null } }),
   "GET /api/v1/extension/file": (req, state) => {
     const f = state.files.get(req.query.get("path") ?? "");
-    if (!f) return { status: 404, body: { success: false, message: "File not found", errorCode: "NOT_FOUND" } };
-    const hash = sha256(f.content);
-    if (String(req.headers["if-none-match"] ?? "").replace(/"/g, "") === hash) return { status: 304 };
-    return { data: { ...fileMeta(f), encoding: "base64", content: f.content.toString("base64") } };
+    if (!f) return fail(404, "NOT_FOUND", "File not found");
+    if (req.query.get("transfer") === "raw") return { raw: f.content };
+    return { data: { ...meta(f), currentVersion: f.version, encoding: "base64", content: f.content.toString("base64") } };
   },
-  "POST /api/v1/extension/fast-push": (req, state) => {
-    const files = (req.body?.files ?? []).map((/** @type {any} */ item) => {
-      const content = Buffer.from(item.contentBase64 ?? "", "base64");
-      const prev = state.files.get(item.path);
-      if (prev && sha256(prev.content) === sha256(content)) {
-        return { ...fileMeta(prev), status: "unchanged", version: prev.version, versionTransition: `v${prev.version} (unchanged)` };
-      }
-      const { file } = putFile(state, item.path, content);
-      return { ...fileMeta(file), status: prev ? "modified" : "new", version: file.version, versionTransition: prev ? `v${prev.version} -> v${file.version}` : "v1 (new)" };
+  "POST /api/v1/extension/file-operation": (req, state) => {
+    if (req.body.kind !== "trash") return fail(400, "BAD_REQUEST", "Unsupported");
+    for (const [p, f] of state.files) if (f.nodeId === req.body.nodeId) state.files.delete(p);
+    return { data: { trashed: true } };
+  },
+  "POST /api/v1/files/place": (req, state) => {
+    if (!state.canWrite) return fail(403, "FORBIDDEN", "You don’t have write access to this workspace");
+    const files = req.body.files ?? [];
+    const findings = files.filter((/** @type {any} */ f) => /nb_pat_[A-Za-z0-9]{16,}/.test(Buffer.from(f.contentBase64 ?? "", "base64").toString("utf8"))).map((/** @type {any} */ f) => ({ path: f.path, rule: "NetworkBase token", line: 1 }));
+    if (findings.length && !req.body.confirmSecrets) return fail(422, "SECRET_DETECTED", "These files look like they contain passwords or keys", { findings });
+    const conflicts = files.flatMap((/** @type {any} */ f) => {
+      const cur = state.files.get(f.path);
+      return cur && f.baseVersion && cur.version !== f.baseVersion && sha256(cur.content) !== f.contentHash ? [{ path: f.path, baseVersion: f.baseVersion, currentVersion: cur.version }] : [];
     });
-    const uploadedCount = files.filter((/** @type {any} */ f) => f.status !== "unchanged").length;
-    return { data: { success: true, fastPath: true, projectId: req.body?.projectId, taskId: null, role: req.body?.role ?? "working", uploadedCount, unchangedCount: files.length - uploadedCount, taskPushReceipt: null, files } };
+    if (conflicts.length) return fail(409, "VERSION_CONFLICT", `${conflicts[0].path} changed on the server`, { conflicts });
+    const out = files.map((/** @type {any} */ f) => {
+      const content = Buffer.from(f.contentBase64 ?? "", "base64");
+      let target = req.body.folder ? `${req.body.folder}/${f.path.replace(/^\//, "")}` : f.path;
+      const cur = state.files.get(target);
+      if (cur && sha256(cur.content) === sha256(content)) return { ...meta(cur), status: "unchanged" };
+      if (cur && req.body.onSameName === "keep-both") target = target.replace(/(\.[^./]+)?$/, " (2)$1");
+      const { file, prev } = putFile(state, target, content);
+      return { ...meta(file), status: prev && target === f.path ? "modified" : "new", versionTransition: prev ? `v${prev.version} -> v${file.version}` : "v1 (new)" };
+    });
+    const task = req.body.taskId ? findTask(state, req.body.taskId) : null;
+    if (task) for (const f of out) task.files.push({ path: f.path, name: f.path.split("/").pop(), role: req.body.role === "final" ? "deliverable" : req.body.role === "reference" ? "reference" : "working", currentVersion: f.version });
+    return { data: { success: true, files: out, role: req.body.role ?? "working", as: req.body.role ?? "draft", transition: null } };
   },
 };
+
+/** Routes with ids in the path. @type {Array<[RegExp, string, Handler]>} */
+const patterns = [
+  [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...state.files.values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: state.files.get(d.nodePath)?.nodeId ?? null })) } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {
+    const doc = state.docs.find((d) => d.slug === req.params[1]);
+    const file = doc ? state.files.get(doc.nodePath) : null;
+    if (!doc || !file) return fail(404, "NOT_FOUND", "No such doc");
+    return { data: { slug: doc.slug, canEdit: true, content: file.content.toString("utf8"), file: { nodeId: file.nodeId, path: file.path, version: file.version } } };
+  }],
+];
 
 /**
  * @param {{ routes?: Record<string, Handler>, fault?: Record<string, Fault> }} [options]
  */
 export async function startFakeServer({ routes = {}, fault = {} } = {}) {
   /** @type {FakeState} */
-  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [] };
+  const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set() };
   /** @type {FakeRequest[]} */
   const requests = [];
   const faults = new Map(Object.entries(fault));
-  const table = { ...defaultRoutes, ...routes };
+  const table = { ...exact, ...routes };
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://fake");
@@ -76,7 +169,7 @@ export async function startFakeServer({ routes = {}, fault = {} } = {}) {
     let body = null;
     try { body = raw ? JSON.parse(raw) : null; } catch { body = raw; }
     /** @type {FakeRequest} */
-    const fakeReq = { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, headers: req.headers, body };
+    const fakeReq = { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, headers: req.headers, body, params: [] };
     requests.push(fakeReq);
 
     const f = faults.get(url.pathname);
@@ -86,10 +179,17 @@ export async function startFakeServer({ routes = {}, fault = {} } = {}) {
     if (f === "corrupt") { res.writeHead(200, { "content-type": "application/json" }); res.end("{not json"); return; }
     if (f === "slow") await new Promise((r) => setTimeout(r, 2000));
 
-    const handler = table[`${fakeReq.method} ${url.pathname}`];
+    let handler = table[`${fakeReq.method} ${url.pathname}`];
+    if (!handler) {
+      for (const [re, method, h] of patterns) {
+        const m = re.exec(url.pathname);
+        if (m && method === fakeReq.method) { fakeReq.params = m.slice(1).map(decodeURIComponent); handler = h; break; }
+      }
+    }
     if (!handler) { res.writeHead(404, { "content-type": "application/json" }); res.end(JSON.stringify({ success: false, message: `No fake route for ${fakeReq.method} ${url.pathname}`, errorCode: "NOT_FOUND" })); return; }
     const out = await handler(fakeReq, state);
     const status = out.status ?? 200;
+    if (out.raw) { res.writeHead(200, { "content-type": "application/octet-stream" }); res.end(out.raw); return; }
     if (status === 304) { res.writeHead(304); res.end(); return; }
     res.writeHead(status, { "content-type": "application/json", ...out.headers });
     res.end(JSON.stringify(out.body ?? { success: true, data: out.data }));
