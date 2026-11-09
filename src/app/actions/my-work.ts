@@ -9,25 +9,7 @@ import { countReviewableApplications } from "@/lib/applications/reviewers";
 import { normalizeTaskSurfaceRecord } from "@/lib/workspaces/task-presentation";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { readOrgPendingCountAction } from "@/app/actions/org-workspace";
-
-/**
- * Org rules for My work (report §29.2): assignment masters never show; excused copies are hidden; an org's person
- * copies show only to their assignee and team (admins don't see them here either). Group copies in child projects
- * show like any project task.
- */
-function orgCopyRules(userId: string) {
-    // Student check 3: like the board (orgTaskReadFilter), a member's organization work is only their own; admins
-    // still see the organization's open tasks.
-    return sql`${tasks.kind} <> 'assignment' AND ${tasks.excusedAt} IS NULL AND (
-        EXISTS (SELECT 1 FROM workspaces cp WHERE cp.id = ${tasks.projectId} AND cp.kind <> 'organization')
-        OR (${tasks.assignmentId} IS NULL AND EXISTS (SELECT 1 FROM workspaces o WHERE o.id = ${tasks.projectId}
-            AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members om WHERE om.workspace_id = o.id AND om.user_id = ${userId}::uuid AND om.role = 'admin'))))
-        OR ${tasks.assigneeId} = ${userId}::uuid
-        OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))`;
-}
-function mineSql(userId: string) {
-    return sql`(${tasks.assigneeId} = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))`;
-}
+import { mineSql, orgCopyRules } from "@/lib/domain/my-tasks";
 
 function normalizeMyWorkLimit(rawLimit: unknown, fallback = 24) {
     const parsed = typeof rawLimit === "number" ? rawLimit : Number(rawLimit);

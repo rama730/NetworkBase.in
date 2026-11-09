@@ -47,6 +47,7 @@ import {
   taskSubtasks,
   tasks,
   workspaceGitCommits,
+  workspaceDocuments,
   workspaceNodeLocks,
   workspaceNodes,
 } from "@/lib/db/schema";
@@ -257,6 +258,19 @@ async function handlePost(request: Request) {
     const existingByPath = new Map<string, (typeof existingNodes)[number]>();
     for (const node of existingNodes) {
       existingByPath.set(normalizePath(node.path), node);
+    }
+
+    // Files that back a workspace doc (the README) need the doc:write permission for tokens (report D16).
+    if (auth.tokenScopes && existingNodes.length) {
+      const docBacked = await db
+        .select({ id: workspaceDocuments.id })
+        .from(workspaceDocuments)
+        .where(and(eq(workspaceDocuments.projectId, projectId), inArray(workspaceDocuments.linkedNodeId, existingNodes.map((n) => n.id))))
+        .limit(1);
+      if (docBacked.length) {
+        const denied = requireTokenScope(auth, "doc:write");
+        if (denied) return denied;
+      }
     }
 
     // A newer version than the one the person started from is a conflict, never an overwrite (A1.8, F18).

@@ -25,6 +25,8 @@ import { logger } from "@/lib/logger";
 import { toIsoString as toIso } from "@/lib/utils/date";
 import { isUuid } from "@/lib/validations/uuid";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
+import { headers } from "next/headers";
+import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { orgFileAccessSql, projectContentNodeSql, recordNodeEvent } from "@/lib/files/internal-helpers";
 import {
     getOrBuildWorkspaceDocPublishMetadata,
@@ -129,6 +131,12 @@ function toDocVersion(row: (typeof workspaceDocumentVersions.$inferSelect & { cr
 }
 
 async function getOptionalUserId() {
+    // CLI and agent tokens read docs through /api/v1/workspaces/:id/docs (report §18.2 "change the README").
+    // requireAuthenticatedUser applies the token route allow-list and scopes; a token on any other path is
+    // refused there and reads as signed out here. Browser sessions keep the cached viewer context.
+    if (/^bearer\s/i.test((await headers()).get("authorization") ?? "")) {
+        return (await requireAuthenticatedUser()).user?.id ?? null;
+    }
     return (await getViewerAuthContext()).userId;
 }
 
