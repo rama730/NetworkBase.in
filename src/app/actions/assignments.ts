@@ -14,7 +14,7 @@ import { requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { agentMadeFiles, aiUseByCopy, type AiUsed } from '@/lib/organizations/ai-labels';
 import { orgRoleNames } from '@/lib/organizations/config';
 import { assignmentHref, canStillSubmit, copyState, reviewDeadlock, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState, weeklyRepeats, type AiPolicy } from '@/lib/organizations/assignment-rules';
-import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients, startCopyQuietly } from '@/lib/organizations/assignments';
+import { createCopies, createMasterTask, handedInSql, NoReviewerError, PeopleLeftError, resolveRecipients, reviewerRolesOf, startCopyQuietly } from '@/lib/organizations/assignments';
 import { publishMaster } from '@/lib/organizations/assignment-publish';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
@@ -55,13 +55,6 @@ async function orgRole(orgId: string, mode: 'read' | 'write' = 'write') {
 
 const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?? id}`);
 
-/** Decision 8: everyone in the org who could review, by role, for reviewDeadlock. */
-async function reviewerRoles(orgId: string) {
-    const rows = await db.select({ role: workspaceMembers.role }).from(workspaceMembers).where(eq(workspaceMembers.projectId, orgId));
-    const [owner] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
-    const roles = rows.map((r) => orgRoleOf(r.role));
-    return owner?.ownerId && !roles.includes('owner') ? [...roles, orgRoleOf('owner')] : roles;
-}
 
 const targetSchema: z.ZodType<AssignmentTarget> = z.union([
     z.object({ mode: z.literal('everyone') }),
@@ -151,7 +144,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     }
     if (data.publish) {
         const [org] = await db.select({ reviewDefault: workspaces.taskReviewRequired }).from(workspaces).where(eq(workspaces.id, data.projectId)).limit(1);
-        const deadlock = reviewDeadlock(data.target, data.reviewRequired ?? org?.reviewDefault ?? false, await reviewerRoles(data.projectId));
+        const deadlock = reviewDeadlock(data.target, data.reviewRequired ?? org?.reviewDefault ?? false, await reviewerRolesOf(db, data.projectId));
         if (deadlock) return { success: false, error: deadlock, noReviewer: true } satisfies NoReviewer;
     }
     try {
@@ -236,13 +229,6 @@ export async function publishAssignmentAction(masterId: string, options: { dropM
     const ctx = await adminOfMaster(masterId, 'create_assignments');
     if (!ctx) return DENIED;
     if (ctx.master.settings.publishedAt) return { success: false, error: 'Already published.' };
-    // Decision 8: Turn review off and publish, or say why it can't be published as it is.
-    if (options.reviewOff && ctx.master.settings.reviewRequired) {
-        await db.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, reviewRequired: false }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
-    } else {
-        const deadlock = reviewDeadlock(ctx.master.settings.target, ctx.master.settings.reviewRequired, await reviewerRoles(ctx.master.projectId));
-        if (deadlock) return { success: false, error: deadlock, noReviewer: true };
-    }
     try {
         const copies = await publishMaster(masterId, ctx.viewer.userId, options);
         if (copies === null) return { success: false, error: 'Already published.' };
@@ -250,6 +236,8 @@ export async function publishAssignmentAction(masterId: string, options: { dropM
         return { success: true, copies };
     } catch (error) {
         if (error instanceof PeopleLeftError) return { success: false, error: error.message, left: error.left };
+        // Decision 8: the sheet offers Turn review off and publish (publishMaster's reviewOff).
+        if (error instanceof NoReviewerError) return { success: false, error: error.message, noReviewer: true };
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t publish.' };
     }
 }

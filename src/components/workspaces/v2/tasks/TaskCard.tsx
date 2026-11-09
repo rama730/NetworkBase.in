@@ -158,6 +158,8 @@ export const TaskCard = memo(function TaskCard({
   const scheduled = Boolean(master?.draft && taskRecord.publishAt);
   const line = master && !master.draft && stages && stages.total + stages.counts.excused > 0 ? cardLine(stages) : null;
   const allApproved = Boolean(line?.allDone);
+  // Assignment flow: a closed assignment says when it closed, before where everyone ended up.
+  const closedPrefix = master?.closed ? `Closed${master.closedAt ? ` ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(master.closedAt))}` : ""} · ` : "";
   const ownStage = taskRecord.copyStage ?? null;
   const ownChip = ownStage ? copyChip(ownStage) : null;
   // Sprint work list redesign (2026-11-09): the same chip as a sprint's list; the board leaves out what its line says.
@@ -234,10 +236,10 @@ export const TaskCard = memo(function TaskCard({
           ) : line && stages ? (
             <div className="space-y-1.5">
               <StageBar stages={stages} />
-              <p className={cn("font-mono text-[11px]", allApproved ? "text-[var(--status-success)]" : "text-muted-foreground")}>{line.text}</p>
+              <p className={cn("font-mono text-[11px]", allApproved ? "text-[var(--status-success)]" : "text-muted-foreground")}>{closedPrefix}{line.text}</p>
             </div>
           ) : (
-            <p className="font-mono text-[11px] text-muted-foreground">Nobody has it yet. People get it when they join.</p>
+            <p className="font-mono text-[11px] text-muted-foreground">{master.closed ? `${closedPrefix}nobody had it` : "Nobody has it yet. People get it when they join."}</p>
           )
         ) : ownStage && ownStage.state !== "not_started" && ownStage.state !== "in_progress" ? (
           <p className={cn("line-clamp-2 font-mono text-[11px]", ownChip?.tone === "danger" ? "text-[var(--status-danger)]" : ownChip?.tone === "success" ? "text-[var(--status-success)]" : "text-muted-foreground")}>{copyStageLine(ownStage)}</p>

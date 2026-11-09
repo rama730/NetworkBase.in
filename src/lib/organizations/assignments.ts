@@ -7,8 +7,8 @@ import { and, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "driz
 import { db } from "@/lib/db";
 import { taskActivityEvents, workspaceMembers, workspaceSprints, workspaceWorkflowColumns, workspaces, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
-import { assignmentWriteBlock, autoStartLine, copyState, lateAfterMs, type AssignmentSettings, type AssignmentTarget, type AssignmentWrite, type CopyState, type StartTrigger } from "@/lib/organizations/assignment-rules";
-import { orgCan, type OrgRole } from "@/lib/organizations/permissions";
+import { assignmentWriteBlock, autoStartLine, copyState, reviewDeadlock, lateAfterMs, type AssignmentSettings, type AssignmentTarget, type AssignmentWrite, type CopyState, type StartTrigger } from "@/lib/organizations/assignment-rules";
+import { orgCan, orgRoleOf, type OrgRole } from "@/lib/organizations/permissions";
 
 // Assignments (report §16, §16.11): a master task on the org and one copy per person, team or child project.
 
@@ -182,6 +182,23 @@ export async function canSeeOrgTask(access: WorkspaceAccess, viewerId: string | 
   if (!filter) return true;
   const [row] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, taskId), filter)).limit(1);
   return Boolean(row);
+}
+
+/** Assignment flow decision 8: publishing would leave nobody able to review its copies. */
+export class NoReviewerError extends Error {}
+
+/** Everyone in the org who could review, by role (the owner counted once), for reviewDeadlock. */
+export async function reviewerRolesOf(executor: Executor, orgId: string): Promise<OrgRole[]> {
+  const rows = await executor.select({ role: workspaceMembers.role }).from(workspaceMembers).where(eq(workspaceMembers.projectId, orgId));
+  const [owner] = await executor.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+  const roles = rows.map((r) => orgRoleOf(r.role));
+  return owner?.ownerId && !roles.includes("owner") ? [...roles, orgRoleOf("owner")] : roles;
+}
+
+/** Throws NoReviewerError when an assignment with these settings can't be reviewed by anyone in the org. */
+export async function assertSomeoneReviews(executor: Executor, orgId: string, settings: Pick<AssignmentSettings, "target" | "reviewRequired">) {
+  const deadlock = reviewDeadlock(settings.target, settings.reviewRequired, await reviewerRolesOf(executor, orgId));
+  if (deadlock) throw new NoReviewerError(deadlock);
 }
 
 /** Who gets a copy (report §16.2): people in the org, teams, or each (or some) child project's lead. */

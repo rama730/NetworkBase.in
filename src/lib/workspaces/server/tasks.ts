@@ -491,7 +491,7 @@ async function fetchProjectTasksForActor(
         const counts = countsByTaskId.get(task.id);
         const isMaster = task.kind === "assignment" && !task.assignmentId;
         const p = isMaster ? progressByMaster.get(task.id) : undefined;
-        const progress = isMaster ? { draft: !task.assignmentSettings?.publishedAt, closed: Boolean(task.assignmentSettings?.closedAt), done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), toReview: Number(p?.to_review ?? 0), excused: Number(p?.excused ?? 0), stuck: Number(p?.stuck ?? 0),
+        const progress = isMaster ? { draft: !task.assignmentSettings?.publishedAt, closed: Boolean(task.assignmentSettings?.closedAt), closedAt: task.assignmentSettings?.closedAt ?? null, done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), toReview: Number(p?.to_review ?? 0), excused: Number(p?.excused ?? 0), stuck: Number(p?.stuck ?? 0),
           // Mockup task 4: group work reads Groups on its card.
           teams: ['teams', 'each_child', 'children'].includes(String((task.assignmentSettings as { target?: { mode?: string } } | null)?.target?.mode ?? '')) } : null;
         const column = progress ? assignmentColumn({ ...progress, started: Number(p?.started ?? 0) }) : null;

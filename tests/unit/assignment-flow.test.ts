@@ -95,10 +95,15 @@ test("decision 6: the Blocked note is kept on the move, reaches admins as a mess
   assert.match(source("src/lib/organizations/needs-you.ts"), /kind: 'stuck'/);
 });
 
-test("decision 8: create and publish both refuse an admins-only assignment nobody could review", () => {
+test("decision 8: create, publish now and scheduled publish all refuse an admins-only assignment nobody could review", () => {
   const actions = source("src/app/actions/assignments.ts");
-  assert.equal((actions.match(/reviewDeadlock\(/g) ?? []).length, 2);
-  assert.match(actions, /noReviewer: true/);
+  assert.match(actions, /reviewDeadlock\(data\.target, [^\n]*reviewerRolesOf\(db, data\.projectId\)\)/, "create");
+  assert.match(actions, /if \(error instanceof NoReviewerError\) return \{ success: false, error: error\.message, noReviewer: true \}/, "publish now");
+  // Publish now and the hourly job both go through publishMaster, which checks inside its transaction; the job's
+  // failure path puts it back to a draft and tells the person why.
+  const publish = source("src/lib/organizations/assignment-publish.ts");
+  assert.match(publish, /const reviewRequired = options\.reviewOff \? false : master\.settings\.reviewRequired;\s*await assertSomeoneReviews\(tx, master\.projectId, \{ target: master\.settings\.target, reviewRequired \}\);/);
+  assert.match(publish, /publishMaster\(row\.id, row\.actor, \{ dropMissing: true \}\)[\s\S]*wasn’t published: \$\{reason\}/);
   assert.match(source("src/components/workspaces/v2/tasks/AssignmentDropSheets.tsx"), /Turn review off and publish/);
   assert.match(source("src/components/organizations/AssignmentsPanel.tsx"), /Turn review off and publish/);
 });
@@ -132,4 +137,14 @@ test("cards: a locked copy shows its lock, a stuck copy says what's in the way",
   assert.match(stuck, />Blocked</);
   // The why-it-moved line waits for the browser (it's per viewer), so the server never renders it.
   assert.doesNotMatch(render({ ...base, copyStage: stage("in_progress"), lastMove: { text: "Started when you added stack.c", at: "2026-11-10T10:00:00.000Z" } }), /data-why-moved/);
+});
+
+test("a closed assignment's card says when it closed", async () => {
+  const { TaskCard } = await import("../../src/components/workspaces/v2/tasks/TaskCard");
+  const counts = { not_started: 0, in_progress: 0, submitted: 0, returned: 0, done: 26, missing: 6, excused: 0 };
+  const html = renderToStaticMarkup(React.createElement(TaskCard, { showStatus: false, task: {
+    id: "m", title: "Quiz prep: hashing", kind: "assignment", status: "done", priority: "medium", projectKey: "C3D", taskNumber: 11, audience: { mode: "everyone", count: 32 },
+    assignmentProgress: { draft: false, closed: true, closedAt: "2026-11-08T12:00:00.000Z", done: 26, total: 32, toReview: 0, excused: 0 },
+    assignmentStages: { counts, names: {}, total: 32, reviewRequired: true, teams: false, remind: { not_started: [], missing: [] }, stuck: 0 } } }));
+  assert.match(html, />Closed Nov 8 · 26 of 32 approved · 6 missing</);
 });

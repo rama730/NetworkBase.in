@@ -50,7 +50,7 @@ export type TaskSurfaceRecord = {
   fromLabel?: string | null;
   /** A main assignment on an organization's board (decision 14): its class progress, worked out from the copies. */
   kind?: "task" | "assignment";
-  assignmentProgress?: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number; teams?: boolean; stuck?: number } | null;
+  assignmentProgress?: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number; teams?: boolean; stuck?: number; closedAt?: string | null } | null;
   /** Board view dropdown §6a: everyone's stage on a main assignment, and a copy's own stage (the sprint list's read). */
   assignmentStages?: import("@/lib/organizations/assignments").AssignmentStages | null;
   copyStage?: import("@/lib/organizations/assignments").CopyStage | null;

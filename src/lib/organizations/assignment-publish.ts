@@ -7,19 +7,25 @@ import { tasks } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { notifyAssignmentPublished } from "@/lib/organizations/assignment-notify";
 import { notifyOrg } from "@/lib/organizations/notify";
-import { createCopies, resolveRecipients } from "@/lib/organizations/assignments";
+import { assertSomeoneReviews, createCopies, resolveRecipients } from "@/lib/organizations/assignments";
 
 // Publishing an assignment (report §16.2, §42.5): now, or later by the hourly sprint job (decision 125).
 
-/** Makes the copies and marks it published; returns how many. Throws PeopleLeftError unless dropMissing. */
-export async function publishMaster(masterId: string, actorId: string, options: { dropMissing?: boolean } = {}) {
+/**
+ * Makes the copies and marks it published; returns how many. Throws PeopleLeftError unless dropMissing, and
+ * NoReviewerError when nobody could review it (assignment flow decision 8) unless reviewOff turns review off.
+ * Publish now and the scheduled job both come through here, so neither can skip the check.
+ */
+export async function publishMaster(masterId: string, actorId: string, options: { dropMissing?: boolean; reviewOff?: boolean } = {}) {
   const copies = await db.transaction(async (tx) => {
     const [master] = await tx.select({ projectId: tasks.projectId, settings: tasks.assignmentSettings }).from(tasks)
       .where(and(eq(tasks.id, masterId), isNull(tasks.deletedAt))).for("update").limit(1);
     if (!master?.settings) throw new Error("Assignment not found");
     if (master.settings.publishedAt) return null;
+    const reviewRequired = options.reviewOff ? false : master.settings.reviewRequired;
+    await assertSomeoneReviews(tx, master.projectId, { target: master.settings.target, reviewRequired });
     const recipients = await resolveRecipients(tx, master.projectId, master.settings.target, options);
-    const settings = { ...master.settings, publishedAt: new Date().toISOString(), publishAt: null, publishOnSprintStart: false, note: null };
+    const settings = { ...master.settings, reviewRequired, publishedAt: new Date().toISOString(), publishAt: null, publishOnSprintStart: false, note: null };
     await tx.update(tasks).set({ assignmentSettings: settings, updatedAt: new Date() }).where(eq(tasks.id, masterId));
     await createCopies(tx, masterId, recipients, actorId);
     return recipients.length;
