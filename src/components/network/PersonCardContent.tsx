@@ -165,7 +165,8 @@ export function PersonCardContent({ person: input, action, variant = 'network', 
     const person = locked ? { ...input, headline: null, location: null, skills: [], portfolio: null, openToCollaborate: null, mutualConnections: null, lastActiveAt: null } : input;
     const name = personCardName(person), href = profileHref(person), subtitle = personCardSubtitle(person);
     const count = personSharedCount(person.mutualConnections), portfolio = personPortfolioText(person.portfolio), date = personConnectedDate(acceptedAt);
-    return <PersonCardLayout variant={variant} className={className} restoreId={person.id ? `person:${person.id}` : undefined}
+    // Only list cards are back-anchors; the Discover rail stays on screen beside the feed (unified back A4).
+    return <PersonCardLayout variant={variant} className={className} restoreId={variant === 'network' && person.id ? `person:${person.id}` : undefined}
         avatar={<div className="relative"><Link href={href} tabIndex={-1} aria-hidden="true"><UserAvatar identity={person} size={48} priority={priority} /></Link>
             {!locked && person.id ? <PersonPresenceDot userId={person.id} lastActiveAt={person.lastActiveAt} /> : null}</div>}
         head={<h3 className="nb-person-name-line"><Link href={href} className="nb-person-name nb-pressable" title={name} dir="auto">{name}</Link>

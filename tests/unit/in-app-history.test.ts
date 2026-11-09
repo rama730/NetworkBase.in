@@ -145,7 +145,7 @@ describe("in-app history entries (A7)", () => {
     assert.equal(currentEntry()?.id, a.id);
   });
 
-  it("arrivedByTraverse is true just after a traverse, false later", () => {
+  it("arrivedByTraverse is true for the entry reached by back, however slow the render, and false after a push", () => {
     const tab = makeTab("/discover");
     stampEntry(tab.win);
     tab.push("/network");
@@ -154,6 +154,10 @@ describe("in-app history entries (A7)", () => {
     tab.go(-1);
     stampEntry(tab.win);
     assert.equal(arrivedByTraverse(), true);
-    assert.equal(arrivedByTraverse(Date.now() + 2000), false);
+    stampEntry(tab.win); // effect re-run on the same entry
+    assert.equal(arrivedByTraverse(), true);
+    tab.push("/u/priya");
+    stampEntry(tab.win);
+    assert.equal(arrivedByTraverse(), false);
   });
 });

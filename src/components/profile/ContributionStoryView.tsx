@@ -12,6 +12,7 @@
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -343,20 +344,28 @@ export function ContributionStoryView({
             {contribution.projectHref &&
             (contribution.projectHref.startsWith("/") ||
               isSafeHttpUrl(contribution.projectHref)) ? (
-              <a
-                href={contribution.projectHref}
-                {...(contribution.projectHref.startsWith("http")
-                  ? { target: "_blank", rel: "noopener noreferrer" }
-                  : {})}
-                onMouseEnter={() =>
-                  onProjectIntent?.(contribution.projectHref!)
-                }
-                onFocus={() => onProjectIntent?.(contribution.projectHref!)}
-                title={contribution.projectTitle}
-                className="min-w-0 truncate rounded-[4px] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                {contribution.projectTitle}
-              </a>
+              contribution.projectHref.startsWith("/") ? (
+                // In-app: no full page load, so back returns to the profile as you left it (unified back).
+                <Link
+                  href={contribution.projectHref}
+                  onMouseEnter={() => onProjectIntent?.(contribution.projectHref!)}
+                  onFocus={() => onProjectIntent?.(contribution.projectHref!)}
+                  title={contribution.projectTitle}
+                  className="nb-pressable min-w-0 truncate rounded-[4px] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  {contribution.projectTitle}
+                </Link>
+              ) : (
+                <a
+                  href={contribution.projectHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={contribution.projectTitle}
+                  className="min-w-0 truncate rounded-[4px] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  {contribution.projectTitle}
+                </a>
+              )
             ) : (
               <span className="truncate" title={story.title}>
                 {story.title}

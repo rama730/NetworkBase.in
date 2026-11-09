@@ -5,7 +5,10 @@ import { useEffect } from "react";
 import { arrivedByTraverse, currentEntry, subscribeEntry } from "@/lib/navigation/in-app-history";
 import { chooseAnchors, loadRecord, pickAnchor, saveRecord, type ScrollRecord } from "@/lib/navigation/scroll-memory";
 
-const RESTORE_WINDOW_MS = 1500;
+/** How long to wait for the page to come back (a slow load shows its loading screen first). */
+const ARRIVE_WINDOW_MS = 5000;
+/** After it lands, how long the card is held in place while late rows and images settle. */
+const HOLD_WINDOW_MS = 1500;
 const RETURNED_TINT_MS = 1000;
 
 const routeRoot = () => document.querySelector<HTMLElement>('#main-content [data-scroll-root="route"]');
@@ -25,19 +28,27 @@ function snapshot(root: HTMLElement, opened: string | null): ScrollRecord {
 }
 
 /** Bring the page back to where you were: the remembered card at the same spot, inner areas, focus. */
+let restoring = false;
+
 function restore(record: ScrollRecord) {
+  restoring = true;
   const start = performance.now();
   let lastTop = -1;
   let stable = 0;
   let settled = false;
+  let settledAt = 0;
   let stopped = false;
   const stop = () => { stopped = true; };
   const inputs = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
   inputs.forEach((type) => window.addEventListener(type, stop, { passive: true, capture: true, once: true }));
-  const done = () => inputs.forEach((type) => window.removeEventListener(type, stop, { capture: true }));
+  const done = () => {
+    restoring = false;
+    inputs.forEach((type) => window.removeEventListener(type, stop, { capture: true }));
+  };
 
   const settle = (root: HTMLElement) => {
     settled = true;
+    settledAt = performance.now();
     for (const [name, pos] of Object.entries(record.areas)) {
       const area = document.querySelector<HTMLElement>(`#main-content [data-scroll-memory="${CSS.escape(name)}"]`);
       if (area) { area.scrollTop = pos.top; area.scrollLeft = pos.left; }
@@ -52,15 +63,17 @@ function restore(record: ScrollRecord) {
 
   const step = () => {
     const root = routeRoot();
-    if (stopped || performance.now() - start > RESTORE_WINDOW_MS) {
-      if (root && !settled && !stopped) settle(root);
-      return done();
-    }
+    const now = performance.now();
+    if (stopped || (settled ? now - settledAt > HOLD_WINDOW_MS : now - start > ARRIVE_WINDOW_MS)) return done();
     if (root) {
-      const anchor = pickAnchor(record.anchors, (id) => Boolean(byRestoreId(root, id)));
+      const tallEnough = root.scrollHeight - root.clientHeight >= record.top - 1;
+      // The card that was at the top, once drawn. A later one only when the list is long enough and
+      // the first is still missing (deleted meanwhile, R10).
+      const first = record.anchors[0] && byRestoreId(root, record.anchors[0]) ? record.anchors[0] : null;
+      const anchor = first ?? (tallEnough ? pickAnchor(record.anchors.slice(1), (id) => Boolean(byRestoreId(root, id))) : null);
       if (anchor) {
         const el = byRestoreId(root, anchor)!;
-        const delta = el.getBoundingClientRect().top - root.getBoundingClientRect().top - (anchor === record.anchors[0] ? record.anchorOffset : 0);
+        const delta = el.getBoundingClientRect().top - root.getBoundingClientRect().top - (anchor === first ? record.anchorOffset : 0);
         if (Math.abs(delta) > 1) root.scrollTop += delta;
       } else if (Math.abs(root.scrollTop - record.top) > 1) {
         // Not drawn yet: the pixel position makes lazy lists draw that region.
@@ -68,7 +81,7 @@ function restore(record: ScrollRecord) {
       }
       stable = Math.abs(root.scrollTop - lastTop) < 1 ? stable + 1 : 0;
       lastTop = root.scrollTop;
-      const reached = anchor !== null || root.scrollHeight - root.clientHeight >= record.top - 1;
+      const reached = anchor !== null || tallEnough;
       // Keep correcting through the window (a background refresh may add rows above), settle once.
       if (stable >= 2 && reached && !settled) settle(root);
     }
@@ -86,6 +99,7 @@ export function useScrollMemory() {
     let opened: string | null = null;
     let frame = 0;
     const save = () => {
+      if (restoring) return; // the restore's own scrolling isn't where you were
       const id = currentEntry()?.id;
       const root = routeRoot();
       if (id && root) saveRecord(window.sessionStorage, id, snapshot(root, opened));

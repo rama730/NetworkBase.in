@@ -24,7 +24,6 @@ export type WinLike = {
   document?: { title: string };
 };
 
-const TRAVERSE_WINDOW_MS = 1500;
 
 let current: HistoryEntry | null = null;
 let currentPath = "";
@@ -33,12 +32,14 @@ let lastLength = 0;
 let pending: TransitionType | null = null;
 let leavingTitle: string | null = null;
 let pendingOverlay: string | null = null;
-let lastTraverseAt = Number.NEGATIVE_INFINITY;
+/** A back/forward is under way; the entry it lands on is stamped as reached by traverse (no time limit). */
+let traversing = false;
+let arrivedTraverse = false;
 let counter = 0;
 const listeners = new Set<(entry: HistoryEntry) => void>();
 
 if (typeof window !== "undefined") {
-  window.addEventListener("popstate", () => { lastTraverseAt = Date.now(); });
+  window.addEventListener("popstate", () => { traversing = true; });
 }
 
 const newId = () => `${Date.now().toString(36)}${(counter++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -62,7 +63,7 @@ export function markNextPushAsOverlay(key: string) {
 /** A router navigation is starting (from `onRouterTransitionStart`). */
 export function noteTransition(type: TransitionType) {
   pending = type;
-  if (type === "traverse") lastTraverseAt = Date.now();
+  if (type === "traverse") traversing = true;
   else if (typeof document !== "undefined") leavingTitle = document.title;
 }
 
@@ -91,6 +92,11 @@ export function stampEntry(win: WinLike): HistoryEntry {
     win.history.replaceState({ ...(win.history.state ?? {}), nb: entry }, "", win.location.href);
   }
   const changed = current?.id !== entry.id;
+  if (changed) {
+    // A fresh page load counts as traverse when the browser itself came back to it.
+    arrivedTraverse = current ? traversing : loadedByBackForward();
+    traversing = false;
+  }
   current = entry;
   currentPath = `${win.location.pathname}${win.location.search}`;
   currentTitle = win.document?.title ?? "";
@@ -116,12 +122,15 @@ export function canGoBackInApp() {
   return Boolean(current && (current.depth > 0 || current.skip));
 }
 
-/** This arrival was a back/forward (or a restore of a back/forward page load). */
-export function arrivedByTraverse(now = Date.now()) {
-  if (now - lastTraverseAt < TRAVERSE_WINDOW_MS) return true;
+function loadedByBackForward() {
   if (typeof performance === "undefined" || typeof performance.getEntriesByType !== "function") return false;
   const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
-  return nav?.type === "back_forward" && performance.now() < 5000;
+  return nav?.type === "back_forward";
+}
+
+/** The entry the tab is on now was reached by back/forward (or swipe), however long it took to render. */
+export function arrivedByTraverse() {
+  return arrivedTraverse;
 }
 
 export function subscribeEntry(fn: (entry: HistoryEntry) => void) {
@@ -138,5 +147,6 @@ export function resetInAppHistory() {
   pending = null;
   leavingTitle = null;
   pendingOverlay = null;
-  lastTraverseAt = Number.NEGATIVE_INFINITY;
+  traversing = false;
+  arrivedTraverse = false;
 }
