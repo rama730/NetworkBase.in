@@ -45,7 +45,7 @@ import { isUpdateCardControl, removeUpdate, updateAuthorName, updateContextItems
 import { WorkspaceUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
 import { ExpandableUpdateContent } from '@/components/workspaces/updates/ExpandableUpdateContent';
 import { cardAudienceLabel, ChangeAudienceDialog, SeenCount, type OrgCardView } from '@/components/organizations/OrgUpdateParts';
-import { hideSharedFromOrgAction } from '@/app/actions/org-updates';
+import { hideSharedFromOrgAction, unhideSharedFromOrgAction } from '@/app/actions/org-updates';
 
 function UpdateCard({
   projectId: feedProjectId,
@@ -526,7 +526,11 @@ function UpdateCard({
           const result = await hideSharedFromOrgAction(feedProjectId, update.id);
           if (!result.success) throw new Error(result.error);
           queryClient.setQueryData(updatesQueryKey, (existing: InfiniteData<UpdatesPage> | undefined) => removeUpdate(existing, update.id));
-          toast.success(`Hidden from ${orgView?.org.title ?? "the organization"}`);
+          // Audit N50: Undo shows it again; the feed refetches to put it back in place.
+          toast.success(`Hidden from ${orgView?.org.title ?? "the organization"}`, { action: { label: "Undo", onClick: () => void unhideSharedFromOrgAction(feedProjectId, update.id).then((r) => {
+            if (!r.success) return void toast.error(r.error);
+            void queryClient.invalidateQueries({ queryKey: updatesQueryKey });
+          }) } });
         }}
       />
       <WorkspaceUpdateLikersModal

@@ -127,6 +127,19 @@ export async function hideSharedFromOrgAction(orgId: string, updateId: string): 
     return { success: true };
 }
 
+/** Audit N50: undo Hide from the organization; the post shows in its feed again (pins aren't restored). */
+export async function unhideSharedFromOrgAction(orgId: string, updateId: string): Promise<{ success: true } | Failure> {
+    const viewer = await orgPostManager(orgId, 'hide_shared_post', 'write');
+    if (!viewer || !UUID_RE.test(updateId)) return DENIED;
+    const [shown] = await db.update(workspaceUpdates).set({ hiddenFromOrgAt: null, hiddenFromOrgBy: null })
+        .where(and(eq(workspaceUpdates.id, updateId), isNull(workspaceUpdates.deletedAt), isNotNull(workspaceUpdates.sharedToOrgAt), isNotNull(workspaceUpdates.hiddenFromOrgAt),
+            sql`${workspaceUpdates.projectId} IN (SELECT id FROM workspaces WHERE parent_id = ${orgId} AND deleted_at IS NULL)`))
+        .returning({ id: workspaceUpdates.id });
+    if (!shown) return { success: false, error: 'That post can’t be shown again.' };
+    revalidatePath(orgHref(viewer.org));
+    return { success: true };
+}
+
 /**
  * Change who sees an announcement after posting (report §37.3): widening only after the admin confirms (the
  * screen asks, then sends confirmedWider); narrowing applies at once.

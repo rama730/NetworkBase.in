@@ -127,8 +127,22 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     ]);
     const blockedByMe = new Set(myBlocks.map((b) => b.id));
     // Contribution credit (report §31.4): a ✓ on the row, and the Verified filter.
-    const verified = new Set((await db.execute<{ id: string }>(sql`
-        SELECT profile_id AS id FROM profile_contributions WHERE workspace_id = ${orgId} AND verified_at IS NOT NULL AND deleted_at IS NULL`)).map((r) => r.id));
+    // Audit N18: the reads that don't need the roster go together, not one after another.
+    const [verifiedRows, since, emptyChildren, outside, panel] = await Promise.all([
+        db.execute<{ id: string }>(sql`
+            SELECT profile_id AS id FROM profile_contributions WHERE workspace_id = ${orgId} AND verified_at IS NOT NULL AND deleted_at IS NULL`),
+        lastActiveHereSince(),
+        // Child projects with nobody in them yet still belong in the pickers.
+        db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))),
+        db.execute<{ user_id: string; name: string | null; username: string | null; projects: Array<{ id: string; title: string }> }>(sql`
+            SELECT m.user_id, coalesce(pr.full_name, pr.username) AS name, pr.username, json_agg(json_build_object('id', p.id, 'title', p.title) ORDER BY p.title) AS projects
+            FROM workspace_members m JOIN workspaces p ON p.id = m.workspace_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
+            JOIN profiles pr ON pr.id = m.user_id
+            WHERE NOT EXISTS (SELECT 1 FROM workspace_members o WHERE o.workspace_id = ${orgId} AND o.user_id = m.user_id) AND m.user_id <> ${viewer.ownerId}
+            GROUP BY m.user_id, pr.full_name, pr.username ORDER BY 2 LIMIT 500`),
+        invitePanel,
+    ]);
+    const verified = new Set(verifiedRows.map((r) => r.id));
 
     const now = new Date();
     // Audit N76: each assignment's own Late after, so Behind matches the assignment's roster.
@@ -143,7 +157,6 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
 
     // Audit N64: each person's workspaces grouped once, not a scan of every membership per person.
     const childrenOf = Map.groupBy(childRows, (c) => c.userId);
-    const since = await lastActiveHereSince();
     const rows = people.map((p) => {
         const role: OrgMemberRole = p.userId === viewer.ownerId ? 'owner' : (p.role as OrgMemberRole);
         const work = workSummary([...(copiesByUser.get(p.userId) ?? [])].map((id) => stateByCopy.get(id)!).filter(Boolean));
@@ -167,16 +180,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     });
     const children = [...new Map(childRows.map((c) => [c.projectId, c.title])).entries()]
         .map(([id, title]) => ({ id, title, units: units.filter((u) => u.projectId === id).map((u) => ({ id: u.id, title: u.title })) }));
-    // Child projects with nobody in them yet still belong in the pickers.
-    const emptyChildren = await db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces)
-        .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt)));
     for (const child of emptyChildren) if (!children.some((c) => c.id === child.id)) children.push({ id: child.id, title: child.title, units: units.filter((u) => u.projectId === child.id).map((u) => ({ id: u.id, title: u.title })) });
-    const outside = await db.execute<{ user_id: string; name: string | null; username: string | null; projects: Array<{ id: string; title: string }> }>(sql`
-        SELECT m.user_id, coalesce(pr.full_name, pr.username) AS name, pr.username, json_agg(json_build_object('id', p.id, 'title', p.title) ORDER BY p.title) AS projects
-        FROM workspace_members m JOIN workspaces p ON p.id = m.workspace_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
-        JOIN profiles pr ON pr.id = m.user_id
-        WHERE NOT EXISTS (SELECT 1 FROM workspace_members o WHERE o.workspace_id = ${orgId} AND o.user_id = m.user_id) AND m.user_id <> ${viewer.ownerId}
-        GROUP BY m.user_id, pr.full_name, pr.username ORDER BY 2 LIMIT 500`);
     // Still waiting only while they're in that workspace.
     const titles = new Map(children.map((c) => [c.id, c.title]));
     const teamChanges = (org?.teamChangeRequests ?? []).flatMap((r) => {
@@ -202,9 +206,10 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
             notInProject: rows.filter((r) => r.projects.length === 0).length,
             inactive: rows.filter((r) => r.inactive).length,
         },
-        invitesLeft: invitesLeftToday(await invitesSentToday(orgId)),
+        // Audit N35: the panel already counted today's invites.
+        invitesLeft: panel.success ? panel.data.invitesLeft : invitesLeftToday(await invitesSentToday(orgId)),
         teamChanges,
-        invitePanel: await invitePanel,
+        invitePanel: panel,
     };
 }
 

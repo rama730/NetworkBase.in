@@ -265,7 +265,7 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
                 {/* Report §7.11: the same invite panel as the header and About. Live-fix 40: alone, it leads with a plain line. */}
                 <RailSection title="Invite people">
                     {data.summary.members <= 1 ? <p className="mb-3 text-[13px] font-medium">You’re the only one here so far</p> : null}
-                    <OrgInvitePanel orgId={orgId} orgHandle={null} prominent={data.summary.members <= 1} />
+                    <OrgInvitePanel orgId={orgId} orgHandle={null} prominent={data.summary.members <= 1} onChanged={load} />
                 </RailSection>
                 <RailSection title="Summary">
                     <ul className="space-y-1 text-[13px]">

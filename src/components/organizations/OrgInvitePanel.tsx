@@ -25,7 +25,7 @@ import { parseInviteEmails } from '@/lib/organizations/member-rules'
  * the header's Invite, Overview, About and Members, always inside a titled section or dialog. No QR code (section 14).
  * `prominent`: more room when you're the only one here (report §7.10, live-fix 40). `bare` is kept for callers.
  */
-export function OrgInvitePanel({ orgId, orgHandle, prominent = false }: { orgId: string; orgHandle: string | null; prominent?: boolean; bare?: boolean }) {
+export function OrgInvitePanel({ orgId, orgHandle, prominent = false, onChanged }: { orgId: string; orgHandle: string | null; prominent?: boolean; bare?: boolean; onChanged?: () => void }) {
     const client = useQueryClient()
     const query = useQuery({ queryKey: ['org-invite-panel', orgId], queryFn: () => readOrgInvitePanelAction(orgId), staleTime: 30_000 })
     const [emailOpen, setEmailOpen] = useState(false)
@@ -33,7 +33,8 @@ export function OrgInvitePanel({ orgId, orgHandle, prominent = false }: { orgId:
     const [pending, startTransition] = useTransition()
     const data = query.data?.success ? query.data.data : null
     if (!data) return query.isPending ? <div className="nb-skeleton h-28 rounded-md" role="status" aria-label="Loading invite" /> : null
-    const refresh = () => void client.invalidateQueries({ queryKey: ['org-invite-panel', orgId] })
+    // Audit N21: the Members tab around it (invite list, join code) refreshes too.
+    const refresh = () => { void client.invalidateQueries({ queryKey: ['org-invite-panel', orgId] }); onChanged?.() }
     const link = data.joinCode && typeof window !== 'undefined' ? `${window.location.origin}/join/${data.joinCode}` : null
     const act = (work: () => Promise<{ success: boolean; error?: string }>, done: string) => startTransition(async () => {
         const result = await work()

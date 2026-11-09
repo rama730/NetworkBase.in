@@ -129,3 +129,24 @@ test("8.4: moving a file from Admins only into a Public folder asks first", asyn
   const back = await mutations.moveWorkspaceNodes([file], secret, o.id);
   assert.equal(back.nodes.length, 1);
 });
+
+test("N50: hiding a shared post can be undone, and share, hide and show each count as a change the feed hears", async () => {
+  const o = await org();
+  const lead = await user();
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${o.id}, ${lead}, 'member')`;
+  const ws = await child(o.id, lead);
+  const [post] = await sql<{ id: string; activity_seq: number }[]>`INSERT INTO workspace_updates (workspace_id, author_id, content, update_type, visibility)
+    VALUES (${ws}, ${lead}, 'Sprint demo on Friday', 'discussion', 'members') RETURNING id, activity_seq`;
+  const seq = async () => (await sql<{ s: number }[]>`SELECT activity_seq AS s FROM workspace_updates WHERE id = ${post!.id}`)[0]!.s;
+  const before = await seq();
+  await sql`UPDATE workspace_updates SET shared_to_org_at = now() WHERE id = ${post!.id}`;
+  assert.ok((await seq()) > before, "sharing up is a change");
+  const updates = await loadAppModule(() => import("../../src/app/actions/org-updates"));
+  viewerId = o.owner;
+  assert.equal((await updates.hideSharedFromOrgAction(o.id, post!.id)).success, true);
+  const hidden = await seq();
+  assert.equal((await updates.unhideSharedFromOrgAction(o.id, post!.id)).success, true);
+  assert.ok((await seq()) > hidden, "showing it again is a change");
+  const [row] = await sql<{ hidden: Date | null }[]>`SELECT hidden_from_org_at AS hidden FROM workspace_updates WHERE id = ${post!.id}`;
+  assert.equal(row!.hidden, null);
+});
