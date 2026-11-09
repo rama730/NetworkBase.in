@@ -4,7 +4,7 @@ import { useState } from "react";
 import { readUrlParam, useUrlMirror } from "@/lib/navigation/url-state";
 import { formatTaskDueDate } from "@/lib/workspaces/task-presentation";
 import Link from "next/link";
-import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Link2, ListTodo } from "lucide-react";
+import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Link2, ListTodo, User } from "lucide-react";
 
 import {
   SPRINT_TASK_STATUS_PRESENTATION,
@@ -19,7 +19,8 @@ import { calculateTaskTimeHealth, getTaskTitlePresentation } from "@/lib/workspa
 import { format } from "@/lib/utils/date";
 import { useAuth } from "@/hooks/use-auth";
 import { paceLine, sprintPace, sprintPhase, sprintTime, workGroups, workProgress } from "@/lib/workspaces/sprint-plan";
-import { AssignmentStagesPanel, copyStageLine, HandIn, Instructions, StageBar, stageSummary } from "@/components/workspaces/tabs/sprint/AssignmentStages";
+import { ASSIGNMENT_CHIP_CLASS, AssignmentIcon, AssignmentStagesPanel, cardLine, copyChip, copyStageLine, HandIn, Instructions, StageBar } from "@/components/workspaces/tabs/sprint/AssignmentStages";
+import { assignmentChip } from "@/lib/organizations/assignment-chip";
 
 type Props = {
   projectSlug: string;
@@ -132,9 +133,16 @@ export function SprintTimelineContent({
       <h4 id={`sprint-work-${group.key}`} className={cn("font-mono text-[11px] font-medium uppercase tracking-[0.09em]", group.key === "blocked" ? "text-[var(--status-danger)]" : "text-muted-foreground")}>{group.title} · {group.tasks.length}</h4>
       <ul aria-labelledby={`sprint-work-${group.key}`} className="divide-y divide-border/60 rounded-[8px] border border-border bg-card overflow-hidden shadow-none">
         {group.tasks.map((task) => {
-          // Sprint cleanup §4: a main assignment says where everyone is ("1 of 40 approved · 12 in review"), never "0/1".
-          const assignee = task.assignmentStages !== undefined && task.assignmentProgress ? stageSummary(task.assignmentStages)
-            : task.assignmentProgress ? (task.assignmentProgress.total ? `${task.assignmentProgress.done}/${task.assignmentProgress.total}` : "Nobody has joined yet") : sprintTimelinePersonName(task.assignee, "Unassigned");
+          // Sprint work list redesign (2026-11-09): an assignment looks as it does on the board — its clipboard icon (ticked
+          // once all are approved), its own chip, who it's for, and the same bar and line ("0 of 1 approved · 1 in review").
+          const master = task.assignmentProgress ?? null;
+          const stages = task.assignmentStages ?? null;
+          const line = master && stages && stages.total + stages.counts.excused > 0 ? cardLine(stages) : null;
+          const allApproved = Boolean(line?.allDone);
+          const chip = master ? assignmentChip({ draft: master.draft, scheduled: master.scheduled, closed: master.closed }, stages)
+            : task.copyStage ? copyChip(task.copyStage) : null;
+          const forWhom = !master ? null : stages && stages.total ? `${stages.total} ${stages.teams ? (stages.total === 1 ? "group" : "groups") : (stages.total === 1 ? "person" : "people")}` : "Nobody yet";
+          const assignee = master ? `Assignment · ${forWhom}` : sprintTimelinePersonName(task.assignee, "Unassigned");
           const ownStage = task.copyStage ? copyStageLine(task.copyStage) : null;
           const taskReference = task.taskNumber == null ? null : `${projectKey?.trim() || "Task"}-${task.taskNumber}`;
 
@@ -165,19 +173,30 @@ export function SprintTimelineContent({
           const titlePresentation = getTaskTitlePresentation(task);
           const isRemoved = task.isDeleted || task.membershipState === "historical";
           const isExpanded = expandedTaskId === task.id;
-          const isDone = titlePresentation.isCompleted;
+          // An assignment everyone finished reads quiet, not struck through (the board's rule).
+          const isDone = titlePresentation.isCompleted && !master;
 
           return (
             <li key={task.id} className={cn("group flex flex-col transition-colors hover:bg-muted/40", isRemoved && "bg-muted/40 text-muted-foreground")}>
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-start gap-4 min-w-0 flex-1">
                   <div className="mt-1 flex shrink-0">
-                    <UserAvatar identity={task.assignee} size={32} roundedClassName="rounded-[5px]" />
+                    {master ? (
+                      <span title="Assignment" className={cn("flex size-8 items-center justify-center rounded-[5px] border bg-card", allApproved ? "border-[var(--status-success)] text-[var(--status-success)]" : "border-border text-foreground")}>
+                        <AssignmentIcon allDone={allApproved} className="size-4" />
+                      </span>
+                    ) : task.assignee ? (
+                      <UserAvatar identity={task.assignee} size={32} roundedClassName="rounded-[5px]" />
+                    ) : (
+                      <span title="Unassigned" className="flex size-8 items-center justify-center rounded-[5px] border border-dashed border-border bg-muted">
+                        <User className="size-4 text-muted-foreground" aria-hidden="true" />
+                      </span>
+                    )}
                   </div>
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className={cn("inline-flex items-center rounded-[3px] px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] ring-1 ring-inset", status.toneClassName)}>
-                      {task.reviewStatus === "pending" ? "In review" : status.label}
+                    <span className={cn("inline-flex items-center rounded-[3px] px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] ring-1 ring-inset", chip ? ASSIGNMENT_CHIP_CLASS[chip.tone] : status.toneClassName)}>
+                      {chip ? chip.label : task.reviewStatus === "pending" ? "In review" : status.label}
                     </span>
                     {!isDone && timeHealth.state === "overdue" && (
                       <span className="inline-flex items-center rounded-[3px] border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.09em] text-destructive">
@@ -203,6 +222,7 @@ export function SprintTimelineContent({
                           ? "line-through text-muted-foreground decoration-muted-foreground/40 hover:text-foreground"
                           : (timeHealth.state === "overdue" || timeHealth.state === "unfinished")
                           ? "text-destructive hover:text-destructive/90"
+                          : master && allApproved ? "text-muted-foreground hover:text-foreground"
                           : "text-foreground hover:text-primary transition-colors",
                       )}
                       aria-label={titlePresentation.ariaLabel}
@@ -214,7 +234,7 @@ export function SprintTimelineContent({
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-xs text-muted-foreground font-medium [&>span]:whitespace-nowrap">
                     {taskReference ? <span>{taskReference}</span> : null}
                     {taskReference ? <span>·</span> : null}
-                    <span className={cn(task.assignmentStages !== undefined && task.assignmentProgress && "!whitespace-normal")}>{assignee}</span>
+                    <span className="inline-flex items-center gap-1">{task.assignmentId ? <><span>{assignee}</span><span>·</span><AssignmentIcon className="size-3" /><span>Assignment</span></> : assignee}</span>
                     {task.storyPoints != null && (
                       <>
                         <span>·</span>
@@ -246,7 +266,15 @@ export function SprintTimelineContent({
                       </>
                     )}
                   </div>
-                  {task.assignmentStages && !isExpanded ? <StageBar stages={task.assignmentStages} className="mt-1.5 max-w-xs" /> : null}
+                  {master && !isExpanded ? (
+                    master.draft ? <p className="mt-1 font-mono text-[11px] text-muted-foreground">{master.scheduled ? "Not published yet · goes out on its date" : "Not published yet"}</p>
+                    : line && stages ? (
+                      <div className="mt-1.5 max-w-xs space-y-1">
+                        <StageBar stages={stages} />
+                        <p className={cn("font-mono text-[11px]", allApproved ? "text-[var(--status-success)]" : "text-muted-foreground")}>{line.text}</p>
+                      </div>
+                    ) : <p className="mt-1 font-mono text-[11px] text-muted-foreground">Nobody has it yet. People get it when they join.</p>
+                  ) : null}
                   {ownStage ? <p className={cn("mt-1 text-xs font-medium", task.copyStage?.state === "returned" || task.copyStage?.state === "missing" ? "text-[var(--status-danger)]" : "text-foreground")}>{ownStage}</p> : null}
                 </div>
               </div>

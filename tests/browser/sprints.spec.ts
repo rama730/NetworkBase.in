@@ -273,6 +273,16 @@ test('sprint cleanup §4: an assignment says where everyone is — closed and op
   const row = page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Lab 2: Linked lists' }) });
   await expect(row).toContainText('10 of 40 approved · 6 in review · 2 returned · 3 missing');
   await expect(row.getByRole('img', { name: /10 approved, 6 in review/ })).toBeVisible();
+  // Sprint work list redesign: the board's look — clipboard icon (not a blank person), the assignment's own chip, who it's for.
+  await expect(row.getByTitle('Assignment')).toBeVisible();
+  await expect(row.getByText('6 to review', { exact: true })).toBeVisible();
+  await expect(row).toContainText('Assignment · 40 people');
+  await expect(row).not.toContainText('In progress');
+  // A task with nobody on it shows the dashed Unassigned tile; a person's own copy says it's an assignment.
+  await expect(page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Empty results page' }) }).getByTitle('Unassigned')).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Lab 1: Arrays' }) })).toContainText(/Ravi Kumar\s*·\s*Assignment/);
+  await expect(page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Lab 1: Arrays' }) }).getByText('Returned', { exact: true })).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('assignment-rows.png'), fullPage: true });
   await row.getByRole('button', { name: 'Expand Lab 2: Linked lists' }).click();
   const stages = row.getByRole('list', { name: 'Where everyone is' });
   await expect(stages.getByRole('listitem')).toHaveText([/In review 6\s*Asha, Kiran, Priya, Ravi, Meena, \+1\s*Review 6/, /Returned 2\s*Arjun, Sita/, /In progress 14\s*Leo, \+13/, /Not started 5\s*Uma, Vik, \+3\s*Remind 5/, /Missing 3\s*Zed, Yan, Xi\s*Remind 3/]);

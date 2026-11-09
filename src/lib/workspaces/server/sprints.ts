@@ -169,7 +169,7 @@ type SprintTaskActivityQueryRow = {
   creator_id: string | null;
   kind: string | null;
   assignment_id: string | null;
-  assignment_settings: { publishedAt?: string | null; closedAt?: string | null } | null;
+  assignment_settings: { publishedAt?: string | null; closedAt?: string | null; publishAt?: string | null } | null;
 };
 
 
@@ -977,7 +977,9 @@ async function readSprintTaskActivityPage(input: {
     linkedFiles: filesByTaskId.get(row.id) ?? [],
     subtasks: subtasksByTaskId.get(row.id) ?? [],
     // Nobody has it yet reads 0/0 ("Nobody has joined yet"), never "Unassigned".
-    assignmentProgress: isMaster(row) ? { done: progressByMaster.get(row.id)?.done ?? 0, total: progressByMaster.get(row.id)?.total ?? 0 } : null,
+    // Sprint work list redesign (2026-11-09): plus draft, scheduled and closed, for the same chip as the board's.
+    assignmentProgress: isMaster(row) ? { done: progressByMaster.get(row.id)?.done ?? 0, total: progressByMaster.get(row.id)?.total ?? 0,
+      draft: !row.assignment_settings?.publishedAt, scheduled: Boolean(!row.assignment_settings?.publishedAt && row.assignment_settings?.publishAt), closed: Boolean(row.assignment_settings?.closedAt) } : null,
     assignmentStages: isMaster(row) ? stagesByMaster.get(row.id) ?? null : null,
     copyStage: row.assignment_id ? stageByCopy.get(row.id) ?? null : null,
     assignmentId: row.assignment_id ?? null,

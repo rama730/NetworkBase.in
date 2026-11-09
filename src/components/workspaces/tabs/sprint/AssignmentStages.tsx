@@ -8,6 +8,8 @@ import { ASSIGNMENT_STATE_LABELS } from "@/lib/copy/terms";
 import type { AssignmentStages, CopyStage } from "@/lib/organizations/assignments";
 import type { CopyState } from "@/lib/organizations/assignment-rules";
 import { cn } from "@/lib/utils";
+import { ClipboardCheck, ClipboardList } from "lucide-react";
+import type { AssignmentChipTone } from "@/lib/organizations/assignment-chip";
 
 // Sprint cleanup §4: where everyone is on an assignment, stage by stage — the Assignment tab's own stages and words,
 // so the two never disagree. Approved when the assignment needs review, Done when it doesn't (D2).
@@ -162,3 +164,14 @@ export function copyChip(stage: CopyStage): { label: string; tone: "danger" | "s
 
 const when = (iso: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso)).replace(" AM", " am").replace(" PM", " pm");
 export const publishLine = (iso: string) => `Publishes ${when(iso)}`;
+
+/** Sprint work list redesign (2026-11-09): an assignment's icon everywhere — a list while it's open, ticked once all are approved. */
+export function AssignmentIcon({ allDone = false, className }: { allDone?: boolean; className?: string }) {
+  const Icon = allDone ? ClipboardCheck : ClipboardList;
+  return <Icon aria-hidden="true" className={cn("shrink-0", className)} />;
+}
+
+/** The sprint list's chip classes for an assignment's chip tone (the same tones as a task's status). */
+export const ASSIGNMENT_CHIP_CLASS: Record<AssignmentChipTone | "danger", string> = {
+  muted: "nb-sprint-tone-muted", accent: "nb-sprint-tone-info", info: "nb-sprint-tone-info", warning: "nb-sprint-tone-warning", success: "nb-sprint-tone-success", danger: "nb-sprint-tone-danger",
+};

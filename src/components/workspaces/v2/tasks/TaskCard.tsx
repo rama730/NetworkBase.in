@@ -2,8 +2,8 @@
 
 import { memo } from "react";
 import { useSprintPath } from "@/components/workspaces/v2/tasks/SprintPathContext";
-import { audienceLabel, cardLine, copyChip, copyStageLine, publishLine, StageBar } from "@/components/workspaces/tabs/sprint/AssignmentStages";
-import { ClipboardCheck, ClipboardList } from "lucide-react";
+import { AssignmentIcon, audienceLabel, cardLine, copyChip, copyStageLine, publishLine, StageBar } from "@/components/workspaces/tabs/sprint/AssignmentStages";
+import { assignmentChip } from "@/lib/organizations/assignment-chip";
 import { formatTaskDueDate } from "@/lib/workspaces/task-presentation";
 import {
   Calendar,
@@ -148,8 +148,8 @@ export const TaskCard = memo(function TaskCard({
   const allApproved = Boolean(line?.allDone);
   const ownStage = taskRecord.copyStage ?? null;
   const ownChip = ownStage ? copyChip(ownStage) : null;
-  const masterChip = !master ? null : master.draft ? (scheduled ? { label: "Scheduled", tone: "accent" } : { label: "Draft", tone: "muted" })
-    : master.toReview ? { label: `${master.toReview} to review`, tone: "warning" } : master.closed ? { label: "Closed", tone: "muted" } : null;
+  // Sprint work list redesign (2026-11-09): the same chip as a sprint's list; the board leaves out what its line says.
+  const masterChip = master ? assignmentChip({ draft: master.draft, scheduled, closed: master.closed, toReview: master.toReview }, stages, { quiet: true }) : null;
   const cardName = master ? ["Assignment", taskRecord.title, line?.text ?? (master.draft ? (scheduled ? "scheduled" : "draft") : "nobody has it yet"),
     master.toReview ? `${master.toReview} to review` : null, dueDateLabel ? `due ${dueDateLabel}` : null].filter(Boolean).join(", ") : undefined;
   const assigneeRemoved = Boolean(
@@ -276,7 +276,7 @@ export const TaskCard = memo(function TaskCard({
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
             {master ? (
               <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
-                {allApproved ? <ClipboardCheck aria-hidden="true" className="size-3.5 shrink-0" /> : <ClipboardList aria-hidden="true" className="size-3.5 shrink-0" />}
+                <AssignmentIcon allDone={allApproved} className="size-3.5" />
                 <span className="truncate">{audienceLabel(taskRecord.audience)}</span>
               </span>
             ) : taskRecord.assignee ? (
@@ -310,11 +310,11 @@ export const TaskCard = memo(function TaskCard({
             <TaskMetaIndicators {...taskRecord} />
             {/* Decisions 6 and 14, gap 24: the assignment card shows class progress; it moves by itself. */}
             {taskRecord.assignmentId && !taskRecord.fromLabel ? (
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><ClipboardList aria-hidden="true" className="size-3.5" />Assignment</span>
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><AssignmentIcon className="size-3.5" />Assignment</span>
             ) : null}
             {taskRecord.fromLabel ? (
               <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground" title={`Assignment from ${taskRecord.fromLabel}`}>
-                <ClipboardList aria-hidden="true" className="size-3.5 shrink-0" />
+                <AssignmentIcon className="size-3.5" />
                 <span className="truncate">From {taskRecord.fromLabel}{taskRecord.teamName ? ` · ${taskRecord.teamName}` : ""}</span>
               </span>
             ) : null}
