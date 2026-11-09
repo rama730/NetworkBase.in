@@ -87,7 +87,8 @@ function restore(record: ScrollRecord) {
     }
     requestAnimationFrame(step);
   };
-  requestAnimationFrame(step);
+  // First try right away: the page is already on screen when it's stamped; frames can be throttled.
+  step();
 }
 
 /**

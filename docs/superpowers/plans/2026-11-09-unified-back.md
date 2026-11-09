@@ -1,7 +1,7 @@
 # Unified back: report
 
 Date: 2026-11-09
-Status: built locally 2026-11-09 (plan T1–T20 committed on local main, not pushed). Browser checks and before/after numbers (T0, T21) wait for a signed-in session.
+Status: built locally 2026-11-09 (plan T1–T20 committed on local main, not pushed). Browser check 2026-11-09: back journeys measured and fixed; some flows still unchecked (§16).
 
 ---
 
@@ -516,12 +516,42 @@ History stamps (A7), route table and fallbacks (§6, B13), every-page test (A8, 
 - R13: links to other sites in update posts already opened in a new tab; no change needed.
 - Unit tests: 3,376 of 3,379 pass. The 3 failures are in Integrations settings (design tokens, "Revoke any time"), from another session's work, not this one.
 
-### Measurements (R12)
-| Journey | Before | After |
-|---|---|---|
-| Discover → workspace → back | pending sign-in | pending sign-in |
-| Network → profile → back | pending sign-in | pending sign-in |
-| Workspace → link → back | pending sign-in | pending sign-in |
-| Profile → workspace → back | pending sign-in | pending sign-in |
+### Measurements (R12), 2026-11-09
 
-"Before" will be measured on a scratch copy of the code from before this work (port 3100), "after" on the current dev server.
+Checked in the built-in browser, signed in, on the local dev server (port 3001), desktop 1280×800. Each journey: scroll down, open a link, wait, press back.
+
+| Journey | Before (old code) | After: content shown | After: card back in place | Loading screen | Scroll position |
+|---|---|---|---|---|---|
+| Discover → workspace → back | starts at its saved pixel (Discover only) | 196 ms | 196 ms | none | 700 → 700 |
+| Network → profile → back | starts at the top, loading skeleton first | 127 ms (2nd run; 1st 1,018 ms while compiling) | 127 ms | none | 600 → 600 |
+| Workspace (Updates tab) → profile → back | starts at the top, tab could reset | 1,007 ms | 1,007 ms | none | 600 → 600, Updates tab kept |
+| My profile → workspace → back | full page reload, starts at the top | 139 ms | 139 ms | none | 400 → 400 |
+
+- **Before:** the "before" column comes from the old code's behaviour, not measured. A scratch copy of the old code on port 3100 would not render in the browser pane (webpack with a shared `node_modules`).
+- **Dev mode:** these are dev-server numbers. The pane throttled animation frames to 1–2 per second during the run, so the workspace number is pessimistic; a normal visible tab runs about 60 per second.
+
+### Fixed during the browser check
+- **Lost back flag:** a back that took over 1.5 s to render lost its "came back" flag. The flag now lasts until the page is stamped.
+- **Wrong anchor:** Discover's people rail stays on screen beside the feed and was being used as the anchor. Rail cards are no longer anchors.
+- **Slow pages:**
+  - the restore now waits up to 5 s for the page, then holds the card for 1.5 s;
+  - saving pauses while it runs;
+  - the first attempt happens immediately instead of on the next frame.
+- **Profile workspace links** did a full page reload. They're in-app links now.
+
+### Seen working in the browser
+- **Arrow on desktop:** on a workspace it sits before the search in the same row (44 px slot), labelled "Back to Discover"; the history stamp shows depth 1.
+- **Arrow on phones:** it sits next to the menu in the logo's place, and the hidden logo is skipped by Tab.
+- **Not-found and Terms pages** have their own arrow.
+- **Back** returns to the same history entry and exact position on Discover, Network, a workspace and My profile, with no loading screen.
+
+### Not checked in the browser yet
+- The motion itself, frame by frame, and reduce motion.
+- Drawers closing on back (task, My work, media, member, Trust case).
+- Reopening the search on back.
+- The GitHub round trip.
+- The upload warning.
+- Sign-out and then back.
+- Half-typed comments.
+- Edit profile save → back.
+- Offline back.
