@@ -1,0 +1,66 @@
+name: CLI
+
+on:
+  pull_request:
+    paths:
+      - 'packages/nb-cli/**'
+      - 'src/app/api/v1/**'
+      - 'src/lib/domain/**'
+      - '.github/workflows/cli.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/nb-cli/**'
+      - 'src/app/api/v1/**'
+      - 'src/lib/domain/**'
+      - '.github/workflows/cli.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }}, Node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [20, 22]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # The CLI has no dependencies, so its tests need no install.
+      - name: Run CLI tests
+        run: node test/run.mjs
+        working-directory: packages/nb-cli
+        env:
+          CI: 'true'
+
+  types-lint:
+    name: Types and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type-check CLI
+        run: npx tsc -p packages/nb-cli
+      - name: Lint CLI
+        run: npx eslint packages/nb-cli
+
+  budgets:
+    name: Size and startup budgets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Report only until CLI 2.0 (Phase 2) adds --enforce.
+      - run: node packages/nb-cli/test/budgets.mjs

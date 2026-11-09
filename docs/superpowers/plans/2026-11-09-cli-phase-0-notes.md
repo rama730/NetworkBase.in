@@ -24,4 +24,15 @@ net: about −2,500 lines possible in `nb.mjs` once split into modules; −5 ser
 
 ## Baselines (P0.3)
 
-_Filled in by Task 6._
+`node packages/nb-cli/test/bench.mjs` on 2026-11-09, CLI 1.0.4, Node 22.22.0, darwin-arm64, median of 10 (pull: 5). **Fake server on localhost: client overhead only, no network time.**
+
+| Measure | 1.0.4 | 2.0 budget (A13.8) |
+|---|---|---|
+| Unpacked package | 193,446 B | < 153,600 B |
+| `nb --version` | 83 ms | < 120 ms |
+| `nb help` | 83 ms | < 200 ms |
+| Push 1 file (1 KB, `--draft --json`) | 107 ms | — (compare in Phase 2) |
+| Push 50 files (1 KB each) | 111 ms | — |
+| Pull 1,000 files (2 KB each) into an empty folder | 355 ms | — |
+
+Notes: 1.x is over the size budget (one 5,393-line file); budgets are report-only until Phase 2. Tests: `cd packages/nb-cli && npm test` (runner `test/run.mjs`, works on Node 20 and 22). Known 1.x MCP bugs F5 and F6 are `todo` tests until P3.2.
