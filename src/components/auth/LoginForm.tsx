@@ -535,7 +535,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                     </div>
                 ) : null}
                 <SubmitButton data-signin-submit="" busy={busy && !accepted} disabled={busy || accepted} busyLabel="Signing in…" className="relative h-11 w-full font-medium">
-                    {accepted ? <><Check className="size-4" aria-hidden="true" /><span className="sr-only">Signed in</span></> : <>Sign in{lastUsed === 'password' ? <LastUsedMarker place="primary" /> : null}</>}
+                    {accepted ? <><Check className="size-4" aria-hidden="true" /><span className="sr-only">Signed in</span></> : <>Sign in{lastUsed === 'password' ? <LastUsedMarker place="edge" /> : null}</>}
                 </SubmitButton>
                 {showWrongPasswordHelp ? null : (
                     <Button type="button" variant="ghost" className="relative h-11 w-full" onClick={() => void startEmailCode()} disabled={busy}>

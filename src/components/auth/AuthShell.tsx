@@ -250,10 +250,10 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
         <div>
             <div className="grid grid-cols-2 gap-3">
                 {(['google', 'github'] as const).map((provider) => (
-                    <Button key={provider} type="button" variant="outline" className="nb-oauth-btn relative h-11 w-full justify-start font-medium" onClick={() => void start(provider)} disabled={busy}>
+                    <Button key={provider} type="button" variant="outline" className="relative h-11 w-full font-medium" onClick={() => void start(provider)} disabled={busy}>
                         {loading === provider ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : provider === 'google' ? <GoogleIcon /> : <Github className="size-4" aria-hidden="true" />}
                         <span className="truncate">{loading === provider ? 'Redirecting…' : provider === 'google' ? 'Google' : 'GitHub'}</span>
-                        {lastUsed === provider && loading !== provider ? <LastUsedMarker place="oauth" /> : null}
+                        {lastUsed === provider && loading !== provider ? <LastUsedMarker place="edge" /> : null}
                     </Button>
                 ))}
             </div>
@@ -262,13 +262,14 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
 }
 
 /**
- * Marks how this browser signed in last time: a small chip inside the button (styles: .nb-last-used in globals.css).
- * Where a button is too narrow for the words it shrinks to a dot, and the words stay for screen readers.
+ * Marks how this browser signed in last time: a small chip on the top edge of the matching button (styles:
+ * .nb-last-used in globals.css), so the buttons keep their size and their centred label. Where there is no edge to sit
+ * on (the sign-in code link) it goes inline after the text.
  */
-export function LastUsedMarker({ place }: { place: 'oauth' | 'primary' | 'inline' }) {
+export function LastUsedMarker({ place }: { place: 'edge' | 'inline' }) {
     return (
         <span className="nb-last-used" data-place={place} title="You last signed in this way on this browser">
-            <span className="nb-last-used-text">Last used</span>
+            Last used
         </span>
     )
 }

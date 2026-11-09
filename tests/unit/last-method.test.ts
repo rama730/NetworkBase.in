@@ -29,20 +29,19 @@ test("signing out clears the device but keeps the last way in, because the marke
   assert.equal(LAST_SIGN_IN_KEY, "nb_last_sign_in");
 });
 
-test("one marker for every way in: inside the button, shared styles, a dot where there is no room, nothing on the border", () => {
+test("one marker for every way in: a chip on the top edge, buttons untouched, inline only on the code link", () => {
   const shell = read("src/components/auth/AuthShell.tsx");
-  assert.match(shell, /export function LastUsedMarker\(\{ place \}: \{ place: 'oauth' \| 'primary' \| 'inline' \}\)/);
-  assert.match(shell, /<LastUsedMarker place="oauth" \/>/);
-  assert.match(shell, /nb-oauth-btn relative h-11 w-full justify-start font-medium/, "the provider buttons are left-aligned and are containers");
-  assert.doesNotMatch(shell, /-top-2/, "the old tag that sat on the border is gone");
+  assert.match(shell, /export function LastUsedMarker\(\{ place \}: \{ place: 'edge' \| 'inline' \}\)/);
+  assert.match(shell, /<LastUsedMarker place="edge" \/>/);
+  assert.match(shell, /className="relative h-11 w-full font-medium" onClick=\{\(\) => void start\(provider\)\}/, "the provider buttons are as they were: centred, full width of their cell");
+  assert.doesNotMatch(shell, /justify-start|nb-oauth-btn|-top-2/, "no left-aligning, no container, no old tag");
   const login = read("src/components/auth/LoginForm.tsx");
-  assert.match(login, /<LastUsedMarker place="primary" \/>/);
+  assert.match(login, /<LastUsedMarker place="edge" \/>/);
   assert.match(login, /<LastUsedMarker place="inline" \/>/);
   assert.doesNotMatch(login, /LastUsedTag/);
   const css = read("src/app/globals.css");
-  assert.match(css, /\.nb-last-used \{ display:inline-flex;[^}]*border:1px solid var\(--border\);[^}]*background:var\(--secondary\);[^}]*font-size:11px;/);
-  assert.match(css, /\.nb-last-used\[data-place="primary"\] \{ position:absolute;/);
-  assert.match(css, /\.nb-oauth-btn \{ container-type:inline-size; \}/);
-  assert.match(css, /@container \(max-width:139px\) \{[^}]*\.nb-last-used\[data-place="oauth"\] \{ width:8px; height:8px;/);
-  assert.match(css, /\.nb-last-used-text \{ position:absolute; width:1px; height:1px;/, "the words stay for screen readers");
+  assert.match(css, /\.nb-last-used \{ display:inline-flex;[^}]*border:1px solid var\(--border\);[^}]*background:var\(--card\);[^}]*font-size:11px;/);
+  assert.match(css, /\.nb-last-used\[data-place="edge"\] \{ position:absolute; top:-10px; right:10px; \}/);
+  assert.match(css, /\.nb-last-used\[data-place="inline"\] \{ margin-left:4px; \}/);
+  assert.doesNotMatch(css, /container-type:inline-size; \}\s*@container \(max-width:139px\)/);
 });
