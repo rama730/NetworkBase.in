@@ -1,4 +1,5 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -30,22 +31,28 @@ export async function POST(request: Request) {
   if (auth.tokenKind !== "agent" || !token.startsWith("nb_agt_")) {
     return withAuthHint(jsonError("The hosted MCP server takes an agent sign-in, limited to one workspace: nb login --device --agent \"Your agent\"", 403, "FORBIDDEN"));
   }
+  // The tools call this site's own API. Its address comes from configuration, never from the request's Host header
+  // (which the caller controls); only a local dev server may use its own origin.
+  const own = new URL(request.url);
+  const apiUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? (["localhost", "127.0.0.1"].includes(own.hostname) ? own.origin : null);
+  if (!apiUrl) return jsonError("The hosted MCP server isn't configured (APP_URL)", 503, "UNAVAILABLE");
   const body = await request.json().catch(() => undefined);
   if (body === undefined) return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, { status: 400 });
   const messages: unknown[] = Array.isArray(body) ? body : [body];
   const sessionId = request.headers.get("mcp-session-id")?.slice(0, 80) || randomUUID();
   const replies: unknown[] = [];
+  // Each token gets its own scratch settings folder, so no request ever reads another person's local state.
+  const home = path.join(SCRATCH, createHash("sha256").update(token).digest("hex").slice(0, 32));
   const handle = createMcpHandler({
     hosted: true,
     version: VERSION,
     send: (message: unknown) => replies.push(message),
     where: {
-      cwd: SCRATCH,
+      cwd: home,
       env: {
         NETWORKBASE_TOKEN: token,
-        // The site's own address (APP_URL), so the tools reach the same routes a CLI does.
-        NETWORKBASE_API_URL: process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin,
-        NB_HOME: SCRATCH,
+        NETWORKBASE_API_URL: apiUrl,
+        NB_HOME: home,
         NB_CREDENTIAL_STORE: "file",
         NB_NO_UPDATE_CHECK: "1",
         NB_PLAIN: "1",
@@ -54,6 +61,7 @@ export async function POST(request: Request) {
       } as unknown as NodeJS.ProcessEnv,
     },
   });
+  await mkdir(home, { recursive: true, mode: 0o700 });
   for (const message of messages) await handle(message);
   const headers = { "Mcp-Session-Id": sessionId, "Cache-Control": "no-store" };
   // Only notifications in the request: nothing to answer (Streamable HTTP: 202).
