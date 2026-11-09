@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { and, eq, isNull } from "drizzle-orm";
-import { enforceRouteLimit, invalidateBearerTokenCache, jsonError, jsonSuccess, getRequestIp } from "@/app/api/v1/_shared";
+import { enforceRouteLimit, jsonError, jsonSuccess, getRequestIp } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { extensionDeviceSessionEvents, extensionDeviceSessions, personalAccessTokens, profiles } from "@/lib/db/schema";
 import { EXTENSION_DEVICE_SESSION_EVENTS } from "@/lib/extension/session-events";
@@ -20,17 +20,6 @@ function getBearerToken(request: Request) {
   return token.startsWith("nb_dev_") || token.startsWith("nb_pat_") ? token : null;
 }
 
-const SESSION_CACHE_TTL_MS = 30_000;
-type CachedSession = {
-  sessionId: string;
-  active: boolean;
-  tokenType: "device" | "pat";
-  user?: { id: string; email: string | null; username: string | null; fullName: string | null } | null;
-  cachedAt: number;
-};
-const sessionStatusCache = new Map<string, CachedSession>();
-const MAX_SESSION_CACHE_SIZE = 10_000;
-
 export async function GET(request: Request) {
   const limitResponse = await enforceRouteLimit(request, "api:v1:extension:session:status", 60, 60);
   if (limitResponse) return limitResponse;
@@ -42,21 +31,6 @@ export async function GET(request: Request) {
 
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const now = Date.now();
-  const cached = sessionStatusCache.get(tokenHash);
-  if (cached && now - cached.cachedAt < SESSION_CACHE_TTL_MS) {
-    // Revoked tokens may read only their own liveness so the IDE can erase them after web-side disconnect.
-    return jsonSuccess(
-      {
-        sessionId: cached.sessionId,
-        active: cached.active,
-        tokenType: cached.tokenType,
-        user: cached.active ? cached.user ?? null : null,
-      },
-      undefined,
-      { headers: { "Cache-Control": "no-store" } },
-    );
-  }
-
   if (token.startsWith("nb_pat_")) {
     const [found] = await db
       .select({
@@ -82,17 +56,6 @@ export async function GET(request: Request) {
       ? { id: found.userId, email: found.email, username: found.username, fullName: found.fullName }
       : null;
 
-    if (sessionStatusCache.size >= MAX_SESSION_CACHE_SIZE) {
-      const oldestKey = sessionStatusCache.keys().next().value;
-      if (oldestKey) sessionStatusCache.delete(oldestKey);
-    }
-    sessionStatusCache.set(tokenHash, {
-      sessionId: found.id,
-      active,
-      tokenType: "pat",
-      user: userPayload,
-      cachedAt: now,
-    });
 
     return jsonSuccess(
       {
@@ -130,17 +93,6 @@ export async function GET(request: Request) {
     ? { id: session.userId, email: session.email, username: session.username, fullName: session.fullName }
     : null;
 
-  if (sessionStatusCache.size >= MAX_SESSION_CACHE_SIZE) {
-    const oldestKey = sessionStatusCache.keys().next().value;
-    if (oldestKey) sessionStatusCache.delete(oldestKey);
-  }
-  sessionStatusCache.set(tokenHash, {
-    sessionId: session.id,
-    active,
-    tokenType: "device",
-    user: userPayload,
-    cachedAt: now,
-  });
 
   // Revoked tokens may read only their own liveness so the IDE can erase them after web-side disconnect.
   return jsonSuccess(
@@ -178,8 +130,6 @@ export async function POST(request: Request) {
             isNull(personalAccessTokens.revokedAt),
           ),
         );
-      sessionStatusCache.delete(tokenHash);
-      invalidateBearerTokenCache(tokenHash);
       return jsonSuccess({ revoked: true });
     }
 
@@ -222,9 +172,6 @@ export async function POST(request: Request) {
         createdAt: now,
       });
     });
-
-    sessionStatusCache.delete(tokenHash);
-    invalidateBearerTokenCache(tokenHash);
 
     return jsonSuccess({ revoked: true });
   } catch (error) {

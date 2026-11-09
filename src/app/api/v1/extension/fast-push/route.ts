@@ -6,6 +6,7 @@ import {
   jsonError,
   jsonSuccess,
   requireAuthenticatedUser,
+  requireTokenScope,
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -119,6 +120,12 @@ export async function POST(request: Request) {
       operationId: rawOpId,
       files,
     } = parsed.data;
+
+    // Final files and finishing a task need their own token permissions (report A3.6).
+    const scopeDenied =
+      (requestedRole === "deliverable" ? requireTokenScope(auth, "file:final") : null) ??
+      (transitionStatus === "done" ? requireTokenScope(auth, "task:complete") : null);
+    if (scopeDenied) return scopeDenied;
 
     let taskId: string | null = null;
     if (rawTaskId) {

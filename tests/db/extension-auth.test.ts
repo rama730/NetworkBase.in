@@ -27,7 +27,7 @@ test("extension bearer auth coalesces last-seen writes but always honours revoca
       INSERT INTO extension_device_sessions (user_id, token_hash, token_prefix, device_name, expires_at, last_seen_at, client_version)
       VALUES (${userId}, ${tokenHash}, ${token.slice(0, 12)}, 'test device', now() + interval '1 day', now() - interval '5 seconds', '1.0.0') RETURNING id`;
     const id = row!.id as string;
-    headerValues = { authorization: `Bearer ${token}`, "x-extension-version": "1.0.0" };
+    headerValues = { authorization: `Bearer ${token}`, "x-extension-version": "1.0.0", "x-networkbase-request-method": "GET", "x-networkbase-request-target": "/api/v1/extension/workspaces" };
 
     const before = await lastSeen(id);
     const first = await shared.requireAuthenticatedUser();

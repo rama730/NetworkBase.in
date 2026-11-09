@@ -8,13 +8,15 @@ function readSource(relativePath: string) {
 }
 
 describe("IDE & Editor Extension Performance & Architecture Enhancements", () => {
-  it("session route implements high-concurrency in-memory TTL caching and invalidation", () => {
+  it("session route and bearer auth read revocation on every request (report finding 43)", () => {
     const sessionRoute = readSource("src/app/api/v1/extension/session/route.ts");
+    const shared = readSource("src/app/api/v1/_shared.ts");
 
-    // Must define in-memory cache with TTL to prevent DB query storms at 1M users
-    assert.match(sessionRoute, /SESSION_CACHE_TTL_MS\s*=\s*30_000/, "must define 30s TTL for liveness cache");
-    assert.match(sessionRoute, /sessionStatusCache\.get\(tokenHash\)/, "must check in-memory cache first");
-    assert.match(sessionRoute, /sessionStatusCache\.delete\(tokenHash\)/, "must invalidate cache upon session revocation");
+    // An in-process cache kept a revoked token working for up to 30 s, and on other servers until expiry.
+    // Each request is one indexed read (API-009), rate-limited per route; no cache may sit in front of it.
+    assert.doesNotMatch(sessionRoute, /sessionStatusCache/, "session status must not be cached in memory");
+    assert.doesNotMatch(shared, /VERIFIED_BEARER_CACHE/, "bearer auth must not be cached in memory");
+    assert.match(sessionRoute, /enforceRouteLimit\(request, "api:v1:extension:session:status"/, "status reads stay rate-limited");
   });
 
   it("active-sessions implements fast-path auth-method detection and LRU caching", () => {

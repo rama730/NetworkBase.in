@@ -1,6 +1,7 @@
 import { validateCsrf } from "@/lib/security/csrf";
 import {
   requireAuthenticatedUser,
+  requireTokenScope,
   jsonSuccess,
   jsonError,
   getRequestId,
@@ -67,6 +68,14 @@ export async function PATCH(request: Request) {
     if (!parsed.success)
       return jsonError("Invalid task update", 400, "BAD_REQUEST");
     const input = parsed.data;
+    // Finishing and reviewing need their own token permissions (report A3.6).
+    const scopeDenied =
+      input.kind === "approve" || input.kind === "request_changes"
+        ? requireTokenScope(auth, "task:review")
+        : input.kind === "resubmit" || (input.kind === "status" && input.status === "done")
+          ? requireTokenScope(auth, "task:complete")
+          : null;
+    if (scopeDenied) return scopeDenied;
     if (input.kind === "request_changes" || input.kind === "resubmit") {
       const result = input.kind === "resubmit"
         ? await resubmitTaskReviewAction(input.taskId, input.projectId, input.expectedUpdatedAt)

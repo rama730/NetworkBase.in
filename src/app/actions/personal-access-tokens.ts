@@ -2,7 +2,6 @@
 
 import { db } from "@/lib/db";
 import { personalAccessTokens } from "@/lib/db/schema";
-import { invalidateBearerTokenCache } from "@/app/api/v1/_shared";
 import { createClient } from "@/lib/supabase/server";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import crypto from "crypto";
@@ -184,7 +183,7 @@ export async function revokePersonalAccessToken(
       return { success: false, error: "Sign in to continue" };
     }
 
-    const [revoked] = await db
+    await db
       .update(personalAccessTokens)
       .set({ revokedAt: new Date() })
       .where(
@@ -193,12 +192,7 @@ export async function revokePersonalAccessToken(
           eq(personalAccessTokens.userId, user.id),
           isNull(personalAccessTokens.revokedAt),
         ),
-      )
-      .returning({ tokenHash: personalAccessTokens.tokenHash });
-
-    if (revoked?.tokenHash) {
-      invalidateBearerTokenCache(revoked.tokenHash);
-    }
+      );
 
     return { success: true };
   } catch {

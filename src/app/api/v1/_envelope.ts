@@ -22,7 +22,8 @@ export type ApiErrorCode =
   | "DB_UNAVAILABLE"
   | "READINESS_DEGRADED"
   | "UNAVAILABLE"
-  | "FILE_LOCKED";
+  | "FILE_LOCKED"
+  | "SCOPE_MISSING";
 
 export function jsonSuccess<T>(
   data?: T,

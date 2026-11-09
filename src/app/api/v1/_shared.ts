@@ -90,6 +90,13 @@ import { db } from "@/lib/db";
 import { extensionDeviceSessions, personalAccessTokens, profiles } from "@/lib/db/schema";
 import crypto from "crypto";
 import { and, eq, gt, isNull, or } from "drizzle-orm";
+import {
+  checkTokenAccess,
+  effectiveScopes,
+  TRUSTED_METHOD_HEADER,
+  TRUSTED_TARGET_HEADER,
+  type TokenScope,
+} from "@/lib/security/token-access";
 
 function normalizeSessionHeader(value: string | null, maxLength = 120) {
   if (!value) return null;
@@ -101,35 +108,45 @@ function normalizeSessionHeader(value: string | null, maxLength = 120) {
 }
 
 const EXTENSION_LAST_SEEN_INTERVAL_MS = 60_000;
-const BEARER_AUTH_CACHE_TTL_MS = 15_000;
-const BEARER_AUTH_CACHE_MAX_SIZE = 500;
-
-type CachedBearerAuth = {
-  user: User;
-  extensionSessionId: string;
-  expiresAtMs: number;
-};
-
-const VERIFIED_BEARER_CACHE = new Map<string, CachedBearerAuth>();
-
-export function invalidateBearerTokenCache(tokenHash?: string) {
-  if (tokenHash) {
-    VERIFIED_BEARER_CACHE.delete(tokenHash);
-  } else {
-    VERIFIED_BEARER_CACHE.clear();
+/**
+ * A signed-in token principal, or a 403 when the token may not call this route or lacks the scope
+ * (report A3.6, A3.7). Method and path come from headers the proxy overwrites on every request.
+ */
+function bearerPrincipal(
+  headerStore: Awaited<ReturnType<typeof headers>>,
+  user: User,
+  extensionSessionId: string,
+  scopes: Set<TokenScope>,
+) {
+  const target = headerStore.get(TRUSTED_TARGET_HEADER);
+  const denial = checkTokenAccess({ method: headerStore.get(TRUSTED_METHOD_HEADER), path: target, scopes });
+  if (denial) {
+    logger.warn("api.v1.token_route_denied", {
+      path: target?.split("?")[0] ?? null,
+      errorCode: denial.errorCode,
+      scope: denial.scope ?? null,
+    });
+    return {
+      supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
+      user: null as User | null,
+      extensionSessionId: null as string | null,
+      tokenScopes: null as Set<TokenScope> | null,
+      response: jsonError(denial.message, 403, denial.errorCode, denial.scope ? { scope: denial.scope } : undefined),
+    };
   }
+  return {
+    supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
+    user: user as User | null,
+    extensionSessionId: extensionSessionId as string | null,
+    tokenScopes: scopes as Set<TokenScope> | null,
+    response: null as ReturnType<typeof jsonError> | null,
+  };
 }
 
-function setCachedBearerAuth(tokenHash: string, user: User, extensionSessionId: string) {
-  if (VERIFIED_BEARER_CACHE.size >= BEARER_AUTH_CACHE_MAX_SIZE) {
-    const oldestKey = VERIFIED_BEARER_CACHE.keys().next().value;
-    if (oldestKey) VERIFIED_BEARER_CACHE.delete(oldestKey);
-  }
-  VERIFIED_BEARER_CACHE.set(tokenHash, {
-    user,
-    extensionSessionId,
-    expiresAtMs: Date.now() + BEARER_AUTH_CACHE_TTL_MS,
-  });
+/** For checks that depend on the request body (finishing a task, approving, final files): 403 when a token lacks the scope. */
+export function requireTokenScope(auth: { tokenScopes?: Set<TokenScope> | null }, scope: TokenScope) {
+  if (!auth.tokenScopes || auth.tokenScopes.has(scope)) return null;
+  return jsonError(`This token can't do that: it needs the ${scope} permission`, 403, "SCOPE_MISSING", { scope });
 }
 
 export async function requireAuthenticatedUser() {
@@ -143,16 +160,9 @@ export async function requireAuthenticatedUser() {
       bearerAttempted = true;
       const token = authHeader.substring(6).trim();
       if (token.startsWith("nb_dev_") || token.startsWith("nb_pat_")) {
+        // No in-process cache: every request reads revocation and expiry, so revoking a token works at once
+        // on every server (API-009; a 15 s cache added with CLI 1.0 broke this, finding 43).
         const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-        const cached = VERIFIED_BEARER_CACHE.get(tokenHash);
-        if (cached && Date.now() < cached.expiresAtMs) {
-          return {
-            supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
-            user: cached.user,
-            extensionSessionId: cached.extensionSessionId,
-            response: null,
-          };
-        }
 
         const now = new Date();
         if (token.startsWith("nb_dev_")) {
@@ -239,13 +249,8 @@ export async function requireAuthenticatedUser() {
               updated_at: session.lastSeenAt.toISOString(),
             } as any;
 
-            setCachedBearerAuth(tokenHash, mockUser, session.id);
-            return {
-              supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
-              user: mockUser,
-              extensionSessionId: session.id,
-              response: null,
-            };
+            const scopes = effectiveScopes("device", session.scopes);
+            return bearerPrincipal(headerStore, mockUser, session.id, scopes);
           }
         } else if (token.startsWith("nb_pat_")) {
           const [found] = await db
@@ -301,13 +306,8 @@ export async function requireAuthenticatedUser() {
               updated_at: (pat.lastUsedAt ?? pat.createdAt).toISOString(),
             } as any;
 
-            setCachedBearerAuth(tokenHash, mockUser, pat.id);
-            return {
-              supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
-              user: mockUser,
-              extensionSessionId: pat.id,
-              response: null,
-            };
+            const scopes = effectiveScopes("pat", pat.scopes);
+            return bearerPrincipal(headerStore, mockUser, pat.id, scopes);
           }
         }
       }
@@ -315,6 +315,7 @@ export async function requireAuthenticatedUser() {
         supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
         user: null,
         extensionSessionId: null,
+        tokenScopes: null,
         response: jsonError("Invalid or expired editor session", 401, "UNAUTHORIZED"),
       };
     }
@@ -327,6 +328,7 @@ export async function requireAuthenticatedUser() {
         supabase: null as unknown as Awaited<ReturnType<typeof createClient>>,
         user: null,
         extensionSessionId: null,
+        tokenScopes: null,
         response: jsonError("Editor session verification failed", 401, "UNAUTHORIZED"),
       };
   }
@@ -341,6 +343,7 @@ export async function requireAuthenticatedUser() {
       supabase,
       user: null as User | null,
       extensionSessionId: null as string | null,
+      tokenScopes: null as Set<TokenScope> | null,
       response: jsonError("Sign in to continue", 401, "UNAUTHORIZED"),
     };
   }
@@ -348,6 +351,7 @@ export async function requireAuthenticatedUser() {
     supabase,
     user,
     extensionSessionId: null as string | null,
+    tokenScopes: null as Set<TokenScope> | null,
     response: null as ReturnType<typeof jsonError> | null,
   };
 }

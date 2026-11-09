@@ -7,8 +7,9 @@ import { toPrivacySafeRouteMetric } from "@/lib/routing/route-metric";
 
 const CSP_NONCE_HEADER = "x-nonce";
 const ROUTE_METRIC_HEADER = "x-route-metric";
+// Path and method, set here so a client can't claim them: the moderation gate treats every non-GET as a write,
+// and token access (src/lib/security/token-access.ts) decides from them which routes a CLI or agent token may call.
 const REQUEST_TARGET_HEADER = "x-networkbase-request-target";
-// The method, set here so a client can't claim one: the moderation gate treats every non-GET as a write.
 const REQUEST_METHOD_HEADER = "x-networkbase-request-method";
 const CSRF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
 const AUTH_PROTECTED_PREFIXES = ["/discover", "/settings", "/messages", "/my-profile", "/network", "/my-work", "/u/", "/workspaces", "/org/", "/admin", "/authorize"];

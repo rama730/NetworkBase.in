@@ -8,7 +8,9 @@ let authorization: string | null = null;
 let cookieLookups = 0;
 let shared: typeof import("../../src/app/api/v1/_shared");
 before(async () => {
-  moduleStubs.set("next/headers", { headers: async () => new Headers(authorization ? { authorization } : {}) });
+  // The proxy stamps every request with its method and path; token access is judged on them.
+  const trusted = { "x-networkbase-request-method": "GET", "x-networkbase-request-target": "/api/v1/extension/workspaces" };
+  moduleStubs.set("next/headers", { headers: async () => new Headers(authorization ? { authorization, ...trusted } : trusted) });
   moduleStubs.set("@/lib/supabase/server", {
     createClient: async () => ({
       auth: {
