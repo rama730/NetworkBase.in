@@ -18,7 +18,7 @@ Local `main`, not pushed. Commits, oldest first:
 ## Done on 2026-11-10 (the user's go-ahead: "do these all and check everything before deploying")
 
 - **0072–0076 applied in production** (one transaction each, recorded in `app_migration_journal` with checksum and index, schema reload sent). Verified: 17 new columns, the six new tables usable by `nb_app` and not by the browser role, RLS on. `npm run db:setup` was not used because it would also apply **0071** (another session's drop of `calendar_feed_tokens`, which the deployed app still uses); 0071 stays pending and ships with that session's code.
-- **0077** (FK indexes for the new tables) is committed but **not applied**: the permission check stopped it as beyond the named migrations. It's index-only on tables with 0–36 rows. Apply it alone (not with `db:setup`, which would also run 0071).
+- **0077** (FK indexes for the new tables) applied in production on the user's yes, alone (not via `db:setup`); all 11 indexes verified. The live lineage check still lists `agent_questions.to_user_id` (its index is partial, open questions only) and four older keys from other areas.
 - `APP_URL` and `NEXT_PUBLIC_APP_URL` were already set on both Railway services (`https://networkbase.in`).
 - `npm ci` done. It stopped the :3000 dev server, which was restarted.
 - Checks: full unit suite 3452/3452, CLI 126/126, DB 943/947 (the 4 known older failures), typecheck clean, lint clean except two errors in a test from another session (`6200fbf5e`). A production build of HEAD in a scratch copy, started on :3100, found and fixed two real bugs (`6f69f63cd`): agent tokens were refused by the CSRF guard on every write, and couldn't sign out; and `/api/mcp` traced the whole project into the server image.
@@ -26,10 +26,9 @@ Local `main`, not pushed. Commits, oldest first:
 
 ## Still before deploying (needs the user's go-ahead)
 
-1. Apply 0077 alone.
-2. Push and deploy; then re-sync the Inngest worker (new function `agent-notification-flush`) — re-syncing before the deploy registers nothing new.
-3. Create `NetWorkBase/claude-code-plugin` from `integrations/claude-code-plugin/` (needs organization rights).
-4. npm release steps from the plan (§42.9): re-add the trusted publisher before 2.0.
+1. Push and deploy; then re-sync the Inngest worker (new function `agent-notification-flush`) — re-syncing before the deploy registers nothing new.
+2. Create `NetWorkBase/claude-code-plugin` from `integrations/claude-code-plugin/` (needs organization rights).
+3. npm release steps from the plan (§42.9): re-add the trusted publisher before 2.0.
 
 ## Decisions taken while building (ponytail)
 
