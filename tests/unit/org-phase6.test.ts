@@ -46,7 +46,7 @@ test("live-fix 49–51: Join knows you're in, Discover cards carry the org type,
 test("live-fix 40, 50 follow-ups: alone, the invite panel is the larger one; Discover counts only workspaces people can find", () => {
   const panel = source("src/components/organizations/OrgInvitePanel.tsx");
   assert.match(panel, /prominent \? 'p-4' : 'p-3'/);
-  assert.match(source("src/components/organizations/OrgMembersTab.tsx"), /<OrgInvitePanel orgId=\{orgId\} orgHandle=\{null\} prominent=\{data\.summary\.members <= 1\} \/>/);
+  assert.match(source("src/components/organizations/OrgMembersTab.tsx"), /<OrgInvitePanel orgId=\{orgId\} orgHandle=\{null\} prominent=\{data\.summary\.members <= 1\}( onChanged=\{load\})? \/>/);
   assert.match(source("src/lib/workspaces/public-feed-service.ts"), /c\.visibility <> 'private'/);
   assert.match(source("src/lib/data/discover.ts"), /ne\(workspaces\.visibility, 'private'\)\)\)\.groupBy\(workspaces\.parentId\)/);
 });
