@@ -93,6 +93,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/uploads/${ID}`), read: "file:read", write: "file:write" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/(capabilities|members)`), read: "workspace:read" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/sync-diff`), read: "file:read" },
+  { pattern: route("/api/v1/files/place"), write: "file:write" },
+  { pattern: route(`/api/v1/workspaces/${ID}/manifest`), read: "file:read" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/image`), read: "workspace:read" },
 ];
 

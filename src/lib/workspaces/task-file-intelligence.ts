@@ -36,6 +36,32 @@ export type TaskFileResolutionChoice =
 
 export type TaskFileRole = "reference" | "working" | "deliverable";
 
+/**
+ * The words people and agents see for a file's role on a task (report D11, §26.1): the app shows
+ * Reference, Draft file, Final file. Stored values stay as they are; only the edges translate.
+ */
+export type PublicTaskFileRole = "reference" | "draft" | "final";
+
+export function toPublicRole(role: TaskFileRole): PublicTaskFileRole {
+  return role === "deliverable" ? "final" : role === "working" ? "draft" : "reference";
+}
+
+/** Accepts the public words and the stored ones (CLI 1.x sends `working` / `deliverable`). */
+export function fromPublicRole(word: string): TaskFileRole | null {
+  switch (word) {
+    case "final":
+    case "deliverable":
+      return "deliverable";
+    case "draft":
+    case "working":
+      return "working";
+    case "reference":
+      return "reference";
+    default:
+      return null;
+  }
+}
+
 const TASK_FILE_ROLE_TAGS = new Set([
   "deliverable",
   "initial_reference",

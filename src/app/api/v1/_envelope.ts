@@ -23,7 +23,9 @@ export type ApiErrorCode =
   | "READINESS_DEGRADED"
   | "UNAVAILABLE"
   | "FILE_LOCKED"
-  | "SCOPE_MISSING";
+  | "SCOPE_MISSING"
+  | "VERSION_CONFLICT"
+  | "SECRET_DETECTED";
 
 export function jsonSuccess<T>(
   data?: T,

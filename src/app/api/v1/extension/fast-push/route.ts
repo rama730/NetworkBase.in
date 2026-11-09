@@ -30,9 +30,12 @@ import {
   validateUploadedBlobMagicBytes,
 } from "@/lib/upload/security";
 import {
+  fromPublicRole,
   replaceTaskFileRoleTag,
+  toPublicRole,
   type TaskFileRole,
 } from "@/lib/workspaces/task-file-intelligence";
+import { scanForSecrets } from "@/lib/security/secret-scan";
 import { createAdminClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import {
@@ -56,7 +59,8 @@ export const dynamic = "force-dynamic";
 const MAX_FAST_PUSH_BATCH_BYTES = 4 * 1024 * 1024; // 4 MiB total inline fast-path ceiling
 const MAX_FAST_PUSH_FILES = 50;
 
-const roleEnum = z.enum(["deliverable", "working", "reference"]);
+// Stored words (CLI 1.x) and the app's words (report D11): draft = working, final = deliverable.
+const roleEnum = z.enum(["deliverable", "working", "reference", "final", "draft"]);
 
 const fastPushFileSchema = z.object({
   path: z.string().min(1).max(2048),
@@ -65,6 +69,10 @@ const fastPushFileSchema = z.object({
   mimeType: z.string().min(1).max(180),
   contentBase64: z.string().optional(),
   comment: z.string().max(500).optional().nullable(),
+  /** The version this edit started from; a newer version on the server is a conflict, not an overwrite (A1.8, F18). */
+  baseVersion: z.number().int().positive().optional().nullable(),
+  /** Save as a new version of this file wherever it lives (a drop on a file row, report §19.3). */
+  versionOf: z.string().uuid().optional(),
 });
 
 const fastPushSchema = z.object({
@@ -77,11 +85,36 @@ const fastPushSchema = z.object({
   message: z.string().max(500).optional().nullable(),
   operationId: z.string().min(8).max(200).optional().nullable(),
   files: z.array(fastPushFileSchema).min(1).max(MAX_FAST_PUSH_FILES),
+  /** Same name in the target folder: a new version (default, report D13) or a separate copy `name (2).ext`. */
+  onSameName: z.enum(["version", "keep-both"]).optional(),
+  /** Workspace folder the paths are relative to (a drop on a folder). */
+  folder: z.string().max(1024).optional(),
+  /** The person saw the secret warning and still wants these files saved (never for agents, Phase 3). */
+  confirmSecrets: z.boolean().optional(),
 });
 
 function normalizePath(rawPath: string) {
   const trimmed = rawPath.replace(/\\/g, "/").replace(/^\/+/, "").trim();
   return trimmed ? `/${trimmed}` : "/";
+}
+
+/** `report (2).pdf`, `report (3).pdf`, … — the first name not used in the folder. */
+async function freeCopyPath(projectId: string, path: string) {
+  const slash = path.lastIndexOf("/");
+  const dir = path.slice(0, slash);
+  const name = path.slice(slash + 1);
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  for (let n = 2; n < 1000; n++) {
+    const candidate = `${dir}/${stem} (${n})${ext}`;
+    const taken = await db.query.workspaceNodes.findFirst({
+      where: and(eq(workspaceNodes.projectId, projectId), eq(workspaceNodes.path, candidate), isNull(workspaceNodes.deletedAt)),
+      columns: { id: true },
+    });
+    if (!taken) return candidate;
+  }
+  throw new Error(`No free name for a copy of ${path}`);
 }
 
 function annotationForRole(role: TaskFileRole) {
@@ -113,14 +146,43 @@ async function handlePost(request: Request) {
     const {
       projectId,
       taskId: rawTaskId,
-      role: requestedRole,
+      role: rawRole,
       transitionStatus,
       completeSubtaskIds,
       completeAllSubtasks,
       message,
       operationId: rawOpId,
       files,
+      onSameName,
+      folder,
+      confirmSecrets,
     } = parsed.data;
+    const requestedRole: TaskFileRole | undefined = rawRole ? (fromPublicRole(rawRole) ?? undefined) : undefined;
+
+    // Where each file goes: a chosen file (versionOf), else the path under the target folder.
+    const versionTargets = files.flatMap((f) => (f.versionOf ? [f.versionOf] : []));
+    if (versionTargets.length) {
+      const targets = await db
+        .select({ id: workspaceNodes.id, path: workspaceNodes.path })
+        .from(workspaceNodes)
+        .where(and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, versionTargets), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt)));
+      const pathById = new Map(targets.map((t) => [t.id, t.path]));
+      for (const f of files) {
+        if (!f.versionOf) continue;
+        const target = pathById.get(f.versionOf);
+        if (!target) return jsonError("The file to save a new version of is gone", 404, "NOT_FOUND");
+        f.path = target;
+      }
+    }
+    if (folder) for (const f of files) if (!f.versionOf) f.path = `${normalizePath(folder)}/${f.path.replace(/^\/+/, "")}`;
+
+    // Credentials are refused before anything is written, unless the person confirms (A3.13, F38).
+    const secretFindings = files.flatMap((f) =>
+      typeof f.contentBase64 === "string" ? scanForSecrets(normalizePath(f.path), Buffer.from(f.contentBase64, "base64")) : [],
+    );
+    if (secretFindings.length && !confirmSecrets) {
+      return jsonError("These files look like they contain passwords or keys", 422, "SECRET_DETECTED", { findings: secretFindings });
+    }
 
     // Final files and finishing a task need their own token permissions (report A3.6).
     const scopeDenied =
@@ -195,6 +257,35 @@ async function handlePost(request: Request) {
     const existingByPath = new Map<string, (typeof existingNodes)[number]>();
     for (const node of existingNodes) {
       existingByPath.set(normalizePath(node.path), node);
+    }
+
+    // A newer version than the one the person started from is a conflict, never an overwrite (A1.8, F18).
+    const conflicts = files.flatMap((item) => {
+      const current = existingByPath.get(normalizePath(item.path));
+      if (!current || item.baseVersion == null || current.currentVersion === item.baseVersion) return [];
+      if (current.contentHash?.toLowerCase() === item.contentHash.toLowerCase()) return [];
+      return [{ path: normalizePath(item.path), nodeId: current.id, baseVersion: item.baseVersion, currentVersion: current.currentVersion, currentHash: current.contentHash }];
+    });
+    if (conflicts.length) {
+      return jsonError(
+        conflicts.length === 1
+          ? `${conflicts[0]!.path} changed on the server (now v${conflicts[0]!.currentVersion}) after you started from v${conflicts[0]!.baseVersion}`
+          : `${conflicts.length} files changed on the server after you started editing them`,
+        409,
+        "VERSION_CONFLICT",
+        { conflicts },
+      );
+    }
+
+    // Keep both: a changed file whose name is taken goes in as `name (2).ext` instead of a new version (D13).
+    if (onSameName === "keep-both") {
+      for (const item of files) {
+        const path = normalizePath(item.path);
+        const current = existingByPath.get(path);
+        if (current && current.contentHash?.toLowerCase() !== item.contentHash.toLowerCase()) {
+          item.path = await freeCopyPath(projectId, path);
+        }
+      }
     }
 
     // 2. Check active locks by other teammates in a single batch query
@@ -690,6 +781,7 @@ async function handlePost(request: Request) {
       projectId,
       taskId: taskId || null,
       role: resolvedRole,
+      as: toPublicRole(resolvedRole),
       transitionStatus: transitionStatus || null,
       uploadedCount: changedFiles.length,
       unchangedCount: txResult.committedFiles.length - changedFiles.length,
