@@ -282,7 +282,7 @@ export type SubmissionGroup = { id: string; title: string; dueDate: string | nul
  * The Submissions page (report §37.5; "Final files" for other types): per assignment, each person or group with
  * their files, version, when, Late and status. Admins only; members use My work → Submitted.
  */
-export async function readOrgSubmissionsAction(orgId: string): Promise<{ success: true; assignments: SubmissionGroup[] } | Failure> {
+export async function readOrgSubmissionsAction(orgId: string): Promise<{ success: true; assignments: SubmissionGroup[]; truncated: boolean } | Failure> {
     if (!(await orgAdmin(orgId, 'read', 'download_all'))) return DENIED;
     const rows = await db.execute<{ master_id: string; title: string; master_due: string | null; copy_id: string; who: string; files: number; version: number | null;
         status: string; review_status: string; due_date: string | null; submitted_at: string | null; completed_at: string | null; excused_at: string | null;
@@ -301,7 +301,7 @@ export async function readOrgSubmissionsAction(orgId: string): Promise<{ success
         FROM tasks m JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL
         WHERE m.workspace_id = ${orgId} AND m.kind = 'assignment' AND m.deleted_at IS NULL
         ORDER BY m.due_date DESC NULLS LAST, m.title, 5
-        LIMIT 5000`);
+        LIMIT 5001`);
     const groups = new Map<string, SubmissionGroup>();
     const at = (v: string | null) => (v ? new Date(v) : null);
     for (const r of rows) {
@@ -314,7 +314,12 @@ export async function readOrgSubmissionsAction(orgId: string): Promise<{ success
             by: r.by, projectId: r.project_id, avatarUrl: r.avatar_url, team: r.team });
         groups.set(r.master_id, group);
     }
-    return { success: true, assignments: [...groups.values()] };
+    // Audit 10.3: past 5,000 hand-ins the newest assignments are listed whole and the cut-off one is left out, never
+    // shown half; the page says older ones aren't listed.
+    const truncated = rows.length > 5000;
+    const assignments = [...groups.values()];
+    if (truncated && assignments.length > 1) assignments.pop();
+    return { success: true, assignments, truncated };
 }
 
 /**

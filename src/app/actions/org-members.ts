@@ -671,24 +671,29 @@ export async function removeOutsidePersonAction(orgId: string, userId: string, w
  * Export progress (report §33.5, decision 83): one row per person and assignment with its status, dates and late
  * mark. Statuses and dates only, never what anyone handed in. Group copies list each person in the group.
  */
-export async function readProgressExportAction(orgId: string): Promise<{ success: true; rows: string[][] } | Failure> {
+const EXPORT_ROWS = 50_000;
+export async function readProgressExportAction(orgId: string): Promise<{ success: true; rows: string[][]; truncated: boolean } | Failure> {
     const viewer = await orgManager(orgId, 'export_progress', 'read');
     if (!viewer) return DENIED;
-    const copies = await db.execute<{ name: string | null; assignment: string; due: Date | string | null; status: string | null; review_status: string | null; submitted_at: Date | string | null; completed_at: Date | string | null; excused_at: Date | string | null }>(sql`
+    const read = await db.execute<{ name: string | null; assignment: string; due: Date | string | null; status: string | null; review_status: string | null; submitted_at: Date | string | null; completed_at: Date | string | null; excused_at: Date | string | null; late_after: number | null }>(sql`
         SELECT coalesce(p.full_name, p.username) AS name, m.title AS assignment, coalesce(c.due_date, m.due_date) AS due, c.status, c.review_status,
-               c.review_submitted_at AS submitted_at, c.completed_at, c.excused_at
+               c.review_submitted_at AS submitted_at, c.completed_at, c.excused_at, (m.assignment_settings->>'lateAfterMinutes')::int AS late_after
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${orgId} AND m.deleted_at IS NULL
         JOIN LATERAL (SELECT c.assignee_id AS user_id WHERE c.assignee_id IS NOT NULL UNION SELECT tm.user_id FROM task_team_members tm WHERE tm.task_id = c.id) who ON true
         JOIN profiles p ON p.id = who.user_id
         WHERE c.deleted_at IS NULL
         ORDER BY 1, coalesce(c.due_date, m.due_date) NULLS LAST, 2
-        LIMIT 50000`);
+        LIMIT ${EXPORT_ROWS + 1}`);
+    // Audit N77: a cut-off sheet says so (one row past the cap is read to know).
+    const truncated = read.length > EXPORT_ROWS;
+    const copies = Array.from(read).slice(0, EXPORT_ROWS);
     const day = (d: Date | string | null) => (d ? new Date(d).toISOString().slice(0, 10) : '');
     const date = (d: Date | string | null) => (d ? new Date(d) : null);
     return {
         success: true,
+        truncated,
         rows: [['Person', 'Assignment', 'Due', 'Status', 'Handed in', 'Late'], ...copies.map((c) => {
-            const { state, late } = copyState({ status: c.status ?? 'todo', reviewStatus: c.review_status ?? 'none', dueDate: date(c.due), submittedAt: date(c.submitted_at), completedAt: date(c.completed_at), excusedAt: date(c.excused_at) });
+            const { state, late } = copyState({ status: c.status ?? 'todo', reviewStatus: c.review_status ?? 'none', dueDate: date(c.due), submittedAt: date(c.submitted_at), completedAt: date(c.completed_at), excusedAt: date(c.excused_at) }, new Date(), lateAfterMs({ lateAfterMinutes: c.late_after ?? undefined }));
             return [c.name || 'Deleted user', c.assignment, day(c.due), state.replace('_', ' '), day(c.submitted_at ?? c.completed_at), late ? 'Late' : ''];
         })],
     };

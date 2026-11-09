@@ -178,6 +178,7 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
                         const r = await readProgressExportAction(orgId)
                         if (!r.success) return void toast.error(r.error)
                         saveBlob(toCsvBlob(r.rows), `progress-${new Date().toISOString().slice(0, 10)}.csv`)
+                    if (r.truncated) toast.warning('This sheet has the first 50,000 rows only. Contact support for the full export.')
                     })}>Export CSV</Button>
                 </div>
 

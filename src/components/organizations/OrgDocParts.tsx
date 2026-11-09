@@ -85,8 +85,13 @@ export async function createDocFile(projectId: string, filename: string, content
     if (!folder.success) throw new Error(folder.error)
     const node = await uploadWorkspaceFile(projectId, folder.folderId, filename, new Blob([content], { type: 'text/plain' }))
     const { linkWorkspaceDocAction } = await import('@/app/actions/workspace/doc')
-    const linked = await linkWorkspaceDocAction(projectId, node.id)
-    if (!linked.success) throw new Error(linked.error)
+    const linked = await linkWorkspaceDocAction(projectId, node.id).catch(() => ({ success: false as const, error: 'Couldn’t add it to Docs.' }))
+    if (!linked.success) {
+        // Audit N87: the upload isn't left behind as a stray file when adding it to Docs fails.
+        const { bulkTrashNodes } = await import('@/app/actions/files/mutations')
+        await bulkTrashNodes([node.id], projectId).catch(() => undefined)
+        throw new Error(linked.error)
+    }
     return { node, slug: linked.slug, id: linked.id }
 }
 

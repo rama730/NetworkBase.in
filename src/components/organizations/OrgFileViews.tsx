@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { DownloadLink } from '@/components/ui/download-link'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { assignmentHref } from '@/lib/organizations/assignment-rules'
+import { Notice } from '@/components/ui/notice'
 
 // Files report §1–§2: Submissions, Sprint materials and a team's Final files, browsed the Task files way.
 
@@ -51,7 +52,8 @@ export function SubmissionsBrowser({ org }: { org: OrgRef }) {
     const [sort, setSort] = useState<'name' | 'updated' | 'size'>('updated')
     const [dir, setDir] = useState<'asc' | 'desc'>('desc')
     const { place, go } = useBrowserPlace(['assignment', 'copy', 'version', 'file'] as const)
-    useEffect(() => { void readOrgSubmissionsAction(org.orgId).then((r) => setData(r.success ? r.assignments : [])) }, [org.orgId])
+    const [truncated, setTruncated] = useState(false)
+    useEffect(() => { void readOrgSubmissionsAction(org.orgId).then((r) => { setData(r.success ? r.assignments : []); setTruncated(r.success && r.truncated) }) }, [org.orgId])
     const matches = (r: SubmissionRow) => STATUS.find((s) => s.id === status)!.test(r) && (!query.trim() || `${r.who} ${r.by ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
     const allRows = useMemo(() => (data ?? []).flatMap((g) => g.rows), [data])
     const pills = STATUS.map((s) => ({ id: s.id, label: s.label, count: allRows.filter(s.test).length }))
@@ -81,6 +83,8 @@ export function SubmissionsBrowser({ org }: { org: OrgRef }) {
     return (
         <div className={shell} data-testid="org-submissions">
             <BrowserHeader crumbs={crumbs} actions={downloadAll} />
+            {/* Audit 10.3: say when older assignments aren't listed, rather than cutting one off silently. */}
+            {truncated && !place.assignment ? <Notice className="mx-4 mt-3">The newest assignments are listed. Older ones are in each assignment’s Tasks roster.</Notice> : null}
             {row ? <HandIn org={org} row={row} masterId={group!.id} version={place.version} file={place.file} go={go} /> : (
                 <>
                     <FilterBar pills={pills} value={status} onChange={setStatus} query={query} onQuery={setQuery} placeholder="Filter people…"
