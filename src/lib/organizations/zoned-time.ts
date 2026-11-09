@@ -44,3 +44,71 @@ export function formatInZone(date: string | Date, options: Intl.DateTimeFormatOp
     return new Intl.DateTimeFormat("en", { ...options, timeZone: "UTC" }).format(at);
   }
 }
+
+// Assignment form redesign (2026-11-09): a date and a time picked apart. Days are "YYYY-MM-DD" in the organization's
+// zone, times "HH:MM"; together they are the datetime-local value the forms already send.
+
+/** The time a picked date gets until someone changes it (Settings → Work → Due time). */
+export const DEFAULT_DUE_TIME = "23:59";
+export const isTimeOfDay = (value: unknown): value is string => typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+/** Every half hour, and 11:59 PM so "end of the day" never reads as midnight. */
+export const TIME_OPTIONS = [...Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`), "23:59"];
+
+export function todayInZone(timeZone: string | null | undefined, now = new Date()) {
+  return isoToZonedInput(now.toISOString(), timeZone).slice(0, 10);
+}
+export function addDaysToDay(day: string, days: number) {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+/** The next `weekday` (0 = Sunday) after `day`, never `day` itself. */
+export function nextWeekday(day: string, weekday: number) {
+  return addDaysToDay(day, (weekday - new Date(`${day}T00:00:00Z`).getUTCDay() + 7) % 7 || 7);
+}
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+
+export function timeLabel(time: string) {
+  const [h = 0, m = 0] = time.split(":").map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+export function relativeDay(days: number) {
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days === -1) return "yesterday";
+  return days > 1 ? `in ${days} days` : `${-days} days ago`;
+}
+const dayText = (day: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`)).replace(",", "");
+
+/** "Sat 14 Nov, 11:59 PM", "in 5 days", and the viewer's own clock when it reads differently ("6:29 PM"). */
+export function describeLocal(local: string, timeZone: string | null | undefined, viewerZone: string | null | undefined, now = new Date()) {
+  const [day = "", time = "00:00"] = local.split("T");
+  let yourTime: string | null = null;
+  if (timeZone && viewerZone) {
+    const yours = isoToZonedInput(zonedInputToIso(local, timeZone), viewerZone);
+    if (yours !== local.slice(0, 16)) yourTime = yours.slice(0, 10) === day ? timeLabel(yours.slice(11, 16)) : `${dayText(yours.slice(0, 10))}, ${timeLabel(yours.slice(11, 16))}`;
+  }
+  return { text: `${dayText(day)}, ${timeLabel(time.slice(0, 5))}`, relative: relativeDay(daysBetween(todayInZone(timeZone, now), day)), yourTime };
+}
+
+/** The days "Repeat weekly until" makes: the first, then each week up to `until` (the server's limit: 26 more). */
+export function weeklyDays(first: string, until: string) {
+  const days = [first];
+  while (days.length < 27) {
+    const next = addDaysToDay(days[days.length - 1]!, 7);
+    if (next > until) break;
+    days.push(next);
+  }
+  return days;
+}
+/** "14, 21, 28 Nov, 5 Dec". */
+export function dayList(days: string[]) {
+  const month = (day: string) => new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`));
+  const groups: Array<{ month: string; dates: number[] }> = [];
+  for (const day of days) {
+    const m = month(day);
+    if (groups.at(-1)?.month !== m) groups.push({ month: m, dates: [] });
+    groups.at(-1)!.dates.push(Number(day.slice(8, 10)));
+  }
+  return groups.map((g) => `${g.dates.join(", ")} ${g.month}`).join(", ");
+}

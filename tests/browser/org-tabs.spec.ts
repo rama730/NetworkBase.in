@@ -319,7 +319,7 @@ test('New assignment (§42.5): publish timing choices, and Admins-only materials
     await when.selectOption('draft');
     await expect(page.getByRole('button', { name: 'Save as draft' })).toBeVisible();
     await when.selectOption('date');
-    await expect(page.getByLabel('Publish on')).toBeVisible();
+    await expect(page.getByLabel('Publish on, date')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Schedule' })).toBeVisible();
     await page.getByLabel('Search files for materials').fill('ans');
     await expect(page.getByRole('list', { name: 'Files' })).toContainText('Admins only. Members won’t be able to open this.');
@@ -364,7 +364,7 @@ test('Live-fix 3: a draft is published, scheduled or deleted from its own card',
     await open(page, 'tasks-draft', 1280);
     await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Schedule' }).click();
-    await expect(page.getByLabel(/Publish on/)).toBeVisible();
+    await expect(page.getByLabel('Publish on, date')).toBeVisible();
     await page.getByRole('button', { name: 'Delete' }).click();
     await expect(page.getByRole('alertdialog')).toContainText('Delete Reading quiz?');
 });

@@ -142,7 +142,9 @@ test("§21 Work: type defaults, admins save the section, composer and sprint def
   viewerId = member;
   assert.equal((await orgs.updateOrgSettingsAction(id, "work", { review_required: false })).success, false);
   viewerId = admin;
-  assert.ok((await orgs.updateOrgSettingsAction(id, "work", { review_required: false, late_rule: "none", reminders: "off", story_points: "shown", sprint_auto_start: false })).success);
+  assert.ok((await orgs.updateOrgSettingsAction(id, "work", { review_required: false, late_rule: "none", reminders: "off", story_points: "shown", sprint_auto_start: false, due_time: "17:00" })).success);
+  // Assignment form redesign (2026-11-09): only a real time of day is saved.
+  assert.equal((await orgs.updateOrgSettingsAction(id, "work", { due_time: "25:00" })).success, false);
   const s = (await settingsOf(id)).org_settings;
   assert.deepEqual([s.assignmentReview, s.assignmentLateRule, s.assignmentReminders, s.storyPoints, s.sprintAutoStart], [false, "none", "off", "shown", false]);
   assert.equal(s.changes.work.by, admin);
@@ -154,7 +156,7 @@ test("§21 Work: type defaults, admins save the section, composer and sprint def
   const assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
   const options = await assignments.readAssignmentComposerOptionsAction(id);
   assert.ok(options.success);
-  assert.deepEqual(options.success && options.defaults, { reviewRequired: false, lateRule: "none" });
+  assert.deepEqual(options.success && options.defaults, { reviewRequired: false, lateRule: "none", dueTime: "17:00" });
 
   const child = await sql.begin((tx) => createProject(tx, member, { visibility: "org" }));
   created.push(child);

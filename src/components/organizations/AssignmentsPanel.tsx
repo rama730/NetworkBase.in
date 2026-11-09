@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { ClipboardList, MoreHorizontal, Plus, Shuffle, Star, X } from 'lucide-react'
+import { ChevronDown, ClipboardList, MoreHorizontal, Plus, Shuffle, Star, Users, X, Zap } from 'lucide-react'
 import { fieldError, fieldLabel } from '@/lib/organizations/display'
 
 import {
@@ -63,7 +63,10 @@ import { useReloadOnNotice } from '@/components/organizations/ReviewQueueParts'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { ClassQuestions } from '@/components/organizations/ClassQuestions'
 import { saveBlob, toCsvBlob } from '@/lib/download'
-import { zonedInputToIso, zoneName } from '@/lib/organizations/zoned-time'
+import { addDaysToDay, dayList, DEFAULT_DUE_TIME, formatInZone, isoToZonedInput, weeklyDays, zonedInputToIso } from '@/lib/organizations/zoned-time'
+import { DateTimeField, duePresets, publishPresets } from '@/components/organizations/DateTimeField'
+import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, QuickChips, SectionDivider, selectClassName, SelectWrap } from '@/components/workspaces/v2/tasks/form-parts'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { docTitle } from '@/lib/organizations/doc-rules'
 import { useAuth } from '@/hooks/use-auth'
 import { userTopic } from '@/lib/messaging/constants'
@@ -96,8 +99,6 @@ function countsLine(row: AssignmentRow) {
 }
 
 /** Submit dialog: a link or text, or a reminder to attach the file to the task (report §16.4). */
-/** A date as a datetime-local value in the viewer's own zone. */
-const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 
 function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDone, docsProjectId }: { copyId: string; submissionType: string; title: string; open: boolean; onOpenChange: (open: boolean) => void; onDone: () => void; docsProjectId?: string }) {
     const [link, setLink] = useState('')
@@ -156,7 +157,9 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
 
 type TeamBox = { name: string; people: OrgRosterPerson[]; leadId: string | null }
 
-type ComposerPrefill = { title: string; description: string; mode: AssignmentTarget['mode']; sprintId?: string }
+type ComposerPrefill = { title: string; description: string; mode: AssignmentTarget['mode']; sprintId?: string; dueDate?: string }
+/** What New's two tabs carry between them; dueDate is the day ("YYYY-MM-DD"). */
+export type ComposerCarry = { title: string; description: string; sprintId: string; dueDate: string }
 
 /** Board/review report §4: on the board, Use again opens New on its Assignment tab, filled in. Elsewhere it falls back to its own dialog. */
 export const ReuseAssignmentContext = createContext<((masterId: string) => void) | null>(null)
@@ -170,13 +173,19 @@ function approvedLine(r: { approved: number; failed: Array<{ reason: string }> }
 }
 
 export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = null, timeZone = null }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; reuseFrom?: string | null; timeZone?: string | null }) {
+    // Assignment form redesign (2026-11-09): the same dialog as New, with its header, body and footer.
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>New assignment</DialogTitle>
-                    <DialogDescription>Each person (or team, or workspace) gets their own assignment to submit.</DialogDescription>
-                </DialogHeader>
+            <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS}>
+                <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
+                    <DialogHeader className="space-y-0.5 text-left">
+                        <DialogTitle className="text-base font-semibold text-foreground">New assignment</DialogTitle>
+                        <DialogDescription className="text-[13px]">Everyone it goes to gets their own copy to hand in.</DialogDescription>
+                    </DialogHeader>
+                    <button type="button" onClick={() => onOpenChange(false)} aria-label="Close" className="nb-touch-target flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                        <X className="size-4" aria-hidden="true" />
+                    </button>
+                </div>
                 <AssignmentFields orgId={orgId} onDone={() => onOpenChange(false)} onCreated={onCreated} reuseFrom={reuseFrom} timeZone={timeZone} />
             </DialogContent>
         </Dialog>
@@ -184,29 +193,33 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
 }
 
 /**
- * The assignment's fields (report §16.2): who it goes to, hand-in, late rule, steps; Publish or Save as draft.
- * New task shows them in place when "Assign to" is many people (problem 5), with "One person · a task" to go back.
+ * The assignment's fields (report §16.2), laid out like New's Task tab (assignment form redesign, 2026-11-09):
+ * Basics, Who gets it, Due and late work, Hand-in and review, Steps and materials, then a fixed footer with when to
+ * publish, Cancel and "Publish to 60". Renders its own scrolling body and footer, so the parent is a flex column.
  */
 export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, prefill = null, timeZone = null, onDraft }: { orgId: string; onDone: () => void; onCreated: () => void; reuseFrom?: string | null; prefill?: ComposerPrefill | null; timeZone?: string | null
     /** Board/review report §4: New's Assignment tab hears what's typed, so the Task tab keeps it. */
-    onDraft?: (carry: { title: string; description: string; sprintId: string }) => void }) {
+    onDraft?: (carry: ComposerCarry) => void }) {
     // Decision 74: dates are entered in the organization's time zone, and the form says which.
     const at = (local: string) => zonedInputToIso(local, timeZone)
-    const zone = zoneName(timeZone)
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [dueLocal, setDueLocal] = useState('')
+    // Settings → Work → Due time: what a picked date gets until someone changes it.
+    const [dueTime, setDueTime] = useState(DEFAULT_DUE_TIME)
     // Repeat weekly until (report §33.5): later weeks are made as drafts to check before publishing.
     const [repeatUntil, setRepeatUntil] = useState('')
     const [sprintId, setSprintId] = useState('')
     const draftRef = useRef(onDraft)
     draftRef.current = onDraft
-    useEffect(() => { draftRef.current?.({ title, description, sprintId }) }, [title, description, sprintId])
+    useEffect(() => { draftRef.current?.({ title, description, sprintId, dueDate: dueLocal.slice(0, 10) }) }, [title, description, sprintId, dueLocal])
     const [submissionType, setSubmissionType] = useState<'none' | 'file' | 'link' | 'text'>('file')
     const [reviewRequired, setReviewRequired] = useState(true)
     const [admins, setAdmins] = useState<Array<{ id: string; name: string }>>([])
     const [reviewers, setReviewers] = useState<string[]>([])
     const [lateRule, setLateRule] = useState<'none' | 'until' | 'always'>('always')
+    // Late work until: a number of days after the due date (it moves with it), or a date of its own (null).
+    const [lateOffset, setLateOffset] = useState<number | null>(7)
     const [lateUntilLocal, setLateUntilLocal] = useState('')
     const [lateAfter, setLateAfter] = useState(15)
     // Publish timing (decision 125) and Materials (decision 128).
@@ -222,6 +235,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     }, [orgId, materialQuery])
     const [mode, setMode] = useState<AssignmentTarget['mode']>('everyone')
     const [people, setPeople] = useState<string[]>([])
+    const [peopleQuery, setPeopleQuery] = useState('')
     const [teams, setTeams] = useState<TeamBox[]>([])
     const [childIds, setChildIds] = useState<string[]>([])
     const [teamSize, setTeamSize] = useState(3)
@@ -233,10 +247,22 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [announcement, setAnnouncement] = useState<string | null>(null)
     const [stepDraft, setStepDraft] = useState('')
     const [roster, setRoster] = useState<OrgRosterPerson[]>([])
-    const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string }>; teamAssignments?: Array<{ id: string; title: string }> }>({ children: [], sprints: [] })
+    const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string; endDate?: string | null }>; teamAssignments?: Array<{ id: string; title: string }> }>({ children: [], sprints: [] })
+    // Errors sit under their field, like the Task tab; a server error sits at the top of the form.
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [error, setError] = useState<string | null>(null)
     const [lateAsk, setLateAsk] = useState(false)
     const [pending, startTransition] = useTransition()
+    const bodyRef = useRef<HTMLDivElement>(null)
+    const clear = (key: string) => setFieldErrors((cur) => {
+        if (!cur[key]) return cur
+        const { [key]: _, ...rest } = cur
+        return rest
+    })
+    // A failed Publish moves to the first field that needs something; a server error scrolls to the top.
+    const [attempt, setAttempt] = useState(0)
+    useEffect(() => { if (attempt) (bodyRef.current?.querySelector('[aria-invalid="true"]') as HTMLElement | null)?.focus() }, [attempt])
+    useEffect(() => { if (error) bodyRef.current?.scrollTo({ top: 0 }) }, [error])
 
     useEffect(() => {
         void listOrgRosterAction(orgId, '').then(setRoster)
@@ -247,8 +273,13 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             // A new assignment starts from the org's Work defaults (report §21.2 #5).
             setReviewRequired(r.defaults.reviewRequired)
             setLateRule(r.defaults.lateRule)
-            // New task with many people (decision 10): the text typed there comes along.
-            if (prefill) { setTitle(prefill.title); setDescription(prefill.description); setMode(prefill.mode); if (prefill.sprintId) setSprintId(prefill.sprintId) }
+            setDueTime(r.defaults.dueTime)
+            // New task with many people (decision 10): the text typed there comes along, and its due date.
+            if (prefill) {
+                setTitle(prefill.title); setDescription(prefill.description); setMode(prefill.mode)
+                if (prefill.sprintId) setSprintId(prefill.sprintId)
+                if (prefill.dueDate) setDueLocal(`${prefill.dueDate}T${r.defaults.dueTime}`)
+            }
             // Use again (report §33.5): the form filled in from an earlier assignment, with new dates to choose.
             if (reuseFrom) void readAssignmentForReuseAction(reuseFrom).then((again) => {
                 if (!again.success) return
@@ -261,6 +292,12 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
         })
     }, [orgId, reuseFrom])
 
+    const dueDay = dueLocal.slice(0, 10)
+    const sprintEnd = options.sprints.find((s) => s.id === sprintId)?.endDate
+    const sprintEndDay = sprintEnd ? isoToZonedInput(sprintEnd, timeZone).slice(0, 10) : null
+    const lateUntil = lateOffset != null ? (dueLocal ? `${addDaysToDay(dueDay, lateOffset)}T${dueLocal.slice(11, 16)}` : '') : lateUntilLocal
+    const repeatDays = repeatUntil && dueDay ? weeklyDays(dueDay, repeatUntil) : []
+
     const placed = new Set(teams.flatMap((t) => t.people.map((p) => p.userId)))
     const individuals = people.filter((id) => !placed.has(id))
     const preview = mode === 'everyone' ? 'One assignment per member'
@@ -269,6 +306,9 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                 : mode === 'teams' ? `Creates ${teams.length + individuals.length} assignments: ${teams.length} team ${teams.length === 1 ? 'assignment' : 'assignments'} (${placed.size} people) + ${individuals.length} individual`
                     : mode === 'each_child' ? `Creates ${options.children.length} assignments · one per workspace`
                         : `Creates ${childIds.length} assignments · one per workspace`
+    const pickable = roster.filter((p) => p.role !== 'viewer')
+    const query = peopleQuery.trim().toLowerCase()
+    const shownPeople = query ? pickable.filter((p) => `${p.name} ${p.username ?? ''} ${p.title ?? ''}`.toLowerCase().includes(query)) : pickable
 
     // Board/review report §4: the button says what happens — "Publish to 60".
     const goesTo = mode === 'everyone' ? roster.filter((p) => p.role === 'member').length : mode === 'people' ? people.length
@@ -279,17 +319,23 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                 : mode === 'teams' ? { mode, teams: teams.map((t) => ({ name: t.name, userIds: t.people.map((p) => p.userId), leadId: t.leadId })), individuals }
                     : mode === 'each_child' ? { mode } : { mode: 'children', projectIds: childIds }
 
-    const defaultAnnouncement = `${title.trim() || 'A new assignment'} is out${dueLocal ? ` · due ${new Date(dueLocal).toLocaleString('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}.`
+    // The announcement says the due date in the organization's zone, like everything else on the form.
+    const defaultAnnouncement = `${title.trim() || 'A new assignment'} is out${dueLocal ? ` · due ${formatInZone(at(dueLocal), { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }, timeZone)}` : ''}.`
     const save = (late = false) => startTransition(async () => {
         const publish = when === 'now'
-        if (!dueLocal) return setError('Pick a due date and time.')
-        if (lateRule === 'until' && !lateUntilLocal) return setError('Pick the last day late work is accepted.')
-        if (when === 'date' && !publishLocal) return setError('Pick when to publish.')
+        const missing: Record<string, string> = {}
+        if (!title.trim()) missing.title = 'Add a title.'
+        if (!dueLocal) missing.due = 'Pick a due date.'
+        // A late-work date counted from the due date waits for the due date; it isn't missing on its own.
+        if (lateRule === 'until' && !lateUntil && (lateOffset == null || dueLocal)) missing.lateUntil = 'Pick the last day late work is accepted.'
+        if (when === 'date' && !publishLocal) missing.publishAt = 'Pick when to publish.'
+        setFieldErrors(missing)
+        if (Object.keys(missing).length) return setAttempt((n) => n + 1)
         // Report §16.9: a past due date is allowed, after a check.
         if (publish && !late && new Date(at(dueLocal)).getTime() < Date.now()) return setLateAsk(true)
         const result = await createAssignmentAction({
             projectId: orgId, title, description, dueDate: at(dueLocal), sprintId: sprintId || null, publish,
-            submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? at(lateUntilLocal) : null,
+            submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntil ? at(lateUntil) : null,
             target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
             ...(reviewRequired && reviewers.length ? { reviewers } : {}),
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
@@ -337,143 +383,196 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
         }))
     })
 
+    const pickDue = (local: string) => {
+        setDueLocal(local)
+        clear('due')
+        if (lateOffset != null) clear('lateUntil')
+        if (!local) setRepeatUntil('')
+    }
+    const pickSprint = (id: string) => {
+        setSprintId(id)
+        // Picking a sprint fills an empty due date with its last day.
+        const end = options.sprints.find((s) => s.id === id)?.endDate
+        if (end && !dueLocal) pickDue(`${isoToZonedInput(end, timeZone).slice(0, 10)}T${dueTime}`)
+        if (!id && when === 'sprint') setWhen('now')
+    }
+    const small = 'text-[13px]'
+
     return (
-            <>
-                <div className="space-y-4">
-                    <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" placeholder="Lab 1" /></label>
-                    <label className="block text-sm font-medium">Instructions<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} className="nb-textarea mt-1" /></label>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                            <label className="block text-sm font-medium">Due <span className="font-normal text-muted-foreground">({zone})</span><Input type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value)} className="mt-1" /></label>
-                            <label className="flex flex-wrap items-center gap-2 text-[13px]">
-                                <input className="nb-check" type="checkbox" checked={Boolean(repeatUntil)} disabled={!dueLocal} onChange={(e) => setRepeatUntil(e.target.checked ? new Date(new Date(dueLocal).getTime() + 28 * 86_400_000).toISOString().slice(0, 10) : '')} />
-                                Repeat weekly until
-                                {repeatUntil ? <Input type="date" value={repeatUntil} min={dueLocal.slice(0, 10)} onChange={(e) => setRepeatUntil(e.target.value)} className="h-8 w-auto" aria-label="Repeat until" /> : null}
-                            </label>
-                        </div>
-                        <label className="block text-sm font-medium">Sprint
-                            <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="nb-select mt-1 w-full">
-                                <option value="">No sprint</option>
-                                {options.sprints.map((s) => <option key={s.id} value={s.id}>{s.name}{s.status === 'active' ? ' (running)' : ''}</option>)}
-                            </select>
-                        </label>
+        <>
+            <div ref={bodyRef} className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                {error ? <div role="alert" className="rounded-md border border-border bg-[var(--status-danger-soft)] px-3 py-2 text-xs font-mono text-destructive">{error}</div> : null}
+
+                <div className="space-y-3.5">
+                    <SectionDivider title="Basics" />
+                    <Field label="Assignment title" htmlFor="assignment-title" required error={fieldErrors.title}>
+                        <input id="assignment-title" value={title} onChange={(e) => { setTitle(e.target.value); clear('title') }} maxLength={200} placeholder="e.g., Lab 1: Arrays and linked lists" className={inputClassName(Boolean(fieldErrors.title))} autoFocus />
+                    </Field>
+                    <Field label="Instructions" htmlFor="assignment-instructions">
+                        <textarea id="assignment-instructions" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} placeholder="What to do, what to hand in, how it’s marked…" className={cn('nb-textarea', inputClassName(false), 'min-h-[72px] resize-y py-2')} />
+                    </Field>
+                </div>
+
+                <div className="space-y-3.5">
+                    <SectionDivider title="Who gets it" />
+                    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                        <Field label="Assign to" htmlFor="assignment-target">
+                            <SelectWrap icon={<Users aria-hidden="true" />}>
+                                <select id="assignment-target" value={mode} onChange={(e) => setMode(e.target.value as AssignmentTarget['mode'])} className={cn('nb-select', selectClassName(false, true))}>
+                                    <option value="everyone">Everyone (members)</option>
+                                    <option value="role">Admins</option>
+                                    <option value="people">Selected people</option>
+                                    <option value="teams">Teams</option>
+                                    <option value="each_child">Each workspace in the organization</option>
+                                    <option value="children">Selected workspaces</option>
+                                </select>
+                            </SelectWrap>
+                        </Field>
+                        <Field label="Sprint" htmlFor="assignment-sprint">
+                            <SelectWrap icon={<Zap aria-hidden="true" />}>
+                                <select id="assignment-sprint" value={sprintId} onChange={(e) => pickSprint(e.target.value)} className={cn('nb-select', selectClassName(false, true))}>
+                                    <option value="">No sprint</option>
+                                    {options.sprints.map((s) => <option key={s.id} value={s.id}>{s.name}{s.status === 'active' ? ' (running)' : ''}</option>)}
+                                </select>
+                            </SelectWrap>
+                        </Field>
                     </div>
-
-                    <fieldset className="space-y-2">
-                        <legend className="text-sm font-medium">Assign to</legend>
-                        <select value={mode} onChange={(e) => setMode(e.target.value as AssignmentTarget['mode'])} className="nb-select" aria-label="Assign to">
-                            <option value="everyone">Everyone (members)</option>
-                            <option value="role">Admins</option>
-                            <option value="people">Selected people</option>
-                            <option value="teams">Teams</option>
-                            <option value="each_child">Each workspace in the organization</option>
-                            <option value="children">Selected workspaces</option>
-                        </select>
-                        {mode === 'people' || mode === 'teams' ? (
-                            <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-md border border-border" aria-label="People">
-                                {roster.filter((p) => p.role !== 'viewer').map((p) => (
-                                    <li key={p.userId}><label className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                    {mode === 'people' || mode === 'teams' ? (
+                        <div className="space-y-1.5">
+                            <input type="search" value={peopleQuery} onChange={(e) => setPeopleQuery(e.target.value)} placeholder="Search people" aria-label="Search people" className={inputClassName(false)} />
+                            <ul className="max-h-56 divide-y divide-border overflow-y-auto rounded-md border border-border" aria-label="People">
+                                {shownPeople.map((p) => (
+                                    <li key={p.userId}><label className="flex items-center gap-2.5 px-3 py-1.5 text-[13px] hover:bg-muted">
                                         <input className="nb-check" type="checkbox" checked={people.includes(p.userId)} onChange={(e) => setPeople((cur) => e.target.checked ? [...cur, p.userId] : cur.filter((id) => id !== p.userId))} />
-                                        {p.name}{p.title ? <span className="text-muted-foreground"> · {p.title}</span> : null}
+                                        <UserAvatar identity={{ id: p.userId, fullName: p.name, username: p.username, avatarUrl: p.avatarUrl }} size={24} />
+                                        <span className="min-w-0 truncate">{p.name}{p.title ? <span className="text-muted-foreground"> · {p.title}</span> : null}</span>
                                     </label></li>
                                 ))}
+                                {shownPeople.length === 0 ? <li className="px-3 py-2 text-[13px] text-muted-foreground">{query ? `No one matches “${peopleQuery.trim()}”.` : 'No one to pick yet.'}</li> : null}
                             </ul>
-                        ) : null}
-                        {mode === 'teams' ? (
-                            <div className="space-y-2">
-                                <div className="flex flex-wrap items-center gap-2 text-sm">
-                                    <Button type="button" size="sm" variant="outline" onClick={() => setTeams((cur) => [...cur, { name: `Team ${String.fromCharCode(65 + cur.length)}`, people: [], leadId: null }])}><Plus className="size-3.5" aria-hidden="true" />Add team</Button>
-                                    <span className="text-muted-foreground">or</span>
-                                    <label className="flex items-center gap-1">Auto-make teams of <Input type="number" min={1} max={100} value={teamSize} onChange={(e) => setTeamSize(Number(e.target.value))} className="w-16" /></label>
-                                    <Button type="button" size="sm" variant="outline" onClick={autoMake} disabled={people.length === 0}><Shuffle className="size-3.5" aria-hidden="true" />Make</Button>
-                                    {options.teamAssignments?.length ? (
-                                        <select value="" aria-label="Copy teams from" className="nb-select" data-size="sm" onChange={(e) => { if (e.target.value) void copyTeamsFrom(e.target.value) }}>
-                                            <option value="">Copy teams from…</option>
-                                            {options.teamAssignments.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
-                                        </select>
-                                    ) : null}
-                                </div>
-                                {teams.map((team, ti) => (
-                                    <div key={ti} className="rounded-md border border-border p-2">
-                                        <div className="flex items-center gap-2">
-                                            <Input value={team.name} onChange={(e) => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, name: e.target.value } : t)))} maxLength={60} className="h-8 w-40" aria-label="Team name" />
-                                            <span className="text-xs text-muted-foreground">{team.people.length} people</span>
-                                            <button type="button" aria-label={`Remove ${team.name}`} className="nb-icon-button ml-auto size-7" onClick={() => setTeams((cur) => cur.filter((_, i) => i !== ti))}><X className="size-3.5" aria-hidden="true" /></button>
-                                        </div>
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                            {team.people.map((p) => (
-                                                <span key={p.userId} className="inline-flex items-center gap-1 rounded-md border border-border bg-card py-0.5 pl-1 pr-0.5 text-[12px]">
-                                                    <button type="button" title="Make team lead" aria-pressed={team.leadId === p.userId} aria-label={`${p.name}, ${team.leadId === p.userId ? 'team lead' : 'make team lead'}`} className="inline-flex items-center gap-1 rounded-sm px-1 hover:bg-muted" onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: p.userId } : t)))}>{team.leadId === p.userId ? <Star className="size-3 fill-current text-primary" aria-hidden="true" /> : null}{p.name}</button>
-                                                    <select value="" aria-label={`Move ${p.name} to…`} className="nb-select" data-size="sm" onChange={(e) => { const v = e.target.value; if (v) moveBetweenTeams(p.userId, ti, v === 'none' ? null : Number(v)) }}>
-                                                        <option value="">Move to…</option>
-                                                        {teams.map((t, i) => (i === ti ? null : <option key={i} value={String(i)}>{t.name}</option>))}
-                                                        <option value="none">Not in a team</option>
-                                                    </select>
-                                                </span>
-                                            ))}
-                                            <select value="" aria-label={`Add to ${team.name}`} className="nb-select" data-size="sm" onChange={(e) => {
-                                                const person = roster.find((p) => p.userId === e.target.value)
-                                                if (person) setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, people: [...t.people, person], leadId: t.leadId ?? person.userId } : t)))
-                                            }}>
-                                                <option value="">+ Add person</option>
-                                                {roster.filter((p) => people.includes(p.userId) && !placed.has(p.userId)).map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                ))}
-                                {individuals.length > 0 ? <p className="text-xs text-muted-foreground">Not in a team (own assignment): {roster.filter((p) => individuals.includes(p.userId)).map((p) => p.name).join(', ')}</p> : null}
+                            {people.length ? <p className="text-xs text-muted-foreground">{people.length} picked</p> : null}
+                        </div>
+                    ) : null}
+                    {mode === 'teams' ? (
+                        <div className="space-y-2">
+                            <div className={cn('flex flex-wrap items-center gap-2', small)}>
+                                <Button type="button" size="sm" variant="outline" onClick={() => setTeams((cur) => [...cur, { name: `Team ${String.fromCharCode(65 + cur.length)}`, people: [], leadId: null }])}><Plus className="size-3.5" aria-hidden="true" />Add team</Button>
+                                <span className="text-muted-foreground">or</span>
+                                <label className="flex items-center gap-1">Auto-make teams of <Input type="number" min={1} max={100} value={teamSize} onChange={(e) => setTeamSize(Number(e.target.value))} className="w-16" /></label>
+                                <Button type="button" size="sm" variant="outline" onClick={autoMake} disabled={people.length === 0}><Shuffle className="size-3.5" aria-hidden="true" />Make</Button>
+                                {options.teamAssignments?.length ? (
+                                    <select value="" aria-label="Copy teams from" className="nb-select" data-size="sm" onChange={(e) => { if (e.target.value) void copyTeamsFrom(e.target.value) }}>
+                                        <option value="">Copy teams from…</option>
+                                        {options.teamAssignments.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+                                    </select>
+                                ) : null}
                             </div>
-                        ) : null}
-                        {mode === 'children' ? (
-                            <ul className="max-h-40 overflow-y-auto rounded-md border border-border" aria-label="Workspaces">
-                                {options.children.map((c) => (
-                                    <li key={c.id}><label className="flex items-center gap-2 px-3 py-1.5 text-sm">
-                                        <input className="nb-check" type="checkbox" checked={childIds.includes(c.id)} onChange={(e) => setChildIds((cur) => e.target.checked ? [...cur, c.id] : cur.filter((id) => id !== c.id))} />{c.title}
-                                    </label></li>
-                                ))}
-                            </ul>
-                        ) : null}
-                    </fieldset>
+                            {teams.map((team, ti) => (
+                                <div key={ti} className="rounded-md border border-border p-2">
+                                    <div className="flex items-center gap-2">
+                                        <Input value={team.name} onChange={(e) => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, name: e.target.value } : t)))} maxLength={60} className="h-8 w-40" aria-label="Team name" />
+                                        <span className="text-xs text-muted-foreground">{team.people.length} people</span>
+                                        <button type="button" aria-label={`Remove ${team.name}`} className="nb-icon-button ml-auto size-7" onClick={() => setTeams((cur) => cur.filter((_, i) => i !== ti))}><X className="size-3.5" aria-hidden="true" /></button>
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {team.people.map((p) => (
+                                            <span key={p.userId} className="inline-flex items-center gap-1 rounded-md border border-border bg-card py-0.5 pl-1 pr-0.5 text-[12px]">
+                                                <button type="button" title="Make team lead" aria-pressed={team.leadId === p.userId} aria-label={`${p.name}, ${team.leadId === p.userId ? 'team lead' : 'make team lead'}`} className="inline-flex items-center gap-1 rounded-sm px-1 hover:bg-muted" onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: p.userId } : t)))}>{team.leadId === p.userId ? <Star className="size-3 fill-current text-primary" aria-hidden="true" /> : null}{p.name}</button>
+                                                <select value="" aria-label={`Move ${p.name} to…`} className="nb-select" data-size="sm" onChange={(e) => { const v = e.target.value; if (v) moveBetweenTeams(p.userId, ti, v === 'none' ? null : Number(v)) }}>
+                                                    <option value="">Move to…</option>
+                                                    {teams.map((t, i) => (i === ti ? null : <option key={i} value={String(i)}>{t.name}</option>))}
+                                                    <option value="none">Not in a team</option>
+                                                </select>
+                                            </span>
+                                        ))}
+                                        <select value="" aria-label={`Add to ${team.name}`} className="nb-select" data-size="sm" onChange={(e) => {
+                                            const person = roster.find((p) => p.userId === e.target.value)
+                                            if (person) setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, people: [...t.people, person], leadId: t.leadId ?? person.userId } : t)))
+                                        }}>
+                                            <option value="">+ Add person</option>
+                                            {roster.filter((p) => people.includes(p.userId) && !placed.has(p.userId)).map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                            ))}
+                            {individuals.length > 0 ? <p className="text-xs text-muted-foreground">Not in a team (own assignment): {roster.filter((p) => individuals.includes(p.userId)).map((p) => p.name).join(', ')}</p> : null}
+                        </div>
+                    ) : null}
+                    {mode === 'children' ? (
+                        <ul className="max-h-40 divide-y divide-border overflow-y-auto rounded-md border border-border" aria-label="Workspaces">
+                            {options.children.map((c) => (
+                                <li key={c.id}><label className="flex items-center gap-2 px-3 py-1.5 text-[13px]">
+                                    <input className="nb-check" type="checkbox" checked={childIds.includes(c.id)} onChange={(e) => setChildIds((cur) => e.target.checked ? [...cur, c.id] : cur.filter((id) => id !== c.id))} />{c.title}
+                                </label></li>
+                            ))}
+                        </ul>
+                    ) : null}
+                    <p className="text-xs text-muted-foreground" role="status">{preview}</p>
+                </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block text-sm font-medium">Submission
-                            <select value={submissionType} onChange={(e) => setSubmissionType(e.target.value as typeof submissionType)} className="nb-select mt-1 w-full">
-                                <option value="file">A file</option><option value="link">A link</option><option value="text">Text</option><option value="none">No submission</option>
-                            </select>
+                <div className="space-y-3.5">
+                    <SectionDivider title="Due and late work" />
+                    <Field label="Due date" htmlFor="assignment-due" required error={fieldErrors.due}>
+                        <DateTimeField id="assignment-due" value={dueLocal} onChange={pickDue} timeZone={timeZone} defaultTime={dueTime} hasError={Boolean(fieldErrors.due)}
+                            presets={[...duePresets(timeZone), ...(sprintEndDay ? [{ label: 'End of sprint', day: sprintEndDay }] : [])]} />
+                    </Field>
+                    <div className="space-y-1.5">
+                        <label className={cn('flex items-center gap-2', small)}>
+                            <input className="nb-check" type="checkbox" checked={Boolean(repeatUntil)} disabled={!dueLocal} onChange={(e) => setRepeatUntil(e.target.checked ? addDaysToDay(dueDay, 28) : '')} />
+                            Repeat weekly until
+                            {repeatUntil ? <input type="date" value={repeatUntil} min={dueDay} onChange={(e) => setRepeatUntil(e.target.value)} aria-label="Repeat until" className={cn(inputClassName(false), 'h-8 w-auto font-mono')} /> : null}
                         </label>
-                        <label className="block text-sm font-medium">Late submissions
-                            <select value={lateRule} onChange={(e) => {
-                                const next = e.target.value as typeof lateRule
-                                setLateRule(next)
-                                // Starts 7 days after the due date (report §42.10 problem 13); still required.
-                                if (next === 'until' && !lateUntilLocal && dueLocal) setLateUntilLocal(toLocalInput(new Date(new Date(dueLocal).getTime() + 7 * 86_400_000)))
-                            }} className="nb-select mt-1 w-full">
+                        {!dueLocal ? <p className="text-xs text-muted-foreground">Pick a due date first.</p> : null}
+                        {repeatDays.length ? <p className="text-xs text-muted-foreground">{repeatDays.length} {repeatDays.length === 1 ? 'assignment' : 'assignments'}: {dayList(repeatDays)}. Later weeks are saved as drafts to check before publishing.</p> : null}
+                    </div>
+                    <Field label="Late submissions" htmlFor="assignment-late">
+                        <SelectWrap>
+                            <select id="assignment-late" value={lateRule} onChange={(e) => { setLateRule(e.target.value as typeof lateRule); clear('lateUntil') }} className={cn('nb-select', selectClassName())}>
                                 <option value="always">Always allowed</option><option value="until">Allowed until a date</option><option value="none">Not allowed</option>
                             </select>
-                        </label>
-                    </div>
-                    {lateRule === 'until' ? <label className="block text-sm font-medium">Late work accepted until<Input type="datetime-local" required value={lateUntilLocal} onChange={(e) => setLateUntilLocal(e.target.value)} className="mt-1" /></label> : null}
-                    {/* Report §45.3, decision 171: members still see the due time; Late counts from due + this. */}
-                    <label className="flex items-center gap-2 text-sm font-medium">Late after
-                        <Input type="number" min={0} max={60} value={lateAfter} onChange={(e) => setLateAfter(Math.max(0, Math.min(60, Number(e.target.value) || 0)))} className="w-20" aria-label="Late after, in minutes" />
-                        <span className="font-normal text-muted-foreground">minutes past the due time</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-sm"><input className="nb-check" type="checkbox" checked={reviewRequired} onChange={(e) => setReviewRequired(e.target.checked)} />Review required (Approve or Return each submission)</label>
-                    {reviewRequired ? <ReviewersPicker admins={admins} value={reviewers} onChange={setReviewers} className="text-sm" /> : null}
+                        </SelectWrap>
+                    </Field>
+                    {lateRule === 'until' ? (
+                        <Field label="Late work accepted until" htmlFor="assignment-late-until" error={fieldErrors.lateUntil}>
+                            <div className="space-y-1.5">
+                                <QuickChips label="After due" items={[1, 3, 7].map((days) => ({ label: days === 7 ? '+1 week' : `+${days} ${days === 1 ? 'day' : 'days'}`, active: lateOffset === days, onClick: () => { setLateOffset(days); clear('lateUntil') } }))} />
+                                <DateTimeField id="assignment-late-until" summary="Until" aria-label="Late work until" value={lateUntil} timeZone={timeZone} defaultTime={dueTime} min={dueDay || undefined} hasError={Boolean(fieldErrors.lateUntil)}
+                                    onChange={(local) => { setLateOffset(null); setLateUntilLocal(local); clear('lateUntil') }} />
+                                {lateOffset != null && dueLocal ? <p className="text-xs text-muted-foreground">Moves with the due date.</p> : null}
+                            </div>
+                        </Field>
+                    ) : null}
+                </div>
 
+                <div className="space-y-3.5">
+                    <SectionDivider title="Hand-in and review" />
+                    <Field label="What they hand in" htmlFor="assignment-submission">
+                        <SelectWrap>
+                            <select id="assignment-submission" value={submissionType} onChange={(e) => setSubmissionType(e.target.value as typeof submissionType)} className={cn('nb-select', selectClassName())}>
+                                <option value="file">A file</option><option value="link">A link</option><option value="text">Text</option><option value="none">No submission</option>
+                            </select>
+                        </SelectWrap>
+                    </Field>
+                    <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={reviewRequired} onChange={(e) => setReviewRequired(e.target.checked)} />Review required (Approve or Return each submission)</label>
+                </div>
+
+                <div className="space-y-3.5">
+                    <SectionDivider title="Steps and materials" />
                     <div className="space-y-2">
-                        <p className="text-sm font-medium">Steps <span className="font-normal text-muted-foreground">(copied into every copy)</span></p>
-                        <ol className="list-decimal space-y-1 pl-5 text-sm">
-                            {steps.map((step, i) => <li key={i}>{step} <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setSteps((cur) => cur.filter((_, j) => j !== i))}>remove</button></li>)}
-                        </ol>
+                        <p className="text-[13px] font-medium">Steps <span className="font-normal text-muted-foreground">(copied into every copy)</span></p>
+                        {steps.length ? (
+                            <ol className="list-decimal space-y-1 pl-5 text-[13px]">
+                                {steps.map((step, i) => <li key={i}>{step} <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setSteps((cur) => cur.filter((_, j) => j !== i))}>remove</button></li>)}
+                            </ol>
+                        ) : null}
                         <div className="flex gap-2">
-                            <Input value={stepDraft} onChange={(e) => setStepDraft(e.target.value)} placeholder="Write tests" maxLength={200} aria-label="New step" />
-                            <Button type="button" variant="outline" onClick={() => { if (stepDraft.trim()) { setSteps((cur) => [...cur, stepDraft.trim()]); setStepDraft('') } }}>Add</Button>
+                            <input value={stepDraft} onChange={(e) => setStepDraft(e.target.value)} placeholder="e.g., Write tests" maxLength={200} aria-label="New step" className={inputClassName(false)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (stepDraft.trim()) { setSteps((cur) => [...cur, stepDraft.trim()]); setStepDraft('') } } }} />
+                            <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => { if (stepDraft.trim()) { setSteps((cur) => [...cur, stepDraft.trim()]); setStepDraft('') } }}>Add</button>
                         </div>
                     </div>
-
                     <div className="space-y-2">
-                        <p className="text-sm font-medium">Materials <span className="font-normal text-muted-foreground">(read only on every copy)</span></p>
+                        <p className="text-[13px] font-medium">Materials <span className="font-normal text-muted-foreground">(read only on every copy)</span></p>
                         {materials.length ? (
                             <ul className="flex flex-wrap gap-1.5">
                                 {materials.map((m) => (
@@ -484,9 +583,9 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                                 ))}
                             </ul>
                         ) : null}
-                        <Input value={materialQuery} onChange={(e) => setMaterialQuery(e.target.value)} placeholder="Search this organization’s files" aria-label="Search files for materials" className="h-8" />
+                        <input type="search" value={materialQuery} onChange={(e) => setMaterialQuery(e.target.value)} placeholder="Search this organization’s files" aria-label="Search files for materials" className={inputClassName(false)} />
                         {materialResults.length ? (
-                            <ul className="max-h-36 divide-y divide-border overflow-y-auto rounded-md border border-border text-sm" aria-label="Files">
+                            <ul className="max-h-36 divide-y divide-border overflow-y-auto rounded-md border border-border text-[13px]" aria-label="Files">
                                 {materialResults.filter((f) => !materials.some((m) => m.id === f.id)).map((f) => (
                                     <li key={f.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => { setMaterials((cur) => [...cur, f]); setMaterialQuery('') }}>
                                         {f.name}
@@ -497,36 +596,62 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             </ul>
                         ) : null}
                     </div>
+                </div>
 
-                    <p className="text-sm text-muted-foreground" role="status">{preview}</p>
-                    {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                        <span className="mr-auto flex flex-wrap items-center gap-3 text-sm">
-                            <label className="flex items-center gap-1.5"><input className="nb-check" type="checkbox" checked={shareToGeneral} onChange={(e) => setShareToGeneral(e.target.checked)} /> Also share in #general</label>
-                            <label className="flex items-center gap-1.5"><input className="nb-check" type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} /> Also post an announcement</label>
-                        </span>
-                        {announce ? <textarea value={announcement ?? defaultAnnouncement} onChange={(e) => setAnnouncement(e.target.value)} rows={2} maxLength={5000} aria-label="Announcement" className="nb-textarea basis-full" /> : null}
-                        {/* Publish timing (report §42.5, decision 125). */}
-                        <select value={when} onChange={(e) => setWhen(e.target.value as typeof when)} aria-label="When to publish" className="nb-select">
+                {when === 'date' ? (
+                    <div className="space-y-3.5">
+                        <SectionDivider title="Publish" />
+                        <Field label="Publish on" htmlFor="assignment-publish-at" required error={fieldErrors.publishAt}>
+                            <DateTimeField id="assignment-publish-at" summary="Publishes" aria-label="Publish on" value={publishLocal} timeZone={timeZone} defaultTime="08:00" presets={publishPresets(timeZone)} presetsLabel="Quick picks" hasError={Boolean(fieldErrors.publishAt)}
+                                onChange={(local) => { setPublishLocal(local); clear('publishAt') }} />
+                        </Field>
+                    </div>
+                ) : null}
+
+                {/* The settings that rarely change wait behind More options. */}
+                <details className="group rounded-md border border-border">
+                    <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-[13px] font-medium [&::-webkit-details-marker]:hidden">
+                        More options
+                        <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
+                    </summary>
+                    <div className="space-y-3.5 border-t border-border px-3 py-3">
+                        {/* Report §45.3, decision 171: members still see the due time; Late counts from due + this. */}
+                        <label className={cn('flex flex-wrap items-center gap-2 font-medium', small)}>Late after
+                            <input type="number" min={0} max={60} value={lateAfter} onChange={(e) => setLateAfter(Math.max(0, Math.min(60, Number(e.target.value) || 0)))} className={cn(inputClassName(false), 'w-20 font-mono')} aria-label="Late after, in minutes" />
+                            <span className="font-normal text-muted-foreground">minutes past the due time</span>
+                        </label>
+                        {reviewRequired ? <ReviewersPicker admins={admins} value={reviewers} onChange={setReviewers} className={small} /> : null}
+                        <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={shareToGeneral} onChange={(e) => setShareToGeneral(e.target.checked)} />Also share in #general</label>
+                        <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} />Also post an announcement</label>
+                        {announce ? <textarea value={announcement ?? defaultAnnouncement} onChange={(e) => setAnnouncement(e.target.value)} rows={2} maxLength={5000} aria-label="Announcement" className={cn('nb-textarea', inputClassName(false), 'min-h-[60px] resize-y py-2')} /> : null}
+                    </div>
+                </details>
+            </div>
+
+            <div className={FORM_FOOTER_CLASS}>
+                {/* Publish timing (report §42.5, decision 125). */}
+                <div className="mr-auto">
+                    <SelectWrap>
+                        <select value={when} onChange={(e) => setWhen(e.target.value as typeof when)} aria-label="When to publish" className={cn('nb-select', selectClassName(), 'w-auto')}>
                             <option value="now">Publish now</option>
                             {sprintId ? <option value="sprint">When the sprint starts</option> : null}
                             <option value="date">On a date</option>
                             <option value="draft">Save as draft</option>
                         </select>
-                        {when === 'date' ? <Input type="datetime-local" required value={publishLocal} onChange={(e) => setPublishLocal(e.target.value)} aria-label="Publish on" className="w-auto" /> : null}
-                        <Button type="button" disabled={pending || !title.trim()} onClick={() => save()}>
-                            {/* Report §44.3: publishing to many takes a few seconds, so it says so. */}
-                            {pending ? (when === 'now' ? 'Publishing…' : 'Saving…') : when === 'now' ? (goesTo ? `Publish to ${goesTo}` : 'Publish') : when === 'draft' ? 'Save as draft' : 'Schedule'}
-                        </Button>
-                    </div>
+                    </SelectWrap>
                 </div>
-                <ConfirmDialog open={lateAsk} onOpenChange={setLateAsk} title="The due date has passed" description="Publish it as already late?"
-                    confirmLabel="Publish as late" onConfirm={() => save(true)} />
-            </>
+                <button type="button" onClick={onDone} disabled={pending} className={FORM_SECONDARY_CLASS}>Cancel</button>
+                <button type="button" disabled={pending} onClick={() => save()} className={FORM_PRIMARY_CLASS}>
+                    {/* Report §44.3: publishing to many takes a few seconds, so it says so. */}
+                    {pending ? (when === 'now' ? 'Publishing…' : 'Saving…') : when === 'now' ? (goesTo ? `Publish to ${goesTo}` : 'Publish') : when === 'draft' ? 'Save as draft' : 'Schedule'}
+                </button>
+            </div>
+            <ConfirmDialog open={lateAsk} onOpenChange={setLateAsk} title="The due date has passed" description="Publish it as already late?"
+                confirmLabel="Publish as late" onConfirm={() => save(true)} />
+        </>
     )
 }
 
-/** One assignment's roster: per person or team, with Approve / Return / Extend / Excuse (report §16.5). */
 export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZone = null }: { row: AssignmentRow; orgId?: string; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void; timeZone?: string | null }) {
     const [rows, setRows] = useState<RosterRow[]>([])
     const [withoutCopy, setWithoutCopy] = useState<Array<{ userId: string; name: string }>>([])
@@ -795,8 +920,8 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
             </div>
             {live ? <AssignmentRoster row={row} orgId={orgId} timeZone={data.timeZone} onChanged={() => { load(); onChanged?.() }} onExport={exportCsv} /> : null}
             {scheduleLocal !== null ? (
-                <div className="flex flex-wrap items-center gap-2">
-                    <Input type="datetime-local" value={scheduleLocal} onChange={(e) => setScheduleLocal(e.target.value)} aria-label={`Publish on (${zoneName(data.timeZone)})`} className="h-7 w-auto text-[13px]" />
+                <div className="flex flex-wrap items-start gap-2">
+                    <DateTimeField className="w-full max-w-sm" value={scheduleLocal} onChange={setScheduleLocal} timeZone={data.timeZone} defaultTime="08:00" summary="Publishes" aria-label="Publish on" presets={publishPresets(data.timeZone)} presetsLabel="Quick picks" />
                     <Button type="button" size="sm" disabled={pending || !scheduleLocal} onClick={() => { const at = zonedInputToIso(scheduleLocal, data.timeZone); setScheduleLocal(null); run(() => scheduleAssignmentAction(row.masterId, { at })) }}>Save</Button>
                 </div>
             ) : null}

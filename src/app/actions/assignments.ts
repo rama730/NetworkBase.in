@@ -1009,9 +1009,10 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
     const [children, sprints, teamAssignments, [org]] = await Promise.all([
         db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).orderBy(asc(workspaces.title)),
         // Board/review report §6, D4: an assignment can go to a CO or to a sprint inside it ("CO1 · Week 1").
-        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, parentSprintId: workspaceSprints.parentSprintId }).from(workspaceSprints)
+        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, parentSprintId: workspaceSprints.parentSprintId, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints)
             .where(and(eq(workspaceSprints.projectId, orgId), inArray(workspaceSprints.status, ['planning', 'active']))).orderBy(asc(workspaceSprints.startDate))
-            .then((rows) => normalizeSprintOptions(rows).map((o) => ({ id: o.id, name: o.name, status: o.status ?? 'planning' }))),
+            // Assignment form redesign: End of sprint fills the due date, so the form needs the dates.
+            .then((rows) => normalizeSprintOptions(rows).map((o) => ({ id: o.id, name: o.name, status: o.status ?? 'planning', endDate: o.endDate ?? null }))),
         // "Copy teams from" (report §16.11): earlier team assignments, newest first.
         db.select({ id: tasks.id, title: tasks.title }).from(tasks)
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.deletedAt), sql`${tasks.assignmentSettings}->'target'->>'mode' = 'teams'`))
@@ -1025,7 +1026,7 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
         SELECT p.id, coalesce(p.full_name, p.username, 'Admin') AS name FROM profiles p
         WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${orgId} UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${orgId} AND role = 'admin')
         ORDER BY 2`);
-    return { success: true as const, children, sprints, teamAssignments, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule }, admins: [...admins] };
+    return { success: true as const, children, sprints, teamAssignments, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule, dueTime: work.dueTime }, admins: [...admins] };
 }
 
 export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; dueDate: string | null; state: CopyState; late: boolean; submissionType: string; canSubmit: boolean };

@@ -32,7 +32,8 @@ test("board/review report §4: New has Task and Assignment tabs; Assigned to is 
   const panel = source("src/components/organizations/AssignmentsPanel.tsx");
   assert.match(panel, /export function AssignmentFields/);
   assert.doesNotMatch(panel, /<option value="task">One person · a task<\/option>/, "the tabs switch kinds now");
-  assert.match(panel, /useEffect\(\(\) => \{ draftRef\.current\?\.\(\{ title, description, sprintId \}\) \}, \[title, description, sprintId\]\)/);
+  // Assignment form redesign (2026-11-09): the due day carries across too.
+  assert.match(panel, /useEffect\(\(\) => \{ draftRef\.current\?\.\(\{ title, description, sprintId, dueDate: dueLocal\.slice\(0, 10\) \}\) \}, \[title, description, sprintId, dueLocal\]\)/);
 });
 
 test("live-fix 6: Assignments and Mine filters", () => {

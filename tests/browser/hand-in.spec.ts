@@ -154,7 +154,7 @@ test('3.12, 3.13: an admin opening a waiting copy gets the same decision, Next w
     const review = card.getByRole('region', { name: 'Review this hand-in' });
     await expect(review.getByRole('button', { name: 'Approve' })).toBeVisible();
     await review.getByRole('button', { name: 'Return' }).click();
-    await expect(review.getByLabel('Fix by')).not.toHaveValue('');
+    await expect(review.getByLabel('Fix by, date')).not.toHaveValue('');
     await expect(review.getByRole('group', { name: 'Recent reasons' })).toContainText('Add the test cases.');
     await expect(review.getByRole('link', { name: 'Next waiting: Kiran' })).toHaveAttribute('href', /drawerId=c9/);
     await expect(review.getByRole('link', { name: 'Back to queue' })).toHaveAttribute('href', /taskScope=review&assignment=a1/);

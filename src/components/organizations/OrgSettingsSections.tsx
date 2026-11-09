@@ -38,6 +38,7 @@ import type { OrgDetail } from '@/lib/organizations/detail'
 import { orgGrant, type OrgRole } from '@/lib/organizations/permissions'
 import { rolePlural } from '@/lib/organizations/role-words'
 import type { OrgMemberRole, OrgSettingsSection } from '@/lib/organizations/settings'
+import { timeLabel, TIME_OPTIONS } from '@/lib/organizations/zoned-time'
 
 // Org settings sections (report §21.2–21.4), rendered inside the project Settings document. Switches save at once,
 // as they do in workspace Settings (spec §10, decision D1); other fields save with their section's button. Each card
@@ -577,7 +578,7 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                 <div className="space-y-6">
                     <h3 className="nb-micro">Tasks</h3>
                     <InstantSwitch label={L.reviewRequired.label} help={`${L.reviewRequired.help} Fills in the task form.`} checked={organization.work.reviewRequired} save={instant('review_required')} />
-                    <div className="grid gap-5 sm:grid-cols-3">
+                    <div className="grid gap-5 sm:grid-cols-2">
                         <label className="flex flex-col"><span className={labelClass}>{L.lateRule.label}</span><span className={`block pb-2 ${helpClass}`}>{L.lateRule.help}</span>
                             <select className="nb-select mt-auto w-full" value={work.lateRule} onChange={(e) => set('lateRule', e.target.value as typeof work.lateRule)}>
                                 {(['always', 'until', 'none'] as const).map((v) => <option key={v} value={v}>{L.lateRule.options[v]}</option>)}
@@ -593,9 +594,14 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                                 {(['shown', 'hidden'] as const).map((v) => <option key={v} value={v}>{L.storyPoints.options[v]}</option>)}
                             </select>
                         </label>
+                        <label className="flex flex-col"><span className={labelClass}>{L.dueTime.label}</span><span className={`block pb-2 ${helpClass}`}>{L.dueTime.help}</span>
+                            <select className="nb-select mt-auto w-full" value={work.dueTime} onChange={(e) => set('dueTime', e.target.value)}>
+                                {(TIME_OPTIONS.includes(work.dueTime) ? TIME_OPTIONS : [...TIME_OPTIONS, work.dueTime].sort()).map((t) => <option key={t} value={t}>{timeLabel(t)}</option>)}
+                            </select>
+                        </label>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', { late_rule: work.lateRule, reminders: work.reminders, story_points: work.storyPoints }))}>Save task defaults</Button>
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', { late_rule: work.lateRule, reminders: work.reminders, story_points: work.storyPoints, due_time: work.dueTime }))}>Save task defaults</Button>
                         {status}
                     </div>
                     <h3 className="nb-micro border-t border-border pt-5">Sprints</h3>

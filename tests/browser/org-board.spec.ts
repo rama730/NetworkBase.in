@@ -22,7 +22,8 @@ test.beforeAll(async () => {
     '@/components/workspaces/v2/tasks/TaskDetailPanel': `import React from 'react';import { AssignmentManageSection } from '@/components/organizations/AssignmentsPanel';export default ({task})=>task?React.createElement(AssignmentManageSection,{orgId:'org',masterId:task.id}):null;`,
     '@/app/actions/assignments': `const counts={not_started:0,in_progress:1,submitted:1,returned:0,done:0,missing:0,excused:0,total:2};
       export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:null,rows:[{masterId:'master-1',title:'Array lab',dueDate:null,status:'open',submissionType:'file',reviewRequired:true,teams:false,counts,mine:null}]});
-      export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[],teamAssignments:[],admins:[],defaults:{reviewRequired:true,lateRule:'always'}});
+      export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[{id:'co1',name:'CO1',status:'active',endDate:'2026-12-04T18:29:00.000Z'}],teamAssignments:[],admins:[],defaults:{reviewRequired:true,lateRule:'until',dueTime:'17:00'}});
+      export const createAssignmentAction=async(input)=>{window.created=input;return {success:true,copies:2,masterId:'m-new'}};
       export const readAssignmentForReuseAction=async()=>({success:true,form:{title:'Array lab',description:'Implement a dynamic array',submissionType:'link',reviewRequired:true,lateRule:'always',lateAfterMinutes:15,steps:['Push','Pop'],target:{mode:'everyone'},materials:[],dueDate:null}});`,
     '@/app/actions/organizations': `export const listOrgRosterAction=async()=>[{userId:'rama',name:'Rama',username:'rama',avatarUrl:null,title:null,role:'member',projectHint:null},{userId:'asha',name:'Asha',username:'asha',avatarUrl:null,title:null,role:'member',projectHint:null}];`,
     '@/app/actions/workspace': `export const fetchWorkspaceTasksAction=async(_p,_n,_c,scope)=>({success:true,tasks:scope==='mine'?[]:window.boardTasks.filter((t)=>scope!=='sprint'||t.sprintId),nextCursor:undefined,hasMore:false});
@@ -74,7 +75,7 @@ test('board/review report §4: Use again on an assignment\'s card opens New on i
   await page.getByRole('menuitem', { name: 'Use again' }).click();
   const dialog = page.getByRole('dialog', { name: 'New' });
   await expect(dialog.getByRole('tab', { name: 'Assignment' })).toHaveAttribute('aria-selected', 'true');
-  await expect(dialog.getByRole('textbox', { name: /Title/ })).toHaveValue('Array lab');
+  await expect(dialog.getByRole('textbox', { name: /Assignment title/ })).toHaveValue('Array lab');
   await expect(dialog.getByRole('button', { name: 'Publish to 2' })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'New assignment' })).toHaveCount(0);
 });
@@ -187,4 +188,59 @@ test('board view dropdown §6a: an assignment card is a task card — title, whe
   await expect(own).toContainText('Returned');
   await expect(own).toContainText('Assignment');
   await page.screenshot({ path: test.info().outputPath('board-cards.png'), fullPage: true });
+});
+
+test('assignment form redesign: the Assignment tab is laid out like Task, and a due date is one click', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await open(page);
+  await page.getByRole('button', { name: 'New task' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New' });
+  await dialog.getByRole('tab', { name: 'Assignment' }).click();
+  // The same sections and the same fixed footer as the Task tab.
+  for (const heading of ['Basics', 'Who gets it', 'Due and late work', 'Hand-in and review', 'Steps and materials']) await expect(dialog.getByText(heading, { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible();
+  // Nothing filled in: each field says what it needs, under itself.
+  await dialog.getByRole('button', { name: 'Publish to 2' }).click();
+  await expect(dialog.getByText('Add a title.')).toBeVisible();
+  await expect(dialog.getByText('Pick a due date.')).toBeVisible();
+  // Late work counted from the due date isn't flagged on its own.
+  await expect(dialog.getByText('Pick the last day late work is accepted.')).toHaveCount(0);
+  await expect(dialog.getByRole('textbox', { name: /Assignment title/ })).toBeFocused();
+  // The time is the organization's (Settings → Work → Due time); Tomorrow fills the date.
+  await expect(dialog.getByRole('combobox', { name: 'Due, time' })).toHaveValue('17:00');
+  await dialog.getByRole('button', { name: 'Tomorrow' }).click();
+  await expect(dialog.getByText(/^Due \w{3} \d{1,2} \w{3}, 5:00 PM · tomorrow$/)).toBeVisible();
+  await expect(dialog.getByText('Pick a due date.')).toHaveCount(0);
+  // Late work until starts a week after the due date and moves with it.
+  await expect(dialog.getByRole('button', { name: '+1 week' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.getByText(/^Until \w{3} \d{1,2} \w{3}, 5:00 PM · in 8 days$/)).toBeVisible();
+  // Repeat weekly lists the days it makes.
+  await dialog.getByRole('checkbox', { name: /Repeat weekly until/ }).check();
+  await expect(dialog.getByText(/^5 assignments: .+\. Later weeks are saved as drafts/)).toBeVisible();
+  await dialog.getByRole('checkbox', { name: /Repeat weekly until/ }).uncheck();
+  // The rare settings wait behind More options.
+  await expect(dialog.getByRole('checkbox', { name: 'Also share in #general' })).toBeHidden();
+  await dialog.getByText('More options').click();
+  await expect(dialog.getByRole('checkbox', { name: 'Also share in #general' })).toBeVisible();
+  await dialog.getByRole('textbox', { name: /Assignment title/ }).fill('Lab 5: Graphs');
+  await page.screenshot({ path: 'test-results/assignment-form.png' });
+  await dialog.getByRole('button', { name: 'Publish to 2' }).click();
+  await expect(dialog).toHaveCount(0);
+  const created = await page.evaluate(() => (window as unknown as { created: { title: string; dueDate: string; lateUntil: string } }).created);
+  expect(created.title).toBe('Lab 5: Graphs');
+  expect(new Date(created.lateUntil).getTime() - new Date(created.dueDate).getTime()).toBe(7 * 864e5);
+  expect(errors).toEqual([]);
+});
+
+test('assignment form redesign: picking a sprint fills an empty due date with its last day, and End of sprint appears', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'New task' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New' });
+  await dialog.getByRole('tab', { name: 'Assignment' }).click();
+  await dialog.getByRole('combobox', { name: 'Sprint' }).selectOption('co1');
+  // The fixture has no zone, so the day is the browser's; the sprint ends 18:29 UTC on 4 Dec.
+  await expect(dialog.getByRole('textbox', { name: 'Due, date' })).toHaveValue(/^2026-12-0[45]$/);
+  await expect(dialog.getByRole('button', { name: 'End of sprint' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.getByRole('option', { name: 'When the sprint starts' })).toBeAttached();
 });

@@ -7,6 +7,7 @@ import { createTeamTasksAction } from '@/app/actions/child-units'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { DateTimeField, duePresets } from '@/components/organizations/DateTimeField'
 
 // A child project's team task (report §16.11): Teams (boxes of project people) or Each unit (its units become the
 // teams). One shared task per team; any teammate works and moves it; the lead is the assignee.
@@ -44,7 +45,9 @@ export function TeamTaskDialog({ projectId, members, open, onOpenChange, onCreat
                 <div className="space-y-3">
                     <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" /></label>
                     <label className="block text-sm font-medium">Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="nb-textarea mt-1 w-full" /></label>
-                    <label className="block text-sm font-medium">Due<Input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} className="mt-1" /></label>
+                    <div className="space-y-1"><span className="block text-sm font-medium">Due</span>
+                        <DateTimeField value={due} onChange={setDue} timeZone={null} presets={duePresets(null)} />
+                    </div>
                     <fieldset>
                         <legend className="text-sm font-medium">Assign to</legend>
                         <div className="mt-1 flex gap-4 text-sm">

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { typeProfile } from "@/lib/organizations/type-profile";
+import { DEFAULT_DUE_TIME, isTimeOfDay } from "@/lib/organizations/zoned-time";
 
 import type { WorkspaceSettingsSectionId } from "@/lib/workspaces/settings-policies";
 import { ORG_LIMITS, ORG_TYPES } from "@/lib/organizations/config";
@@ -96,6 +97,8 @@ export const ORG_SETTINGS_PATCH = {
     late_rule: z.enum(["none", "until", "always"]).optional(),
     reminders: z.enum(["both", "day_before", "due_day", "off"]).optional(),
     story_points: z.enum(["shown", "hidden"]).optional(),
+    // Assignment form redesign (2026-11-09): the time a picked due date gets.
+    due_time: z.string().refine(isTimeOfDay, "Pick a time like 23:59.").optional(),
     sprint_auto_start: z.boolean().optional(),
     sprint_notify_on_start: z.boolean().optional(),
     sprint_show_in_children: z.boolean().optional(),
@@ -122,6 +125,7 @@ export type OrgWork = {
   lateRule: "none" | "until" | "always";
   reminders: "both" | "day_before" | "due_day" | "off";
   storyPoints: "shown" | "hidden";
+  dueTime: string;
   sprintAutoStart: boolean;
   sprintNotifyOnStart: boolean;
   sprintShowInChildren: boolean;
@@ -142,6 +146,7 @@ export function readOrgWork(orgSettings: unknown, orgType: string | null | undef
     lateRule: pick(s.assignmentLateRule, ["none", "until", "always"] as const, type.lateRule),
     reminders: pick(s.assignmentReminders, ["both", "day_before", "due_day", "off"] as const, "both"),
     storyPoints: pick(s.storyPoints, ["shown", "hidden"] as const, type.storyPoints),
+    dueTime: isTimeOfDay(s.assignmentDueTime) ? s.assignmentDueTime : DEFAULT_DUE_TIME,
     sprintAutoStart: s.sprintAutoStart !== false,
     sprintNotifyOnStart: s.sprintNotifyOnStart !== false,
     sprintShowInChildren: s.sprintShowInChildren !== false,

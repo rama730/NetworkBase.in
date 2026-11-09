@@ -5,12 +5,12 @@ import { useEffect, useState } from 'react'
 import { readAssignmentComposerOptionsAction, readAssignmentForReuseAction, type AssignmentRow, type updateAssignmentAction } from '@/app/actions/assignments'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
-import { isoToZonedInput, zonedInputToIso, zoneName } from '@/lib/organizations/zoned-time'
+import { isoToZonedInput, todayInZone, zonedInputToIso } from '@/lib/organizations/zoned-time'
+import { afterPresets, DateTimeField, duePresets } from '@/components/organizations/DateTimeField'
 
 // Roster dialogs (report §34.6): every browser pop-up becomes a dialog that says what happens.
 
 const DAY = 86_400_000
-/** A date as a datetime-local value in the viewer's own zone. */
 // Textareas use .nb-textarea (spec §10); this only adds layout.
 const area = 'w-full'
 
@@ -28,10 +28,10 @@ export function ReturnDialog({ label, change = false, open, onClose, onReturn, t
                     <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className="nb-textarea" aria-label="What should they change?" />
                     <span className="block text-[12px] text-muted-foreground">They’ll see this.</span>
                 </label>
-                <label className="block space-y-1"><span className="font-medium">Fix by <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span>
-                    <Input type="datetime-local" required value={fixBy} onChange={(e) => setFixBy(e.target.value)} />
+                <div className="space-y-1"><span className="block font-medium">Fix by</span>
+                    <DateTimeField value={fixBy} onChange={setFixBy} timeZone={timeZone} summary="Fix by" presets={afterPresets(todayInZone(timeZone), '23:59')} presetsLabel="From today" />
                     <span className="block text-[12px] text-muted-foreground">They can hand it in again until then, even past the due date.</span>
-                </label>
+                </div>
             </div>
         </ConfirmDialog>
     )
@@ -50,14 +50,10 @@ export function ExtendDialog({ label, currentDue, closed, open, onClose, onExten
         <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} title={`Extend for ${label}`} confirmLabel="Extend"
             onConfirm={() => { if (ready) onExtend(zonedInputToIso(value, timeZone), reopen); onClose() }}>
             <div className="space-y-3 text-sm">
-                <div className="flex flex-wrap gap-1.5">
-                    {[['+1 day', 1], ['+3 days', 3], ['+1 week', 7]].map(([text, days]) => (
-                        <button key={text} type="button" className="rounded-sm border border-border px-2 py-0.5 text-xs hover:bg-muted" onClick={() => setValue(inZone(new Date(base.getTime() + Number(days) * DAY)))}>{text}</button>
-                    ))}
+                <div className="space-y-1"><span className="block font-medium">New due date</span>
+                    {/* The shortcuts count from the current due date (or now, once it has passed) and keep its time. */}
+                    <DateTimeField value={value} onChange={setValue} timeZone={timeZone} defaultTime={inZone(base).slice(11, 16)} presets={afterPresets(inZone(base).slice(0, 10), inZone(base).slice(11, 16))} presetsLabel={currentDue && new Date(currentDue).getTime() > Date.now() ? 'From due' : 'From now'} />
                 </div>
-                <label className="block space-y-1"><span className="font-medium">New due date <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span>
-                    <Input type="datetime-local" required value={value} onChange={(e) => setValue(e.target.value)} />
-                </label>
                 {closed ? (
                     <label className="flex items-start gap-2">
                         <input type="checkbox" className="nb-check mt-1" checked={reopen} onChange={(e) => setReopen(e.target.checked)} />
@@ -99,9 +95,9 @@ export function GiveToDialog({ people, open, onClose, onGive, timeZone = null }:
                         {people.map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
                     </select>
                 </label>
-                <label className="block space-y-1"><span className="font-medium">Due <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span>
-                    <Input type="datetime-local" required value={due} onChange={(e) => setDue(e.target.value)} />
-                </label>
+                <div className="space-y-1"><span className="block font-medium">Due</span>
+                    <DateTimeField value={due} onChange={setDue} timeZone={timeZone} presets={duePresets(timeZone)} />
+                </div>
                 <p className="text-[12px] text-muted-foreground">They get their own copy and are told.</p>
             </div>
         </ConfirmDialog>
@@ -169,7 +165,9 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
                 {published && loaded && description !== loaded.description ? (
                     <label className="flex items-center gap-2 sm:col-span-2"><input className="nb-check" type="checkbox" checked={tell} onChange={(e) => setTell(e.target.checked)} /> Tell everyone</label>
                 ) : null}
-                <label className="block space-y-1"><span className="font-medium">Due <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span><Input type="datetime-local" value={due} disabled={closed} onChange={(e) => setDue(e.target.value)} /></label>
+                <div className="space-y-1 sm:col-span-2"><span className="block font-medium">Due</span>
+                    <DateTimeField value={due} disabled={closed} onChange={setDue} timeZone={timeZone} presets={duePresets(timeZone)} />
+                </div>
                 <label className="block space-y-1"><span className="font-medium">Sprint</span>
                     <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="nb-select w-full">
                         <option value="">Keep as is</option>

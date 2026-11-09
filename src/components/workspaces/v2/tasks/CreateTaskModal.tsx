@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MultiAttachmentPicker } from "../files-tab/picker/MultiAttachmentPicker";
+import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, SectionDivider } from "./form-parts";
 import {
   taskEditorDraftSchema,
   type TaskEditorDraft,
@@ -64,78 +65,9 @@ interface CreateTaskModalProps {
    * An organization (board/review report §4): the Assignment tab's form. Title, description and sprint carry across
    * the tabs; `onDraft` reports the assignment form's own changes back so switching to Task keeps them.
    */
-  renderMany?: (many: { choice: string; title: string; description: string; sprintId: string; onDraft: (carry: { title: string; description: string; sprintId: string }) => void; onDone: () => void }) => React.ReactNode;
+  renderMany?: (many: { choice: string; title: string; description: string; sprintId: string; dueDate: string; onDraft: (carry: { title: string; description: string; sprintId: string; dueDate: string }) => void; onDone: () => void }) => React.ReactNode;
   /** Opens on this tab (+ New → Assignment). */
   initialKind?: "task" | "assignment";
-}
-
-function SectionDivider({
-  title,
-  children,
-}: {
-  title: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-border pb-1.5">
-      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
-        {title}
-      </span>
-      {children}
-    </div>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  required = false,
-  error,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  required?: boolean;
-  error?: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  const describedBy = error
-    ? `${htmlFor}-error`
-    : hint
-      ? `${htmlFor}-hint`
-      : undefined;
-
-  return (
-    <div className="space-y-1.5">
-      <label
-        htmlFor={htmlFor}
-        className="block text-[13px] font-medium text-foreground"
-      >
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </label>
-      {React.isValidElement(children)
-        ? React.cloneElement(children as React.ReactElement<any>, {
-            "aria-invalid": Boolean(error),
-            "aria-describedby": describedBy,
-          })
-        : children}
-      {hint ? <p id={`${htmlFor}-hint`} className="text-xs text-muted-foreground">{hint}</p> : null}
-      {error ? (
-        <p id={`${htmlFor}-error`} role="alert" className="text-xs font-mono text-destructive">{error}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function inputClassName(hasError: boolean) {
-  return cn(
-    "h-[34px] w-full rounded-[5px] border bg-card px-3 text-[13px] text-foreground outline-none transition placeholder:text-muted-foreground/60",
-    "border-border focus:border-primary focus:ring-1 focus:ring-primary/20",
-    hasError && "border-destructive focus:border-destructive focus:ring-destructive/20",
-  );
 }
 
 function getTodayDateString(): string {
@@ -178,14 +110,16 @@ export default function CreateTaskModal({
 }: CreateTaskModalProps) {
   // Board/review report §4: an organization's New has two tabs, Task and Assignment; what's typed carries across.
   const [kind, setKind] = React.useState<"task" | "assignment">(renderMany ? initialKind : "task");
-  const [carry, setCarry] = React.useState({ title: "", description: "", sprintId: "" });
+  const [carry, setCarry] = React.useState({ title: "", description: "", sprintId: "", dueDate: "" });
   const formRef = React.useRef<HTMLFormElement>(null);
   const switchKind = (next: "task" | "assignment") => {
     if (next === kind) return;
     if (next === "assignment" && formRef.current) {
       const read = (name: string) => String((formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "");
-      setCarry({ title: read("title"), description: read("description"), sprintId: read("sprintId") });
+      setCarry({ title: read("title"), description: read("description"), sprintId: read("sprintId"), dueDate });
     }
+    // Assignment form redesign: the due day comes back too.
+    if (next === "task") setDueDate(carry.dueDate);
     setKind(next);
   };
   React.useEffect(() => { if (isOpen) setKind(renderMany ? initialKind : "task"); }, [isOpen, initialKind, renderMany]);
@@ -332,7 +266,7 @@ export default function CreateTaskModal({
     <div className="shrink-0 px-6">
       <UnderlineTabs label="What are you creating?" idPrefix="new-kind" controls={false} value={kind} onChange={switchKind}
         tabs={[{ key: "task", label: "Task" }, { key: "assignment", label: "Assignment" }] as const} />
-      {kind === "task" ? <p className="pt-2 text-[13px] text-muted-foreground">One piece of work for one person.</p> : null}
+      <p className="pt-2 text-[13px] text-muted-foreground">{kind === "task" ? "One piece of work for one person." : "Everyone it goes to gets their own copy to hand in."}</p>
     </div>
   ) : null;
 
@@ -349,16 +283,14 @@ export default function CreateTaskModal({
               openerRef.current.focus();
             }
           }}
-          className="z-[201] flex max-h-[88vh] w-full sm:max-w-[640px] flex-col gap-0 overflow-hidden rounded-[12px] border border-[#DBD5C8] bg-card p-0 shadow-2xl dark:border-white/10"
+          className={cn("z-[201]", FORM_DIALOG_CLASS)}
         >
           {many ? (
             <div className="flex min-h-0 w-full flex-col">
               {header}
               {kindTabs}
-              <div className="flex-1 overflow-y-auto px-6 py-5">
-                <p className="mb-3 text-[13px] text-muted-foreground">Everyone it goes to gets their own copy to hand in.</p>
-                {renderMany({ choice: "everyone", title: carry.title, description: carry.description, sprintId: carry.sprintId, onDraft: setCarry, onDone: onClose })}
-              </div>
+              {/* The assignment form draws its own scrolling body and footer, like this form's. */}
+              {renderMany({ choice: "everyone", title: carry.title, description: carry.description, sprintId: carry.sprintId, dueDate: carry.dueDate, onDraft: setCarry, onDone: onClose })}
             </div>
           ) : (
           <form
@@ -799,19 +731,19 @@ export default function CreateTaskModal({
             </div>
 
             {/* Modal Footer */}
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#DBD5C8] bg-[#F3F0EA] px-6 py-3.5 dark:border-white/10 dark:bg-white/5">
+            <div className={FORM_FOOTER_CLASS}>
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                className={FORM_SECONDARY_CLASS}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="nb-touch-target h-[34px] rounded-[5px] bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className={FORM_PRIMARY_CLASS}
               >
                 {isSubmitting ? "Creating..." : "Create task"}
               </button>

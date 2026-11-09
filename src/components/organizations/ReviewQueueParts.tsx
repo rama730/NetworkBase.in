@@ -16,7 +16,8 @@ import CommentsTab from '@/components/workspaces/v2/tasks/TaskDetailTabs/Comment
 import { useAuth } from '@/hooks/use-auth'
 import { useTaskDiscussionResource } from '@/hooks/useTaskDiscussionResource'
 import { reviewFixBy, webLink } from '@/lib/organizations/assignment-rules'
-import { isoToZonedInput } from '@/lib/organizations/zoned-time'
+import { isoToZonedInput, todayInZone } from '@/lib/organizations/zoned-time'
+import { afterPresets, DateTimeField } from '@/components/organizations/DateTimeField'
 import { deferredFeedback, toast } from '@/lib/feedback'
 import { cn } from '@/lib/utils'
 
@@ -171,7 +172,11 @@ export function ReviewDecision({ who, kind = 'copy', dueDate, recentReasons = []
                     {recentReasons.map((r) => <button key={r} type="button" className="max-w-full truncate rounded-md border border-border px-2 py-0.5 text-[12px] hover:bg-muted" onClick={() => setReason(r)}>{r}</button>)}
                 </div>
             ) : null}
-            {kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="h-7 w-auto" aria-label="Fix by" /></label> : null}
+            {kind === 'copy' ? (
+                <div className="space-y-1"><span className="block font-medium">Fix by</span>
+                    <DateTimeField value={fixBy} onChange={setFixBy} timeZone={null} summary="Fix by" aria-label="Fix by" presets={afterPresets(todayInZone(null))} presetsLabel="From today" />
+                </div>
+            ) : null}
             {error ? <p role="alert" className="text-destructive">{error}</p> : null}
             <div className="flex gap-2">
                 <Button type="button" size="sm" className="h-7" disabled={pending} onClick={sendReturn}>Return</Button>

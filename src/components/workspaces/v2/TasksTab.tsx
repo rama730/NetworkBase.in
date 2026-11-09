@@ -1034,8 +1034,8 @@ export default function TasksTab({
             setTeamTaskOpen(true);
           }}
           initialKind={reuseFrom ? "assignment" : startCreateKind}
-          renderMany={orgId && !isChildProject && canManageWorkflow ? ({ choice, title, description, sprintId, onDraft, onDone }) => (
-            <AssignmentFields key={reuseFrom ?? "new"} orgId={orgId} timeZone={orgTimeZone} reuseFrom={reuseFrom} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId }} onDraft={onDraft} onDone={onDone}
+          renderMany={orgId && !isChildProject && canManageWorkflow ? ({ choice, title, description, sprintId, dueDate, onDraft, onDone }) => (
+            <AssignmentFields key={reuseFrom ?? "new"} orgId={orgId} timeZone={orgTimeZone} reuseFrom={reuseFrom} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId, dueDate }} onDraft={onDraft} onDone={onDone}
               onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
           ) : undefined}
           onClose={() => { setShowCreateModal(false); setReuseFrom(null); }}

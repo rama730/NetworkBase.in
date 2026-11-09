@@ -281,7 +281,7 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         // Names equal to the type's aren't saved, so a later type change still renames them.
         settingsPatch.roleNames = customRoleNames(current?.orgType, value.role_names as Record<string, string>);
     } else if (section === 'work') {
-        const keys = { review_required: 'assignmentReview', late_rule: 'assignmentLateRule', reminders: 'assignmentReminders', story_points: 'storyPoints',
+        const keys = { review_required: 'assignmentReview', late_rule: 'assignmentLateRule', reminders: 'assignmentReminders', story_points: 'storyPoints', due_time: 'assignmentDueTime',
             sprint_auto_start: 'sprintAutoStart', sprint_notify_on_start: 'sprintNotifyOnStart', sprint_show_in_children: 'sprintShowInChildren', sprint_create_matching: 'sprintCreateMatching' } as const;
         for (const [field, key] of Object.entries(keys)) if (field in value) settingsPatch[key] = value[field];
     } else if (section === 'notifications') {
