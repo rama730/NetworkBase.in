@@ -90,7 +90,7 @@ export async function POST(request:Request){
    commitSha,
    authorId: user.id,
    authorName: (user.user_metadata?.full_name as string) || user.email || 'Developer',
-   authorEmail: user.email || 'dev@networkbase.app',
+   authorEmail: user.email ?? '' /* no made-up address (F78) */,
    message: message || `Pushed ${files.length} file(s)`,
    taskId,
    fileRole: resolvedFinalRole,

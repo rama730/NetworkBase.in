@@ -109,7 +109,8 @@ export async function PATCH(request: Request) {
         });
         if (
           !current ||
-          Math.abs(current.updatedAt.getTime() - new Date(input.expectedUpdatedAt).getTime()) > 5000
+          // Exact, like the task check below: a 5 s window let a stale client undo someone else's change (F59).
+          current.updatedAt.getTime() !== new Date(input.expectedUpdatedAt).getTime()
         )
           return null;
         const [updated] = await tx
