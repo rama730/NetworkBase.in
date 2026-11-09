@@ -25,6 +25,8 @@ import {
     TaskSearchResultCard,
     OrgSearchResultCard,
 } from "./GlobalSearchResultCards";
+import { currentEntry } from "@/lib/navigation/in-app-history";
+import { rememberSearchReturn } from "@/lib/navigation/search-return";
 import {
     buildGlobalSearchHref,
     getNetworkSearchScope,
@@ -45,6 +47,8 @@ type CommandPaletteProps = {
     isOpen: boolean;
     onClose: () => void;
     initialQuery?: string;
+    /** Back to your search (R2): the result you opened is highlighted again. */
+    initialActiveIndex?: number;
     context?: GlobalSearchContext;
     recentSearchOwnerId?: string;
 };
@@ -140,7 +144,7 @@ function RecentSearchList({
     );
 }
 
-export default function CommandPalette({ isOpen, onClose, initialQuery = "", context, recentSearchOwnerId = "" }: CommandPaletteProps) {
+export default function CommandPalette({ isOpen, onClose, initialQuery = "", initialActiveIndex, context, recentSearchOwnerId = "" }: CommandPaletteProps) {
     useSkillCatalog();
     const queryClient = useQueryClient();
     const pathname = usePathname();
@@ -203,8 +207,8 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     useEffect(() => {
         if (!isOpen) return;
         setQuery(initialQuery);
-        setActiveIndex(searchContext === "settings" ? 0 : -1);
-    }, [initialQuery, isOpen, searchContext]);
+        setActiveIndex(initialActiveIndex ?? (searchContext === "settings" ? 0 : -1));
+    }, [initialActiveIndex, initialQuery, isOpen, searchContext]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -250,9 +254,16 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
         });
     };
 
+    /** Going back to this page reopens the search with this query and result (unified back R2). */
+    const rememberForBack = (index: number) => {
+        const entryId = currentEntry()?.id;
+        if (entryId) rememberSearchReturn(window.sessionStorage, { entryId, query, context: searchContext, activeIndex: index });
+    };
+
     const openSettingsResult = (result: SettingsSearchItem) => confirmAppNavigation(() => {
         cancelActivePreviews();
         recordRecentSearch(query);
+        rememberForBack(settingsResults.indexOf(result));
         router.push(result.href);
         onClose();
     });
@@ -263,7 +274,10 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
             if (result.kind === "skill") recordRecentSearch(result.title);
             else recordRecentPreview(result);
             if (result.kind === "link") window.open(result.href, "_blank", "noopener,noreferrer");
-            else router.push(result.href);
+            else {
+                rememberForBack(previewResults.indexOf(result));
+                router.push(result.href);
+            }
             onClose();
         };
         // A link opens in a new tab, so nothing here is left behind.
@@ -294,6 +308,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
         confirmAppNavigation(() => {
             cancelActivePreviews();
             recordRecentSearch(query);
+            rememberForBack(-1);
             router.push(href);
             onClose();
         });

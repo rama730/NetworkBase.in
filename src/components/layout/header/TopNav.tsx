@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { LogOut, Menu, Plus, Search, ShieldCheck, Smile, UserRound } from "lucide-react";
 import Logo from "./Logo";
 import { BackLogoSwap, BackSlot } from "./BackButton";
+import { arrivedByTraverse, subscribeEntry } from "@/lib/navigation/in-app-history";
+import { takeSearchReturn } from "@/lib/navigation/search-return";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -87,10 +89,13 @@ export default function TopNav() {
     const isCreateProjectRoute = pathname === '/workspaces/new';
 
 
+    const [commandPaletteIndex, setCommandPaletteIndex] = useState<number | undefined>();
+
     const closeGlobalSearch = useCallback(() => {
         setShowCommandPalette(false);
         setCommandPaletteQuery("");
         setCommandPaletteContext(undefined);
+        setCommandPaletteIndex(undefined);
     }, []);
 
     const openGlobalSearch = useCallback((query = "", requestedContext?: GlobalSearchContext) => {
@@ -105,6 +110,15 @@ export default function TopNav() {
         setCommandPaletteContext(nextContext);
         setShowCommandPalette(true);
     }, [closeGlobalSearch, pathname]);
+
+    // Back to your search (unified back R2): returning to the page you searched from reopens it.
+    useEffect(() => subscribeEntry((entry) => {
+        if (!arrivedByTraverse()) return;
+        const back = takeSearchReturn(window.sessionStorage, entry.id);
+        if (!back) return;
+        setCommandPaletteIndex(back.activeIndex >= 0 ? back.activeIndex : undefined);
+        openGlobalSearch(back.query, back.context as GlobalSearchContext | undefined);
+    }), [openGlobalSearch]);
 
 
 
@@ -355,6 +369,7 @@ export default function TopNav() {
                         isOpen={showCommandPalette}
                         onClose={closeGlobalSearch}
                         initialQuery={commandPaletteQuery}
+                        initialActiveIndex={commandPaletteIndex}
                         context={commandPaletteContext}
                         recentSearchOwnerId={user?.id}
                     />
