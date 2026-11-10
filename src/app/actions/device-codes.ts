@@ -1,28 +1,14 @@
 "use server";
 
-import { z } from "zod";
-
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { queueSecurityEmail } from "@/lib/email/security-queue";
-import { AGENT_EXPIRY_DAYS, decideDeviceCode, findPendingDeviceCode } from "@/lib/extension/device-codes";
+import { deviceDecisionSchema } from "@/lib/extension/device-decision";
+import { decideDeviceCode, findPendingDeviceCode } from "@/lib/extension/device-codes";
 import { recordSecurityEventFromHeaders } from "@/lib/security/audit-from-headers";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { resolveSecurityStepUp } from "@/lib/security/step-up";
 import { resolveStepUpCapabilities } from "@/lib/security/step-up-capabilities";
-import { AGENT_EXTRA_SCOPES } from "@/lib/security/token-access";
 import { createClient } from "@/lib/supabase/server";
-
-const decisionSchema = z.discriminatedUnion("decision", [
-  z.object({ decision: z.literal("deny") }),
-  z.object({ decision: z.literal("approve"), type: z.literal("device") }),
-  z.object({
-    decision: z.literal("approve"),
-    type: z.literal("agent"),
-    workspaceId: z.string().uuid(),
-    expiryDays: z.union([z.literal(AGENT_EXPIRY_DAYS[0]), z.literal(AGENT_EXPIRY_DAYS[1]), z.literal(AGENT_EXPIRY_DAYS[2])]),
-    extraScopes: z.array(z.enum(AGENT_EXTRA_SCOPES as [string, ...string[]])).max(3),
-  }),
-]);
 
 type DecideResult = { success: true; decision: "approve" | "deny" } | { success: false; error: string; stepUpRequired?: true };
 
@@ -35,7 +21,7 @@ export async function decideDeviceCodeAction(code: string, input: unknown): Prom
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Sign in to continue" };
   if (!(await consumeRateLimit(`device:decide:${user.id}`, 20, 600)).allowed) return { success: false, error: "Too many attempts. Try again in a few minutes." };
-  const parsed = decisionSchema.safeParse(input);
+  const parsed = deviceDecisionSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Choose how this sign-in may be used" };
   const pending = await findPendingDeviceCode(code);
   if (!pending) return { success: false, error: "This code has expired or was already used. Start again from your terminal." };

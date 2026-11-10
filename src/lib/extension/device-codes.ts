@@ -16,7 +16,8 @@ export const DEVICE_POLL_INTERVAL_S = 5;
 /** Letters a person won't misread (no I, L, O, U, 0, 1). */
 const USER_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
 
-export const AGENT_EXPIRY_DAYS = [7, 30, 90] as const;
+import { AGENT_EXPIRY_DAYS } from "@/lib/extension/device-decision";
+export { AGENT_EXPIRY_DAYS };
 export const DEVICE_EXPIRY_DAYS = 90;
 
 const hash = (value: string) => crypto.createHash("sha256").update(value).digest("hex");
