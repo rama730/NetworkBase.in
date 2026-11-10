@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.1 (2026-11-10)
+
+### Fixed
+- `nb login --workspace <slug>` no longer stops with "You're not signed in". Signing in an agent picks its workspace on the approval page.
+
+Also on networkbase.in (no CLI update needed): approving a sign-in at /device works, and "Verify it's you" with a password works again.
+
 ## 2.0.0 (2026-11-10)
 
 A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the old mirror aside and stops the 1.x background process.
