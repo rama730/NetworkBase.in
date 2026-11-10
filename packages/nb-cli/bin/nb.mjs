@@ -47,7 +47,8 @@ try {
     const { remindOnce } = await import("../lib/print/remind.mjs");
     remindOnce(ctx, `alias:${alias.from}`, `nb ${alias.from} is now nb ${alias.to} (the old name works until 3.0)`);
   }
-  await ctx.resolveWorkspace();
+  // login is what signs you in, so it can't look a workspace up first; an agent's workspace is picked on the approval page.
+  if (spec.name !== "login") await ctx.resolveWorkspace();
   const mod = await import(`../lib/commands/${spec.module}.mjs`);
   const run = mod[spec.fn];
   if (typeof run !== "function") throw new CliError("INTERNAL", `nb ${spec.name} isn't built yet`);

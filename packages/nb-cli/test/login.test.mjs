@@ -43,6 +43,13 @@ describe("nb login --device (report A3.1)", () => {
     assert.match(who.stdout, /token +agent · .*one workspace only/);
   });
 
+  it("--workspace doesn't stop a signed-out login (found signing in an agent against production)", async () => {
+    Object.assign(api.state.device, { answer: "approve", afterPolls: 1, tokenType: "agent" });
+    const { r } = await login(["--device", "--agent", "Claude Code", "--workspace", "design-lab"]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stderr, /only reaches the workspace you picked/);
+  });
+
   it("a denied sign-in says so and saves nothing", async () => {
     Object.assign(api.state.device, { answer: "deny", afterPolls: 1, tokenType: "device" });
     const { home, r } = await login(["--device"]);
