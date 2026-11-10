@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Bot, Clock, Loader2, MapPin, ShieldCheck, Terminal } from 'lucide-react'
+import { Bot, Clock, ExternalLink, Loader2, MapPin, ShieldCheck, Terminal } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { decideDeviceCodeAction } from '@/app/actions/device-codes'
@@ -21,6 +21,8 @@ type Pending = {
     requestedType: 'device' | 'agent'
     agentName: string | null
     ipAddress: string | null
+    viaOAuth: boolean
+    returnTo: string | null
     createdAt: string
     expiresAt: string
 }
@@ -89,13 +91,15 @@ export default function DeviceClient({ viewerEmail, code, pending, workspaces }:
         }
     }
 
-    const who = pending ? (pending.requestedType === 'agent' && pending.agentName ? `${pending.agentName} via ${pending.clientName}` : pending.clientName) : 'a terminal'
+    const who = pending ? (pending.requestedType === 'agent' && pending.agentName && pending.agentName !== pending.clientName ? `${pending.agentName} via ${pending.clientName}` : pending.clientName) : 'a terminal'
     const title = done === 'approve' ? 'Signed in' : done === 'deny' ? 'Sign-in denied' : !viewerEmail ? 'Sign in to approve a terminal' : pending ? `Approve ${who}?` : 'Enter the code from your terminal'
     const description = done === 'approve'
         ? 'Go back to your terminal; it continues on its own within a few seconds.'
         : done === 'deny'
             ? 'Nothing was signed in. Your terminal will say so.'
-            : pending
+            : pending?.viaOAuth
+                ? `Only approve if you just connected ${pending.clientName} to NetworkBase. Approving sends you back to ${pending.returnTo}.`
+                : pending
                 ? `Only approve if you started this and your terminal shows ${pending.userCode}.`
                 : 'Your terminal shows a code like ABCD-EFGH after nb login --device.'
 
@@ -123,13 +127,21 @@ export default function DeviceClient({ viewerEmail, code, pending, workspaces }:
                 </form>
             ) : (
                 <div className="space-y-5" aria-busy={busy !== null}>
-                    <p className="rounded-md border border-border bg-muted/40 p-3 text-center font-mono text-2xl tracking-[0.3em]" aria-label={`Code ${pending.userCode.split('').join(' ')}`}>{pending.userCode}</p>
+                    {pending.viaOAuth ? null : <p className="rounded-md border border-border bg-muted/40 p-3 text-center font-mono text-2xl tracking-[0.3em]" aria-label={`Code ${pending.userCode.split('').join(' ')}`}>{pending.userCode}</p>}
 
                     <section aria-label="Who is asking" className="divide-y divide-border rounded-md border border-border bg-card text-sm">
                         <div className="flex items-center gap-3 p-3">
                             {pending.requestedType === 'agent' ? <Bot className="size-4 text-muted-foreground" aria-hidden="true" /> : <Terminal className="size-4 text-muted-foreground" aria-hidden="true" />}
-                            <span className="min-w-0 truncate"><span className="font-medium">{who}</span>{pending.clientVersion ? <span className="text-muted-foreground"> {pending.clientVersion}</span> : null} on <span className="font-medium">{pending.deviceName}</span>{pending.platform ? <span className="text-muted-foreground"> ({pending.platform})</span> : null}</span>
+                            {pending.viaOAuth
+                                ? <span className="min-w-0 truncate"><span className="font-medium">{who}</span> <span className="text-muted-foreground">(editor)</span></span>
+                                : <span className="min-w-0 truncate"><span className="font-medium">{who}</span>{pending.clientVersion ? <span className="text-muted-foreground"> {pending.clientVersion}</span> : null} on <span className="font-medium">{pending.deviceName}</span>{pending.platform ? <span className="text-muted-foreground"> ({pending.platform})</span> : null}</span>}
                         </div>
+                        {pending.viaOAuth ? (
+                            <div className="flex items-center gap-3 p-3">
+                                <ExternalLink className="size-4 text-muted-foreground" aria-hidden="true" />
+                                <span className="min-w-0 truncate text-muted-foreground">Sends you back to <span className="font-medium text-foreground">{pending.returnTo}</span></span>
+                            </div>
+                        ) : null}
                         <div className="flex items-center gap-3 p-3">
                             <MapPin className="size-4 text-muted-foreground" aria-hidden="true" />
                             <span className="text-muted-foreground">{pending.ipAddress ? `From ${pending.ipAddress}` : 'Network address unknown'}</span>
@@ -140,7 +152,7 @@ export default function DeviceClient({ viewerEmail, code, pending, workspaces }:
                         </div>
                     </section>
 
-                    <fieldset className="space-y-2">
+                    <fieldset className="space-y-2" hidden={pending.viaOAuth}>
                         <legend className="mb-1 text-sm font-medium">This is</legend>
                         <label className="flex items-start gap-2.5 text-sm">
                             <input type="radio" className="nb-radio mt-0.5" name="type" checked={type === 'device'} onChange={() => setType('device')} />

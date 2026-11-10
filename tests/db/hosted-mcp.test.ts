@@ -53,3 +53,9 @@ test("device tokens are refused with how to get an agent sign-in", async () => {
   assert.equal(r.status, 403);
   assert.match(r.json.message, /nb login --device --agent/);
 });
+
+test("no token: 401 with the OAuth hint, not the browser CSRF 403", async () => {
+  const res = await mcp.POST(new Request("https://app.test/api/mcp", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }));
+  assert.equal(res.status, 401);
+  assert.match(res.headers.get("www-authenticate") ?? "", /resource_metadata="[^"]+\/\.well-known\/oauth-protected-resource\/api\/mcp"/);
+});

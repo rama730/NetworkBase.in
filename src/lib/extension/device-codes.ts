@@ -145,6 +145,11 @@ export async function issueApprovedToken(tx: Tx, row: typeof deviceCodes.$inferS
   }
 }
 
+function oauthReturnLabel(redirectUri: string) {
+  const url = new URL(redirectUri);
+  return url.host ? url.host : `${url.protocol}//`;
+}
+
 /** What the approval page shows for a code, or null when there's no such pending code. */
 export async function findPendingDeviceCode(code: string, now = new Date()) {
   const normalized = normalizeUserCode(code);
@@ -162,6 +167,8 @@ export async function findPendingDeviceCode(code: string, now = new Date()) {
     ipAddress: row.ipAddress,
     /** An editor's OAuth request (hosted MCP): only an agent sign-in, and the browser goes back to the editor. */
     viaOAuth: Boolean(row.oauthClientId),
+    /** Where approving sends the person (host, or the app scheme), so a lookalike editor name can't hide it. */
+    returnTo: row.redirectUri ? oauthReturnLabel(row.redirectUri) : null,
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
   };

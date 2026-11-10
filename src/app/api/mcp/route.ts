@@ -23,6 +23,11 @@ const SCRATCH = path.join(os.tmpdir(), "nb-hosted-mcp");
  * requests; each Mcp-Session-Id is one agent session for Undo and the end-of-session summary.
  */
 export async function POST(request: Request) {
+  // An editor's first call carries no token: answer 401 with the OAuth hint before the browser-only CSRF check,
+  // which would otherwise turn it into a 403 the editor can't act on.
+  if (!/^bearer\s+nb_(agt|dev|pat)_/i.test(request.headers.get("authorization")?.trim() ?? "")) {
+    return withAuthHint(request, jsonError("The hosted MCP server takes an agent sign-in, limited to one workspace: connect with OAuth, or nb login --device --agent \"Your agent\"", 401, "UNAUTHORIZED"));
+  }
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
   const auth = await requireAuthenticatedUser();
