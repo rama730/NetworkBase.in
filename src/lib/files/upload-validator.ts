@@ -11,8 +11,9 @@
  */
 
 import { isToolOutputPath } from "@/lib/import/import-filters";
+import { DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
 
-export const DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MiB
+export { DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES };
 
 export interface UploadValidationOptions {
   isFolder?: boolean;
@@ -318,7 +319,7 @@ export function validateUploadSelection(
     }
   }
 
-  // Check for maximum individual file size limit (10MB default)
+  // The largest file one upload may hold (25 MB default)
   const maxFileBytes = options.maxFileBytes ?? DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES;
   for (const file of cleanFiles) {
     if (typeof file.size === "number" && file.size > maxFileBytes) {

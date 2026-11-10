@@ -189,11 +189,13 @@ describe("Upload Security & Selection Validation", () => {
     }
   });
 
-  it("rejects files exceeding the maximum upload size limit (10MB)", () => {
-    const oversized = createMockFile("My Movie 1.mov", undefined, 22 * 1024 * 1024);
+  it("rejects files exceeding the maximum upload size limit (25MB)", () => {
+    const fits = createMockFile("My Movie 0.mov", undefined, 22 * 1024 * 1024);
+    assert.equal(validateUploadSelection([fits]).valid, true);
+    const oversized = createMockFile("My Movie 1.mov", undefined, 26 * 1024 * 1024);
     const res = validateUploadSelection([oversized]);
     assert.equal(res.valid, false);
-    assert.match(res.error || "", /exceeds the maximum upload size limit of 10MB/i);
+    assert.match(res.error || "", /exceeds the maximum upload size limit of 25MB/i);
     assert.equal(res.files.length, 0);
   });
 

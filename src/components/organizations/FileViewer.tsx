@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 // name, size, Download, Open in new tab, Full screen — for a hand-in, a material, or work under review.
 const UniversalPreviewEngine = dynamic(() => import('@/components/workspaces/v2/preview/UniversalPreviewEngine'), { ssr: false, loading: () => null })
 
-// Binary units, as the upload limit is set (10 MiB reads "10 MB").
+// Binary units, as the upload limit is set (25 MiB reads "25 MB").
 export const fileSize = (bytes: number | null | undefined) => (bytes == null ? '' : bytes >= 2 ** 20 ? `${Number((bytes / 2 ** 20).toFixed(1))} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
 
 export function FileViewer({ projectId, file, meta, unavailable, className }: {

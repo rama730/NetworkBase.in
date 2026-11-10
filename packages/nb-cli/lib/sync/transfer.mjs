@@ -26,7 +26,7 @@ export async function fetchManifest(api, workspaceId) {
     for (const f of page.files) files.set(f.path, { path: f.path, nodeId: f.nodeId, version: f.version, hash: f.contentHash ? String(f.contentHash).toLowerCase() : null, size: f.size ?? 0, updatedAt: f.updatedAt ?? null });
     cursor = page.nextCursor;
   } while (cursor);
-  return { files, canWrite: Boolean(page.canWrite), largestFileBytes: page.limits?.largestFileBytes ?? 10 * 1024 * 1024 };
+  return { files, canWrite: Boolean(page.canWrite), largestFileBytes: page.limits?.largestFileBytes ?? 25 * 1024 * 1024 };
 }
 
 /** Rejects paths that would land outside the folder (report A3.12, finding 34). @param {string} root @param {string} rel */

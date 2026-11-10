@@ -59,8 +59,9 @@ const MAGIC_BYTE_CHECKERS: Record<string, (bytes: Uint8Array) => boolean> = {
     && bytes[3] === 0x46,
 };
 
-// This must not exceed the project-files/task-files Storage bucket contract.
-const DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MiB
+// The largest workspace file, for everyone until plans exist (Free 25 MB). It must not exceed the project-files /
+// task-files Storage bucket limit (50 MiB, 0003_storage.sql). The browser can't read server env, so it uses this.
+export const DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MiB
 // The browser can't read server env: it checks against this default, and a server set lower
 // still refuses with a 4xx the composer shows as the reason (no Retry).
 export const DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES = 50 * 1024 * 1024; // 50MB

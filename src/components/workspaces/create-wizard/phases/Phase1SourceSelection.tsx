@@ -31,6 +31,7 @@ import { OrgTypePicker } from '@/components/organizations/OrgWizardFields';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { buildUploadManifest, type UploadManifest } from '@/components/workspaces/create-wizard/phase1/upload-manifest';
+import { DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES } from '@/lib/upload/security';
 import { clearGithubOAuthResume, getCreateWorkspaceReturnPath, saveGithubOAuthResume } from '@/components/workspaces/create-wizard/github-oauth-resume';
 import { isGithubAccessRefreshError } from '@/components/workspaces/create-wizard/phase1/github-access';
 import { normalizeGithubRepoUrl } from '@/lib/github/repo-validation';
@@ -1552,7 +1553,7 @@ export default function Phase1SourceSelection({
                                     {isDragOverUpload ? 'Drop folder to attach it' : 'Select a folder'}
                                 </div>
                                 <div className="nb-compact text-muted-foreground">
-                                    Drag and drop a folder here, or browse from your device. Files can be up to 10 MB each.
+                                    Drag and drop a folder here, or browse from your device. Files can be up to {Math.floor(DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES / 2 ** 20)} MB each.
                                 </div>
                                 <Button type="button" onClick={handleBrowseClick} data-testid="create-project-upload-browse">
                                     Browse folder
