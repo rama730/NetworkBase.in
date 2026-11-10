@@ -11,6 +11,8 @@
 - Every MCP write tool accepts the confirmation token, so a "yes" given for a held change goes through.
 - A "yes" for finishing a task with checks now matches the run it was given for.
 - Files up to 25 MB upload (was 10 MB).
+- `nb doc set` / `nb doc edit` (and the agent's doc tool) can change a new workspace's starter README; the first save creates `README.md`.
+- A bare group like `nb assignment` lists its actions instead of saying it isn't a command.
 
 ## 2.0.2 (2026-11-10)
 
