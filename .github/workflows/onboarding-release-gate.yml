@@ -37,7 +37,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # tsc over this repo needs more than Node's default heap (it ran out of memory here on 2026-11-10).
       - name: Typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npm run typecheck
 
       - name: Unit tests
