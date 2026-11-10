@@ -44,8 +44,9 @@ export interface UseFileVersionsReturn {
     | { success: true; node: WorkspaceNode; version: FileVersion }
     | { success: false; error: string; lockConflict?: LockConflictInfo }
   >;
+  /** Makes a version the active one; nothing is copied or deleted. `previousVersion` is what Undo goes back to. */
   restoreVersion: (versionNumber: number) => Promise<
-    | { success: true; version: FileVersion; node: WorkspaceNode }
+    | { success: true; version: FileVersion; node: WorkspaceNode; previousVersion: number }
     | { success: false; error: string }
   >;
   deleteVersion: (versionNumber: number) => Promise<
@@ -308,20 +309,20 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
   );
 
   // -------------------------------------------------------------------------
-  // restoreVersion — restores a historical version as the new current version
+  // restoreVersion — makes a version the active one (versions only grow)
   // -------------------------------------------------------------------------
   const restoreVersion = useCallback(
     async (
       versionNumber: number,
     ): Promise<
-      | { success: true; version: FileVersion; node: WorkspaceNode }
+      | { success: true; version: FileVersion; node: WorkspaceNode; previousVersion: number }
       | { success: false; error: string }
     > => {
       setError(null);
       try {
         const result = await restoreFileVersion(projectId, nodeId, versionNumber);
 
-        return { success: true, version: result.version, node: result.node as WorkspaceNode };
+        return { success: true, version: result.version, node: result.node as WorkspaceNode, previousVersion: result.previousVersion };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Restore failed";
         setError(message);

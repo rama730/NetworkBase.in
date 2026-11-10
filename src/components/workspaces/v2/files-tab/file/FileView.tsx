@@ -384,38 +384,18 @@ export function FileView({
   );
 
   const handleDropRevisionOptionSelected = React.useCallback(
-    async (choice: { option: "overwrite" | "commit"; comment?: string }) => {
+    async (choice: { option: "commit"; comment?: string }) => {
       if (!pendingDropFile) return;
       const file = pendingDropFile;
       setPendingDropFile(null);
 
       try {
-        if (choice.option === "commit") {
-          const result = await saveAsNewVersion(file, { comment: choice.comment });
-          if (result.success) {
-            toast.success(`New version committed`);
-            // Set node in store
-            useFilesStore.getState().setNodes(projectId, [result.node]);
-          } else {
-            toast.error(feedbackError(result.error || "Couldn’t commit version", "Couldn’t commit version"));
-          }
+        const result = await saveAsNewVersion(file, { comment: choice.comment });
+        if (result.success) {
+          toast.success(`Saved as v${result.version.version}`);
+          useFilesStore.getState().setNodes(projectId, [result.node]);
         } else {
-          const { saveFileRevision } = await import("@/hooks/useFileVersions");
-          const result = await saveFileRevision({
-            projectId,
-            nodeId: node.id,
-            file,
-            mode: "active_revision",
-            comment: choice.comment,
-            baseVersion: node.currentVersion,
-          });
-
-          if (result.success) {
-            useFilesStore.getState().setNodes(projectId, [result.node]);
-            toast.success("Active version updated");
-          } else {
-            throw new Error(result.error || "Couldn’t update active version");
-          }
+          toast.error(feedbackError(result.error || "Couldn’t save the version", "Couldn’t save the version"));
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Upload failed";

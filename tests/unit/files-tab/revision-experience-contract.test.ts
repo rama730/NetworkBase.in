@@ -68,7 +68,7 @@ describe("Files tab revision experience", () => {
     const fileView = source("src/components/workspaces/v2/files-tab/file/FileView.tsx");
 
     for (const implementation of [viewer, actions, fileView]) {
-      assert.match(implementation, /active_revision/);
+      assert.doesNotMatch(implementation, /active_revision/, "versions are never overwritten");
       assert.doesNotMatch(implementation, /storage\s*\.from\("project-files"\)\s*\.update/);
     }
   });

@@ -9,9 +9,8 @@ import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHea
  * Lists `file_versions` for a node using bounded keyset pages, with
  * affordances to:
  *   • Download a specific historical blob via a short-lived signed URL.
- *   • Restore a historical version — writes a NEW row (never rewrites),
- *     pointing the node back at the old `s3Key`. Old blobs are retained,
- *     so the operation is reversible.
+ *   • Use another version — makes it the active one. Versions only grow:
+ *     nothing is copied or deleted, so any version can be used again.
  *
  * We deliberately do not stream via the Supabase storage client here —
  * the server action mints a fresh signed URL each time so row-level
@@ -22,7 +21,7 @@ import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHea
  * the rest of the app for consistent focus-trap / ESC behaviour.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Download, Loader2, RotateCcw, X } from "lucide-react";
 
 import {
@@ -128,10 +127,9 @@ export function FileVersionHistoryDrawer({
     }
   }, [open, refresh]);
 
-  const currentVersion = useMemo(() => {
-    if (state.kind !== "loaded") return null;
-    return state.versions[0]?.version ?? node.currentVersion ?? 1;
-  }, [state, node.currentVersion]);
+  // The node's active version, which may be older than the newest one after going back.
+  const [activeVersion, setActiveVersion] = useState<number | null>(null);
+  const currentVersion = state.kind === "loaded" ? activeVersion ?? node.currentVersion ?? state.versions[0]?.version ?? 1 : null;
 
   const handleDownload = useCallback(
     async (version: FileVersion) => {
@@ -157,7 +155,8 @@ export function FileVersionHistoryDrawer({
           node.id,
           version.version,
         );
-        toast.success(`Restored v${version.version} as v${result.version.version}`);
+        setActiveVersion(result.node.currentVersion);
+        toast.success(`Now using v${version.version}`);
         onRestored?.(result.version);
         await refresh();
       } catch (error) {
@@ -232,7 +231,7 @@ export function FileVersionHistoryDrawer({
             </div>
           ) : (
             <ul className="divide-y divide-border">
-              {state.versions.map((version) => {
+              {[...state.versions].sort((a, b) => Number(b.version === currentVersion) - Number(a.version === currentVersion) || b.version - a.version).map((version) => {
                 const isCurrent = version.version === currentVersion;
                 const dlKey = `dl:${version.id}`;
                 const restoreKey = `restore:${version.id}`;
@@ -303,7 +302,7 @@ export function FileVersionHistoryDrawer({
                           ) : (
                             <RotateCcw className="h-3 w-3" />
                           )}
-                          Restore
+                          Use this version
                         </button>
                       ) : null}
                     </div>

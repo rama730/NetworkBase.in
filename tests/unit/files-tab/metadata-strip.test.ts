@@ -705,7 +705,7 @@ describe("FileActionsBar — Replace… source-level contracts (Req 11.4–11.6,
       "Must call saveFileRevision with the selected file (Req 11.4)",
     );
     assert.match(FILE_ACTIONS_BAR_SRC, /new_revision/);
-    assert.match(FILE_ACTIONS_BAR_SRC, /active_revision/);
+    assert.doesNotMatch(FILE_ACTIONS_BAR_SRC, /active_revision/, "versions are never overwritten");
   });
 
   it("handles lock conflict by setting lockConflict state (Req 11.5, 5.2)", () => {

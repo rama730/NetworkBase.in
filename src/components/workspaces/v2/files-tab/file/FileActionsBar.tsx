@@ -248,7 +248,7 @@ export function FileActionsBar({
   );
 
   const handleRevisionOptionSelected = React.useCallback(
-    async (choice: { option: "overwrite" | "commit"; comment?: string }) => {
+    async (choice: { option: "commit"; comment?: string }) => {
       if (!pendingFile || !projectId || !nodeId) return;
       const file = pendingFile;
       setPendingFile(null);
@@ -263,15 +263,13 @@ export function FileActionsBar({
           projectId,
           nodeId,
           file,
-          mode: choice.option === "commit" ? "new_revision" : "active_revision",
-          comment: choice.comment || (choice.option === "commit" ? "Uploaded in Files" : null),
+          mode: "new_revision",
+          comment: choice.comment || "Uploaded in Files",
           baseVersion: node?.currentVersion,
         });
 
         if (result.success) {
-          toast.success(choice.option === "commit"
-              ? "New version committed"
-              : "Active version updated");
+          toast.success(`Saved as v${result.version.version}`);
           useFilesStore.getState().setNodes(projectId, [result.node]);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
 
@@ -280,7 +278,7 @@ export function FileActionsBar({
             source: "files_tab",
             projectId,
             nodeId,
-            revisionMode: choice.option === "commit" ? "new_revision" : "active_revision",
+            revisionMode: "new_revision",
             newVersion: result.version.version,
           });
         } else if (result.lockConflict) {

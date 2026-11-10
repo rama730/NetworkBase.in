@@ -144,8 +144,17 @@ export function FileVersionHistoryPanel({
       try {
         const result = await restoreVersion(version.version);
         if (result.success) {
-          toast.success(`Restored v${version.version}`);
-          
+          const { previousVersion } = result;
+          // Nothing was copied or deleted, so Undo just makes the earlier active version active again.
+          toast.success(`Now using v${version.version}`, previousVersion !== version.version ? {
+            action: { label: "Undo", onClick: () => void restoreVersion(previousVersion).then((back) => {
+              if (!back.success) return void toast.error(feedbackError(back.error, "Couldn’t undo"));
+              useFilesStore.getState().setNodes(projectId, [back.node]);
+              window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
+              void listVersions();
+            }) },
+          } : undefined);
+
           useFilesStore.getState().setNodes(projectId, [result.node]);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
 
@@ -154,7 +163,7 @@ export function FileVersionHistoryPanel({
             module: "files-tab",
             projectId,
             nodeId,
-            restoredFromVersion: version.version,
+            restoredFromVersion: previousVersion,
             newVersion: result.version.version,
           });
           // Refresh the list to show the updated active version
@@ -247,9 +256,11 @@ export function FileVersionHistoryPanel({
 
     // Sort ascending by version number to compute sequential diff
     const sortedAsc = [...versions].sort((a, b) => a.version - b.version);
+    const byNumber = new Map(sortedAsc.map((v) => [v.version, v]));
     for (let i = 0; i < sortedAsc.length; i++) {
       const current = sortedAsc[i]!;
-      const prev = sortedAsc[i - 1];
+      // Compared with the version it was saved from ("based on v1"), else the one before it.
+      const prev = (current.basedOnVersion != null ? byNumber.get(current.basedOnVersion) : undefined) ?? sortedAsc[i - 1];
       if (!prev || current.size == null || prev.size == null) {
         map.set(current.version, { label: "Base", tone: "neutral" });
       } else {
@@ -270,6 +281,13 @@ export function FileVersionHistoryPanel({
   // - canEdit must be true (Role_Owner/Role_Member)
   // - node must NOT be soft-deleted
   const showRestoreAction = canEdit && !isDeleted;
+
+  // The active version first, then the rest newest first (versions only grow; going back moves the active one).
+  // ponytail: an active version older than the loaded page stays in its page until "Load older versions"; the header pill still names it.
+  const orderedVersions = React.useMemo(
+    () => [...versions].sort((a, b) => Number(b.version === currentVersion) - Number(a.version === currentVersion) || b.version - a.version),
+    [versions, currentVersion],
+  );
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
@@ -342,8 +360,10 @@ export function FileVersionHistoryPanel({
           </div>
         ) : (
           <ul role="list" className="p-2 space-y-2">
-            {versions.map((version) => {
+            {orderedVersions.map((version) => {
               const isCurrent = version.version === currentVersion;
+              const notActive = version.version > currentVersion;
+              const basedOn = version.basedOnVersion != null && version.basedOnVersion !== version.version - 1 ? version.basedOnVersion : null;
               const dlKey = `dl:${version.id}`;
               const restoreKey = `restore:${version.id}`;
 
@@ -394,27 +414,34 @@ export function FileVersionHistoryPanel({
                       </div>
                     </div>
 
-                    {isCurrent ? (
-                      <span className="inline-flex items-center gap-1 rounded-[2px] border border-[#D8E8DF] bg-[#EDF5F0] px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-[#245A41] dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
-                        <span className="h-1.5 w-1.5 rounded-[2px] bg-[#2F6B4F]" aria-hidden="true" />
-                        Active
-                      </span>
-                    ) : canDeleteVersions && !isDeleted ? (
-                      <button
-                        type="button"
-                        disabled={pendingAction === `delete:${version.id}`}
-                        onClick={() => setPendingDeleteVersion(version)}
-                        aria-label={`Delete version ${version.version}`}
-                        title="Delete version"
-                        className="inline-flex size-6 items-center justify-center rounded-[3px] text-[#96201A] transition-colors hover:bg-[#FCEDEB] disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                      >
-                        {pendingAction === `delete:${version.id}` ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    ) : null}
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {notActive ? (
+                        <span className="rounded-[2px] border border-[#DBD5C8] bg-[#F3F0EA] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-medium text-[#6B7880] dark:border-border dark:bg-muted dark:text-muted-foreground">
+                          Newer · not active
+                        </span>
+                      ) : null}
+                      {isCurrent ? (
+                        <span className="inline-flex items-center gap-1 rounded-[2px] border border-[#D8E8DF] bg-[#EDF5F0] px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-[#245A41] dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          <span className="h-1.5 w-1.5 rounded-[2px] bg-[#2F6B4F]" aria-hidden="true" />
+                          Active
+                        </span>
+                      ) : canDeleteVersions && !isDeleted ? (
+                        <button
+                          type="button"
+                          disabled={pendingAction === `delete:${version.id}`}
+                          onClick={() => setPendingDeleteVersion(version)}
+                          aria-label={`Delete version ${version.version}`}
+                          title="Delete version"
+                          className="inline-flex size-6 items-center justify-center rounded-[3px] text-[#96201A] transition-colors hover:bg-[#FCEDEB] disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                        >
+                          {pendingAction === `delete:${version.id}` ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
 
                   {/* Author & Date Row (Name, date, year — NO TIME) */}
@@ -428,6 +455,10 @@ export function FileVersionHistoryPanel({
                       {formatFileVersionDate(version.uploadedAt)}
                     </span>
                   </div>
+
+                  {basedOn ? (
+                    <p className="mt-1 text-[11px] text-[#6B7880] dark:text-muted-foreground">Based on v{basedOn}</p>
+                  ) : null}
 
                   {/* Comment/Note if present */}
                   {version.comment && (
@@ -496,8 +527,8 @@ export function FileVersionHistoryPanel({
                             type="button"
                             disabled={pendingAction === restoreKey}
                             onClick={() => void handleRestore(version)}
-                            aria-label={`Restore version ${version.version}`}
-                            title={`Restore version ${version.version}`}
+                            aria-label={`Use version ${version.version}`}
+                            title={`Make v${version.version} the active version`}
                             data-testid={`version-restore-${version.version}`}
                             className="nb-touch-target inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#D14E24]/30 bg-[#FCF0EA] px-1.5 text-[11px] font-medium text-[#D14E24] whitespace-nowrap transition-colors hover:bg-[#F7DFD5] disabled:opacity-50 dark:border-[#D14E24]/50 dark:bg-[#D14E24]/20 dark:text-[#FCF0EA]"
                           >
@@ -506,7 +537,7 @@ export function FileVersionHistoryPanel({
                             ) : (
                               <RotateCcw className="h-3.5 w-3.5 shrink-0" />
                             )}
-                            <span>Restore</span>
+                            <span>Use this version</span>
                           </button>
                         )}
                       </div>
@@ -535,7 +566,7 @@ export function FileVersionHistoryPanel({
       {/* Footer note */}
       <div className="shrink-0 border-t border-[#DBD5C8] bg-[#F3F0EA] px-4 py-2.5 dark:border-border dark:bg-card/50">
         <p className="text-[11px] text-[#6B7880] dark:text-muted-foreground leading-normal">
-          Restoring a version writes a new entry and never rewrites history.
+          Using another version never deletes or rewrites one. Saving after it adds a new version.
         </p>
       </div>
     </div>

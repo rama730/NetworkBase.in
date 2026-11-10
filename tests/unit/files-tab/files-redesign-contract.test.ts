@@ -139,7 +139,9 @@ test("upload decisions, Undo and task search failures have explicit accessible o
     "src/components/ui/RevisionControlModal.tsx",
     "utf8",
   );
-  assert.match(revision, /type="radio" name="file-revision-mode"/);
+  // Every save is a new version: the dialog no longer offers overwriting (2026-11-11).
+  assert.match(revision, /Save a new version/);
+  assert.doesNotMatch(revision, /overwrite|Apply to active version/);
   assert.match(
     picker,
     /if \(isSaving \|\| isLoading \|\| error \|\| query !== debouncedQuery\) return/,

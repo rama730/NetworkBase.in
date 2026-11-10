@@ -488,7 +488,7 @@ export function TextViewer({
   }, [canEdit, isSaving, isDirty, node.s3Key, lease]);
 
   const handleRevisionOptionSelected = React.useCallback(
-    async (choice: { option: "overwrite" | "commit"; comment?: string }) => {
+    async (choice: { option: "commit"; comment?: string }) => {
       if (!canEdit || isSaving) return;
       setIsSaving(true);
       setSaveError(null);
@@ -501,8 +501,8 @@ export function TextViewer({
           projectId,
           nodeId: node.id,
           file,
-          mode: choice.option === "commit" ? "new_revision" : "active_revision",
-          comment: choice.comment || (choice.option === "commit" ? "Edited in NetworkBase" : null),
+          mode: "new_revision",
+          comment: choice.comment || "Edited in NetworkBase",
           baseVersion,
           baseHash,
           lease,
@@ -515,9 +515,7 @@ export function TextViewer({
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
           upsertNodes(projectId, [result.node]);
           onSaved?.();
-          toast.success(choice.option === "commit"
-              ? "New version committed"
-              : "Active version updated");
+          toast.success(`Saved as v${result.version.version}`);
         } else {
           setSaveError(result.error || "Couldn’t save version");
           toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));

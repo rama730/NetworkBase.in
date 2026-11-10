@@ -520,7 +520,7 @@ export function FolderListView({
     };
 
   const handleRevisionOptionSelected = React.useCallback(
-    async (choice: { option: "overwrite" | "commit"; comment?: string }) => {
+    async (choice: { option: "commit"; comment?: string }) => {
       if (!pendingRevisionFile || !targetRevisionNode) return;
       const file = pendingRevisionFile;
       const node = targetRevisionNode;
@@ -535,15 +535,13 @@ export function FolderListView({
           projectId,
           nodeId: node.id,
           file,
-          mode: choice.option === "commit" ? "new_revision" : "active_revision",
-          comment: choice.comment || (choice.option === "commit" ? "Uploaded in Files" : null),
+          mode: "new_revision",
+          comment: choice.comment || "Uploaded in Files",
           baseVersion: node.currentVersion,
         });
 
         if (result.success) {
-          toast.success(choice.option === "commit"
-            ? "New version committed"
-            : "Active version updated");
+          toast.success(`Saved as v${result.version.version}`);
           upsertNodes(projectId, [result.node]);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
 
@@ -552,7 +550,7 @@ export function FolderListView({
             source: "files_tab",
             projectId,
             nodeId: node.id,
-            revisionMode: choice.option === "commit" ? "new_revision" : "active_revision",
+            revisionMode: "new_revision",
             newVersion: result.version.version,
           });
         } else {
