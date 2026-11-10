@@ -65,6 +65,11 @@ export default function DeviceClient({ viewerEmail, code, pending, workspaces }:
             const input = decision === 'deny' ? { decision } : type === 'agent' ? { decision, type, workspaceId, expiryDays, extraScopes: extras } : { decision, type }
             const result = await decideDeviceCodeAction(pending.userCode, input)
             if (result.success) {
+                // An editor's OAuth sign-in goes back to the editor with its code (or access_denied).
+                if (result.redirectTo) {
+                    window.location.assign(result.redirectTo)
+                    return
+                }
                 setDone(result.decision)
                 return
             }

@@ -42,6 +42,8 @@ export type DeviceCodeRequest = {
   agentName?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
+  /** An OAuth authorization request for the hosted MCP server (0080): where to send the person back, and PKCE. */
+  oauth?: { clientId: string; redirectUri: string; state: string | null; codeChallenge: string };
 };
 
 export async function createDeviceCode(input: DeviceCodeRequest, now = new Date()) {
@@ -65,6 +67,7 @@ export async function createDeviceCode(input: DeviceCodeRequest, now = new Date(
         userAgent: input.userAgent?.slice(0, 240) ?? null,
         expiresAt: new Date(now.getTime() + DEVICE_CODE_TTL_MS),
         createdAt: now,
+        ...(input.oauth ? { oauthClientId: input.oauth.clientId, redirectUri: input.oauth.redirectUri, oauthState: input.oauth.state, codeChallenge: input.oauth.codeChallenge } : {}),
       })
       .onConflictDoNothing({ target: deviceCodes.userCode })
       .returning({ userCode: deviceCodes.userCode, expiresAt: deviceCodes.expiresAt });
@@ -93,7 +96,18 @@ export async function pollDeviceCode(deviceCode: string, now = new Date()): Prom
       return { status: tooSoon ? "slow_down" : "pending" } as const;
     }
 
-    // Approved: make the token now.
+    return issueApprovedToken(tx, row, now, "device_code");
+  });
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * An approved code's token, made once: the row moves to consumed in the caller's transaction, which holds it locked.
+ * Device sign-in (the terminal's poll) and OAuth (the token endpoint) both end here.
+ */
+export async function issueApprovedToken(tx: Tx, row: typeof deviceCodes.$inferSelect, now: Date, method: "device_code" | "oauth") {
+  {
     const tokenType = row.tokenType ?? "device";
     const rawToken = `${tokenType === "agent" ? "nb_agt_" : "nb_dev_"}${crypto.randomBytes(24).toString("hex")}`;
     const expiresAt = row.tokenExpiresAt ?? new Date(now.getTime() + DEVICE_EXPIRY_DAYS * 86_400_000);
@@ -124,11 +138,11 @@ export async function pollDeviceCode(deviceCode: string, now = new Date()): Prom
       eventType: EXTENSION_DEVICE_SESSION_EVENTS.login,
       ipAddress: row.ipAddress,
       userAgent: row.userAgent,
-      metadata: { method: "device_code", tokenType, agentName: row.agentName, workspaceId: row.workspaceId },
+      metadata: { method, tokenType, agentName: row.agentName, workspaceId: row.workspaceId },
       createdAt: now,
     });
-    return { status: "approved", token: rawToken, tokenType, workspaceId: row.workspaceId, expiresAt } as const;
-  });
+    return { status: "approved", token: rawToken, tokenType, workspaceId: row.workspaceId, scopes: row.scopes ?? [], expiresAt } as const;
+  }
 }
 
 /** What the approval page shows for a code, or null when there's no such pending code. */
@@ -146,6 +160,8 @@ export async function findPendingDeviceCode(code: string, now = new Date()) {
     requestedType: row.requestedType,
     agentName: row.agentName,
     ipAddress: row.ipAddress,
+    /** An editor's OAuth request (hosted MCP): only an agent sign-in, and the browser goes back to the editor. */
+    viaOAuth: Boolean(row.oauthClientId),
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
   };

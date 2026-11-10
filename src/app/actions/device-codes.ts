@@ -4,13 +4,14 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { queueSecurityEmail } from "@/lib/email/security-queue";
 import { deviceDecisionSchema } from "@/lib/extension/device-decision";
 import { decideDeviceCode, findPendingDeviceCode } from "@/lib/extension/device-codes";
+import { redirectAfterDecision } from "@/lib/extension/oauth";
 import { recordSecurityEventFromHeaders } from "@/lib/security/audit-from-headers";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { resolveSecurityStepUp } from "@/lib/security/step-up";
 import { resolveStepUpCapabilities } from "@/lib/security/step-up-capabilities";
 import { createClient } from "@/lib/supabase/server";
 
-type DecideResult = { success: true; decision: "approve" | "deny" } | { success: false; error: string; stepUpRequired?: true };
+type DecideResult = { success: true; decision: "approve" | "deny"; redirectTo?: string } | { success: false; error: string; stepUpRequired?: true };
 
 /**
  * The person's answer at /device (report A3.2). Approving makes a credential that signs in as them, so it needs the
@@ -42,6 +43,8 @@ export async function decideDeviceCodeAction(code: string, input: unknown): Prom
     }
   }
 
+  // The hosted MCP server takes only agent tokens, so an editor's OAuth request can't become a full terminal sign-in.
+  if (pending.viaOAuth && decision.decision === "approve" && decision.type !== "agent") return { success: false, error: "An editor connects as an AI agent, limited to one workspace. Choose An AI agent." };
   const ok = await decideDeviceCode(user.id, code, decision as Parameters<typeof decideDeviceCode>[2]);
   if (!ok) return { success: false, error: "This code has expired or was already used. Start again from your terminal." };
   if (decision.decision === "approve") {
@@ -49,5 +52,6 @@ export async function decideDeviceCodeAction(code: string, input: unknown): Prom
     await recordSecurityEventFromHeaders({ userId: user.id, eventType: "editor_token_created", metadata: { label: label.slice(0, 120), method: "device_code", tokenType: decision.type } });
     await queueSecurityEmail(user.id, "security_token_created", { detail: label });
   }
-  return { success: true, decision: decision.decision };
+  const redirectTo = pending.viaOAuth ? await redirectAfterDecision(code) : null;
+  return { success: true, decision: decision.decision, ...(redirectTo ? { redirectTo } : {}) };
 }

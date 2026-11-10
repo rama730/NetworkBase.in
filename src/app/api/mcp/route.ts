@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { jsonError, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { oauthIssuer } from "@/lib/extension/oauth";
 import { validateCsrf } from "@/lib/security/csrf";
 // The same handler and tool definitions as `nb mcp` (CLI report A7.1 item 2, P6.1): one place decides what each
 // tool does, and the tools call this server's own /api/v1 routes with the caller's token.
@@ -26,10 +27,10 @@ export async function POST(request: Request) {
   if (csrf) return csrf;
   const auth = await requireAuthenticatedUser();
   if (auth.response) return auth.response;
-  if (!auth.user) return withAuthHint(jsonError("Sign in to continue", 401, "UNAUTHORIZED"));
+  if (!auth.user) return withAuthHint(request, jsonError("Sign in to continue", 401, "UNAUTHORIZED"));
   const token = request.headers.get("authorization")?.replace(/^bearer\s+/i, "").trim() ?? "";
   if (auth.tokenKind !== "agent" || !token.startsWith("nb_agt_")) {
-    return withAuthHint(jsonError("The hosted MCP server takes an agent sign-in, limited to one workspace: nb login --device --agent \"Your agent\"", 403, "FORBIDDEN"));
+    return withAuthHint(request, jsonError("The hosted MCP server takes an agent sign-in, limited to one workspace: nb login --device --agent \"Your agent\"", 403, "FORBIDDEN"));
   }
   // The tools call this site's own API. Its address comes from configuration, never from the request's Host header
   // (which the caller controls); only a local dev server may use its own origin.
@@ -74,7 +75,9 @@ export function GET() {
   return new Response("Use POST", { status: 405, headers: { Allow: "POST" } });
 }
 
-function withAuthHint(response: Response) {
-  response.headers.set("WWW-Authenticate", 'Bearer realm="networkbase", error="invalid_token", error_description="Use an agent token: nb login --device --agent"');
+/** Points editors at OAuth (RFC 9728 resource_metadata), so they can sign in without a pasted token. */
+function withAuthHint(request: Request, response: Response) {
+  const metadata = `${oauthIssuer(request)}/.well-known/oauth-protected-resource/api/mcp`;
+  response.headers.set("WWW-Authenticate", `Bearer realm="networkbase", resource_metadata="${metadata}", error="invalid_token", error_description="Sign in with OAuth, or use an agent token: nb login --device --agent"`);
   return response;
 }

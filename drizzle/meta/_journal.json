@@ -554,6 +554,13 @@
       "when": 1794100000000,
       "tag": "0079_drop_redundant_org_invites_index",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1794200000000,
+      "tag": "0080_oauth_for_hosted_mcp",
+      "breakpoints": true
     }
   ]
 }

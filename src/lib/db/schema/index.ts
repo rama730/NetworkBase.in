@@ -5426,9 +5426,24 @@ export const deviceCodes = pgTable("device_codes", {
   decidedAt: timestamp("decided_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  // OAuth for the hosted MCP server (0080): an authorization request reuses this row and the device approval page.
+  oauthClientId: uuid("oauth_client_id").references(() => oauthClients.id, { onDelete: "cascade" }),
+  redirectUri: text("redirect_uri"),
+  oauthState: text("oauth_state"),
+  codeChallenge: text("code_challenge"),
+  oauthCodeHash: text("oauth_code_hash").unique(),
 }, (t) => ({
   expiresIdx: index("device_codes_expires_idx").on(t.expiresAt),
+  oauthClientIdx: index("device_codes_oauth_client_idx").on(t.oauthClientId).where(sql`${t.oauthClientId} IS NOT NULL`),
 }));
+
+/** Editors that registered for OAuth to the hosted MCP server (RFC 7591, migration 0080). */
+export const oauthClients = pgTable("oauth_clients", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientName: text("client_name").notNull(),
+  redirectUris: jsonb("redirect_uris").$type<string[]>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 // ============================================================================
 // EXTENSION DEVICE SESSION EVENTS

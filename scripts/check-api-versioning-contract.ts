@@ -26,6 +26,9 @@ const NON_V1_ALLOWLIST = new Set<string>([
   "src/app/api/inngest/route.ts",
   // Hosted MCP: the MCP protocol negotiates its own version, and editors are configured with this fixed address.
   "src/app/api/mcp/route.ts",
+  // OAuth for the hosted MCP server: editors find these addresses in the discovery documents (RFC 8414).
+  "src/app/api/oauth/register/route.ts",
+  "src/app/api/oauth/token/route.ts",
 ]);
 
 function main() {
