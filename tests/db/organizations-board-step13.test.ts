@@ -57,7 +57,7 @@ test("decisions 14 and 15: students see only their copy; the assignment card mov
   const asha1 = await board(asha!);
   assert.deepEqual(asha1.map((t) => [t.title, t.assignmentId === masterId]), [["Lab 1", true]], "her copy, not the main one too");
   assert.deepEqual((await board(guest!)).map((t) => t.id), [masterId], "viewers see the main one");
-  assert.deepEqual([(await card()).status, (await card()).assignmentProgress], ["todo", { draft: false, closed: false, done: 0, total: 2, toReview: 0, excused: 0, teams: false }]);
+  assert.deepEqual([(await card()).status, (await card()).assignmentProgress], ["todo", { draft: false, closed: false, closedAt: null, done: 0, total: 2, toReview: 0, excused: 0, stuck: 0, teams: false }]);
 
   const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${asha!}`;
   viewerId = asha!;
@@ -168,7 +168,7 @@ test("review ux 2.7, 2.9, 2.10, 3.14, 3.15: the hand-in lists its steps, the upl
   const open = await assignments.readHandInAction(copy!.id);
   assert.ok(open.success);
   assert.deepEqual(open.handIn.steps.map((s) => [s.title, s.done]), [["Read", false], ["Write", false]]);
-  assert.equal(open.handIn.maxFileBytes, 10 * 1024 * 1024);
+  assert.equal(open.handIn.maxFileBytes, 25 * 1024 * 1024);
   assert.equal(open.handIn.projectId, org);
   assert.equal(open.handIn.files[0]!.projectId, org);
   assert.deepEqual(open.handIn.history, []);
