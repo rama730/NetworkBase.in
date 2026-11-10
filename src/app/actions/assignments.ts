@@ -724,6 +724,52 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
 }
 
 /**
+ * Take back a hand-in (`nb assignment unsubmit`, the hand-in box's Take back): the holder's copy goes back to In
+ * progress before anyone approves it, so they can change it and hand in again. The submission history stays; approved
+ * work stays locked, and a hand-in they couldn't make again (closed, late not accepted, past due with nothing to
+ * review) stays where it is.
+ */
+export async function unsubmitAssignmentAction(copyId: string): Promise<{ success: true } | Failure> {
+    if (!z.string().uuid().safeParse(copyId).success) return DENIED;
+    const userId = await viewerId();
+    if (!userId) return DENIED;
+    const loaded = await loadCopy(copyId);
+    if (!loaded) return DENIED;
+    const { copy, master } = loaded;
+    const [teammate] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
+    if (copy.assigneeId !== userId && !teammate) return DENIED;
+    const copyAccess = await getWorkspaceAccessById(copy.projectId, userId);
+    if (copyAccess.writeBlocked) return { success: false, error: writeBlockedMessage(copyAccess.writeBlocked) };
+    if (copy.status !== 'done' || !copy.submission) return { success: false, error: 'There’s no hand-in to take back.' };
+    if (copy.reviewStatus === 'none' && copy.completionSource === 'review') return { success: false, error: 'Approved work is locked.' };
+    const now = new Date();
+    if (!canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil)) return { success: false, error: master.settings.closedAt ? 'This assignment is closed, so the hand-in stays.' : 'Late hand-ins aren’t accepted, so this one stays.' };
+    if (copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil)) {
+        return { success: false, error: 'The due date has passed, so this hand-in stays.' };
+    }
+    const column = await columnFor(copy.projectId, 'in_progress');
+    const taken = await db.transaction(async (tx) => {
+        // Locked first, so an approval landing at the same moment wins and nothing approved goes back.
+        const [fresh] = await tx.execute<{ handedIn: boolean; approved: boolean }>(sql`
+            SELECT status = 'done' AND submission IS NOT NULL AS "handedIn", (status = 'done' AND review_status = 'none' AND completion_source = 'review') AS approved
+            FROM tasks WHERE id = ${copyId}::uuid FOR UPDATE`);
+        if (!fresh?.handedIn || fresh.approved) return false;
+        await tx.update(tasks).set({
+            status: 'in_progress', workflowColumnId: column, reviewStatus: 'none', reviewContentHash: null, reviewSubmittedAt: null,
+            completedAt: null, completedBy: null, completionSource: null, submission: null, updatedAt: now,
+        }).where(eq(tasks.id, copyId));
+        await tx.insert(taskActivityEvents).values({
+            taskId: copyId, projectId: copy.projectId, sprintId: copy.sprintId, actorId: userId, eventType: 'status_changed',
+            payload: { version: 1, source: 'assignment_unsubmit', taskTitle: copy.title, taskStatus: 'in_progress', handInVersion: copy.submission?.version ?? null, teamName: copy.teamName },
+        });
+        return true;
+    });
+    if (!taken) return { success: false, error: 'This was approved or changed just now. Reload to see it.' };
+    revalidatePath(`/workspaces/${copy.projectId}`);
+    return { success: true };
+}
+
+/**
  * Assignment flow decision 1: the holder began the answer (a link or text typed into Hand in). The draft itself stays
  * in their browser; this only starts a copy that's still in To do.
  */

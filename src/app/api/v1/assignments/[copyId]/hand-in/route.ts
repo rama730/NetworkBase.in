@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
-import { submitAssignmentAction } from "@/app/actions/assignments";
+import { submitAssignmentAction, unsubmitAssignmentAction } from "@/app/actions/assignments";
 import { validateCsrf } from "@/lib/security/csrf";
 
 export const runtime = "nodejs";
@@ -29,5 +29,26 @@ export async function POST(request: Request, context: { params: Promise<{ copyId
     return jsonSuccess({ handedIn: true });
   } catch (error) {
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/assignments/hand-in", fallback: "Couldn’t hand it in" });
+  }
+}
+
+/**
+ * Take back a hand-in (`nb assignment unsubmit`): back to In progress before anyone approves it, by the app's own
+ * rule. The same permission as handing in, and agent tokens can't call it either.
+ */
+export async function DELETE(request: Request, context: { params: Promise<{ copyId: string }> }) {
+  const csrf = validateCsrf(request);
+  if (csrf) return csrf;
+  try {
+    const auth = await requireAuthenticatedUser();
+    if (auth.response) return auth.response;
+    if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
+    const id = z.string().uuid().safeParse((await context.params).copyId);
+    if (!id.success) return jsonError("Check which assignment", 400, "BAD_REQUEST");
+    const result = await unsubmitAssignmentAction(id.data);
+    if (!result.success) return jsonError(result.error, 409, "CONFLICT");
+    return jsonSuccess({ handedIn: false });
+  } catch (error) {
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/assignments/hand-in", fallback: "Couldn’t take it back" });
   }
 }

@@ -5,7 +5,7 @@ import { ViaLabel } from '@/components/ui/via-label'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { readHandInAction, startCopyAction, submitAssignmentAction, type HandIn, type HandInFile } from '@/app/actions/assignments'
+import { readHandInAction, startCopyAction, submitAssignmentAction, unsubmitAssignmentAction, type HandIn, type HandInFile } from '@/app/actions/assignments'
 import { toggleSubtaskAction } from '@/app/actions/subtask'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -136,6 +136,13 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
         try { window.localStorage.removeItem(draftKey) } catch { /* nothing kept */ }
         await refresh()
         onSubmitted(h.reviewRequired)
+    })
+    // Take back: handed in, not approved, and they could hand it in again (the server checks the same).
+    const canTakeBack = h.holder && (h.state === 'submitted' || h.state === 'done') && !h.approved && h.canSubmit
+    const takeBack = () => startTransition(async () => {
+        const result = await unsubmitAssignmentAction(copyId)
+        setError(result.success ? null : `Couldn’t take it back. ${result.error}`)
+        await refresh()
     })
     const toggleStep = (id: string, done: boolean) => startTransition(async () => {
         const result = await toggleSubtaskAction(id, done, h.projectId)
@@ -268,6 +275,13 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                     {h.wouldBeLate ? <p className="font-mono text-[12px] text-[var(--status-warning)]">This will be marked Late.</p> : null}
                 </div>
             ) : error ? <p role="alert" className="text-destructive">{error}</p> : null}
+
+            {canTakeBack ? (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={takeBack}>{pending ? 'Taking back…' : 'Take back'}</Button>
+                    <span className="text-[12px] text-muted-foreground">Back to In progress, so you can change it and hand it in again.</span>
+                </div>
+            ) : null}
 
             {onOpenConversation && h.holder ? (
                 <div className="flex flex-wrap gap-2 border-t border-border pt-3">
