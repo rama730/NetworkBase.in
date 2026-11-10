@@ -54,16 +54,6 @@ export const rootMetadata: Metadata = {
   metadataBase: APP_METADATA_BASE,
   applicationName: "NetworkBase",
   manifest: "/manifest.webmanifest",
-  icons: {
-    // White border and 8% inset avoids Safari's dark contrast outline around the cream tile.
-    icon: [
-      { url: "/icon-paper-tab.ico", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
-      { url: "/icon-paper-tab-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icon-paper-tab.svg", sizes: "any", type: "image/svg+xml" },
-    ],
-    apple: [{ url: "/icon-paper-180.png", sizes: "180x180", type: "image/png" }],
-    other: [{ rel: "mask-icon", url: "/icon-paper-mono.svg", color: "#D14E24" }],
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -108,6 +98,14 @@ export function RootDocument({
   return (
     <html lang="en" data-scroll-behavior="smooth" data-csp-nonce={nonce} suppressHydrationWarning>
       <head>
+        {/* Tab icons live in the static head, not in `metadata`: Next streams metadata and swaps the whole block on
+            every navigation, so the tab showed the browser's blank icon until the next page's metadata arrived.
+            White border and 8% inset avoids Safari's dark contrast outline around the cream tile. */}
+        <link rel="icon" href="/icon-paper-tab.ico" sizes="16x16 32x32 48x48" type="image/x-icon" />
+        <link rel="icon" href="/icon-paper-tab-32.png" sizes="32x32" type="image/png" />
+        <link rel="icon" href="/icon-paper-tab.svg" sizes="any" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/icon-paper-180.png" sizes="180x180" type="image/png" />
+        <link rel="mask-icon" href="/icon-paper-mono.svg" color="#D14E24" />
         <meta content="#141A1E" data-app-theme-color="true" name="theme-color" />
         <script
           id="theme-prehydrate"
