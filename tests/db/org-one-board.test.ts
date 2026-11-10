@@ -123,7 +123,7 @@ test("live-fix 31: in a sprint's work list a main assignment shows class progres
   assert.ok(r.success, JSON.stringify(r));
   const row = r.success ? r.data.rows.find((x) => x.kind === "task" && x.task.id === masterId) : undefined;
   assert.ok(row && row.kind === "task");
-  assert.deepEqual(row && row.kind === "task" ? row.task.assignmentProgress : null, { done: 0, total: 1 });
+  assert.deepEqual(row && row.kind === "task" ? row.task.assignmentProgress : null, { done: 0, total: 1, draft: false, scheduled: false, closed: false });
 });
 
 test("live-fix 31: a main assignment nobody has yet still shows 0/0 in the sprint list, with the board's column, not Unassigned", async () => {
@@ -143,7 +143,7 @@ test("live-fix 31: a main assignment nobody has yet still shows 0/0 in the sprin
   const r = await sprints.fetchWorkspaceSprintDetailAction({ projectId: org, sprintId: sprint!.id });
   const row = r.success ? r.data.rows.find((x) => x.kind === "task" && x.task.id === masterId) : undefined;
   assert.ok(row && row.kind === "task");
-  assert.deepEqual(row && row.kind === "task" ? [row.task.assignmentProgress, row.task.status] : null, [{ done: 0, total: 0 }, "todo"]);
+  assert.deepEqual(row && row.kind === "task" ? [row.task.assignmentProgress, row.task.status] : null, [{ done: 0, total: 0, draft: false, scheduled: false, closed: false }, "todo"]);
 });
 
 test("live-check follow-up: organization search finds the organization's own tasks, by the board's read rule", async () => {
