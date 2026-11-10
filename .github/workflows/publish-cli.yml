@@ -42,8 +42,9 @@ jobs:
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
-      # Trusted publishing and staged publishes need a recent npm 11.
-      - run: npm install -g npm@latest
+      # Trusted publishing and staged publishes need a recent npm 11. Pinned to the major: npm@latest moved to 12
+      # mid-release (2026-11-10) and changed `npm pack --json`.
+      - run: npm install -g npm@11
 
       - name: Tag must match package.json
         id: version

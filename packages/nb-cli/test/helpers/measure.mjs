@@ -32,5 +32,7 @@ export const cliMs = (args, api, runs = 10) => medianMs(runs, async () => () => 
 /** Unpacked size of the published package, from `npm pack --dry-run`. */
 export function unpackedBytes() {
   const out = execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["pack", "--dry-run", "--json"], { cwd: PACKAGE_DIR, encoding: "utf8", shell: process.platform === "win32" });
-  return JSON.parse(out)[0].unpackedSize;
+  // npm 11 prints a list; npm 12 an object keyed by package name.
+  const parsed = JSON.parse(out);
+  return (Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0]).unpackedSize;
 }
