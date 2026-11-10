@@ -60,7 +60,7 @@ export const TOOLS = [
     description: "Show who is signed in to NetworkBase, on which server, and what this token may do. Use when a NetworkBase call fails with a sign-in or permission error.",
     run: (nb) => nb("whoami") },
   { name: "networkbase_workspace_find", title: "Find a workspace", tier: "read", props: { query: { type: "string", description: "Words from the workspace's name or its slug; empty lists them all" } },
-    description: `Find a NetworkBase workspace by name, like "Design Lab". Use before other tools when the user names a workspace that isn't this folder's. ${ASK}`,
+    description: `Find a NetworkBase workspace by name, like "Design Lab". Call it first whenever the user names a workspace in words ("the Design workspace") unless it's exactly this folder's; when several match, it asks which. ${ASK}`,
     run: async (nb, a) => {
       const r = await nb("workspace list");
       if (!a.query) return r;
@@ -117,7 +117,7 @@ export const TOOLS = [
       return last;
     } },
   { name: "networkbase_comment_add", title: "Comment on a task", tier: "small", props: { task: taskProp, text: { type: "string", description: "The comment (Markdown)" }, workspace: workspaceProp }, required: ["text"],
-    description: "Post a comment on a task, seen by the people on it.",
+    description: "Post a comment on a task, seen by the people on it: questions and replies. To report progress on your work, use networkbase_task_report.",
     run: (nb, a) => nb("comment add", [], { ...ws(a), message: a.text, ...(a.task ? { task: String(a.task) } : {}) }) },
   { name: "networkbase_status", title: "Folder status", tier: "read", props: {},
     description: "What changed in this folder compared with the NetworkBase workspace: files to push, to pull, conflicts, and the started task.",
@@ -125,7 +125,7 @@ export const TOOLS = [
   { name: "networkbase_file_push", title: "Push files", tier: "small",
     props: { paths: { type: "array", items: { type: "string" }, description: "Files or folders in this folder" }, message: { type: "string", description: "What changed (required, shown in the file's history)" }, task: { type: "string", description: "Attach to this task (number or id)" }, as: { type: "string", enum: ["reference", "draft", "final"], description: "Role on the task (default draft)" }, folder: { type: "string", description: "Workspace folder to put them in" }, keepBoth: { type: "boolean", description: "If the name is taken by a different file, save as name (2).ext" }, workspace: workspaceProp },
     required: ["paths", "message"],
-    description: `Upload files from this folder to NetworkBase; the same path becomes a new version. Push as draft unless the user says final. ${CONFIRM} ${ASK}`,
+    description: `Upload files from this folder to NetworkBase; the same path becomes a new version. Call networkbase_status first to see what changed, unless the user named the files. Push as draft unless the user says final. ${CONFIRM} ${ASK}`,
     needsYes: (a) => (a.as === "final" ? `Push ${a.paths.length} file(s) as final files${a.task ? ` on task ${a.task}` : ""}` : null),
     run: (nb, a) => {
       if (!String(a.message ?? "").trim()) throw new CliError("USAGE", "Say what changed in message");
@@ -182,7 +182,7 @@ export const TOOLS = [
   { name: "networkbase_task_report", title: "Report progress", tier: "small",
     props: { task: taskProp, summary: { type: "string", description: "What was done" }, checks: { type: "array", items: { type: "object", properties: { name: { type: "string" }, passed: { type: "boolean" }, note: { type: "string" } }, required: ["name", "passed"] }, description: "Checks you ran" }, workspace: workspaceProp },
     required: ["summary"],
-    description: "Post a progress report (summary and checks) on a task without finishing it. Use networkbase_task_done to finish.",
+    description: "Report progress on a task, with a summary and the checks you ran (tests, lint), without finishing it: use this, not a comment, when asked to report progress. Use networkbase_task_done to finish.",
     run: (nb, a) => nb("task report", a.task ? [String(a.task)] : [], { ...ws(a), message: a.summary, check: (a.checks ?? []).map((/** @type {any} */ c) => `${c.name}=${c.passed ? "pass" : "fail"}${c.note ? `:${c.note}` : ""}`) }) },
   { name: "networkbase_comment_list", title: "Read comments", tier: "read", props: { task: taskProp, file: { type: "string", description: "A file path for its line comments instead" }, workspace: workspaceProp },
     description: `A task's comments, or a file's line comments. ${UNTRUSTED}`,
