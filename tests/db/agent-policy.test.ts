@@ -79,6 +79,32 @@ test("finishing a task needs a yes bound to the exact request, usable once", asy
   assert.equal(after2!.status, "in_progress", "undo moved it back through the task rules");
 });
 
+// Found approving an agent's "finish" from the terminal (2026-11-10): `nb task done -m … --check …` gives each check a
+// fresh id and time on every run, so the yes for the first run never matched the second.
+test("a yes for finishing a task still matches when the checks get new ids and times, not when the report changes", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const token = await agentToken(userId, projectId, ["workspace:read", "task:read", "task:write", "task:complete"]);
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, status, assignee_id) VALUES (${projectId}, 'Ship', 'in_progress', ${userId}) RETURNING id, updated_at`;
+  const run = (summary: string) => {
+    const now = Date.now() + Math.floor(Math.random() * 1000);
+    return {
+      kind: "status", projectId, taskId: task!.id, status: "done", expectedUpdatedAt: new Date(task!.updated_at).toISOString(),
+      evidence: { summary, issues: "", fingerprint: "f".repeat(64), receipts: [],
+        checks: [{ id: crypto.randomUUID(), taskName: "spelling", fingerprint: "a".repeat(64), startedAt: now, endedAt: now, exitCode: 0 }] },
+    };
+  };
+  const held = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", run("Drafted the note"));
+  assert.equal(held.status, 428, JSON.stringify(held.json));
+  const yes = held.json.details.confirmToken as string;
+  const changed = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", run("Something else"), { "x-nb-confirm": yes });
+  assert.equal(changed.status, 428, "a different report is a different change");
+  const again = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", run("Drafted the note"));
+  const yes2 = again.json.details.confirmToken as string;
+  const done = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", run("Drafted the note"), { "x-nb-confirm": yes2 });
+  assert.equal(done.status, 200, JSON.stringify(done.json));
+});
+
 test("'Ask for everything' holds even a comment-sized change; 'Pause agents' stops all agent requests", async () => {
   const userId = await sql.begin((tx) => createUser(tx));
   const projectId = await sql.begin((tx) => createProject(tx, userId));

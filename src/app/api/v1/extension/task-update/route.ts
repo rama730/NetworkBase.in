@@ -72,7 +72,12 @@ async function handlePatch(request: Request) {
       : input.kind === "delete" ? "Delete the task"
       : input.kind === "subtask_edit" ? "Rename a subtask" : input.kind === "subtask_delete" ? "Delete a subtask" : input.kind === "subtask_move" ? "Reorder a subtask"
       : input.kind === "approve" ? "Approve the task" : input.kind === "request_changes" ? "Ask for changes on the task" : "Send the task for review again";
-    const held = await agentGate(auth, request, input, { workspaceId: input.projectId, kinds, summary: `${what}${others ? " (assigned to someone else)" : ""}`, taskId: input.taskId });
+    // The yes covers this change and its report, not each check's id and run times: `nb task done --check` makes new
+    // ones on every run, so a yes for the first run never matched the confirmed one (found 2026-11-10).
+    const bound = "evidence" in input && input.evidence
+      ? { ...input, evidence: { ...input.evidence, checks: input.evidence.checks?.map(({ id: _id, startedAt: _s, endedAt: _e, ...check }) => check) } }
+      : input;
+    const held = await agentGate(auth, request, bound, { workspaceId: input.projectId, kinds, summary: `${what}${others ? " (assigned to someone else)" : ""}`, taskId: input.taskId });
     if (held) return held;
     if (input.kind === "request_changes" || input.kind === "resubmit") {
       const result = input.kind === "resubmit"
