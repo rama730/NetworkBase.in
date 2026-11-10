@@ -36,6 +36,7 @@ const TASK_REF = /^(#?\d+|T-\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
  * @returns {{ spec: CommandSpec | null, rest: string[], alias: { from: string, to: string } | null }}
  */
 export function resolveCommand(argv) {
+  /** @type {string[]} */
   const words = [];
   for (const token of argv) {
     if (token.startsWith("-")) break;
@@ -51,6 +52,11 @@ export function resolveCommand(argv) {
   }
   if (words[0] === "task" && words[1] && TASK_REF.test(words[1])) {
     return { spec: /** @type {CommandSpec} */ (COMMANDS.find((c) => c.name === "task view")), rest: argv.slice(1), alias: null };
+  }
+  // `nb assignment` alone: name the actions instead of "isn't a command".
+  const group = COMMANDS.filter((c) => c.name.startsWith(`${words[0]} `));
+  if (group.length && words.length === 1) {
+    throw new CliError("USAGE", `nb ${words[0]} needs an action: ${group.map((c) => c.name.slice(String(words[0]).length + 1)).join(", ")}`, { hint: `See nb help, or nb ${group[0]?.name} --help` });
   }
   const tried = words.slice(0, 2).join(" ");
   const names = COMMANDS.map((c) => c.name);

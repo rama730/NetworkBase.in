@@ -54,6 +54,12 @@ describe("nb 2.0 basics", () => {
     assert.equal(out.error.code, "UNKNOWN_COMMAND");
   });
 
+  it("a bare group names its actions", async () => {
+    const r = await runCli(["assignment"], { api: api.url });
+    assert.equal(r.code, 2);
+    assert.match(r.stderr, /nb assignment needs an action: list, view, pull, hand-in, unsubmit, question/);
+  });
+
   it("help --json describes every command for agents and completions", async () => {
     const r = await runCli(["help", "--json"], { api: api.url });
     const out = JSON.parse(r.stdout);
