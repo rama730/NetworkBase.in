@@ -23,6 +23,8 @@ ARG NEXT_PUBLIC_VERBOSE_APP_LOGS
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
 # Passed only to the build step below: the token uploads source maps and must not reach ENV or the runner image.
+# A build argument is already in the environment of every RUN in this stage; naming it in the RUN line would print
+# its value in the build log.
 ARG SENTRY_AUTH_TOKEN
 ARG RAILWAY_GIT_COMMIT_SHA
 
@@ -55,7 +57,6 @@ RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build \
     INNGEST_EVENT_KEY=build-only \
     INNGEST_SIGNING_KEY=build-only \
     INNGEST_EXECUTION_ROLE=web \
-    SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN \
     RAILWAY_GIT_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA \
     NODE_OPTIONS=--max-old-space-size=4096 \
     npm run build
