@@ -47,6 +47,8 @@ export const filePlaceSchema = z.object({
   folder: z.string().max(1024).optional(),
   /** The person saw the secret warning and still wants these files saved (never for agents, Phase 3). */
   confirmSecrets: z.boolean().optional(),
+  /** The one new file becomes this doc's file: a doc with no file yet, like a new workspace's starter README. */
+  linkDoc: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/).optional(),
 });
 
 // extension/create-task

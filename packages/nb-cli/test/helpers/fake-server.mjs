@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -218,6 +218,8 @@ const exact = {
       const { file, prev } = putFile(state, target, content);
       return { ...meta(file), status: prev && target === f.path ? "modified" : "new", versionTransition: prev ? `v${prev.version} -> v${file.version}` : "v1 (new)" };
     });
+    const linked = req.body.linkDoc ? state.docs.find((d) => d.slug === req.body.linkDoc) : null;
+    if (linked) linked.nodePath = out[0].path;
     const task = req.body.taskId ? findTask(state, req.body.taskId) : null;
     if (task) for (const f of out) task.files.push({ path: f.path, name: f.path.split("/").pop(), role: req.body.role === "final" ? "deliverable" : req.body.role === "reference" ? "reference" : "working", currentVersion: f.version });
     const undoToken = crypto.randomUUID();
@@ -289,12 +291,14 @@ const patterns = [
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", role: "owner" }, { id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || m.username.includes(String(req.query.get("q")))) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...state.files.values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: state.files.get(d.nodePath)?.nodeId ?? null })) } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: (d.nodePath && state.files.get(d.nodePath)?.nodeId) ?? null })) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {
     const doc = state.docs.find((d) => d.slug === req.params[1]);
-    const file = doc ? state.files.get(doc.nodePath) : null;
-    if (!doc || !file) return fail(404, "NOT_FOUND", "No such doc");
-    return { data: { slug: doc.slug, canEdit: state.canWrite, content: file.content.toString("utf8"), file: { nodeId: file.nodeId, path: file.path, version: file.version } } };
+    const file = doc?.nodePath ? state.files.get(doc.nodePath) : null;
+    if (!doc || (!file && doc.starter == null)) return fail(404, "NOT_FOUND", "No such doc");
+    // A starter doc has no file until its first edit (files/place with linkDoc).
+    if (!file) return { data: { slug: doc.slug, canEdit: state.canWrite, content: doc.starter, filename: doc.filename, file: null } };
+    return { data: { slug: doc.slug, canEdit: state.canWrite, content: file.content.toString("utf8"), filename: doc.filename, file: { nodeId: file.nodeId, path: file.path, version: file.version } } };
   }],
 ];
 

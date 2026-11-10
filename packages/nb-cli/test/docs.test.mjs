@@ -28,6 +28,15 @@ describe("nb doc", () => {
     assert.equal(new Set(columns).size, 1, r.stdout);
   });
 
+  it("a starter doc with no file gets README.md on its first save, linked to the doc", async () => {
+    api.state.docs.push({ slug: "notes", filename: "NOTES.md", nodePath: null, starter: "# Notes\n" });
+    const r = await runCli(["doc", "set", "notes", "--file", "-", "--yes"], { api: api.url, cwd, env: { NB_PLAIN: "1" }, input: "# Notes\n\nNew line\n" });
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /Saved \/NOTES\.md as v1/);
+    assert.equal(api.state.docs.find((d) => d.slug === "notes")?.nodePath, "/NOTES.md");
+    assert.equal(api.state.files.get("/NOTES.md")?.content.toString("utf8"), "# Notes\n\nNew line\n");
+  });
+
   it("a refused edit says who can edit", async () => {
     api.state.canWrite = false;
     const r = await nb(["doc", "set", "readme", "--file", "-"]);

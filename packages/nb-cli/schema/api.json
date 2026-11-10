@@ -159,6 +159,10 @@
         },
         "confirmSecrets": {
           "type": "boolean"
+        },
+        "linkDoc": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"
         }
       },
       "required": [
@@ -324,6 +328,10 @@
         },
         "confirmSecrets": {
           "type": "boolean"
+        },
+        "linkDoc": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"
         }
       },
       "required": [

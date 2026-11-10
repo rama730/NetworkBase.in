@@ -133,6 +133,7 @@ async function handlePost(request: Request) {
       onSameName,
       folder,
       confirmSecrets,
+      linkDoc,
     } = parsed.data;
     const outside = await denyOutsideTokenWorkspace(auth, { projectId, taskId: rawTaskId });
     if (outside) return outside;
@@ -238,8 +239,25 @@ async function handlePost(request: Request) {
       existingByPath.set(normalizePath(node.path), node);
     }
 
+    // A doc with no file yet (a new workspace's starter README): its first edit creates the file and links it.
+    // Same rules as Add doc in the app: someone who may edit the doc, one new file, and the doc kind for agents.
+    if (linkDoc) {
+      if (files.length !== 1 || files[0]!.versionOf) return jsonError("linkDoc takes one new file", 400, "BAD_REQUEST");
+      if (existingNodes.length) return jsonError(`${existingNodes[0]!.path} already exists; make it the doc with Add doc in the app, or pick another name`, 409, "CONFLICT");
+      const { readWorkspaceDocAction } = await import("@/app/actions/workspace/doc");
+      const doc = await readWorkspaceDocAction(projectId, linkDoc);
+      if (!doc.success || doc.data.docSlug !== linkDoc) return jsonError(`No doc called ${linkDoc} here`, 404, "NOT_FOUND");
+      if (!doc.data.canEdit) return jsonError(`You can read ${linkDoc} but not edit it`, 403, "FORBIDDEN");
+      if (doc.data.linkedNode) return jsonError(`${linkDoc} already has a file; save a new version of it`, 409, "CONFLICT");
+    }
+
     // Files that back a workspace doc (the README) need the doc:write permission for tokens (report D16).
     let editsDoc = false;
+    if (linkDoc) {
+      editsDoc = true;
+      const denied = auth.tokenScopes ? requireTokenScope(auth, "doc:write") : null;
+      if (denied) return denied;
+    }
     if (auth.tokenScopes && existingNodes.length) {
       const docBacked = await db
         .select({ id: workspaceDocuments.id })
@@ -627,6 +645,12 @@ async function handlePost(request: Request) {
           contentHash: file.contentHash,
           size: file.size,
         });
+      }
+
+      if (linkDoc && committedFiles[0]) {
+        await tx.update(workspaceDocuments)
+          .set({ linkedNodeId: committedFiles[0].nodeId, filename: committedFiles[0].path.split("/").pop()!, updatedAt: now })
+          .where(and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, linkDoc)));
       }
 
       if (changedFiles.length > 0) {

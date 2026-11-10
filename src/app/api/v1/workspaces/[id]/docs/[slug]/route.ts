@@ -42,6 +42,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         canEdit: doc.canEdit,
         content: doc.version?.content ?? "",
         contentHash: doc.version?.contentHash ?? null,
+        /** The name its file has, or gets on the first edit of a doc with no file yet (POST files/place with linkDoc). */
+        filename: doc.docs.find((d) => d.slug === doc.docSlug)?.filename ?? "README.md",
         file,
       },
       undefined,

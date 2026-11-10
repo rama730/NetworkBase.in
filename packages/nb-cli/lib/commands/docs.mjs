@@ -61,11 +61,10 @@ function editorCommand(ctx) {
 export async function edit(ctx) {
   const slug = ctx.positionals[0] ?? "readme";
   const doc = await readDoc(ctx, slug);
-  if (!doc.file) throw new CliError("NOT_SUPPORTED", `${slug} isn't backed by a file, so it's edited in the app`, { hint: `nb open` });
   if (!doc.canEdit) throw new CliError("FORBIDDEN", `You can read ${slug} but not edit it`, { hint: "Only the workspace owner and admins can edit it, unless its settings let members edit" });
-  if (!ctx.out.interactive) throw new CliError("NEEDS_INPUT", "nb doc edit opens your editor, so it needs a terminal", { hint: `Agents: change ${doc.file.path} and nb push it` });
+  if (!ctx.out.interactive) throw new CliError("NEEDS_INPUT", "nb doc edit opens your editor, so it needs a terminal", { hint: `Agents: nb doc set ${slug} --file <path>` });
   // The file name comes from the server, so only plain characters reach the editor's command line.
-  const name = path.posix.basename(doc.file.path).replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "") || "doc.md";
+  const name = path.posix.basename(doc.file?.path ?? doc.filename ?? "doc.md").replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "") || "doc.md";
   const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "nb-doc-")), name);
   fs.writeFileSync(tmp, doc.content);
   const [cmd, ...args] = editorCommand(ctx).split(" ");
@@ -89,7 +88,6 @@ export async function set(ctx) {
   const next = typeof ctx.flags.content === "string" ? ctx.flags.content : from === "-" ? fs.readFileSync(0, "utf8") : from ? fs.readFileSync(path.resolve(ctx.cwd, from), "utf8") : null;
   if (next === null) throw usage("nb doc set <slug> --file <path>, or --file - to read stdin");
   const doc = await readDoc(ctx, slug);
-  if (!doc.file) throw new CliError("NOT_SUPPORTED", `${slug} isn't backed by a file, so it's edited in the app`, { hint: "nb open" });
   if (!doc.canEdit) throw new CliError("FORBIDDEN", `You can read ${slug} but not edit it`, { hint: "Only the workspace owner and admins can edit it, unless its settings let members edit" });
   return saveDoc(ctx, slug, doc, next);
 }
@@ -101,14 +99,17 @@ async function saveDoc(ctx, slug, doc, next) {
     return EXIT.ok;
   }
   const preview = unifiedDiff(doc.content, next)?.lines.slice(0, 30).map((l) => `${l.kind === "@" ? "" : l.kind}${l.text}`).join("\n");
-  if (!(await confirm(ctx, { key: "save", heldByServer: true, question: `Save ${doc.file.path} as v${doc.file.version + 1}?`, ...(preview ? { preview } : {}), yesLabel: "Save", defaultYes: true }))) return EXIT.cancelled;
+  // A doc with no file yet (a new workspace's starter README) gets one, named by the server, on its first save.
+  const target = doc.file ?? { path: `/${String(doc.filename ?? "README.md").replace(/^\/+/, "")}`, nodeId: null, version: 0 };
+  if (!(await confirm(ctx, { key: "save", heldByServer: true, question: doc.file ? `Save ${target.path} as v${target.version + 1}?` : `Save ${slug} as the new file ${target.path}?`, ...(preview ? { preview } : {}), yesLabel: "Save", defaultYes: true }))) return EXIT.cancelled;
   const bytes = Buffer.from(next, "utf8");
+  const content = { contentHash: crypto.createHash("sha256").update(bytes).digest("hex"), size: bytes.length, mimeType: "text/markdown", contentBase64: bytes.toString("base64") };
   const res = /** @type {any} */ (await ctx.api.post("/api/v1/files/place", {
     projectId: ctx.requireWorkspace(),
     ...(ctx.flags.message ? { message: ctx.flags.message } : {}),
-    files: [{ path: doc.file.path, versionOf: doc.file.nodeId, baseVersion: doc.file.version, contentHash: crypto.createHash("sha256").update(bytes).digest("hex"), size: bytes.length, mimeType: "text/markdown", contentBase64: bytes.toString("base64") }],
+    ...(doc.file ? { files: [{ path: target.path, versionOf: target.nodeId, baseVersion: target.version, ...content }] } : { linkDoc: slug, files: [{ path: target.path, ...content }] }),
   }).catch((error) => {
-    if (error instanceof CliError && error.code === "VERSION_CONFLICT") throw new CliError("VERSION_CONFLICT", `Someone saved ${doc.file.path} while you were editing`, { hint: "Read the doc again and redo your change on their version", details: error.details });
+    if (error instanceof CliError && error.code === "VERSION_CONFLICT") throw new CliError("VERSION_CONFLICT", `Someone saved ${target.path} while you were editing`, { hint: "Read the doc again and redo your change on their version", details: error.details });
     throw error;
   }));
   const saved = res.files[0];
