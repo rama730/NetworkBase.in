@@ -2,7 +2,8 @@
 
 import { db } from '@/lib/db';
 import { fileVersions, workspaces, workspaceNodes, storageAssets } from '@/lib/db/schema';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, max, sql } from 'drizzle-orm';
+import { nextFileRevisionNumber } from '@/lib/files/revision-policy';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { isCanonicalWorkspaceFileKey, parseWorkspaceFileKey } from '@/lib/storage/workspace-file-key';
@@ -694,6 +695,13 @@ export async function registerUploadedFolderAction(
             items.map((i) => ({ parentId: i.parentId, name: i.name }))
           );
 
+          // Numbered from history: the active version may be an older one (append-only versions).
+          const existingIds = [...existingMap.values()].map((node) => node.id);
+          const highest = new Map(existingIds.length
+            ? (await tx.select({ nodeId: fileVersions.nodeId, highest: max(fileVersions.version) }).from(fileVersions)
+                .where(inArray(fileVersions.nodeId, existingIds)).groupBy(fileVersions.nodeId)).map((r) => [r.nodeId, r.highest] as const)
+            : []);
+
           const toInsert: Array<{
             projectId: string;
             parentId: string | null;
@@ -716,6 +724,7 @@ export async function registerUploadedFolderAction(
             size: number;
             mimeType: string;
             currentVersion: number;
+            basedOnVersion: number;
             updatedAt: Date;
           }> = [];
 
@@ -730,7 +739,8 @@ export async function registerUploadedFolderAction(
                 contentHash: item.contentHash,
                 size: item.size,
                 mimeType: item.mimeType,
-                currentVersion: existing.currentVersion + 1,
+                currentVersion: nextFileRevisionNumber(existing.currentVersion, highest.get(existing.id)),
+                basedOnVersion: existing.currentVersion,
                 updatedAt: new Date(),
               });
             } else {
@@ -814,6 +824,7 @@ export async function registerUploadedFolderAction(
           const updatedVersions = toUpdate.map((item) => ({
             nodeId: item.id,
             version: item.currentVersion,
+            basedOnVersion: item.basedOnVersion,
             s3Key: item.s3Key,
             assetId: item.assetId,
             size: item.size,

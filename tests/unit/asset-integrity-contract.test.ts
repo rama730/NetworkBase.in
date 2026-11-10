@@ -13,7 +13,8 @@ test("COR-004: every file revision carries its verified asset and the asset's di
   assert.match(writer, /contentHash = publishableAsset\.contentHash/);
   const versions = read("src/app/actions/files/versions.ts");
   assert.match(versions, /assetId: finalizedIntent\.assetId/);
-  assert.match(versions, /assetId: source\.assetId \?\? null/);
+  // Restore points the node at the chosen version's own asset (versions only grow, 2026-11-11).
+  assert.match(read("src/lib/files/activate-file-version.ts"), /assetId: target\.assetId/);
   const bulk = read("src/app/api/v1/extension/bulk-finalize/route.ts");
   assert.match(bulk, /finalizeUploadIntent\(/);
   assert.match(bulk, /assetId: verifiedIntent\.assetId/);
@@ -25,7 +26,6 @@ test("COR-004: every file revision carries its verified asset and the asset's di
 test("COR-045: detached assets are retired only through the live-reference guard", () => {
   for (const path of [
     "src/app/actions/workspace/updates.ts",
-    "src/lib/files/apply-file-revision.ts",
     "src/lib/github/sync-service.ts",
     "src/lib/files/permanent-delete.ts",
     "src/app/actions/files/versions.ts",
@@ -35,6 +35,8 @@ test("COR-045: detached assets are retired only through the live-reference guard
     assert.doesNotMatch(source, /state: "delete_pending"/, path);
   }
   assert.match(read("src/lib/storage/asset-deletion.ts"), /LIVE_REFERENCE_RESTORED/);
+  // Saving never rewrites a version, so it never detaches an asset (2026-11-11).
+  assert.doesNotMatch(read("src/lib/files/apply-file-revision.ts"), /scheduleAssetDeletionIfUnreferenced/);
 });
 
 test("COR-048: project, draft and sprint deletes recheck their preconditions under a row lock", () => {

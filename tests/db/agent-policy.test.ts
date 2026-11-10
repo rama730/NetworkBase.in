@@ -128,9 +128,11 @@ test("pushing a new version undoes back to the old one, and refuses if someone s
   assert.equal(v2.status, 200, JSON.stringify(v2.json));
   const back = await undoCall(token, v2.json.data.undoToken);
   assert.equal(back.status, 200, JSON.stringify(back.json));
-  const [node] = await sql`SELECT n.current_version, v.content_hash FROM workspace_nodes n JOIN file_versions v ON v.node_id = n.id AND v.version = n.current_version WHERE n.workspace_id = ${projectId} AND n.path = '/notes.md'`;
-  assert.equal(node!.content_hash, hash("one"), "a new version with the old content");
-  assert.equal((await undoCall(token, v1.json.data.undoToken)).status, 409, "v1's push can't be undone: newer versions exist");
+  const [node] = await sql`SELECT n.current_version, v.content_hash, (SELECT count(*)::int FROM file_versions h WHERE h.node_id = n.id) AS versions FROM workspace_nodes n JOIN file_versions v ON v.node_id = n.id AND v.version = n.current_version WHERE n.workspace_id = ${projectId} AND n.path = '/notes.md'`;
+  assert.deepEqual([node!.current_version, node!.content_hash, node!.versions], [1, hash("one"), 2], "v1 is active again; v2 stays in the history");
+  const v3 = await call(place.POST, token, "POST", "/api/v1/files/place", { projectId, message: "v3", files: [file("three", 1)] });
+  assert.equal(v3.json.data.files[0].version, 3, "the next save is numbered after the whole history");
+  assert.equal((await undoCall(token, v1.json.data.undoToken)).status, 409, "v1's push can't be undone: a newer version is active");
 
   const finals = await agentToken(userId, projectId, ["workspace:read", "file:read", "file:write", "file:final"]);
   const final = await call(place.POST, finals, "POST", "/api/v1/files/place", { projectId, message: "final", role: "final", files: [{ ...file("report"), path: "/report.md" }] });

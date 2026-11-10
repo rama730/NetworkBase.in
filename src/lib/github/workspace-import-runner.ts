@@ -390,7 +390,8 @@ export async function runGithubWorkspaceImport(input: {
               SET git_blob_hash = patch.git_hash,
                   s3_key = NULL,
                   size = patch.size,
-                  current_version = patch.current_version,
+                  -- After going back to an older version, newer numbers are taken (append-only versions).
+                  current_version = GREATEST(patch.current_version, (SELECT COALESCE(MAX(v.version), 0) + 1 FROM file_versions v WHERE v.node_id = node.id)),
                   updated_at = now()
               FROM jsonb_to_recordset(${JSON.stringify(batch)}::jsonb)
                 AS patch(id uuid, git_hash text, size bigint, current_version integer)

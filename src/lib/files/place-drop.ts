@@ -9,7 +9,7 @@ import { feedbackError, toast } from "@/lib/feedback";
 
 import { isOsJunk, keepBothName, splitSameName } from "./drop-target";
 
-export type PlacedDrop = { created: WorkspaceNode[]; versions: Array<{ nodeId: string; name: string; previous: number }>; skipped: string[] };
+export type PlacedDrop = { created: WorkspaceNode[]; versions: Array<{ nodeId: string; name: string; previous: number; version: number }>; skipped: string[] };
 
 /**
  * @param uploadNew uploads new files into `parentId` (folders keep their structure) and returns what it created
@@ -44,7 +44,7 @@ export async function placeDrop(input: {
     const versioned: PlacedDrop["versions"] = [];
     for (const v of versions) {
       const res = await saveFileRevision({ projectId, nodeId: v.nodeId, file: v.file, mode: "new_revision" });
-      if (res.success) versioned.push({ nodeId: v.nodeId, name: v.file.name, previous: res.version.version - 1 });
+      if (res.success) versioned.push({ nodeId: v.nodeId, name: v.file.name, previous: res.version.basedOnVersion ?? res.version.version - 1, version: res.version.version });
       else skipped.push(`${v.file.name}: ${res.error}`);
     }
     const created = fresh.length ? await input.uploadNew(fresh, parentId) : [];
@@ -77,7 +77,7 @@ function announce(projectId: string, where: string, placed: PlacedDrop, input: P
   }
 }
 
-/** Undo a drop: versions go back to the previous content (as a new version), new files go to Trash (A10.8). */
+/** Undo a drop: each file goes back to the version that was active before (it stays in the history), new files go to Trash (A10.8). */
 export async function undoDrop(projectId: string, placed: PlacedDrop, onChanged?: () => void) {
   try {
     const { restoreFileVersion } = await import("@/app/actions/files/versions");
@@ -85,7 +85,7 @@ export async function undoDrop(projectId: string, placed: PlacedDrop, onChanged?
     const failed: string[] = [];
     for (const v of placed.versions) {
       if (v.previous < 1) continue;
-      await restoreFileVersion(projectId, v.nodeId, v.previous).catch(() => failed.push(v.name));
+      await restoreFileVersion(projectId, v.nodeId, v.previous, { expectActive: v.version }).catch(() => failed.push(v.name));
     }
     const roots = placed.created.filter((n) => !placed.created.some((p) => p.id === n.parentId)).map((n) => n.id);
     if (roots.length) await bulkTrashNodes(roots, projectId);

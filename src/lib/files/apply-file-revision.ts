@@ -3,7 +3,6 @@ import "server-only";
 import { and, eq, max, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import { fileVersions, workspaceNodes, workspaceNodeEvents, storageAssets, type FileVersion } from "@/lib/db/schema";
 import {
   assertWorkspaceUploadAccessTx,
@@ -60,8 +59,10 @@ export interface ApplyFileRevisionResult {
  * Canonical file-revision mutation used by the browser and extension APIs.
  *
  * The project and node rows are locked in the same transaction as the version
- * write. New revisions append a row and increment currentVersion; active
- * revisions update the current row while preserving its version number.
+ * write. Every revision appends a version and makes it active: no version is
+ * ever rewritten (2026-11-11). A caller that still asks for `active_revision`
+ * (the old "apply to active version", older editor extensions) gets a new
+ * version too. Going back to an older version is activateFileVersion.
  */
 export async function applyFileRevision(
   input: ApplyFileRevisionInput,
@@ -162,71 +163,26 @@ export async function applyFileRevision(
       .select({ highestVersion: max(fileVersions.version) })
       .from(fileVersions)
       .where(eq(fileVersions.nodeId, input.nodeId));
-    const versionNumber =
-      input.mode === "new_revision"
-        ? nextFileRevisionNumber(currentVersionNumber, history?.highestVersion)
-        : currentVersionNumber;
-
-    let version: FileVersion;
-    if (input.mode === "new_revision") {
-      const [inserted] = await tx
-        .insert(fileVersions)
-        .values({
-          ...via,
-          nodeId: input.nodeId,
-          version: versionNumber,
-          s3Key: input.storageKey,
-          assetId: input.assetId ?? null,
-          size: input.size,
-          mimeType: input.mimeType,
-          contentHash,
-          uploadedBy: input.contentAuthorId === undefined ? input.actorUserId : input.contentAuthorId,
-          attribution: input.attribution ?? {},
-          comment,
-          uploadedAt: now,
-        })
-        .returning();
-      if (!inserted) throw new Error("Couldn’t create file version");
-      version = inserted;
-    } else if (currentVersion) {
-      const [updated] = await tx
-        .update(fileVersions)
-        .set({
-          s3Key: input.storageKey,
-          assetId: input.assetId ?? null,
-          size: input.size,
-          mimeType: input.mimeType,
-          contentHash,
-          uploadedBy: input.contentAuthorId === undefined ? input.actorUserId : input.contentAuthorId,
-          attribution: input.attribution ?? {},
-          uploadedAt: now,
-          ...(comment !== null ? { comment } : {}),
-        })
-        .where(eq(fileVersions.id, currentVersion.id))
-        .returning();
-      if (!updated) throw new Error("Couldn’t update active version");
-      version = updated;
-    } else {
-      const [inserted] = await tx
-        .insert(fileVersions)
-        .values({
-          ...via,
-          nodeId: input.nodeId,
-          version: currentVersionNumber,
-          s3Key: input.storageKey,
-          assetId: input.assetId ?? null,
-          size: input.size,
-          mimeType: input.mimeType,
-          contentHash,
-          uploadedBy: input.contentAuthorId === undefined ? input.actorUserId : input.contentAuthorId,
-          attribution: input.attribution ?? {},
-          comment,
-          uploadedAt: now,
-        })
-        .returning();
-      if (!inserted) throw new Error("Couldn’t initialize active version");
-      version = inserted;
-    }
+    const versionNumber = nextFileRevisionNumber(currentVersionNumber, history?.highestVersion);
+    const [version] = await tx
+      .insert(fileVersions)
+      .values({
+        ...via,
+        nodeId: input.nodeId,
+        version: versionNumber,
+        s3Key: input.storageKey,
+        assetId: input.assetId ?? null,
+        size: input.size,
+        mimeType: input.mimeType,
+        contentHash,
+        uploadedBy: input.contentAuthorId === undefined ? input.actorUserId : input.contentAuthorId,
+        attribution: input.attribution ?? {},
+        comment,
+        uploadedAt: now,
+        basedOnVersion: currentVersion ? currentVersionNumber : null,
+      })
+      .returning();
+    if (!version) throw new Error("Couldn’t create file version");
 
     const [updatedNode] = await tx
       .update(workspaceNodes)
@@ -248,14 +204,6 @@ export async function applyFileRevision(
       .returning();
     if (!updatedNode) throw new Error("Couldn’t update file node");
 
-    if (
-      input.mode === "active_revision" &&
-      current.assetId &&
-      current.assetId !== input.assetId
-    ) {
-      await scheduleAssetDeletionIfUnreferenced(tx, [current.assetId]);
-    }
-
     await input.afterMutationTx?.(tx);
 
     const event = await recordNodeEvent(
@@ -264,9 +212,9 @@ export async function applyFileRevision(
       input.nodeId,
       input.eventType ?? "file_revision_applied",
       {
-        revisionMode: input.mode,
+        revisionMode: "new_revision",
         version: versionNumber,
-        versionIncremented: input.mode === "new_revision",
+        versionIncremented: true,
         size: input.size,
         mimeType: input.mimeType,
         hash: input.contentHash,
@@ -282,12 +230,9 @@ export async function applyFileRevision(
     return {
       node: updatedNode,
       version,
-      mode: input.mode,
-      versionIncremented: input.mode === "new_revision",
-      replacedStorageKey:
-        input.mode === "active_revision" && current.s3Key !== input.storageKey
-          ? current.s3Key
-          : null,
+      mode: "new_revision" as const,
+      versionIncremented: true,
+      replacedStorageKey: null,
       sequenceNumber: event.sequenceNumber,
     };
   });

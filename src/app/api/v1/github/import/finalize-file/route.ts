@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { importJobs, importJobFiles, uploadIntents, workspaceNodes, fileVersions, storageAssets } from '@/lib/db/schema';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, max, sql } from 'drizzle-orm';
+import { nextFileRevisionNumber } from '@/lib/files/revision-policy';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
 import { assertWorkspaceWriteAccess, recordNodeEvent } from '@/lib/files/internal-helpers';
@@ -218,7 +219,11 @@ export async function POST(request: NextRequest) {
                 )).limit(1).for('update');
 
             const nodeId = existingNode?.id || randomUUID();
-            const nextVersion = existingNode ? existingNode.currentVersion + 1 : 1;
+            // Numbered from history: the active version may be an older one (append-only versions).
+            const [history] = existingNode
+                ? await tx.select({ highest: max(fileVersions.version) }).from(fileVersions).where(eq(fileVersions.nodeId, existingNode.id))
+                : [];
+            const nextVersion = existingNode ? nextFileRevisionNumber(existingNode.currentVersion, history?.highest) : 1;
 
             if (existingNode) {
                 await tx
@@ -269,6 +274,7 @@ export async function POST(request: NextRequest) {
                 uploadedBy: user.id,
                 uploadedAt: new Date(),
                 attribution: { source: 'github_import', jobId },
+                basedOnVersion: existingNode?.currentVersion ?? null,
             });
 
             // Mark import job file as completed

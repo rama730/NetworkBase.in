@@ -43,6 +43,7 @@ import {
   assertWorkspaceWriteAccessTx,
   recordNodeEvent,
 } from "@/lib/files/internal-helpers";
+import { activateFileVersion } from "@/lib/files/activate-file-version";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import type { FileRevisionMode } from "@/lib/files/revision-policy";
 import {
@@ -137,6 +138,7 @@ export async function listFileVersionsPage(
         attribution: fileVersions.attribution,
         via: fileVersions.via,
         agentName: fileVersions.agentName,
+        basedOnVersion: fileVersions.basedOnVersion,
         uploadedByName: profiles.fullName,
         uploadedByUsername: profiles.username,
       })
@@ -336,16 +338,15 @@ export async function applyUploadedFileRevision(input: {
 
 
 /**
- * Restore an earlier version by copying its metadata forward as a new
- * current version (never rewrites history). We intentionally re-use the
- * old `s3Key` — blobs are write-once, so pointing the latest row back at
- * the old key is safe and cheap.
+ * Makes an earlier (or newer) version the active one (2026-11-11). Nothing is copied or deleted: the node points at
+ * that version again, and the next save is numbered after the whole history and records which version it was based on.
  */
 export async function restoreFileVersion(
   projectId: string,
   nodeId: string,
   targetVersion: number,
-): Promise<{ node: typeof workspaceNodes.$inferSelect; version: FileVersion }> {
+  options?: { expectActive?: number },
+): Promise<{ node: typeof workspaceNodes.$inferSelect; version: FileVersion; previousVersion: number }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Sign in to continue");
@@ -355,32 +356,7 @@ export async function restoreFileVersion(
 
   const result = await withTransientFileLease(
     { projectId, nodeId, userId: user.id },
-    async (lease) => {
-      const source = await db.query.fileVersions.findFirst({
-        where: and(
-          eq(fileVersions.nodeId, nodeId),
-          eq(fileVersions.version, targetVersion),
-        ),
-      });
-      if (!source) throw new Error("Version not found");
-
-      return applyFileRevision({
-        projectId,
-        nodeId,
-        actorUserId: user.id,
-        storageKey: source.s3Key,
-        assetId: source.assetId ?? null,
-        size: source.size,
-        mimeType: source.mimeType,
-        contentHash: source.contentHash,
-        mode: "new_revision",
-        comment: `Restored from version ${targetVersion}`,
-        lease,
-        accessRequirement: "write",
-        eventType: "restore_file_version",
-        eventMetadata: { restoredFrom: targetVersion },
-      });
-    },
+    (lease) => activateFileVersion({ projectId, nodeId, actorUserId: user.id, version: targetVersion, lease, expectActive: options?.expectActive }),
   );
 
   if (result.node) {

@@ -119,3 +119,48 @@ test("the manifest lists every visible file with version and hash, in pages", as
   assert.equal(json.data.nextCursor, null);
   assert.ok(json.data.limits.largestFileBytes > 0);
 });
+
+test("versions only grow: going back makes an old version active, and the next save is based on it", async () => {
+  const { owner, projectId } = await workspace();
+  for (const [text, base] of [["one", undefined], ["two", 1], ["three", 2]] as const) {
+    const res = await post({ projectId, files: [file("doc.md", text, base ? { baseVersion: base } : {})] });
+    assert.equal(res.status, 200, JSON.stringify(res.json));
+  }
+  const [{ id: nodeId }] = await sql<{ id: string }[]>`SELECT id FROM workspace_nodes WHERE workspace_id = ${projectId} AND path = '/doc.md'`;
+  const { activateFileVersion, ActiveVersionChangedError } = await loadAppModule(() => import("../../src/lib/files/activate-file-version"));
+  const { withTransientFileLease } = await loadAppModule(() => import("../../src/lib/files/file-lock-service"));
+  const activate = (version: number, expectActive?: number) =>
+    withTransientFileLease({ projectId, nodeId, userId: owner }, (lease) => activateFileVersion({ projectId, nodeId, actorUserId: owner, version, lease, expectActive }));
+
+  const back = await activate(1);
+  assert.deepEqual([back.previousVersion, back.node.currentVersion, back.node.s3Key], [3, 1, back.version.s3Key]);
+  const rows = await sql`SELECT version, content_hash FROM file_versions WHERE node_id = ${nodeId} ORDER BY version`;
+  assert.deepEqual(rows.map((r) => [r.version, r.content_hash]), [[1, sha("one")], [2, sha("two")], [3, sha("three")]], "nothing copied, nothing rewritten");
+  const [event] = await sql`SELECT metadata FROM workspace_node_events WHERE node_id = ${nodeId} AND type = 'version_activated'`;
+  assert.deepEqual([event!.metadata.from, event!.metadata.to], [3, 1]);
+
+  const stale = await post({ projectId, files: [file("doc.md", "edit from v3", { baseVersion: 3 })] });
+  assert.equal(stale.status, 409, "someone who started from v3 is refused after going back");
+  const next = await post({ projectId, files: [file("doc.md", "four", { baseVersion: 1 })] });
+  assert.equal(next.json.data.files[0].version, 4);
+  const [v4] = await sql`SELECT based_on_version FROM file_versions WHERE node_id = ${nodeId} AND version = 4`;
+  assert.equal(v4!.based_on_version, 1, "v4 based on v1");
+
+  await assert.rejects(activate(2, 3), ActiveVersionChangedError, "an undo only moves back when nobody saved since");
+  assert.equal((await activate(3)).node.currentVersion, 3, "any version can be made active again");
+});
+
+test("the old 'apply to active version' mode adds a version instead of rewriting one", async () => {
+  const { owner, projectId } = await workspace();
+  const first = await post({ projectId, files: [file("old.md", "one")] });
+  const nodeId = first.json.data.files[0].nodeId as string;
+  const { applyFileRevision } = await loadAppModule(() => import("../../src/lib/files/apply-file-revision"));
+  const { withTransientFileLease } = await loadAppModule(() => import("../../src/lib/files/file-lock-service"));
+  const result = await withTransientFileLease({ projectId, nodeId, userId: owner }, (lease) => applyFileRevision({
+    projectId, nodeId, actorUserId: owner, storageKey: `${projectId}/overwrite-attempt.md`, assetId: null, size: 3, mimeType: "text/markdown",
+    contentHash: sha("two"), mode: "active_revision", lease, accessRequirement: "write",
+  }));
+  assert.deepEqual([result.mode, result.version.version, result.version.basedOnVersion], ["new_revision", 2, 1]);
+  const [v1] = await sql`SELECT content_hash FROM file_versions WHERE node_id = ${nodeId} AND version = 1`;
+  assert.equal(v1!.content_hash, sha("one"), "v1 is untouched");
+});

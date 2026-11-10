@@ -36,7 +36,9 @@ describe("Files tab revision experience", () => {
     const inlineRoute = source("src/app/api/v1/extension/file/route.ts");
     const largeRoute = source("src/app/api/v1/extension/file-upload/route.ts");
 
-    assert.match(service, /input\.mode === "new_revision"/);
+    // Versions only grow (2026-11-11): every save inserts one, none is updated in place.
+    assert.match(service, /\.insert\(fileVersions\)/);
+    assert.doesNotMatch(service, /\.update\(fileVersions\)/);
     assert.match(service, /FOR UPDATE/);
     assert.match(service, /assertOwnedFileLease/);
     assert.match(service, /fencingToken/);
@@ -44,8 +46,7 @@ describe("Files tab revision experience", () => {
     assert.match(service, /max\(fileVersions\.version\)/);
     assert.match(service, /nextFileRevisionNumber/);
     assert.match(versions, /applyFileRevision/);
-    assert.match(versions, /mode: "new_revision"/);
-    assert.match(versions, /restoredFrom: targetVersion/);
+    assert.match(versions, /activateFileVersion\(/);
     assert.match(inlineRoute, /applyFileRevision/);
     assert.match(largeRoute, /applyFileRevision/);
     assert.match(largeRoute, /afterMutationTx/);

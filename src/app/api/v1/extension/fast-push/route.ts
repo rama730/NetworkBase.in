@@ -611,6 +611,7 @@ async function handlePost(request: Request) {
           attribution: { source: "cli_fast_push", role: resolvedRole },
           comment: file.comment,
           uploadedAt: now,
+          basedOnVersion: file.status === "new" ? null : file.currentVersion,
         });
 
         // With a base version, the write only lands if nobody else's did since the check above.

@@ -715,10 +715,10 @@ export function FolderListView({
             const res = await saveFileRevision({ projectId, nodeId: node.id, file, mode: "new_revision" });
             if (!res.success) { toast.error(feedbackError(res.error, "Couldn’t save the new version")); return; }
             upsertNodes(projectId, [res.node]);
-            const previous = res.version.version - 1;
+            const previous = res.version.basedOnVersion ?? res.version.version - 1;
             toast.success(`${node.name} · v${previous} → v${res.version.version}`, {
               duration: 8_000,
-              action: { label: "Undo", onClick: () => void import("@/lib/files/place-drop").then(({ undoDrop }) => undoDrop(projectId, { created: [], versions: [{ nodeId: node.id, name: node.name, previous }], skipped: [] }, () => void loadFolderContent(folderId, "refresh"))) },
+              action: { label: "Undo", onClick: () => void import("@/lib/files/place-drop").then(({ undoDrop }) => undoDrop(projectId, { created: [], versions: [{ nodeId: node.id, name: node.name, previous, version: res.version.version }], skipped: [] }, () => void loadFolderContent(folderId, "refresh"))) },
             });
           })();
           return;

@@ -7,9 +7,9 @@ import { updateSubtaskAction } from "@/app/actions/subtask";
 import { assignTaskAction, updateTaskFieldAction } from "@/app/actions/task";
 import { findUndo, type UndoInverse } from "@/lib/agents/policy";
 import { db } from "@/lib/db";
-import { fileVersions, taskComments, taskSubtasks, tasks, undoOperations, workspaceNodes } from "@/lib/db/schema";
+import { taskComments, taskSubtasks, tasks, undoOperations, workspaceNodes } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
-import { applyFileRevision } from "@/lib/files/apply-file-revision";
+import { ActiveVersionChangedError, activateFileVersion } from "@/lib/files/activate-file-version";
 import { withTransientFileLease } from "@/lib/files/file-lock-service";
 import { validateCsrf } from "@/lib/security/csrf";
 import { deleteTaskAs } from "@/lib/workspaces/server/tasks";
@@ -104,15 +104,17 @@ async function runInverse(user: { id: string; email?: string; user_metadata?: Re
         if (!node || node.deletedAt) throw new Changed("A pushed file is already gone", "VERSION_CONFLICT");
         if (node.version !== f.version) throw new Changed("Someone saved a newer version of a pushed file since", "VERSION_CONFLICT");
       }
+      // Back to the version that was active before the push: the pushed version stays in the history, not active.
       for (const f of inverse.files.filter((x) => !x.created && x.previousVersion)) {
-        const [source] = await db.select().from(fileVersions).where(and(eq(fileVersions.nodeId, f.nodeId), eq(fileVersions.version, f.previousVersion!))).limit(1);
-        if (!source) throw new Changed("The earlier version is gone", "VERSION_CONFLICT");
         await withTransientFileLease({ projectId: inverse.projectId, nodeId: f.nodeId, userId: user.id }, (lease) =>
-          applyFileRevision({
-            projectId: inverse.projectId, nodeId: f.nodeId, actorUserId: user.id, storageKey: source.s3Key, assetId: source.assetId ?? null, size: source.size,
-            mimeType: source.mimeType, contentHash: source.contentHash, mode: "new_revision", comment: `Undo: back to version ${f.previousVersion}`, lease,
-            accessRequirement: "write", eventType: "restore_file_version", eventMetadata: { restoredFrom: f.previousVersion, undo: true },
-          }));
+          activateFileVersion({
+            projectId: inverse.projectId, nodeId: f.nodeId, actorUserId: user.id, version: f.previousVersion!, lease, expectActive: f.version,
+            eventMetadata: { undo: true },
+          })).catch((error) => {
+          if (error instanceof ActiveVersionChangedError) throw new Changed("Someone saved a newer version of a pushed file since", "VERSION_CONFLICT");
+          if (error instanceof Error && error.message === "Version not found") throw new Changed("The earlier version is gone", "VERSION_CONFLICT");
+          throw error;
+        });
       }
       if (created.length) await bulkTrashNodes(created, inverse.projectId);
       return `Undid the push of ${inverse.files.length} file${inverse.files.length === 1 ? "" : "s"}`;

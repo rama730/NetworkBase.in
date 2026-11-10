@@ -111,11 +111,12 @@ export async function mergeSandboxTask(
 
     // Step 4: Promote Edits (clone version only if content changed)
     await tx.execute(sql`
-      INSERT INTO file_versions (id, node_id, version, s3_key, size, mime_type, content_hash, uploaded_by, comment, uploaded_at, asset_id)
+      INSERT INTO file_versions (id, node_id, version, s3_key, size, mime_type, content_hash, uploaded_by, comment, uploaded_at, asset_id, based_on_version)
       SELECT gen_random_uuid(),
              staged.canonical_node_id,
-             COALESCE(canonical.current_version, 0) + 1,
-             fv.s3_key, fv.size, fv.mime_type, fv.content_hash, fv.uploaded_by, fv.comment, fv.uploaded_at, fv.asset_id
+             -- Numbered from history: the active version may be an older one (append-only versions).
+             GREATEST(COALESCE(canonical.current_version, 0), (SELECT COALESCE(MAX(h.version), 0) FROM file_versions h WHERE h.node_id = canonical.id)) + 1,
+             fv.s3_key, fv.size, fv.mime_type, fv.content_hash, fv.uploaded_by, fv.comment, fv.uploaded_at, fv.asset_id, canonical.current_version
       FROM workspace_nodes staged
       JOIN file_versions fv ON fv.node_id = staged.id
       JOIN workspace_nodes canonical ON canonical.id = staged.canonical_node_id AND canonical.workspace_id = staged.workspace_id AND canonical.task_id IS NULL
@@ -168,7 +169,7 @@ export async function mergeSandboxTask(
           name = staged.name,
           current_version = CASE 
             WHEN staged.type = 'file' AND (staged.s3_key IS DISTINCT FROM canonical.s3_key OR staged.git_blob_hash IS DISTINCT FROM canonical.git_blob_hash) 
-            THEN canonical.current_version + 1 
+            THEN (SELECT MAX(h.version) FROM file_versions h WHERE h.node_id = canonical.id)
             ELSE canonical.current_version 
           END,
           s3_key = staged.s3_key,

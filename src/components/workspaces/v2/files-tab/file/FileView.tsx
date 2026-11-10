@@ -368,10 +368,10 @@ export function FileView({
             return;
           }
           useFilesStore.getState().setNodes(projectId, [result.node]);
-          const previous = result.version.version - 1;
+          const previous = result.version.basedOnVersion ?? result.version.version - 1;
           toast.success(`New version · v${previous} → v${result.version.version}`, {
             duration: 8_000,
-            action: { label: "Undo", onClick: () => void import("@/lib/files/place-drop").then(({ undoDrop }) => undoDrop(projectId, { created: [], versions: [{ nodeId: node.id, name: node.name, previous }], skipped: [] })) },
+            action: { label: "Undo", onClick: () => void import("@/lib/files/place-drop").then(({ undoDrop }) => undoDrop(projectId, { created: [], versions: [{ nodeId: node.id, name: node.name, previous, version: result.version.version }], skipped: [] })) },
           });
         } catch (err) {
           const message =

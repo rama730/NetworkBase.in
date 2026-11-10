@@ -1,20 +1,9 @@
-// Property 4 — Restore Monotonicity
+// Property 4 — versions only grow (2026-11-11, replaces "Restore Monotonicity")
 //
-// **Validates: Requirements 10.6**
-//
-// Task-Files Version Control V3 spec, Task 13.4. See design.md § Correctness
-// Properties / Property 4 for the prose statement.
-//
-// Invariant (design.md § Property 4):
-//   For any sequence of `restoreVersion` calls, the resulting `currentVersion`
-//   on the node is strictly greater than the `currentVersion` before the
-//   restore. Formally: `restoreVersion(v) => node.currentVersion' > node.currentVersion`.
-//
-// The server action `restoreFileVersion` appends through the canonical revision
-// service. Allocation uses the highest retained history row, not merely the
-// active pointer, and updates the node's currentVersion to that new row.
-// This property verifies that the monotonicity invariant holds for arbitrary
-// sequences of restore operations starting from any valid initial version.
+// A file is an append-only list of versions plus an active pointer. For any sequence of saves and restores:
+//   - a save appends one version numbered after the whole history (nextFileRevisionNumber), based on the active one;
+//   - a restore only moves the active pointer to an existing version; the history is unchanged;
+//   - version numbers are unique and never reused.
 
 import test from "node:test";
 import fc from "fast-check";
@@ -22,75 +11,39 @@ import assert from "node:assert/strict";
 
 import { nextFileRevisionNumber } from "../../../../src/lib/files/revision-policy";
 
-// ---------------------------------------------------------------------------
-// Model of restoreVersion logic (mirrors src/app/actions/files/versions.ts)
-// ---------------------------------------------------------------------------
+type File = { history: Array<{ version: number; basedOn: number | null }>; active: number };
 
-/**
- * Models the core version-bumping logic of `restoreFileVersion`:
- *   nextVersion = (currentVersion ?? 1) + 1
- *
- * Returns the new currentVersion after the restore.
- */
-function modelRestoreVersion(currentVersion: number, highestVersion: number): number {
-  return nextFileRevisionNumber(currentVersion, highestVersion);
-}
+const save = (file: File): File => {
+  const version = nextFileRevisionNumber(file.active, Math.max(...file.history.map((v) => v.version)));
+  return { history: [...file.history, { version, basedOn: file.active }], active: version };
+};
+const restore = (file: File, pick: number): File => ({ ...file, active: file.history[pick % file.history.length]!.version });
 
-// ---------------------------------------------------------------------------
-// Generators
-// ---------------------------------------------------------------------------
-
-// Starting currentVersion: 1..100 (realistic range for file versions)
-const startingVersionArb = fc.integer({ min: 1, max: 100 });
-
-// A valid target version to restore: must be between 1 and the currentVersion
-// (you can only restore a version that exists, i.e. <= currentVersion).
-// We generate the target relative to the current version at each step.
-const restoreSequenceLengthArb = fc.integer({ min: 1, max: 20 });
-
-// ---------------------------------------------------------------------------
-// Property assertion — design.md § Property 4
-// ---------------------------------------------------------------------------
-
-test("Property 4: Restore Monotonicity — restoreVersion(v) => node.currentVersion' > node.currentVersion", () => {
-  // **Validates: Requirements 10.6**
+test("Property 4: saves append after the whole history; restores only move the active version", () => {
   fc.assert(
-    fc.property(
-      startingVersionArb,
-      restoreSequenceLengthArb,
-      fc.infiniteStream(fc.integer({ min: 1, max: 100 })),
-      (startVersion, seqLength, targetVersionStream) => {
-        let currentVersion = startVersion;
-
-        // Execute a sequence of restore operations
-        for (let i = 0; i < seqLength; i++) {
-          const previousVersion = currentVersion;
-
-          // Pick a valid target version (clamp to [1, currentVersion] since
-          // you can only restore versions that exist)
-          const rawTarget = targetVersionStream.next().value;
-          const targetVersion = ((rawTarget - 1) % currentVersion) + 1;
-
-          // Apply the restore model
-          const newVersion = modelRestoreVersion(currentVersion, currentVersion);
-
-          // Assert strict monotonicity: new version > previous version
-          assert.ok(
-            newVersion > previousVersion,
-            `Restore monotonicity violated: restoreVersion(${targetVersion}) ` +
-              `produced currentVersion=${newVersion} which is not > previous=${previousVersion}`,
-          );
-
-          currentVersion = newVersion;
+    fc.property(fc.array(fc.oneof(fc.constant(-1), fc.nat(50)), { minLength: 1, maxLength: 40 }), (steps) => {
+      let file: File = { history: [{ version: 1, basedOn: null }], active: 1 };
+      for (const step of steps) {
+        const before = file;
+        file = step === -1 ? save(file) : restore(file, step);
+        if (step === -1) {
+          const added = file.history.at(-1)!;
+          assert.equal(added.version, Math.max(...before.history.map((v) => v.version)) + 1);
+          assert.equal(added.basedOn, before.active);
+          assert.equal(file.active, added.version);
+        } else {
+          assert.deepEqual(file.history, before.history, "a restore never adds or changes a version");
+          assert.ok(file.history.some((v) => v.version === file.active));
         }
-
-        return true;
-      },
-    ),
-    { numRuns: 100 },
+        assert.equal(new Set(file.history.map((v) => v.version)).size, file.history.length, "numbers are never reused");
+      }
+    }),
+    { numRuns: 300 },
   );
 });
 
-test("Property 4 regression: restoring from a legacy lower active pointer appends after retained history", () => {
-  assert.equal(modelRestoreVersion(1, 10), 11);
+test("Property 4 regression: going back to v1 of v1..v10 then saving makes v11 based on v1", () => {
+  const ten: File = { history: Array.from({ length: 10 }, (_, i) => ({ version: i + 1, basedOn: i || null })), active: 10 };
+  const next = save(restore(ten, 0));
+  assert.deepEqual(next.history.at(-1), { version: 11, basedOn: 1 });
 });
