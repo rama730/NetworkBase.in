@@ -13,6 +13,11 @@ import { requireDisposableDatabaseUrl } from "../../scripts/lib/disposable-db";
 
 dotenv.config({ path: ".env.local", quiet: true });
 
+// CI has no .env.local. Tests that check queued emails need the queue on (nothing is sent: CI has no Resend key,
+// and rows only reach the email outbox), and the hosted MCP route needs a site address.
+process.env.RESEND_EMAIL_ENABLED ??= "true";
+process.env.APP_URL ??= "http://localhost:3000";
+
 // Tests never reach a real Redis. Under NODE_ENV=test the rate limiter keeps its own in-memory limits;
 // without this CI (no Redis, production-like fail-closed mode) rejects every rate-limited action.
 delete process.env.UPSTASH_REDIS_REST_URL;
