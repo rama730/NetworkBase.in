@@ -3395,6 +3395,8 @@ export const fileVersions = pgTable(
     // Optional version note supplied by the uploader ("fixed typo", etc).
     comment: text("comment"),
     attribution: jsonb("attribution").$type<Record<string, unknown>>().default({}).notNull(),
+    /** The version that was active when this one was saved, when that wasn't the newest (0081): "v4 based on v1". */
+    basedOnVersion: integer("based_on_version"),
   },
   (t) => ({
     uniqueNodeVersion: uniqueIndex("file_versions_node_version_unique").on(

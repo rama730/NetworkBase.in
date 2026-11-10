@@ -561,6 +561,13 @@
       "when": 1794200000000,
       "tag": "0080_oauth_for_hosted_mcp",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1794300000000,
+      "tag": "0081_file_versions_based_on",
+      "breakpoints": true
     }
   ]
 }
