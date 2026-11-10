@@ -5,12 +5,12 @@ import { resolveSupabaseServerCookieOptions } from "@/lib/supabase/cookie-option
 type PasswordVerificationResult = {
   ok: boolean;
   message?: string;
-  reason?: "invalid_credentials" | "email_not_confirmed" | "verification_failed";
+  reason?: "invalid_credentials" | "email_not_confirmed" | "captcha_failed" | "verification_failed";
 };
 
 type PasswordVerifier = {
   auth: {
-    signInWithPassword(credentials: { email: string; password: string }): Promise<{
+    signInWithPassword(credentials: { email: string; password: string; options?: { captchaToken: string } }): Promise<{
       error?: {
         message?: string | null;
         code?: string | null;
@@ -65,11 +65,18 @@ async function verifyPasswordCredentialWithVerifier(
   verifier: PasswordVerifier,
   email: string,
   password: string,
+  captchaToken?: string,
 ): Promise<PasswordVerificationResult> {
+  // Supabase checks the token itself (CAPTCHA protection); it's single-use, so nothing here verifies it first.
   const verifyResult = await verifier.auth.signInWithPassword({
     email,
     password,
+    ...(captchaToken ? { options: { captchaToken } } : {}),
   });
+
+  if (verifyResult.error?.code === "captcha_failed") {
+    return { ok: false, reason: "captcha_failed", message: "Finish the security check, then try again." };
+  }
 
   if (verifyResult.error) {
     const message = verifyResult.error.message?.trim() || undefined;
@@ -99,7 +106,7 @@ async function verifyPasswordCredentialWithVerifier(
   return { ok: true };
 }
 
-export async function verifyPasswordCredential(email: string, password: string): Promise<PasswordVerificationResult> {
+export async function verifyPasswordCredential(email: string, password: string, captchaToken?: string): Promise<PasswordVerificationResult> {
   const env = resolveSupabasePublicEnv("security.password-auth");
   const verifier = createServerClient(
     env.url,
@@ -115,7 +122,7 @@ export async function verifyPasswordCredential(email: string, password: string):
     },
   );
 
-  return verifyPasswordCredentialWithVerifier(verifier, email, password);
+  return verifyPasswordCredentialWithVerifier(verifier, email, password, captchaToken);
 }
 
 export const __testOnly = {

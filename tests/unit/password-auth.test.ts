@@ -3,6 +3,31 @@ import { describe, it } from "node:test";
 import { __testOnly } from "@/lib/security/password-auth";
 
 describe("password auth helpers", () => {
+  // Supabase's CAPTCHA protection refuses a password sign-in without a token, so every "verify it's you" by password
+  // failed with a 500 (found 2026-11-10). The dialog's Turnstile token goes to Supabase, which checks it itself.
+  it("sends the security check's token with the password", async () => {
+    let sent: unknown = null;
+    const result = await __testOnly.verifyPasswordCredentialWithVerifier(
+      { auth: { async signInWithPassword(credentials) { sent = credentials; return {}; }, async signOut() {} } },
+      "user@example.com",
+      "right-password",
+      "turnstile-token",
+    );
+    assert.deepEqual(result, { ok: true });
+    assert.deepEqual(sent, { email: "user@example.com", password: "right-password", options: { captchaToken: "turnstile-token" } });
+  });
+
+  it("a refused or missing security check is its own answer, not a server error", async () => {
+    const result = await __testOnly.verifyPasswordCredentialWithVerifier(
+      { auth: { async signInWithPassword() { return { error: { message: "captcha protection: request disallowed (no captcha_token found)", code: "captcha_failed", status: 400 } }; }, async signOut() {} } },
+      "user@example.com",
+      "right-password",
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "captcha_failed");
+    assert.equal(result.message, "Finish the security check, then try again.");
+  });
+
   it("returns an invalid-password result without signing out when credentials are invalid", async () => {
     let signOutCalls = 0;
 

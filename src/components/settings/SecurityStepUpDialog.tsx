@@ -3,6 +3,7 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
+import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from "@/components/auth/TurnstileWidget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,11 +47,21 @@ export default function SecurityStepUpDialog({
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Supabase's CAPTCHA protection checks a password only with a Turnstile token, as on the sign-in page. Tokens are
+  // single-use, so each attempt remounts the widget for a fresh one.
+  const requiresCaptcha = hasTurnstileSiteKey();
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaKey, setCaptchaKey] = useState(0);
+  const renewCaptcha = () => {
+    setCaptchaToken(null);
+    setCaptchaKey((key) => key + 1);
+  };
 
   useEffect(() => {
     if (!open) {
       setCode("");
       setPassword("");
+      setCaptchaToken(null);
       setSubmitting(false);
       setMethod(defaultMethod);
       return;
@@ -87,11 +98,17 @@ export default function SecurityStepUpDialog({
   const handleSubmit = async (event?: FormEvent) => {
     event?.preventDefault();
     if (submitDisabled) return;
+    const usesCaptcha = method === "password" && requiresCaptcha;
+    if (usesCaptcha && !captchaToken) {
+      toast.info(SECURITY_CHECK_PROMPT);
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = method === "password"
-        ? { method, password }
+        ? { method, password, ...(captchaToken ? { captchaToken } : {}) }
         : { method, code: code.trim(), ...(method === "totp" ? { factorId } : {}) };
+      if (usesCaptcha) renewCaptcha();
 
       const response = await fetch("/api/v1/auth/security-step-up", {
         method: "POST",
@@ -185,6 +202,14 @@ export default function SecurityStepUpDialog({
                 placeholder="Enter your password"
                 disabled={submitting}
               />
+              {requiresCaptcha ? (
+                <TurnstileWidget
+                  key={captchaKey}
+                  action="step-up"
+                  onVerify={setCaptchaToken}
+                  onExpire={() => setCaptchaToken(null)}
+                />
+              ) : null}
             </div>
           )}
 

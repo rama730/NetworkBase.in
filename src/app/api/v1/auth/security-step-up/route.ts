@@ -31,6 +31,8 @@ type SecurityStepUpBody = {
   factorId?: string;
   code?: string;
   password?: string;
+  /** Turnstile token for the password check; Supabase's CAPTCHA protection requires it. */
+  captchaToken?: string;
 };
 
 
@@ -189,7 +191,7 @@ export async function POST(request: Request) {
     const logAndJsonError = (
       message: string,
       status: number,
-      errorCode: "BAD_REQUEST" | "STEP_UP_INVALID" | "RECOVERY_CODE_INVALID" | "INTERNAL_ERROR" | "EMAIL_NOT_CONFIRMED",
+      errorCode: "BAD_REQUEST" | "STEP_UP_INVALID" | "RECOVERY_CODE_INVALID" | "INTERNAL_ERROR" | "EMAIL_NOT_CONFIRMED" | "CAPTCHA_FAILED",
       failureReason: string,
     ) => {
       logApiRoute(request, {
@@ -315,7 +317,11 @@ export async function POST(request: Request) {
         return jsonError("Password verification is not available for this account", 400, "BAD_REQUEST");
       }
 
-      const verification = await verifyPasswordCredential(user.email, password);
+      const captchaToken = typeof body.captchaToken === "string" && body.captchaToken.length <= 4096 ? body.captchaToken : undefined;
+      const verification = await verifyPasswordCredential(user.email, password, captchaToken);
+      if (verification.reason === "captcha_failed") {
+        return logAndJsonError(verification.message ?? "Finish the security check, then try again.", 400, "CAPTCHA_FAILED", "PASSWORD_CAPTCHA_FAILED");
+      }
       if (!verification.ok) {
         const invalidCredentials = verification.reason === "invalid_credentials";
         const emailNotConfirmed = verification.reason === "email_not_confirmed";

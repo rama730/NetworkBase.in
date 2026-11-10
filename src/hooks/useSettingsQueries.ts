@@ -303,16 +303,19 @@ async function submitPasswordChangeRequest({
   currentPassword,
   newPassword,
   signOutOtherDevices,
+  captchaToken,
 }: {
   currentPassword: string;
   newPassword: string;
   signOutOtherDevices?: boolean;
+  /** Turnstile token: Supabase's CAPTCHA protection needs it to check the current password. */
+  captchaToken?: string | null;
 }) {
   try {
     const res = await fetch("/api/v1/auth/change-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword, newPassword, signOutOtherDevices }),
+      body: JSON.stringify({ currentPassword, newPassword, signOutOtherDevices, ...(captchaToken ? { captchaToken } : {}) }),
     });
 
     await parseJsonResponse<unknown>(res, "Password change failed");

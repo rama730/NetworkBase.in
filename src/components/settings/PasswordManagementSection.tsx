@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from "@/components/auth/TurnstileWidget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,6 +46,10 @@ export default function PasswordManagementSection({
   const [signOutOtherDevices, setSignOutOtherDevices] = useState(true);
   // null: not checked yet or couldn't be checked (the server checks again on submit).
   const [breached, setBreached] = useState<boolean | null>(null);
+  // Checking the current password needs a Turnstile token (Supabase's CAPTCHA protection); one per attempt.
+  const requiresCaptcha = hasPassword && hasTurnstileSiteKey();
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaKey, setCaptchaKey] = useState(0);
 
   const isChangingPassword = changePasswordMutation.isPending;
   const title = hasPassword ? "Change password" : "Set a password";
@@ -91,7 +96,16 @@ export default function PasswordManagementSection({
   };
 
   const submitPasswordChange = async () => {
-    const result = await changePasswordMutation.mutateAsync({ currentPassword, newPassword, signOutOtherDevices });
+    if (requiresCaptcha && !captchaToken) {
+      toast.info(SECURITY_CHECK_PROMPT);
+      return;
+    }
+    const token = captchaToken;
+    if (requiresCaptcha) {
+      setCaptchaToken(null);
+      setCaptchaKey((key) => key + 1);
+    }
+    const result = await changePasswordMutation.mutateAsync({ currentPassword, newPassword, signOutOtherDevices, captchaToken: token });
     if (!result.success) {
       const errorCode = "errorCode" in result ? result.errorCode : undefined;
       if (errorCode === "STEP_UP_REQUIRED") {
@@ -169,6 +183,14 @@ export default function PasswordManagementSection({
                     {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
+                {requiresCaptcha ? (
+                  <TurnstileWidget
+                    key={captchaKey}
+                    action="change-password"
+                    onVerify={setCaptchaToken}
+                    onExpire={() => setCaptchaToken(null)}
+                  />
+                ) : null}
               </div>
             ) : null}
 

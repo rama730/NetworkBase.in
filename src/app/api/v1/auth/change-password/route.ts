@@ -26,6 +26,8 @@ const changePasswordSchema = z.object({
   currentPassword: z.string().max(128).optional(),
   newPassword: z.string().min(1).max(128),
   signOutOtherDevices: z.boolean().optional(),
+  /** Turnstile token for checking the current password; Supabase's CAPTCHA protection requires it. */
+  captchaToken: z.string().max(4096).optional(),
 });
 
 export async function POST(request: Request) {
@@ -237,7 +239,11 @@ export async function POST(request: Request) {
     }
 
     if (accountHasPassword) {
-      const verifyResult = await verifyPasswordCredential(authUser.email, currentPassword);
+      const verifyResult = await verifyPasswordCredential(authUser.email, currentPassword, parsed.data.captchaToken);
+      if (verifyResult.reason === "captcha_failed") {
+        logApiRoute(request, { requestId, action: "auth.changePassword.post", userId: authUser.id, startedAt, success: false, status: 400, errorCode: "CAPTCHA_FAILED" });
+        return jsonError(verifyResult.message ?? "Finish the security check, then try again.", 400, "CAPTCHA_FAILED");
+      }
       if (!verifyResult.ok) {
         const invalidCredentials = verifyResult.reason === "invalid_credentials";
         const emailNotConfirmed = verifyResult.reason === "email_not_confirmed";
