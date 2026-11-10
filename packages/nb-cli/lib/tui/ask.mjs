@@ -42,10 +42,12 @@ export async function ask(ctx, q) {
   return interactiveChoice(ctx, q);
 }
 
-/** A yes/no that defaults to the safe answer (A4.11). @param {import("../context.mjs").Context} ctx @param {{ key: string, question: string, yesLabel?: string, noLabel?: string, preview?: string, defaultYes?: boolean }} c */
+/** A yes/no that defaults to the safe answer (A4.11). @param {import("../context.mjs").Context} ctx @param {{ key: string, question: string, yesLabel?: string, noLabel?: string, preview?: string, defaultYes?: boolean, heldByServer?: boolean }} c heldByServer: the server holds it for an agent token */
 export async function confirm(ctx, c) {
   // --yes means yes, even where the safe default is No (delete, unlink); --answer key=no still says no.
   if (ctx.flags.yes && answered(ctx, c.key) === null) return true;
+  // An agent token's big changes are held by the server for the person's yes; asking here too asked them twice.
+  if (c.heldByServer && String(ctx.profile?.token ?? "").startsWith("nb_agt_")) return true;
   try {
     const value = await ask(ctx, {
       key: c.key,

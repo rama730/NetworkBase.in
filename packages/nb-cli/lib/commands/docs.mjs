@@ -101,7 +101,7 @@ async function saveDoc(ctx, slug, doc, next) {
     return EXIT.ok;
   }
   const preview = unifiedDiff(doc.content, next)?.lines.slice(0, 30).map((l) => `${l.kind === "@" ? "" : l.kind}${l.text}`).join("\n");
-  if (!(await confirm(ctx, { key: "save", question: `Save ${doc.file.path} as v${doc.file.version + 1}?`, ...(preview ? { preview } : {}), yesLabel: "Save", defaultYes: true }))) return EXIT.cancelled;
+  if (!(await confirm(ctx, { key: "save", heldByServer: true, question: `Save ${doc.file.path} as v${doc.file.version + 1}?`, ...(preview ? { preview } : {}), yesLabel: "Save", defaultYes: true }))) return EXIT.cancelled;
   const bytes = Buffer.from(next, "utf8");
   const res = /** @type {any} */ (await ctx.api.post("/api/v1/files/place", {
     projectId: ctx.requireWorkspace(),

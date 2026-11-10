@@ -56,7 +56,7 @@ export async function taskAssign(ctx) {
 /** @param {Context} ctx */
 export async function taskDelete(ctx) {
   const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]));
-  if (!(await confirm(ctx, { key: "delete", question: `Delete #${task.taskNumber} ${task.title}? Its draft files move to a recovery folder.`, yesLabel: "Delete", defaultYes: false }))) return EXIT.cancelled;
+  if (!(await confirm(ctx, { key: "delete", heldByServer: true, question: `Delete #${task.taskNumber} ${task.title}? Its draft files move to a recovery folder.`, yesLabel: "Delete", defaultYes: false }))) return EXIT.cancelled;
   await update(ctx, { kind: "delete", taskId: task.id });
   ctx.out.result("nb.task.delete/1", { number: task.taskNumber }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Deleted #${d.number}`);
 }

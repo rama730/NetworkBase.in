@@ -76,7 +76,7 @@ export async function sprintView(ctx) {
 export async function updatePost(ctx) {
   const content = String(ctx.flags.message ?? ctx.positionals.join(" ")).trim();
   if (!content) throw usage('nb update post -m "What happened this week"');
-  if (!(await confirm(ctx, { key: "post", question: "Post this update? Everyone in the workspace sees it.", preview: content, yesLabel: "Post", defaultYes: true }))) return EXIT.cancelled;
+  if (!(await confirm(ctx, { key: "post", heldByServer: true, question: "Post this update? Everyone in the workspace sees it.", preview: content, yesLabel: "Post", defaultYes: true }))) return EXIT.cancelled;
   await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates`, { content });
   ctx.out.result("nb.update.post/1", { posted: true }, () => `${ctx.out.c.success(ctx.out.sym.done)} Posted the update`);
 }
@@ -108,7 +108,7 @@ async function fileOperation(ctx, kind) {
   if (!p || (kind !== "trash" && !target)) throw usage(kind === "move" ? "nb file move <path> <folder>" : kind === "rename" ? "nb file rename <path> <new name>" : "nb file delete <path>");
   const node = await nodeOf(ctx, p);
   const question = kind === "trash" ? `Move ${remote(p)} to the workspace Trash?` : kind === "move" ? `Move ${remote(p)} to ${remote(String(target))}?` : `Rename ${remote(p)} to ${target}?`;
-  if (!(await confirm(ctx, { key: kind, question, yesLabel: kind === "trash" ? "Move to Trash" : "Yes", defaultYes: kind !== "trash" }))) return EXIT.cancelled;
+  if (!(await confirm(ctx, { key: kind, heldByServer: true, question, yesLabel: kind === "trash" ? "Move to Trash" : "Yes", defaultYes: kind !== "trash" }))) return EXIT.cancelled;
   let parentId = null;
   if (kind === "move" && remote(String(target)) !== "/") parentId = (await nodeOf(ctx, String(target).replace(/\/+$/, ""))).nodeId ?? null;
   await ctx.api.post("/api/v1/extension/file-operation", {

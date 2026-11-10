@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { addTask, startFakeServer } from "./helpers/fake-server.mjs";
+import { addTask, putFile, startFakeServer } from "./helpers/fake-server.mjs";
 import { runCli, tempDir } from "./helpers/run-cli.mjs";
 import { startMcp } from "./helpers/mcp-session.mjs";
 
@@ -47,6 +47,16 @@ describe("nb undo and held changes", () => {
     const ok = await runCli(["task", "done", String(t.taskNumber), "-m", "Done", "--confirm", err.details.confirmToken], { api: api.url, cwd, home, token: agent });
     assert.equal(ok.code, 0, ok.stderr);
     assert.equal(api.state.tasks[0]?.status, "done");
+  });
+
+  // Found in the live check (2026-11-10): an agent's rename asked locally, then the server held it again: two yeses.
+  it("an agent's rename isn't asked here first: the server holds it, so the person is asked once", async () => {
+    putFile(api.state, "/a.txt", Buffer.from("a"));
+    const mine = await runCli(["file", "rename", "/a.txt", "b.txt", "--json"], { api: api.url, cwd, home });
+    assert.equal(mine.code, 7, "a person's token still asks here");
+    const agent = await runCli(["file", "rename", "/a.txt", "b.txt", "--json"], { api: api.url, cwd, home, token: "nb_agt_0123456789abcdef0123" });
+    assert.equal(agent.code, 0, agent.stderr);
+    assert.equal(api.state.fileOps.at(-1)?.kind, "rename");
   });
 
   it("through MCP the server's hold comes back as needs_confirmation, and the yes goes to the server", async () => {
