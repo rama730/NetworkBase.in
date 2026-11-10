@@ -347,9 +347,9 @@ export function FileView({
             () => null,
           );
 
-          // Fetch the current version's content hash for comparison
-          const versions = await listFileVersions(projectId, node.id, 1);
-          const currentVersionRow = versions[0]; // sorted desc by version
+          // The active version's hash: after going back it may not be the newest one.
+          const versions = await listFileVersions(projectId, node.id, 50);
+          const currentVersionRow = versions.find((v) => v.version === node.currentVersion);
 
           if (
             hashResult?.kind === "full" &&
