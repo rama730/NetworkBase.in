@@ -61,6 +61,9 @@ import { useFilesStore } from '@/stores/filesStore';
 import { useReloadOnNotice } from '@/hooks/useReloadOnNotice';
 import { useBackParent } from '@/hooks/useBackParent';
 import { TAB_STATE_PARAMS } from '@/lib/navigation/url-state';
+import type { WorkspaceLastUpdate as LastUpdateEntry } from '@/lib/workspaces/last-update';
+import type { WorkspaceRecentActivityItem } from '@/lib/workspaces/recent-activity';
+import type { RoleApplicationCounts } from '@/app/actions/applications/internal';
 import { keepStamp } from '@/lib/navigation/in-app-history';
 import { WORKSPACE_TAB_LABELS } from '@/lib/copy/terms';
 
@@ -185,7 +188,15 @@ interface ProjectDashboardClientProps {
     tasksStarted?: TasksBoot | null;
     /** The Files tab's root folder, started on the server when the page opens on Files. */
     filesStarted?: ReturnType<typeof getWorkspaceNodesWithCounts> | null;
+    /** Reads every open shows at once, started on the server so they don't queue one by one in the browser. */
+    started?: WorkspaceStarted | null;
 }
+
+export type WorkspaceStarted = {
+    lastUpdate?: Promise<LastUpdateEntry | null>;
+    recentActivity?: Promise<WorkspaceRecentActivityItem[]>;
+    roleCounts?: Promise<{ success: boolean; counts: RoleApplicationCounts }>;
+};
 
 const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false });
 async function askToChangeTeam(workspaceId: string) {
@@ -194,7 +205,7 @@ async function askToChangeTeam(workspaceId: string) {
     toast(result.success ? 'Your request went to the organization’s admins. Nobody else is told.' : result.error);
 }
 
-export default function WorkspaceDashboardClient({ project, currentUserId, viewerDisplayName = null, viewerAvatarUrl = null, isOwner, isMember, memberRole = null, initialSprintData = null, orgStarted = null, tasksStarted = null, filesStarted = null }: ProjectDashboardClientProps) {
+export default function WorkspaceDashboardClient({ project, currentUserId, viewerDisplayName = null, viewerAvatarUrl = null, isOwner, isMember, memberRole = null, initialSprintData = null, orgStarted = null, tasksStarted = null, filesStarted = null, started = null }: ProjectDashboardClientProps) {
     const router = useRouter();
     const pathname = usePathname();
     const queryClient = useQueryClient();
@@ -892,7 +903,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             : applicationStatus.status === 'withdrawn' ? 'Application withdrawn' : null;
     // Owners and admins see how many applications wait for them (the counts action answers only for reviewers).
     // Organizations don't show these counts; only the workspace Dashboard does.
-    const roleApplicationCounts = useRoleApplicationCounts(project.id, canManageProjectSettings && !isOrganization);
+    const roleApplicationCounts = useRoleApplicationCounts(project.id, canManageProjectSettings && !isOrganization, started?.roleCounts);
     const pendingApplicationsForReviewer = Object.values(roleApplicationCounts).reduce((sum, counts) => sum + counts.pending, 0);
     const projectClosed = ['archived', 'completed'].includes(String((project as { status?: string | null }).status ?? ''));
     const applicationControls = useMemo(() => ({
@@ -1148,7 +1159,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     return (
         <PlainContentHeadings>
         {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)} /> : null}
-        <WorkspaceLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={canSeeAllTabs} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => (isOrganization ? setIsOrgInviteOpen(true) : setIsInviteModalOpen(true))} canInvite={canManageProjectSettings}
+        <WorkspaceLayout lastUpdateStarted={started?.lastUpdate} project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={canSeeAllTabs} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => (isOrganization ? setIsOrgInviteOpen(true) : setIsInviteModalOpen(true))} canInvite={canManageProjectSettings}
             isOrganization={isOrganization}
             canOpenSettings={isInheritedAdmin}
             breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} current={project.title} /> : null}
@@ -1189,7 +1200,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                         {isOrganization ? <OrgDashboard orgId={project.id} orgSlug={project.slug ?? null} orgType={organization?.type ?? null} started={orgStarted?.dashboard} /> : <>
                         {parentOrg ? <ChildOrgLine projectId={project.id} /> : null}
                         {parentOrg ? <ChildUnitsLine projectId={project.id} members={allMembers} /> : null}
-                        <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} />
+                        <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} recentActivityStarted={started?.recentActivity} />
                         </>}
                     </TabErrorBoundary>
                 </div>

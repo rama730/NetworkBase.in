@@ -19,6 +19,7 @@ import type { Workspace } from "@/types/discover";
 import WorkspaceStatsBar from "@/components/workspaces/WorkspaceStatsBar";
 import WorkspaceAvatar from "@/components/workspaces/WorkspaceAvatar";
 import { WorkspaceLastUpdate } from "@/components/workspaces/WorkspaceLastUpdate";
+import type { WorkspaceLastUpdate as WorkspaceLastUpdateEntry } from "@/lib/workspaces/last-update";
 import { WorkspaceLinkCluster } from "@/components/workspaces/dashboard/WorkspaceSocialLinksCard";
 import ProjectTeamAvatars, { type WorkspaceHeaderMember } from "@/components/workspaces/dashboard/WorkspaceTeamAvatars";
 import {
@@ -66,6 +67,8 @@ interface ProjectLayoutProps {
     identityExtra?: React.ReactNode;
     /** Under the buttons, below who last updated it: where this sits and what it is. */
     headerDetails?: React.ReactNode;
+    /** The header's "Updated by" line, started on the server with the page. */
+    lastUpdateStarted?: Promise<WorkspaceLastUpdateEntry | null>;
     /** Above the title: a child project's org (report §18.4). */
     breadcrumb?: React.ReactNode;
     /** Opens Settings for people who don't manage the project, such as inherited org admins. */
@@ -122,6 +125,7 @@ export default function WorkspaceLayout({
     isOrganization = false,
     identityExtra = null,
     headerDetails = null,
+    lastUpdateStarted,
     breadcrumb = null,
     canOpenSettings = false,
     metadataExtra = null,
@@ -414,7 +418,7 @@ export default function WorkspaceLayout({
                         </div>
                         {/* The height is held so the buttons don't move when the line arrives. */}
                         <div className="min-h-5 w-full max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground max-md:text-left">
-                            <WorkspaceLastUpdate projectId={project.id} className="block truncate" />
+                            <WorkspaceLastUpdate projectId={project.id} started={lastUpdateStarted} className="block truncate" />
                         </div>
                         {headerDetails}
                         </div>

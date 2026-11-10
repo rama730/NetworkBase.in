@@ -1,17 +1,23 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+
+import { serverFirst } from "@/lib/server-first";
+import type { RoleApplicationCounts } from "@/app/actions/applications/internal";
 
 import { getRoleApplicationCountsAction } from "@/app/actions/applications";
 
 /** Pending and accepted applications per role, for the roles editor. Empty for anyone who can't review them. */
-export function useRoleApplicationCounts(projectId: string, enabled = true) {
+export function useRoleApplicationCounts(projectId: string, enabled = true, started?: Promise<{ success: boolean; counts: RoleApplicationCounts }>) {
+    // The first read can come with the page (started on the server).
+    const [read] = useState(() => serverFirst(started, () => getRoleApplicationCountsAction(projectId)));
     const query = useQuery({
         queryKey: ["project", projectId, "role-application-counts"],
         enabled,
         staleTime: 60_000,
         queryFn: async () => {
-            const result = await getRoleApplicationCountsAction(projectId);
+            const result = await read();
             if (!result.success) throw new Error("Couldn’t read the applications");
             return result.counts;
         },

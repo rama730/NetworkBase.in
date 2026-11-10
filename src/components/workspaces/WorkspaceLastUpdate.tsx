@@ -1,11 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { createBatcher } from "@/lib/batcher";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { formatLastUpdateTime, lastUpdateLine, type WorkspaceLastUpdate as Update } from "@/lib/workspaces/last-update";
 import { queryKeys } from "@/lib/query-keys";
+import { serverFirst } from "@/lib/server-first";
 
 // A page of cards makes one request, and the action only loads once something shows a line.
 const load = createBatcher<Update>(async (ids) => {
@@ -14,12 +16,14 @@ const load = createBatcher<Update>(async (ids) => {
 });
 
 /** `Updated by Rama · 2h ago`; with `timeOnly`, where the row already names the workspace, just `2h ago`. */
-export function WorkspaceLastUpdate({ projectId, timeOnly = false, className }: { projectId: string | null | undefined; timeOnly?: boolean; className?: string }) {
+export function WorkspaceLastUpdate({ projectId, timeOnly = false, className, started }: { projectId: string | null | undefined; timeOnly?: boolean; className?: string; started?: Promise<Update | null> }) {
   const id = projectId && isLooseUuid(projectId) ? projectId : null;
+  // The workspace header's line comes with the page (started on the server); cards batch theirs.
+  const [readStarted] = useState(() => serverFirst(started, () => load(id!)));
   const { data, dataUpdatedAt } = useQuery({
     queryKey: queryKeys.project.detail.lastUpdate(id ?? "none"),
     enabled: Boolean(id),
-    queryFn: () => load(id!),
+    queryFn: () => (started ? readStarted() : load(id!)),
     staleTime: 60_000,
     refetchInterval: 5 * 60_000,
     refetchIntervalInBackground: false,

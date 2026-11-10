@@ -18,11 +18,26 @@ test("project detail has an immediate route shell and a shared server read", () 
   assert.match(loading, /aria-label="Loading workspace"/);
 });
 
-test("scrolling past project cards fetches no pages", () => {
+test("scrolling past project cards fetches no pages; pointing at one prefetches it", () => {
   const card = source("src/components/workspaces/WorkspaceCard.tsx");
 
-  assert.match(card, /<Link prefetch=\{false\} href=\{href\}/);
+  // Off until someone hovers, touches or tabs to the card (Next's hover-prefetch pattern), then the full page.
+  assert.match(card, /<Link prefetch=\{intent \? true : false\} onMouseEnter=\{showIntent\} onTouchStart=\{showIntent\} onFocus=\{showIntent\} href=\{href\}/);
+  assert.match(card, /const \[intent, setIntent\] = useState\(false\)/);
   assert.doesNotMatch(card, /useRouteWarmPrefetch/);
+});
+
+test("a workspace open starts its always-visible reads on the server (no queue of server actions)", () => {
+  const route = source("src/app/(site)/(main)/workspaces/[slug]/workspace-route.tsx");
+  assert.match(route, /lastUpdate: getWorkspaceLastUpdates\(\{ projectIds: \[project\.id\] \}\)/);
+  assert.match(route, /recentActivity: readWorkspaceRecentActivityAction\(project\.id\)/);
+  assert.match(route, /roleCounts: getRoleApplicationCountsAction\(project\.id\)/);
+  assert.match(route, /started=\{started\}/);
+  // Only link-preview bots read the share preview in metadata.
+  assert.match(route, /const preview = crawler \? await readSharePreview\(url\) : null;/);
+  for (const file of ["src/components/workspaces/WorkspaceLastUpdate.tsx", "src/components/workspaces/dashboard/RecentActivityCard.tsx", "src/hooks/useRoleApplicationCounts.ts"]) {
+    assert.match(source(file), /serverFirst\(started, /, file);
+  }
 });
 
 test("project detail defers and deduplicates optional work", () => {

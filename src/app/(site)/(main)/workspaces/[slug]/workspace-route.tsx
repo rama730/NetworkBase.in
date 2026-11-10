@@ -4,7 +4,10 @@ import { after } from 'next/server';
 import { WORKSPACE_TAB_LABELS } from '@/lib/copy/terms';
 import type { Metadata } from 'next';
 import { cache, Suspense } from 'react';
-import WorkspaceDashboardClient from '@/components/workspaces/dashboard/WorkspaceDashboardClient';
+import WorkspaceDashboardClient, { type WorkspaceStarted } from '@/components/workspaces/dashboard/WorkspaceDashboardClient';
+import { getWorkspaceLastUpdates } from '@/app/actions/workspace/last-update';
+import { readWorkspaceRecentActivityAction } from '@/app/actions/workspace/recent-activity';
+import { getRoleApplicationCountsAction } from '@/app/actions/applications';
 import { readWorkspaceDetailShell, readWorkspaceSprintDetail } from '@/app/actions/workspace';
 import WorkspaceDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
@@ -66,14 +69,17 @@ export async function generateWorkspaceRouteMetadata({
 }): Promise<Metadata> {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
     const url = new URL(`${base}/${encodeURIComponent(slug)}`, shareOrigin()).href;
-    const preview = await readSharePreview(url);
-    const metadata = shareMetadata(preview ?? genericSharePreview({ kind: 'project', identifier: slug, url }, 'unavailable'));
+    const crawler = isShareCrawler((await headers()).get('user-agent'));
+    // Only link-preview bots need the share preview; a person's tab gets the real title from the shell below,
+    // so a normal open skips this second workspace read.
+    const preview = crawler ? await readSharePreview(url) : null;
+    const metadata = shareMetadata(preview ?? genericSharePreview({ kind: 'project', identifier: slug, url }, crawler ? 'unavailable' : 'ready'));
 
     const requested = firstParam(_searchParams?.tab);
     const tab = requested ?? 'dashboard';
     // Report §17.1: people who can open the workspace get its real title, even when it isn't public (an
     // organization-only workspace). The read below uses their own access; crawlers keep the share preview.
-    if (tab && !isShareCrawler((await headers()).get('user-agent'))) {
+    if (tab && !crawler) {
         const tabTitle = (WORKSPACE_TAB_LABELS as Record<string, string>)[tab];
         if (tabTitle) {
             const { result } = await readProjectRouteShell(slug);
@@ -197,6 +203,14 @@ async function ResolvedProjectDashboard({
     // The Files tab's root folder, the same first page the explorer asks for (100 rows).
     const filesStarted = selectedTab === 'files' && user ? getWorkspaceNodesWithCounts(project.id, null, undefined, 100) : null;
     filesStarted?.catch(() => null);
+    // Reads every open shows at once (header line, Dashboard activity, owners' application count), started here so
+    // they arrive with the page instead of queueing in the browser one at a time.
+    const started: WorkspaceStarted = {
+        lastUpdate: getWorkspaceLastUpdates({ projectIds: [project.id] }).then((list) => list[0] ?? null),
+        ...(selectedTab === 'dashboard' && !project.organization ? { recentActivity: readWorkspaceRecentActivityAction(project.id) } : {}),
+        ...((capabilities.isOwner || capabilities.memberRole === 'admin') && !project.organization ? { roleCounts: getRoleApplicationCountsAction(project.id) } : {}),
+    };
+    Object.values(started).forEach((read) => read?.catch(() => undefined));
 
     return (
         <WorkspaceDashboardClient
@@ -211,6 +225,7 @@ async function ResolvedProjectDashboard({
             orgStarted={orgStarted}
             tasksStarted={tasksStarted}
             filesStarted={filesStarted}
+            started={started}
         />
     );
 }

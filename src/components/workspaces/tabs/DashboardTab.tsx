@@ -7,6 +7,7 @@ import { RecentActivityCard } from "@/components/workspaces/dashboard/RecentActi
 import { useBottomStickyRail } from "@/hooks/useBottomStickyRail";
 
 import { type ApplicationStatusResult } from "@/app/actions/applications";
+import type { WorkspaceRecentActivityItem } from "@/lib/workspaces/recent-activity";
 
 interface DashboardTabProps {
     project: any;
@@ -25,6 +26,8 @@ interface DashboardTabProps {
     invitationLoading?: boolean;
     application?: ApplicationCardControls;
     pendingApplications?: number;
+    /** Recent activity's first read, started on the server with the page. */
+    recentActivityStarted?: Promise<WorkspaceRecentActivityItem[]>;
 }
 
 export function DashboardTab({
@@ -44,6 +47,7 @@ export function DashboardTab({
     invitationLoading,
     application,
     pendingApplications,
+    recentActivityStarted,
 }: DashboardTabProps) {
     const stickyRail = useBottomStickyRail({ topInset: "calc(var(--workspace-tabs-height, 0px) + 24px)" });
     const stages = lifecycleStages.map((stage: any) => stage?.name ?? stage).filter(Boolean);
@@ -66,7 +70,7 @@ export function DashboardTab({
                         layout="rail"
                     />
                 ) : null}
-                <RecentActivityCard projectId={project.id} />
+                <RecentActivityCard projectId={project.id} started={recentActivityStarted} />
                 <OpenRolesCard
                     inOrganization={Boolean(project.parentOrg)}
                     roles={rolesWithFilled}

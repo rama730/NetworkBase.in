@@ -43,7 +43,7 @@ test("the page starts an organization tab's first reads on the server and the ta
   const client = read("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx");
   assert.match(client, /started=\{orgStarted\?\.dashboard\}/);
   assert.match(client, /started=\{orgStarted\?\.members\}/);
-  assert.match(client, /useRoleApplicationCounts\(project\.id, canManageProjectSettings && !isOrganization\)/);
+  assert.match(client, /useRoleApplicationCounts\(project\.id, canManageProjectSettings && !isOrganization, started\?\.roleCounts\)/);
 });
 
 test("the sidebar's own reads ride the shell batch and never show 'No workspaces yet' while loading (problem 2)", () => {

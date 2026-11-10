@@ -5,11 +5,16 @@ import { ActivityItem } from "@/components/ui/activity-item";
 import { useQuery } from "@tanstack/react-query";
 import { readWorkspaceRecentActivityAction } from "@/app/actions/workspace/recent-activity";
 import { queryKeys } from "@/lib/query-keys";
+import { serverFirst } from "@/lib/server-first";
+import type { WorkspaceRecentActivityItem } from "@/lib/workspaces/recent-activity";
+import { useState } from "react";
 
-export function RecentActivityCard({ projectId }: { projectId: string }) {
+export function RecentActivityCard({ projectId, started }: { projectId: string; started?: Promise<WorkspaceRecentActivityItem[]> }) {
+  // The first read comes with the page (started on the server); a failure there loads it here.
+  const [read] = useState(() => serverFirst(started, () => readWorkspaceRecentActivityAction(projectId)));
   const activity = useQuery({
     queryKey: queryKeys.project.detail.recentActivity(projectId),
-    queryFn: () => readWorkspaceRecentActivityAction(projectId),
+    queryFn: read,
     staleTime: 30_000,
   });
 

@@ -52,6 +52,10 @@ interface ProjectCardProps {
 
 export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers, applicationChip, onOpenProject, live = false, titleChip, orgDetails, footerExtra, footerEnd, menuItems }: ProjectCardProps) {
     useSkillCatalog();
+    // Prefetch the workspace only once someone points at, touches or tabs to its card (Next's hover pattern):
+    // the page is often ready before the click, without prefetching every card in view (egress).
+    const [intent, setIntent] = useState(false);
+    const showIntent = () => setIntent(true);
     const { user } = useAuth();
     const [reporting, setReporting] = useState(false);
     const { mutateAsync } = useToggleWorkspaceFollow();
@@ -129,7 +133,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 <div className="min-w-0 flex-1">
                     {typeChip ? <div className="float-right">{typeChip}</div> : null}
                     <h3 className="nb-project-card-title min-w-0">
-                        <Link prefetch={false} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>{verifiedMark}
+                        <Link prefetch={intent ? true : false} onMouseEnter={showIntent} onTouchStart={showIntent} onFocus={showIntent} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>{verifiedMark}
                     </h3>
                     {partOfLine}
                     {(project.shortDescription || project.description) && (
@@ -144,7 +148,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
             <>
                 <div className="flex flex-wrap items-start gap-2">
                     <h3 className="nb-project-card-title min-w-0">
-                        <Link prefetch={false} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>{verifiedMark}
+                        <Link prefetch={intent ? true : false} onMouseEnter={showIntent} onTouchStart={showIntent} onFocus={showIntent} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>{verifiedMark}
                     </h3>
                     {partOfLine}
                     {typeChip}
