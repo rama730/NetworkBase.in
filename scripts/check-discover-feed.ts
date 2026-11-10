@@ -131,7 +131,15 @@ async function main() {
     await sql`INSERT INTO workspace_open_roles (workspace_id, role, count, filled) VALUES (${ids.open}, 'Designer', 4, 1), (${ids.open}, 'Writer', 2, 2)`;
 
     // ---- Shared (public) feed: one payload for everyone, shaped for a signed-out viewer.
-    const fullPublic = await feed.queryAndCachePublicWorkspacesFeed(100, null);
+    // Every page, not one: in the release gate this runs after the DB tests, whose public workspaces fill the first
+    // page and pushed the seeded ones off it (found 2026-11-10).
+    const fullPublic = { projects: [] as Awaited<ReturnType<typeof feed.queryAndCachePublicWorkspacesFeed>>["projects"] };
+    for (let page = 0, cursor = null as ReturnType<typeof decodePublicWorkspacesCursor>; page < 200; page += 1) {
+      const result = await feed.queryAndCachePublicWorkspacesFeed(100, cursor);
+      fullPublic.projects.push(...result.projects);
+      if (!result.nextCursor) break;
+      cursor = decodePublicWorkspacesCursor(result.nextCursor);
+    }
     const mine = (items: Array<{ id: string }>) => items.filter((item) => seeded.has(item.id));
     const byId = new Map(fullPublic.projects.map((item) => [item.id, item]));
 
@@ -172,9 +180,17 @@ async function main() {
 
     // ---- Filtered and ranked feeds (server action path).
     const base = { status: "all", type: "all", tech: [] as string[], sort: "newest", search: undefined as string | undefined };
+    // Every page of 60 (see fullPublic); the paging checks compare it with pages of 4.
     const everything = async (filters: typeof base, view: "all" | "trending" | "recommendations", viewerId: string | null) => {
-      const result = await data.getDiscoverWorkspaces(filters, undefined, 60, { view, viewerId });
-      return result.projects;
+      const projects: Awaited<ReturnType<typeof data.getDiscoverWorkspaces>>["projects"] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < 200; page += 1) {
+        const result = await data.getDiscoverWorkspaces(filters, cursor, 60, { view, viewerId });
+        projects.push(...result.projects);
+        if (!result.nextCursor) break;
+        cursor = result.nextCursor;
+      }
+      return projects;
     };
     const paged = async (filters: typeof base, view: "all" | "trending" | "recommendations", viewerId: string | null) => {
       const seen: string[] = [];
