@@ -29,6 +29,8 @@ export default function AgentsDocsPage() {
               <TerminalBlock variant="command" label="Codex">{"$ nb agent setup codex\n$ codex"}</TerminalBlock>
               <TerminalBlock variant="command" label="Cursor">{"$ nb agent setup cursor"}</TerminalBlock>
               <p><code>nb agent status</code> shows what’s connected; <code>nb agent remove claude</code> disconnects.</p>
+              <p>Or add the NetworkBase plugin to Claude Code, which brings the same tools and a skill for working on tasks:</p>
+              <TerminalBlock variant="command" label="Claude Code">{"/plugin marketplace add rama730/claude-code-plugin\n/plugin install networkbase@networkbase"}</TerminalBlock>
             </>
           ),
         },
@@ -37,7 +39,9 @@ export default function AgentsDocsPage() {
           title: "1b. Agents in the cloud",
           content: (
             <>
-              <p>An agent without your computer (a cloud runner, a hosted assistant) connects to the hosted server at <code>https://networkbase.in/api/mcp</code>. Give it an agent sign-in, approved from any device, limited to one workspace:</p>
+              <p>An agent without your computer (a cloud runner, a hosted assistant) connects to the hosted server at <code>https://networkbase.in/api/mcp</code>. An editor that supports MCP sign-in opens NetworkBase in your browser: you pick the one workspace it may use, approve, and it continues on its own.</p>
+              <TerminalBlock variant="command" label="Claude Code">{"$ claude mcp add --transport http networkbase https://networkbase.in/api/mcp"}</TerminalBlock>
+              <p>Where no browser is available, give it an agent sign-in, approved from any device, limited to one workspace:</p>
               <TerminalBlock variant="command" label="Terminal">{"$ npx @networkbase/cli login --device --agent \"Cloud agent\" --profile cloud\n$ claude mcp add --transport http networkbase https://networkbase.in/api/mcp \\\n    --header \"Authorization: Bearer $NB_AGENT_TOKEN\""}</TerminalBlock>
               <p>It has the same tools as on your computer, except the ones that use local files. Revoke it any time in Settings.</p>
             </>
