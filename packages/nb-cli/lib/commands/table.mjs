@@ -142,6 +142,8 @@ export const COMMANDS = [
   { group: "Classes", name: "assignment hand-in", summary: "Hand in, with the app's late and lock rules", usage: "nb assignment hand-in <ref> [files…] [--link url] [--text …] [-m note]", module: "assignments", fn: "assignmentHandIn",
     flags: { ...MESSAGE, link: { type: "string", describe: "A link, for assignments that take one", valueName: "url" }, text: { type: "string", describe: "Your answer, for assignments that take text", valueName: "text" } },
     examples: ["nb assignment hand-in 3 essay.pdf -m \"Final draft\"", "nb assignment hand-in 4 --link https://github.com/me/app"] },
+  { group: "Classes", name: "assignment unsubmit", summary: "Take back a hand-in before it's approved", usage: "nb assignment unsubmit <ref>", module: "assignments", fn: "assignmentUnsubmit",
+    examples: ["nb assignment unsubmit 3"] },
   { group: "Classes", name: "assignment question", summary: "Ask the class a question about an assignment", usage: "nb assignment question <ref> -m text", module: "assignments", fn: "assignmentQuestion", flags: { ...MESSAGE } },
   { group: "Classes", name: "review list", summary: "Hand-ins waiting for your review", usage: "nb review list -w <organization> [--mine]", module: "assignments", fn: "reviewList",
     flags: { mine: { type: "boolean", describe: "Only assignments you review" } }, examples: ["nb review list -w physics-101 --mine"] },

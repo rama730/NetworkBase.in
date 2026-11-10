@@ -125,6 +125,20 @@ export async function assignmentHandIn(ctx) {
     `${ctx.out.c.success(ctx.out.sym.done)} Handed in ${safe(a.title)}${d.files ? ` with ${d.files} file${d.files === 1 ? "" : "s"}` : ""}${d.late ? " (late)" : ""}${d.reviewed ? " · waiting for review" : ""}`);
 }
 
+/**
+ * Take back a hand-in before it's approved: the copy goes back to In progress so you can change it and hand in again.
+ * The server applies the app's rule (approved, closed and past-due hand-ins stay). @param {Context} ctx
+ */
+export async function assignmentUnsubmit(ctx) {
+  const [ref] = ctx.positionals;
+  const copy = await copyByRef(ctx, ref);
+  const a = await view(ctx, copy.id);
+  if (a.approved) throw new CliError("CONFLICT", "Approved work is locked", { hint: `nb assignment view ${a.number ?? copy.id.slice(0, 8)}` });
+  await ctx.api.request("DELETE", `/api/v1/assignments/${encodeURIComponent(copy.id)}/hand-in`);
+  ctx.out.result("nb.assignment.unsubmit/1", { id: copy.id }, () =>
+    [`${ctx.out.c.success(ctx.out.sym.done)} Took back ${safe(a.title)}: back to In progress`, ctx.out.c.muted(`  Hand it in again: nb assignment hand-in ${a.number ?? copy.id.slice(0, 8)}`)]);
+}
+
 /** @param {Context} ctx */
 export async function assignmentQuestion(ctx) {
   const copy = await copyByRef(ctx, ctx.positionals[0]);

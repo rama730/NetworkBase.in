@@ -265,6 +265,13 @@ const patterns = [
     Object.assign(a, { state: "submitted", handIn: req.body });
     return { data: { handedIn: true } };
   }],
+  [/^\/api\/v1\/assignments\/([^/]+)\/hand-in$/, "DELETE", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
+    const a = state.assignments.find((x) => x.id === req.params[0]);
+    if (!a) return fail(404, "NOT_FOUND", "No such assignment");
+    if (a.state !== "submitted") return fail(409, "CONFLICT", "There’s no hand-in to take back.");
+    Object.assign(a, { state: "in_progress" });
+    return { data: { handedIn: false } };
+  }],
   [/^\/api\/v1\/assignments\/([^/]+)\/question$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => { state.updates.push(`question: ${req.body.text}`); return { data: { asked: true } }; }],
   [/^\/api\/v1\/reviews\/([^/]+)$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
     const a = state.assignments.find((x) => x.id === req.params[0]);

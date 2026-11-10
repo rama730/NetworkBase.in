@@ -75,6 +75,7 @@ Classes
   assignment view      Instructions, due date, late rule, AI policy, your state
   assignment pull      Materials and your files into .tasks/
   assignment hand-in   Hand in, with the app's late and lock rules
+  assignment unsubmit  Take back a hand-in before it's approved
   assignment question  Ask the class a question about an assignment
   review list          Hand-ins waiting for your review
   review view          A hand-in: files, note, late, AI policy

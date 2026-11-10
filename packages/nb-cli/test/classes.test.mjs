@@ -53,6 +53,19 @@ describe("nb assignment and nb review", () => {
     assert.equal(yes.code, 0, yes.stderr);
   });
 
+  it("takes a hand-in back before it's approved; with nothing handed in it says so", async () => {
+    const a = api.state.assignments[0];
+    Object.assign(a, { state: "submitted" });
+    const r = await nb(["assignment", "unsubmit", String(a.number)]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /Took back .* back to In progress/);
+    assert.equal(a.state, "in_progress");
+    const again = await nb(["assignment", "unsubmit", String(a.number)]);
+    assert.notEqual(again.code, 0);
+    assert.match(again.stderr, /no hand-in to take back/i);
+    Object.assign(a, { state: "submitted" }); // the review test below picks it up as handed in
+  });
+
   it("a reviewer pulls read-only, returns with a reason, and approves", async () => {
     putFile(api.state, "/hand-in/essay.pdf", Buffer.from("pdf"));
     const list = await nb(["review", "list", "--json"]);

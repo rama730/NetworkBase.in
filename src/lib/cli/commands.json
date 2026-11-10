@@ -956,6 +956,19 @@
       ]
     },
     {
+      "name": "assignment unsubmit",
+      "summary": "Take back a hand-in before it's approved",
+      "usage": "nb assignment unsubmit <ref>",
+      "flags": {},
+      "examples": [
+        "nb assignment unsubmit 3"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "assignment question",
       "summary": "Ask the class a question about an assignment",
       "usage": "nb assignment question <ref> -m text",
