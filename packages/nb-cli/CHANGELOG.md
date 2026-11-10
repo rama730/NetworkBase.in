@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.2 (2026-11-10)
+
+### Fixed
+- `nb doc list` keeps file names in one column when a doc has a long name.
+- A refused `nb doc edit` / `nb doc set` says who can edit the doc.
+- With `--plain` (and in MCP tool results) the marker before a name is `-`, so you no longer see `@ @name`.
+- The package includes its Apache-2.0 LICENSE file.
+
 ## 2.0.1 (2026-11-10)
 
 ### Fixed
