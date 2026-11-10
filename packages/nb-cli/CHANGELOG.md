@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.3 (2026-11-11)
+
+### Added
+- `nb assignment unsubmit <copy>` takes a hand-in back before it's approved, so you can change it and hand in again.
+- Editors can connect to the hosted MCP server (`https://networkbase.in/api/mcp`) with a browser sign-in (OAuth); no token to paste.
+
+### Fixed
+- Agents run small changes at once (with Undo) instead of asking first; finishing tasks, final files, doc edits and deleting still wait for your yes, asked once.
+- Every MCP write tool accepts the confirmation token, so a "yes" given for a held change goes through.
+- A "yes" for finishing a task with checks now matches the run it was given for.
+- Files up to 25 MB upload (was 10 MB).
+
 ## 2.0.2 (2026-11-10)
 
 ### Fixed
