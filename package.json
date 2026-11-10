@@ -197,6 +197,9 @@
     },
     "inngest": {
       "zod": "$zod"
+    },
+    "gaxios": {
+      "rimraf": "6.1.4"
     }
   }
 }
