@@ -287,7 +287,7 @@ const patterns = [
     const doc = state.docs.find((d) => d.slug === req.params[1]);
     const file = doc ? state.files.get(doc.nodePath) : null;
     if (!doc || !file) return fail(404, "NOT_FOUND", "No such doc");
-    return { data: { slug: doc.slug, canEdit: true, content: file.content.toString("utf8"), file: { nodeId: file.nodeId, path: file.path, version: file.version } } };
+    return { data: { slug: doc.slug, canEdit: state.canWrite, content: file.content.toString("utf8"), file: { nodeId: file.nodeId, path: file.path, version: file.version } } };
   }],
 ];
 

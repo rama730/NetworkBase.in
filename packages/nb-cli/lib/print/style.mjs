@@ -53,7 +53,7 @@ export function asciiOnly(env = process.env) {
 /** @param {boolean} ascii */
 export function symbols(ascii) {
   return ascii
-    ? { active: "*", done: "+", warn: "!", error: "x", brand: "@", other: "o", rail: "|", end: "`", cursor: ">", check: "v", arrow: "->", ellipsis: "..." }
+    ? { active: "*", done: "+", warn: "!", error: "x", brand: "-", other: "o", rail: "|", end: "`", cursor: ">", check: "v", arrow: "->", ellipsis: "..." }
     : { active: "◆", done: "◇", warn: "▲", error: "■", brand: "●", other: "○", rail: "│", end: "└", cursor: "❯", check: "✓", arrow: "→", ellipsis: "…" };
 }
 

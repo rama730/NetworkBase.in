@@ -28,7 +28,12 @@ async function readDoc(ctx, slug) {
 export async function list(ctx) {
   const workspaceId = ctx.requireWorkspace();
   const { docs } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/docs`));
-  ctx.out.result("nb.doc.list/1", { docs }, (d) => (d.docs.length ? d.docs.map((/** @type {any} */ doc) => `  ${safe(doc.slug).padEnd(20)} ${ctx.out.c.muted(safe(doc.filename ?? ""))}`) : "No docs yet"));
+  ctx.out.result("nb.doc.list/1", { docs }, (d) => {
+    if (!d.docs.length) return "No docs yet";
+    // The slug column fits the longest slug, so a long one does not push its file name out of line.
+    const width = Math.max(...d.docs.map((/** @type {any} */ doc) => safe(doc.slug).length)) + 2;
+    return d.docs.map((/** @type {any} */ doc) => `  ${safe(doc.slug).padEnd(width)}${ctx.out.c.muted(safe(doc.filename ?? ""))}`);
+  });
 }
 
 /** @param {Context} ctx */
@@ -57,7 +62,7 @@ export async function edit(ctx) {
   const slug = ctx.positionals[0] ?? "readme";
   const doc = await readDoc(ctx, slug);
   if (!doc.file) throw new CliError("NOT_SUPPORTED", `${slug} isn't backed by a file, so it's edited in the app`, { hint: `nb open` });
-  if (!doc.canEdit) throw new CliError("FORBIDDEN", `You can read ${slug} but not edit it`);
+  if (!doc.canEdit) throw new CliError("FORBIDDEN", `You can read ${slug} but not edit it`, { hint: "Only the workspace owner and admins can edit it, unless its settings let members edit" });
   if (!ctx.out.interactive) throw new CliError("NEEDS_INPUT", "nb doc edit opens your editor, so it needs a terminal", { hint: `Agents: change ${doc.file.path} and nb push it` });
   // The file name comes from the server, so only plain characters reach the editor's command line.
   const name = path.posix.basename(doc.file.path).replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "") || "doc.md";
@@ -85,7 +90,7 @@ export async function set(ctx) {
   if (next === null) throw usage("nb doc set <slug> --file <path>, or --file - to read stdin");
   const doc = await readDoc(ctx, slug);
   if (!doc.file) throw new CliError("NOT_SUPPORTED", `${slug} isn't backed by a file, so it's edited in the app`, { hint: "nb open" });
-  if (!doc.canEdit) throw new CliError("FORBIDDEN", `You can read ${slug} but not edit it`);
+  if (!doc.canEdit) throw new CliError("FORBIDDEN", `You can read ${slug} but not edit it`, { hint: "Only the workspace owner and admins can edit it, unless its settings let members edit" });
   return saveDoc(ctx, slug, doc, next);
 }
 
