@@ -1167,7 +1167,8 @@ export const orgEmailInvites = pgTable(
   (t) => ({
     openUnique: uniqueIndex("org_email_invites_open_unique").on(t.orgId, t.email).where(sql`${t.acceptedAt} IS NULL`),
     emailIdx: index("org_email_invites_email_idx").on(t.email).where(sql`${t.acceptedAt} IS NULL`),
-    orgIdx: index("org_email_invites_org_idx").on(t.orgId),
+    // 0079: (org_id) alone was redundant with this one.
+    orgCreatedIdx: index("org_email_invites_org_created_idx").on(t.orgId, t.createdAt),
     childProjectIdx: index("org_email_invites_child_workspace_idx").on(t.childProjectId).where(sql`${t.childProjectId} IS NOT NULL`),
     unitIdx: index("org_email_invites_unit_idx").on(t.unitId).where(sql`${t.unitId} IS NOT NULL`),
     invitedByIdx: index("org_email_invites_invited_by_idx").on(t.invitedBy).where(sql`${t.invitedBy} IS NOT NULL`),
