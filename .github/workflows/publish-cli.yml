@@ -61,9 +61,18 @@ jobs:
       - name: Size and startup budgets
         run: node packages/nb-cli/test/budgets.mjs --enforce
 
+      # npm "auto-corrects" package.json when publishing, and dropped both bin entries for "./bin/nb.mjs" (next.2).
+      # Fail instead if npm would change anything.
+      - name: package.json needs no npm corrections
+        working-directory: packages/nb-cli
+        run: |
+          npm pkg fix
+          git diff --exit-code -- package.json || { echo "::error::npm would change package.json when publishing (diff above)"; exit 1; }
+
+      # No --provenance: npm accepts provenance only from public repositories, and this one is private.
       - name: Stage the release
         working-directory: packages/nb-cli
-        run: npm stage publish --provenance --access public --tag ${{ steps.version.outputs.tag }}
+        run: npm stage publish --access public --tag ${{ steps.version.outputs.tag }}
 
       - name: GitHub release with the changelog section
         working-directory: packages/nb-cli
