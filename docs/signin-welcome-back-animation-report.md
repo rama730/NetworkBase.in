@@ -324,3 +324,9 @@ The timings table in section 6.1 above is superseded by these numbers.
 ### Pace, after the third live check (2026-11-10)
 Reported: now too slow; it should match onboarding. The full version now uses onboarding's exact timings (photo 0.85 s, line 1 held 1.7 s, line 2 held 0.8 s, flight 1.0 s, about 4.4 s) and line 2 fades in whole, like onboarding's welcome line. The word-by-word reveal (enhancement 18) is removed: it cannot fit that pace. The light version keeps its short rest (0.7 s) and moves at onboarding's flight speed (1.0 s), about 1.7 s in all. The two earlier timing notes above are superseded.
 
+### Social login and the light version (2026-11-10)
+Reported: after Google or GitHub the screen stayed blank and Discover came with no animation; on a password sign-in (light version) the photo sat at the button while the greeting was centred.
+- **Social login:** the flight read who you are from the browser's own session. After a Google or GitHub return the sign-in is completed on the server and the browser has no session yet (AuthProvider copies it later), so it found nobody, skipped, and lifted the cover. Now it reads the cookie-based `/api/v1/me` (which also returns the profile visibility), so every way in works. A skip logs why (`auth.signin_flight.no_identity`, `auth.signin_flight.arrival_skipped`). Evidence: the 6:23 PM Google sign-in left no flight event; the password ones did.
+- **Light version:** now rises to the middle with the greeting directly under it (same layout as the full version), the greeting leaves as the app comes in, then one move to the avatar. About 2.6 s (rise 0.6, greeting 1.0, move 1.0). The timer-based reveal that left the greeting over the app is gone.
+- Tests: arrival with no browser session; both layouts; the greeting never shown over the revealed app.
+

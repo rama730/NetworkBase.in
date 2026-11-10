@@ -57,7 +57,7 @@ export async function buildApp(entry: string) {
   return built;
 }
 
-export async function openApp(page: Page, entry: string, init: { auth?: Record<string, unknown>; path?: string; head?: string } = {}) {
+export async function openApp(page: Page, entry: string, init: { auth?: Record<string, unknown>; path?: string; head?: string; beforeGoto?: (page: Page) => Promise<void> } = {}) {
   const assets = await buildApp(entry);
   await page.addInitScript(() => { (window as any).process = { env: { NODE_ENV: 'test' } }; });
   await page.addInitScript(({ auth }) => {
@@ -72,5 +72,7 @@ export async function openApp(page: Page, entry: string, init: { auth?: Record<s
     if (p.startsWith('/api/')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: {} }) });
     return route.fulfill({ contentType: 'text/html', body: '<html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>app</title>' + (init.head ? '<script>' + init.head + '</script>' : '') + '<link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>' });
   });
+  // Routes the spec adds here win over the defaults above and are in place before the page's own first requests.
+  await init.beforeGoto?.(page);
   await page.goto(origin + (init.path ?? '/onboarding'));
 }

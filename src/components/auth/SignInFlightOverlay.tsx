@@ -366,35 +366,28 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
       if (!alive) return
       if (fromButton && !skipped) shrinkSignIn(light ? 400 : 500)
 
-      // The photo arrives, from the button or in the middle. The light version does not stop in the middle.
-      let appearing: Promise<void> = Promise.resolve()
-      const appearedAt = Date.now()
+      // The photo arrives in the middle, rising from the button or fading in after a page reload. Both versions greet
+      // there: the greeting is centred on the screen, so the photo has to be too (the button is in the left column).
       if (!skipped) {
         if (fromButton && !reduced) {
-          if (light) {
-            appearing = appear(t.appear)
-          } else {
-            const rising = moveTo(centre.box, t.rise)
-            await appear(t.appear)
-            await rising
-          }
+          const rising = moveTo(centre.box, t.rise)
+          await appear(t.appear)
+          await rising
         } else {
           place(avatarRef.current as HTMLElement, centre.box)
-          appearing = appear(t.fadeIn)
-          if (!light) await appearing
+          await appear(t.fadeIn)
         }
       }
       if (!skipped && !light && !reduced) hintTimer = setTimeout(() => alive && !skipped && setHint(true), Math.max(0, t.hintAfter - (Date.now() - startedAt)))
 
-      let captionTimer: ReturnType<typeof setTimeout> | undefined
-      if (light) {
-        // "Welcome back" fades in beside the photo while it waits for the page and then moves.
-        if (pub) setBadge({ key: 1, availability: 'now', animate: true, size: fromButton ? 18 : 26, edge: -3 })
-        captionTimer = setTimeout(() => alive && !skipped && setCaption(1), t.captionInAt)
-      } else if (!skipped) {
-        // Line 1 with the rings waking, then line 2 a word at a time.
+      // Line 1, then (full version) line 2.
+      if (!skipped) {
         setCaption(1)
-        if (pub) {
+        if (pub && light) {
+          // Back within the day: the badge is simply there.
+          setBadge({ key: 1, availability: 'now', animate: true, size: 26, edge: -3 })
+          await wait(t.presenceHold)
+        } else if (pub) {
           // The badge starts as it is not yet (gray) and becomes what it is: the real badge plays its own change.
           setBadge({ key: 1, availability: 'offline', animate: true, size: 26, edge: -3 })
           await wait(150)
@@ -403,7 +396,7 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
         } else {
           await wait(t.presenceHold)
         }
-        if (!skipped) {
+        if (!skipped && !light) {
           setCaption(2)
           await wait(t.secondHold)
         }
@@ -413,14 +406,12 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
 
       if (skipped) {
         // Out of the way at once: the page underneath is already coming.
-        clearTimeout(captionTimer)
         setCaption(0)
         setAvatarGone(true)
       }
       const slot = await waitForSlot()
       if (!alive) return
       if (!slot) {
-        clearTimeout(captionTimer)
         await finishWithoutSlot()
         return
       }
@@ -432,46 +423,24 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
         if (loader) setBadge((current) => current && { ...current, animate: true })
       }
       if (!alive) return
-      await appearing
-      // Light version: the photo and the greeting rest in place long enough to be seen before the photo moves on.
-      if (light && !skipped) await wait(Math.max(0, t.lightRest - (Date.now() - appearedAt)))
 
       const read = () => {
         const next = findSlot()
         return next ? landingBox(next.box, next.kind) : null
       }
       const timers: Array<ReturnType<typeof setTimeout>> = []
-      if (skipped) {
-        release()
-      } else if (light) {
-        // The app appears and the page takes clicks again before the photo has landed.
-        timers.push(
-          setTimeout(() => {
-            root.dataset.welcomeFlight = 'reveal'
-          }, t.revealAt),
-          setTimeout(() => {
-            setInstant(false)
-            setScrim(false)
-            setClickable(true)
-          }, t.scrimOutAt),
-          setTimeout(() => setCaption(0), t.captionOutAt),
-        )
-      } else {
-        root.dataset.welcomeFlight = 'reveal'
-      }
-      if (!light) {
-        setCaption(0)
-        setInstant(false)
-        setScrim(false)
-      }
-      // The top bar always shows your own badge, even when others cannot see it: the photo brings one, quietly.
-      setBadge(slot.kind === 'menu' ? null : (current) => ({ key: current?.key ?? 1, availability: 'now', animate: true, size: 16, edge: -2 }))
-      if (!skipped) await glide(landingBox(slot.box, slot.kind), t.fly, read)
-      clearTimeout(captionTimer)
-      timers.forEach(clearTimeout)
+      if (skipped) release()
+      else root.dataset.welcomeFlight = 'reveal'
+      // The greeting goes as the app comes in, never over it.
       setCaption(0)
       setInstant(false)
       setScrim(false)
+      // Light version: the page takes clicks again early in the move, before the photo has landed.
+      if (light && !skipped) timers.push(setTimeout(() => setClickable(true), t.scrimOutAt))
+      // The top bar always shows your own badge, even when others cannot see it: the photo brings one, quietly.
+      setBadge(slot.kind === 'menu' ? null : (current) => ({ key: current?.key ?? 1, availability: 'now', animate: true, size: 16, edge: -2 }))
+      if (!skipped) await glide(landingBox(slot.box, slot.kind), t.fly, read)
+      timers.forEach(clearTimeout)
       await finishLanding(slot, !light)
     }
 

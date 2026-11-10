@@ -15,6 +15,7 @@ import {
   writeSignInPlayedAt,
   type SignInVersion,
 } from '@/lib/auth/signin-flight'
+import { logger } from '@/lib/logger'
 
 /**
  * The sign-in welcome flight: after a deliberate sign-in the photo travels to its place in the top bar, with two short
@@ -78,18 +79,20 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 /**
  * Who just signed in: name, photo address, privacy and status, read while the button shows its check. Null when it
  * cannot be read in time; the caller then carries on without the flight.
+ * Read from the server (the cookie), not from the browser's own session: after a Google or GitHub return the sign-in
+ * was completed on the server and the browser has no session yet (AuthProvider copies it a moment later).
  */
 export async function prepareSignInFlight(): Promise<SignInIdentity | null> {
+  const skipped = (reason: string) => {
+    logger.warn('auth.signin_flight.no_identity', { reason })
+    return null
+  }
   try {
-    // Loaded here, not at the top: this file is in every page's bundle, the browser client is not.
-    const { createSupabaseBrowserClient } = await import('@/lib/supabase/client')
-    const supabase = createSupabaseBrowserClient()
-    const { data } = await supabase.auth.getSession()
-    const user = data.session?.user
-    if (!user) return null
-    const [profile, presence, appearance] = await Promise.all([
+    const [me, presence, appearance] = await Promise.all([
       withTimeout(
-        Promise.resolve(supabase.from('profiles').select('full_name, username, avatar_url, visibility').eq('id', user.id).single()),
+        fetch('/api/v1/me', { credentials: 'same-origin', cache: 'no-store', headers: { accept: 'application/json' } })
+          .then(async (response) => ({ status: response.status, body: response.ok ? ((await response.json().catch(() => null)) as MeBody | null) : null }))
+          .catch(() => null),
         2500,
       ),
       withTimeout(import('@/app/actions/presence').then((module) => module.getMyPresenceSettings()).catch(() => null), 2500),
@@ -97,22 +100,24 @@ export async function prepareSignInFlight(): Promise<SignInIdentity | null> {
       withTimeout(import('@/lib/theme/appearance-client').then((module) => module.readAppearanceSettings()).catch(() => null), 2500),
     ])
     if (appearance?.snapshot?.welcomeAnimation === false) return null
-    const row = profile?.data
-    if (!row) return null
+    const user = me?.body?.data?.user
+    if (!user || typeof user.id !== 'string') return skipped(me ? `me-${me.status}` : 'me-unreachable')
     const status = presence && 'settings' in presence ? presence.settings.status : null
-    const visibility: OnboardingVisibility = row.visibility === 'connections' || row.visibility === 'private' ? row.visibility : 'public'
+    const visibility: OnboardingVisibility = user.visibility === 'connections' || user.visibility === 'private' ? user.visibility : 'public'
     return {
       userId: user.id,
-      fullName: row.full_name ?? '',
-      username: row.username ?? '',
-      avatarUrl: row.avatar_url ?? '',
+      fullName: user.fullName ?? '',
+      username: user.username ?? '',
+      avatarUrl: user.avatarUrl ?? '',
       visibility,
       status: status?.emoji ? { emoji: status.emoji, pausesNotifications: Boolean(status.pausesNotifications) } : null,
     }
   } catch {
-    return null
+    return skipped('error')
   }
 }
+
+type MeBody = { data?: { user?: { id?: string; fullName?: string | null; username?: string | null; avatarUrl?: string | null; visibility?: string | null } } }
 
 /**
  * Starts the flight. False means it could not (not loaded yet, already running, no host): the caller then does what
@@ -153,6 +158,7 @@ async function arrive(pathname: string) {
   // The page is already showing (the curtain never went up, or has lifted): a flight starting over it now would be
   // worse than none. Only a page covered from its first paint plays.
   if (!document.documentElement.hasAttribute('data-signin-curtain')) {
+    logger.warn('auth.signin_flight.arrival_skipped', { reason: 'no-curtain' })
     clearSignInMarker()
     return
   }

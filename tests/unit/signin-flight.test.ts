@@ -126,7 +126,7 @@ test("screen readers hear one sentence, not both visual lines", () => {
   assert.equal(signInAnnouncement(""), "Welcome back.");
 });
 
-test("timings: full is onboarding's own pace, light about 1.7 s, reduced motion under a second", () => {
+test("timings: full is onboarding's own pace, light about 2.6 s, reduced motion under a second", () => {
   const full = signInTimings("full", false);
   const onboarding = flightTimings(false);
   assert.equal(full.rise, onboarding.stepForward);
@@ -135,10 +135,12 @@ test("timings: full is onboarding's own pace, light about 1.7 s, reduced motion 
   assert.equal(full.fly, onboarding.fly);
   const light = signInTimings("light", false);
   assert.equal(light.fly, onboarding.fly, "the move itself is as fast as onboarding's");
-  assert.ok(light.lightRest + light.fly <= 1800, "light is the shorter version");
-  assert.ok(light.captionInAt < light.lightRest, "the greeting is there before the photo moves");
-  assert.ok(light.scrimOutAt <= 700 && light.scrimOutAt < light.fly, "the page is clickable early in the move, before it lands");
-  assert.ok(light.captionOutAt < light.fly, "the greeting is gone before the photo lands");
+  assert.equal(light.secondHold, 0, "the light version has no second line");
+  const lightTotal = light.rise + light.presenceHold + light.fly;
+  assert.ok(lightTotal >= 2400 && lightTotal <= 2800, `light is ${lightTotal}ms`);
+  assert.ok(lightTotal < full.rise + full.presenceHold + full.secondHold + full.fly, "light is the shorter version");
+  assert.ok(light.rise > 0 && light.presenceHold >= 1000, "the photo rises to the middle and the greeting is held there, as in the full version");
+  assert.ok(light.scrimOutAt <= 400 && light.scrimOutAt < light.fly, "the page is clickable early in the move, before it lands");
   for (const version of ["full", "light"] as const) {
     const reduced = signInTimings(version, true);
     assert.ok(reduced.fadeIn + reduced.presenceHold + reduced.secondHold + reduced.fly <= 1000, "reduced motion is under a second");

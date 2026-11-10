@@ -43,6 +43,15 @@ const SAMPLER = () => {
   }, 25);
 };
 
+// Who is signed in, as the server's cookie-based endpoint answers it (the flight reads this, not a browser session).
+async function serveMe(page: Page) {
+  await page.route('**/api/v1/me', async (route) => {
+    const state = await page.evaluate(() => { const w = window as any; return { fullName: w.__fullName ?? 'Ada Lovelace', avatarUrl: w.__avatarUrl ?? '', visibility: w.__visibility ?? 'public', down: Boolean(w.__meDown) }; });
+    if (state.down) return route.fulfill({ status: 401, contentType: 'application/json', body: '{"success":false}' });
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { user: { id: 'u1', username: 'ada', fullName: state.fullName, email: null, avatarUrl: state.avatarUrl, visibility: state.visibility } } }) });
+  });
+}
+
 async function signIn(page: Page, options: { visibility?: string; navDelay?: number; contentDelay?: number; redirect?: string; played?: number; off?: boolean; status?: unknown; avatar?: boolean } = {}) {
   await page.addInitScript(({ played, off }) => {
     try {
@@ -61,6 +70,7 @@ async function signIn(page: Page, options: { visibility?: string; navDelay?: num
       await route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') });
     });
   }
+  await serveMe(page);
   await expect(page.locator('#email')).toBeVisible();
   await page.evaluate(SAMPLER);
   await page.locator('#email').fill('ada@example.com');
@@ -79,9 +89,9 @@ const FRAME_ROOT = '[data-signin-overlay]';
 const near = (a: number[], b: number[], tolerance = 1.5) => { for (let i = 0; i < 4; i += 1) expect(Math.abs(a[i]! - b[i]!), `value ${i}`).toBeLessThanOrEqual(tolerance); };
 
 /** A fresh page that starts on the destination, as after a two-step code, Google or GitHub: the marker is already in this tab. */
-async function arrive(context: BrowserContext, options: { visibility?: string; contentDelay?: number; hidden?: boolean; off?: boolean; marker?: boolean; path?: string; played?: number; curtain?: boolean } = {}) {
+async function arrive(context: BrowserContext, options: { visibility?: string; contentDelay?: number; hidden?: boolean; off?: boolean; marker?: boolean; path?: string; played?: number; curtain?: boolean; noBrowserSession?: boolean } = {}) {
   const page = await context.newPage();
-  await page.addInitScript(({ marker, hidden, off, path, played }) => {
+  await page.addInitScript(({ marker, hidden, off, path, played, noBrowserSession }) => {
     const w = window as any;
     try {
       if (marker !== false) sessionStorage.setItem('nb:signin-flight', JSON.stringify({ t: Date.now(), next: path ?? '/discover' }));
@@ -89,6 +99,7 @@ async function arrive(context: BrowserContext, options: { visibility?: string; c
       if (played) localStorage.setItem('nb:signin-flight-played', String(played));
     } catch { /* blocked */ }
     if (hidden) Object.defineProperty(document, 'hidden', { get: () => true });
+    if (noBrowserSession) w.__signedOut = true;
     w.__noCurtain = true;
     w.__earlyTrace = [] as unknown[]; const t0 = performance.now();
     w.__early = setInterval(() => {
@@ -97,7 +108,7 @@ async function arrive(context: BrowserContext, options: { visibility?: string; c
     }, 10);
   }, options);
   // The curtain script sits in the page's head, as it does in the real document.
-  await openApp(page, ENTRY, { path: options.path ?? '/discover', head: options.curtain === false ? undefined : buildSignInCurtainScript() });
+  await openApp(page, ENTRY, { path: options.path ?? '/discover', head: options.curtain === false ? undefined : buildSignInCurtainScript(), beforeGoto: serveMe });
   await page.evaluate(({ visibility, contentDelay }) => { const w = window as any; w.__visibility = visibility ?? 'public'; w.__contentDelay = contentDelay ?? 0; }, options);
   return page;
 }
@@ -152,7 +163,7 @@ test('the button shows a check once the sign-in is accepted, and cannot be press
   expect((await calls(page)).filter((e) => e === 'signin_flight_started')).toHaveLength(1);
 });
 
-test('the second sign-in of the day is the light version: no stop in the middle, no second line, clickable before it lands', async ({ page }) => {
+test('the second sign-in of the day is the light version: photo and greeting together in the middle, no second line, gone before the app shows, clickable before it lands', async ({ page }) => {
   await signIn(page, { played: Date.now() - 60_000 });
   await submit(page);
   await finished(page);
@@ -160,10 +171,12 @@ test('the second sign-in of the day is the light version: no stop in the middle,
   const lines = samples.flatMap((s) => s.captions);
   expect(lines).toContain('Welcome back');
   expect(lines.some((line) => line.startsWith('Good to see you again'))).toBe(false);
-  // It never rested in the middle: the photo is never within a few pixels of the resting place for long.
-  const resting = samples.filter((s) => s.avatar && Math.abs(s.avatar[0]! - 576) < 3 && Math.abs(s.avatar[1]! - 262) < 3 && s.avatar[2]! > 120);
-  expect(resting.length).toBeLessThanOrEqual(2);
-  // The page takes clicks about half a second in, before the photo has landed.
+  // The photo rests in the middle with the greeting directly under it, on the same vertical line.
+  const together = samples.filter((s) => s.captions.includes('Welcome back') && s.avatar && Math.abs(s.avatar[0]! - 576) < 3 && Math.abs(s.avatar[1]! - 262) < 3);
+  expect(together.length, 'the photo and the greeting are on screen together in the middle').toBeGreaterThan(10);
+  // The greeting is gone as the app comes in: never over the revealed page.
+  expect(samples.filter((s) => s.captions.includes('Welcome back') && s.attr === 'reveal').length).toBeLessThanOrEqual(3);
+  // The page takes clicks early in the move, before the photo has landed.
   const clickable = samples.find((s) => s.pointer === 'none')!;
   const landedAt = samples.find((s) => s.attr === 'reveal' && s.avatar && s.slot && Math.abs(s.avatar[0]! - s.slot[0]!) < 1.5 && Math.abs(s.avatar[1]! - s.slot[1]!) < 1.5)!;
   expect(clickable, 'a sample with the overlay out of the way').toBeTruthy();
@@ -173,11 +186,10 @@ test('the second sign-in of the day is the light version: no stop in the middle,
   expect(samples.some((s) => s.hint)).toBe(false);
   expect(samples.some((s) => s.tip)).toBe(false);
   expect((await meta(page))[0]).toMatchObject({ version: 'light', from: 'button' });
-  expect(samples.find((s) => s.attr === 'reveal')!.t).toBeLessThan(3200);
-  // The photo is on screen long enough to be seen: at rest with the greeting first, then the move.
+  expect(samples.find((s) => s.attr === 'reveal')!.t).toBeLessThan(4200);
   const span = (hits: Sample[]) => (hits.length ? hits[hits.length - 1]!.t - hits[0]!.t : 0);
-  expect(span(samples.filter((s) => (s.avatarOpacity ?? 0) > 0.5))).toBeGreaterThan(1500);
-  expect(span(samples.filter((s) => s.captions.includes('Welcome back')))).toBeGreaterThan(800);
+  expect(span(samples.filter((s) => (s.avatarOpacity ?? 0) > 0.5))).toBeGreaterThan(2000);
+  expect(span(samples.filter((s) => s.captions.includes('Welcome back')))).toBeGreaterThan(900);
 });
 
 test('going somewhere in particular is light too', async ({ page }) => {
@@ -239,13 +251,22 @@ test('a page that is already showing is never played over: no curtain, no animat
 
 test('when the flight cannot start from the sign-in page it is the plain move, with no late animation after the page shows', async ({ page }) => {
   await signIn(page);
-  await page.evaluate(() => { (window as any).__signedOut = true; });
+  await page.evaluate(() => { (window as any).__meDown = true; });
   await submit(page);
   await expect.poll(() => page.evaluate(() => (window as any).__router.get())).toBe('/discover');
   await page.waitForTimeout(2000);
   expect((await trace(page)).some((s) => s.overlay)).toBe(false);
   expect(await calls(page)).toEqual([]);
   expect(await page.evaluate((key) => sessionStorage.getItem(key), MARKER)).toBeNull();
+});
+
+test('after Google or GitHub the browser has no session yet, and the flight still plays: who you are comes from the server', async ({ context }) => {
+  const page = await arrive(context, { noBrowserSession: true });
+  await finished(page);
+  const events = await meta(page);
+  expect(events.map((e) => e.event)).toEqual(['signin_flight_started', 'signin_flight_completed']);
+  expect(events[0]).toMatchObject({ from: 'center' });
+  await expect(page.locator('[data-welcome-slot]')).toBeVisible();
 });
 
 test('a refresh while it plays does not play it again', async ({ context }) => {

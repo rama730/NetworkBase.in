@@ -84,7 +84,7 @@ test("the host consumes the marker when a flight starts, waits on pages on the w
 
 test("a flight starts over a page only when the page was covered from its first paint", () => {
   const host = read("src/components/auth/SignInFlight.tsx");
-  assert.match(host, /if \(!document\.documentElement\.hasAttribute\('data-signin-curtain'\)\) \{\s*clearSignInMarker\(\)\s*return\s*\}/);
+  assert.match(host, /if \(!document\.documentElement\.hasAttribute\('data-signin-curtain'\)\) \{\s*logger\.warn\('auth\.signin_flight\.arrival_skipped', \{ reason: 'no-curtain' \}\)\s*clearSignInMarker\(\)\s*return\s*\}/);
 });
 
 test("signing out clears the device but keeps the record of when the animation last played, so the second sign-in of the day is light", () => {
@@ -116,3 +116,21 @@ test("the words have no exclamation mark and the telemetry takes only its own th
   assert.match(action, /auth\.getUser\(\)/);
   assert.match(action, /consumeRateLimit\(/);
 });
+
+test("who just signed in is read from the server (the cookie), because after a Google or GitHub return the browser has no session yet", () => {
+  const host = read("src/components/auth/SignInFlight.tsx");
+  assert.match(host, /fetch\('\/api\/v1\/me', \{ credentials: 'same-origin'/);
+  assert.doesNotMatch(host, /supabase|getSession/, "no dependence on the browser's own session");
+  assert.match(host, /logger\.warn\('auth\.signin_flight\.no_identity', \{ reason \}\)/, "a skip says why");
+  const me = read("src/app/api/v1/me/route.ts");
+  assert.match(me, /visibility: profiles\.visibility/);
+  assert.match(me, /visibility: profile\?\.visibility \?\? "public"/);
+});
+
+test("both versions greet in the middle of the screen, and the greeting is gone as the app comes in", () => {
+  const overlay = read("src/components/auth/SignInFlightOverlay.tsx");
+  assert.doesNotMatch(overlay, /captionTimer|lightRest|captionOutAt/, "no timer that can leave the greeting over the app");
+  assert.match(overlay, /const rising = moveTo\(centre\.box, t\.rise\)/);
+  assert.match(overlay, /root\.dataset\.welcomeFlight = 'reveal'\s*\/\/[^\n]*\n\s*setCaption\(0\)/, "the greeting leaves with the reveal");
+});
+

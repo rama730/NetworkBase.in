@@ -97,13 +97,7 @@ export type SignInTimings = {
   scrimOut: number
   /** The sign-in page hands over to the destination this long after the flight starts. */
   navigateAt: number
-  /** Light version: the photo and "Welcome back" rest in place this long (counted from the photo appearing) before the move. */
-  lightRest: number
-  /** Light version: line 1 fades in this long after the photo appears, and out this long after the move starts. */
-  captionInAt: number
-  captionOutAt: number
-  /** Light version: the app starts to appear, and the curtain starts to lift (the page is clickable from then). */
-  revealAt: number
+  /** Light version: the page takes clicks again this long after the photo leaves the middle. */
   scrimOutAt: number
   /** The skip hint shows after this (full version only). */
   hintAfter: number
@@ -121,13 +115,13 @@ export type SignInTimings = {
 export function signInTimings(version: SignInVersion, reduced: boolean): SignInTimings {
   const base = { slotWait: 4000, contentWait: 1500, photoWait: 800, max: 14000, hintAfter: 1200 }
   if (reduced) {
-    return { ...base, rise: 0, appear: 100, fadeIn: 100, presenceHold: 250, secondHold: 300, fly: 260, scrimIn: 100, scrimOut: 200, navigateAt: 100, lightRest: 0, captionInAt: 0, captionOutAt: 0, revealAt: 0, scrimOutAt: 0, hintAfter: 0 }
+    return { ...base, rise: 0, appear: 100, fadeIn: 100, presenceHold: 250, secondHold: 300, fly: 260, scrimIn: 100, scrimOut: 200, navigateAt: 100, scrimOutAt: 0, hintAfter: 0 }
   }
   if (version === 'light') {
-    return { ...base, rise: 0, appear: 400, fadeIn: 400, presenceHold: 0, secondHold: 0, fly: 1000, scrimIn: 200, scrimOut: 300, navigateAt: 150, lightRest: 700, captionInAt: 200, captionOutAt: 800, revealAt: 400, scrimOutAt: 500, hintAfter: 0 }
+    return { ...base, rise: 600, appear: 400, fadeIn: 450, presenceHold: 1000, secondHold: 0, fly: 1000, scrimIn: 200, scrimOut: 300, navigateAt: 150, scrimOutAt: 300, hintAfter: 0 }
   }
   // The same pace as onboarding's flight (lib/onboarding/welcome-flight.ts): 850, 1700, 800 and 1000 ms.
-  return { ...base, rise: 850, appear: 400, fadeIn: 500, presenceHold: 1700, secondHold: 800, fly: 1000, scrimIn: 600, scrimOut: 600, navigateAt: 560, lightRest: 0, captionInAt: 0, captionOutAt: 0, revealAt: 0, scrimOutAt: 0 }
+  return { ...base, rise: 850, appear: 400, fadeIn: 500, presenceHold: 1700, secondHold: 800, fly: 1000, scrimIn: 600, scrimOut: 600, navigateAt: 560, scrimOutAt: 0 }
 }
 
 /** True when an image URL's decode may be waited for; data and blob URLs are already here. */

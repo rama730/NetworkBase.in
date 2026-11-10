@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Who is signed in and what this credential may do (report A2.5): `nb whoami`, agent setup and the
- * CLI's pre-upload size check read it. Dates print in the terminal's own time zone, so none is sent.
+ * CLI's pre-upload size check read it, and so does the sign-in welcome flight (which has no browser session yet after
+ * a Google or GitHub return, only the cookie). Dates print in the terminal's own time zone, so none is sent.
  */
 export async function GET(request: Request) {
   try {
@@ -20,14 +21,14 @@ export async function GET(request: Request) {
     if (auth.response) return auth.response;
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const [profile] = await db
-      .select({ username: profiles.username, fullName: profiles.fullName, email: profiles.email, avatarUrl: profiles.avatarUrl })
+      .select({ username: profiles.username, fullName: profiles.fullName, email: profiles.email, avatarUrl: profiles.avatarUrl, visibility: profiles.visibility })
       .from(profiles)
       .where(eq(profiles.id, auth.user.id))
       .limit(1);
     const scopes = auth.tokenScopes ? [...auth.tokenScopes].sort() : [...TOKEN_SCOPES];
     return jsonSuccess(
       {
-        user: { id: auth.user.id, username: profile?.username ?? null, fullName: profile?.fullName ?? null, email: profile?.email ?? null, avatarUrl: profile?.avatarUrl ?? null },
+        user: { id: auth.user.id, username: profile?.username ?? null, fullName: profile?.fullName ?? null, email: profile?.email ?? null, avatarUrl: profile?.avatarUrl ?? null, visibility: profile?.visibility ?? "public" },
         credential: auth.tokenScopes ? { kind: "token", sessionId: auth.extensionSessionId, scopes, type: "tokenKind" in auth ? auth.tokenKind : null, workspaceId: auth.tokenWorkspaceId } : { kind: "browser", scopes },
         limits: { largestFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES },
       },
