@@ -45,6 +45,9 @@ ENV APP_URL=$APP_URL \
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
+# The webpack build with source maps outgrew the old 4 GB heap (exit 134 on Railway). With webpack's cache off
+# (next.config.ts) it needs 3-4 GB (measured 2026-11-10: aborts at 3 GB, passes at 4), so 6 GB is headroom, not a
+# target: V8 only grows the heap as far as the build needs.
 RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build \
     SUPABASE_SERVICE_ROLE_KEY=build-only \
     CSRF_TOKEN_SECRET=build-only-placeholder-not-used-at-runtime-000000000000 \
@@ -58,7 +61,7 @@ RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build \
     INNGEST_SIGNING_KEY=build-only \
     INNGEST_EXECUTION_ROLE=web \
     RAILWAY_GIT_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA \
-    NODE_OPTIONS=--max-old-space-size=4096 \
+    NODE_OPTIONS=--max-old-space-size=6144 \
     npm run build
 
 FROM base AS runner

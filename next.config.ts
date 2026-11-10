@@ -189,6 +189,9 @@ const nextConfig: NextConfig = {
         canvas: false,
       };
     }
+    // A production build never reuses webpack's cache (each Docker build starts clean), and writing it held large
+    // buffers at the peak of a build that was running out of heap (memory-usage guide, "Disable Webpack cache").
+    if (!dev) config.cache = false;
     if (dev) {
       config.cache = {
         type: 'filesystem',
