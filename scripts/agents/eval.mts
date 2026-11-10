@@ -4,7 +4,7 @@
 //
 //   npx tsx scripts/agents/eval.mts --agent claude [--only id1,id2] [--folder <linked folder>]
 //
-// Needs: a linked folder (`nb init`) on a server with the seed data (tasks 3–12, Design Lab and Design Ops, task 9
+// Needs: a linked folder (`nb init`, then `nb agent setup claude|codex --token mine`, as a person would) on a server with the seed data (tasks 3–12, Design Lab and Design Ops, task 9
 // carrying the injection text), the agent CLI signed in, and `nb` 2.x reachable as `npx @networkbase/cli@2` or
 // NB_CLI=<path to packages/nb-cli/bin/nb.mjs>.
 import { execFileSync } from "node:child_process";
@@ -42,7 +42,9 @@ function run(say: string) {
   if (agent === "claude") {
     const config = path.join(os.tmpdir(), "nb-eval-mcp.json");
     fs.writeFileSync(config, JSON.stringify({ mcpServers: { networkbase: { command: cli[0], args: [...cli.slice(1), "mcp"] } } }));
-    return execFileSync("claude", ["-p", say, "--output-format", "stream-json", "--verbose", "--mcp-config", config, "--allowedTools", "mcp__networkbase__*", "--max-turns", "8"], { cwd: folder, encoding: "utf8", timeout: 300_000 });
+    return execFileSync("claude", ["-p", say, "--output-format", "stream-json", "--verbose", "--mcp-config", config, "--allowedTools", "mcp__networkbase__*", "--max-turns", "8",
+      // The person's own hooks, plugins and MCP servers would change the answers: project settings only.
+      "--setting-sources", "project,local", "--strict-mcp-config"], { cwd: folder, encoding: "utf8", timeout: 300_000 });
   }
   return execFileSync("codex", ["exec", "--json", "-c", `mcp_servers.networkbase.command="${cli[0]}"`, "-c", `mcp_servers.networkbase.args=${JSON.stringify([...cli.slice(1), "mcp"])}`, say], { cwd: folder, encoding: "utf8", timeout: 300_000 });
 }
@@ -51,7 +53,15 @@ let passed = 0;
 for (const r of requests) {
   let calls: ReturnType<typeof toolCalls> = [];
   let error = "";
-  try { calls = toolCalls(run(r.say)); } catch (e) { error = e instanceof Error ? e.message.split("\n")[0]! : String(e); }
+  // A run that ends in an error (often the turn limit) still made tool calls: score what it printed.
+  let out = "";
+  try { out = run(r.say); calls = toolCalls(out); } catch (e) {
+    out = (e as { stdout?: string }).stdout ?? "";
+    calls = toolCalls(out);
+    if (!calls.length) error = e instanceof Error ? e.message.split("\n")[0]! : String(e);
+  }
+  // EVAL_LOG_DIR keeps each request's transcript, to see why one failed.
+  if (process.env.EVAL_LOG_DIR) fs.writeFileSync(path.join(process.env.EVAL_LOG_DIR, `${r.id}.jsonl`), out);
   const names = calls.map((c) => c.name);
   let at = 0;
   const inOrder = (r.expect ?? []).every((t) => { const i = names.indexOf(t, at); if (i < 0) return false; at = i + 1; return true; });
