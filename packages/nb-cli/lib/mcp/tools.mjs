@@ -323,13 +323,15 @@ function errorResult(error) {
 export const HOSTED_EXCLUDED = new Set(["networkbase_status", "networkbase_file_push", "networkbase_file_pull", "networkbase_undo"]);
 
 /** tools/list entries, with tier hints for clients (A7.3). @param {boolean} [hosted] */
+// Every tool that writes takes confirmToken: the server can hold any write for a yes (someone else's task, a file as
+// final, "Ask for everything"), and a client only sends what the schema lists.
 export const toolList = (hosted = false) => TOOLS.filter((t) => !hosted || !HOSTED_EXCLUDED.has(t.name)).map((t) => ({
   name: t.name,
   title: t.title,
   description: t.description,
   inputSchema: {
     type: "object",
-    properties: { ...t.props, ...(t.tier !== "read" ? { answers: { type: "object", description: "Answers to a needs_input question: { key: value }" } } : {}), ...(t.tier === "yes" || t.needsYes ? { confirmToken: { type: "string", description: "From a needs_confirmation result, after the user agreed" } } : {}) },
+    properties: { ...t.props, ...(t.tier !== "read" ? { answers: { type: "object", description: "Answers to a needs_input question: { key: value }" } } : {}), ...(t.tier !== "read" ? { confirmToken: { type: "string", description: "From a needs_confirmation result, after the user agreed" } } : {}) },
     ...(t.required ? { required: t.required } : {}),
   },
   annotations: { title: t.title, readOnlyHint: t.tier === "read", destructiveHint: t.tier === "yes", openWorldHint: false },

@@ -41,6 +41,10 @@ describe("nb mcp (report A7)", () => {
     assert.equal(byName.networkbase_task_count.annotations.readOnlyHint, true);
     assert.equal(byName.networkbase_task_done.annotations.destructiveHint, true);
     assert.ok(byName.networkbase_task_done.inputSchema.properties.confirmToken);
+    // The server can hold any write for a yes (others' tasks, files as final, "Ask for everything"), so every tool
+    // that writes takes the token; task_assign and file_attach didn't (found 2026-11-10).
+    const writes = result.tools.filter((/** @type {any} */ t) => !t.annotations.readOnlyHint);
+    assert.deepEqual(writes.filter((/** @type {any} */ t) => !t.inputSchema.properties.confirmToken).map((/** @type {any} */ t) => t.name), []);
   });
 
   it("counts and creates tasks; errors are results with a code (finding 123)", async () => {
