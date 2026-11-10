@@ -83,6 +83,8 @@ export function GET() {
 /** Points editors at OAuth (RFC 9728 resource_metadata), so they can sign in without a pasted token. */
 function withAuthHint(request: Request, response: Response) {
   const metadata = `${oauthIssuer(request)}/.well-known/oauth-protected-resource/api/mcp`;
-  response.headers.set("WWW-Authenticate", `Bearer realm="networkbase", resource_metadata="${metadata}", error="invalid_token", error_description="Sign in with OAuth, or use an agent token: nb login --device --agent"`);
+  // RFC 6750 §3.1: an error code only when a token was sent; a token-less first call just learns where to sign in.
+  const error = request.headers.get("authorization") ? `, error="invalid_token", error_description="Sign in with OAuth, or use an agent token: nb login --device --agent"` : "";
+  response.headers.set("WWW-Authenticate", `Bearer realm="networkbase", resource_metadata="${metadata}"${error}`);
   return response;
 }
