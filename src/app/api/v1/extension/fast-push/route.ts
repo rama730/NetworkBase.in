@@ -243,7 +243,8 @@ async function handlePost(request: Request) {
     // Same rules as Add doc in the app: someone who may edit the doc, one new file, and the doc kind for agents.
     if (linkDoc) {
       if (files.length !== 1 || files[0]!.versionOf) return jsonError("linkDoc takes one new file", 400, "BAD_REQUEST");
-      if (existingNodes.length) return jsonError(`${existingNodes[0]!.path} already exists; make it the doc with Add doc in the app, or pick another name`, 409, "CONFLICT");
+      // An entry with no stored version is what a failed upload leaves behind; the retry fills it.
+      if (existingNodes.some((n) => n.contentHash)) return jsonError(`${existingNodes[0]!.path} already exists; make it the doc with Add doc in the app, or pick another name`, 409, "CONFLICT");
       const { readWorkspaceDocAction } = await import("@/app/actions/workspace/doc");
       const doc = await readWorkspaceDocAction(projectId, linkDoc);
       if (!doc.success || doc.data.docSlug !== linkDoc) return jsonError(`No doc called ${linkDoc} here`, 404, "NOT_FOUND");

@@ -65,6 +65,8 @@ test("a starter README with no file: the first edit creates README.md and links 
   assert.equal(noScope.status, 403, JSON.stringify(noScope.json));
   assert.equal(noScope.json.details.scope, "doc:write");
 
+  // What a failed upload leaves behind: the file entry with no stored version. The retry still links it.
+  await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, current_version) VALUES (${projectId}, 'file', 'README.md', '/README.md', ${userId}, 1)`;
   as(token, "POST", "/api/v1/files/place");
   const saved = await post(body(projectId));
   assert.equal(saved.status, 200, JSON.stringify(saved.json));
