@@ -63,7 +63,7 @@ test('Change access: the sentence follows the choice; read-only and agents-off w
     await open(page, 'none');
     await page.getByRole('button', { name: 'Change access' }).click();
     await page.getByRole('radio', { name: 'Read only' }).check();
-    await expect(page.getByText(/^Claude Code can read all your workspaces for 30 days\. It can't change anything\./)).toBeVisible();
+    await expect(page.getByText(/^Claude Code can read all your workspaces for 30 days\. It can’t change anything\./)).toBeVisible();
     await page.getByRole('radio', { name: 'One workspace' }).check();
     const list = page.getByRole('radiogroup', { name: 'Workspace' });
     await expect(list).toContainText('Your workspaces');

@@ -75,7 +75,7 @@ test('Change: the sentence follows each choice, and the approval sends it', asyn
     await page.getByRole('radio', { name: 'Small changes only' }).check();
     await page.getByRole('radio', { name: 'One workspace' }).check();
     await page.getByRole('radio', { name: '7 days' }).check();
-    await expect(page.getByText(/^Claude Code can work in Thesis for 7 days\. It does small things itself and can't finish tasks/)).toBeVisible();
+    await expect(page.getByText(/^Claude Code can work in Thesis for 7 days\. It does small things itself and can’t finish tasks/)).toBeVisible();
     await expect(page.getByRole('radio', { name: /CSE 3B labs/ })).toBeDisabled();
     await page.getByRole('button', { name: 'Approve' }).click();
     await expect(calls(page)).toContainText('"access":"small","workspace":"10000000-0000-4000-8000-000000000000","expiryDays":7');
@@ -143,7 +143,7 @@ test('organization turned agents off everywhere: says why and who can change it'
 
 test('only viewer access: Read only, and the summary says why', async ({ page }) => {
     await open(page, 'viewer');
-    await expect(page.getByText(/^Claude Code can read all your workspaces for 30 days\. It can't change anything\./)).toBeVisible();
+    await expect(page.getByText(/^Claude Code can read all your workspaces for 30 days\. It can’t change anything\./)).toBeVisible();
     await expect(page.getByText('You can only read your workspaces, so this agent can only read too.')).toBeVisible();
 });
 

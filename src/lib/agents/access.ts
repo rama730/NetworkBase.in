@@ -33,6 +33,9 @@ const EXTRA_WORDS: Record<string, { asks: string; cant: string }> = {
   "doc:write": { asks: "doc edits", cant: "edit docs" },
 };
 
+/** A permission as the approval page says it ("finish tasks"); asking-for-more and Settings use it too. */
+export const scopeWords = (scope: string) => EXTRA_WORDS[scope]?.cant ?? (scope === "task:review" ? "approve or return reviews" : scope);
+
 const list = (words: string[], last = "or") => (words.length <= 1 ? words.join("") : `${words.slice(0, -1).join(", ")} ${last} ${words.at(-1)}`);
 
 export function describeAgentAccess(input: {
@@ -50,12 +53,12 @@ export function describeAgentAccess(input: {
   const howLong = `for ${days} day${days === 1 ? "" : "s"}`;
   const where = input.workspaceTitle ? input.workspaceTitle : "all your workspaces";
   const preset = presetOf(input.scopes);
-  if (preset === "read") return `${name} can read ${where} ${howLong}. It can't change anything.`;
+  if (preset === "read") return `${name} can read ${where} ${howLong}. It can’t change anything.`;
   const head = `${name} can work in ${where} ${howLong}.`;
   if (preset === "full") return `${head} It does small things itself (reading, tasks, comments, drafts) and asks you before finishing tasks, final files, doc edits or deleting.`;
   const has = new Set(input.scopes);
   const allowed = AGENT_EXTRA_SCOPES.filter((s) => has.has(s));
   const missing = AGENT_EXTRA_SCOPES.filter((s) => !has.has(s));
-  if (!allowed.length) return `${head} It does small things itself and can't ${list(missing.map((s) => EXTRA_WORDS[s]!.cant))}.`;
-  return `${head} It does small things itself and asks you before ${list([...allowed.map((s) => EXTRA_WORDS[s]!.asks), "deleting"])}; it can't ${list(missing.map((s) => EXTRA_WORDS[s]!.cant))}.`;
+  if (!allowed.length) return `${head} It does small things itself and can’t ${list(missing.map((s) => EXTRA_WORDS[s]!.cant))}.`;
+  return `${head} It does small things itself and asks you before ${list([...allowed.map((s) => EXTRA_WORDS[s]!.asks), "deleting"])}; it can’t ${list(missing.map((s) => EXTRA_WORDS[s]!.cant))}.`;
 }

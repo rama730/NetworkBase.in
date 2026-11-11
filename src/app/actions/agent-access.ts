@@ -24,7 +24,7 @@ async function person(fresh: boolean): Promise<{ id: string } | Failure> {
   if (fresh) {
     const { availableMethods, primaryTotpFactorId } = await resolveStepUpCapabilities({ supabase: supabase as never, user: user as never });
     if (availableMethods.length > 0 && !(await resolveSecurityStepUp(user.id)).ok) {
-      return { success: false, error: "Verify it's you first", stepUpRequired: true, stepUp: { methods: availableMethods, factorId: primaryTotpFactorId } };
+      return { success: false, error: "Verify it’s you first", stepUpRequired: true, stepUp: { methods: availableMethods, factorId: primaryTotpFactorId } };
     }
   }
   return { id: user.id };

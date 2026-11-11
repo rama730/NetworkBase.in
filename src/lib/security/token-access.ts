@@ -200,7 +200,7 @@ export function checkTokenAccess(input: { method: string | null; path: string | 
   }
   // Agents (one workspace or all) only use routes whose rule says how they find the workspace (report A5).
   if (input.allWorkspacesAgent && !tokenRouteRule(input.path)?.agent) {
-    return { status: 403, errorCode: "WORKSPACE_NOT_ALLOWED", message: "AI agents can't use this" };
+    return { status: 403, errorCode: "WORKSPACE_NOT_ALLOWED", message: "AI agents can’t use this" };
   }
   if (input.workspaceId) {
     const mode = tokenRouteRule(input.path)?.agent;

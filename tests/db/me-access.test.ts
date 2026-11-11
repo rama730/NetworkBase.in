@@ -31,7 +31,7 @@ test("an agent reads where, what and how long in the approval page's words", asy
   const read = await get(await token(userId, "agent", workspaceId, ["workspace:read", "task:read", "file:read"]));
   assert.equal(read.access.preset, "read");
   assert.equal(read.access.workspaceId, workspaceId);
-  assert.equal(read.access.sentence, `Claude Code can read ${title} for 30 days. It can't change anything.`);
+  assert.equal(read.access.sentence, `Claude Code can read ${title} for 30 days. It can’t change anything.`);
   const all = await get(await token(userId, "agent", null, ["workspace:read", "task:read", "task:write", "file:read", "file:write", "task:complete", "file:final", "doc:write"]));
   assert.equal(all.access.preset, "full");
   assert.equal(all.access.allWorkspaces, true);

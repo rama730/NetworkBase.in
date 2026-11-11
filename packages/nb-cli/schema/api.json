@@ -1597,13 +1597,13 @@
       "status": 403,
       "exit": 6,
       "meaning": "The agent lacks this permission, so it asked the person in their NetworkBase inbox",
-      "fix": "Tell the person; once they answer, retry (with X-NB-Access-Request: <requestId> after Allow once)"
+      "fix": "Tell the person; once they answer, try the same request again"
     },
     "ACCESS_DENIED_BY_PERSON": {
       "status": 403,
       "exit": 3,
-      "meaning": "The person said no to this permission; the agent won't ask again for 24 hours",
-      "fix": "Do it another way, or ask the person to do it themselves"
+      "meaning": "The person said no to this permission; the agent won’t ask again for 24 hours",
+      "fix": "Leave it to the person for now"
     },
     "WORKSPACE_NOT_ALLOWED": {
       "status": 403,

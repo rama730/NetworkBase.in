@@ -60,7 +60,7 @@ test("agent rows carry the sentence Settings and nb agent status show (report A4
   const [agent] = await sql`INSERT INTO extension_device_sessions (user_id, token_hash, token_prefix, device_name, client_version, expires_at, token_type, agent_name, all_workspaces, scopes)
     VALUES (${userId}, ${hash(`nb_agt_${randomUUID()}`)}, 'nb_agt_x', 'laptop', '2.0.4', now() + interval '7 days', 'agent', 'Claude Code', true, ${sql.json(["workspace:read", "task:read", "file:read"])}) RETURNING id`;
   const rows = (await call(tokens.GET, mine.token, "GET", "/api/v1/tokens")).json.data.tokens as Array<{ id: string; access?: string }>;
-  assert.equal(rows.find((t) => t.id === agent!.id)?.access, "Claude Code can read all your workspaces for 7 days. It can't change anything.");
+  assert.equal(rows.find((t) => t.id === agent!.id)?.access, "Claude Code can read all your workspaces for 7 days. It can’t change anything.");
   assert.equal(rows.find((t) => t.id === mine.id)?.access, undefined);
 });
 

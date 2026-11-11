@@ -24,11 +24,11 @@ test("the sentence says who, where, how long, what it does alone and what waits"
   );
   assert.equal(
     describeAgentAccess({ agentName: "Claude Code", workspaceTitle: "Design Lab", scopes: scopesForPreset("read"), expiresAt: inDays(7), now: NOW }),
-    "Claude Code can read Design Lab for 7 days. It can't change anything.",
+    "Claude Code can read Design Lab for 7 days. It can’t change anything.",
   );
   assert.equal(
     describeAgentAccess({ agentName: "Codex", workspaceTitle: "Design Lab", scopes: scopesForPreset("small"), expiresAt: inDays(30), now: NOW }),
-    "Codex can work in Design Lab for 30 days. It does small things itself and can't finish tasks, change final files or edit docs.",
+    "Codex can work in Design Lab for 30 days. It does small things itself and can’t finish tasks, change final files or edit docs.",
   );
   assert.match(describeAgentAccess({ agentName: "Codex", workspaceTitle: null, scopes: scopesForPreset("full"), expiresAt: inDays(1), now: NOW }), /for 1 day\./);
   assert.equal(
@@ -40,6 +40,6 @@ test("the sentence says who, where, how long, what it does alone and what waits"
 test("custom access names exactly what was allowed", () => {
   assert.equal(
     describeAgentAccess({ agentName: "Cursor", workspaceTitle: null, scopes: scopesForPreset("custom", ["file:final"]), expiresAt: inDays(90), now: NOW }),
-    "Cursor can work in all your workspaces for 90 days. It does small things itself and asks you before final files or deleting; it can't finish tasks or edit docs.",
+    "Cursor can work in all your workspaces for 90 days. It does small things itself and asks you before final files or deleting; it can’t finish tasks or edit docs.",
   );
 });

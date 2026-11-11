@@ -87,6 +87,14 @@ test("Always adds the permission; No keeps quiet for 24 hours", async () => {
   const [session] = await sql`SELECT scopes FROM extension_device_sessions WHERE id = ${yes.sessionId}`;
   assert.ok((session!.scopes as string[]).includes("task:complete"));
 
+  // A sign-in stored with no scopes has the base ones; Always adds to them, never replaces them.
+  const bare = await smallAgent(w.userId, w.projectId);
+  await sql`UPDATE extension_device_sessions SET scopes = '[]'::jsonb WHERE id = ${bare.sessionId}`;
+  const ask = await requests.requestAccess({ sessionId: bare.sessionId, userId: w.userId, scope: "task:complete", method: "PATCH", path: "/x", agentName: "Claude Code" });
+  await requests.decideAgentAccessRequest(w.userId, (ask as { requestId: string }).requestId, "always");
+  const [b] = await sql`SELECT scopes FROM extension_device_sessions WHERE id = ${bare.sessionId}`;
+  assert.ok(["task:write", "file:write", "task:complete"].every((s) => (b!.scopes as string[]).includes(s)), JSON.stringify(b!.scopes));
+
   const no = await smallAgent(w.userId, w.projectId);
   const asked = (await finish(no.token, w.projectId, w.taskId)).json.details;
   await requests.decideAgentAccessRequest(w.userId, asked.requestId, "no");
@@ -121,4 +129,15 @@ test("a request runs out after 24 hours: no answer, and the agent may ask again"
   assert.ok("requestId" in again && again.requestId !== first.requestId);
   const [old] = await sql`SELECT status FROM agent_access_requests WHERE id = ${first.requestId}`;
   assert.equal(old!.status, "expired");
+});
+
+test("only what a preset could allow can be asked for: approving a review stays a plain refusal", async () => {
+  const w = await world();
+  const agent = await smallAgent(w.userId, w.projectId);
+  headerValues = { authorization: `Bearer ${agent.token}`, "x-networkbase-request-method": "PATCH", "x-networkbase-request-target": "/api/v1/extension/task-update" };
+  const [task] = await sql`SELECT updated_at FROM tasks WHERE id = ${w.taskId}`;
+  const res = await taskUpdate.PATCH(new Request("https://app.test/api/v1/extension/task-update", { method: "PATCH", headers: { "content-type": "application/json", "idempotency-key": randomUUID() }, body: JSON.stringify({ kind: "approve", projectId: w.projectId, taskId: w.taskId, expectedUpdatedAt: new Date(task!.updated_at).toISOString() }) }));
+  assert.equal((await res.json()).errorCode, "SCOPE_MISSING");
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM agent_access_requests WHERE session_id = ${agent.sessionId}`;
+  assert.equal(n, 0);
 });

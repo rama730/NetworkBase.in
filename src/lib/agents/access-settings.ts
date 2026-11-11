@@ -2,8 +2,8 @@ import "server-only";
 
 import { and, eq, gt, isNull, lte } from "drizzle-orm";
 
-import { accessRequestWords, openAccessRequests } from "@/lib/agents/access-requests";
-import { describeAgentAccess, presetOf, scopesForPreset, type AgentPreset } from "@/lib/agents/access";
+import { openAccessRequests } from "@/lib/agents/access-requests";
+import { describeAgentAccess, presetOf, scopeWords, scopesForPreset, type AgentPreset } from "@/lib/agents/access";
 import { workspaceAgentPolicy } from "@/lib/agents/policy";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
@@ -28,7 +28,7 @@ export async function agentWorkspaceProblem(userId: string, access: AgentPreset,
   }
   // An organization that turned agent tokens off (report A8.8).
   const org = await workspaceAgentPolicy(workspace);
-  return org.orgAllowsAgents ? null : `${org.orgTitle ?? "This organization"} doesn't allow AI agents. Choose another workspace.`;
+  return org.orgAllowsAgents ? null : `${org.orgTitle ?? "This organization"} doesn’t allow AI agents. Choose another workspace.`;
 }
 
 async function ownAgent(userId: string, sessionId: string, now: Date) {
@@ -116,7 +116,7 @@ export async function agentSettingsView(userId: string, sessionId: string, now =
     workspaceTitle,
     expiresAt: row.expiresAt.toISOString(),
     lastSeenAt: row.lastSeenAt.toISOString(),
-    requests: requests.map((r) => ({ id: r.id, scope: r.scope, words: accessRequestWords(r.scope), reason: r.reason, createdAt: r.createdAt.toISOString() })),
+    requests: requests.map((r) => ({ id: r.id, scope: r.scope, words: scopeWords(r.scope), reason: r.reason, createdAt: r.createdAt.toISOString() })),
   };
 }
 

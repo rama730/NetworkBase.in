@@ -109,6 +109,7 @@ import {
   OUTSIDE_WORKSPACE_MESSAGE,
   TRUSTED_METHOD_HEADER,
   TRUSTED_TARGET_HEADER,
+  AGENT_EXTRA_SCOPES,
   type TokenScope,
 } from "@/lib/security/token-access";
 
@@ -278,6 +279,8 @@ async function askForScope(
   agent: { userId: string; sessionId: string; agentName: string | null },
   scope: TokenScope,
 ) {
+  // Only what a preset could have allowed can be asked for; approving reviews and the rest stay off for agents.
+  if (!(AGENT_EXTRA_SCOPES as readonly string[]).includes(scope)) return jsonError(`This token can't do that: it needs the ${scope} permission`, 403, "SCOPE_MISSING", { scope });
   const method = (headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase();
   const path = (headerStore.get(TRUSTED_TARGET_HEADER) ?? "").split("?")[0]!;
   const requestId = headerStore.get("x-nb-access-request")?.trim() || null;
