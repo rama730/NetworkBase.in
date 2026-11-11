@@ -412,6 +412,14 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "auth_snapshot",
     maxInitialPayloadKb: 260,
   }),
+  "/settings/agents/[id]": buildUserShellContract("/settings/agents/[id]", "src/app/(site)/(main)/settings/agents/[id]/page.tsx", {
+    renderingMode: "dynamic",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "server-action",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "auth_snapshot",
+    maxInitialPayloadKb: 200,
+  }),
   "/acceptable-use": buildPublicContract("/acceptable-use", "src/app/(legal)/acceptable-use/page.tsx", {
     renderingMode: "static",
     cacheTtlSeconds: 86400,

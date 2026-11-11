@@ -29,6 +29,7 @@ const instructions = (w) => [
   "- Do what the user asks with the tools; don't ask first. Small changes (tasks, subtasks, comments, moving a task, draft pushes) run at once and networkbase_undo reverses them.",
   "- Push work as drafts unless the user says final. Finishing a task, final files, doc edits and deleting are held by NetworkBase: call the tool, and when it returns needs_confirmation, show the summary and wait for the user's yes.",
   "- When a tool returns needs_input, ask the user those questions.",
+  "- The networkbase server's instructions start with an access card: who you work for, where you may work, what needs their yes, and when access ends. If a tool answers access_requested, tell the person what you asked for; they answer in NetworkBase.",
   END,
 ].join("\n");
 
@@ -78,9 +79,9 @@ function pickAgent(ctx) {
 export async function setup(ctx) {
   const { project, agent, key } = pickAgent(ctx);
   const mode = ctx.flags.token ?? "agent";
-  if (!["agent", "mine"].includes(mode)) throw usage("--token is agent (its own token, one workspace) or mine (your sign-in)");
+  if (!["agent", "mine"].includes(mode)) throw usage("--token is agent (its own sign-in, which you approve) or mine (your sign-in)");
   const configText = read(agent.config);
-  // The agent gets its own token, tied to this workspace (report A3.3, A7.8), in a profile of its own.
+  // The agent gets its own sign-in (report A3.3, A7.8, A5), in a profile of its own; the person chooses its access.
   const profile = mode === "agent" ? `agent-${key}` : null;
   /** @type {Array<{ file: string, write: string, change: string }>} */
   const changes = [];
@@ -106,10 +107,11 @@ export async function setup(ctx) {
     const { currentProfile } = await import("../config.mjs");
     const existing = currentProfile({ flags: { profile, "api-url": ctx.profile.origin }, env: { ...ctx.env, NB_TOKEN: "", NETWORKBASE_TOKEN: "" } });
     if (!existing.token) {
-      ctx.out.note(`${agent.name} gets its own sign-in, limited to ${safe(project.title ?? project.slug ?? "this workspace")}. Approve it in your browser:`);
-      const { deviceLogin, saveToken } = await import("./account.mjs");
+      ctx.out.note(`${agent.name} gets its own sign-in. Approve it in your browser; you choose where it works and what it may do.`);
+      const { connectedLines, deviceLogin, saveToken } = await import("./account.mjs");
       const token = await deviceLogin(ctx, AGENT_NAMES[key] ?? agent.name);
-      await saveToken(ctx, profile, token);
+      const me = await saveToken(ctx, profile, token);
+      if (me.access) for (const line of connectedLines(ctx, me.access)) ctx.out.note(line);
     }
   }
   for (const c of changes) {
@@ -126,15 +128,58 @@ export async function setup(ctx) {
 /** Which agents are connected in this folder. @param {string} root @param {NodeJS.ProcessEnv} env */
 export const agentRows = (root, env) => Object.entries(AGENTS(root, env)).map(([key, a]) => ({ agent: key, name: a.name, server: hasServer(a.kind, read(a.config)), instructions: Boolean(notesRange(read(a.notes))) }));
 
+/** The person's agent sign-ins with their sentences (report A4 "Afterwards"); empty when signed out. @param {Context} ctx */
+async function agentSignIns(ctx) {
+  if (!ctx.profile.token) return [];
+  const { tokens } = /** @type {any} */ (await ctx.api.get("/api/v1/tokens").catch(() => ({ tokens: [] })));
+  return tokens.filter((/** @type {any} */ t) => t.type === "agent").map((/** @type {any} */ t) => ({ id: t.id, agentName: t.agentName, device: t.name, access: t.access ?? null, lastUsedAt: t.lastUsedAt }));
+}
+
 /** @param {Context} ctx */
 export async function status(ctx) {
   const { root } = ctx.requireRoot();
   const rows = agentRows(root, ctx.env);
-  ctx.out.result("nb.agent.status/1", { agents: rows }, (d) => ctx.out.table([
-    { title: "Agent", value: (r) => r.name },
-    { title: "MCP server", value: (r) => (r.server ? ctx.out.c.success("connected") : ctx.out.c.muted("—")) },
-    { title: "Instructions", value: (r) => (r.instructions ? "added" : ctx.out.c.muted("—")) },
-  ], d.agents));
+  const signIns = await agentSignIns(ctx);
+  ctx.out.result("nb.agent.status/1", { agents: rows, signIns }, (d) => [
+    ctx.out.table([
+      { title: "Agent", value: (r) => r.name },
+      { title: "MCP server", value: (r) => (r.server ? ctx.out.c.success("connected") : ctx.out.c.muted("—")) },
+      { title: "Instructions", value: (r) => (r.instructions ? "added" : ctx.out.c.muted("—")) },
+    ], d.agents),
+    ...(d.signIns.length ? ["", "Signed-in agents:", ...d.signIns.flatMap((/** @type {any} */ s) => [`  ${safe(s.agentName ?? "Agent")} on ${safe(s.device)}`, ctx.out.c.muted(`    ${safe(s.access ?? "")}`)])] : []),
+  ]);
+}
+
+const PRESET_FLAGS = /** @type {const} */ ([["full", "full"], ["small", "small"], ["read-only", "read"]]);
+
+/**
+ * `nb agent access claude --read-only | --small | --full | --workspace <ws> | --all-workspaces` (report A4, A10):
+ * opens the agent's Settings page pre-filled. Changing access needs "Verify it's you", which only the browser has.
+ * @param {Context} ctx
+ */
+export async function access(ctx) {
+  const which = ctx.positionals[0];
+  const name = AGENT_NAMES[String(which)] ?? which;
+  if (!name) throw usage("Which agent? nb agent access claude|codex|cursor [--full|--small|--read-only] [--workspace <ws>|--all-workspaces]");
+  const presets = PRESET_FLAGS.filter(([flag]) => ctx.flags[flag]);
+  if (presets.length > 1) throw usage("Choose one of --full, --small or --read-only");
+  if (ctx.flags.workspace && ctx.flags["all-workspaces"]) throw usage("Choose --workspace or --all-workspaces, not both");
+  const signIns = (await agentSignIns(ctx)).filter((/** @type {any} */ s) => String(s.agentName).toLowerCase() === String(name).toLowerCase());
+  if (!signIns.length) throw new CliError("NOT_FOUND", `No ${name} sign-in yet`, { hint: `Run nb agent setup ${which}` });
+  if (ctx.flags.workspace) await ctx.resolveWorkspace();
+  const target = signIns[0];
+  const query = new URLSearchParams({
+    ...(presets[0] ? { access: presets[0][1] } : {}),
+    ...(ctx.flags["all-workspaces"] ? { workspace: "all" } : ctx.flags.workspace ? { workspace: String(ctx.flags.workspace) } : {}),
+  }).toString();
+  const url = `${ctx.profile.origin}/settings/agents/${target.id}${query ? `?${query}` : ""}`;
+  const { openInBrowser } = await import("./misc.mjs");
+  const opened = ctx.out.stderr.isTTY && !ctx.out.json && !ctx.env.NB_NO_BROWSER ? await openInBrowser(url) : false;
+  ctx.out.result("nb.agent.access/1", { id: target.id, agent: name, url, opened, now: target.access }, (d) => [
+    `${d.opened ? "Opened" : "Open"} ${d.url}`,
+    ctx.out.c.muted(`  Now: ${safe(d.now ?? "")}`),
+    ctx.out.c.muted("  Check the choice there and save; it asks you to confirm it's you."),
+  ]);
 }
 
 /** @param {Context} ctx */

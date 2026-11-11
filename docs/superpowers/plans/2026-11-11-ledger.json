@@ -1108,9 +1108,9 @@
       "text": "nb agent setup claude and nb login --device --agent open the browser by themselves, with the code filled in.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A4.f7c20c39",
@@ -1118,9 +1118,9 @@
       "text": "The terminal shows the code large, plus a QR code of the approval link, so a server or SSH session can be approved from a phone.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A4.e5784f65",
@@ -1128,9 +1128,9 @@
       "text": "The QR encoder is built into the CLI (no new dependency). The QR is printed only when the terminal is wide enough, and never with --json or --plain.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A4.8496e99d",
@@ -1138,9 +1138,9 @@
       "text": "nb agent status and Settings → Integrations use the same sentence for each connected agent.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A4.f76d003d",
@@ -1148,9 +1148,9 @@
       "text": "Changing access needs no new sign-in:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A4.b3ac163c",
@@ -1158,9 +1158,9 @@
       "text": "Renewal:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A4.fb298c25",
@@ -1168,9 +1168,9 @@
       "text": "nb whoami says \"all your workspaces\" or \"only <title>\", and the access level, instead of today's \"one workspace only\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A5.9a137b33",
@@ -1278,9 +1278,9 @@
       "text": "Tests:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-all-workspaces.test.ts; agent-access-schema; agent-approval; agent-access-requests; agent-access-change; me-access; hosted-mcp",
+      "evidence": "M1"
     },
     {
       "key": "A6.b0430694",
@@ -1288,9 +1288,9 @@
       "text": "An access card at the start. When an agent connects (local nb mcp or hosted MCP), the server's instructions say in plain words:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A6.f7c293a9",
@@ -1328,9 +1328,9 @@
       "text": "The same words everywhere: the page sentence, the terminal line, nb agent status, Settings and the agent's card all come from one function, so the person and th",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A7.0df5c5fe",
@@ -1338,9 +1338,9 @@
       "text": "Big changes always wait for the person's yes, whatever the preset.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-policy.test.ts; tests/db/agent-access-requests.test.ts",
+      "evidence": "M1"
     },
     {
       "key": "A7.9ab4e2a6",
@@ -1348,9 +1348,9 @@
       "text": "Organization AI rules and \"Pause agents\" override every choice on this page.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-all-workspaces.test.ts; tests/browser/device-approval.spec.ts (agents off)",
+      "evidence": "M1"
     },
     {
       "key": "A7.bb92c662",
@@ -1368,9 +1368,9 @@
       "text": "The code check stays for terminal sign-ins; it's what stops someone tricking the person into approving their sign-in.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts (code shown once, same-code sentence)",
+      "evidence": "M1"
     },
     {
       "key": "A7.44bcb696",
@@ -1378,9 +1378,9 @@
       "text": "Token lifetimes stay 7, 30 or 90 days. \"My terminal\" sign-ins already reach all workspaces.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/device-decision.test.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1"
     },
     {
       "key": "A8.1e1d9106",
@@ -1408,9 +1408,9 @@
       "text": "Server (A5) with DB tests first: all workspaces, presets including Read only, per-request checks, the 7 lists, hosted MCP, what the CLI asks for, change access,",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-*.test.ts, me-access, hosted-mcp, token-life",
+      "evidence": "M1"
     },
     {
       "key": "A9.b36ca928",
@@ -1418,9 +1418,9 @@
       "text": "Page (A2, A3), Settings and docs (A8), and the A6 access card and tool list.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/browser/agent-access.spec.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1"
     },
     {
       "key": "A9.e0669985",
@@ -1428,9 +1428,9 @@
       "text": "CLI pieces (A4, A6): opening the browser, the QR code, the connected line, nb agent access, nb whoami wording, the instructions block. Released as CLI 2.0.4 rig",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; login.test.mjs; qr.test.mjs",
+      "evidence": "M1"
     },
     {
       "key": "A9.aaaf34b1",
@@ -1448,9 +1448,9 @@
       "text": "the one-click page (A2) with the presets",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts",
+      "evidence": "M1"
     },
     {
       "key": "A9b.1a0a201a",
@@ -1458,9 +1458,9 @@
       "text": "All my workspaces with per-request checks (A5)",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-all-workspaces.test.ts",
+      "evidence": "M1"
     },
     {
       "key": "A9b.5d6602a1",
@@ -1468,9 +1468,9 @@
       "text": "the CLI 2.0.4 terminal pieces (A4)",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs",
+      "evidence": "M1"
     },
     {
       "key": "A9b.a3077e3b",
@@ -1478,9 +1478,9 @@
       "text": "the access card (A6)",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/mcp.test.mjs; tests/db/hosted-mcp.test.ts",
+      "evidence": "M1"
     },
     {
       "key": "A9b.71429215",
@@ -1563,14 +1563,14 @@
       "evidence": "82597b139"
     },
     {
-      "key": "A10.4febd4ba",
+      "key": "A10.088d5f34",
       "section": "A10",
-      "text": "One sentence for every place · describeAgentAccess(session) in src/lib/agents/access-words.ts · used by the page, Settings, /api/v1/me (access.sentence), the MC",
+      "text": "One sentence for every place · describeAgentAccess(session) in src/lib/agents/access.ts · used by the page, Settings, /api/v1/me (access.sentence), the MCP acce",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A10.cb2be770",
@@ -1588,9 +1588,9 @@
       "text": "Change access from the terminal · nb agent access claude … · opens that Settings page pre-filled (the terminal can't do \"Verify it's you\"), and prints the new s",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A10.3cf755c8",
@@ -1628,9 +1628,9 @@
       "text": "every test in A5 passes",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "all A5 DB suites green on 2026-11-11",
+      "evidence": "M1"
     },
     {
       "key": "A10.82f7863e",
@@ -1658,9 +1658,9 @@
       "text": "nb whoami and Settings show the same sentence",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
+      "evidence": "M1 T9"
     },
     {
       "key": "A10.d4aae9cf",
@@ -1678,9 +1678,9 @@
       "text": "An all-workspaces token is worth more if stolen. Mitigations: new-country flags (F5), one-click revoke, a 30-day default, and every request still checked agains",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/token-life.test.ts (new-country email, revoke); tests/db/agent-approval.test.ts (30-day default)",
+      "evidence": "M1"
     },
     {
       "key": "A10.5c02f24f",
@@ -10487,7 +10487,7 @@
       "section": "F7",
       "text": "nb upgrade (see C5).",
       "kind": "build",
-      "milestone": "M1",
+      "milestone": "M4",
       "status": "todo",
       "test": "",
       "evidence": ""
@@ -10507,7 +10507,7 @@
       "section": "F7",
       "text": "\"What's new\": nb version says \"2.1.0 is out: what's new\", following the existing once-a-day notice rule.",
       "kind": "build",
-      "milestone": "M1",
+      "milestone": "M4",
       "status": "todo",
       "test": "",
       "evidence": ""

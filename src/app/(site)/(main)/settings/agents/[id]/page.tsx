@@ -19,5 +19,8 @@ export default async function AgentSettingsPage({ params, searchParams }: { para
     const [view, workspaces] = await Promise.all([agentSettingsView(user.id, id), listAgentWorkspaces(user.id, { includeViewer: true })])
     if (!view) notFound()
     const request = typeof query.request === 'string' ? query.request : null
-    return <AgentAccessSettings view={view} workspaces={workspaces} focusRequest={request} />
+    // `nb agent access claude --read-only --all-workspaces` opens this page with Change access ready (report A10).
+    const access = typeof query.access === 'string' && ['full', 'small', 'read'].includes(query.access) ? (query.access as 'full' | 'small' | 'read') : null
+    const workspace = typeof query.workspace === 'string' && (query.workspace === 'all' || workspaces.some((w) => w.id === query.workspace)) ? query.workspace : null
+    return <AgentAccessSettings view={view} workspaces={workspaces} focusRequest={request} prefill={access || workspace ? { access, workspace } : null} />
 }

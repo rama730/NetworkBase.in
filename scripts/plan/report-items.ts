@@ -75,7 +75,8 @@ export function milestoneFor(section: string, text = ""): string {
   // "each milestone" rows are proven in the final audit (M9). Earlier milestones' phase plans carry their share.
   if (section === "0.8") return text.match(/\bM\d\b/g)?.at(-1) ?? "M9";
   if (/^0\./.test(section) || section === "0") return "M0";
-  if (section === "F7") return "M1";
+  // Only F7's npm `next` tag moved forward to M1; `nb upgrade` and "what's new" ship with C5 and 2.1.0 in M4.
+  if (section === "F7") return /next.? tag/i.test(text) ? "M1" : "M4";
   if (section === "F4") return "M6";
   if (section === "G14" || section === "G18") return "M6";
   if (section === "E9") return "M9";

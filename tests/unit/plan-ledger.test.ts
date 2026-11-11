@@ -39,7 +39,8 @@ test("items come from bullets, numbered steps and table rows, with kinds and sta
 test("polish rows close with their last milestone; sections map by part", () => {
   assert.equal(milestoneFor("0.8", "1 · Empty states everywhere · M1, M5"), "M5");
   assert.equal(milestoneFor("0.8", "7 · Confirm dialogs · each milestone"), "M9");
-  assert.deepEqual(["A2", "B", "C3", "D23", "E1", "E9", "F4", "F7", "G10", "G14", "H24"].map((s) => milestoneFor(s)), ["M1", "M2", "M4", "M4", "M3", "M9", "M6", "M1", "M5", "M6", "M8"]);
+  assert.deepEqual(["A2", "B", "C3", "D23", "E1", "E9", "F4", "F7", "G10", "G14", "H24"].map((s) => milestoneFor(s)), ["M1", "M2", "M4", "M4", "M3", "M9", "M6", "M4", "M5", "M6", "M8"]);
+  assert.equal(milestoneFor("F7", "The npm next tag moves off 2.0.0-next.3"), "M1", "only the next tag moved to M1");
 });
 
 test("check: missing rows, untested finished rows, open rows in a closed milestone, and orphans all fail", () => {

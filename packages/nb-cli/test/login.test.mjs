@@ -33,21 +33,25 @@ describe("nb login --device (report A3.1)", () => {
     assert.match(r.stderr, /ABCD-EFGH/);
   });
 
-  it("an agent sign-in asks for an agent token and whoami says it's tied to one workspace", async () => {
+  it("an agent sign-in says what was approved, and whoami repeats the same sentence (report A4)", async () => {
     Object.assign(api.state.device, { answer: "approve", afterPolls: 1, tokenType: "agent" });
     const { home, r } = await login(["--device", "--agent", "Claude Code"]);
     assert.equal(r.code, 0, r.stderr);
     assert.deepEqual([api.state.device.lastBody.type, api.state.device.lastBody.agentName], ["agent", "Claude Code"]);
-    assert.match(r.stderr, /only reaches the workspace you picked/);
+    assert.match(r.stdout, /Claude Code connected · only Design Lab · small changes only · until \d+ \w+/);
+    assert.match(r.stdout, /Try it: open Claude Code and ask "what should I do today\?"/);
+    assert.match(r.stderr, /Waiting for you to approve in the browser… ABCD-EFGH \(expires \d\d:\d\d\)/);
     const who = await runCli(["whoami"], { api: api.url, home, token: null });
-    assert.match(who.stdout, /token +agent · .*one workspace only/);
+    assert.match(who.stdout, /token +agent · .*only Design Lab/);
+    assert.match(who.stdout, /access +Claude Code can work in Design Lab for 30 days/);
   });
 
   it("--workspace doesn't stop a signed-out login (found signing in an agent against production)", async () => {
     Object.assign(api.state.device, { answer: "approve", afterPolls: 1, tokenType: "agent" });
     const { r } = await login(["--device", "--agent", "Claude Code", "--workspace", "design-lab"]);
     assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stderr, /only reaches the workspace you picked/);
+    assert.match(r.stderr, /Choose design-lab on the approval page/);
+    assert.equal(api.state.device.lastBody.requestedWorkspace, undefined);
   });
 
   it("a denied sign-in says so and saves nothing", async () => {

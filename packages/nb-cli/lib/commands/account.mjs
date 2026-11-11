@@ -28,20 +28,57 @@ export async function saveToken(ctx, profileName, token) {
   return me;
 }
 
+/** The access line (report A4): "Claude Code connected · all workspaces · asks before big changes · until 11 Dec". @param {any} access */
+export function accessLine(access) {
+  const where = access.allWorkspaces ? "all workspaces" : `only ${access.workspaceTitle ?? "one workspace"}`;
+  const what = { full: "asks before big changes", small: "small changes only", read: "read only", custom: "custom access" }[/** @type {string} */ (access.preset)] ?? access.preset;
+  const until = new Date(access.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return `${access.agentName} connected · ${where} · ${what} · until ${until}`;
+}
+
+/** What to show once an agent is approved: the access line and something to try. @param {Context} ctx @param {any} access */
+export function connectedLines(ctx, access) {
+  return [`${ctx.out.c.success(ctx.out.sym.done)} ${safe(accessLine(access))}`, ctx.out.c.muted(`  Try it: open ${safe(access.agentName)} and ask "what should I do today?"`)];
+}
+
 /** @param {Context} ctx @param {string} token @param {string} method */
 async function finish(ctx, token, method) {
   const me = await whoIs(ctx, token);
   saveProfile(ctx.profile.name, { origin: ctx.profile.origin, token, user: { id: me.user.id, username: me.user.username, email: me.user.email } }, ctx.env);
-  ctx.out.result("nb.login/1", { method, origin: ctx.profile.origin, profile: ctx.profile.name, user: me.user, scopes: me.credential.scopes }, (d) =>
-    `${ctx.out.c.success(ctx.out.sym.done)} Signed in as ${safe(d.user.username ? `@${d.user.username}` : d.user.email ?? d.user.id)} on ${new URL(d.origin).host}${d.profile !== "default" ? ` (profile ${d.profile})` : ""}`);
+  ctx.out.result("nb.login/1", { method, origin: ctx.profile.origin, profile: ctx.profile.name, user: me.user, scopes: me.credential.scopes, access: me.access ?? null }, (d) =>
+    d.access ? connectedLines(ctx, d.access) : `${ctx.out.c.success(ctx.out.sym.done)} Signed in as ${safe(d.user.username ? `@${d.user.username}` : d.user.email ?? d.user.id)} on ${new URL(d.origin).host}${d.profile !== "default" ? ` (profile ${d.profile})` : ""}`);
 }
 
 /** Over SSH, or on Linux without a display, a browser can't open here, so the code flow is used (A3.1). @param {NodeJS.ProcessEnv} env */
 const noBrowserHere = (env) => Boolean(env.SSH_CONNECTION || env.SSH_TTY || (process.platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY));
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Sign-in with a code (report A3.1): the server gives a code, the person approves it at /device on any device
- * where they're signed in, and this terminal polls until then (10 minutes at most).
+ * What the sign-in asks for (report A5): --access full|small|read, --workspace <slug|id>, --all-workspaces. The
+ * approval page pre-fills it; the person can change it. A workspace that can't be looked up before signing in is
+ * left for the page, never an error (a signed-out login must not stop on --workspace).
+ * @param {Context} ctx
+ */
+async function signInWishes(ctx) {
+  const access = ctx.flags.access;
+  if (access !== undefined && !["full", "small", "read"].includes(String(access))) throw usage("--access takes full, small or read");
+  /** @type {string | null} */
+  let workspace = null;
+  const given = typeof ctx.flags.workspace === "string" ? ctx.flags.workspace.trim() : "";
+  if (ctx.flags["all-workspaces"]) workspace = "all";
+  else if (given && UUID_SHAPE.test(given)) workspace = given;
+  else if (given) {
+    const p = ctx.project;
+    if (p?.workspaceId && [p.slug, p.title].some((v) => v && v.toLowerCase() === given.toLowerCase())) workspace = p.workspaceId;
+    else if (ctx.profile.token) workspace = await ctx.resolveWorkspace().then(() => (UUID_SHAPE.test(String(ctx.flags.workspace)) ? String(ctx.flags.workspace) : null), () => null);
+    if (!workspace) ctx.out.note(ctx.out.c.muted(`Choose ${safe(given)} on the approval page.`));
+  }
+  return { ...(access ? { requestedAccess: String(access) } : {}), ...(workspace ? { requestedWorkspace: workspace } : {}) };
+}
+
+/**
+ * Sign-in with a code (report A3.1, A4): the server gives a code; the browser opens at the approval page by itself
+ * where it can, a QR code covers a phone, and this terminal polls until the person answers (10 minutes at most).
  * @param {Context} ctx
  * @returns {Promise<string>}
  */
@@ -54,26 +91,49 @@ export async function deviceLogin(ctx, agentName = /** @type {string | null} */ 
     clientVersion: ctx.version,
     platform: `${process.platform} ${process.arch}`,
     type: agent ? "agent" : "device",
-    ...(agent ? { agentName: agent } : {}),
+    ...(agent ? { agentName: agent, ...(await signInWishes(ctx)) } : {}),
   }, { auth: false }));
   const { c } = ctx.out;
+  const tty = Boolean(ctx.out.stderr.isTTY) && !ctx.out.json;
+  ctx.out.note("");
+  ctx.out.note(`  ${c.bold(String(start.userCode).split("").join(" "))}`);
+  ctx.out.note("");
+  // A QR code of the link for a phone, when it fits and the terminal can draw it (never in --json or --plain).
+  if (tty && !ctx.out.plain) {
+    const { qrLines } = await import("../print/qr.mjs");
+    const lines = qrLines(start.verificationUriComplete);
+    if ((lines[0]?.length ?? 0) + 4 <= ctx.out.columns()) for (const line of lines) ctx.out.note(`  ${line}`);
+  }
   ctx.out.note(`Open ${c.bold(start.verificationUri)} and enter ${c.bold(start.userCode)}`);
   ctx.out.note(c.muted(`  or go straight to ${start.verificationUriComplete}`));
-  ctx.out.note(c.muted(`Waiting for you to approve… (code works for ${Math.round(start.expiresIn / 60)} minutes; Ctrl+C to cancel)`));
+  const opened = tty && !noBrowserHere(ctx.env) && !ctx.env.NB_NO_BROWSER ? await openInBrowser(start.verificationUriComplete) : false;
+  if (opened) ctx.out.note(c.muted("Opened your browser. Approve only if it shows the same code."));
   let interval = Number(start.interval ?? 5);
   const until = Date.now() + Number(start.expiresIn ?? 600) * 1000;
-  while (Date.now() < until) {
-    await new Promise((resolve) => setTimeout(resolve, interval * 1000));
-    const res = /** @type {any} */ (await api.post("/api/v1/device/token", { deviceCode: start.deviceCode }, { auth: false }).catch((/** @type {unknown} */ error) => {
-      if (error instanceof CliError && error.status === 403) throw new CliError("CANCELLED", "Sign-in was denied in the browser");
-      if (error instanceof CliError && error.status === 410) throw new CliError("TIMEOUT", "The sign-in code expired before it was approved", { hint: "Run nb login --device again" });
-      throw error;
-    }));
-    if (res.status === "approved") {
-      if (res.tokenType === "agent") ctx.out.note(c.muted("Signed in as an agent: this token only reaches the workspace you picked."));
-      return String(res.token);
+  const waiting = () => {
+    const left = Math.max(0, Math.round((until - Date.now()) / 1000));
+    return `Waiting for you to approve in the browser… ${start.userCode} (expires ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")})`;
+  };
+  // On a terminal the countdown updates in place; elsewhere it's printed once.
+  const ticker = tty ? setInterval(() => ctx.out.stderr.write(`\r\x1b[2K${c.muted(waiting())}`), 1000) : null;
+  if (tty) ctx.out.stderr.write(c.muted(waiting()));
+  else ctx.out.note(c.muted(`${waiting()}; Ctrl+C to cancel`));
+  try {
+    while (Date.now() < until) {
+      await new Promise((resolve) => setTimeout(resolve, interval * 1000));
+      const res = /** @type {any} */ (await api.post("/api/v1/device/token", { deviceCode: start.deviceCode }, { auth: false }).catch((/** @type {unknown} */ error) => {
+        if (error instanceof CliError && error.status === 403) throw new CliError("CANCELLED", "Sign-in was denied in the browser");
+        if (error instanceof CliError && error.status === 410) throw new CliError("TIMEOUT", "The sign-in code expired before it was approved", { hint: "Run nb login --device again" });
+        throw error;
+      }));
+      if (res.status === "approved") return String(res.token);
+      if (res.status === "slow_down") interval += 5;
     }
-    if (res.status === "slow_down") interval += 5;
+  } finally {
+    if (ticker) {
+      clearInterval(ticker);
+      ctx.out.stderr.write("\r\x1b[2K");
+    }
   }
   throw new CliError("TIMEOUT", "The sign-in code expired before it was approved", { hint: "Run nb login --device again" });
 }
@@ -223,7 +283,9 @@ export async function whoami(ctx) {
   ctx.out.result("nb.whoami/1", data, (d) => [
     `${ctx.out.c.brand(ctx.out.sym.brand)} ${safe(d.user.username ? `@${d.user.username}` : d.user.email ?? d.user.id)}${d.user.fullName ? ` · ${safe(d.user.fullName)}` : ""}`,
     `  server   ${new URL(d.origin).host}${d.profile !== "default" ? ` (profile ${d.profile})` : ""}`,
-    `  token    ${d.credential.type ? `${d.credential.type === "agent" ? "agent" : d.credential.type === "pat" ? "personal access" : "device"} · ` : ""}${d.tokenSource === "env" ? "from NETWORKBASE_TOKEN" : `kept in ${storageWords(d.storage)}`} · ${d.credential.scopes.length} permissions${d.credential.workspaceId ? " · one workspace only" : ""}`,
+    `  token    ${d.credential.type ? `${d.credential.type === "agent" ? "agent" : d.credential.type === "pat" ? "personal access" : "device"} · ` : ""}${d.tokenSource === "env" ? "from NETWORKBASE_TOKEN" : `kept in ${storageWords(d.storage)}`} · ${d.access ? (d.access.allWorkspaces ? "all your workspaces" : `only ${safe(d.access.workspaceTitle ?? "one workspace")}`) : d.credential.workspaceId ? "one workspace only" : `${d.credential.scopes.length} permissions`}`,
+    // An agent's access in the approval page's words (report A4, A10 "nb whoami and Settings show the same sentence").
+    ...(d.access ? [`  access   ${safe(d.access.sentence)}`] : []),
     `  files    up to ${Math.round(d.limits.largestFileBytes / 1024 / 1024)} MB each`,
     ...(ctx.flags.verbose ? [`  can      ${d.credential.scopes.join(", ")}`] : []),
   ]);

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.4 (2026-11-11)
+
+### Added
+- One-click agent sign-in: `nb agent setup` and `nb login --device --agent` open the approval page by themselves, show the code large and, on a wide terminal, a QR code for approving from a phone. The wait counts down; once approved the CLI repeats what you allowed ("Claude Code connected · all workspaces · asks before big changes · until 11 Dec").
+- `nb login --device --agent <name> --access full|small|read --workspace <ws>|--all-workspaces` asks for that access; the page starts there and you can change it.
+- `nb agent access claude --read-only|--small|--full [--workspace <ws>|--all-workspaces]` opens the agent's Settings page, ready to change.
+- `nb agent status` lists your signed-in agents with what each may do; `nb whoami` shows an agent's access in the same words.
+- The MCP server starts with an access card (who the agent works for, where, what waits for a yes, when access ends). A Read only agent sees only the tools that read. When the agent lacks a permission, NetworkBase asks you in your inbox and the tool says `access_requested`.
+
 ## 2.0.3 (2026-11-11)
 
 ### Added

@@ -11,3 +11,8 @@ Measured on local `main` at `70a6ab3c0` (CLI 2.0.3 code), macOS, Node 22.
 | Agent test (56 requests, Claude Code) | 52/56 (93%) | 90% | 2026-11-10 |
 
 Each milestone appends its "after" numbers below.
+
+## After M1 Task 9 (CLI 2.0.4, 2026-11-11)
+
+- CLI unpacked size: 388,973 bytes of the 409,600 budget (+23,561: QR encoder, agent access, access card). Budget unchanged.
+- `nb --version` 75 ms, `nb --help` 78 ms (budgets 120 and 200).

@@ -91,7 +91,8 @@ Agents
   ask answer           Answer a question an agent asked you
   agent setup          Connect Claude Code, Codex or Cursor to this workspace
                        (asks first)
-  agent status         Which agents are connected here
+  agent status         Which agents are connected here, and what each may do
+  agent access         Change what an agent may do (opens its Settings page)
   agent remove         Disconnect an agent and remove its NetworkBase notes
   mcp                  MCP server for Claude Code, Codex and Cursor (stdio)
 

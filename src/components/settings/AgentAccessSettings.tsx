@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, Bot, Loader2 } from 'lucide-react'
+import { Bot, Loader2 } from 'lucide-react'
 
 import { changeAgentAccessAction, decideAgentAccessRequestAction, renewAgentAccessAction } from '@/app/actions/agent-access'
 import { AGENT_EXPIRY_CHOICES, AgentAccessPicker, agentAccessSentence, type AgentAccessValue, type AgentWorkspaceOption } from '@/components/agents/AgentAccessPicker'
@@ -31,16 +30,16 @@ const EXTRA = new Set<string>(['task:complete', 'file:final', 'doc:write'])
 type Busy = null | 'change' | 'renew' | `${string}:${'once' | 'always' | 'no'}`
 
 /** Settings → Integrations → an agent (report A4 "Afterwards", A5, A8). */
-export default function AgentAccessSettings({ view, workspaces, focusRequest }: { view: AgentSettingsView; workspaces: AgentWorkspaceOption[]; focusRequest: string | null }) {
+export default function AgentAccessSettings({ view, workspaces, focusRequest, prefill = null }: { view: AgentSettingsView; workspaces: AgentWorkspaceOption[]; focusRequest: string | null; prefill?: { access: AgentPreset | null; workspace: string | null } | null }) {
     const [sentence, setSentence] = useState(view.sentence)
     const [expiresAt, setExpiresAt] = useState(view.expiresAt)
     const [requests, setRequests] = useState(view.requests)
-    const [changing, setChanging] = useState(false)
+    const [changing, setChanging] = useState(prefill !== null)
     const [busy, setBusy] = useState<Busy>(null)
     const [renewDays, setRenewDays] = useState<(typeof AGENT_EXPIRY_CHOICES)[number]>(30)
     const [choice, setChoice] = useState<AgentAccessValue>({
-        access: view.preset,
-        workspace: view.workspace ?? 'all',
+        access: prefill?.access ?? view.preset,
+        workspace: prefill?.workspace ?? view.workspace ?? 'all',
         expiryDays: 30,
         extraScopes: view.extraScopes.filter((s): s is TokenScope => EXTRA.has(s)),
     })
@@ -80,7 +79,6 @@ export default function AgentAccessSettings({ view, workspaces, focusRequest }: 
 
     return (
         <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 md:px-0">
-            <Link href="/settings#settings-integrations" className="nb-link inline-flex items-center gap-1.5 text-sm"><ArrowLeft className="size-4" aria-hidden="true" />Integrations</Link>
             <header className="flex items-start gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-foreground"><Bot className="size-5" aria-hidden="true" /></span>
                 <div className="min-w-0">

@@ -85,7 +85,7 @@ const exact = {
     const current = String(req.headers.authorization ?? "").replace(/^Bearer /, "");
     return { data: { tokens: [
       { id: "aaaa1111-0000-4000-8000-000000000001", type: "device", name: "laptop", agentName: null, workspace: null, lastUsedAt: now(), current: current === TOKEN },
-      { id: "bbbb2222-0000-4000-8000-000000000002", type: "agent", name: "laptop", agentName: "Claude Code", workspace: "Design Lab", lastUsedAt: null, current: false },
+      { id: "bbbb2222-0000-4000-8000-000000000002", type: "agent", name: "laptop", agentName: "Claude Code", workspace: "Design Lab", lastUsedAt: null, current: false, access: "Claude Code can work in Design Lab for 30 days. It does small things itself and can't finish tasks, change final files or edit docs." },
     ] } };
   },
   "GET /api/v1/questions": (_req, state) => ({ data: { questions: state.questions.filter((q) => q.status === "open") } }),

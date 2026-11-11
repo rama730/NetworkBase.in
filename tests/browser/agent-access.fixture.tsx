@@ -15,4 +15,5 @@ const view = {
     expiresAt: new Date(Date.now() + 30 * 864e5).toISOString(), lastSeenAt: new Date(Date.now() - 6e4).toISOString(),
     requests: kase === 'requests' ? [{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', scope: 'task:complete', words: 'finish tasks', reason: null, createdAt: new Date().toISOString() }] : [],
 };
-createRoot(document.getElementById('root')!).render(<main><AgentAccessSettings view={view} workspaces={workspaces} focusRequest={view.requests[0]?.id ?? null} /></main>);
+const prefill = kase === 'prefill' ? { access: 'read' as const, workspace: 'all' } : null;
+createRoot(document.getElementById('root')!).render(<main><AgentAccessSettings view={view} workspaces={workspaces} focusRequest={view.requests[0]?.id ?? null} prefill={prefill} /></main>);

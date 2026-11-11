@@ -101,7 +101,7 @@ function ExtensionAppCard() {
         <div className="min-w-0">
           <h4 className="nb-ui-label text-foreground">NetworkBase CLI, AI agents and editors</h4>
           <p className="nb-compact mt-1 text-muted-foreground">
-            Sign in from your editor or terminal, then link a folder with nb init. AI agents get their own sign-in: you choose where they work, what they may do and for how long. Change or revoke it any time below. <Link href="/docs/cli" className="nb-link">CLI docs</Link> · <Link href="/docs/agents" className="nb-link">Agents</Link>
+            Sign in from your editor or terminal, then link a folder with nb init. AI agents get their own sign-in: you choose where they work, what they may do and for how long. Revoke any time below, or change what an agent may do. <Link href="/docs/cli" className="nb-link">CLI docs</Link> · <Link href="/docs/agents" className="nb-link">Agents</Link>
           </p>
         </div>
       </div>

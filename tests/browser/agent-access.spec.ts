@@ -80,6 +80,13 @@ test('Change access: the sentence follows the choice; read-only and agents-off w
     expect(await axeViolations(page)).toEqual([]);
 });
 
+test('nb agent access opens Change access already set to what was asked', async ({ page }) => {
+    await open(page, 'prefill');
+    await expect(page.getByRole('radio', { name: 'Read only' })).toBeChecked();
+    await expect(page.getByRole('radio', { name: /All my workspaces/ })).toBeChecked();
+    await expect(page.getByText(/^Claude Code can read all your workspaces for 30 days/)).toBeVisible();
+});
+
 test('Renew, by keyboard only', async ({ page, browserName }) => {
     await open(page, 'none');
     await page.getByRole('combobox').focus();
