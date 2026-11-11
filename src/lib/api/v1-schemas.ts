@@ -231,6 +231,9 @@ export const deviceCodeSchema = z.object({
   platform: z.string().trim().max(40).optional().nullable(),
   type: z.enum(["device", "agent"]).optional(),
   agentName: z.string().trim().max(80).optional().nullable(),
+  /** What the CLI asks for (report A5); the approval page pre-fills it and the person can change it. */
+  requestedAccess: z.enum(["full", "small", "read"]).optional().nullable(),
+  requestedWorkspace: z.union([z.literal("all"), z.string().uuid()]).optional().nullable(),
 });
 
 // device/token

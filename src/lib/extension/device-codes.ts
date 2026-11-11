@@ -7,9 +7,10 @@ import crypto from "node:crypto";
 import { and, desc, eq, gt, isNull, lt, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { deviceCodes, extensionDeviceSessionEvents, extensionDeviceSessions, workspaceMembers, workspaces } from "@/lib/db/schema";
+import { agentAccessDefaults, deviceCodes, extensionDeviceSessionEvents, extensionDeviceSessions, workspaceMembers, workspaces } from "@/lib/db/schema";
 import { EXTENSION_DEVICE_SESSION_EVENTS } from "@/lib/extension/session-events";
-import { AGENT_BASE_SCOPES, AGENT_EXTRA_SCOPES, type TokenScope } from "@/lib/security/token-access";
+import { scopesForPreset, type AgentPreset } from "@/lib/agents/access";
+import { type TokenScope } from "@/lib/security/token-access";
 
 export const DEVICE_CODE_TTL_MS = 10 * 60_000;
 export const DEVICE_POLL_INTERVAL_S = 5;
@@ -44,6 +45,11 @@ export type DeviceCodeRequest = {
   userAgent?: string | null;
   /** An OAuth authorization request for the hosted MCP server (0080): where to send the person back, and PKCE. */
   oauth?: { clientId: string; redirectUri: string; state: string | null; codeChallenge: string };
+  /** What the CLI or editor asked for (0082): pre-filled on the approval page, which the person can change. */
+  requestedAccess?: "full" | "small" | "read" | null;
+  requestedWorkspace?: string | null;
+  /** Two-letter country the request came from (Cloudflare), shown on the approval page. */
+  country?: string | null;
 };
 
 export async function createDeviceCode(input: DeviceCodeRequest, now = new Date()) {
@@ -68,6 +74,9 @@ export async function createDeviceCode(input: DeviceCodeRequest, now = new Date(
         expiresAt: new Date(now.getTime() + DEVICE_CODE_TTL_MS),
         createdAt: now,
         ...(input.oauth ? { oauthClientId: input.oauth.clientId, redirectUri: input.oauth.redirectUri, oauthState: input.oauth.state, codeChallenge: input.oauth.codeChallenge } : {}),
+        requestedAccess: input.requestedAccess ?? null,
+        requestedWorkspace: input.requestedWorkspace ?? null,
+        country: input.country && /^[A-Z]{2}$/.test(input.country) && input.country !== "XX" ? input.country : null,
       })
       .onConflictDoNothing({ target: deviceCodes.userCode })
       .returning({ userCode: deviceCodes.userCode, expiresAt: deviceCodes.expiresAt });
@@ -123,6 +132,7 @@ export async function issueApprovedToken(tx: Tx, row: typeof deviceCodes.$inferS
         tokenType,
         agentName: row.agentName,
         workspaceId: row.workspaceId,
+        allWorkspaces: tokenType === "agent" && row.allWorkspaces,
         ipAddress: row.ipAddress,
         userAgent: row.userAgent,
         editorName: row.clientName,
@@ -150,13 +160,33 @@ function oauthReturnLabel(redirectUri: string) {
   return url.host ? url.host : `${url.protocol}//`;
 }
 
+export type AgentPrefill = { access: Exclude<AgentPreset, "custom">; workspace: string; expiryDays: number; source: "cli" | "remembered" | "default" };
+
+/**
+ * What the approval page pre-fills (report A2): what the CLI or editor asked for, else the person's last choice for
+ * this agent name, else Full help · All my workspaces · 30 days.
+ */
+async function agentPrefill(row: typeof deviceCodes.$inferSelect, viewerId: string | null): Promise<AgentPrefill> {
+  const remembered = viewerId && row.agentName
+    ? (await db.select().from(agentAccessDefaults).where(and(eq(agentAccessDefaults.userId, viewerId), eq(agentAccessDefaults.agentName, row.agentName))).limit(1))[0]
+    : undefined;
+  const rememberedAccess = remembered && remembered.access !== "custom" ? remembered.access : undefined;
+  if (row.requestedAccess || row.requestedWorkspace) {
+    return { access: row.requestedAccess ?? rememberedAccess ?? "full", workspace: row.requestedWorkspace ?? "all", expiryDays: remembered?.expiryDays ?? 30, source: "cli" };
+  }
+  if (remembered) return { access: rememberedAccess ?? "full", workspace: remembered.workspaceId ?? "all", expiryDays: remembered.expiryDays, source: "remembered" };
+  return { access: "full", workspace: "all", expiryDays: 30, source: "default" };
+}
+
 /** What the approval page shows for a code, or null when there's no such pending code. */
-export async function findPendingDeviceCode(code: string, now = new Date()) {
+export async function findPendingDeviceCode(code: string, viewerId: string | null = null, now = new Date()) {
   const normalized = normalizeUserCode(code);
   if (!normalized) return null;
   const [row] = await db.select().from(deviceCodes).where(and(eq(deviceCodes.userCode, normalized), eq(deviceCodes.status, "pending"))).limit(1);
   if (!row || row.expiresAt <= now) return null;
   return {
+    country: row.country,
+    prefill: await agentPrefill(row, viewerId),
     userCode: row.userCode,
     clientName: row.clientName,
     deviceName: row.deviceName,
@@ -177,7 +207,7 @@ export async function findPendingDeviceCode(code: string, now = new Date()) {
 export type DeviceDecision =
   | { decision: "deny" }
   | { decision: "approve"; type: "device" }
-  | { decision: "approve"; type: "agent"; workspaceId: string; expiryDays: (typeof AGENT_EXPIRY_DAYS)[number]; extraScopes: TokenScope[] };
+  | { decision: "approve"; type: "agent"; access: AgentPreset; workspace: "all" | string; expiryDays: (typeof AGENT_EXPIRY_DAYS)[number]; extraScopes?: TokenScope[] };
 
 /** Records the person's answer. Access to the workspace is checked by the caller (the server action). */
 export async function decideDeviceCode(userId: string, code: string, decision: DeviceDecision, now = new Date()) {
@@ -192,8 +222,9 @@ export async function decideDeviceCode(userId: string, code: string, decision: D
             userId,
             decidedAt: now,
             tokenType: "agent" as const,
-            workspaceId: decision.workspaceId,
-            scopes: [...AGENT_BASE_SCOPES, ...decision.extraScopes.filter((s) => AGENT_EXTRA_SCOPES.includes(s))],
+            workspaceId: decision.workspace === "all" ? null : decision.workspace,
+            allWorkspaces: decision.workspace === "all",
+            scopes: scopesForPreset(decision.access, decision.extraScopes ?? []),
             tokenExpiresAt: new Date(now.getTime() + decision.expiryDays * 86_400_000),
           }
         : { status: "approved" as const, userId, decidedAt: now, tokenType: "device" as const, scopes: [], tokenExpiresAt: new Date(now.getTime() + DEVICE_EXPIRY_DAYS * 86_400_000) };
@@ -201,7 +232,13 @@ export async function decideDeviceCode(userId: string, code: string, decision: D
     .update(deviceCodes)
     .set(values)
     .where(and(eq(deviceCodes.userCode, normalized), eq(deviceCodes.status, "pending"), gt(deviceCodes.expiresAt, now)))
-    .returning({ id: deviceCodes.id });
+    .returning({ id: deviceCodes.id, agentName: deviceCodes.agentName });
+  // Remember this choice for the next approval of the same agent (report A5).
+  if (updated.length === 1 && decision.decision === "approve" && decision.type === "agent" && updated[0]!.agentName) {
+    const remembered = { workspaceId: decision.workspace === "all" ? null : decision.workspace, access: decision.access, expiryDays: decision.expiryDays, extraScopes: decision.extraScopes ?? [], updatedAt: now };
+    await db.insert(agentAccessDefaults).values({ userId, agentName: updated[0]!.agentName.slice(0, 80), ...remembered })
+      .onConflictDoUpdate({ target: [agentAccessDefaults.userId, agentAccessDefaults.agentName], set: remembered });
+  }
   return updated.length === 1;
 }
 

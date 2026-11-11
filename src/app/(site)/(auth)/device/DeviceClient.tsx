@@ -64,7 +64,9 @@ export default function DeviceClient({ viewerEmail, code, pending, workspaces }:
         setBusy(decision)
         setError(null)
         try {
-            const input = decision === 'deny' ? { decision } : type === 'agent' ? { decision, type, workspaceId, expiryDays, extraScopes: extras } : { decision, type }
+            // Interim shape until the page is rebuilt (M1 Task 7): the ticked extras pick the preset.
+            const access = extras.length === 3 ? 'full' : extras.length ? 'custom' : 'small'
+            const input = decision === 'deny' ? { decision } : type === 'agent' ? { decision, type, access, workspace: workspaceId, expiryDays, ...(access === 'custom' ? { extraScopes: extras } : {}) } : { decision, type }
             const result = await decideDeviceCodeAction(pending.userCode, input)
             if (result.success) {
                 // An editor's OAuth sign-in goes back to the editor with its code (or access_denied).

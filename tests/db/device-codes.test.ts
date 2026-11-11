@@ -55,7 +55,7 @@ test("a code goes pending → approved → token once, then it's used up", async
   assert.equal((await poll(deviceCode)).json.data.status, "pending");
   assert.equal((await poll(deviceCode)).json.data.status, "slow_down", "polling faster than every 5 s");
   assert.ok(await lib.findPendingDeviceCode(userCode.toLowerCase().replace("-", " ")), "the page finds it however it's typed");
-  assert.equal(await lib.decideDeviceCode(userId, userCode, { decision: "approve", type: "agent", workspaceId: projectId, expiryDays: 30, extraScopes: ["doc:write"] }), true);
+  assert.equal(await lib.decideDeviceCode(userId, userCode, { decision: "approve", type: "agent", access: "custom", workspace: projectId, expiryDays: 30, extraScopes: ["doc:write"] }), true);
   const approved = await poll(deviceCode);
   assert.equal(approved.json.data.status, "approved", JSON.stringify(approved.json));
   assert.match(approved.json.data.token, /^nb_agt_[0-9a-f]{48}$/);
@@ -84,7 +84,7 @@ test("an agent token stays in its workspace: query, body and task ids, and the w
   const mine = await sql.begin((tx) => createProject(tx, userId));
   const other = await sql.begin((tx) => createProject(tx, userId));
   const { deviceCode, userCode } = await startCode();
-  await lib.decideDeviceCode(userId, userCode, { decision: "approve", type: "agent", workspaceId: mine, expiryDays: 7, extraScopes: [] });
+  await lib.decideDeviceCode(userId, userCode, { decision: "approve", type: "agent", access: "small", workspace: mine, expiryDays: 7 });
   const token = (await poll(deviceCode)).json.data.token as string;
 
   as(token, "GET", `/api/v1/extension/workspace-tasks?projectId=${other}`);

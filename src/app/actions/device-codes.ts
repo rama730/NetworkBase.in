@@ -24,7 +24,7 @@ export async function decideDeviceCodeAction(code: string, input: unknown): Prom
   if (!(await consumeRateLimit(`device:decide:${user.id}`, 20, 600)).allowed) return { success: false, error: "Too many attempts. Try again in a few minutes." };
   const parsed = deviceDecisionSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Choose how this sign-in may be used" };
-  const pending = await findPendingDeviceCode(code);
+  const pending = await findPendingDeviceCode(code, user.id);
   if (!pending) return { success: false, error: "This code has expired or was already used. Start again from your terminal." };
 
   const decision = parsed.data;
@@ -33,18 +33,21 @@ export async function decideDeviceCodeAction(code: string, input: unknown): Prom
     if (availableMethods.length > 0 && !(await resolveSecurityStepUp(user.id)).ok) {
       return { success: false, error: "Verify it's you before approving", stepUpRequired: true };
     }
-    if (decision.type === "agent") {
-      const access = await getWorkspaceAccessById(decision.workspaceId, user.id);
-      if (!access.canWrite) return { success: false, error: "Choose a workspace you can change" };
+    // "All my workspaces" is checked on every request instead (report A5); one workspace is checked here too.
+    if (decision.type === "agent" && decision.workspace !== "all") {
+      const access = await getWorkspaceAccessById(decision.workspace, user.id);
+      if (decision.access === "read" ? !access.canRead : !access.canWrite) {
+        return { success: false, error: decision.access === "read" ? "Choose a workspace you can see" : "You can only read this workspace. Choose Read only, or another workspace." };
+      }
       // An organization that turned agent tokens off (report A8.8).
       const { workspaceAgentPolicy } = await import("@/lib/agents/policy");
-      const org = await workspaceAgentPolicy(decision.workspaceId);
+      const org = await workspaceAgentPolicy(decision.workspace);
       if (!org.orgAllowsAgents) return { success: false, error: `${org.orgTitle ?? "This organization"} doesn't allow AI agents. Choose another workspace.` };
     }
   }
 
   // The hosted MCP server takes only agent tokens, so an editor's OAuth request can't become a full terminal sign-in.
-  if (pending.viaOAuth && decision.decision === "approve" && decision.type !== "agent") return { success: false, error: "An editor connects as an AI agent, limited to one workspace. Choose An AI agent." };
+  if (pending.viaOAuth && decision.decision === "approve" && decision.type !== "agent") return { success: false, error: "An editor connects as an AI agent. Choose An AI agent." };
   const ok = await decideDeviceCode(user.id, code, decision as Parameters<typeof decideDeviceCode>[2]);
   if (!ok) return { success: false, error: "This code has expired or was already used. Start again from your terminal." };
   if (decision.decision === "approve") {

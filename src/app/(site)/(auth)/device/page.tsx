@@ -23,7 +23,7 @@ export default async function DevicePage({ searchParams }: { searchParams: Promi
         redirect(`/onboarding?next=${encodeURIComponent(normalizeAuthNextPath(`/device${code ? `?code=${encodeURIComponent(code)}` : ''}`))}`)
     }
     // Details of a waiting sign-in are only shown to someone signed in.
-    const pending = user && code ? await findPendingDeviceCode(code) : null
+    const pending = user && code ? await findPendingDeviceCode(code, user.id) : null
     const workspaces = user ? await listAgentWorkspaces(user.id) : []
     return (
         <DeviceClient

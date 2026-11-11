@@ -22,7 +22,8 @@ export async function POST(request: Request) {
     const parsed = deviceCodeSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return jsonError("Invalid sign-in request", 400, "BAD_REQUEST");
     const ip = getRequestIp(request);
-    const created = await createDeviceCode({ ...parsed.data, ipAddress: ip === "unknown" ? null : ip, userAgent: request.headers.get("user-agent") });
+    const country = request.headers.get("cf-ipcountry")?.trim().toUpperCase() ?? null;
+    const created = await createDeviceCode({ ...parsed.data, ipAddress: ip === "unknown" ? null : ip, userAgent: request.headers.get("user-agent"), country });
     const origin = resolveAuthBaseUrl({ requestUrl: request.url });
     return jsonSuccess({
       deviceCode: created.deviceCode,

@@ -41,6 +41,8 @@ export type AuthorizeError = { error: "invalid_request" | "invalid_client" | "un
 export async function startAuthorization(input: {
   clientId: string; redirectUri: string; state: string | null; codeChallenge: string; codeChallengeMethod: string;
   ipAddress?: string | null; userAgent?: string | null;
+  /** OAuth `scope` words (report A10): networkbase:full|small|read and networkbase:workspace:<uuid>. */
+  scope?: string | null; country?: string | null;
 }): Promise<{ userCode: string } | AuthorizeError> {
   const client = /^[0-9a-f-]{36}$/i.test(input.clientId)
     ? (await db.select().from(oauthClients).where(eq(oauthClients.id, input.clientId)).limit(1))[0]
@@ -50,7 +52,11 @@ export async function startAuthorization(input: {
   if (input.codeChallengeMethod !== "S256" || !/^[A-Za-z0-9_-]{43,128}$/.test(input.codeChallenge)) {
     return { error: "invalid_request", description: "PKCE with code_challenge_method=S256 is required", redirectable: true };
   }
+  const words = (input.scope ?? "").split(/\s+/);
+  const requestedAccess = (["full", "small", "read"] as const).find((a) => words.includes(`networkbase:${a}`)) ?? null;
+  const requestedWorkspace = words.map((w) => /^networkbase:workspace:([0-9a-f-]{36})$/i.exec(w)?.[1]).find(Boolean) ?? null;
   const created = await createDeviceCode({
+    requestedAccess, requestedWorkspace, country: input.country ?? null,
     clientName: client.clientName, deviceName: "OAuth sign-in", type: "agent", agentName: client.clientName,
     ipAddress: input.ipAddress ?? null, userAgent: input.userAgent ?? null,
     oauth: { clientId: client.id, redirectUri: input.redirectUri, state: input.state?.slice(0, 500) ?? null, codeChallenge: input.codeChallenge },

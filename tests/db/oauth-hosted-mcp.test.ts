@@ -51,7 +51,7 @@ test("authorize → approve → token: PKCE, the exact redirect, one use, an age
 
   const started = await oauth.startAuthorization({ clientId: reg.clientId, redirectUri: "http://127.0.0.1:33418/callback", state: "s1", codeChallenge: challenge, codeChallengeMethod: "S256" });
   assert.ok("userCode" in started);
-  assert.ok(await devices.decideDeviceCode(userId, started.userCode, { decision: "approve", type: "agent", workspaceId, expiryDays: 30, extraScopes: [] }));
+  assert.ok(await devices.decideDeviceCode(userId, started.userCode, { decision: "approve", type: "agent", access: "small", workspace: workspaceId, expiryDays: 30 }));
   const back = await oauth.redirectAfterDecision(started.userCode);
   assert.ok(back);
   const url = new URL(back);

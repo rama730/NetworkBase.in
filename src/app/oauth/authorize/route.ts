@@ -20,6 +20,7 @@ export async function GET(request: Request) {
   const started = await startAuthorization({
     clientId: params.get("client_id") ?? "", redirectUri, state,
     codeChallenge: params.get("code_challenge") ?? "", codeChallengeMethod: params.get("code_challenge_method") ?? "",
+    scope: params.get("scope"), country: request.headers.get("cf-ipcountry")?.trim().toUpperCase() ?? null,
     ipAddress: ip, userAgent: request.headers.get("user-agent"),
   });
   if ("error" in started) {
