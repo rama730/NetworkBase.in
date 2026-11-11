@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
+import { agentAccessCard } from "@/lib/agents/access-settings";
 import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { TOKEN_SCOPES } from "@/lib/security/token-access";
@@ -31,6 +32,8 @@ export async function GET(request: Request) {
         user: { id: auth.user.id, username: profile?.username ?? null, fullName: profile?.fullName ?? null, email: profile?.email ?? null, avatarUrl: profile?.avatarUrl ?? null, visibility: profile?.visibility ?? "public" },
         credential: auth.tokenScopes ? { kind: "token", sessionId: auth.extensionSessionId, scopes, type: "tokenKind" in auth ? auth.tokenKind : null, workspaceId: auth.tokenWorkspaceId } : { kind: "browser", scopes },
         limits: { largestFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES },
+        /** For agent sign-ins: where, what and how long, in the approval page's words (report A6). */
+        access: "tokenKind" in auth && auth.tokenKind === "agent" && auth.extensionSessionId ? await agentAccessCard(auth.extensionSessionId) : null,
       },
       undefined,
       { headers: { "Cache-Control": "private, no-store" } },

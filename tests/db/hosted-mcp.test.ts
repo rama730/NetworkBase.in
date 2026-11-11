@@ -36,6 +36,8 @@ test("an agent token gets initialize, a batch with tools/list, and 202 for notif
   assert.equal(init.status, 200, JSON.stringify(init.json));
   assert.equal(init.json.result.protocolVersion, "2025-06-18");
   assert.ok(init.session);
+  // The access card (report A6 #1): who, and the sentence the person approved.
+  assert.match(init.json.result.instructions, /^You are working for .+ on NetworkBase\.\nWhat they approved: "Cloud agent can work in .+ for 1 day\./);
   const batch = await post(agent, [{ jsonrpc: "2.0", id: 2, method: "tools/list" }, { jsonrpc: "2.0", id: 3, method: "ping" }], init.session!);
   const names = batch.json[0].result.tools.map((t: { name: string }) => t.name);
   assert.ok(names.includes("networkbase_task_list") && names.includes("networkbase_task_create"));
@@ -44,6 +46,31 @@ test("an agent token gets initialize, a batch with tools/list, and 202 for notif
   const pushed = await post(agent, { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "networkbase_file_push", arguments: { paths: ["a"], message: "x" } } });
   assert.equal(pushed.json.result.isError, true);
   assert.equal((await post(agent, { jsonrpc: "2.0", method: "notifications/initialized" })).status, 202);
+});
+
+test("a Read only agent gets only the tools that read (report A6 #2)", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const ws = await sql.begin((tx) => createProject(tx, userId));
+  const agent = await token(userId, "agent", ws);
+  await sql`UPDATE extension_device_sessions SET scopes = ${sql.json(["workspace:read", "task:read", "file:read"])} WHERE token_hash = ${hash(agent)}`;
+  const list = await post(agent, { jsonrpc: "2.0", id: 1, method: "tools/list" });
+  const tools = list.json.result.tools as { name: string; annotations: { readOnlyHint: boolean } }[];
+  assert.ok(tools.length > 0);
+  assert.deepEqual(tools.filter((t) => !t.annotations.readOnlyHint).map((t) => t.name), []);
+});
+
+test("an All my workspaces agent gets a card saying so, and the tool to find workspaces by name (report A5)", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const ws = await sql.begin((tx) => createProject(tx, userId));
+  const [{ title }] = await sql`SELECT title FROM workspaces WHERE id = ${ws}`;
+  const agent = await token(userId, "agent", ws);
+  await sql`UPDATE extension_device_sessions SET workspace_id = NULL, all_workspaces = true WHERE token_hash = ${hash(agent)}`;
+  const init = await post(agent, { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } });
+  assert.match(init.json.result.instructions, /can work in all your workspaces/);
+  assert.ok(title);
+  // Tool calls go to this site's own API over HTTP (covered by the CLI tests); here the tool must be offered.
+  const list = await post(agent, { jsonrpc: "2.0", id: 2, method: "tools/list" });
+  assert.match(list.json.result.tools.find((t: { name: string }) => t.name === "networkbase_workspace_find").description, /names a workspace in words/);
 });
 
 test("device tokens are refused with how to get an agent sign-in", async () => {

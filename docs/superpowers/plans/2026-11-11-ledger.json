@@ -1218,9 +1218,9 @@
       "text": "Hosted MCP: with no fixed workspace, tools take the workspace argument they already accept, and workspacefind helps the agent pick.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
+      "evidence": "M1 T8"
     },
     {
       "key": "A5.90faacc5",
@@ -1298,9 +1298,9 @@
       "text": "Only usable tools are listed. Read only leaves write tools out of the tool list. Tools that need the person's yes are marked that way in their descriptions.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
+      "evidence": "M1 T8"
     },
     {
       "key": "A6.53e56808",
@@ -1308,9 +1308,9 @@
       "text": "Asking instead of failing. A missing permission returns \"asked the person\", plus what to tell them (A5, \"Asking for more\"). The agent never invents another way ",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
+      "evidence": "M1 T8"
     },
     {
       "key": "A6.271898b4",
@@ -1318,9 +1318,9 @@
       "text": "Errors say what to do next. Every refusal tells the agent what to tell the person, for example \"ask them to allow Final files: Settings → Integrations, or the r",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
+      "evidence": "M1 T8"
     },
     {
       "key": "A6.7a6e60b1",
@@ -1603,14 +1603,14 @@
       "evidence": "M1 T5"
     },
     {
-      "key": "A10.515be23d",
+      "key": "A10.9b5ca786",
       "section": "A10",
-      "text": "The answer · server action decideAgentAccessRequestAction(id, \"once\" \\ · \"always\" \\ · \"no\") from the inbox item · once: the agent's retry with header X-NB-Acces",
+      "text": "The answer · server action decideAgentAccessRequestAction(id, \"once\" \\ · \"always\" \\ · \"no\") from the inbox item · once: the agent's retry of the same method and",
       "kind": "build",
       "milestone": "M1",
       "status": "tested",
-      "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
-      "evidence": "M1 T5"
+      "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
+      "evidence": "M1 T8"
     },
     {
       "key": "A10.bf408971",

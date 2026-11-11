@@ -128,6 +128,61 @@ describe("nb mcp (report A7)", () => {
   });
 });
 
+describe("nb mcp with an agent sign-in (report A6)", () => {
+  /** @type {Awaited<ReturnType<typeof startFakeServer>>} */
+  let api;
+  /** @type {string} */
+  let cwd;
+  /** @type {string} */
+  let home;
+  before(async () => {
+    api = await startFakeServer();
+    cwd = await tempDir("nb-mcp-agent-");
+    home = await tempDir("nb-mcp-agent-home-");
+    await runCli(["init", "design-lab"], { api: api.url, cwd, home });
+  });
+  after(async () => { await api.close(); });
+
+  it("starts with the access card: who, where, what alone, what waits, and asking for more", async () => {
+    api.state.agentAccess = { agentName: "Claude Code", preset: "small", sentence: "Claude Code can work in Design Lab for 30 days. It does small things itself and can't finish tasks, change final files or edit docs.", workspaceId: null, workspaceTitle: "Design Lab", allWorkspaces: false, expiresAt: "2026-12-11T00:00:00.000Z" };
+    const mcp = await startMcp({ api: api.url, cwd, home, token: "nb_agt_0123456789abcdef0123" });
+    try {
+      const { instructions } = (await mcp.request("initialize", { protocolVersion: "2025-06-18" })).result;
+      assert.match(instructions, /^You are working for Test User \(@tester\) on NetworkBase\./);
+      assert.match(instructions, /What they approved: "Claude Code can work in Design Lab for 30 days\./);
+      assert.match(instructions, /access_requested/);
+      const done = await mcp.call("networkbase_task_done", { task: String(addTask(api.state, { title: "Ship it", status: "in_progress" }).taskNumber) });
+      assert.equal(done.structuredContent.status, "access_requested");
+      assert.equal(done.structuredContent.scope, "task:complete");
+      assert.match(done.content[0].text, /^access_requested: .*finish tasks.*asked the person in NetworkBase/s);
+      assert.match(done.content[0].text, /Don't look for another way/);
+      const { tools } = (await mcp.request("tools/list")).result;
+      assert.match(tools.find((/** @type {any} */ t) => t.name === "networkbase_task_done").description, /^Asks the person first:/);
+    } finally { await mcp.close(); }
+  });
+
+  it("Read only lists only the tools that read", async () => {
+    api.state.agentAccess = { agentName: "Claude Code", preset: "read", sentence: "Claude Code can read Design Lab for 30 days. It can't change anything.", workspaceId: null, workspaceTitle: "Design Lab", allWorkspaces: false, expiresAt: "2026-12-11T00:00:00.000Z" };
+    const mcp = await startMcp({ api: api.url, cwd, home, token: "nb_agt_0123456789abcdef0123" });
+    try {
+      await mcp.request("initialize", { protocolVersion: "2025-06-18" });
+      const { tools } = (await mcp.request("tools/list")).result;
+      assert.deepEqual(tools.filter((/** @type {any} */ t) => !t.annotations.readOnlyHint).map((/** @type {any} */ t) => t.name), []);
+      assert.ok(tools.some((/** @type {any} */ t) => t.name === "networkbase_task_list"));
+    } finally { await mcp.close(); }
+  });
+
+  it("a person's own sign-in keeps every tool and says whose it is", async () => {
+    const mcp = await startMcp({ api: api.url, cwd, home });
+    try {
+      const { instructions } = (await mcp.request("initialize", { protocolVersion: "2025-06-18" })).result;
+      assert.match(instructions, /^Signed in as Test User \(@tester\) with their own sign-in/);
+      const { tools } = (await mcp.request("tools/list")).result;
+      assert.ok(tools.some((/** @type {any} */ t) => t.name === "networkbase_doc_update"));
+    } finally { await mcp.close(); }
+  });
+});
+
 it("rank: exact number first, then title start, then all words", () => {
   const tasks = [{ n: "4", t: "Fix login" }, { n: "7", t: "Login page copy" }, { n: "9", t: "Logo" }];
   const r = rank(tasks, "4", (x) => [x.n], (x) => x.t);

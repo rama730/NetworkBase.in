@@ -71,6 +71,14 @@ test("Allow once lets the same request through one time", async () => {
   assert.equal(twice.status, 403, "once means once");
 });
 
+test("Allow once also covers a plain retry of the same request, as the hosted MCP sends it", async () => {
+  const w = await world();
+  const agent = await smallAgent(w.userId, w.projectId);
+  const { requestId } = (await finish(agent.token, w.projectId, w.taskId)).json.details;
+  await requests.decideAgentAccessRequest(w.userId, requestId, "once");
+  assert.equal((await finish(agent.token, w.projectId, w.taskId)).status, 200);
+});
+
 test("Always adds the permission; No keeps quiet for 24 hours", async () => {
   const w = await world();
   const yes = await smallAgent(w.userId, w.projectId);

@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -101,9 +101,10 @@ const exact = {
     if (d.answer === "deny") return fail(403, "FORBIDDEN", "Sign-in was denied in the browser", { status: "denied" });
     return { data: { status: "approved", token: d.tokenType === "agent" ? "nb_agt_0123456789abcdef0123" : TOKEN, tokenType: d.tokenType, workspaceId: d.tokenType === "agent" ? WORKSPACE_ID : null } };
   },
-  "GET /api/v1/me": (req) => {
+  "GET /api/v1/me": (req, state) => {
     const agent = String(req.headers.authorization ?? "").startsWith("Bearer nb_agt_");
-    return { data: { user: { id: "u1", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", type: agent ? "agent" : "pat", workspaceId: agent ? WORKSPACE_ID : null, scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 } } };
+    const access = agent ? state.agentAccess ?? { agentName: "Claude Code", preset: "small", sentence: "Claude Code can work in Design Lab for 30 days. It does small things itself and can't finish tasks, change final files or edit docs.", workspaceId: WORKSPACE_ID, workspaceTitle: "Design Lab", allWorkspaces: false, expiresAt: "2026-12-11T00:00:00.000Z" } : null;
+    return { data: { user: { id: "u1", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", type: agent ? "agent" : "pat", workspaceId: agent ? WORKSPACE_ID : null, scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 }, access } };
   },
   "GET /api/v1/extension/workspaces": (_req, state) => ({ data: { workspaces: [state.workspace] } }),
   "GET /api/v1/extension/workspace-tasks": (req, state) => ({ data: { tasks: state.tasks.filter((t) => req.query.get("scope") !== "mine" || t.assigneeUsername === "tester").map((t) => ({ ...t, subtaskSummary: { completed: t.subtasks.filter((s) => s.completed).length, total: t.subtasks.length } })) } }),
@@ -126,6 +127,10 @@ const exact = {
     return { data: { subtask: s } };
   },
   "PATCH /api/v1/extension/task-update": (req, state) => {
+    // Like the real server (report A5): a Small agent finishing a task asks the person for the permission first.
+    if (state.agentAccess?.preset === "small" && String(req.headers.authorization ?? "").startsWith("Bearer nb_agt_") && req.body.kind === "status" && req.body.status === "done") {
+      return fail(403, "ACCESS_REQUESTED", "This agent needs the task:complete permission, so it asked you in NetworkBase.", { requestId: "req-1", scope: "task:complete" });
+    }
     // Like the real server (report §26.6): an agent finishing a task needs the person's yes.
     if (String(req.headers.authorization ?? "").startsWith("Bearer nb_agt_") && req.body.kind === "status" && req.body.status === "done") {
       if (req.headers["x-nb-confirm"] !== "srv.yes-token") return fail(428, "NEEDS_CONFIRMATION", "Needs the person's yes: Finish the task", { summary: "Finish the task", confirmToken: "srv.yes-token", header: "x-nb-confirm" });

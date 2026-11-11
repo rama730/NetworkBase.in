@@ -119,3 +119,22 @@ export async function agentSettingsView(userId: string, sessionId: string, now =
     requests: requests.map((r) => ({ id: r.id, scope: r.scope, words: accessRequestWords(r.scope), reason: r.reason, createdAt: r.createdAt.toISOString() })),
   };
 }
+
+/**
+ * What an agent sign-in may do, in the words the person saw when approving (report A6 #1, #5): /api/v1/me, the
+ * MCP access card and `nb whoami` all read this. Null for anything but a live agent sign-in.
+ */
+export async function agentAccessCard(sessionId: string, now = new Date()) {
+  const [row] = await db.select().from(extensionDeviceSessions).where(and(eq(extensionDeviceSessions.id, sessionId), eq(extensionDeviceSessions.tokenType, "agent"))).limit(1);
+  if (!row) return null;
+  const workspaceTitle = await titleOf(row.workspaceId);
+  return {
+    agentName: row.agentName ?? "AI agent",
+    preset: presetOf([...effectiveScopes("agent", row.scopes)]),
+    sentence: sentenceFor(row, workspaceTitle, now),
+    workspaceId: row.workspaceId,
+    workspaceTitle,
+    allWorkspaces: row.allWorkspaces,
+    expiresAt: row.expiresAt.toISOString(),
+  };
+}

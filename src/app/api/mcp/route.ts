@@ -3,7 +3,12 @@ import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { eq } from "drizzle-orm";
+
 import { jsonError, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { agentAccessCard } from "@/lib/agents/access-settings";
+import { db } from "@/lib/db";
+import { profiles } from "@/lib/db/schema";
 import { oauthIssuer } from "@/lib/extension/oauth";
 import { validateCsrf } from "@/lib/security/csrf";
 // The same handler and tool definitions as `nb mcp` (CLI report A7.1 item 2, P6.1): one place decides what each
@@ -26,7 +31,7 @@ export async function POST(request: Request) {
   // An editor's first call carries no token: answer 401 with the OAuth hint before the browser-only CSRF check,
   // which would otherwise turn it into a 403 the editor can't act on.
   if (!/^bearer\s+nb_(agt|dev|pat)_/i.test(request.headers.get("authorization")?.trim() ?? "")) {
-    return withAuthHint(request, jsonError("The hosted MCP server takes an agent sign-in, limited to one workspace: connect with OAuth, or nb login --device --agent \"Your agent\"", 401, "UNAUTHORIZED"));
+    return withAuthHint(request, jsonError("The hosted MCP server takes an agent sign-in: connect with OAuth, or nb login --device --agent \"Your agent\"", 401, "UNAUTHORIZED"));
   }
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
@@ -35,7 +40,7 @@ export async function POST(request: Request) {
   if (!auth.user) return withAuthHint(request, jsonError("Sign in to continue", 401, "UNAUTHORIZED"));
   const token = request.headers.get("authorization")?.replace(/^bearer\s+/i, "").trim() ?? "";
   if (auth.tokenKind !== "agent" || !token.startsWith("nb_agt_")) {
-    return withAuthHint(request, jsonError("The hosted MCP server takes an agent sign-in, limited to one workspace: nb login --device --agent \"Your agent\"", 403, "FORBIDDEN"));
+    return withAuthHint(request, jsonError("The hosted MCP server takes an agent sign-in: nb login --device --agent \"Your agent\"", 403, "FORBIDDEN"));
   }
   // The tools call this site's own API. Its address comes from configuration, never from the request's Host header
   // (which the caller controls); only a local dev server may use its own origin.
@@ -49,8 +54,16 @@ export async function POST(request: Request) {
   const replies: unknown[] = [];
   // Each token gets its own scratch settings folder, so no request ever reads another person's local state.
   const home = path.join(SCRATCH, createHash("sha256").update(token).digest("hex").slice(0, 32));
+  const sessionRowId = auth.extensionSessionId;
+  const userId = auth.user.id;
+  const scopes = [...(auth.tokenScopes ?? [])];
   const handle = createMcpHandler({
     hosted: true,
+    // The access card and the Read only tool list come straight from the database (report A6), not a call to /me.
+    access: async () => {
+      const [profile] = await db.select({ username: profiles.username, fullName: profiles.fullName, email: profiles.email }).from(profiles).where(eq(profiles.id, userId)).limit(1);
+      return { user: profile ?? { username: null, fullName: null, email: null }, access: sessionRowId ? await agentAccessCard(sessionRowId) : null, scopes };
+    },
     version: VERSION,
     send: (message: unknown) => replies.push(message),
     where: {

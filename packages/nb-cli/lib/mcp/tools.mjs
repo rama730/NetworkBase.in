@@ -300,8 +300,56 @@ export async function callTool(name, args = {}, where) {
       const lines = questions.map((/** @type {any} */ q) => `${q.question} (answers.${q.key}: ${q.options.map((/** @type {any} */ o) => `${o.value}${o.recommended ? " [recommended]" : ""}`).join(" | ")})`);
       return { content: [{ type: "text", text: `needs_input: ask the user, then call again with answers.\n${lines.join("\n") || error.message}` }], structuredContent: { status: "needs_input", questions } };
     }
+    // A missing permission was asked for, or refused, by the person (report A5 "Asking for more", A6 #3).
+    if (error instanceof CliError && (error.code === "ACCESS_REQUESTED" || error.code === "ACCESS_DENIED_BY_PERSON")) {
+      const details = /** @type {any} */ (error.details) ?? {};
+      const what = SCOPE_WORDS[details.scope] ?? details.scope ?? "do that";
+      if (error.code === "ACCESS_REQUESTED") {
+        return {
+          content: [{ type: "text", text: `access_requested: this needs permission to ${what}, which you weren't given, so NetworkBase asked the person in NetworkBase. Tell them what you asked for and why. Once they answer Allow once or Always, call ${name} again with the same arguments. Don't look for another way to do it.` }],
+          structuredContent: { status: "access_requested", scope: details.scope ?? null, requestId: details.requestId ?? null },
+        };
+      }
+      return {
+        isError: true,
+        content: [{ type: "text", text: `access_denied: the person said no to letting you ${what} (for 24 hours). Don't try another way; tell them it's theirs to do, and carry on with what you can do.` }],
+        structuredContent: { status: "access_denied", scope: details.scope ?? null, retryAfter: details.retryAfter ?? null },
+      };
+    }
     return errorResult(error);
   }
+}
+
+/** Permissions in the words the approval page uses (report A2). */
+const SCOPE_WORDS = /** @type {Record<string, string>} */ ({ "task:complete": "finish tasks", "file:final": "change final files", "doc:write": "edit docs", "task:review": "approve or return reviews" });
+/** Tools whose main job needs a permission an agent preset may leave out. */
+const NEEDS_SCOPE = /** @type {Record<string, string>} */ ({ networkbase_task_done: "task:complete", networkbase_doc_update: "doc:write" });
+
+/**
+ * Who this MCP server works for and what it may do (report A6 #1), read from /api/v1/me via nb whoami. Null when
+ * that can't be read (offline, signed out): the server still starts, with no card.
+ * @param {{ cwd: string, env: NodeJS.ProcessEnv }} where
+ */
+export async function readAccess(where) {
+  try {
+    const r = await executor(where, {})("whoami");
+    return { user: r.data.user, access: r.data.access ?? null, scopes: r.data.credential?.scopes ?? [] };
+  } catch {
+    return null;
+  }
+}
+
+/** The access card at the top of the server's instructions (report A6 #1). @param {any} a */
+export function accessCard(a) {
+  if (!a?.user) return "";
+  const who = `${a.user.fullName ?? a.user.username ?? a.user.email ?? "the person"}${a.user.username ? ` (@${a.user.username})` : ""}`;
+  if (!a.access) return `Signed in as ${who} with their own sign-in: you can do what they can, and big changes still go to them first.`;
+  return [
+    `You are working for ${who} on NetworkBase.`,
+    `What they approved: "${a.access.sentence}"`,
+    "Whatever the access, finishing tasks, final files, doc edits and deleting wait for their yes (needs_confirmation).",
+    "If a tool answers access_requested, NetworkBase has asked them for that permission: tell them, and try again after they answer. Never look for another way round.",
+  ].join("\n");
 }
 
 /** @param {string} name @param {any} args @param {string} summary @param {string | undefined} preview */
@@ -322,13 +370,17 @@ function errorResult(error) {
 /** Tools that read or write files in a linked folder, or the local undo log: only `nb mcp` on your computer has them. */
 export const HOSTED_EXCLUDED = new Set(["networkbase_status", "networkbase_file_push", "networkbase_file_pull", "networkbase_undo"]);
 
-/** tools/list entries, with tier hints for clients (A7.3). @param {boolean} [hosted] */
+/**
+ * tools/list entries, with tier hints for clients (A7.3). With an agent's access (A6 #2), Read only lists only the
+ * tools that read, and tools that need the person first say so at the start of their description.
+ * @param {boolean} [hosted] @param {any} [access] from readAccess
+ */
 // Every tool that writes takes confirmToken: the server can hold any write for a yes (someone else's task, a file as
 // final, "Ask for everything"), and a client only sends what the schema lists.
-export const toolList = (hosted = false) => TOOLS.filter((t) => !hosted || !HOSTED_EXCLUDED.has(t.name)).map((t) => ({
+export const toolList = (hosted = false, access = null) => TOOLS.filter((t) => (!hosted || !HOSTED_EXCLUDED.has(t.name)) && (access?.access?.preset !== "read" || t.tier === "read")).map((t) => ({
   name: t.name,
   title: t.title,
-  description: t.description,
+  description: describeFor(t, access),
   inputSchema: {
     type: "object",
     properties: { ...t.props, ...(t.tier !== "read" ? { answers: { type: "object", description: "Answers to a needs_input question: { key: value }" } } : {}), ...(t.tier !== "read" ? { confirmToken: { type: "string", description: "From a needs_confirmation result, after the user agreed" } } : {}) },
@@ -336,3 +388,10 @@ export const toolList = (hosted = false) => TOOLS.filter((t) => !hosted || !HOST
   },
   annotations: { title: t.title, readOnlyHint: t.tier === "read", destructiveHint: t.tier === "yes", openWorldHint: false },
 }));
+
+/** @param {Tool} t @param {any} access */
+function describeFor(t, access) {
+  const scope = NEEDS_SCOPE[t.name];
+  if (access?.access && scope && !access.scopes.includes(scope)) return `Asks the person first: you weren't given permission to ${SCOPE_WORDS[scope]}, so calling this asks them in NetworkBase. ${t.description}`;
+  return t.tier === "yes" && access?.access ? `Needs the person's yes: ${t.description}` : t.description;
+}

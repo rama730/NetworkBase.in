@@ -67,15 +67,24 @@ export async function requestAccess(input: { sessionId: string; userId: string; 
   return { requestId: outcome.requestId, scope: input.scope };
 }
 
-/** Uses an "Allow once" answer for this exact method and path; true when it was there and is now spent. */
-export async function consumeOnceGrant(input: { sessionId: string; scope: string; method: string; path: string; requestId: string }, now = new Date()) {
-  if (!/^[0-9a-f-]{36}$/i.test(input.requestId)) return false;
-  const used = await db.update(agentAccessRequests).set({ status: "used", usedAt: now })
+/**
+ * Uses an "Allow once" answer for this sign-in, permission, method and path within the hour; true when it was there
+ * and is now spent. The request id (X-NB-Access-Request) is optional: the hosted MCP keeps nothing between calls, so
+ * an agent's plain retry has to work too.
+ */
+export async function consumeOnceGrant(input: { sessionId: string; scope: string; method: string; path: string; requestId?: string | null }, now = new Date()) {
+  if (input.requestId && !/^[0-9a-f-]{36}$/i.test(input.requestId)) return false;
+  const [grant] = await db.select({ id: agentAccessRequests.id }).from(agentAccessRequests)
     .where(and(
-      eq(agentAccessRequests.id, input.requestId), eq(agentAccessRequests.sessionId, input.sessionId), eq(agentAccessRequests.scope, input.scope),
+      ...(input.requestId ? [eq(agentAccessRequests.id, input.requestId)] : []), eq(agentAccessRequests.sessionId, input.sessionId), eq(agentAccessRequests.scope, input.scope),
       eq(agentAccessRequests.method, input.method.toUpperCase()), eq(agentAccessRequests.path, input.path.split("?")[0]!.slice(0, 500)),
       eq(agentAccessRequests.status, "once"), gt(agentAccessRequests.decidedAt, new Date(now.getTime() - ONCE_WINDOW_MS)),
     ))
+    .orderBy(desc(agentAccessRequests.decidedAt)).limit(1);
+  if (!grant) return false;
+  // Spent once: the status check makes two retries at the same moment use it only once.
+  const used = await db.update(agentAccessRequests).set({ status: "used", usedAt: now })
+    .where(and(eq(agentAccessRequests.id, grant.id), eq(agentAccessRequests.status, "once")))
     .returning({ id: agentAccessRequests.id });
   return used.length === 1;
 }

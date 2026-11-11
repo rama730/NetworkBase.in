@@ -15,7 +15,9 @@ const sleep = (/** @type {number} */ ms) => new Promise((resolve) => setTimeout(
 const HINTS = /** @type {Record<string, string>} */ ({
   NEEDS_CONFIRMATION: "Show this to the person; if they agree, run the same command again with --confirm <token> (in --json: error.details.confirmToken)",
   UNAUTHORIZED: "Run nb login",
-  SCOPE_MISSING: "This token can't do that; sign in again with nb login, or make a token with more access in Settings → Integrations",
+  SCOPE_MISSING: "Allow it in Settings → Integrations: Change access for an agent, or a token with more access",
+  ACCESS_REQUESTED: "The person answers in NetworkBase (their inbox, or Settings → Integrations); run the same command again once they have",
+  ACCESS_DENIED_BY_PERSON: "The person said no for 24 hours: leave this one to them",
   FORBIDDEN: "Check you're a member of this workspace with nb whoami",
   RATE_LIMITED: "Wait a minute and try again",
   VERSION_CONFLICT: "Run nb pull, then push again — or nb resolve <path>",

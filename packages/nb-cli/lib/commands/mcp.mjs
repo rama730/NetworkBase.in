@@ -4,7 +4,7 @@
 import crypto from "node:crypto";
 import readline from "node:readline";
 
-import { HOSTED_EXCLUDED, callTool as runTool, toolList as listTools } from "../mcp/tools.mjs";
+import { HOSTED_EXCLUDED, accessCard, callTool as runTool, readAccess, toolList as listTools } from "../mcp/tools.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -37,12 +37,17 @@ const RESOURCES = [
 /**
  * One MCP message handler for both servers (report A7.1): `nb mcp` over stdio, and the hosted one over HTTP
  * (src/app/api/mcp, P6.1). `hosted` leaves out tools that need a local folder and the local undo log.
- * @param {{ where: { cwd: string, env: NodeJS.ProcessEnv }, send: (message: any) => void, version: string, hosted?: boolean }} options
+ * `access` is who the server works for and what it may do (report A6): the hosted server passes it from its own
+ * database; `nb mcp` reads it from /api/v1/me once, on first use.
+ * @param {{ where: { cwd: string, env: NodeJS.ProcessEnv }, send: (message: any) => void, version: string, hosted?: boolean, access?: () => Promise<any> }} options
  */
-export function createMcpHandler({ where, send, version, hosted = false }) {
+export function createMcpHandler({ where, send, version, hosted = false, access }) {
   const cancelled = new Set();
   const ctx = { version };
-  const toolList = () => listTools(hosted);
+  /** @type {Promise<any> | null} */
+  let accessRead = null;
+  const getAccess = () => (accessRead ??= (access ? access() : readAccess(where)).catch(() => null));
+  const toolList = async () => listTools(hosted, await getAccess());
   const callTool = (/** @type {string} */ name, /** @type {any} */ args, /** @type {any} */ w) =>
     hosted && HOSTED_EXCLUDED.has(name)
       ? Promise.resolve({ isError: true, content: [{ type: "text", text: `${name} needs NetworkBase on your computer (nb mcp); the hosted server can't use local files` }] })
@@ -63,14 +68,14 @@ export function createMcpHandler({ where, send, version, hosted = false }) {
           protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
           capabilities: { tools: { listChanged: false }, resources: { listChanged: false }, prompts: { listChanged: false }, logging: {} },
           serverInfo: { name: "networkbase", title: "NetworkBase", version: ctx.version },
-          instructions: INSTRUCTIONS,
+          instructions: [accessCard(await getAccess()), INSTRUCTIONS].filter(Boolean).join("\n\n"),
         });
       }
       case "ping":
       case "logging/setLevel":
         return reply({});
       case "tools/list":
-        return reply({ tools: toolList() });
+        return reply({ tools: await toolList() });
       case "tools/call": {
         if (typeof params?.name !== "string") return fail(-32602, "tools/call needs a tool name");
         const progressToken = params?._meta?.progressToken;

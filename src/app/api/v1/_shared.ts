@@ -280,8 +280,8 @@ async function askForScope(
 ) {
   const method = (headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase();
   const path = (headerStore.get(TRUSTED_TARGET_HEADER) ?? "").split("?")[0]!;
-  const requestId = headerStore.get("x-nb-access-request")?.trim();
-  if (requestId && (await consumeOnceGrant({ sessionId: agent.sessionId, scope, method, path, requestId }))) return null;
+  const requestId = headerStore.get("x-nb-access-request")?.trim() || null;
+  if (await consumeOnceGrant({ sessionId: agent.sessionId, scope, method, path, requestId })) return null;
   const asked = await requestAccess({ sessionId: agent.sessionId, userId: agent.userId, scope, method, path, agentName: agent.agentName });
   if ("requestId" in asked) {
     return jsonError(`This agent needs the ${scope} permission, so it asked you in NetworkBase. Once you answer, it can try again.`, 403, "ACCESS_REQUESTED", { requestId: asked.requestId, scope });
