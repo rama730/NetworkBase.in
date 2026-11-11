@@ -98,12 +98,13 @@ export function enforceDownloadLimit(request: Request, userId?: string | null) {
 
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { extensionDeviceSessions, personalAccessTokens, profiles, tasks } from "@/lib/db/schema";
+import { extensionDeviceSessions, personalAccessTokens, profiles, tasks, workspaces } from "@/lib/db/schema";
 import crypto from "crypto";
 import { and, eq, gt, isNull, or } from "drizzle-orm";
 import {
   checkTokenAccess,
   effectiveScopes,
+  workspaceRefInRequest,
   OUTSIDE_WORKSPACE_MESSAGE,
   TRUSTED_METHOD_HEADER,
   TRUSTED_TARGET_HEADER,
@@ -127,9 +128,32 @@ function deniedPrincipal(response: ReturnType<typeof jsonError>) {
     extensionSessionId: null as string | null,
     tokenScopes: null as Set<TokenScope> | null,
     tokenWorkspaceId: null as string | null,
+    tokenAllWorkspaces: false,
     tokenKind: null as "device" | "agent" | "pat" | null,
     response: response as ReturnType<typeof jsonError> | null,
   };
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * An agent's request into one workspace: refused when the workspace paused agents or its organization turned them
+ * off (report A5, A7). Runs for every agent request whose workspace is known, so "All my workspaces" agents are
+ * checked per request, not once at sign-in.
+ */
+export async function agentPolicyDenial(workspaceId: string) {
+  const { paused, orgAllowsAgents, orgTitle } = await workspaceAgentPolicy(workspaceId);
+  if (paused) return jsonError("Agents are paused in this workspace. Its owner can turn them back on in workspace settings.", 403, "AGENTS_PAUSED");
+  if (!orgAllowsAgents) return jsonError(`${orgTitle ?? "This organization"} doesn't allow AI agents. Its admins can allow them in organization settings.`, 403, "AGENT_NOT_ALLOWED");
+  return null;
+}
+
+/** A workspace named in a request as an id or a slug, as an id (null when there's no such workspace). */
+async function workspaceIdFromRef(ref: string | null): Promise<string | null> {
+  if (!ref) return null;
+  if (UUID_RE.test(ref)) return ref;
+  const [row] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.slug, ref)).limit(1);
+  return row?.id ?? null;
 }
 
 /**
@@ -144,12 +168,13 @@ async function bearerPrincipal(
   workspaceId: string | null,
   kind: "device" | "agent" | "pat",
   agentName: string | null = null,
+  allWorkspaces = false,
 ) {
   const target = headerStore.get(TRUSTED_TARGET_HEADER);
   // Errors and logs from this request say which client, token type and agent made it (report A2.13).
   const client = normalizeSessionHeader(headerStore.get("x-nb-client"), 40) ?? normalizeSessionHeader(headerStore.get("x-extension-version"), 40);
   getIsolationScope().setTags({ "nb.token": kind, "nb.via": kind === "agent" ? "agent" : "cli", ...(client ? { "nb.client": client } : {}), ...(agentName ? { "nb.agent": agentName.slice(0, 60) } : {}) });
-  const denial = checkTokenAccess({ method: headerStore.get(TRUSTED_METHOD_HEADER), path: target, scopes, workspaceId });
+  const denial = checkTokenAccess({ method: headerStore.get(TRUSTED_METHOD_HEADER), path: target, scopes, workspaceId, allWorkspacesAgent: kind === "agent" && allWorkspaces });
   if (denial) {
     logger.warn("api.v1.token_route_denied", {
       path: target?.split("?")[0] ?? null,
@@ -164,12 +189,14 @@ async function bearerPrincipal(
   }
   // One abuse budget per token for every token route (report A12.3, finding 76); routes keep their own limits too.
   const isRead = ["GET", "HEAD", "OPTIONS"].includes((headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase());
-  if (kind === "agent" && workspaceId) {
-    // "Pause agents" in workspace settings stops every agent request at once (report §18.5).
-    const { paused, orgAllowsAgents, orgTitle } = await workspaceAgentPolicy(workspaceId);
-    if (paused) return deniedPrincipal(jsonError("Agents are paused in this workspace. Its owner can turn them back on in workspace settings.", 403, "AGENTS_PAUSED"));
-    // The organization turned agent tokens off (report A8.8): no agent request reaches its workspaces.
-    if (!orgAllowsAgents) return deniedPrincipal(jsonError(`${orgTitle ?? "This organization"} doesn't allow AI agents. Its admins can allow them in organization settings.`, 403, "AGENT_NOT_ALLOWED"));
+  if (kind === "agent") {
+    // "Pause agents" and an organization's "no agents" stop every agent request into that workspace (report §18.5,
+    // A8.8). A one-workspace agent is checked against its workspace; an all-workspaces agent against the workspace
+    // this request names in its path or query. Routes that take the workspace from the body or a task check it in
+    // denyOutsideTokenWorkspace.
+    const requestWorkspace = workspaceId ?? (allWorkspaces ? await workspaceIdFromRef(workspaceRefInRequest(target)) : null);
+    const policy = requestWorkspace ? await agentPolicyDenial(requestWorkspace) : null;
+    if (policy) return deniedPrincipal(policy);
     // A day's writes per agent token (report §18.5, finding 76): enough for real work, not for a runaway loop.
     if (!isRead && !(await consumeRateLimit(`api:v1:agent:day:${extensionSessionId}`, AGENT_DAILY_WRITES, 86_400)).allowed) {
       const limited = jsonError(`This agent made ${AGENT_DAILY_WRITES} changes today, the daily limit. It can continue tomorrow.`, 429, "RATE_LIMITED");
@@ -190,6 +217,8 @@ async function bearerPrincipal(
     tokenScopes: scopes as Set<TokenScope> | null,
     /** Set for agent tokens and workspace PATs: the only workspace this token may reach. */
     tokenWorkspaceId: workspaceId as string | null,
+    /** An agent approved for "All my workspaces" (0082): tokenWorkspaceId is null and every request is checked. */
+    tokenAllWorkspaces: kind === "agent" && allWorkspaces,
     tokenKind: kind as "device" | "agent" | "pat" | null,
     response: null as ReturnType<typeof jsonError> | null,
   };
@@ -200,11 +229,20 @@ async function bearerPrincipal(
  * (TOKEN_ROUTES `agent: "route"`; tests/unit/token-route-coverage checks every such route calls this).
  */
 export async function denyOutsideTokenWorkspace(
-  auth: { tokenWorkspaceId?: string | null },
+  auth: { tokenWorkspaceId?: string | null; tokenAllWorkspaces?: boolean },
   ids: { projectId?: string | null; taskId?: string | null },
 ) {
   const bound = auth.tokenWorkspaceId;
-  if (!bound) return null;
+  if (!bound) {
+    // An all-workspaces agent: the workspace this request touches must still allow agents (report A5).
+    if (!auth.tokenAllWorkspaces) return null;
+    let target = ids.projectId ? await workspaceIdFromRef(ids.projectId) : null;
+    if (!target && ids.taskId && UUID_RE.test(ids.taskId)) {
+      const [task] = await db.select({ projectId: tasks.projectId }).from(tasks).where(eq(tasks.id, ids.taskId)).limit(1);
+      target = task?.projectId ?? null;
+    }
+    return target ? agentPolicyDenial(target) : null;
+  }
   const outside = () => jsonError(OUTSIDE_WORKSPACE_MESSAGE, 403, "WORKSPACE_NOT_ALLOWED");
   if (ids.projectId && ids.projectId.toLowerCase() !== bound.toLowerCase()) return outside();
   if (ids.taskId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ids.taskId)) {
@@ -347,9 +385,9 @@ export async function requireAuthenticatedUser() {
             } as any;
 
             const scopes = effectiveScopes(session.tokenType === "agent" ? "agent" : "device", session.scopes);
-            // An agent token without a workspace can't exist (DB check); refuse rather than allow everything.
-            if (session.tokenType === "agent" && !session.workspaceId) return deniedPrincipal(jsonError("Invalid token", 401, "UNAUTHORIZED"));
-            return bearerPrincipal(headerStore, mockUser, session.id, scopes, session.workspaceId ?? null, session.tokenType === "agent" ? "agent" : "device", session.agentName ?? null);
+            // An agent has a workspace or was approved for all of them (DB check, 0082); anything else is refused.
+            if (session.tokenType === "agent" && !session.workspaceId && !session.allWorkspaces) return deniedPrincipal(jsonError("Invalid token", 401, "UNAUTHORIZED"));
+            return bearerPrincipal(headerStore, mockUser, session.id, scopes, session.workspaceId ?? null, session.tokenType === "agent" ? "agent" : "device", session.agentName ?? null, session.tokenType === "agent" && session.allWorkspaces);
           }
         } else if (token.startsWith("nb_pat_")) {
           const [found] = await db
@@ -416,6 +454,7 @@ export async function requireAuthenticatedUser() {
         extensionSessionId: null,
         tokenScopes: null,
         tokenWorkspaceId: null,
+        tokenAllWorkspaces: false,
         tokenKind: null,
         response: jsonError("Invalid or expired editor session", 401, "UNAUTHORIZED"),
       };
@@ -431,6 +470,7 @@ export async function requireAuthenticatedUser() {
         extensionSessionId: null,
         tokenScopes: null,
         tokenWorkspaceId: null,
+        tokenAllWorkspaces: false,
         tokenKind: null,
         response: jsonError("Editor session verification failed", 401, "UNAUTHORIZED"),
       };
@@ -448,6 +488,7 @@ export async function requireAuthenticatedUser() {
       extensionSessionId: null as string | null,
       tokenScopes: null as Set<TokenScope> | null,
       tokenWorkspaceId: null as string | null,
+      tokenAllWorkspaces: false,
       tokenKind: null as "device" | "agent" | "pat" | null,
       response: jsonError("Sign in to continue", 401, "UNAUTHORIZED"),
     };
@@ -458,6 +499,7 @@ export async function requireAuthenticatedUser() {
     extensionSessionId: null as string | null,
     tokenScopes: null as Set<TokenScope> | null,
     tokenWorkspaceId: null as string | null,
+    tokenAllWorkspaces: false,
     tokenKind: null as "device" | "agent" | "pat" | null,
     response: null as ReturnType<typeof jsonError> | null,
   };

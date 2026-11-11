@@ -1173,9 +1173,9 @@
       "evidence": ""
     },
     {
-      "key": "A5.fe94b816",
+      "key": "A5.9a137b33",
       "section": "A5",
-      "text": "The token: an agent token with workspaceid = NULL means \"all of this person's workspaces\"; no migration is needed. Scopes per preset:",
+      "text": "The token: an \"All my workspaces\" agent has workspaceid = NULL and allworkspaces = true (migration 0082). The database requires every agent sign-in to have exac",
       "kind": "build",
       "milestone": "M1",
       "status": "todo",

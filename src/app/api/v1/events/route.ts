@@ -37,7 +37,8 @@ export async function GET(request: Request) {
     }
     // One waiting request per person at a time is plenty; a loop that calls in a hurry is slowed down.
     if (!(await consumeRateLimit(`api:v1:events:${userId}`, 30, 60)).allowed) return jsonError("Too many waits at once", 429, "RATE_LIMITED");
-    const withInbox = url.searchParams.get("inbox") !== "0" && !auth.tokenWorkspaceId;
+    // The inbox is the person's whole tray, so tokens limited to some workspaces (and all agents) don't stream it.
+    const withInbox = url.searchParams.get("inbox") !== "0" && !auth.tokenWorkspaceId && auth.tokenKind !== "agent";
 
     const deadline = Date.now() + HOLD_MS;
     for (;;) {

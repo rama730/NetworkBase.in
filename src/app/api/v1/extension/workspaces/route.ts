@@ -7,7 +7,8 @@ import {
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
 import { workspaces, workspaceMembers } from "@/lib/db/schema";
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { agentWorkspaceFilter } from "@/lib/agents/reachable";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
     const authResult = await requireAuthenticatedUser();
     if (authResult.response) return authResult.response;
     const user = authResult.user;
+    const reach = await agentWorkspaceFilter(authResult);
     if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
     const rows = await db
@@ -42,8 +44,8 @@ export async function GET(request: Request) {
       .where(
         and(
           isNull(workspaces.deletedAt),
-          // A token tied to one workspace sees only that one.
-          authResult.tokenWorkspaceId ? eq(workspaces.id, authResult.tokenWorkspaceId) : undefined,
+          // A token sees only the workspaces it may reach (one, or all minus paused and agents-off ones).
+          reach ? (reach.size ? inArray(workspaces.id, [...reach]) : sql`false`) : undefined,
           or(
             eq(workspaces.ownerId, user.id),
             eq(workspaceMembers.userId, user.id),

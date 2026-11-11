@@ -173,6 +173,13 @@ type TokenAccessDenial = { status: 403; errorCode: "FORBIDDEN" | "SCOPE_MISSING"
 export const OUTSIDE_WORKSPACE_MESSAGE = "This token only works in the workspace it was approved for";
 
 /** The workspace a path or query names, for the `path` and `query` modes. */
+/** The workspace a request names in its path or query, for routes whose rule says where (`agent: "path" | "query"`). */
+export function workspaceRefInRequest(target: string | null): string | null {
+  if (!target) return null;
+  const mode = tokenRouteRule(target)?.agent;
+  return mode === "path" || mode === "query" ? workspaceInRequest(mode, target) : null;
+}
+
 function workspaceInRequest(mode: "path" | "query", target: string): string | null {
   const [pathname = "", search = ""] = target.split("?");
   if (mode === "path") return /\/api\/v1\/(?:workspaces|projects)\/([^/]+)/.exec(pathname)?.[1] ?? null;
@@ -181,7 +188,7 @@ function workspaceInRequest(mode: "path" | "query", target: string): string | nu
 }
 
 /** Decide whether a token request may proceed. `method`/`path` come from the proxy's trusted headers. */
-export function checkTokenAccess(input: { method: string | null; path: string | null; scopes: Set<TokenScope>; workspaceId?: string | null }): TokenAccessDenial | null {
+export function checkTokenAccess(input: { method: string | null; path: string | null; scopes: Set<TokenScope>; workspaceId?: string | null; allWorkspacesAgent?: boolean }): TokenAccessDenial | null {
   if (!input.method || !input.path) {
     return { status: 403, errorCode: "FORBIDDEN", message: "This needs a browser session" };
   }
@@ -189,6 +196,10 @@ export function checkTokenAccess(input: { method: string | null; path: string | 
   if (needed === "forbidden") return { status: 403, errorCode: "FORBIDDEN", message: "This needs a browser session" };
   if (needed && !input.scopes.has(needed)) {
     return { status: 403, errorCode: "SCOPE_MISSING", message: `This token can't do that: it needs the ${needed} permission`, scope: needed };
+  }
+  // Agents (one workspace or all) only use routes whose rule says how they find the workspace (report A5).
+  if (input.allWorkspacesAgent && !tokenRouteRule(input.path)?.agent) {
+    return { status: 403, errorCode: "WORKSPACE_NOT_ALLOWED", message: "AI agents can't use this" };
   }
   if (input.workspaceId) {
     const mode = tokenRouteRule(input.path)?.agent;

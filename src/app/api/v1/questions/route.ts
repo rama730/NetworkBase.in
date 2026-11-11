@@ -1,6 +1,7 @@
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { denyOutsideTokenWorkspace, getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { askQuestion, askSchema, openQuestionsFor, publicQuestion, QuestionError } from "@/lib/agents/questions";
+import { agentWorkspaceFilter } from "@/lib/agents/reachable";
 import { validateCsrf } from "@/lib/security/csrf";
 
 export const runtime = "nodejs";
@@ -16,8 +17,9 @@ export async function GET(request: Request) {
     const outside = await denyOutsideTokenWorkspace(auth, { taskId });
     if (outside) return outside;
     const questions = await openQuestionsFor(auth.user.id, { taskId });
-    // A token tied to one workspace sees only that workspace's questions.
-    return jsonSuccess({ questions: auth.tokenWorkspaceId ? questions.filter((q) => q.workspaceId === auth.tokenWorkspaceId) : questions });
+    // A token sees only the workspaces it may reach (one, or all minus paused and agents-off ones).
+    const reach = await agentWorkspaceFilter(auth);
+    return jsonSuccess({ questions: reach ? questions.filter((q) => reach.has(q.workspaceId)) : questions });
   } catch (error) {
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/questions", fallback: "Couldn’t load questions" });
   }

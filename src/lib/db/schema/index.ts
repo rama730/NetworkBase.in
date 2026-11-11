@@ -5319,6 +5319,8 @@ export const extensionDeviceSessions = pgTable("extension_device_sessions", {
   tokenType: text("token_type").$type<"device" | "agent">().default("device").notNull(),
   agentName: text("agent_name"),
   workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+  /** An agent approved for "All my workspaces" (0082): exactly one of workspaceId or allWorkspaces for agents. */
+  allWorkspaces: boolean("all_workspaces").default(false).notNull(),
   /** Two-letter country the token was last used from (0076, report A3.10). */
   lastCountry: text("last_country"),
   ipAddress: text("ip_address"),
@@ -5439,6 +5441,8 @@ export const deviceCodes = pgTable("device_codes", {
   requestedAccess: text("requested_access").$type<"full" | "small" | "read">(),
   /** "all", or a workspace id. */
   requestedWorkspace: text("requested_workspace"),
+  /** The person approved this agent for all their workspaces (0082); workspaceId stays null. */
+  allWorkspaces: boolean("all_workspaces").default(false).notNull(),
 }, (t) => ({
   expiresIdx: index("device_codes_expires_idx").on(t.expiresAt),
   oauthClientIdx: index("device_codes_oauth_client_idx").on(t.oauthClientId).where(sql`${t.oauthClientId} IS NOT NULL`),

@@ -253,7 +253,7 @@ Waiting for you to approve in the browser… D9GM-9N7Z (expires 03:56)
 
 ## A5. Server
 
-- **The token:** an agent token with `workspace_id = NULL` means "all of this person's workspaces"; no migration is needed. Scopes per preset:
+- **The token:** an "All my workspaces" agent has `workspace_id = NULL` **and** `all_workspaces = true` (migration 0082). The database requires every agent sign-in to have exactly one of the two, so a missing workspace can never happen by accident (found while building M1: 0072 required a workspace for every agent). Scopes per preset:
   - **Full help:** base + all three extras.
   - **Small changes:** base.
   - **Read only:** `workspace:read`, `task:read`, `file:read`, stored explicitly. An empty list keeps meaning "base", so existing tokens don't change.

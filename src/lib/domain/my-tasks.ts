@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, exists, isNull, or, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { tasks, workspaceMembers, workspaces } from "@/lib/db/schema";
@@ -54,7 +54,8 @@ export type MyTaskCounts = {
 
 /** "How many tasks do I have": the person's open work, the same set My work counts (report §18.2). */
 /** `onlyWorkspaceId`: a token tied to one workspace counts only there. */
-export async function countMyOpenTasks(userId: string, now = new Date(), onlyWorkspaceId: string | null = null): Promise<MyTaskCounts> {
+/** `onlyWorkspaces`: the workspaces a token may see (agentWorkspaceFilter); null = all of the person's. */
+export async function countMyOpenTasks(userId: string, now = new Date(), onlyWorkspaces: Set<string> | null = null): Promise<MyTaskCounts> {
   const nowIso = now.toISOString();
   const weekAheadIso = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
   const [row] = await db
@@ -75,7 +76,7 @@ export async function countMyOpenTasks(userId: string, now = new Date(), onlyWor
         mineSql(userId),
         orgCopyRules(userId),
         memberWorkspaceSql(userId),
-        onlyWorkspaceId ? eq(tasks.projectId, onlyWorkspaceId) : undefined,
+        onlyWorkspaces ? (onlyWorkspaces.size ? inArray(tasks.projectId, [...onlyWorkspaces]) : sql`false`) : undefined,
       ),
     );
   return {

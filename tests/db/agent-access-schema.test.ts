@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
-import { closeAppDb, sql } from "./_helpers";
+import { closeAppDb, createUser, sql } from "./_helpers";
 
 // Report A2, A5, A10 (migrations 0082–0084): where a sign-in came from and what the CLI asked for, the remembered
 // choice per agent, and agents asking for more access. Browser roles never reach these tables.
@@ -32,6 +32,16 @@ test("remembered choices and access requests exist with RLS on and no browser ac
     const [grant] = await sql`SELECT has_table_privilege('authenticated', ${`public.${table}`}, 'SELECT') AS ok`;
     assert.equal(grant!.ok, false, `${table} hidden from browsers`);
   }
+});
+
+test("an agent sign-in has exactly one of a workspace or all workspaces", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const insert = (workspace: string | null, all: boolean, type = "agent") =>
+    sql`INSERT INTO extension_device_sessions (user_id, token_hash, token_prefix, device_name, client_version, expires_at, token_type, workspace_id, all_workspaces)
+        VALUES (${userId}, ${`h${Math.random()}`}, 'nb_agt_x', 'd', '2', now(), ${type}, ${workspace}, ${all})`;
+  await insert(null, true);
+  await assert.rejects(insert(null, false), /extension_device_sessions_agent_workspace_check/, "an agent with neither");
+  await assert.rejects(insert(null, true, "device"), /extension_device_sessions_all_workspaces_agent_only/, "only agents use all_workspaces");
 });
 
 test("an access request's status only takes the known answers", async () => {
