@@ -568,6 +568,27 @@
       "when": 1794300000000,
       "tag": "0081_file_versions_based_on",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1794375000000,
+      "tag": "0082_device_code_country_and_wishes",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1794375001000,
+      "tag": "0083_agent_access_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1794375002000,
+      "tag": "0084_agent_access_requests",
+      "breakpoints": true
     }
   ]
 }

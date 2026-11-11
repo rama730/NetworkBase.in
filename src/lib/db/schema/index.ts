@@ -5434,9 +5434,44 @@ export const deviceCodes = pgTable("device_codes", {
   oauthState: text("oauth_state"),
   codeChallenge: text("code_challenge"),
   oauthCodeHash: text("oauth_code_hash").unique(),
+  // One-click agent sign-in (0082, report A2/A5): the country it came from and what the CLI or editor asked for.
+  country: text("country"),
+  requestedAccess: text("requested_access").$type<"full" | "small" | "read">(),
+  /** "all", or a workspace id. */
+  requestedWorkspace: text("requested_workspace"),
 }, (t) => ({
   expiresIdx: index("device_codes_expires_idx").on(t.expiresAt),
   oauthClientIdx: index("device_codes_oauth_client_idx").on(t.oauthClientId).where(sql`${t.oauthClientId} IS NOT NULL`),
+}));
+
+/** The last access a person chose per agent name (0083, report A5); workspaceId null = all their workspaces. */
+export const agentAccessDefaults = pgTable("agent_access_defaults", {
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  agentName: text("agent_name").notNull(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
+  access: text("access").$type<"full" | "small" | "read" | "custom">().notNull(),
+  expiryDays: integer("expiry_days").notNull(),
+  extraScopes: jsonb("extra_scopes").$type<string[]>().default([]).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.userId, t.agentName] }) }));
+
+/** An agent asking for a permission it lacks (0084, report A5/A10), answered in the person's inbox. */
+export const agentAccessRequests = pgTable("agent_access_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => extensionDeviceSessions.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  scope: text("scope").notNull(),
+  method: text("method").notNull(),
+  path: text("path").notNull(),
+  reason: text("reason"),
+  status: text("status").$type<"open" | "once" | "always" | "no" | "expired" | "used">().default("open").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+}, (t) => ({
+  sessionStatusIdx: index("agent_access_requests_session_status_idx").on(t.sessionId, t.status),
+  userIdx: index("agent_access_requests_user_idx").on(t.userId),
 }));
 
 /** Editors that registered for OAuth to the hosted MCP server (RFC 7591, migration 0080). */
