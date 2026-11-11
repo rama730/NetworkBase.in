@@ -53,9 +53,9 @@ async function handlePatch(request: Request) {
     // Finishing and reviewing need their own token permissions (report A3.6).
     const scopeDenied =
       input.kind === "approve" || input.kind === "request_changes"
-        ? requireTokenScope(auth, "task:review")
+        ? await requireTokenScope(auth, "task:review")
         : input.kind === "resubmit" || (input.kind === "status" && input.status === "done")
-          ? requireTokenScope(auth, "task:complete")
+          ? await requireTokenScope(auth, "task:complete")
           : null;
     if (scopeDenied) return scopeDenied;
     // Which changes an agent's person has to agree to first (report §26.6).

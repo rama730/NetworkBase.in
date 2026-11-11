@@ -618,9 +618,9 @@
       "text": "\"Asking for more\" (an agent requesting extra access in the inbox) is built now, as part of Part A.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
+      "evidence": "M1 T5"
     },
     {
       "key": "A1.e6ebb85a",
@@ -1178,9 +1178,9 @@
       "text": "The token: an \"All my workspaces\" agent has workspaceid = NULL and allworkspaces = true (migration 0082). The database requires every agent sign-in to have exac",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-all-workspaces.test.ts; tests/db/agent-access-schema.test.ts",
+      "evidence": "e13ad4fb6, cef2a77d6"
     },
     {
       "key": "A5.74ebbd31",
@@ -1188,9 +1188,9 @@
       "text": "Approval: deviceDecisionSchema accepts workspace: \"all\" and access: \"full\" | \"small\" | \"read\" | \"custom\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
+      "evidence": "82597b139"
     },
     {
       "key": "A5.d5cc85f9",
@@ -1198,9 +1198,9 @@
       "text": "Every request: denyOutsideTokenWorkspace (already called by every route that touches a workspace) runs the pause check, the organization check and your normal a",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-all-workspaces.test.ts; tests/db/agent-access-schema.test.ts",
+      "evidence": "cef2a77d6"
     },
     {
       "key": "A5.d21494d8",
@@ -1208,9 +1208,9 @@
       "text": "Lists: for an all-workspaces agent, the 7 read routes leave out paused workspaces and organizations that turned agents off.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-all-workspaces.test.ts; tests/db/agent-access-schema.test.ts",
+      "evidence": "cef2a77d6"
     },
     {
       "key": "A5.4336d5b6",
@@ -1228,9 +1228,9 @@
       "text": "What the CLI asks for: the sign-in request (device-code and OAuth /oauth/authorize) can carry the access it wants (access, workspace). The page shows it as the ",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
+      "evidence": "82597b139"
     },
     {
       "key": "A5.be86e539",
@@ -1238,9 +1238,9 @@
       "text": "Remembered choices: the last choice per person and agent name (where, what, how long) is stored and used to pre-fill. Migration 0083: a small agentaccessdefault",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
+      "evidence": "82597b139"
     },
     {
       "key": "A5.8f143218",
@@ -1258,9 +1258,9 @@
       "text": "Asking for more:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
+      "evidence": "M1 T5"
     },
     {
       "key": "A5.df621d01",
@@ -1528,9 +1528,9 @@
       "text": "Sign-in request with wishes · POST /api/v1/extension/device-code (exists) · adds optional requestedAccess: \"full\" \\ · \"small\" \\ · \"read\" and requestedWorkspace:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
+      "evidence": "82597b139"
     },
     {
       "key": "A10.f3cba200",
@@ -1538,9 +1538,9 @@
       "text": "OAuth wishes · GET /oauth/authorize (exists) · standard scope parameter: networkbase:full, networkbase:small, networkbase:read, plus optional networkbase:worksp",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/oauth-hosted-mcp.test.ts; tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
+      "evidence": "82597b139"
     },
     {
       "key": "A10.74316fc9",
@@ -1548,9 +1548,9 @@
       "text": "The person's answer · server action decideDeviceCodeAction (exists) · input becomes { decision, type, access, workspace: \"all\" \\ · id, expiryDays, extraScopes? ",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
+      "evidence": "82597b139"
     },
     {
       "key": "A10.e83c27b4",
@@ -1558,9 +1558,9 @@
       "text": "Remembered choice · written on approve · upsert agentaccessdefaults (0083) by (userid, agentname)",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
+      "evidence": "82597b139"
     },
     {
       "key": "A10.4febd4ba",
@@ -1598,19 +1598,19 @@
       "text": "Asking for more · in requireTokenScope for agent tokens · instead of a plain 403, creates a row in agentaccessrequests (0084) and answers 403 ACCESSREQUESTED { ",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
+      "evidence": "M1 T5"
     },
     {
-      "key": "A10.36cfcb8b",
+      "key": "A10.515be23d",
       "section": "A10",
       "text": "The answer · server action decideAgentAccessRequestAction(id, \"once\" \\ · \"always\" \\ · \"no\") from the inbox item · once: the agent's retry with header X-NB-Acces",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
+      "evidence": "M1 T5"
     },
     {
       "key": "A10.bf408971",
@@ -1688,9 +1688,9 @@
       "text": "Agents asking for more too often. Mitigations: a limit of 3 open requests and 24 hours of quiet after \"No\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
+      "evidence": "M1 T5"
     },
     {
       "key": "B.013ca863",

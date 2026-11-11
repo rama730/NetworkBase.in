@@ -60,7 +60,8 @@ export function effectiveScopes(kind: TokenKind, stored: unknown): Set<TokenScop
   }
   const scopes = new Set<TokenScope>();
   for (const entry of listed) {
-    if (LEGACY_SCOPES[entry]) for (const scope of LEGACY_SCOPES[entry]) scopes.add(scope);
+    // Agent tokens were always stored with the new names, where task:write does not include task:complete.
+    if (kind !== "agent" && LEGACY_SCOPES[entry]) for (const scope of LEGACY_SCOPES[entry]) scopes.add(scope);
     else if (isTokenScope(entry)) scopes.add(entry);
   }
   return scopes;

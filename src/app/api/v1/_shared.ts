@@ -5,6 +5,7 @@ import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { logger } from "@/lib/logger";
 import { getIsolationScope } from "@sentry/nextjs";
 import { workspaceAgentPolicy } from "@/lib/agents/policy";
+import { consumeOnceGrant, requestAccess } from "@/lib/agents/access-requests";
 import { queueSecurityEmail } from "@/lib/email/security-queue";
 
 const AGENT_DAILY_WRITES = 1000;
@@ -174,6 +175,7 @@ async function bearerPrincipal(
   // Errors and logs from this request say which client, token type and agent made it (report A2.13).
   const client = normalizeSessionHeader(headerStore.get("x-nb-client"), 40) ?? normalizeSessionHeader(headerStore.get("x-extension-version"), 40);
   getIsolationScope().setTags({ "nb.token": kind, "nb.via": kind === "agent" ? "agent" : "cli", ...(client ? { "nb.client": client } : {}), ...(agentName ? { "nb.agent": agentName.slice(0, 60) } : {}) });
+  let personAgreed = false;
   const denial = checkTokenAccess({ method: headerStore.get(TRUSTED_METHOD_HEADER), path: target, scopes, workspaceId, allWorkspacesAgent: kind === "agent" && allWorkspaces });
   if (denial) {
     logger.warn("api.v1.token_route_denied", {
@@ -185,7 +187,15 @@ async function bearerPrincipal(
       errorCode: denial.errorCode,
       scope: denial.scope ?? null,
     });
-    return deniedPrincipal(jsonError(denial.message, 403, denial.errorCode, denial.scope ? { scope: denial.scope } : undefined));
+    // An agent missing a permission asks the person instead of just failing (report A5 "Asking for more").
+    const asked = kind === "agent" && denial.errorCode === "SCOPE_MISSING" && denial.scope
+      ? await askForScope(headerStore, { userId: user.id, sessionId: extensionSessionId, agentName }, denial.scope)
+      : undefined;
+    if (asked) return deniedPrincipal(asked);
+    if (asked === undefined) return deniedPrincipal(jsonError(denial.message, 403, denial.errorCode, denial.scope ? { scope: denial.scope } : undefined));
+    // "Allow once" covered it: this one request has the permission, and the person's answer was their yes.
+    scopes = new Set([...scopes, denial.scope as TokenScope]);
+    personAgreed = true;
   }
   // One abuse budget per token for every token route (report A12.3, finding 76); routes keep their own limits too.
   const isRead = ["GET", "HEAD", "OPTIONS"].includes((headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase());
@@ -220,6 +230,9 @@ async function bearerPrincipal(
     /** An agent approved for "All my workspaces" (0082): tokenWorkspaceId is null and every request is checked. */
     tokenAllWorkspaces: kind === "agent" && allWorkspaces,
     tokenKind: kind as "device" | "agent" | "pat" | null,
+    tokenAgentName: agentName,
+    /** The person answered "Allow once" for this request; the agent gate takes it as their yes. */
+    tokenPersonAgreed: personAgreed,
     response: null as ReturnType<typeof jsonError> | null,
   };
 }
@@ -255,9 +268,43 @@ export async function denyOutsideTokenWorkspace(
   return null;
 }
 
+/**
+ * An agent token lacks `scope`: null when the person's "Allow once" covers this exact request (header
+ * X-NB-Access-Request), else the answer to send: ACCESS_REQUESTED (asked in their inbox), ACCESS_DENIED_BY_PERSON
+ * (they said no in the last 24 hours) or SCOPE_MISSING (3 requests already waiting). Report A5, A10.
+ */
+async function askForScope(
+  headerStore: Awaited<ReturnType<typeof headers>>,
+  agent: { userId: string; sessionId: string; agentName: string | null },
+  scope: TokenScope,
+) {
+  const method = (headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase();
+  const path = (headerStore.get(TRUSTED_TARGET_HEADER) ?? "").split("?")[0]!;
+  const requestId = headerStore.get("x-nb-access-request")?.trim();
+  if (requestId && (await consumeOnceGrant({ sessionId: agent.sessionId, scope, method, path, requestId }))) return null;
+  const asked = await requestAccess({ sessionId: agent.sessionId, userId: agent.userId, scope, method, path, agentName: agent.agentName });
+  if ("requestId" in asked) {
+    return jsonError(`This agent needs the ${scope} permission, so it asked you in NetworkBase. Once you answer, it can try again.`, 403, "ACCESS_REQUESTED", { requestId: asked.requestId, scope });
+  }
+  if (asked.blocked === "said_no") {
+    const denied = jsonError(`The person said no to ${scope} for this agent. It won't ask again for 24 hours.`, 403, "ACCESS_DENIED_BY_PERSON", { scope, retryAfter: asked.retryAfterSeconds ?? 86_400 });
+    denied.headers.set("Retry-After", String(asked.retryAfterSeconds ?? 86_400));
+    return denied;
+  }
+  return jsonError(`This token can't do that: it needs the ${scope} permission, and 3 requests are already waiting for the person's answer`, 403, "SCOPE_MISSING", { scope });
+}
+
 /** For checks that depend on the request body (finishing a task, approving, final files): 403 when a token lacks the scope. */
-export function requireTokenScope(auth: { tokenScopes?: Set<TokenScope> | null }, scope: TokenScope) {
+export async function requireTokenScope(
+  auth: { tokenScopes?: Set<TokenScope> | null; tokenKind?: string | null; extensionSessionId?: string | null; user?: User | null; tokenAgentName?: string | null; tokenPersonAgreed?: boolean },
+  scope: TokenScope,
+) {
   if (!auth.tokenScopes || auth.tokenScopes.has(scope)) return null;
+  if (auth.tokenKind === "agent" && auth.extensionSessionId && auth.user) {
+    const answer = await askForScope(await headers(), { userId: auth.user.id, sessionId: auth.extensionSessionId, agentName: auth.tokenAgentName ?? null }, scope);
+    if (!answer) auth.tokenPersonAgreed = true;
+    return answer;
+  }
   return jsonError(`This token can't do that: it needs the ${scope} permission`, 403, "SCOPE_MISSING", { scope });
 }
 

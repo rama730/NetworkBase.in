@@ -28,6 +28,12 @@ describe("token scopes (report A3.6)", () => {
     assert.ok(!scopes.has("task:write"));
   });
 
+  it("reads an agent's task:write literally: a Small agent can't finish tasks (report A5)", () => {
+    const small = effectiveScopes("agent", ["workspace:read", "task:read", "task:write", "file:read", "file:write"]);
+    assert.ok(small.has("task:write"));
+    assert.ok(!small.has("task:complete"));
+  });
+
   it("keeps new scope names and ignores unknown ones", () => {
     assert.deepEqual([...effectiveScopes("pat", ["doc:write", "root:everything"])], ["doc:write"]);
   });

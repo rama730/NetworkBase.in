@@ -14,7 +14,7 @@ import type { NotificationFanoutWrite } from "@/lib/notifications/types";
 import { requestVia } from "@/lib/server/request-via";
 
 export const SUMMARY_SOURCE = "agent-session-summary";
-const SENT_AT_ONCE = new Set(["agent_question", "task_report_submitted", "task_status_attention", "task_file_needs_review", "trust_safety", "project_security_alert"]);
+const SENT_AT_ONCE = new Set(["agent_question", "agent_access_request", "task_report_submitted", "task_status_attention", "task_file_needs_review", "trust_safety", "project_security_alert"]);
 
 /** Keeps the writes that should wait for the session summary; returns the ones to send now. */
 export async function holdAgentWrites(writes: NotificationFanoutWrite[], source?: string | null): Promise<NotificationFanoutWrite[]> {

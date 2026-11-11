@@ -49,6 +49,8 @@ const KIND_REASON: Record<NotificationKind, NotificationReason> = {
     org_credit: "update",
     trust_safety: "safety",
     agent_question: "workflow",
+    agent_access_request: "workflow",
+    agent_access_expiring: "workflow",
     agent_session_summary: "update",
     task_report_submitted: "done",
 };
@@ -121,6 +123,8 @@ const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: stri
     org_credit: { singular: "profile credit update", plural: "profile credit updates" },
     trust_safety: { singular: "safety notice", plural: "safety notices" },
     agent_question: { singular: "question", plural: "questions" },
+    agent_access_request: { singular: "access request", plural: "access requests" },
+    agent_access_expiring: { singular: "agent renewal", plural: "agent renewals" },
     agent_session_summary: { singular: "agent session", plural: "agent sessions" },
     task_report_submitted: { singular: "report", plural: "reports" },
 };

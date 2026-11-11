@@ -48,7 +48,7 @@ async function handlePost(request:Request){
  try{
   const auth=await requireAuthenticatedUser();if(auth.response)return auth.response;if(!auth.user)return jsonError('Sign in to continue',401,'UNAUTHORIZED');const user=auth.user;
   const parsed=schema.safeParse(await request.json());if(!parsed.success)return jsonError('Invalid task file receipt request',400,'BAD_REQUEST');const {taskId,projectId,taskAction,role:defaultRole,transitionStatus,files,message}=parsed.data;
-  const scopeDenied=(defaultRole==='deliverable'||files.some(f=>f.role==='deliverable')?requireTokenScope(auth,'file:final'):null)??(transitionStatus==='done'?requireTokenScope(auth,'task:complete'):null);if(scopeDenied)return scopeDenied;
+  const scopeDenied=(defaultRole==='deliverable'||files.some(f=>f.role==='deliverable')?await requireTokenScope(auth,'file:final'):null)??(transitionStatus==='done'?await requireTokenScope(auth,'task:complete'):null);if(scopeDenied)return scopeDenied;
   const operationId=request.headers.get('idempotency-key')?.trim() || crypto.randomUUID();if(operationId.length>200)return jsonError('A stable operation id is required',400,'BAD_REQUEST');
   if(!(await consumeRateLimit(`extension-task-push:${user.id}`,60,60)).allowed)return jsonError('Too many attempts. Try again in a minute.',429,'RATE_LIMITED');
   let statusTarget: 'in_progress' | 'done' | null = null;

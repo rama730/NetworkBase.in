@@ -1,6 +1,6 @@
 "use server";
 
-import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { agentWorkspaceProblem } from "@/lib/agents/access-settings";
 import { queueSecurityEmail } from "@/lib/email/security-queue";
 import { deviceDecisionSchema } from "@/lib/extension/device-decision";
 import { decideDeviceCode, findPendingDeviceCode } from "@/lib/extension/device-codes";
@@ -33,16 +33,9 @@ export async function decideDeviceCodeAction(code: string, input: unknown): Prom
     if (availableMethods.length > 0 && !(await resolveSecurityStepUp(user.id)).ok) {
       return { success: false, error: "Verify it's you before approving", stepUpRequired: true };
     }
-    // "All my workspaces" is checked on every request instead (report A5); one workspace is checked here too.
-    if (decision.type === "agent" && decision.workspace !== "all") {
-      const access = await getWorkspaceAccessById(decision.workspace, user.id);
-      if (decision.access === "read" ? !access.canRead : !access.canWrite) {
-        return { success: false, error: decision.access === "read" ? "Choose a workspace you can see" : "You can only read this workspace. Choose Read only, or another workspace." };
-      }
-      // An organization that turned agent tokens off (report A8.8).
-      const { workspaceAgentPolicy } = await import("@/lib/agents/policy");
-      const org = await workspaceAgentPolicy(decision.workspace);
-      if (!org.orgAllowsAgents) return { success: false, error: `${org.orgTitle ?? "This organization"} doesn't allow AI agents. Choose another workspace.` };
+    if (decision.type === "agent") {
+      const problem = await agentWorkspaceProblem(user.id, decision.access, decision.workspace);
+      if (problem) return { success: false, error: problem };
     }
   }
 

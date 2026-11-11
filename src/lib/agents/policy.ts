@@ -41,7 +41,7 @@ export function needsYes(kinds: ChangeKind[], policy: AgentPolicy): boolean {
   return real.some((k) => !(policy === "trust_drafts_docs" && k === "doc"));
 }
 
-type Principal = { user: { id: string } | null; tokenKind?: "device" | "agent" | "pat" | null; extensionSessionId?: string | null; tokenScopes?: Set<string> | null };
+type Principal = { user: { id: string } | null; tokenKind?: "device" | "agent" | "pat" | null; extensionSessionId?: string | null; tokenScopes?: Set<string> | null; tokenPersonAgreed?: boolean };
 
 function secret() {
   const raw = process.env.EXTENSION_AUTH_CODE_SECRET || process.env.SUPABASE_JWT_SECRET || (process.env.NODE_ENV === "production" ? "" : "nb-extension-auth-code-local-development-secret");
@@ -135,7 +135,8 @@ export async function agentGate(
   const blocked = await agentAssignmentBlock(change.taskId);
   if (blocked) return jsonError(blocked, 403, "AGENT_NOT_ALLOWED");
   const { policy } = await workspaceAgentPolicy(change.workspaceId);
-  if (!needsYes(change.kinds, policy)) return null;
+  // The person's "Allow once" in their inbox was the yes for this request (report A5).
+  if (!needsYes(change.kinds, policy) || auth.tokenPersonAgreed) return null;
   const given = request.headers.get(CONFIRM_HEADER)?.trim();
   const identity = { userId: auth.user.id, sessionId: auth.extensionSessionId, body };
   if (given) {

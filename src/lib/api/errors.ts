@@ -10,6 +10,8 @@ export const ERROR_CATALOG: Record<string, ErrorEntry> = {
   UNAUTHORIZED: { status: 401, exit: 3, meaning: "No valid sign-in: missing, expired, revoked, or unused for 90 days", fix: "nb login" },
   FORBIDDEN: { status: 403, exit: 3, meaning: "You're signed in but can't do this here", fix: "Check you're a member of the workspace: nb whoami" },
   SCOPE_MISSING: { status: 403, exit: 3, meaning: "This token wasn't given that permission", fix: "Sign in again with nb login, or make a token with more access in Settings" },
+  ACCESS_REQUESTED: { status: 403, exit: 6, meaning: "The agent lacks this permission, so it asked the person in their NetworkBase inbox", fix: "Tell the person; once they answer, retry (with X-NB-Access-Request: <requestId> after Allow once)" },
+  ACCESS_DENIED_BY_PERSON: { status: 403, exit: 3, meaning: "The person said no to this permission; the agent won't ask again for 24 hours", fix: "Do it another way, or ask the person to do it themselves" },
   WORKSPACE_NOT_ALLOWED: { status: 403, exit: 3, meaning: "An agent token only reaches the workspace it was approved for", fix: "Use the folder linked to that workspace, or approve a new agent sign-in" },
   AGENT_NOT_ALLOWED: { status: 403, exit: 3, meaning: "The organization doesn't allow AI agents here (or on this assignment)", fix: "Do this one yourself, or ask the organization's admins" },
   AGENTS_PAUSED: { status: 403, exit: 3, meaning: "Agents are paused in this workspace", fix: "Turn agents back on in workspace settings" },

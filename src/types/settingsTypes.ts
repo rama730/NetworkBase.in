@@ -61,6 +61,7 @@ export interface SecurityActivityEntry {
     | "sign_in_method_unlinked"
     | "editor_token_created"
     | "editor_token_revoked"
+    | "agent_access_changed"
     | "account_deletion_scheduled"
     | "account_deletion_cancelled"
     | "project_ownership_transferred_out"
@@ -225,8 +226,12 @@ export interface ExtensionSessionData {
   lastSeenAt: string;
   createdAt: string;
   authMethod?: ExtensionSessionAuthMethod;
-  /** device (CLI or editor) or agent (one workspace only), report A3.3. */
+  /** device (CLI or editor) or agent, report A3.3. */
   tokenType?: "device" | "agent" | null;
+  /** An agent approved for "All my workspaces" (report A5). */
+  allWorkspaces?: boolean;
+  /** For agents: the same sentence as the approval page and the agent's card (report A6 #5). */
+  accessSentence?: string | null;
   agentName?: string | null;
   workspaceId?: string | null;
   workspaceTitle?: string | null;

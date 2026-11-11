@@ -43,7 +43,7 @@ test("a read-only personal token can read tasks but not push files or finish tas
 
     asRequest(token, "GET", "/api/v1/extension/task-detail?taskId=1");
     assert.equal((await shared.requireAuthenticatedUser()).response, null);
-    assert.equal(shared.requireTokenScope(read, "task:complete")?.status, 403);
+    assert.equal((await shared.requireTokenScope(read, "task:complete"))?.status, 403);
   } finally {
     await sql`DELETE FROM personal_access_tokens WHERE user_id = ${userId}`;
   }
@@ -59,7 +59,7 @@ test("a device token is refused on account and token routes, and when the target
     asRequest(token, "POST", "/api/v1/extension/fast-push");
     const push = await shared.requireAuthenticatedUser();
     assert.equal(push.user?.id, userId, "device tokens may push");
-    assert.equal(shared.requireTokenScope(push, "task:complete"), null);
+    assert.equal(await shared.requireTokenScope(push, "task:complete"), null);
 
     for (const target of ["/api/v1/account/delete", "/api/v1/cli/tokens", "/api/v1/sessions", "/api/v1/auth/change-password"]) {
       asRequest(token, "POST", target);

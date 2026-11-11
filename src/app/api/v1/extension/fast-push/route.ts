@@ -166,8 +166,8 @@ async function handlePost(request: Request) {
 
     // Final files and finishing a task need their own token permissions (report A3.6).
     const scopeDenied =
-      (requestedRole === "deliverable" ? requireTokenScope(auth, "file:final") : null) ??
-      (transitionStatus === "done" ? requireTokenScope(auth, "task:complete") : null);
+      (requestedRole === "deliverable" ? await requireTokenScope(auth, "file:final") : null) ??
+      (transitionStatus === "done" ? await requireTokenScope(auth, "task:complete") : null);
     if (scopeDenied) return scopeDenied;
 
     let taskId: string | null = null;
@@ -256,7 +256,7 @@ async function handlePost(request: Request) {
     let editsDoc = false;
     if (linkDoc) {
       editsDoc = true;
-      const denied = auth.tokenScopes ? requireTokenScope(auth, "doc:write") : null;
+      const denied = auth.tokenScopes ? await requireTokenScope(auth, "doc:write") : null;
       if (denied) return denied;
     }
     if (auth.tokenScopes && existingNodes.length) {
@@ -267,7 +267,7 @@ async function handlePost(request: Request) {
         .limit(1);
       if (docBacked.length) {
         editsDoc = true;
-        const denied = requireTokenScope(auth, "doc:write");
+        const denied = await requireTokenScope(auth, "doc:write");
         if (denied) return denied;
       }
     }

@@ -373,10 +373,12 @@ Waiting for you to approve in the browser… D9GM-9N7Z (expires 03:56)
 | Change access | Settings → Integrations → **Change access**, a small page like the approval page | "Verify it's you", then it updates the session's `scopes` and `workspace_id`, and records security event `agent_access_changed` |
 | Change access from the terminal | `nb agent access claude …` | opens that Settings page pre-filled (the terminal can't do "Verify it's you"), and prints the new sentence when saved |
 | Asking for more | in `requireTokenScope` for agent tokens | instead of a plain 403, creates a row in `agent_access_requests` (0084) and answers `403 ACCESS_REQUESTED { requestId, scope }`. The MCP layer turns that into "Asked the person; they'll answer in NetworkBase" |
-| The answer | server action `decideAgentAccessRequestAction(id, "once" \| "always" \| "no")` from the inbox item | **once:** the agent's retry with header `X-NB-Access-Request: <id>` and the same request-body hash is allowed one time. **always:** adds the scope. **no:** `ACCESS_DENIED_BY_PERSON` for 24 hours for that scope |
+| The answer | server action `decideAgentAccessRequestAction(id, "once" \| "always" \| "no")` from the inbox item | **once:** the agent's retry with header `X-NB-Access-Request: <id>`, the same method and path, within 1 hour, is allowed one time, and counts as the person's yes for that request (no second confirmation). The body can't be matched, because the token check runs before any body is read (found while building M1). **always:** adds the scope. **no:** `ACCESS_DENIED_BY_PERSON` for 24 hours for that scope |
 | Renewal notice | a daily Inngest cron | sends one inbox item per agent sign-in expiring within 7 days (dedupe key: session and expiry date); "Renew" opens the approval page in renewal mode |
 
 **New error codes** (added to the error catalog, docs anchors and CLI messages): `ACCESS_REQUESTED`, `ACCESS_DENIED_BY_PERSON`.
+
+**Found while building M1:** an agent token's stored `task:write` was read as the old pre-scope name, which also meant `task:complete`. Every Small agent could finish tasks. Agent tokens now read `task:write` literally. Agents approved before M1 without "finish tasks" will ask for it the first time (A5 "Asking for more").
 
 **Done when:**
 - every test in A5 passes

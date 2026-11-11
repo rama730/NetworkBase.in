@@ -10,6 +10,9 @@ import {
   workspaces,
 } from "@/lib/db/schema";
 import { EXTENSION_DEVICE_SESSION_EVENTS } from "@/lib/extension/session-events";
+import { presetOf } from "@/lib/agents/access";
+import { sentenceFor } from "@/lib/agents/access-settings";
+import { effectiveScopes } from "@/lib/security/token-access";
 import type { ExtensionSessionAuthMethod } from "@/types/settingsTypes";
 
 const sessionCursorSchema = z.object({
@@ -21,6 +24,8 @@ const sessionCursorSchema = z.object({
 export type ActiveExtensionSession = Omit<typeof extensionDeviceSessions.$inferSelect, "tokenHash"> & {
   authMethod: ExtensionSessionAuthMethod;
   workspaceTitle: string | null;
+  /** For agents: the one sentence the approval page, /me and the agent's card also show (report A6 #5). */
+  accessSentence: string | null;
 };
 
 export function normalizeExtensionAuthMethod(
@@ -157,14 +162,18 @@ export async function listActiveExtensionSessionsForUser(
   const enriched: ActiveExtensionSession[] = sessions.map(({ tokenHash: _hash, ...session }) => ({
     ...session,
     workspaceTitle: session.workspaceId ? titles.get(session.workspaceId) ?? null : null,
+    accessSentence: session.tokenType === "agent" ? sentenceFor(session, session.workspaceId ? titles.get(session.workspaceId) ?? null : null, now) : null,
     authMethod:
       loginEventBySessionId.get(session.id)?.authMethod
       ?? normalizeExtensionAuthMethod(null, session.deviceName),
   }));
+  // The cursor follows last-used order; on screen the broadest sign-ins come first (report A7).
   const lastSession = enriched.at(-1);
+  const broad = (s: ActiveExtensionSession) => (s.tokenType === "agent" && s.allWorkspaces ? (presetOf([...effectiveScopes("agent", s.scopes)]) === "full" ? 2 : 1) : 0);
+  const shown = [...enriched].sort((a, b) => broad(b) - broad(a));
 
   return {
-    sessions: enriched,
+    sessions: shown,
     hasMore,
     nextCursor: hasMore && lastSession
       ? encodeSessionCursor({ lastSeenAt: lastSession.lastSeenAt, id: lastSession.id })

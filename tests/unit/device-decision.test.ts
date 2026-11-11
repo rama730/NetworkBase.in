@@ -9,12 +9,13 @@ test("the /device answer parses for deny, a terminal and an agent, and refuses t
   const workspaceId = "0c48a8ba-51c5-4a1e-91bc-e2248c0a11e0";
   assert.deepEqual(deviceDecisionSchema.parse({ decision: "deny" }), { decision: "deny" });
   assert.deepEqual(deviceDecisionSchema.parse({ decision: "approve", type: "device" }), { decision: "approve", type: "device" });
-  const agent = { decision: "approve", type: "agent", workspaceId, expiryDays: 30, extraScopes: ["doc:write"] };
+  const agent = { decision: "approve", type: "agent", access: "custom", workspace: workspaceId, expiryDays: 30, extraScopes: ["doc:write"] };
   assert.deepEqual(deviceDecisionSchema.parse(agent), agent);
+  assert.equal(deviceDecisionSchema.safeParse({ ...agent, access: "full", workspace: "all" }).success, true, "All my workspaces");
 
   assert.equal(deviceDecisionSchema.safeParse({ decision: "approve" }).success, false, "approve needs a type");
   assert.equal(deviceDecisionSchema.safeParse({ ...agent, expiryDays: 365 }).success, false, "only 7, 30 or 90 days");
-  assert.equal(deviceDecisionSchema.safeParse({ ...agent, workspaceId: "nope" }).success, false);
+  assert.equal(deviceDecisionSchema.safeParse({ ...agent, workspace: "nope" }).success, false);
   assert.equal(deviceDecisionSchema.safeParse({ ...agent, extraScopes: ["admin"] }).success, false);
   assert.equal(deviceDecisionSchema.safeParse({ decision: "maybe" }).success, false);
 });

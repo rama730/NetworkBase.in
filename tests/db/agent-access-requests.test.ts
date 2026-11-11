@@ -1,0 +1,116 @@
+import assert from "node:assert/strict";
+import { createHash, randomUUID } from "node:crypto";
+import { after, before, test } from "node:test";
+
+import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
+
+// Report A5 "Asking for more", A6 #3, A10: a missing permission becomes a request in the person's inbox, answered
+// Allow once (the same method and path, once, within an hour), Always (adds the permission) or No (24 hours quiet).
+let headerValues: Record<string, string> = {};
+moduleStubs.set("next/headers", { headers: async () => ({ get: (name: string) => headerValues[name.toLowerCase()] ?? null }), cookies: async () => ({ getAll: () => [], get: () => undefined, set: () => undefined }) });
+moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
+moduleStubs.set("@/lib/security/csrf", { validateCsrf: () => null });
+
+let taskUpdate: typeof import("../../src/app/api/v1/extension/task-update/route");
+let requests: typeof import("../../src/lib/agents/access-requests");
+before(async () => {
+  taskUpdate = await loadAppModule(() => import("../../src/app/api/v1/extension/task-update/route"));
+  requests = await loadAppModule(() => import("../../src/lib/agents/access-requests"));
+});
+after(async () => { await sql.end(); await closeAppDb(); });
+
+const hash = (s: string) => createHash("sha256").update(s).digest("hex");
+async function smallAgent(userId: string, workspaceId: string) {
+  const token = `nb_agt_${randomUUID().replace(/-/g, "")}`;
+  const [row] = await sql`INSERT INTO extension_device_sessions (user_id, token_hash, token_prefix, device_name, client_version, expires_at, token_type, agent_name, workspace_id, scopes)
+            VALUES (${userId}, ${hash(token)}, ${token.slice(0, 11)}, 'laptop', '2.0.4', now() + interval '1 day', 'agent', 'Claude Code', ${workspaceId}, ${sql.json(["workspace:read", "task:read", "task:write", "file:read", "file:write"])}) RETURNING id`;
+  return { token, sessionId: row!.id as string };
+}
+async function finish(token: string, projectId: string, taskId: string, extra: Record<string, string> = {}) {
+  headerValues = { authorization: `Bearer ${token}`, "x-networkbase-request-method": "PATCH", "x-networkbase-request-target": "/api/v1/extension/task-update", ...extra };
+  const [task] = await sql`SELECT updated_at FROM tasks WHERE id = ${taskId}`;
+  const body = { kind: "status", projectId, taskId, status: "done", expectedUpdatedAt: new Date(task!.updated_at).toISOString() };
+  const res = await taskUpdate.PATCH(new Request("https://app.test/api/v1/extension/task-update", { method: "PATCH", headers: { "content-type": "application/json", "idempotency-key": randomUUID(), ...extra }, body: JSON.stringify(body) }));
+  return { status: res.status, json: await res.json() };
+}
+async function world() {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, status, assignee_id) VALUES (${projectId}, 'Fix login', 'in_progress', ${userId}) RETURNING id`;
+  return { userId, projectId, taskId: task!.id as string };
+}
+
+test("a missing permission asks the person, and the inbox gets one item", async () => {
+  const w = await world();
+  const agent = await smallAgent(w.userId, w.projectId);
+  const asked = await finish(agent.token, w.projectId, w.taskId);
+  assert.equal(asked.status, 403);
+  assert.equal(asked.json.errorCode, "ACCESS_REQUESTED");
+  assert.equal(asked.json.details.scope, "task:complete");
+  const again = await finish(agent.token, w.projectId, w.taskId);
+  assert.equal(again.json.details.requestId, asked.json.details.requestId, "the same ask is not repeated");
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM agent_access_requests WHERE session_id = ${agent.sessionId}`;
+  assert.equal(n, 1);
+  const notes = await sql`SELECT title FROM user_notifications WHERE user_id = ${w.userId} AND kind = 'agent_access_request'`;
+  assert.deepEqual(notes.map((r) => r.title), ["Claude Code asks to also finish tasks"]);
+});
+
+test("Allow once lets the same request through one time", async () => {
+  const w = await world();
+  const agent = await smallAgent(w.userId, w.projectId);
+  const { requestId } = (await finish(agent.token, w.projectId, w.taskId)).json.details;
+  await requests.decideAgentAccessRequest(w.userId, requestId, "once");
+  const allowed = await finish(agent.token, w.projectId, w.taskId, { "x-nb-access-request": requestId });
+  assert.notEqual(allowed.json.errorCode, "ACCESS_REQUESTED");
+  assert.notEqual(allowed.json.errorCode, "SCOPE_MISSING");
+  assert.equal(allowed.status, 200, "Allow once is the person's yes, so no second confirmation");
+  const [done] = await sql`SELECT status FROM tasks WHERE id = ${w.taskId}`;
+  assert.equal(done!.status, "done");
+  await sql`UPDATE tasks SET status = 'in_progress' WHERE id = ${w.taskId}`;
+  const twice = await finish(agent.token, w.projectId, w.taskId, { "x-nb-access-request": requestId });
+  assert.equal(twice.status, 403, "once means once");
+});
+
+test("Always adds the permission; No keeps quiet for 24 hours", async () => {
+  const w = await world();
+  const yes = await smallAgent(w.userId, w.projectId);
+  const { requestId } = (await finish(yes.token, w.projectId, w.taskId)).json.details;
+  await requests.decideAgentAccessRequest(w.userId, requestId, "always");
+  const [session] = await sql`SELECT scopes FROM extension_device_sessions WHERE id = ${yes.sessionId}`;
+  assert.ok((session!.scopes as string[]).includes("task:complete"));
+
+  const no = await smallAgent(w.userId, w.projectId);
+  const asked = (await finish(no.token, w.projectId, w.taskId)).json.details;
+  await requests.decideAgentAccessRequest(w.userId, asked.requestId, "no");
+  const after = await finish(no.token, w.projectId, w.taskId);
+  assert.equal(after.json.errorCode, "ACCESS_DENIED_BY_PERSON");
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM agent_access_requests WHERE session_id = ${no.sessionId}`;
+  assert.equal(n, 1, "no new request after No");
+});
+
+test("at most 3 open requests per sign-in, and only the owner answers", async () => {
+  const w = await world();
+  const agent = await smallAgent(w.userId, w.projectId);
+  for (const scope of ["task:complete", "file:final", "doc:write"]) {
+    assert.ok("requestId" in (await requests.requestAccess({ sessionId: agent.sessionId, userId: w.userId, scope, method: "POST", path: `/x/${scope}`, agentName: "Claude Code" })));
+  }
+  assert.deepEqual(await requests.requestAccess({ sessionId: agent.sessionId, userId: w.userId, scope: "task:review", method: "POST", path: "/y", agentName: "Claude Code" }), { blocked: "limit" });
+  const stranger = await sql.begin((tx) => createUser(tx));
+  const [open] = await sql`SELECT id FROM agent_access_requests WHERE session_id = ${agent.sessionId} LIMIT 1`;
+  await assert.rejects(requests.decideAgentAccessRequest(stranger, open!.id, "always"), /not found/i);
+});
+
+test("a request runs out after 24 hours: no answer, and the agent may ask again", async () => {
+  const w = await world();
+  const agent = await smallAgent(w.userId, w.projectId);
+  const ask = { sessionId: agent.sessionId, userId: w.userId, scope: "task:complete", method: "PATCH", path: "/api/v1/extension/task-update", agentName: "Claude Code" };
+  const first = await requests.requestAccess(ask);
+  assert.ok("requestId" in first);
+  const later = new Date(Date.now() + 25 * 60 * 60_000);
+  assert.deepEqual(await requests.openAccessRequests(w.userId, agent.sessionId, later), []);
+  await assert.rejects(requests.decideAgentAccessRequest(w.userId, first.requestId, "always", later), /not found/i);
+  const again = await requests.requestAccess(ask, later);
+  assert.ok("requestId" in again && again.requestId !== first.requestId);
+  const [old] = await sql`SELECT status FROM agent_access_requests WHERE id = ${first.requestId}`;
+  assert.equal(old!.status, "expired");
+});

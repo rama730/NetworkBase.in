@@ -30,7 +30,7 @@ async function handlePost(request: Request, context: { params: Promise<{ taskId:
     const outside = await denyOutsideTokenWorkspace(auth, { projectId, taskId });
     if (outside) return outside;
     if (as === "final") {
-      const denied = requireTokenScope(auth, "file:final");
+      const denied = await requireTokenScope(auth, "file:final");
       if (denied) return denied;
     }
     const [task] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);

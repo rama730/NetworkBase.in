@@ -28,6 +28,8 @@ export const SECURITY_ACTIVITY_EVENT_TYPES = [
   "editor_token_created",
   // A device, agent or personal token revoked from the CLI (nb token revoke, report A3.9).
   "editor_token_revoked",
+  // An agent sign-in's access changed or renewed from Settings, or "Always" on its request (report A5).
+  "agent_access_changed",
   "account_deletion_scheduled",
   "account_deletion_cancelled",
   // Handing a project to someone else is a change of who holds the keys: it shows in the log of both people.
