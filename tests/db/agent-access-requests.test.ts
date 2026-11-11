@@ -169,3 +169,16 @@ test("Allow once covers every token check inside the same request, not the next 
   as("r3");
   assert.equal((await shared.requireAuthenticatedUser()).user, null, "a new request needs a new answer");
 });
+
+test("revoking a sign-in closes its waiting requests and takes them out of the inbox (found live)", async () => {
+  const w = await world();
+  const agent = await smallAgent(w.userId, w.projectId);
+  const { requestId } = (await finish(agent.token, w.projectId, w.taskId)).json.details;
+  const keep = await smallAgent(w.userId, w.projectId);
+  const other = (await finish(keep.token, w.projectId, w.taskId)).json.details.requestId;
+  await sql`UPDATE extension_device_sessions SET revoked_at = now() WHERE id = ${agent.sessionId}`;
+  const [closed] = await sql`SELECT status FROM agent_access_requests WHERE id = ${requestId}`;
+  assert.equal(closed!.status, "expired");
+  const keys = (await sql`SELECT dedupe_key FROM user_notifications WHERE user_id = ${w.userId} AND kind = 'agent_access_request'`).map((r) => r.dedupe_key);
+  assert.deepEqual(keys, [`agent-access-request:${other}`], "only the live sign-in's request stays in the inbox");
+});

@@ -405,7 +405,7 @@ Waiting for you to approve in the browser… D9GM-9N7Z (expires 03:56)
    - **Only the person:** the person who used the agent still sees it.
    - **No one:** hidden for everyone.
 
-   Stored in a new workspace column (migration 0085). `ViaLabel` reads it, plus who is viewing.
+   Stored in a new workspace column (migration 0086). `ViaLabel` reads it, plus who is viewing.
 3. **Organizations: always shown where the class asks.** In organization workspaces and assignment copies, the label shows for teachers, reviewers and admins whenever the assignment's AI policy is "Labelled" or "Not allowed". Owners of those copies can't turn it off. Hand-in file labels, the roster's "AI used" column and the export stay as they are.
 4. **The record never goes away.** Settings → agent activity, Undo (`nb undo --session`), Pause agents, session summaries and security alerts keep using `via` and `agent_name` whatever is shown.
 
@@ -415,7 +415,7 @@ Waiting for you to approve in the browser… D9GM-9N7Z (expires 03:56)
 - Undo and agent activity still find agent changes when the label is hidden.
 
 **Build spec:**
-- **Migration 0085:** `workspaces.agent_label_visibility` text NOT NULL DEFAULT `everyone`, CHECK in (`everyone`, `person`, `none`).
+- **Migration 0086:** `workspaces.agent_label_visibility` text NOT NULL DEFAULT `everyone`, CHECK in (`everyone`, `person`, `none`).
 - **The server decides, not the browser.** "No one" must also mean the data isn't sent to other people. One helper, `visibleVia(viewer, workspace, row)` in `src/lib/agents/via-visibility.ts`, returns `{ via, agentName }` or nulls. It's applied in every read path that feeds a label:
   - the file version list (`listFileVersionsPage`)
   - task discussion and comments
@@ -626,8 +626,8 @@ Marks used below:
 | Tasks by words, people, dates | new `GET /api/v1/resolve?task=&person=&date=`: one match, or candidates (shared with D2) |
 | Bulk changes | new `POST /api/v1/tasks/bulk { ids, action, value }`: one transaction, one undo (new inverse kind `tasks.bulk`) |
 | Search beyond files | extend search with `in=tasks,files,comments,docs,people`, using the existing search and text search |
-| Labels, blocked by, watch, star tasks, star files, PR links | **migration 0086:** `tasks.labels text[]` (GIN), `task_dependencies (task_id, blocked_by_task_id)`, `task_watchers (task_id, user_id)`, `task_stars (task_id, user_id)`, `node_stars (node_id, user_id)`, `task_links (task_id, url, title, kind, created_by)`, plus routes on the task and file |
-| Reminders | **migration 0087:** `task_reminders (id, task_id, user_id, remind_at, sent_at)`, a route, and one Inngest scheduled function that sleeps until `remind_at` (counted against the free plan) |
+| Labels, blocked by, watch, star tasks, star files, PR links | **migration 0087:** `tasks.labels text[]` (GIN), `task_dependencies (task_id, blocked_by_task_id)`, `task_watchers (task_id, user_id)`, `task_stars (task_id, user_id)`, `node_stars (node_id, user_id)`, `task_links (task_id, url, title, kind, created_by)`, plus routes on the task and file |
+| Reminders | **migration 0088:** `task_reminders (id, task_id, user_id, remind_at, sent_at)`, a route, and one Inngest scheduled function that sleeps until `remind_at` (counted against the free plan) |
 | `file use`, history, diff between versions | existing version routes, plus `GET …/files/:node/versions/:a/diff/:b` |
 | Trash, restore, folders, copy | v1 routes over the existing Files actions (`restore`, `createFolder`, copy as a new node) |
 | Locks | the existing file lease routes |
@@ -789,7 +789,7 @@ Marks used below:
 | **Messages need a yes (12)** | message, mention-comment and update-post tools are always "needs-yes" for agents, whatever the preset |
 | **Daily briefing (13)** | tool `networkbase_briefing`, one call to `GET /api/v1/home?since=` |
 | **Tool packs (14)** | `tools.mjs` gains `pack` per tool; the server declares `tools.listChanged`; `networkbase_more_tools { pack }` loads a pack for the session. A CI test counts description characters ÷ 4 and fails above 4,000 |
-| **Agent notes (16)** | **migration 0088** `task_agent_notes`; `GET/POST/DELETE /api/v1/tasks/:id/agent-notes`; the notes are part of `task_context`; the app shows them on the task |
+| **Agent notes (16)** | **migration 0089** `task_agent_notes`; `GET/POST/DELETE /api/v1/tasks/:id/agent-notes`; the notes are part of `task_context`; the app shows them on the task |
 | **`llms.txt` and tool reference (20)** | `src/app/llms.txt/route.ts` and `/docs/agents/tools`, both generated from `commands.json` and the tool definitions at build time |
 | **Prompts and resources (21)** | added in `lib/commands/mcp.mjs` (prompts) and the resources list |
 | **Bigger test (22)** | `tests/agents/requests.yaml` grows to about 150 requests with persona tags; `scripts/agents/eval.mts` gains a runner per agent: `claude -p`, `codex exec`, `gemini -p`, and Cursor's and Copilot's command-line agents where they offer a non-interactive mode (manual runs in Part E otherwise). The nightly run is a scheduled GitHub workflow against a seeded server; scores are stored as a CI artifact and compared with the last release |
@@ -1385,10 +1385,10 @@ If anything is in `conflict`, return `409 CHANGE_SET_CONFLICT` with the list.
 
 | Phase | Builds | Migration | Release |
 |---|---|---|---|
-| **G-1. Core** | tables, content upload and dedupe, the domain module, routes 1–7, 9, 12, 13, apply and undo, local capture in `nb mcp`, the `nb change` commands, agent tools `change_*` | **0089**: `change_sets`, `change_set_items`, `file_versions.change_set_id`, inverse kind | site + CLI 2.2.0 (behind the flag) |
+| **G-1. Core** | tables, content upload and dedupe, the domain module, routes 1–7, 9, 12, 13, apply and undo, local capture in `nb mcp`, the `nb change` commands, agent tools `change_*` | **0090**: `change_sets`, `change_set_items`, `file_versions.change_set_id`, inverse kind | site + CLI 2.2.0 (behind the flag) |
 | **G-2. Review** | the Changes view, route 8, apply only some files, ask for changes | none | site |
 | **G-3. Conflicts** | `merge3`, prepare, routes 10–11, the merge editor, `nb change update` and `resolve` | none | site + CLI 2.2.x |
-| **G-4. Cloud agents** | routes 14–18, `fs_*` tools, the text index and its jobs | **0090**: `file_text_index` | site |
+| **G-4. Cloud agents** | routes 14–18, `fs_*` tools, the text index and its jobs | **0091**: `file_text_index` | site |
 | **G-5. Git** | `--from-git`, the GitHub push job | none | site + CLI 2.2.x |
 
 **Each phase is done when:**
@@ -2263,7 +2263,7 @@ Each uses the organization's own words (Unit, Week) where it has them.
 | F3 agent policy | `PATCH /workspaces/:id/agents { policy, paused }` (also serves F4 pause and resume) |
 | F3 docs add and remove | v1 routes over `linkWorkspaceDocAction` and `unlinkWorkspaceDocAction` |
 | F4 agent activity | `GET /api/v1/agent-sessions` and `…/:id/activity` (the `agent-sessions` folder exists) |
-| F4 refresh tokens | **migration 0091** `oauth_refresh_tokens (id, session_id, token_hash, family_id, expires_at, used_at, revoked_at)`; the token endpoint accepts `grant_type=refresh_token`; each use issues a new refresh token; reusing an old one revokes the whole family; revoking the sign-in revokes the family |
+| F4 refresh tokens | **migration 0092** `oauth_refresh_tokens (id, session_id, token_hash, family_id, expires_at, used_at, revoked_at)`; the token endpoint accepts `grant_type=refresh_token`; each use issues a new refresh token; reusing an old one revokes the whole family; revoking the sign-in revokes the family |
 | F5 new country | `last_country` exists (0076); `nb token list` shows it; a new country on a token sends a security notification |
 | F5 security summary | `GET /api/v1/me/security` |
 | F5 "Verify it's you" in the CLI | for risky CLI actions the CLI opens a short browser page to verify, then continues (the same pattern as A10 change access) |
@@ -2294,17 +2294,18 @@ Each uses the organization's own words (Unit, Week) where it has them.
 | 0082 | A | `device_codes.country`, plus the requested access fields |
 | 0083 | A | `agent_access_defaults` |
 | 0084 | A | `agent_access_requests`; notification kind `agent_access_request` |
-| 0085 | B | `workspaces.agent_label_visibility` |
-| 0086 | C | `tasks.labels`, `task_dependencies`, `task_watchers`, `task_stars`, `node_stars`, `task_links` |
-| 0087 | C | `task_reminders` |
-| 0088 | D | `task_agent_notes` |
-| 0089 | G | `change_sets`, `change_set_items`, `file_versions.change_set_id`, inverse kind `changeset.undo` |
-| 0090 | G | `file_text_index` keyed by content hash, plus `file_text_index_paths` (`pg_trgm`) |
-| 0091 | F | `oauth_refresh_tokens` |
-| 0092 | H | `branches`, `saves`, `save_changes`, `tree_checkpoints`, `checkpoint_files`, `branch_files` (phases H-1, H-2) |
-| 0093 | H | `merge_requests`, `merge_request_reviews`, `merge_request_checks`, comment anchors for merge requests (H-3) |
-| 0094 | H | `branch_protection` (H-4) |
-| 0095 | H | drop the old sandbox: `workspace_git_deltas`, `workspace_nodes.canonical_node_id` (H-5, only after the H16 check) |
+| 0085 | A | close an agent sign-in's waiting requests (and their inbox items) when it's revoked (found in the M1 live check) |
+| 0086 | B | `workspaces.agent_label_visibility` |
+| 0087 | C | `tasks.labels`, `task_dependencies`, `task_watchers`, `task_stars`, `node_stars`, `task_links` |
+| 0088 | C | `task_reminders` |
+| 0089 | D | `task_agent_notes` |
+| 0090 | G | `change_sets`, `change_set_items`, `file_versions.change_set_id`, inverse kind `changeset.undo` |
+| 0091 | G | `file_text_index` keyed by content hash, plus `file_text_index_paths` (`pg_trgm`) |
+| 0092 | F | `oauth_refresh_tokens` |
+| 0093 | H | `branches`, `saves`, `save_changes`, `tree_checkpoints`, `checkpoint_files`, `branch_files` (phases H-1, H-2) |
+| 0094 | H | `merge_requests`, `merge_request_reviews`, `merge_request_checks`, comment anchors for merge requests (H-3) |
+| 0095 | H | `branch_protection` (H-4) |
+| 0096 | H | drop the old sandbox: `workspace_git_deltas`, `workspace_nodes.canonical_node_id` (H-5, only after the H16 check) |
 
 If parts are built in a different order, numbers follow the order they're applied in, and this table is updated.
 
@@ -2313,13 +2314,13 @@ If parts are built in a different order, numbers follow the order they're applie
 | Milestone | Contents | Release |
 |---|---|---|
 | **M1** | Part A | 0082–0084, site deploy, **CLI 2.0.4** |
-| **M2** | Part B | 0085, site deploy |
+| **M2** | Part B | 0086, site deploy |
 | **M3** | Part E walkthrough on M1 and M2 | findings file; the user chooses what's added |
-| **M4** | Parts C and D (2.1.0 scope in C15) | 0086–0088, site deploy, **CLI 2.1.0**; then 2.1.x for `nb ui`, messages, `nb learn` and installers |
-| **M5** | Part G phases G-1 to G-3 (core, review, conflicts) | 0089, site deploy, **CLI 2.2.0** behind the workspace flag |
-| **M6** | Part G phases G-4 and G-5 (cloud agents, git) | 0090, site deploy, CLI 2.2.x |
-| **M7** | Part F | 0091, site deploy, **CLI 2.3.0** |
-| **M8** | Part H phases H-1 to H-5 | 0092–0095, site deploys per phase, **CLI 2.4.0** (branch, log, merge-request commands, git-following) |
+| **M4** | Parts C and D (2.1.0 scope in C15) | 0087–0089, site deploy, **CLI 2.1.0**; then 2.1.x for `nb ui`, messages, `nb learn` and installers |
+| **M5** | Part G phases G-1 to G-3 (core, review, conflicts) | 0090, site deploy, **CLI 2.2.0** behind the workspace flag |
+| **M6** | Part G phases G-4 and G-5 (cloud agents, git) | 0091, site deploy, CLI 2.2.x |
+| **M7** | Part F | 0092, site deploy, **CLI 2.3.0** |
+| **M8** | Part H phases H-1 to H-5 | 0093–0096, site deploys per phase, **CLI 2.4.0** (branch, log, merge-request commands, git-following) |
 | **M9** | Final audit | `check:plan-ledger` with 0 remaining across the report; all suites; the E9 walkthrough repeated |
 
 - **Order (agreed 2026-11-11 with the implementation plan):** M0 (preparation) → M1 → M2 → M3 → M4 → M5 → M6 → **M8 → M7** → M9. Part H comes before Part F because branches matter more.
@@ -2412,7 +2413,7 @@ Each gets a docs anchor (`/docs/cli#error-…`) and a CLI message ending with th
    - The core tool count now includes the change-set tools (19).
    - Added D23 (how each piece works: plans, candidates, presence, packs, notes, the agent test).
 5. **Part E** didn't say when or by whom. Added E0: after A and B, Claude with the user, GitHub runners, and the findings file.
-6. **Part F** had no build spec, and an unlisted migration. Added F11 and migration 0091.
+6. **Part F** had no build spec, and an unlisted migration. Added F11 and migration 0092.
 7. **Part G** was a concept. It's now a full architecture:
    - G2 words, G3 overview
    - G4 tables and indexes
@@ -2447,7 +2448,7 @@ Each gets a docs anchor (`/docs/cli#error-…`) and a CLI message ending with th
   - turning it on, and removing the old sandbox
   - later sets, tests, phases, decisions, risks
 - **Part G** now notes how change sets become branch saves.
-- **Registers:** migrations 0092–0095, milestone M8 (CLI 2.4.0), Part H error codes, user steps and risks.
+- **Registers:** migrations 0093–0096, milestone M8 (CLI 2.4.0), Part H error codes, user steps and risks.
 
 **2026-11-11, final user-level audit.** Every part was walked as journeys: a new user, a normal user, a heavy user, a team, a reviewer, an agent, a GitHub user, a teacher, a phone user and offline. Found and fixed:
 
@@ -2467,6 +2468,6 @@ Each gets a docs anchor (`/docs/cli#error-…`) and a CLI message ending with th
 4. **Part E:** the branch journey, and heavy-user and GitHub-user people, added.
 5. **Part 0:** the new rule 0.6, every part states its MVP, journeys and situations; "done" is now 0.7.
 6. **Registers:**
-   - migration 0090 described as hash-keyed
+   - migration 0091 described as hash-keyed
    - `BRANCH_MOVED` and `MERGE_REQUEST_EMPTY` added
    - two new risks

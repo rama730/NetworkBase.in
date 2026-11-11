@@ -1765,9 +1765,9 @@
       "evidence": ""
     },
     {
-      "key": "B.3727e897",
+      "key": "B.058baf24",
       "section": "B",
-      "text": "Migration 0085: workspaces.agentlabelvisibility text NOT NULL DEFAULT everyone, CHECK in (everyone, person, none).",
+      "text": "Migration 0086: workspaces.agentlabelvisibility text NOT NULL DEFAULT everyone, CHECK in (everyone, person, none).",
       "kind": "build",
       "milestone": "M2",
       "status": "todo",
@@ -2815,9 +2815,9 @@
       "evidence": ""
     },
     {
-      "key": "C15.448660e3",
+      "key": "C15.0eee889f",
       "section": "C15",
-      "text": "Labels, blocked by, watch, star tasks, star files, PR links · migration 0086: tasks.labels text[] (GIN), taskdependencies (taskid, blockedbytaskid), taskwatcher",
+      "text": "Labels, blocked by, watch, star tasks, star files, PR links · migration 0087: tasks.labels text[] (GIN), taskdependencies (taskid, blockedbytaskid), taskwatcher",
       "kind": "build",
       "milestone": "M4",
       "status": "todo",
@@ -2825,9 +2825,9 @@
       "evidence": ""
     },
     {
-      "key": "C15.80b72410",
+      "key": "C15.30496a68",
       "section": "C15",
-      "text": "Reminders · migration 0087: taskreminders (id, taskid, userid, remindat, sentat), a route, and one Inngest scheduled function that sleeps until remindat (counte",
+      "text": "Reminders · migration 0088: taskreminders (id, taskid, userid, remindat, sentat), a route, and one Inngest scheduled function that sleeps until remindat (counte",
       "kind": "build",
       "milestone": "M4",
       "status": "todo",
@@ -3525,9 +3525,9 @@
       "evidence": ""
     },
     {
-      "key": "D23.ef62e7be",
+      "key": "D23.8965cdfe",
       "section": "D23",
-      "text": "Agent notes (16) · migration 0088 taskagentnotes; GET/POST/DELETE /api/v1/tasks/:id/agent-notes; the notes are part of taskcontext; the app shows them on the ta",
+      "text": "Agent notes (16) · migration 0089 taskagentnotes; GET/POST/DELETE /api/v1/tasks/:id/agent-notes; the notes are part of taskcontext; the app shows them on the ta",
       "kind": "build",
       "milestone": "M4",
       "status": "todo",
@@ -6445,7 +6445,7 @@
       "evidence": ""
     },
     {
-      "key": "G24.004577fb",
+      "key": "G24.34c7a515",
       "section": "G24",
       "text": "G-1. Core · tables, content upload and dedupe, the domain module, routes 1–7, 9, 12, 13, apply and undo, local capture in nb mcp, the nb change commands, agent ",
       "kind": "build",
@@ -6475,9 +6475,9 @@
       "evidence": ""
     },
     {
-      "key": "G24.ab84d091",
+      "key": "G24.cd0158e6",
       "section": "G24",
-      "text": "G-4. Cloud agents · routes 14–18, fs tools, the text index and its jobs · 0090: filetextindex · site",
+      "text": "G-4. Cloud agents · routes 14–18, fs tools, the text index and its jobs · 0091: filetextindex · site",
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
@@ -10755,9 +10755,9 @@
       "evidence": ""
     },
     {
-      "key": "F11.9acb2c13",
+      "key": "F11.8bd3d87f",
       "section": "F11",
-      "text": "F4 refresh tokens · migration 0091 oauthrefreshtokens (id, sessionid, tokenhash, familyid, expiresat, usedat, revokedat); the token endpoint accepts granttype=r",
+      "text": "F4 refresh tokens · migration 0092 oauthrefreshtokens (id, sessionid, tokenhash, familyid, expiresat, usedat, revokedat); the token endpoint accepts granttype=r",
       "kind": "build",
       "milestone": "M7",
       "status": "todo",
@@ -10935,9 +10935,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.d93caad5",
+      "key": "R1.7848584f",
       "section": "R1",
-      "text": "0085 · B · workspaces.agentlabelvisibility",
+      "text": "0085 · A · close an agent sign-in's waiting requests (and their inbox items) when it's revoked (found in the M1 live check)",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -10945,9 +10945,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.124c80d0",
+      "key": "R1.275dee74",
       "section": "R1",
-      "text": "0086 · C · tasks.labels, taskdependencies, taskwatchers, taskstars, nodestars, tasklinks",
+      "text": "0086 · B · workspaces.agentlabelvisibility",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -10955,9 +10955,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.e9f393c9",
+      "key": "R1.ebd2a8f1",
       "section": "R1",
-      "text": "0087 · C · taskreminders",
+      "text": "0087 · C · tasks.labels, taskdependencies, taskwatchers, taskstars, nodestars, tasklinks",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -10965,9 +10965,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.68e371f0",
+      "key": "R1.f0343ae7",
       "section": "R1",
-      "text": "0088 · D · taskagentnotes",
+      "text": "0088 · C · taskreminders",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -10975,9 +10975,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.db3a9c4c",
+      "key": "R1.2c572600",
       "section": "R1",
-      "text": "0089 · G · changesets, changesetitems, fileversions.changesetid, inverse kind changeset.undo",
+      "text": "0089 · D · taskagentnotes",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -10985,9 +10985,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.1373bd03",
+      "key": "R1.1d2dfa6f",
       "section": "R1",
-      "text": "0090 · G · filetextindex keyed by content hash, plus filetextindexpaths (pgtrgm)",
+      "text": "0090 · G · changesets, changesetitems, fileversions.changesetid, inverse kind changeset.undo",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -10995,9 +10995,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.b12b68ed",
+      "key": "R1.df798f40",
       "section": "R1",
-      "text": "0091 · F · oauthrefreshtokens",
+      "text": "0091 · G · filetextindex keyed by content hash, plus filetextindexpaths (pgtrgm)",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11005,9 +11005,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.645d8997",
+      "key": "R1.e432b6ee",
       "section": "R1",
-      "text": "0092 · H · branches, saves, savechanges, treecheckpoints, checkpointfiles, branchfiles (phases H-1, H-2)",
+      "text": "0092 · F · oauthrefreshtokens",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11015,9 +11015,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.1cf270a2",
+      "key": "R1.30948036",
       "section": "R1",
-      "text": "0093 · H · mergerequests, mergerequestreviews, mergerequestchecks, comment anchors for merge requests (H-3)",
+      "text": "0093 · H · branches, saves, savechanges, treecheckpoints, checkpointfiles, branchfiles (phases H-1, H-2)",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11025,9 +11025,9 @@
       "evidence": ""
     },
     {
-      "key": "R1.e3917f94",
+      "key": "R1.045b9fbb",
       "section": "R1",
-      "text": "0094 · H · branchprotection (H-4)",
+      "text": "0094 · H · mergerequests, mergerequestreviews, mergerequestchecks, comment anchors for merge requests (H-3)",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11035,9 +11035,19 @@
       "evidence": ""
     },
     {
-      "key": "R1.3f6fcc7d",
+      "key": "R1.b2af1664",
       "section": "R1",
-      "text": "0095 · H · drop the old sandbox: workspacegitdeltas, workspacenodes.canonicalnodeid (H-5, only after the H16 check)",
+      "text": "0095 · H · branchprotection (H-4)",
+      "kind": "register",
+      "milestone": "M0",
+      "status": "n/a-live",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "R1.15bd6d3b",
+      "section": "R1",
+      "text": "0096 · H · drop the old sandbox: workspacegitdeltas, workspacenodes.canonicalnodeid (H-5, only after the H16 check)",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11055,9 +11065,9 @@
       "evidence": ""
     },
     {
-      "key": "R2.105ef25d",
+      "key": "R2.787414a0",
       "section": "R2",
-      "text": "M2 · Part B · 0085, site deploy",
+      "text": "M2 · Part B · 0086, site deploy",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11075,9 +11085,9 @@
       "evidence": ""
     },
     {
-      "key": "R2.6de13188",
+      "key": "R2.b1106037",
       "section": "R2",
-      "text": "M4 · Parts C and D (2.1.0 scope in C15) · 0086–0088, site deploy, CLI 2.1.0; then 2.1.x for nb ui, messages, nb learn and installers",
+      "text": "M4 · Parts C and D (2.1.0 scope in C15) · 0087–0089, site deploy, CLI 2.1.0; then 2.1.x for nb ui, messages, nb learn and installers",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11085,9 +11095,9 @@
       "evidence": ""
     },
     {
-      "key": "R2.2a6cb77f",
+      "key": "R2.db448c0b",
       "section": "R2",
-      "text": "M5 · Part G phases G-1 to G-3 (core, review, conflicts) · 0089, site deploy, CLI 2.2.0 behind the workspace flag",
+      "text": "M5 · Part G phases G-1 to G-3 (core, review, conflicts) · 0090, site deploy, CLI 2.2.0 behind the workspace flag",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11095,9 +11105,9 @@
       "evidence": ""
     },
     {
-      "key": "R2.84867232",
+      "key": "R2.7d0aa173",
       "section": "R2",
-      "text": "M6 · Part G phases G-4 and G-5 (cloud agents, git) · 0090, site deploy, CLI 2.2.x",
+      "text": "M6 · Part G phases G-4 and G-5 (cloud agents, git) · 0091, site deploy, CLI 2.2.x",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11105,9 +11115,9 @@
       "evidence": ""
     },
     {
-      "key": "R2.4014fdbb",
+      "key": "R2.6312a007",
       "section": "R2",
-      "text": "M7 · Part F · 0091, site deploy, CLI 2.3.0",
+      "text": "M7 · Part F · 0092, site deploy, CLI 2.3.0",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",
@@ -11115,9 +11125,9 @@
       "evidence": ""
     },
     {
-      "key": "R2.2236d010",
+      "key": "R2.fe00cc34",
       "section": "R2",
-      "text": "M8 · Part H phases H-1 to H-5 · 0092–0095, site deploys per phase, CLI 2.4.0 (branch, log, merge-request commands, git-following)",
+      "text": "M8 · Part H phases H-1 to H-5 · 0093–0096, site deploys per phase, CLI 2.4.0 (branch, log, merge-request commands, git-following)",
       "kind": "register",
       "milestone": "M0",
       "status": "n/a-live",

@@ -589,6 +589,13 @@
       "when": 1794375002000,
       "tag": "0084_agent_access_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1794375003000,
+      "tag": "0085_agent_requests_close_on_revoke",
+      "breakpoints": true
     }
   ]
 }

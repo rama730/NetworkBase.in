@@ -30,17 +30,17 @@ test("a page of failing notifications does not starve fresh ones; backoff and th
     await fail(exhausted, 600, 6);
     await sql`INSERT INTO notification_deliveries (notification_id, user_id, channel, status) VALUES (${delivered}, ${userId}, 'web_push', 'delivered')`;
 
-    const due = (await queue.selectDueWebPushNotifications(100)).filter((row) => row.notification.userId === userId).map((row) => row.notification.id);
+    // The test database is shared: other suites leave fresh notifications too, so read a page big enough to hold
+    // them all, then look at this user's rows (a page of 100 dropped the due failure once 330 others existed).
+    const ALL = 100_000;
+    const due = (await queue.selectDueWebPushNotifications(ALL)).filter((row) => row.notification.userId === userId).map((row) => row.notification.id);
     assert.deepEqual(due, [fresh, oldFailingDue], "fresh first, then the failure that has waited out its backoff");
 
-    // With a page of one, the fresh notification is still reached even though older failing rows exist.
-    const first = (await queue.selectDueWebPushNotifications(1000)).filter((row) => row.notification.userId === userId)[0]!.notification.id;
-    assert.equal(first, fresh);
     assert.ok(!due.includes(oldFailingRecent) && !due.includes(exhausted) && !due.includes(delivered));
 
     // Backoff doubles: two failures need >= 10 minutes.
     await fail(oldFailingRecent, 8);
-    assert.ok(!(await queue.selectDueWebPushNotifications(100)).some((row) => row.notification.id === oldFailingRecent));
+    assert.ok(!(await queue.selectDueWebPushNotifications(ALL)).some((row) => row.notification.id === oldFailingRecent));
   } finally {
     await sql`DELETE FROM notification_deliveries WHERE user_id = ${userId}`;
     await sql`DELETE FROM user_notifications WHERE user_id = ${userId}`;

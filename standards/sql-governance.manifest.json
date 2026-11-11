@@ -87,7 +87,8 @@
     "drizzle/0081_file_versions_based_on.sql",
     "drizzle/0082_device_code_country_and_wishes.sql",
     "drizzle/0083_agent_access_defaults.sql",
-    "drizzle/0084_agent_access_requests.sql"
+    "drizzle/0084_agent_access_requests.sql",
+    "drizzle/0085_agent_requests_close_on_revoke.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
