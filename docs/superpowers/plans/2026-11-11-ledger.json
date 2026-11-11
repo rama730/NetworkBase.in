@@ -1398,9 +1398,9 @@
       "text": "/docs/agents: explains the presets, All my workspaces, \"asking for more\" and renewal.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/docs-agents.test.ts",
+      "evidence": "M1 T10"
     },
     {
       "key": "A9.bd3fc119",

@@ -24,11 +24,11 @@ export default function AgentsDocsPage() {
           title: "1. Connect an agent",
           content: (
             <>
-              <p>In a folder linked to a workspace (<code>nb init</code>), run setup for your agent. It shows the change and asks first, then the agent signs in with its own token that only reaches this workspace.</p>
+              <p>In a folder linked to a workspace (<code>nb init</code>), run setup for your agent. It shows the change and asks first, then opens NetworkBase in your browser: the page is already filled in, so approving is one click. The terminal then says what you allowed, for example “Claude Code connected · all workspaces · asks before big changes · until 11 Dec”.</p>
               <TerminalBlock variant="command" label="Claude Code">{"$ nb agent setup claude\n$ claude"}</TerminalBlock>
               <TerminalBlock variant="command" label="Codex">{"$ nb agent setup codex\n$ codex"}</TerminalBlock>
               <TerminalBlock variant="command" label="Cursor">{"$ nb agent setup cursor"}</TerminalBlock>
-              <p><code>nb agent status</code> shows what’s connected; <code>nb agent remove claude</code> disconnects.</p>
+              <p><code>nb agent status</code> shows what’s connected and what each agent may do; <code>nb agent remove claude</code> disconnects. On a server or over SSH the terminal shows a QR code too, so you can approve from your phone.</p>
               <p>Or add the NetworkBase plugin to Claude Code, which brings the same tools and a skill for working on tasks:</p>
               <TerminalBlock variant="command" label="Claude Code">{"/plugin marketplace add rama730/claude-code-plugin\n/plugin install networkbase@networkbase"}</TerminalBlock>
             </>
@@ -39,13 +39,56 @@ export default function AgentsDocsPage() {
           title: "1b. Agents in the cloud",
           content: (
             <>
-              <p>An agent without your computer (a cloud runner, a hosted assistant) connects to the hosted server at <code>https://networkbase.in/api/mcp</code>. An editor that supports MCP sign-in opens NetworkBase in your browser: you pick the one workspace it may use, approve, and it continues on its own.</p>
+              <p>An agent without your computer (a cloud runner, a hosted assistant) connects to the hosted server at <code>https://networkbase.in/api/mcp</code>. An editor that supports MCP sign-in opens NetworkBase in your browser: check what it may do, approve, and it continues on its own.</p>
               <TerminalBlock variant="command" label="Claude Code">{"$ claude mcp add --transport http networkbase https://networkbase.in/api/mcp"}</TerminalBlock>
-              <p>Where no browser is available, give it an agent sign-in, approved from any device, limited to one workspace:</p>
+              <p>Where no browser is available, give it an agent sign-in, approved from any device:</p>
               <TerminalBlock variant="command" label="Terminal">{"$ npx @networkbase/cli login --device --agent \"Cloud agent\" --profile cloud\n$ claude mcp add --transport http networkbase https://networkbase.in/api/mcp \\\n    --header \"Authorization: Bearer $NB_AGENT_TOKEN\""}</TerminalBlock>
               <p>It has the same tools as on your computer, except the ones that use local files. Revoke it any time in Settings.</p>
             </>
           ),
+        },
+        {
+          id: "presets",
+          title: "1c. What an agent may do",
+          content: (
+            <>
+              <p>When you approve an agent, one sentence says where it works, what it does by itself, what waits for your yes, and for how long. <strong>Change</strong> on the approval page offers three choices:</p>
+              <LegalList>
+                <li><strong>Where:</strong> All my workspaces, or one workspace.</li>
+                <li><strong>What it may do:</strong> <strong>Full help</strong> does small things itself and asks you before finishing tasks, final files, doc edits and deleting. <strong>Small changes only</strong> never finishes tasks, changes final files or edits docs. <strong>Read only</strong> looks and reports, and changes nothing. <strong>Custom</strong> lets you tick what it may ask for.</li>
+                <li><strong>How long:</strong> 7, 30 or 90 days.</li>
+              </LegalList>
+              <p>Big changes wait for your yes whatever you choose. NetworkBase remembers your choice for each agent and starts there next time. An agent can also ask for a choice when it signs in:</p>
+              <TerminalBlock variant="command" label="Terminal">{"$ nb login --device --agent \"Claude Code\" --access read --all-workspaces"}</TerminalBlock>
+              <p>To change it later, open Settings → Integrations → <strong>Change access</strong>, or from the terminal:</p>
+              <TerminalBlock variant="command" label="Terminal">{"$ nb agent access claude --read-only"}</TerminalBlock>
+            </>
+          ),
+        },
+        {
+          id: "all-workspaces",
+          title: "1d. All my workspaces",
+          content: <p>An agent approved for all your workspaces is checked on every request: it reaches only workspaces you can use, never ones where agents are paused or where the organization turned agents off. It’s listed first in Settings → Integrations, and use from a new country is flagged to you by email. Revoke it there with one click.</p>,
+        },
+        {
+          id: "asking-for-more",
+          title: "1e. When an agent asks for more",
+          content: (
+            <>
+              <p>If an agent needs something it wasn’t allowed, like finishing a task with Small changes only, it doesn’t fail or look for another way: NetworkBase asks you in your inbox, “Claude Code asks to also finish tasks”, and the agent tells you it asked.</p>
+              <LegalList>
+                <li><strong>Allow once:</strong> the agent’s next try of the same thing goes through, within an hour. Your answer counts as your yes for it.</li>
+                <li><strong>Always:</strong> the agent keeps that permission. It asks you to confirm it’s you first.</li>
+                <li><strong>No:</strong> the agent won’t ask for it again for a day.</li>
+              </LegalList>
+              <p>An agent can have at most three requests waiting, and each one runs out after a day.</p>
+            </>
+          ),
+        },
+        {
+          id: "renewal",
+          title: "1f. Renewing",
+          content: <p>A week before an agent’s access ends, your inbox says “Renew Claude Code: one click”. It opens the agent’s settings with Renew ready; renewing keeps the same choices. If it ends anyway, sign it in again and the page starts from your last choice.</p>,
         },
         {
           id: "ask",
@@ -82,7 +125,7 @@ export default function AgentsDocsPage() {
         {
           id: "data",
           title: "5. Task text is data",
-          content: <p>Task descriptions, comments and files reach the agent marked as data from people, not instructions. Agents push drafts with a message, and can’t reach other workspaces with their token.</p>,
+          content: <p>Task descriptions, comments and files reach the agent marked as data from people, not instructions. Agents push drafts with a message, and reach only the workspaces you approved.</p>,
         },
         {
           id: "classes",
