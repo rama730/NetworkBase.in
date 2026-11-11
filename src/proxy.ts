@@ -12,6 +12,7 @@ const ROUTE_METRIC_HEADER = "x-route-metric";
 // and token access (src/lib/security/token-access.ts) decides from them which routes a CLI or agent token may call.
 const REQUEST_TARGET_HEADER = "x-networkbase-request-target";
 const REQUEST_METHOD_HEADER = "x-networkbase-request-method";
+const REQUEST_ID_HEADER = "x-networkbase-request-id";
 const CSRF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
 const AUTH_PROTECTED_PREFIXES = ["/discover", "/settings", "/messages", "/my-profile", "/network", "/my-work", "/u/", "/workspaces", "/org/", "/admin", "/authorize", "/device"];
 // /legal/accept resolves the session so an unfinished two-step sign-in is sent to the code step first.
@@ -166,6 +167,8 @@ export async function proxy(request: NextRequest) {
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
   );
   requestHeaders.set(REQUEST_METHOD_HEADER, request.method);
+  // One id per request, so a permission the person allowed once covers every check inside that request.
+  requestHeaders.set(REQUEST_ID_HEADER, crypto.randomUUID());
 
   if (request.nextUrl.pathname.startsWith("/api/")) {
     const cli = tooOldCli(request.headers.get("x-nb-client"));

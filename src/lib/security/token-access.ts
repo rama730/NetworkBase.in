@@ -9,6 +9,8 @@
 /** Set by src/proxy.ts on every request (overwriting anything the client sent); the only trusted source of method and path. */
 export const TRUSTED_TARGET_HEADER = "x-networkbase-request-target";
 export const TRUSTED_METHOD_HEADER = "x-networkbase-request-method";
+/** A fresh id per request, set by the proxy (any client value is overwritten). */
+export const TRUSTED_REQUEST_ID_HEADER = "x-networkbase-request-id";
 
 export const TOKEN_SCOPES = [
   "workspace:read",

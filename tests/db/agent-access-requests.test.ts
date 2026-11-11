@@ -152,3 +152,20 @@ test("a Read only agent can ask to change tasks (report A10 live check)", async 
   const notes = await sql`SELECT title FROM user_notifications WHERE user_id = ${w.userId} AND kind = 'agent_access_request'`;
   assert.deepEqual(notes.map((r) => r.title), ["Claude Code asks to also change tasks"]);
 });
+
+test("Allow once covers every token check inside the same request, not the next request (found live)", async () => {
+  const w = await world();
+  const agent = await smallAgent(w.userId, w.projectId);
+  await sql`UPDATE extension_device_sessions SET scopes = ${sql.json(["workspace:read", "task:read", "file:read"])} WHERE id = ${agent.sessionId}`;
+  const shared = await loadAppModule(() => import("../../src/app/api/v1/_shared"));
+  const as = (rid: string) => { headerValues = { authorization: `Bearer ${agent.token}`, "x-networkbase-request-method": "POST", "x-networkbase-request-target": "/api/v1/extension/create-task", "x-networkbase-request-id": rid }; };
+  as("r1");
+  const asked = await shared.requireAuthenticatedUser();
+  const { requestId } = await asked.response!.json().then((b: { details: { requestId: string } }) => b.details);
+  await requests.decideAgentAccessRequest(w.userId, requestId, "once");
+  as("r2");
+  assert.ok((await shared.requireAuthenticatedUser()).user, "the route's own check");
+  assert.ok((await shared.requireAuthenticatedUser()).user, "the action's check in the same request");
+  as("r3");
+  assert.equal((await shared.requireAuthenticatedUser()).user, null, "a new request needs a new answer");
+});

@@ -109,6 +109,7 @@ import {
   OUTSIDE_WORKSPACE_MESSAGE,
   TRUSTED_METHOD_HEADER,
   TRUSTED_TARGET_HEADER,
+  TRUSTED_REQUEST_ID_HEADER,
   AGENT_BASE_SCOPES,
   AGENT_EXTRA_SCOPES,
   type TokenScope,
@@ -270,6 +271,14 @@ export async function denyOutsideTokenWorkspace(
   return null;
 }
 
+// ponytail: in-process memory of grants spent per request; one request runs in one process. Entries live a minute.
+const grantedThisRequest = new Map<string, number>();
+function rememberGrant(key: string) {
+  const now = Date.now();
+  if (grantedThisRequest.size > 1000) for (const [k, at] of grantedThisRequest) if (now - at > 60_000) grantedThisRequest.delete(k);
+  grantedThisRequest.set(key, now);
+}
+
 /**
  * An agent token lacks `scope`: null when the person's "Allow once" covers this exact request (header
  * X-NB-Access-Request), else the answer to send: ACCESS_REQUESTED (asked in their inbox), ACCESS_DENIED_BY_PERSON
@@ -286,7 +295,15 @@ async function askForScope(
   const method = (headerStore.get(TRUSTED_METHOD_HEADER) ?? "").toUpperCase();
   const path = (headerStore.get(TRUSTED_TARGET_HEADER) ?? "").split("?")[0]!;
   const requestId = headerStore.get("x-nb-access-request")?.trim() || null;
-  if (await consumeOnceGrant({ sessionId: agent.sessionId, scope, method, path, requestId })) return null;
+  // A route can check the token more than once (a route, then the action it calls): the grant spent by the first
+  // check covers the rest of the same request.
+  const thisRequest = headerStore.get(TRUSTED_REQUEST_ID_HEADER);
+  const key = thisRequest ? `${thisRequest}:${agent.sessionId}:${scope}` : null;
+  if (key && grantedThisRequest.has(key)) return null;
+  if (await consumeOnceGrant({ sessionId: agent.sessionId, scope, method, path, requestId })) {
+    if (key) rememberGrant(key);
+    return null;
+  }
   const asked = await requestAccess({ sessionId: agent.sessionId, userId: agent.userId, scope, method, path, agentName: agent.agentName });
   if ("requestId" in asked) {
     return jsonError(`This agent needs the ${scope} permission, so it asked you in NetworkBase. Once you answer, it can try again.`, 403, "ACCESS_REQUESTED", { requestId: asked.requestId, scope });
