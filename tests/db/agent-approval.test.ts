@@ -64,3 +64,14 @@ test("the decision schema takes presets and all, and refuses the old shape", () 
   assert.equal(old.success, false);
   assert.equal(decision.deviceDecisionSchema.safeParse({ decision: "approve", type: "agent", access: "everything", workspace: "all", expiryDays: 30 }).success, false);
 });
+
+test("the same agent asking again is a renewal, and a remembered Custom keeps its ticks", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const first = await start();
+  assert.equal((await devices.findPendingDeviceCode(first.userCode, userId))!.renewal, false);
+  await devices.decideDeviceCode(userId, first.userCode, { decision: "approve", type: "agent", access: "custom", workspace: "all", expiryDays: 30, extraScopes: ["doc:write"] });
+  await devices.pollDeviceCode(first.deviceCode);
+  const again = (await devices.findPendingDeviceCode((await start()).userCode, userId))!;
+  assert.equal(again.renewal, true);
+  assert.deepEqual(again.prefill, { access: "custom", workspace: "all", expiryDays: 30, source: "remembered", extraScopes: ["doc:write"] });
+});

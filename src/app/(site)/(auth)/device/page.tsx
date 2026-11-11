@@ -24,10 +24,11 @@ export default async function DevicePage({ searchParams }: { searchParams: Promi
     }
     // Details of a waiting sign-in are only shown to someone signed in.
     const pending = user && code ? await findPendingDeviceCode(code, user.id) : null
-    const workspaces = user ? await listAgentWorkspaces(user.id) : []
+    const workspaces = user ? await listAgentWorkspaces(user.id, { includeViewer: true }) : []
     return (
         <DeviceClient
             viewerEmail={user?.email ?? null}
+            viewerId={user?.id ?? null}
             code={code}
             pending={pending ? { ...pending, createdAt: pending.createdAt.toISOString(), expiresAt: pending.expiresAt.toISOString() } : null}
             workspaces={workspaces}

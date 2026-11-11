@@ -162,7 +162,7 @@ function oauthReturnLabel(redirectUri: string) {
   return url.host ? url.host : `${url.protocol}//`;
 }
 
-export type AgentPrefill = { access: Exclude<AgentPreset, "custom">; workspace: string; expiryDays: number; source: "cli" | "remembered" | "default" };
+export type AgentPrefill = { access: AgentPreset; workspace: string; expiryDays: number; source: "cli" | "remembered" | "default"; extraScopes?: TokenScope[] };
 
 /**
  * What the approval page pre-fills (report A2): what the CLI or editor asked for, else the person's last choice for
@@ -175,6 +175,9 @@ async function agentPrefill(row: typeof deviceCodes.$inferSelect, viewerId: stri
   const rememberedAccess = remembered && remembered.access !== "custom" ? remembered.access : undefined;
   if (row.requestedAccess || row.requestedWorkspace) {
     return { access: row.requestedAccess ?? rememberedAccess ?? "full", workspace: row.requestedWorkspace ?? "all", expiryDays: remembered?.expiryDays ?? 30, source: "cli" };
+  }
+  if (remembered?.access === "custom") {
+    return { access: "custom", workspace: remembered.workspaceId ?? "all", expiryDays: remembered.expiryDays, source: "remembered", extraScopes: (remembered.extraScopes as TokenScope[] | null) ?? [] };
   }
   if (remembered) return { access: rememberedAccess ?? "full", workspace: remembered.workspaceId ?? "all", expiryDays: remembered.expiryDays, source: "remembered" };
   return { access: "full", workspace: "all", expiryDays: 30, source: "default" };
@@ -189,6 +192,11 @@ export async function findPendingDeviceCode(code: string, viewerId: string | nul
   return {
     country: row.country,
     prefill: await agentPrefill(row, viewerId),
+    /** The same agent asking again: this person's sign-in for it is live or ended in the last 30 days (report A3). */
+    renewal: Boolean(viewerId && row.agentName && (await db.select({ id: extensionDeviceSessions.id }).from(extensionDeviceSessions).where(and(
+      eq(extensionDeviceSessions.userId, viewerId), eq(extensionDeviceSessions.tokenType, "agent"), eq(extensionDeviceSessions.agentName, row.agentName),
+      isNull(extensionDeviceSessions.revokedAt), gt(extensionDeviceSessions.expiresAt, new Date(now.getTime() - 30 * 86_400_000)),
+    )).limit(1)).length),
     userCode: row.userCode,
     clientName: row.clientName,
     deviceName: row.deviceName,

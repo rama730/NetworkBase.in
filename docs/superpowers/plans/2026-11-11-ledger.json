@@ -588,9 +588,9 @@
       "text": "The default preset is Full help. Big steps still wait for the person's yes.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A.d2884d0e",
@@ -598,9 +598,9 @@
       "text": "The default place is what the CLI asked for, otherwise All my workspaces.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A.a107db8f",
@@ -608,9 +608,9 @@
       "text": "The choice is remembered per agent, and pre-filled next time.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A.e660966c",
@@ -818,9 +818,9 @@
       "text": "Heading: \"<agent> wants to work with you on NetworkBase\". The CLI version and the device go on the line below, not in the heading.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.6a08a096",
@@ -828,9 +828,9 @@
       "text": "The code shows once, in the big box. The sentence reads: \"Approve only if your terminal shows the same code.\"",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.c267e2c0",
@@ -838,9 +838,9 @@
       "text": "The device line wraps instead of cutting off.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.d2b0b643",
@@ -848,9 +848,9 @@
       "text": "Location reads \"From India\", with the address in small text after it. This uses Cloudflare's country, saved when the code is made: migration 0082, devicecodes.c",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.9be96b7c",
@@ -858,9 +858,9 @@
       "text": "The summary sentence says who, where, how long, what it does alone, and what waits for a yes. It rewrites itself whenever an option changes, so what you approve",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.e9bd48be",
@@ -868,9 +868,9 @@
       "text": "Change opens three groups, each a single choice:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.f4ee4113",
@@ -878,9 +878,9 @@
       "text": "All my workspaces (N) · One workspace · Full help: does small things itself and asks before finishing tasks, final files, doc edits and deleting (all three extr",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.186f648f",
@@ -888,9 +888,9 @@
       "text": "One workspace opens a picker:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.18e3ebf0",
@@ -898,9 +898,9 @@
       "text": "Organizations that turned agents off show \"Agents off\" and can't be chosen. They're left out of \"All my workspaces (N)\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.e403fcb4",
@@ -908,9 +908,9 @@
       "text": "Workspaces where the person is only a viewer accept Read only only. Full help and Small changes don't reach them, and the summary says so.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A2.7500408d",
@@ -918,9 +918,9 @@
       "text": "What it pre-fills, in order:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.67877a2d",
@@ -928,9 +928,9 @@
       "text": "Situation · What the page does",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.97d018ab",
@@ -938,9 +938,9 @@
       "text": "Signed out · Sign in, then straight back with the code filled in",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.025bba99",
@@ -948,9 +948,9 @@
       "text": "No code, or mistyped · A code box that takes pasting, any letter case, with or without the dash",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.9d27f83e",
@@ -958,9 +958,9 @@
       "text": "Code expired or used · Says so plainly, with the command to run again and a copy button",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.ba721726",
@@ -968,9 +968,9 @@
       "text": "The person's own terminal, not an agent · Known from the request. \"Sign in your terminal\" with its own summary (all workspaces, 90 days, does what you can). A s",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.cac840a5",
@@ -978,9 +978,9 @@
       "text": "Editor signing in through the browser (OAuth) · No code box, because the browser came straight from the editor. \"Sends you back to <host>\" is shown. Agent sign-",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.a3128f70",
@@ -988,9 +988,9 @@
       "text": "\"Verify it's you\" needed · Asked inside the page. A verification within the existing 5-minute window counts, so a second approval doesn't ask again",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.934ad330",
@@ -998,9 +998,9 @@
       "text": "Organization turned agents off · Its workspaces show \"Agents off\". If nothing is left to choose, the page explains why and who can change it",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.407aa9fd",
@@ -1008,9 +1008,9 @@
       "text": "Only viewer access · Read only offered; the summary says why the others don't apply",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.cdd31964",
@@ -1018,9 +1018,9 @@
       "text": "Many workspaces · Search box and organization groups (A2)",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.080806d3",
@@ -1028,9 +1028,9 @@
       "text": "No workspace the person can change · Read only is still offered (it reaches workspaces they can read). Otherwise: \"You don't have a workspace yet\", with Create ",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.fe1e4e6a",
@@ -1038,9 +1038,9 @@
       "text": "The same agent asking again (renewal) · \"Renew Claude Code's access\", with its current settings, one click",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.b9a9b11a",
@@ -1048,9 +1048,9 @@
       "text": "Not me · \"Someone tried to sign in as you from India.\" Offers Sign out everywhere, Change password, and a link to Security settings; the request is denied",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.35d86e64",
@@ -1058,9 +1058,9 @@
       "text": "After approving · \"Claude Code is connected. Go back to your terminal; it continues on its own.\" Two prompts to try (\"What should I do today?\", \"Work on task 4\"",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.97ee80ce",
@@ -1068,9 +1068,9 @@
       "text": "Phone · Same single column. Approve and Not me full width, stacked",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.4f2b5ff7",
@@ -1078,9 +1078,9 @@
       "text": "Dark mode · Same tokens as the rest of the auth pages",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.747357d5",
@@ -1088,9 +1088,9 @@
       "text": "The side panel reads \"Agents reach only the workspaces you allow\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A3.1e674381",
@@ -1098,9 +1098,9 @@
       "text": "The signed-out hint shows nb login --device as one unbroken code chip.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
+      "evidence": "M1 T7"
     },
     {
       "key": "A4.91b911c4",

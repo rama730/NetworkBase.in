@@ -11,7 +11,7 @@ import { resolveSecurityStepUp } from "@/lib/security/step-up";
 import { resolveStepUpCapabilities } from "@/lib/security/step-up-capabilities";
 import { createClient } from "@/lib/supabase/server";
 
-type DecideResult = { success: true; decision: "approve" | "deny"; redirectTo?: string } | { success: false; error: string; stepUpRequired?: true };
+type DecideResult = { success: true; decision: "approve" | "deny"; redirectTo?: string } | { success: false; error: string; stepUpRequired?: true; expired?: true };
 
 /**
  * The person's answer at /device (report A3.2). Approving makes a credential that signs in as them, so it needs the
@@ -25,7 +25,7 @@ export async function decideDeviceCodeAction(code: string, input: unknown): Prom
   const parsed = deviceDecisionSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Choose how this sign-in may be used" };
   const pending = await findPendingDeviceCode(code, user.id);
-  if (!pending) return { success: false, error: "This code has expired or was already used. Start again from your terminal." };
+  if (!pending) return { success: false, error: "This code has expired or was already used. Start again from your terminal.", expired: true };
 
   const decision = parsed.data;
   if (decision.decision === "approve") {
@@ -42,7 +42,7 @@ export async function decideDeviceCodeAction(code: string, input: unknown): Prom
   // The hosted MCP server takes only agent tokens, so an editor's OAuth request can't become a full terminal sign-in.
   if (pending.viaOAuth && decision.decision === "approve" && decision.type !== "agent") return { success: false, error: "An editor connects as an AI agent. Choose An AI agent." };
   const ok = await decideDeviceCode(user.id, code, decision as Parameters<typeof decideDeviceCode>[2]);
-  if (!ok) return { success: false, error: "This code has expired or was already used. Start again from your terminal." };
+  if (!ok) return { success: false, error: "This code has expired or was already used. Start again from your terminal.", expired: true };
   if (decision.decision === "approve") {
     const label = decision.type === "agent" ? `${pending.agentName ?? "Agent"} on ${pending.deviceName}` : pending.deviceName;
     await recordSecurityEventFromHeaders({ userId: user.id, eventType: "editor_token_created", metadata: { label: label.slice(0, 120), method: "device_code", tokenType: decision.type } });
