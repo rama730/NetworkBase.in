@@ -1,6 +1,8 @@
 {
   "report": "docs/superpowers/plans/2026-11-11-cli-agents-next-round.md",
-  "closedMilestones": [],
+  "closedMilestones": [
+    "M1"
+  ],
   "rows": [
     {
       "key": "0.1.855ac081",
@@ -458,9 +460,9 @@
       "text": "16 · The npm next tag moves off 2.0.0-next.3 (with the 2.0.4 approval) · M1",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "0.9.f7c5ee49",
@@ -588,9 +590,9 @@
       "text": "The default preset is Full help. Big steps still wait for the person's yes.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A.d2884d0e",
@@ -598,9 +600,9 @@
       "text": "The default place is what the CLI asked for, otherwise All my workspaces.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A.a107db8f",
@@ -608,9 +610,9 @@
       "text": "The choice is remembered per agent, and pre-filled next time.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A.e660966c",
@@ -618,9 +620,9 @@
       "text": "\"Asking for more\" (an agent requesting extra access in the inbox) is built now, as part of Part A.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
-      "evidence": "M1 T5"
+      "evidence": "M1 T5; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A1.e6ebb85a",
@@ -818,9 +820,9 @@
       "text": "Heading: \"<agent> wants to work with you on NetworkBase\". The CLI version and the device go on the line below, not in the heading.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.6a08a096",
@@ -828,9 +830,9 @@
       "text": "The code shows once, in the big box. The sentence reads: \"Approve only if your terminal shows the same code.\"",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.c267e2c0",
@@ -838,9 +840,9 @@
       "text": "The device line wraps instead of cutting off.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.d2b0b643",
@@ -848,9 +850,9 @@
       "text": "Location reads \"From India\", with the address in small text after it. This uses Cloudflare's country, saved when the code is made: migration 0082, devicecodes.c",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.9be96b7c",
@@ -858,9 +860,9 @@
       "text": "The summary sentence says who, where, how long, what it does alone, and what waits for a yes. It rewrites itself whenever an option changes, so what you approve",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.e9bd48be",
@@ -868,9 +870,9 @@
       "text": "Change opens three groups, each a single choice:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.f4ee4113",
@@ -878,9 +880,9 @@
       "text": "All my workspaces (N) · One workspace · Full help: does small things itself and asks before finishing tasks, final files, doc edits and deleting (all three extr",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.186f648f",
@@ -888,9 +890,9 @@
       "text": "One workspace opens a picker:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.18e3ebf0",
@@ -898,9 +900,9 @@
       "text": "Organizations that turned agents off show \"Agents off\" and can't be chosen. They're left out of \"All my workspaces (N)\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.e403fcb4",
@@ -908,9 +910,9 @@
       "text": "Workspaces where the person is only a viewer accept Read only only. Full help and Small changes don't reach them, and the summary says so.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A2.7500408d",
@@ -918,9 +920,9 @@
       "text": "What it pre-fills, in order:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.67877a2d",
@@ -928,9 +930,9 @@
       "text": "Situation · What the page does",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.97d018ab",
@@ -938,9 +940,9 @@
       "text": "Signed out · Sign in, then straight back with the code filled in",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.025bba99",
@@ -948,9 +950,9 @@
       "text": "No code, or mistyped · A code box that takes pasting, any letter case, with or without the dash",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.9d27f83e",
@@ -958,9 +960,9 @@
       "text": "Code expired or used · Says so plainly, with the command to run again and a copy button",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.ba721726",
@@ -968,9 +970,9 @@
       "text": "The person's own terminal, not an agent · Known from the request. \"Sign in your terminal\" with its own summary (all workspaces, 90 days, does what you can). A s",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.cac840a5",
@@ -978,9 +980,9 @@
       "text": "Editor signing in through the browser (OAuth) · No code box, because the browser came straight from the editor. \"Sends you back to <host>\" is shown. Agent sign-",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.a3128f70",
@@ -988,9 +990,9 @@
       "text": "\"Verify it's you\" needed · Asked inside the page. A verification within the existing 5-minute window counts, so a second approval doesn't ask again",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.934ad330",
@@ -998,9 +1000,9 @@
       "text": "Organization turned agents off · Its workspaces show \"Agents off\". If nothing is left to choose, the page explains why and who can change it",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.407aa9fd",
@@ -1008,9 +1010,9 @@
       "text": "Only viewer access · Read only offered; the summary says why the others don't apply",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.cdd31964",
@@ -1018,9 +1020,9 @@
       "text": "Many workspaces · Search box and organization groups (A2)",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.080806d3",
@@ -1028,9 +1030,9 @@
       "text": "No workspace the person can change · Read only is still offered (it reaches workspaces they can read). Otherwise: \"You don't have a workspace yet\", with Create ",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.fe1e4e6a",
@@ -1038,9 +1040,9 @@
       "text": "The same agent asking again (renewal) · \"Renew Claude Code's access\", with its current settings, one click",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.b9a9b11a",
@@ -1048,9 +1050,9 @@
       "text": "Not me · \"Someone tried to sign in as you from India.\" Offers Sign out everywhere, Change password, and a link to Security settings; the request is denied",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.35d86e64",
@@ -1058,9 +1060,9 @@
       "text": "After approving · \"Claude Code is connected. Go back to your terminal; it continues on its own.\" Two prompts to try (\"What should I do today?\", \"Work on task 4\"",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.97ee80ce",
@@ -1068,9 +1070,9 @@
       "text": "Phone · Same single column. Approve and Not me full width, stacked",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.4f2b5ff7",
@@ -1078,9 +1080,9 @@
       "text": "Dark mode · Same tokens as the rest of the auth pages",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.747357d5",
@@ -1088,9 +1090,9 @@
       "text": "The side panel reads \"Agents reach only the workspaces you allow\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A3.1e674381",
@@ -1098,9 +1100,9 @@
       "text": "The signed-out hint shows nb login --device as one unbroken code chip.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1 T7"
+      "evidence": "M1 T7; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A4.91b911c4",
@@ -1108,9 +1110,9 @@
       "text": "nb agent setup claude and nb login --device --agent open the browser by themselves, with the code filled in.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A4.f7c20c39",
@@ -1118,9 +1120,9 @@
       "text": "The terminal shows the code large, plus a QR code of the approval link, so a server or SSH session can be approved from a phone.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A4.e5784f65",
@@ -1128,9 +1130,9 @@
       "text": "The QR encoder is built into the CLI (no new dependency). The QR is printed only when the terminal is wide enough, and never with --json or --plain.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A4.8496e99d",
@@ -1138,9 +1140,9 @@
       "text": "nb agent status and Settings → Integrations use the same sentence for each connected agent.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A4.f76d003d",
@@ -1148,9 +1150,9 @@
       "text": "Changing access needs no new sign-in:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A4.b3ac163c",
@@ -1158,9 +1160,9 @@
       "text": "Renewal:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A4.fb298c25",
@@ -1168,9 +1170,9 @@
       "text": "nb whoami says \"all your workspaces\" or \"only <title>\", and the access level, instead of today's \"one workspace only\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.9a137b33",
@@ -1178,9 +1180,9 @@
       "text": "The token: an \"All my workspaces\" agent has workspaceid = NULL and allworkspaces = true (migration 0082). The database requires every agent sign-in to have exac",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-all-workspaces.test.ts; tests/db/agent-access-schema.test.ts",
-      "evidence": "e13ad4fb6, cef2a77d6"
+      "evidence": "e13ad4fb6, cef2a77d6; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.74ebbd31",
@@ -1188,9 +1190,9 @@
       "text": "Approval: deviceDecisionSchema accepts workspace: \"all\" and access: \"full\" | \"small\" | \"read\" | \"custom\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
-      "evidence": "82597b139"
+      "evidence": "82597b139; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.d5cc85f9",
@@ -1198,9 +1200,9 @@
       "text": "Every request: denyOutsideTokenWorkspace (already called by every route that touches a workspace) runs the pause check, the organization check and your normal a",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-all-workspaces.test.ts; tests/db/agent-access-schema.test.ts",
-      "evidence": "cef2a77d6"
+      "evidence": "cef2a77d6; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.d21494d8",
@@ -1208,9 +1210,9 @@
       "text": "Lists: for an all-workspaces agent, the 7 read routes leave out paused workspaces and organizations that turned agents off.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-all-workspaces.test.ts; tests/db/agent-access-schema.test.ts",
-      "evidence": "cef2a77d6"
+      "evidence": "cef2a77d6; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.4336d5b6",
@@ -1218,9 +1220,9 @@
       "text": "Hosted MCP: with no fixed workspace, tools take the workspace argument they already accept, and workspacefind helps the agent pick.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
-      "evidence": "M1 T8"
+      "evidence": "M1 T8; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.90faacc5",
@@ -1228,9 +1230,9 @@
       "text": "What the CLI asks for: the sign-in request (device-code and OAuth /oauth/authorize) can carry the access it wants (access, workspace). The page shows it as the ",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
-      "evidence": "82597b139"
+      "evidence": "82597b139; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.be86e539",
@@ -1238,9 +1240,9 @@
       "text": "Remembered choices: the last choice per person and agent name (where, what, how long) is stored and used to pre-fill. Migration 0083: a small agentaccessdefault",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
-      "evidence": "82597b139"
+      "evidence": "82597b139; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.8f143218",
@@ -1248,9 +1250,9 @@
       "text": "Changing access in place: a route updates an existing agent sign-in's scopes and workspace (the person's own, after \"Verify it's you\") and records a security ev",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-access-change.test.ts; tests/browser/agent-access.spec.ts; tests/browser/settings-tabs.spec.ts (agent row)",
-      "evidence": "M1 T6"
+      "evidence": "M1 T6; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.4d236dea",
@@ -1258,9 +1260,9 @@
       "text": "Asking for more:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
-      "evidence": "M1 T5"
+      "evidence": "M1 T5; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.df621d01",
@@ -1268,9 +1270,9 @@
       "text": "Renewal notice: a daily job finds agent sign-ins expiring within 7 days and sends one inbox item each (deduplicated).",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-access-change.test.ts",
-      "evidence": "M1 T6"
+      "evidence": "M1 T6; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A5.32e4ae36",
@@ -1278,9 +1280,9 @@
       "text": "Tests:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-all-workspaces.test.ts; agent-access-schema; agent-approval; agent-access-requests; agent-access-change; me-access; hosted-mcp",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A6.b0430694",
@@ -1288,9 +1290,9 @@
       "text": "An access card at the start. When an agent connects (local nb mcp or hosted MCP), the server's instructions say in plain words:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A6.f7c293a9",
@@ -1298,9 +1300,9 @@
       "text": "Only usable tools are listed. Read only leaves write tools out of the tool list. Tools that need the person's yes are marked that way in their descriptions.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
-      "evidence": "M1 T8"
+      "evidence": "M1 T8; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A6.53e56808",
@@ -1308,9 +1310,9 @@
       "text": "Asking instead of failing. A missing permission returns \"asked the person\", plus what to tell them (A5, \"Asking for more\"). The agent never invents another way ",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
-      "evidence": "M1 T8"
+      "evidence": "M1 T8; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A6.271898b4",
@@ -1318,9 +1320,9 @@
       "text": "Errors say what to do next. Every refusal tells the agent what to tell the person, for example \"ask them to allow Final files: Settings → Integrations, or the r",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
-      "evidence": "M1 T8"
+      "evidence": "M1 T8; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A6.7a6e60b1",
@@ -1328,9 +1330,9 @@
       "text": "The same words everywhere: the page sentence, the terminal line, nb agent status, Settings and the agent's card all come from one function, so the person and th",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A7.0df5c5fe",
@@ -1338,9 +1340,9 @@
       "text": "Big changes always wait for the person's yes, whatever the preset.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-policy.test.ts; tests/db/agent-access-requests.test.ts",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A7.9ab4e2a6",
@@ -1348,9 +1350,9 @@
       "text": "Organization AI rules and \"Pause agents\" override every choice on this page.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-all-workspaces.test.ts; tests/browser/device-approval.spec.ts (agents off)",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A7.bb92c662",
@@ -1358,9 +1360,9 @@
       "text": "Broad access is visible:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-access-change.test.ts (broad first)",
-      "evidence": "M1 T6"
+      "evidence": "M1 T6; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A7.2fe3c857",
@@ -1368,9 +1370,9 @@
       "text": "The code check stays for terminal sign-ins; it's what stops someone tricking the person into approving their sign-in.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts (code shown once, same-code sentence)",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A7.44bcb696",
@@ -1378,9 +1380,9 @@
       "text": "Token lifetimes stay 7, 30 or 90 days. \"My terminal\" sign-ins already reach all workspaces.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/unit/device-decision.test.ts; tests/db/agent-approval.test.ts",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A8.1e1d9106",
@@ -1388,9 +1390,9 @@
       "text": "Settings → Integrations:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/settings-tabs.spec.ts (agent row); tests/db/agent-access-change.test.ts",
-      "evidence": "M1 T6"
+      "evidence": "M1 T6; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A8.01bdadb6",
@@ -1398,9 +1400,9 @@
       "text": "/docs/agents: explains the presets, All my workspaces, \"asking for more\" and renewal.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/unit/docs-agents.test.ts",
-      "evidence": "M1 T10"
+      "evidence": "M1 T10; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9.bd3fc119",
@@ -1408,9 +1410,9 @@
       "text": "Server (A5) with DB tests first: all workspaces, presets including Read only, per-request checks, the 7 lists, hosted MCP, what the CLI asks for, change access,",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-*.test.ts, me-access, hosted-mcp, token-life",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9.b36ca928",
@@ -1418,9 +1420,9 @@
       "text": "Page (A2, A3), Settings and docs (A8), and the A6 access card and tool list.",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts; tests/browser/agent-access.spec.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9.e0669985",
@@ -1428,9 +1430,9 @@
       "text": "CLI pieces (A4, A6): opening the browser, the QR code, the connected line, nb agent access, nb whoami wording, the instructions block. Released as CLI 2.0.4 rig",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; login.test.mjs; qr.test.mjs",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9.aaaf34b1",
@@ -1438,9 +1440,9 @@
       "text": "Live check after deploy, signed in:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9b.1a575a9e",
@@ -1448,9 +1450,9 @@
       "text": "the one-click page (A2) with the presets",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/device-approval.spec.ts",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9b.1a0a201a",
@@ -1458,9 +1460,9 @@
       "text": "All my workspaces with per-request checks (A5)",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-all-workspaces.test.ts",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9b.5d6602a1",
@@ -1468,9 +1470,9 @@
       "text": "the CLI 2.0.4 terminal pieces (A4)",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9b.a3077e3b",
@@ -1478,9 +1480,9 @@
       "text": "the access card (A6)",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/mcp.test.mjs; tests/db/hosted-mcp.test.ts",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9b.71429215",
@@ -1488,9 +1490,9 @@
       "text": "Normal user:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9b.6495c1e9",
@@ -1498,9 +1500,9 @@
       "text": "Heavy user (several agents, many workspaces):",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9b.90c06bf6",
@@ -1508,9 +1510,9 @@
       "text": "Cautious user: Change → One workspace · Small changes only · 7 days. The sentence updates as they choose; one click.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A9b.ed375e1f",
@@ -1518,9 +1520,9 @@
       "text": "Team owner: sees in Settings which members' agents reach the workspace, through the existing agent activity. Pause agents stops them all.",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.838b8a31",
@@ -1528,9 +1530,9 @@
       "text": "Sign-in request with wishes · POST /api/v1/extension/device-code (exists) · adds optional requestedAccess: \"full\" \\ · \"small\" \\ · \"read\" and requestedWorkspace:",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
-      "evidence": "82597b139"
+      "evidence": "82597b139; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.f3cba200",
@@ -1538,9 +1540,9 @@
       "text": "OAuth wishes · GET /oauth/authorize (exists) · standard scope parameter: networkbase:full, networkbase:small, networkbase:read, plus optional networkbase:worksp",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/oauth-hosted-mcp.test.ts; tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
-      "evidence": "82597b139"
+      "evidence": "82597b139; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.74316fc9",
@@ -1548,9 +1550,9 @@
       "text": "The person's answer · server action decideDeviceCodeAction (exists) · input becomes { decision, type, access, workspace: \"all\" \\ · id, expiryDays, extraScopes? ",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
-      "evidence": "82597b139"
+      "evidence": "82597b139; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.e83c27b4",
@@ -1558,9 +1560,9 @@
       "text": "Remembered choice · written on approve · upsert agentaccessdefaults (0083) by (userid, agentname)",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-approval.test.ts; tests/unit/device-decision.test.ts",
-      "evidence": "82597b139"
+      "evidence": "82597b139; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.088d5f34",
@@ -1568,9 +1570,9 @@
       "text": "One sentence for every place · describeAgentAccess(session) in src/lib/agents/access.ts · used by the page, Settings, /api/v1/me (access.sentence), the MCP acce",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.cb2be770",
@@ -1578,9 +1580,9 @@
       "text": "Change access · Settings → Integrations → Change access, a small page like the approval page · \"Verify it's you\", then it updates the session's scopes and works",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-access-change.test.ts; tests/browser/agent-access.spec.ts; tests/browser/settings-tabs.spec.ts (agent row)",
-      "evidence": "M1 T6"
+      "evidence": "M1 T6; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.38e7e958",
@@ -1588,9 +1590,9 @@
       "text": "Change access from the terminal · nb agent access claude … · opens that Settings page pre-filled (the terminal can't do \"Verify it's you\"), and prints the new s",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.3cf755c8",
@@ -1598,9 +1600,9 @@
       "text": "Asking for more · in requireTokenScope for agent tokens · instead of a plain 403, creates a row in agentaccessrequests (0084) and answers 403 ACCESSREQUESTED { ",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
-      "evidence": "M1 T5"
+      "evidence": "M1 T5; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.9b5ca786",
@@ -1608,9 +1610,9 @@
       "text": "The answer · server action decideAgentAccessRequestAction(id, \"once\" \\ · \"always\" \\ · \"no\") from the inbox item · once: the agent's retry of the same method and",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/mcp.test.mjs (agent sign-in); tests/db/hosted-mcp.test.ts; tests/db/me-access.test.ts; tests/db/agent-access-requests.test.ts",
-      "evidence": "M1 T8"
+      "evidence": "M1 T8; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.bf408971",
@@ -1618,9 +1620,9 @@
       "text": "Renewal notice · a daily Inngest cron · sends one inbox item per agent sign-in expiring within 7 days (dedupe key: session and expiry date); \"Renew\" opens the a",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-access-change.test.ts",
-      "evidence": "M1 T6"
+      "evidence": "M1 T6; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.c8bbf0ae",
@@ -1628,9 +1630,9 @@
       "text": "every test in A5 passes",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "all A5 DB suites green on 2026-11-11",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.82f7863e",
@@ -1638,9 +1640,9 @@
       "text": "the approval page is checked live at 1440 px and 390 px, light and dark, keyboard only",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.a61d2cfa",
@@ -1648,9 +1650,9 @@
       "text": "a real agent connects with one click, is changed to Read only from Settings, asks for more and gets \"Allow once\"",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.4bc7ef63",
@@ -1658,9 +1660,9 @@
       "text": "nb whoami and Settings show the same sentence",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/agent-access.test.mjs; packages/nb-cli/test/login.test.mjs; packages/nb-cli/test/qr.test.mjs; tests/db/token-life.test.ts; tests/db/me-access.test.ts; packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M1 T9"
+      "evidence": "M1 T9; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.d4aae9cf",
@@ -1668,9 +1670,9 @@
       "text": "the live check in A9 passes",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.01d06665",
@@ -1678,9 +1680,9 @@
       "text": "An all-workspaces token is worth more if stolen. Mitigations: new-country flags (F5), one-click revoke, a 30-day default, and every request still checked agains",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/token-life.test.ts (new-country email, revoke); tests/db/agent-approval.test.ts (30-day default)",
-      "evidence": "M1"
+      "evidence": "M1; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "A10.5c02f24f",
@@ -1688,9 +1690,9 @@
       "text": "Agents asking for more too often. Mitigations: a limit of 3 open requests and 24 hours of quiet after \"No\".",
       "kind": "build",
       "milestone": "M1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-access-requests.test.ts; tests/unit/token-access.test.ts",
-      "evidence": "M1 T5"
+      "evidence": "M1 T5; live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "B.013ca863",
@@ -10498,9 +10500,9 @@
       "text": "The npm next tag moves off 2.0.0-next.3 (needs the user's npm two-factor code).",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live check (see evidence)",
+      "evidence": "live 2026-11-11 at 687e48cc1: real Claude Code sign-in approved in one click (owner), connected line + whoami + MCP card on prod, Settings Change access → Read only, ACCESS_REQUESTED → Allow once → task created, next try asked again; token revoked"
     },
     {
       "key": "F7.a4c0b60c",
