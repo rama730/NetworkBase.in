@@ -141,3 +141,14 @@ test("only what a preset could allow can be asked for: approving a review stays 
   const [{ n }] = await sql`SELECT count(*)::int AS n FROM agent_access_requests WHERE session_id = ${agent.sessionId}`;
   assert.equal(n, 0);
 });
+
+test("a Read only agent can ask to change tasks (report A10 live check)", async () => {
+  const w = await world();
+  const agent = await smallAgent(w.userId, w.projectId);
+  await sql`UPDATE extension_device_sessions SET scopes = ${sql.json(["workspace:read", "task:read", "file:read"])} WHERE id = ${agent.sessionId}`;
+  const asked = await finish(agent.token, w.projectId, w.taskId);
+  assert.equal(asked.json.errorCode, "ACCESS_REQUESTED");
+  assert.equal(asked.json.details.scope, "task:write");
+  const notes = await sql`SELECT title FROM user_notifications WHERE user_id = ${w.userId} AND kind = 'agent_access_request'`;
+  assert.deepEqual(notes.map((r) => r.title), ["Claude Code asks to also change tasks"]);
+});

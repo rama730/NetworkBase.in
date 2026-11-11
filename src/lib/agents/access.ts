@@ -34,7 +34,8 @@ const EXTRA_WORDS: Record<string, { asks: string; cant: string }> = {
 };
 
 /** A permission as the approval page says it ("finish tasks"); asking-for-more and Settings use it too. */
-export const scopeWords = (scope: string) => EXTRA_WORDS[scope]?.cant ?? (scope === "task:review" ? "approve or return reviews" : scope);
+const OTHER_WORDS: Record<string, string> = { "task:write": "change tasks", "file:write": "save files", "task:review": "approve or return reviews" };
+export const scopeWords = (scope: string) => EXTRA_WORDS[scope]?.cant ?? OTHER_WORDS[scope] ?? scope;
 
 const list = (words: string[], last = "or") => (words.length <= 1 ? words.join("") : `${words.slice(0, -1).join(", ")} ${last} ${words.at(-1)}`);
 

@@ -321,7 +321,7 @@ export async function callTool(name, args = {}, where) {
 }
 
 /** Permissions in the words the approval page uses (report A2). */
-const SCOPE_WORDS = /** @type {Record<string, string>} */ ({ "task:complete": "finish tasks", "file:final": "change final files", "doc:write": "edit docs", "task:review": "approve or return reviews" });
+const SCOPE_WORDS = /** @type {Record<string, string>} */ ({ "task:complete": "finish tasks", "file:final": "change final files", "doc:write": "edit docs", "task:write": "change tasks", "file:write": "save files", "task:review": "approve or return reviews" });
 /** Tools whose main job needs a permission an agent preset may leave out. */
 const NEEDS_SCOPE = /** @type {Record<string, string>} */ ({ networkbase_task_done: "task:complete", networkbase_doc_update: "doc:write" });
 
