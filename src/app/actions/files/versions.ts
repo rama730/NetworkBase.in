@@ -1,5 +1,6 @@
 "use server";
 
+import { labelScope, visibleVia } from "@/lib/agents/via-scope";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 
 import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
@@ -150,7 +151,9 @@ export async function listFileVersionsPage(
       ))
       .orderBy(desc(fileVersions.version))
       .limit(requestedLimit + 1);
-  const versions = rows.slice(0, requestedLimit);
+  // "with Claude Code" only for viewers the workspace owner's setting allows (report Part B).
+  const labels = await labelScope(actorId, projectId, node.taskId);
+  const versions = rows.slice(0, requestedLimit).map((v) => ({ ...v, ...visibleVia(labels, { via: v.via, agentName: v.agentName, authorId: v.uploadedBy }) }));
   return {
     versions,
     nextCursor: rows.length > requestedLimit ? versions.at(-1)?.version ?? null : null,

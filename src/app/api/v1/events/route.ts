@@ -1,4 +1,5 @@
 import { and, asc, eq, gt, isNull } from "drizzle-orm";
+import { labelScope, visibleVia } from "@/lib/agents/via-scope";
 import { z } from "zod";
 
 import { routeErrorResponse } from "@/app/api/v1/_error";
@@ -63,7 +64,11 @@ export async function GET(request: Request) {
         return jsonSuccess({
           cursor: latest.toISOString(),
           notifications: notifications.map((n) => ({ ...n, at: n.at.toISOString() })),
-          files: files.map(({ byId, ...f }) => ({ ...f, at: f.at.toISOString(), mine: byId === userId })),
+          // "with Claude Code" only where the workspace owner's setting allows this viewer to see it (report Part B).
+          files: await (async () => {
+            const labels = workspace && files.length ? await labelScope(userId, workspace) : null;
+            return files.map(({ byId, via, agentName, ...f }) => ({ ...f, ...(labels ? visibleVia(labels, { via, agentName, authorId: byId }) : { via: null, agentName: null }), at: f.at.toISOString(), mine: byId === userId }));
+          })(),
         }, undefined, { headers: { "Cache-Control": "private, no-store" } });
       }
       await new Promise((r) => setTimeout(r, STEP_MS));

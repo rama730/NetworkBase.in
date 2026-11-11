@@ -111,6 +111,8 @@ async function handlePost(request: Request) {
         .insert(taskSubtasks)
         .values({
           ...(await viaColumns()),
+          // Whose agent made it, for "Only the person" (report Part B).
+          createdBy: user.id,
           taskId: resolvedTaskId,
           title,
           completed: false,

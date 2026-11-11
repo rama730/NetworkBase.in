@@ -5,9 +5,10 @@ import { actAs, actAsOwner, createUser, inRollback, sql } from "./_helpers";
 
 after(() => sql.end());
 
-// workspaces is column-granted (every column but import_source), so it is not a table-level grant.
-const BROWSER_READABLE = [ "workspace_follows", "tasks", "task_subtasks",
-  "task_comments", "task_comment_likes", "task_node_links", "workspace_workflow_columns", "workspace_updates",
+// workspaces is column-granted (every column but import_source), and so are tasks, task_subtasks and task_comments
+// (every column but via and agent_name, Part B), so none of them is a table-level grant.
+const BROWSER_READABLE = [ "workspace_follows",
+  "task_comment_likes", "task_node_links", "workspace_workflow_columns", "workspace_updates",
   "workspace_update_comments", "user_notifications",
 ].sort();
 

@@ -113,7 +113,22 @@ export default function AgentsDocsPage() {
                 <li><strong>Needs your yes:</strong> finishing a task, final files, deleting anything, changing someone else’s task, editing docs and the README, posting updates.</li>
                 <li><strong>Never:</strong> handing in for someone, approving reviews, changing members or settings, pushing files that look like they hold a secret.</li>
               </LegalList>
-              <p>A workspace owner can make agents ask for everything, or pause them, in workspace settings → Agents. Every change an agent makes shows “via Claude Code” (or the agent’s name) next to the author, and <code>nb undo --session</code> reverses what one agent session did.</p>
+              <p>A workspace owner can make agents ask for everything, or pause them, in workspace settings → Agents. Work an agent did stays under the person who used it, as “Ram · with Claude Code”, and <code>nb undo --session</code> reverses what one agent session did.</p>
+            </>
+          ),
+        },
+        {
+          id: "labels",
+          title: "3b. Who sees when agents helped",
+          content: (
+            <>
+              <p>The workspace owner chooses in workspace settings → Agents → <strong>Show when agents helped</strong>:</p>
+              <LegalList>
+                <li><strong>Everyone</strong> (the default): everyone who can see the work sees “with Claude Code”.</li>
+                <li><strong>Only the person</strong>: only the person who used the agent sees it, on their own work.</li>
+                <li><strong>No one</strong>: hidden for everyone.</li>
+              </LegalList>
+              <p>Hidden means it isn’t sent to anyone who may not see it, and the choice also applies to past work. Where an organization assignment asks for AI to be labelled, its teachers and reviewers always see it. Agent activity in Settings, Undo, Pause agents and the session summary keep working whatever you choose.</p>
             </>
           ),
         },

@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { labelScopes, visibleViaOfPayload } from "@/lib/agents/via-scope";
 import { z } from "zod";
 
 import { routeErrorResponse } from "@/app/api/v1/_error";
@@ -42,14 +43,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const actorIds = [...new Set([...taskRows, ...fileRows].map((r) => r.actorId).filter((x): x is string => Boolean(x)))];
     const actors = actorIds.length ? await db.select({ id: profiles.id, username: profiles.username, name: profiles.fullName }).from(profiles).where(inArray(profiles.id, actorIds)) : [];
     const who = new Map(actors.map((a) => [a.id, a.username ?? a.name ?? null]));
-    const viaOf = (x: unknown) => {
-      const o = (x ?? {}) as { via?: string; agentName?: string };
-      return { via: o.via ?? null, agentName: o.agentName ?? null };
-    };
+    // "with Claude Code" only where the workspace owner's setting allows this viewer to see it (report Part B).
+    const labels = labelScopes(auth.user.id, id);
+    const fileScope = await labels(null);
+    const taskScopes = new Map(await Promise.all([...new Set(taskRows.map((r) => r.taskId))].map(async (t) => [t, await labels(t)] as const)));
     const items = [
-      ...taskRows.map((r) => ({ at: r.at.toISOString(), kind: "task" as const, type: r.type, by: r.actorId ? who.get(r.actorId) ?? null : null, task: { id: r.taskId, number: r.taskNumber, title: r.taskTitle }, ...viaOf(r.payload),
+      ...taskRows.map((r) => ({ at: r.at.toISOString(), kind: "task" as const, type: r.type, by: r.actorId ? who.get(r.actorId) ?? null : null, task: { id: r.taskId, number: r.taskNumber, title: r.taskTitle }, ...visibleViaOfPayload(taskScopes.get(r.taskId)!, r.payload, r.actorId),
         detail: (() => { const p = (r.payload ?? {}) as Record<string, unknown>; return p.to ? `→ ${String(p.to)}` : p.reason ? String(p.reason) : null; })() })),
-      ...fileRows.map((r) => ({ at: r.at.toISOString(), kind: "file" as const, type: r.type, by: r.actorId ? who.get(r.actorId) ?? null : null, path: r.path ?? null, ...viaOf(r.metadata), detail: null })),
+      ...fileRows.map((r) => ({ at: r.at.toISOString(), kind: "file" as const, type: r.type, by: r.actorId ? who.get(r.actorId) ?? null : null, path: r.path ?? null, ...visibleViaOfPayload(fileScope, r.metadata, r.actorId), detail: null })),
     ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, q.limit);
     return jsonSuccess({ items, nextBefore: items.length === q.limit ? items.at(-1)!.at : null }, undefined, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {

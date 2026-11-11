@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getWorkspaceAgentSettingsAction, updateWorkspaceAgentSettingsAction } from "@/app/actions/workspace/agents";
+import type { LabelSetting } from "@/lib/agents/via-visibility";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { feedbackError, toast } from "@/lib/feedback";
@@ -17,6 +18,12 @@ const POLICIES: Array<{ value: Policy; label: string; help: string }> = [
 ];
 
 const key = (projectId: string) => ["project", projectId, "agent-settings"] as const;
+
+const LABEL_CHOICES: { value: LabelSetting; label: string; help: string }[] = [
+  { value: "everyone", label: "Everyone", help: "Everyone who can see the work sees which agent helped." },
+  { value: "person", label: "Only the person", help: "Only the person who used the agent sees it, on their own work." },
+  { value: "none", label: "No one", help: "Hidden for everyone. Agent activity, Undo and Pause agents still work." },
+];
 
 /** Workspace settings → AI agents (report §26.6, §18.5): the policy and the "Pause agents" switch. */
 export function AgentSettings({ projectId }: { projectId: string }) {
@@ -32,13 +39,13 @@ export function AgentSettings({ projectId }: { projectId: string }) {
   });
   const [saving, setSaving] = useState(false);
 
-  async function save(change: { policy?: Policy; paused?: boolean }) {
+  async function save(change: { policy?: Policy; paused?: boolean; labels?: LabelSetting }) {
     if (saving) return;
     setSaving(true);
     try {
       const result = await updateWorkspaceAgentSettingsAction({ projectId, ...change });
       if (!result.success) throw new Error(result.error);
-      client.setQueryData(key(projectId), result);
+      client.setQueryData(key(projectId), (old: typeof settings.data) => (old ? { ...old, ...result } : old));
       toast.success(change.paused === true ? "Agents are paused here" : change.paused === false ? "Agents can work here again" : "Agent setting saved");
     } catch (error) {
       toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t save agent settings", "Couldn’t save agent settings"));
@@ -85,6 +92,25 @@ export function AgentSettings({ projectId }: { projectId: string }) {
               disabled={saving}
               onCheckedChange={(paused: boolean) => void save({ paused })}
             />
+          </div>
+          <div className="border-t border-border pt-4">
+          <fieldset className="space-y-3" disabled={saving || !settings.data.canChangeLabels} aria-describedby={`agent-labels-help-${projectId}`}>
+            <legend className="nb-compact font-medium">Show when agents helped</legend>
+            <p id={`agent-labels-help-${projectId}`} className="nb-compact text-muted-foreground">
+              Work stays under the person who did it, with &ldquo;with Claude Code&rdquo; after their name.
+              {settings.data.inOrganization ? " Where an assignment asks for AI to be labelled, its teachers and reviewers still see it." : ""}
+              {settings.data.canChangeLabels ? "" : " Only the workspace owner can change this."}
+            </p>
+            {LABEL_CHOICES.map((c) => (
+              <label key={c.value} className="flex items-start gap-2.5">
+                <input type="radio" className="nb-radio mt-0.5" name={`agent-labels-${projectId}`} checked={settings.data.labels === c.value} onChange={() => void save({ labels: c.value })} />
+                <span className="space-y-0.5">
+                  <span className="nb-compact block font-medium">{c.label}</span>
+                  <span className="nb-compact block text-muted-foreground">{c.help}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
           </div>
         </div>
       )}

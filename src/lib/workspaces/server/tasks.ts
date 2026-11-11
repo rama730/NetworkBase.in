@@ -1275,6 +1275,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
             .filter((st) => st.title.trim().length > 0)
             .map((st, index) => ({
               ...via,
+              createdBy: user.id,
               taskId: newTask.id,
               title: st.title.trim(),
               completed: st.completed,

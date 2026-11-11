@@ -48,7 +48,9 @@ test("subtask mutations reconcile by id and use deterministic, narrow reads", ()
   assert.match(hook, /task_panel\.subtask/);
   assert.match(actions, /pg_advisory_xact_lock/);
   assert.match(actions, /export async function updateSubtaskAction/);
-  assert.match(actions, /return \{ success: true, data: updated \}/);
+  // Results go back without via / agent_name: the label is decided per viewer (report Part B).
+  assert.match(actions, /return \{ success: true, data: withoutVia\(updated\) \}/);
+  assert.match(actions, /return \{ success: true, data: withoutVia\(created\) \}/);
 });
 
 test("subtask upserts preserve concurrent rows and stable order", () => {

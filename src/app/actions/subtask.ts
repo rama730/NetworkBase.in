@@ -1,6 +1,10 @@
 "use server";
 
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { z } from "zod";
+import { labelScope, visibleVia } from "@/lib/agents/via-scope";
+import type { ViaShown } from "@/lib/agents/via-visibility";
+import { assertTaskAccess } from "@/lib/domain/task-comments";
 import { db } from "@/lib/db";
 import { workspaceMembers, workspaces, taskSubtasks, tasks } from "@/lib/db/schema";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
@@ -9,6 +13,13 @@ import { taskSubtaskTitleSchema } from "@/lib/validations/task";
 
 import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
 import { startCopyOnWork } from "@/lib/organizations/assignments";
+
+/** Rows go back to whoever acted, who may not be allowed to see the label: labels come from readTaskSubtaskLabelsAction. */
+function withoutVia<T extends { via?: unknown; agentName?: unknown } | undefined>(row: T) {
+    if (!row) return row;
+    const { via: _via, agentName: _agentName, ...rest } = row;
+    return rest;
+}
 
 async function requireSubtaskWriter() {
     // Browser session or a CLI/agent token on an allowed route (report A2.1).
@@ -52,6 +63,7 @@ export async function createSubtaskAction(
             });
             const [next] = await tx.insert(taskSubtasks).values({
                 taskId,
+                createdBy: user.id,
                 title: parsedTitle.data,
                 completed: false,
                 position: (currentMax?.position ?? -1) + 1,
@@ -59,7 +71,7 @@ export async function createSubtaskAction(
             return next;
         });
 
-        return { success: true, data: created };
+        return { success: true, data: withoutVia(created) };
     } catch (error: any) {
         console.error("Unexpected error:", error);
         return { success: false, error: error?.message || "Couldn’t create subtask" };
@@ -90,7 +102,7 @@ export async function toggleSubtaskAction(
             return row;
         });
 
-        return { success: true, data: updated };
+        return { success: true, data: withoutVia(updated) };
     } catch (error: any) {
         console.error("Unexpected error:", error);
         return { success: false, error: error?.message || "Couldn’t toggle subtask" };
@@ -119,7 +131,7 @@ export async function updateSubtaskAction(
             return row;
         });
 
-        return { success: true, data: updated };
+        return { success: true, data: withoutVia(updated) };
     } catch (error: any) {
         console.error("Unexpected error:", error);
         return { success: false, error: error?.message || "Couldn’t update subtask" };
@@ -145,4 +157,28 @@ export async function deleteSubtaskAction(
         console.error("Unexpected error:", error);
         return { success: false, error: error?.message || "Couldn’t delete subtask" };
     }
+}
+
+/**
+ * "with Claude Code" on a task's subtasks, for this viewer (report Part B). Browsers can't read via / agent_name
+ * (0086), so the task panel asks here; only labels this viewer may see come back.
+ */
+export async function readTaskSubtaskLabelsAction(projectId: string, taskId: string, subtaskIds: string[]): Promise<Record<string, ViaShown>> {
+    const ids = z.array(z.string().uuid()).max(200).parse(subtaskIds);
+    z.string().uuid().parse(projectId);
+    z.string().uuid().parse(taskId);
+    const { user } = await requireAuthenticatedUser();
+    if (!user || !ids.length) return {};
+    await assertTaskAccess({ taskId, projectId, userId: user.id, mode: "read" });
+    const rows = await db.select({ id: taskSubtasks.id, via: taskSubtasks.via, agentName: taskSubtasks.agentName, createdBy: taskSubtasks.createdBy })
+        .from(taskSubtasks)
+        .where(and(eq(taskSubtasks.taskId, taskId), inArray(taskSubtasks.id, ids), isNotNull(taskSubtasks.via)));
+    if (!rows.length) return {};
+    const labels = await labelScope(user.id, projectId, taskId);
+    const out: Record<string, ViaShown> = {};
+    for (const r of rows) {
+        const shown = visibleVia(labels, { via: r.via, agentName: r.agentName, authorId: r.createdBy });
+        if (shown.via) out[r.id] = shown;
+    }
+    return out;
 }

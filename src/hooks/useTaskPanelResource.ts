@@ -11,6 +11,7 @@ import {
 import {
   createSubtaskAction,
   deleteSubtaskAction,
+  readTaskSubtaskLabelsAction,
   toggleSubtaskAction,
   updateSubtaskAction,
 } from "@/app/actions/subtask";
@@ -30,6 +31,7 @@ import {
   type TaskLinkedNode,
 } from "@/lib/workspaces/task-file-intelligence";
 import type { TaskDiscussionComment } from "@/lib/workspaces/task-discussion";
+import type { ViaShown } from "@/lib/agents/via-visibility";
 import { useTaskDiscussionResource } from "@/hooks/useTaskDiscussionResource";
 import {
   useTaskFileMutations,
@@ -103,7 +105,8 @@ function mergeFileWarnings(...warningSets: TaskFileReadinessWarning[][]) {
 
 const SUBTASK_PAGE_SIZE = 200;
 
-const SUBTASK_COLUMNS = "id, task_id, title, completed, completed_by, via, agent_name, position, created_at, updated_at";
+// via / agent_name aren't readable from the browser (0086): labels come from readTaskSubtaskLabelsAction.
+const SUBTASK_COLUMNS = "id, task_id, title, completed, completed_by, position, created_at, updated_at";
 
 function toPanelSubtask(value: Record<string, unknown> | null): TaskPanelSubtask | null {
   if (!value) return null;
@@ -121,8 +124,6 @@ function toPanelSubtask(value: Record<string, unknown> | null): TaskPanelSubtask
     title: String(value.title ?? ""),
     completed: Boolean(value.completed),
     completedBy: typeof (value.completed_by ?? value.completedBy) === "string" ? String(value.completed_by ?? value.completedBy) : null,
-    via: typeof value.via === "string" ? value.via : null,
-    agentName: typeof (value.agent_name ?? value.agentName) === "string" ? String(value.agent_name ?? value.agentName) : null,
     position: Number(value.position ?? 0),
     createdAt: toIsoDate(value.created_at ?? value.createdAt),
     updatedAt: toIsoDate(value.updated_at ?? value.updatedAt),
@@ -194,6 +195,15 @@ export function useTaskPanelResource(params: {
     countsFromTask(normalizeTaskSurfaceRecord(initialTask)),
   );
   const [subtasks, setSubtasks] = useState<TaskPanelSubtask[]>([]);
+  // "with Claude Code" per subtask, as the server allows this viewer to see it (report Part B, 0086).
+  const labelsRef = useRef<Record<string, ViaShown>>({});
+  const withLabels = useCallback((rows: TaskPanelSubtask[]) => rows.map((row) => ({ ...row, ...(labelsRef.current[row.id] ?? { via: null, agentName: null }) })), []);
+  const fetchLabels = useCallback(async (ids: string[]) => {
+    const missing = ids.filter((id) => !(id in labelsRef.current));
+    if (!missing.length) return;
+    const got = await readTaskSubtaskLabelsAction(projectId, task.id, missing).catch(() => ({} as Record<string, ViaShown>));
+    for (const id of missing) labelsRef.current[id] = got[id] ?? { via: null, agentName: null };
+  }, [projectId, task.id]);
   const [isDeleted, setIsDeleted] = useState(false);
   // More rows exist beyond the loaded page. While true, totals come from aggregate reads, never from the list length (API-019).
   const [subtasksHasMore, setSubtasksHasMore] = useState(false);
@@ -350,7 +360,7 @@ export function useTaskPanelResource(params: {
   const replaceSubtasks = useCallback(
     (updater: (current: TaskPanelSubtask[]) => TaskPanelSubtask[]) => {
       // Side effects run outside the state updater (React may call an updater twice).
-      const next = updater(subtasksRef.current);
+      const next = withLabels(updater(subtasksRef.current));
       subtasksRef.current = next;
       setSubtasks(next);
       if (subtasksHasMoreRef.current) {
@@ -403,7 +413,8 @@ export function useTaskPanelResource(params: {
         },
       });
       if (taskIdRef.current !== requestedTaskId) return [];
-      const mapped = loaded.page;
+      await fetchLabels(loaded.page.map((s) => s.id));
+      const mapped = withLabels(loaded.page);
       setSubtasks(mapped);
       setSubtasksHasMore(loaded.hasMore);
       subtasksHasMoreRef.current = loaded.hasMore;
@@ -463,10 +474,13 @@ export function useTaskPanelResource(params: {
       return;
     }
     const rows = (data ?? []) as Record<string, unknown>[];
-    const next = rows
+    const unlabelled = rows
       .slice(0, SUBTASK_PAGE_SIZE)
       .map((subtask) => toPanelSubtask(subtask))
       .filter((subtask): subtask is TaskPanelSubtask => Boolean(subtask));
+    await fetchLabels(unlabelled.map((s) => s.id));
+    if (taskIdRef.current !== requestedTaskId) return;
+    const next = withLabels(unlabelled);
     setSubtasks((current) => sortTaskSubtasks([...current, ...next.filter((row) => !current.some((existing) => existing.id === row.id))]));
     const more = rows.length > SUBTASK_PAGE_SIZE;
     setSubtasksHasMore(more);
@@ -661,9 +675,11 @@ export function useTaskPanelResource(params: {
                 .select(SUBTASK_COLUMNS)
                 .eq("id", nextPayload.id)
                 .maybeSingle()
-                .then(({ data }: { data: unknown }) => {
+                .then(async ({ data }: { data: unknown }) => {
                   const row = toPanelSubtask(data as Record<string, unknown> | null);
-                  if (row) applyRow(row);
+                  if (!row) return;
+                  if (eventType === "INSERT") await fetchLabels([row.id]);
+                  applyRow(row);
                 });
             }
             void queryClient.invalidateQueries({

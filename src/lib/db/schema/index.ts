@@ -807,6 +807,8 @@ export const workspaces = pgTable(
     agentPolicy: text("agent_policy").$type<"ask_important" | "ask_all" | "trust_drafts_docs">().default("ask_important").notNull(),
     /** Set while agents are paused in this workspace. */
     agentsPausedAt: timestamp("agents_paused_at", { withTimezone: true }),
+    /** Who sees "with Claude Code" on work here (0086, report Part B): everyone, only the person, or no one. */
+    agentLabelVisibility: text("agent_label_visibility").$type<"everyone" | "person" | "none">().default("everyone").notNull(),
     termStart: date("term_start"),
     termEnd: date("term_end"),
     timeZone: text("time_zone"),
@@ -2615,6 +2617,8 @@ export const taskSubtasks = pgTable(
     completed: boolean("completed").default(false).notNull(),
     // Who ticked it (0259, report §16.11).
     completedBy: uuid("completed_by").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
+    // Who made it (0086), so "Only the person" knows whose agent added it. Null for subtasks made before.
+    createdBy: uuid("created_by").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
     position: integer("position").default(0).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

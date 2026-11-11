@@ -2,6 +2,7 @@
 
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { labelScopes, visibleViaOfPayload } from "@/lib/agents/via-scope";
 import { db } from "@/lib/db";
 import { githubSyncRuns, profiles, workspaceMembers, workspaceNodeEvents, workspaceNodes, taskActivityEvents, tasks } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
@@ -16,11 +17,6 @@ const member = alias(profiles, "recent_activity_member");
 
 /** Only the three latest publishable project events cross this server-action boundary. */
 
-/** The via label's fields from an event's payload, when it was made from the CLI or by an agent. */
-function viaOf(payload: unknown): { via?: string; agentName?: string | null } {
-  const p = (payload ?? {}) as { via?: unknown; agentName?: unknown };
-  return p.via === "cli" || p.via === "agent" ? { via: p.via, agentName: typeof p.agentName === "string" ? p.agentName : null } : {};
-}
 export async function readWorkspaceRecentActivityAction(projectId: string): Promise<WorkspaceRecentActivityItem[]> {
   const viewer = await getViewerIdentityContext();
   const access = await getWorkspaceAccessById(projectId, viewer.userId);
@@ -56,7 +52,7 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
 
   const taskEventsPromise = audience.mayReadTasks
     ? db.select({ id: taskActivityEvents.id, eventType: taskActivityEvents.eventType, payload: taskActivityEvents.payload, createdAt: taskActivityEvents.createdAt,
-      taskId: tasks.id, title: tasks.title, actorName: actor.fullName, actorUsername: actor.username, actorVisibility: actor.visibility })
+      taskId: tasks.id, title: tasks.title, actorId: taskActivityEvents.actorId, actorName: actor.fullName, actorUsername: actor.username, actorVisibility: actor.visibility })
       .from(taskActivityEvents)
       .innerJoin(tasks, and(eq(tasks.id, taskActivityEvents.taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
       .leftJoin(actor, and(eq(actor.id, taskActivityEvents.actorId), isNull(actor.deletedAt)))
@@ -70,7 +66,7 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
   const fileEventsPromise = audience.mayReadFiles
     ? db.select({ id: workspaceNodeEvents.id, createdAt: workspaceNodeEvents.createdAt,
       nodeId: workspaceNodes.id, name: workspaceNodes.name, path: workspaceNodes.path, taskId: workspaceNodes.taskId, eventMetadata: workspaceNodeEvents.metadata,
-      metadata: workspaceNodes.metadata, actorName: actor.fullName, actorUsername: actor.username, actorVisibility: actor.visibility })
+      metadata: workspaceNodes.metadata, actorId: workspaceNodeEvents.actorId, actorName: actor.fullName, actorUsername: actor.username, actorVisibility: actor.visibility })
       .from(workspaceNodeEvents)
       .innerJoin(workspaceNodes, and(eq(workspaceNodes.id, workspaceNodeEvents.nodeId), eq(workspaceNodes.projectId, projectId),
         eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt)))
@@ -117,20 +113,22 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
       text,
       occurredAt: event.createdAt.toISOString(), href: projectHref });
   }
+  // "with Claude Code" only where the workspace owner's setting allows this viewer to see it (report Part B).
+  const labels = labelScopes(viewer.userId, projectId);
   for (const event of taskEvents) {
     const destination = event.payload?.to;
     const actorName = activityActorName(!isMember && event.actorVisibility !== "public" ? null : { fullName: event.actorName, username: event.actorUsername });
     items.push({ id: `task:${event.id}`, type: "task",
       text: event.eventType === "review_submitted" ? `${actorName} submitted ${event.title} for review` : event.eventType === "review_approved" ? `${actorName} approved and completed ${event.title}` : event.eventType === "changes_requested" ? `${actorName} requested changes on ${event.title}` : `${actorName} moved ${event.title} to ${destination === "done" ? "Completed" : "In progress"}`,
       occurredAt: event.createdAt.toISOString(), href: `${projectHref}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(event.taskId)}`,
-      ...viaOf(event.payload) });
+      ...visibleViaOfPayload(await labels(event.taskId), event.payload, event.actorId) });
   }
   for (const event of fileEvents) {
     if (!isMember && !isPublishableFileMetadata(event.metadata)) continue;
     const actorName = activityActorName(!isMember && event.actorVisibility !== "public" ? null : { fullName: event.actorName, username: event.actorUsername });
     items.push({ id: `file:${event.id}`, type: "file", text: `${actorName} added ${event.name}`,
       occurredAt: event.createdAt.toISOString(), href: `${projectHref}?tab=files&fileId=${encodeURIComponent(event.nodeId)}`,
-      ...viaOf(event.eventMetadata) });
+      ...visibleViaOfPayload(await labels(event.taskId), event.eventMetadata, event.actorId) });
   }
   for (const event of githubEvents) {
     const mode = event.manifest.mode === "pr" ? "pr" : "direct";

@@ -1700,9 +1700,9 @@
       "text": "The person is always the author. The bot badge becomes small muted text after the name: \"Ram · with Claude Code\", like \"edited on iPhone\". The agent is a tool t",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.836cff4c",
@@ -1710,9 +1710,9 @@
       "text": "Workspace owners choose who sees it in personal and team workspaces. A new setting in workspace settings → Agents, \"Show when agents helped\", offers:",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.c5fbc1aa",
@@ -1720,9 +1720,9 @@
       "text": "Organizations: always shown where the class asks. In organization workspaces and assignment copies, the label shows for teachers, reviewers and admins whenever ",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.51151346",
@@ -1730,9 +1730,9 @@
       "text": "The record never goes away. Settings → agent activity, Undo (nb undo --session), Pause agents, session summaries and security alerts keep using via and agentnam",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.c511220f",
@@ -1740,9 +1740,9 @@
       "text": "Each setting × each viewer (the person, a teammate, the owner, an organization reviewer).",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.a67715a5",
@@ -1750,9 +1750,9 @@
       "text": "An organization assignment can't hide the label.",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.faae9d2a",
@@ -1760,9 +1760,9 @@
       "text": "Undo and agent activity still find agent changes when the label is hidden.",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.058baf24",
@@ -1770,9 +1770,9 @@
       "text": "Migration 0086: workspaces.agentlabelvisibility text NOT NULL DEFAULT everyone, CHECK in (everyone, person, none).",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.06a0f8a9",
@@ -1780,9 +1780,9 @@
       "text": "The server decides, not the browser. \"No one\" must also mean the data isn't sent to other people. One helper, visibleVia(viewer, workspace, row) in src/lib/agen",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.176e23b6",
@@ -1790,9 +1790,9 @@
       "text": "Organization rule: for organization workspaces and assignment copies whose policy is \"Labelled\" or \"Not allowed\", the helper always shows the label to owners, a",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.97027919",
@@ -1800,9 +1800,9 @@
       "text": "UI:",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.f3c04d1d",
@@ -1810,9 +1810,9 @@
       "text": "The setting applies when things are read, so changing it also changes how past work shows. Nothing stored is rewritten.",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.f43cff0c",
@@ -1820,9 +1820,9 @@
       "text": "The same helper covers every place authorship shows:",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.2104236f",
@@ -1830,9 +1830,9 @@
       "text": "MVP: the muted \"with Claude Code\" text and the server helper. The three-way setting follows straight after.",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "B.78b93322",
@@ -1860,9 +1860,9 @@
       "text": "Risk: a forgotten read path leaking labels. The unit test above guards against it.",
       "kind": "build",
       "milestone": "M2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/via-visibility.test.ts; tests/unit/via-visibility-guard.test.ts; tests/db/via-visibility.test.ts; tests/db/agent-labels.test.ts; tests/db/agent-label-schema.test.ts; tests/db/browser-role-grants.test.ts; tests/browser/agent-labels.spec.ts",
+      "evidence": "M2 (local)"
     },
     {
       "key": "C.7a06e7c7",

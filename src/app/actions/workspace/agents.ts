@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { LABEL_SETTINGS } from "@/lib/agents/via-visibility";
 import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
@@ -16,9 +17,15 @@ export async function getWorkspaceAgentSettingsAction(projectId: string) {
     const { user } = await requireAuthenticatedUser();
     const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
     if (!access.isOwner && access.member?.role !== "admin") throw new Error("Only the owner and admins can see agent settings");
-    const [row] = await db.select({ policy: workspaces.agentPolicy, pausedAt: workspaces.agentsPausedAt }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+    const [row] = await db.select({ policy: workspaces.agentPolicy, pausedAt: workspaces.agentsPausedAt, labels: workspaces.agentLabelVisibility, kind: workspaces.kind, parentId: workspaces.parentId })
+      .from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
     if (!row) throw new Error("Workspace not found");
-    return { success: true as const, policy: row.policy, paused: Boolean(row.pausedAt) };
+    return {
+      success: true as const, policy: row.policy, paused: Boolean(row.pausedAt),
+      // "Show when agents helped" (report Part B): only the owner chooses; inside an organization its staff still
+      // see labels where the class asks.
+      labels: row.labels, canChangeLabels: access.isOwner, inOrganization: row.kind === "organization" || Boolean(row.parentId),
+    };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t load agent settings" };
   }
@@ -28,6 +35,7 @@ const updateSchema = z.object({
   projectId: z.string().uuid(),
   policy: z.enum(["ask_important", "ask_all", "trust_drafts_docs"]).optional(),
   paused: z.boolean().optional(),
+  labels: z.enum(LABEL_SETTINGS).optional(),
 });
 
 export async function updateWorkspaceAgentSettingsAction(input: z.infer<typeof updateSchema>) {
@@ -40,17 +48,19 @@ export async function updateWorkspaceAgentSettingsAction(input: z.infer<typeof u
     if (!(await consumeRateLimit(`agent-policy:${user.id}`, 30, 60)).allowed) throw new Error("Too many attempts. Try again in a minute.");
     const access = await getWorkspaceAccessById(data.projectId, user.id);
     if (!access.isOwner && access.member?.role !== "admin") throw new Error("Only the owner and admins can change agent settings");
+    if (data.labels && !access.isOwner) throw new Error("Only the owner chooses who sees when agents helped");
     const [row] = await db
       .update(workspaces)
       .set({
         ...(data.policy ? { agentPolicy: data.policy } : {}),
         ...(data.paused === undefined ? {} : { agentsPausedAt: data.paused ? sql`now()` : null }),
+        ...(data.labels ? { agentLabelVisibility: data.labels } : {}),
         updatedAt: new Date(),
       })
       .where(eq(workspaces.id, data.projectId))
-      .returning({ policy: workspaces.agentPolicy, pausedAt: workspaces.agentsPausedAt });
+      .returning({ policy: workspaces.agentPolicy, pausedAt: workspaces.agentsPausedAt, labels: workspaces.agentLabelVisibility });
     if (!row) throw new Error("Workspace not found");
-    return { success: true as const, policy: row.policy, paused: Boolean(row.pausedAt) };
+    return { success: true as const, policy: row.policy, paused: Boolean(row.pausedAt), labels: row.labels };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t save agent settings" };
   }

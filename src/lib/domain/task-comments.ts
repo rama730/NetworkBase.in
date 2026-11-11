@@ -1,5 +1,7 @@
 import "server-only";
 
+import { labelScope, visibleVia } from "@/lib/agents/via-scope";
+import type { LabelScope } from "@/lib/agents/via-visibility";
 import {
   and,
   desc,
@@ -92,6 +94,8 @@ export function normalizeTaskDiscussionEntry(params: {
   row: DiscussionRow;
   likeCounts: Map<string, number>;
   likedIds: Set<string>;
+  /** Who may see "with Claude Code" here (report Part B). */
+  labels: LabelScope;
 }): TaskDiscussionBaseEntry {
   return {
     id: params.row.id,
@@ -103,8 +107,7 @@ export function normalizeTaskDiscussionEntry(params: {
     updatedAt: toIsoString(params.row.updatedAt) ?? new Date().toISOString(),
     deletedAt: toIsoString(params.row.deletedAt),
     deletedBy: params.row.deletedBy,
-    via: params.row.via ?? null,
-    agentName: params.row.agentName ?? null,
+    ...visibleVia(params.labels, { via: params.row.via, agentName: params.row.agentName, authorId: params.row.userId }),
     author: normalizeTaskDiscussionAuthor(params.row),
     likeCount: params.likeCounts.get(params.row.id) ?? 0,
     likedByViewer: params.likedIds.has(params.row.id),
@@ -420,11 +423,12 @@ export async function readTaskDiscussionInternal(params: {
     limit: params.limit,
   });
   const { likeCounts, likedIds } = await readDiscussionLikeMaps(allCommentIds, params.viewerId);
+  const labels = await labelScope(params.viewerId, params.projectId, params.taskId);
   const totalCount = await readDiscussionCount(params.taskId);
 
   const repliesByParentId = new Map<string, TaskDiscussionBaseEntry[]>();
   for (const row of replyRows) {
-    const reply = normalizeTaskDiscussionEntry({ row, likeCounts, likedIds });
+    const reply = normalizeTaskDiscussionEntry({ row, likeCounts, likedIds, labels });
     const parentId = row.parentCommentId;
     if (!parentId) continue;
     const existing = repliesByParentId.get(parentId) ?? [];
@@ -434,7 +438,7 @@ export async function readTaskDiscussionInternal(params: {
 
   return {
     comments: orderedTopLevelRows.map((row) => ({
-      ...normalizeTaskDiscussionEntry({ row, likeCounts, likedIds }),
+      ...normalizeTaskDiscussionEntry({ row, likeCounts, likedIds, labels }),
       replies: repliesByParentId.get(row.id) ?? [],
       replyCount: replyCounts.get(row.id) ?? 0,
       repliesHaveMore: (replyCounts.get(row.id) ?? 0) > (repliesByParentId.get(row.id)?.length ?? 0),
@@ -490,7 +494,9 @@ export async function readTaskDiscussionCommentInternal(params: {
   }
 
   const { likeCounts, likedIds } = await readDiscussionLikeMaps([row.id], params.viewerId);
+  const labels = await labelScope(params.viewerId, params.projectId, params.taskId);
   return normalizeTaskDiscussionEntry({
+    labels,
     row: row as DiscussionRow,
     likeCounts,
     likedIds,
