@@ -86,10 +86,11 @@ test("renewing extends the end date; the daily notice goes out once per sign-in"
   const ending = await agent(other, { all: true, expiresIn: "2 days" });
   await settings.sendAgentRenewalNotices();
   await settings.sendAgentRenewalNotices();
-  const notes = await sql`SELECT title, href FROM user_notifications WHERE user_id = ${other} AND kind = 'agent_access_expiring'`;
+  const notes = await sql`SELECT title, body, href FROM user_notifications WHERE user_id = ${other} AND kind = 'agent_access_expiring'`;
   assert.equal(notes.length, 1, "one notice, however often the job runs");
   assert.equal(notes[0]!.href, `/settings/agents/${ending}`);
-  assert.match(notes[0]!.title, /Claude Code's access ends in 2 days/);
+  assert.equal(notes[0]!.title, "Renew Claude Code: one click");
+  assert.match(notes[0]!.body, /ends in 2 days/);
 });
 
 test("Settings lists broad sign-ins first and gives each agent its sentence", async () => {

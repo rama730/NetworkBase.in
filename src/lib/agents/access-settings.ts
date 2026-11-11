@@ -86,8 +86,8 @@ export async function sendAgentRenewalNotices(now = new Date()) {
         operation: "create" as const,
         input: {
           recipientUserId: s.userId, actorUserId: null, kind: "agent_access_expiring" as const, category: "workflows" as const, importance: "important" as const,
-          title: `${s.agentName?.trim() || "An AI agent"}'s access ends in ${days} day${days === 1 ? "" : "s"}`.slice(0, 200),
-          body: `On ${s.deviceName}. Renew it to keep working, or let it end.`,
+          title: `Renew ${s.agentName?.trim() || "your AI agent"}: one click`.slice(0, 200),
+          body: `Its access on ${s.deviceName} ends in ${days} day${days === 1 ? "" : "s"}. Renewing keeps the same settings.`,
           href: `/settings/agents/${s.id}`,
           entityRefs: {},
           dedupeKey: `renew:${s.id}:${s.expiresAt.toISOString().slice(0, 10)}`,

@@ -101,7 +101,7 @@ function ExtensionAppCard() {
         <div className="min-w-0">
           <h4 className="nb-ui-label text-foreground">NetworkBase CLI, AI agents and editors</h4>
           <p className="nb-compact mt-1 text-muted-foreground">
-            Sign in from your editor or terminal, then link a folder with nb init. AI agents get their own sign-in, limited to one workspace. Revoke any time below. <Link href="/docs/cli" className="nb-link">CLI docs</Link> · <Link href="/docs/agents" className="nb-link">Agents</Link>
+            Sign in from your editor or terminal, then link a folder with nb init. AI agents get their own sign-in: you choose where they work, what they may do and for how long. Change or revoke it any time below. <Link href="/docs/cli" className="nb-link">CLI docs</Link> · <Link href="/docs/agents" className="nb-link">Agents</Link>
           </p>
         </div>
       </div>
@@ -183,29 +183,41 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
               <p className="nb-compact mt-1 truncate text-muted-foreground">
                 Active {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })} · v{session.clientVersion || "unknown"}
               </p>
-              <p className="nb-meta mt-1 truncate text-muted-foreground">
-                {session.tokenType === "agent"
-                  ? `Only ${session.workspaceTitle ?? "one workspace"} · reads and small changes; big ones wait for your yes`
-                  : isCliSession ? "Signed in from NetworkBase CLI" : session.authMethod === "web_login" ? "Signed in from the editor" : "Access token"}
-                {session.editorVersion ? ` · ${session.editorVersion}` : ""}
-                {session.lastCountry ? ` · last used from ${session.lastCountry}` : ""}
-                {` · expires ${formatDistanceToNow(new Date(session.expiresAt), { addSuffix: true })}`}
-              </p>
+              {session.tokenType === "agent" ? (
+                <>
+                  {/* The same sentence as the approval page and the agent's card (report A6 #5, A8). */}
+                  <p className="nb-compact mt-1 text-foreground">{session.accessSentence ?? `Works in ${session.workspaceTitle ?? "all your workspaces"}; big changes wait for your yes.`}</p>
+                  {session.lastCountry ? <p className="nb-meta mt-1 truncate text-muted-foreground">Last used from {session.lastCountry}</p> : null}
+                </>
+              ) : (
+                <p className="nb-meta mt-1 truncate text-muted-foreground">
+                  {isCliSession ? "Signed in from NetworkBase CLI" : session.authMethod === "web_login" ? "Signed in from the editor" : "Access token"}
+                  {session.editorVersion ? ` · ${session.editorVersion}` : ""}
+                  {session.lastCountry ? ` · last used from ${session.lastCountry}` : ""}
+                  {` · expires ${formatDistanceToNow(new Date(session.expiresAt), { addSuffix: true })}`}
+                </p>
+              )}
               {session.tokenType === "agent" ? <AgentActivity sessionId={session.id} /> : null}
             </>
           )}
         </div>
       </div>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onRevoke}
-        disabled={revoking}
-        className="self-start sm:self-auto"
-      >
-        {revoking ? <Loader2 className="size-4 animate-spin" /> : null}
-        {revoking ? "Revoking…" : isPending ? "Revoke token" : "Disconnect"}
-      </Button>
+      <div className="flex shrink-0 gap-2 self-start sm:self-auto">
+        {session.tokenType === "agent" ? (
+          <Button size="sm" variant="outline" asChild>
+            <Link href={`/settings/agents/${session.id}`}>Change access</Link>
+          </Button>
+        ) : null}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onRevoke}
+          disabled={revoking}
+        >
+          {revoking ? <Loader2 className="size-4 animate-spin" /> : null}
+          {revoking ? "Revoking…" : isPending ? "Revoke token" : "Disconnect"}
+        </Button>
+      </div>
     </div>
   );
 }

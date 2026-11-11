@@ -95,6 +95,7 @@ export async function openRealSettings(page: Page, api: Api = {}) {
     updateNotificationPreferencesAction: (next: unknown) => ({ success: true, preferences: next }),
     readActiveExtensionSessions: () => ({ success: true, sessions: [], hasMore: false, nextCursor: null }),
     getActiveExtensionSessions: () => ({ success: true, sessions: [], hasMore: false, nextCursor: null }),
+    listPersonalAccessTokens: () => ({ success: true, tokens: [] }),
     listMyOrganizationsAction: () => [],
     myStandingAction: () => ({ success: true, restriction: null, active: [], strikes: [], history: [] }),
   };

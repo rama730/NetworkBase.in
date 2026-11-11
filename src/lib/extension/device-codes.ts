@@ -5,10 +5,12 @@
  */
 import crypto from "node:crypto";
 import { and, desc, eq, gt, isNull, lt, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/lib/db";
 import { agentAccessDefaults, deviceCodes, extensionDeviceSessionEvents, extensionDeviceSessions, workspaceMembers, workspaces } from "@/lib/db/schema";
 import { EXTENSION_DEVICE_SESSION_EVENTS } from "@/lib/extension/session-events";
+import { allowsAgentTokens } from "@/lib/organizations/settings";
 import { scopesForPreset, type AgentPreset } from "@/lib/agents/access";
 import { type TokenScope } from "@/lib/security/token-access";
 
@@ -243,13 +245,28 @@ export async function decideDeviceCode(userId: string, code: string, decision: D
 }
 
 /** Workspaces an agent token can be approved for: ones the person can change (owner, or a member who isn't a viewer). */
-export async function listAgentWorkspaces(userId: string) {
+export type AgentWorkspaceChoice = { id: string; title: string; slug: string | null; viewerOnly: boolean; org: string | null; agentsOff: boolean };
+
+/**
+ * Workspaces an agent can be pointed at (report A2): yours and ones you're a member of, newest first, with the
+ * organization they belong to. `includeViewer` adds read-only ones (for Read only agents); personal tokens leave them out.
+ */
+export async function listAgentWorkspaces(userId: string, options: { includeViewer?: boolean } = {}): Promise<AgentWorkspaceChoice[]> {
+  const org = alias(workspaces, "agent_choice_org");
   const rows = await db
-    .select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, ownerId: workspaces.ownerId, role: workspaceMembers.role })
+    .select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, ownerId: workspaces.ownerId, role: workspaceMembers.role, kind: workspaces.kind, own: workspaces.orgSettings, orgTitle: org.title, orgSettings: org.orgSettings })
     .from(workspaces)
     .leftJoin(workspaceMembers, and(eq(workspaceMembers.projectId, workspaces.id), eq(workspaceMembers.userId, userId)))
+    .leftJoin(org, and(eq(org.id, workspaces.parentId), eq(org.kind, "organization")))
     .where(and(isNull(workspaces.deletedAt), or(eq(workspaces.ownerId, userId), eq(workspaceMembers.userId, userId))))
     .orderBy(desc(workspaces.updatedAt))
     .limit(100);
-  return rows.filter((r) => r.ownerId === userId || (r.role && r.role !== "viewer")).map(({ id, title, slug }) => ({ id, title, slug }));
+  return rows
+    .map((r) => ({ ...r, viewerOnly: r.ownerId !== userId && (!r.role || r.role === "viewer") }))
+    .filter((r) => options.includeViewer || !r.viewerOnly)
+    .map((r) => ({
+      id: r.id, title: r.title, slug: r.slug, viewerOnly: r.viewerOnly,
+      org: r.kind === "organization" ? r.title : r.orgTitle ?? null,
+      agentsOff: !allowsAgentTokens(r.kind === "organization" ? r.own : r.orgSettings),
+    }));
 }

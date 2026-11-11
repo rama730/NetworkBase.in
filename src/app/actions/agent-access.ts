@@ -8,19 +8,24 @@ import { changeAgentAccess, renewAgentAccess } from "@/lib/agents/access-setting
 import { recordSecurityEventFromHeaders } from "@/lib/security/audit-from-headers";
 import { resolveSecurityStepUp } from "@/lib/security/step-up";
 import { resolveStepUpCapabilities } from "@/lib/security/step-up-capabilities";
+import type { SecurityStepUpMethod } from "@/lib/security/step-up-methods";
 import { AGENT_EXTRA_SCOPES } from "@/lib/security/token-access";
 import { createClient } from "@/lib/supabase/server";
 
-type Result<T = object> = ({ success: true } & T) | { success: false; error: string; stepUpRequired?: true };
+type StepUp = { methods: SecurityStepUpMethod[]; factorId?: string };
+type Failure = { success: false; error: string; stepUpRequired?: true; stepUp?: StepUp };
+type Result<T = object> = ({ success: true } & T) | Failure;
 
 /** The browser's signed-in person; with `fresh`, also a recent "Verify it's you" when the account has a way to check. */
-async function person(fresh: boolean): Promise<{ id: string } | { success: false; error: string; stepUpRequired?: true }> {
+async function person(fresh: boolean): Promise<{ id: string } | Failure> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Sign in to continue" };
   if (fresh) {
-    const { availableMethods } = await resolveStepUpCapabilities({ supabase: supabase as never, user: user as never });
-    if (availableMethods.length > 0 && !(await resolveSecurityStepUp(user.id)).ok) return { success: false, error: "Verify it's you first", stepUpRequired: true };
+    const { availableMethods, primaryTotpFactorId } = await resolveStepUpCapabilities({ supabase: supabase as never, user: user as never });
+    if (availableMethods.length > 0 && !(await resolveSecurityStepUp(user.id)).ok) {
+      return { success: false, error: "Verify it's you first", stepUpRequired: true, stepUp: { methods: availableMethods, factorId: primaryTotpFactorId } };
+    }
   }
   return { id: user.id };
 }

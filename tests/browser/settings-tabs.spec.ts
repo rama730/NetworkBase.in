@@ -364,6 +364,17 @@ test('disconnecting a sign-in method asks first and Cancel sends nothing', async
   expect(calls.filter((call) => call.path === '/api/v1/integrations/unlink')).toEqual([]);
 });
 
+test('an agent row shows its access sentence in full and links to Change access (report A8)', async ({ page }) => {
+  const sentence = 'Claude Code can work in all your workspaces for 30 days. It does small things itself (reading, tasks, comments, drafts) and asks you before finishing tasks, final files, doc edits or deleting.';
+  const agent = { id: '99999999-9999-4999-8999-999999999999', deviceName: 'Chs-MacBook', clientVersion: '2.0.4', editorHost: 'cli', editorName: 'NetworkBase CLI', editorPlatform: 'darwin', tokenType: 'agent', agentName: 'Claude Code', workspaceId: null, allWorkspaces: true, accessSentence: sentence, expiresAt: new Date(Date.now() + 30 * 864e5).toISOString(), lastSeenAt: new Date().toISOString(), createdAt: new Date().toISOString() };
+  await openRealSettings(page, { respond: (_m, url) => (url.pathname === '/api/v1/integrations' ? integrations() : undefined), actions: { readActiveExtensionSessions: () => ({ success: true, sessions: [agent], hasMore: false, nextCursor: null }) } });
+  await ready(page);
+  const devices = page.locator('#settings-integrations-editors');
+  await expect(devices.getByText(sentence)).toBeVisible();
+  await expect(devices.getByText('limited to one workspace')).toHaveCount(0);
+  await expect(devices.getByRole('link', { name: 'Change access' })).toHaveAttribute('href', `/settings/agents/${agent.id}`);
+});
+
 test('disconnecting asks for verification when the server wants it', async ({ page }) => {
   const { calls } = await openRealSettings(page, { respond: (method, url) => {
     if (url.pathname === '/api/v1/integrations') return integrations();

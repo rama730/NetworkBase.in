@@ -1248,9 +1248,9 @@
       "text": "Changing access in place: a route updates an existing agent sign-in's scopes and workspace (the person's own, after \"Verify it's you\") and records a security ev",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-change.test.ts; tests/browser/agent-access.spec.ts; tests/browser/settings-tabs.spec.ts (agent row)",
+      "evidence": "M1 T6"
     },
     {
       "key": "A5.4d236dea",
@@ -1268,9 +1268,9 @@
       "text": "Renewal notice: a daily job finds agent sign-ins expiring within 7 days and sends one inbox item each (deduplicated).",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-change.test.ts",
+      "evidence": "M1 T6"
     },
     {
       "key": "A5.32e4ae36",
@@ -1358,9 +1358,9 @@
       "text": "Broad access is visible:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-change.test.ts (broad first)",
+      "evidence": "M1 T6"
     },
     {
       "key": "A7.2fe3c857",
@@ -1388,9 +1388,9 @@
       "text": "Settings → Integrations:",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/settings-tabs.spec.ts (agent row); tests/db/agent-access-change.test.ts",
+      "evidence": "M1 T6"
     },
     {
       "key": "A8.01bdadb6",
@@ -1578,9 +1578,9 @@
       "text": "Change access · Settings → Integrations → Change access, a small page like the approval page · \"Verify it's you\", then it updates the session's scopes and works",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-change.test.ts; tests/browser/agent-access.spec.ts; tests/browser/settings-tabs.spec.ts (agent row)",
+      "evidence": "M1 T6"
     },
     {
       "key": "A10.38e7e958",
@@ -1618,9 +1618,9 @@
       "text": "Renewal notice · a daily Inngest cron · sends one inbox item per agent sign-in expiring within 7 days (dedupe key: session and expiry date); \"Renew\" opens the a",
       "kind": "build",
       "milestone": "M1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/agent-access-change.test.ts",
+      "evidence": "M1 T6"
     },
     {
       "key": "A10.c8bbf0ae",
