@@ -7,7 +7,8 @@ import path from "node:path";
 import { CliError, EXIT, usage } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { confirm } from "../tui/ask.mjs";
-import { resolveTask, taskRef } from "./tasks.mjs";
+import { parseDate } from "../dates.mjs";
+import { bulkChange, resolveTask, taskRef } from "./tasks.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -16,7 +17,6 @@ const update = (ctx, body) => ctx.api.patch("/api/v1/extension/task-update", { p
 
 /** @param {Context} ctx */
 export async function taskEdit(ctx) {
-  const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]));
   /** @type {Array<[string, string | null]>} */
   const changes = [];
   if (ctx.flags.title) changes.push(["title", String(ctx.flags.title)]);
@@ -26,11 +26,21 @@ export async function taskEdit(ctx) {
     changes.push(["priority", ctx.flags.priority]);
   }
   if (ctx.flags.due) {
+    // Natural dates everywhere a date is taken (C2): friday, next week, in 3 days, 2026-12-01.
     const due = String(ctx.flags.due);
-    if (due !== "none" && Number.isNaN(Date.parse(due))) throw usage("--due takes a date like 2026-11-14, or none");
-    changes.push(["dueDate", due === "none" ? null : new Date(due).toISOString()]);
+    const date = due === "none" ? null : parseDate(due);
+    if (due !== "none" && !date) throw usage(`--due ${due} isn't a date I know`, "Use today, tomorrow, friday, next week, in 3 days, 2026-12-01, or none");
+    changes.push(["dueDate", date]);
   }
-  if (!changes.length) throw usage("nb task edit <task> [--title text] [-m description] [--priority high] [--due 2026-11-14|none]");
+  if (!changes.length) throw usage("nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none]");
+  if (ctx.positionals.length > 1) {
+    if (changes.some(([f]) => f === "title" || f === "description")) throw usage("Several tasks take --priority and --due; change a title one task at a time");
+    let numbers = [];
+    for (const [field, value] of changes) numbers = (await bulkChange(ctx, ctx.positionals, { kind: "edit", field, value })).tasks.map((/** @type {any} */ t) => t.number);
+    ctx.out.result("nb.task.edit/1", { numbers, changed: changes.map(([f]) => f) }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Changed ${d.changed.join(", ")} on ${d.numbers.map((/** @type {number} */ n) => `#${n}`).join(", ")}`);
+    return;
+  }
+  const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]));
   for (const [field, value] of changes) await update(ctx, { kind: "edit", taskId: task.id, field, value });
   ctx.out.result("nb.task.edit/1", { number: task.taskNumber, changed: changes.map(([f]) => f) }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Changed ${d.changed.join(", ")} on #${d.number}`);
 }
@@ -46,10 +56,34 @@ export async function resolvePerson(ctx, who) {
   return hit.id;
 }
 
+/**
+ * A picker when the person is left out (C2): in a terminal, choose; scripts and agents get exit 6 with the choices.
+ * @param {Context} ctx @returns {Promise<string>}
+ */
+async function pickPerson(ctx) {
+  const { members } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/members`));
+  const { ask } = await import("../tui/ask.mjs");
+  return ask(ctx, { key: "person", header: "Assign to", question: "Who should do it?", options: [
+    { value: "me", label: "Me", recommended: true },
+    ...members.filter((/** @type {any} */ m) => m.username).slice(0, 7).map((/** @type {any} */ m) => ({ value: `@${m.username}`, label: safe(m.fullName ?? m.username), description: `@${m.username}` })),
+    { value: "none", label: "Nobody" },
+  ] });
+}
+
 /** @param {Context} ctx */
 export async function taskAssign(ctx) {
-  const [ref, who] = ctx.positionals;
-  if (!ref || !who) throw usage("nb task assign <task> <@username|me|none>");
+  // nb task assign 4 @sam, or several: nb task assign 3 4 --to sam (C2). Left out: choose from the members.
+  const picking = !ctx.flags.to && ctx.positionals.length === 1;
+  const refs = ctx.flags.to || picking ? ctx.positionals : ctx.positionals.slice(0, -1);
+  const who = ctx.flags.to ? String(ctx.flags.to) : picking ? await pickPerson(ctx) : ctx.positionals.at(-1);
+  const [ref] = refs;
+  if (!ref || !who) throw usage("nb task assign <task…> <@username|me|none>, or --to @sam");
+  if (refs.length > 1) {
+    const assigneeId = await resolvePerson(ctx, who);
+    const d = await bulkChange(ctx, refs, { kind: "assign", assigneeId });
+    ctx.out.result("nb.task.assign/1", { numbers: d.tasks.map((/** @type {any} */ t) => t.number), assignee: who === "none" ? null : who.replace(/^@/, "") }, (r) => `${ctx.out.c.success(ctx.out.sym.done)} ${r.numbers.map((/** @type {number} */ n) => `#${n}`).join(", ")} ${r.assignee ? `assigned to ${r.assignee === "me" ? "you" : `@${safe(r.assignee)}`}` : "unassigned"}`);
+    return;
+  }
   const task = await resolveTask(ctx, ref);
   const assigneeId = await resolvePerson(ctx, who);
   await update(ctx, { kind: "assign", taskId: task.id, assigneeId });

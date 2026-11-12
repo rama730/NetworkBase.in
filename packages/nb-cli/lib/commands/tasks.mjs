@@ -1,5 +1,5 @@
 // Tasks, subtasks and comments (report §17.4, §42.10, findings 1–3, 7–9, 24, 51–58).
-import { parseDate } from "../dates.mjs";
+import { dueRange, parseDate } from "../dates.mjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -24,12 +24,24 @@ export async function resolveTask(ctx, ref, { brief = false } = {}) {
   const workspaceId = ctx.requireWorkspace();
   const cleaned = ref.trim().replace(/^(T-|#)/i, "");
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleaned);
-  if (!isUuid && !/^\d+$/.test(cleaned)) throw usage(`${ref} isn't a task number or id`, "Use the number shown in nb task list, like 4");
+  if (!isUuid && !/^\d+$/.test(cleaned)) return resolveTask(ctx, await taskByWords(ctx, ref), { brief });
   const detail = /** @type {any} */ (await ctx.api.get("/api/v1/extension/task-detail", { query: { projectId: workspaceId, ...(isUuid ? { taskId: cleaned } : { taskNumber: cleaned }), ...(brief ? { brief: "1" } : {}) } }).catch((error) => {
     if (error instanceof CliError && (error.status === 404 || error.code === "NOT_FOUND")) throw new CliError("TASK_NOT_FOUND", `No task ${ref} in this workspace`, { hint: "See nb task list" });
     throw error;
   }));
   return { ...detail.task, subtasks: detail.subtasks ?? [], files: detail.files ?? [], comments: detail.comments ?? [], pushes: detail.pushes ?? [] };
+}
+
+/**
+ * Tasks by words (C2): one open match is that task; several ask in a terminal, or exit 6 with the choices.
+ * @param {Context} ctx @param {string} words @returns {Promise<string>} the task number
+ */
+async function taskByWords(ctx, words) {
+  const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query: { projectId: ctx.requireWorkspace(), scope: "all", open: "1", q: words, limit: "10" } }));
+  if (!tasks.length) throw new CliError("TASK_NOT_FOUND", `No open task matches "${words}"`, { hint: "Try fewer words, or nb task list --all" });
+  if (tasks.length === 1) return String(tasks[0].taskNumber);
+  const { ask } = await import("../tui/ask.mjs");
+  return ask(ctx, { key: "task", header: "Task", question: `Which task do you mean by "${words}"?`, options: tasks.slice(0, 4).map((/** @type {any} */ t, /** @type {number} */ i) => ({ value: String(t.taskNumber), label: `#${t.taskNumber} ${safe(t.title)}`, recommended: i === 0 })) });
 }
 
 /** The task a command means: an argument, --task, or the folder's started task. @param {Context} ctx @param {string | undefined} given */
@@ -54,11 +66,26 @@ export async function list(ctx) {
   const { applySavedFilter } = await import("./extras.mjs");
   applySavedFilter(ctx);
   const workspaceId = ctx.requireWorkspace();
-  const scope = ctx.flags.all ? "all" : "mine";
-  const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query: { projectId: workspaceId, scope } }));
+  const scope = ctx.flags.all || ctx.flags.to ? "all" : "mine";
   const wanted = ctx.flags.status ? new Set(String(ctx.flags.status).split(",").map((s) => s.trim())) : null;
-  let rows = tasks.filter((/** @type {any} */ t) => (wanted ? wanted.has(t.status) || (wanted.has("review") && t.reviewStatus === "pending") : t.status !== "done" || t.reviewStatus === "pending"));
   const limit = ctx.flags.limit ? Number(ctx.flags.limit) : 50;
+  // Filters run on the server (C2), so open work never falls off a page of done tasks.
+  const due = ctx.flags.due ? dueRange(String(ctx.flags.due)) : null;
+  if (ctx.flags.due && !due) throw usage(`--due ${ctx.flags.due} isn't a range I know`, "Use today, week, overdue, or a date like friday or 2026-12-01");
+  if (ctx.flags.sort && !["due", "priority", "updated"].includes(String(ctx.flags.sort))) throw usage(`--sort ${ctx.flags.sort}: use due, priority or updated`);
+  const { resolvePerson } = ctx.flags.to ? await import("./work.mjs") : { resolvePerson: null };
+  /** @type {Record<string, string>} */
+  const query = { projectId: workspaceId, scope, limit: String(Math.min(100, limit + 1)) };
+  if (!wanted) query.open = "1";
+  else if (!wanted.has("review")) query.status = [...wanted].join(",");
+  if (due?.after) query.dueAfter = due.after;
+  if (due?.before) query.dueBefore = due.before;
+  if (resolvePerson) query.assignee = (await resolvePerson(ctx, String(ctx.flags.to))) ?? "none";
+  if (ctx.flags.sprint) query.sprint = await resolveSprint(ctx, String(ctx.flags.sprint));
+  if (ctx.flags.priority) query.priority = String(ctx.flags.priority);
+  if (ctx.flags.sort) query.sort = String(ctx.flags.sort);
+  const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query }));
+  let rows = tasks.filter((/** @type {any} */ t) => (wanted ? wanted.has(t.status) || (wanted.has("review") && t.reviewStatus === "pending") : true));
   const more = Math.max(0, rows.length - limit);
   rows = rows.slice(0, limit);
   const data = { scope, tasks: rows.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus ?? null, priority: t.priority ?? null, dueDate: t.dueDate ?? null, assignee: t.assigneeUsername ?? t.assigneeName ?? null, subtasks: t.subtaskSummary ?? null })), more };
@@ -74,7 +101,33 @@ export async function list(ctx) {
         { title: "Due", value: (t) => (t.dueDate ? formatDate(t.dueDate) : "—"), optional: true },
         { title: "Assignee", value: (t) => (t.assignee ? `@${safe(t.assignee)}` : "—"), optional: true },
       ], d.tasks),
-      ctx.out.c.muted(`  ${d.tasks.length} ${d.tasks.length === 1 ? "task" : "tasks"}${d.more ? ` (and ${d.more} more: --limit)` : ""} · nb task view <n>`),
+      ctx.out.c.muted(`  ${d.tasks.length} ${d.tasks.length === 1 ? "task" : "tasks"}${d.more ? ` (more: --limit ${Math.min(100, limit * 2)})` : ""} · nb task view <n>`),
+    ];
+  });
+}
+
+/**
+ * What to work on now (C2): your open tasks, overdue first, then due this week, in progress, blocked, to do.
+ * ponytail: your own tasks only; reviews waiting for you and assignments due join with F1 (M7).
+ * @param {Context} ctx
+ */
+export async function next(ctx) {
+  const limit = Number(ctx.flags.limit ?? 5) || 5;
+  const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query: { projectId: ctx.requireWorkspace(), scope: "mine", open: "1", sort: "due", limit: "100" } }));
+  const now = Date.now();
+  const due = (/** @type {any} */ t) => (t.dueDate ? Date.parse(t.dueDate) : Infinity);
+  const why = (/** @type {any} */ t) => (t.reviewStatus === "pending" ? "waiting for review" : due(t) < now ? "overdue" : due(t) < now + 7 * 86_400_000 ? "due soon" : t.status === "in_progress" ? "in progress" : t.status === "blocked" ? "blocked" : "to do");
+  const RANK = ["overdue", "due soon", "in progress", "blocked", "to do", "waiting for review"];
+  const items = tasks.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status, dueDate: t.dueDate ?? null, why: why(t) }))
+    .sort((/** @type {any} */ a, /** @type {any} */ b) => RANK.indexOf(a.why) - RANK.indexOf(b.why) || due(a) - due(b) || a.number - b.number)
+    .slice(0, limit);
+  const { c } = ctx.out;
+  ctx.out.result("nb.next/1", { items }, (d) => {
+    if (!d.items.length) return "Nothing open is yours · nb task list --all for everyone's";
+    return [
+      ...d.items.map((/** @type {any} */ t, /** @type {number} */ i) => `  ${i + 1}. #${t.number} ${safe(t.title)} ${c.muted("·")} ${t.why === "overdue" ? c.warning(t.why) : c.muted(t.why)}${t.dueDate ? c.muted(` (${formatDate(t.dueDate)})`) : ""}`),
+      "",
+      c.muted(`  Start: nb task start ${d.items[0].number}`),
     ];
   });
 }
@@ -241,14 +294,32 @@ export async function stop(ctx) {
 
 /** @param {Context} ctx */
 export async function move(ctx) {
-  const [ref, to] = ctx.positionals;
-  if (!ref || !to) throw usage("nb task move <task> todo|in_progress|blocked");
-  if (!["todo", "in_progress", "blocked"].includes(to)) throw usage(`Move to todo, in_progress or blocked (use nb task done to finish)`);
+  const refs = ctx.positionals.slice(0, -1);
+  const to = ctx.positionals.at(-1);
+  const [ref] = refs;
+  if (!ref || !to) throw usage("nb task move <task…> todo|in_progress|blocked");
   if (to === "blocked" && !ctx.flags.reason) throw usage("Say why it's blocked: --reason \"waiting for API keys\"");
+  // Several at once (C2): one request, all or nothing, one undo. Done is allowed here, as in the app's bulk move.
+  if (refs.length > 1) {
+    if (!["todo", "in_progress", "blocked", "done"].includes(to)) throw usage("Move to todo, in_progress, blocked or done");
+    const d = await bulkChange(ctx, refs, { kind: "status", status: to, ...(ctx.flags.reason ? { note: String(ctx.flags.reason) } : {}) });
+    ctx.out.result("nb.task.move/1", { numbers: d.tasks.map((/** @type {any} */ t) => t.number), status: to }, (r) => `${ctx.out.c.success(ctx.out.sym.done)} ${r.numbers.map((/** @type {number} */ n) => `#${n}`).join(", ")} ${r.numbers.length === 1 ? "is" : "are"} ${STATUS_WORDS[r.status]} · nb undo puts them back`);
+    return;
+  }
+  if (!["todo", "in_progress", "blocked"].includes(to)) throw usage(`Move to todo, in_progress or blocked (use nb task done to finish)`);
   const task = await resolveTask(ctx, ref);
   await setStatus(ctx, task, to);
   if (to === "blocked") await ctx.api.post("/api/v1/extension/comments", { kind: "task", projectId: ctx.requireWorkspace(), taskId: task.id, text: `Blocked: ${ctx.flags.reason}` });
   ctx.out.result("nb.task.move/1", { number: task.taskNumber, status: to }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} #${d.number} is ${STATUS_WORDS[d.status]}`);
+}
+
+/**
+ * One change to several tasks (report C2): POST /api/v1/tasks/bulk, all or nothing, one undo.
+ * @param {Context} ctx @param {string[]} refs @param {Record<string, unknown>} change
+ */
+export async function bulkChange(ctx, refs, change) {
+  const tasks = await Promise.all(refs.map((r) => resolveTask(ctx, r, { brief: true })));
+  return /** @type {any} */ (await ctx.api.post("/api/v1/tasks/bulk", { projectId: ctx.requireWorkspace(), taskIds: tasks.map((t) => t.id), change }));
 }
 
 /**

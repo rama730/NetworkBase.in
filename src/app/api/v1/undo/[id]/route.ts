@@ -28,6 +28,16 @@ class Changed extends Error {
   }
 }
 
+/** A bulk undo's step is only taken when its task is still as the change left it (checked for all first). */
+async function stillAsLeft(step: Extract<UndoInverse, { kind: "tasks.bulk" }>["steps"][number]) {
+  const [task] = await db.select({ status: tasks.status, assigneeId: tasks.assigneeId, priority: tasks.priority, dueDate: tasks.dueDate }).from(tasks).where(eq(tasks.id, step.taskId)).limit(1);
+  if (!task) return false;
+  if (step.kind === "task.status") return task.status === step.expectFrom;
+  if (step.kind === "task.assign") return (task.assigneeId ?? null) === step.expect;
+  if (step.field === "dueDate") return (task.dueDate ? task.dueDate.getTime() : null) === (step.expect ? Date.parse(step.expect) : null);
+  return (task[step.field as "priority"] ?? null) === step.expect;
+}
+
 /** Runs the inverse of one change made with a token, if nothing has happened since that it would undo (A2.9). */
 async function runInverse(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }, inverse: UndoInverse) {
   switch (inverse.kind) {
@@ -99,6 +109,17 @@ async function runInverse(user: { id: string; email?: string; user_metadata?: Re
       const result = await updateSubtaskAction(inverse.subtaskId, inverse.title, inverse.projectId);
       if (!result.success) throw new Error(result.error ?? "Couldn’t rename it back");
       return "Renamed the subtask back";
+    }
+    case "tasks.bulk": {
+      // All or nothing (report C2): if any task moved on since, none is put back.
+      for (const [i, step] of inverse.steps.entries()) {
+        if (!(await stillAsLeft(step))) throw new Changed(`#${inverse.numbers[i] ?? "?"} changed since, so nothing was put back`);
+      }
+      for (const step of inverse.steps) await runInverse(user, step);
+      const n = inverse.numbers;
+      const which = n.length > 1 ? `${n.slice(0, -1).map((x) => `#${x}`).join(", ")} and #${n.at(-1)}` : `#${n[0]}`;
+      const first = inverse.steps[0];
+      return first?.kind === "task.status" ? `Moved ${which} back to ${STATUS_WORDS[first.to] ?? first.to}` : `Put ${which} back`;
     }
     case "files.restore": {
       const created = inverse.files.filter((f) => f.created).map((f) => f.nodeId);

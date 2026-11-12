@@ -3,113 +3,43 @@ NetworkBase CLI
 Usage
   nb <command> [flags]
 
-Account and setup
-  login                Sign in (browser, a code, or a token from stdin)
-  logout               Revoke this device's token and sign out
-  token list           Your signed-in devices, agents and personal tokens
-  token revoke         Revoke a device, agent or personal token
-  whoami               Who you are, what this token may do, limits
-  init                 Link this folder to a workspace
-  unlink               Remove the link, keep your files
-  status               What changed here, the started task, conflicts
-  doctor               Check sign-in, server, link, Node and this folder
-  open                 Open the workspace, a task or a file in the browser
-  version              CLI, Node and server versions
-  help                 Help for a command
-  completion           Shell completion script
-  setup shell          Add completions to your shell (asks first)
-  feedback             A report to send with a problem (no tokens or paths)
-  config               Show or change settings
-  inbox                Your notifications, as in the app
-  inbox read           Mark inbox items read
-  inbox open           Open an inbox item in the browser
+Most used
+  init         Link this folder to a workspace
+  status       What changed here, the started task, conflicts
+  pull         Download changes; never overwrites your edits
+  push         Upload changes; same path = new version
+  next         What to work on now: overdue, due soon, in progress
+  task list    Tasks (default: yours, not done)
+  task start   Make it this folder's task and move it to In progress
+  task done    Finish a task (sends it for review when required)
+  task create  Create a task (yours unless --to says otherwise)
+  inbox        Your notifications, as in the app
 
-Files
-  undo                 Undo your last change from this machine (24 hours)
-  diff                 Changes against the version you last pulled
-  pull                 Download changes; never overwrites your edits
-  push                 Upload changes; same path = new version
-  sync                 Pull, then push changed tracked files
-  resolve              Settle a conflict
-  watch                Push your saves as drafts; pull teammates' changes
-                       (foreground)
-  file list            Files in the workspace
-  file history         A file's versions: who, when, how
-  file move            Move a file to another folder (asks first)
-  file rename          Rename a file (asks first)
-  file delete          Move a file to the workspace Trash (asks first)
-  file attach          Attach a workspace file to a task with a role
-  file detach          Take a file off a task
-  file view            Print a file (pipe-safe)
+More
+  Account and setup
+    login, logout, token list, token revoke, whoami, unlink, doctor, open,
+    version, help, completion, setup shell, feedback, config, inbox read,
+    inbox open
+  Files
+    undo, diff, sync, resolve, watch, file list, file history, file move,
+    file rename, file delete, file attach, file detach, file view
+  Tasks
+    task count, task view, task stop, task move, task review, task resubmit,
+    task edit, task assign, task report, task delete, task open, task pull,
+    subtask list, subtask add, subtask check, subtask uncheck, subtask edit,
+    subtask delete, subtask move, comment add, comment list, comment resolve
+  Classes
+    assignment list, assignment view, assignment pull, assignment hand-in,
+    assignment unsubmit, assignment question, review list, review view,
+    review approve, review return, review pull
+  Agents
+    ask, ask wait, ask list, ask answer, agent setup, agent status,
+    agent access, agent remove, mcp
+  Docs and workspaces
+    doc list, doc view, doc edit, doc set, workspace list, workspace view,
+    workspace open, activity, sprint list, sprint view, update post,
+    member list, search
 
-Tasks
-  task list            Tasks (default: yours, not done)
-  task count           How many open tasks you have
-  task view            A task's details (--context: brief for an AI agent)
-  task create          Create a task (yours unless --to says otherwise)
-  task start           Make it this folder's task and move it to In progress
-  task stop            Clear this folder's task (status unchanged)
-  task move            Move to todo, in_progress or blocked
-  task done            Finish a task (sends it for review when required)
-  task review          Approve or ask for changes (reviewers)
-  task resubmit        Send for review again after changes
-  task edit            Change a task's title, description, priority or due date
-  task assign          Assign a task to someone, you, or nobody
-  task report          Report progress with checks, without finishing
-  task delete          Delete a task (owner; asks first)
-  task open            Open a task in the browser
-  task pull            Bring a task's panel files into .tasks/
-  subtask list         Numbered subtasks
-  subtask add          Add subtasks
-  subtask check        Tick subtasks by number
-  subtask uncheck      Untick subtasks by number
-  subtask edit         Rename a subtask
-  subtask delete       Delete a subtask (asks first)
-  subtask move         Move a subtask to another position
-  comment add          Comment on a task
-  comment list         A task's comments, or a file's line comments
-  comment resolve      Resolve (or --reopen) a file comment thread
-
-Classes
-  assignment list      Your assignments: due, state, AI policy
-  assignment view      Instructions, due date, late rule, AI policy, your state
-  assignment pull      Materials and your files into .tasks/
-  assignment hand-in   Hand in, with the app's late and lock rules
-  assignment unsubmit  Take back a hand-in before it's approved
-  assignment question  Ask the class a question about an assignment
-  review list          Hand-ins waiting for your review
-  review view          A hand-in: files, note, late, AI policy
-  review approve       Approve a hand-in
-  review return        Return a hand-in with what to fix
-  review pull          Download a hand-in to reviews/ (read-only)
-
-Agents
-  ask                  Ask a person a question in NetworkBase (and wait for the
-                       answer)
-  ask wait             Wait for the answer to a question
-  ask list             Questions agents asked you
-  ask answer           Answer a question an agent asked you
-  agent setup          Connect Claude Code, Codex or Cursor to this workspace
-                       (asks first)
-  agent status         Which agents are connected here, and what each may do
-  agent access         Change what an agent may do (opens its Settings page)
-  agent remove         Disconnect an agent and remove its NetworkBase notes
-  mcp                  MCP server for Claude Code, Codex and Cursor (stdio)
-
-Docs and workspaces
-  doc list             Workspace docs
-  doc view             Print a doc (default: the README)
-  doc edit             Edit a doc in your editor, saved as a new version
-  doc set              Replace a doc's text from a file or stdin (asks first)
-  workspace list       Your workspaces
-  workspace view       The workspace at a glance
-  workspace open       Open the workspace in the browser
-  activity             What happened, newest first
-  sprint list          Sprints (or the workspace's own word for them)
-  sprint view          One sprint and its tasks
-  update post          Post an update to the workspace (asks first)
-  member list          People in the workspace
-  search               Find files by name
-
-Every command takes --json, --quiet, --plain and --help.
+nb help <command> explains one. Every command takes --json, --quiet, --plain and
+--help.
 Docs: https://networkbase.in/docs/cli

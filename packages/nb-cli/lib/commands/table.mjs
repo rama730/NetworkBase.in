@@ -35,6 +35,11 @@ const FILTERS = {
   all: { type: "boolean", describe: "Include tasks assigned to others" },
   status: { type: "string", describe: "todo,in_progress,blocked,review,done", valueName: "list" },
   limit: { type: "string", describe: "At most this many", valueName: "n" },
+  due: { type: "string", describe: "today, week, overdue, or a date", valueName: "when" },
+  to: { type: "string", describe: "Assigned to @username, me or none (looks at everyone's tasks)", valueName: "person" },
+  sprint: { type: "string", describe: "A sprint name, current, or id", valueName: "sprint" },
+  priority: { type: "string", describe: "low,medium,high,urgent", valueName: "list" },
+  sort: { type: "string", describe: "due, priority or updated (default)", valueName: "by" },
 };
 /** 1.x status flags: still accepted so old scripts run, never shown (P2.9). @type {Record<string, FlagSpec>} */
 const OLD_STATUS = {
@@ -69,6 +74,7 @@ export const COMMANDS = [
     flags: { repair: { type: "boolean", describe: "Fix what can be fixed (lock, temp files)" } } },
   { group: "Account and setup", name: "open", summary: "Open the workspace, a task or a file in the browser", usage: "nb open [task|path]", module: "misc", fn: "open" },
   { group: "Account and setup", name: "version", summary: "CLI, Node and server versions", usage: "nb version", module: "misc", fn: "version" },
+  { group: "Account and setup", name: "home", hidden: true, summary: "Where you are and what to do next", usage: "nb", module: "misc", fn: "home", exit: [0, 3, 4, 8] },
   { group: "Account and setup", name: "help", summary: "Help for a command", usage: "nb help [command]", module: "misc", fn: "help" },
   { group: "Account and setup", name: "completion", summary: "Shell completion script", usage: "nb completion zsh|bash|fish|powershell", module: "misc", fn: "completion" },
   { group: "Account and setup", name: "setup shell", summary: "Add completions to your shell (asks first)", usage: "nb setup shell [zsh|bash|fish|powershell]", module: "misc", fn: "setupShell" },
@@ -113,8 +119,10 @@ export const COMMANDS = [
   { group: "Files", name: "file view", summary: "Print a file (pipe-safe)", usage: "nb file view <path>", module: "docs", fn: "fileView" },
 
   // Tasks
-  { group: "Tasks", name: "task list", summary: "Tasks (default: yours, not done)", usage: "nb task list [@saved] [--mine|--all] [--status list] [--save name]", module: "tasks", fn: "list",
-    flags: { ...FILTERS, save: { type: "string", describe: "Save these filters under a name (nb task list @name)", valueName: "name" } }, examples: ["nb task list --all --status blocked --save stuck", "nb task list @stuck"] },
+  { group: "Tasks", name: "task list", summary: "Tasks (default: yours, not done)", usage: "nb task list [@saved] [--mine|--all] [--status list] [--due week] [--to @sam] [--sprint current] [--priority high] [--sort due] [--save name]", module: "tasks", fn: "list",
+    flags: { ...FILTERS, save: { type: "string", describe: "Save these filters under a name (nb task list @name)", valueName: "name" } }, examples: ["nb task list --due week --sort due", "nb task list --all --status blocked --save stuck", "nb task list @stuck"] },
+  { group: "Tasks", name: "next", summary: "What to work on now: overdue, due soon, in progress", usage: "nb next [--limit 5]", module: "tasks", fn: "next",
+    flags: { limit: { type: "string", describe: "At most this many (default 5)", valueName: "n" } } },
   { group: "Tasks", name: "task count", summary: "How many open tasks you have", usage: "nb task count", module: "tasks", fn: "count" },
   { group: "Tasks", name: "task view", summary: "A task's details (--context: brief for an AI agent)", usage: "nb task view <task> [--context]", module: "tasks", fn: "view",
     flags: { context: { type: "boolean", describe: "Print the task brief for pasting into an AI agent" } } },
@@ -128,15 +136,16 @@ export const COMMANDS = [
   { group: "Tasks", name: "task start", summary: "Make it this folder's task and move it to In progress", usage: "nb task start <task> [--branch]", module: "tasks", fn: "start",
     flags: { branch: { type: "boolean", describe: "Also switch to a git branch for it (nb/4-fix-login)" } }, examples: ["nb task start 4 --branch"] },
   { group: "Tasks", name: "task stop", summary: "Clear this folder's task (status unchanged)", usage: "nb task stop", module: "tasks", fn: "stop" },
-  { group: "Tasks", name: "task move", summary: "Move to todo, in_progress or blocked", usage: "nb task move <task> <status> [--reason text]", module: "tasks", fn: "move",
+  { group: "Tasks", name: "task move", summary: "Move to todo, in_progress or blocked", usage: "nb task move <task…> <status> [--reason text]", module: "tasks", fn: "move",
     flags: { reason: { type: "string", describe: "Why (needed for blocked)", valueName: "text" } } },
   { group: "Tasks", name: "task done", summary: "Finish a task (sends it for review when required)", usage: "nb task done [task] [-m summary] [--check name=pass]", module: "tasks", fn: "done",
     flags: { ...MESSAGE, check: { type: "string", multiple: true, describe: "A check you ran: name=pass|fail[:note]", valueName: "check" } } },
   { group: "Tasks", name: "task review", summary: "Approve or ask for changes (reviewers)", usage: "nb task review <task> approve|changes [-m reason]", module: "tasks", fn: "review", flags: { ...MESSAGE } },
   { group: "Tasks", name: "task resubmit", summary: "Send for review again after changes", usage: "nb task resubmit <task>", module: "tasks", fn: "resubmit" },
-  { group: "Tasks", name: "task edit", summary: "Change a task's title, description, priority or due date", usage: "nb task edit <task> [--title text] [-m description] [--priority high] [--due 2026-11-14|none]", module: "work", fn: "taskEdit",
+  { group: "Tasks", name: "task edit", summary: "Change a task's title, description, priority or due date", usage: "nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none]", module: "work", fn: "taskEdit",
     flags: { title: { type: "string", describe: "New title", valueName: "text" }, ...MESSAGE, priority: { type: "string", describe: "low, medium, high or urgent", valueName: "level" }, due: { type: "string", describe: "A date, or none", valueName: "date" } } },
-  { group: "Tasks", name: "task assign", summary: "Assign a task to someone, you, or nobody", usage: "nb task assign <task> <@username|me|none>", module: "work", fn: "taskAssign" },
+  { group: "Tasks", name: "task assign", summary: "Assign tasks to someone, you, or nobody", usage: "nb task assign <task…> <@username|me|none> | --to @sam", module: "work", fn: "taskAssign",
+    flags: { to: { type: "string", describe: "Who: @username, me or none (for several tasks)", valueName: "person" } }, examples: ["nb task assign 4 @sam", "nb task assign 3 4 5 --to me"] },
   { group: "Tasks", name: "task report", summary: "Report progress with checks, without finishing", usage: "nb task report <task> -m summary [--check name=pass]", module: "work", fn: "taskReport",
     flags: { ...MESSAGE, check: { type: "string", multiple: true, describe: "A check you ran: name=pass|fail[:note]", valueName: "check" } } },
   { group: "Tasks", name: "task delete", summary: "Delete a task (owner; asks first)", usage: "nb task delete <task>", module: "work", fn: "taskDelete", exit: [0, 3, 7, 130] },
@@ -227,6 +236,13 @@ export const ALIASES = {
   "workspace ls": "workspace list",
   "ws list": "workspace list",
   ws: "workspace list",
+};
+
+/** Short names people expect (report C1); each says its full name once. Not renamed, so no "until 3.0". */
+export const SHORTCUTS = {
+  ls: "file list",
+  add: "task add",
+  "task add": "task create",
 };
 
 /** 1.x commands removed on purpose (report D2, D6), with the reason printed instead. */

@@ -2,7 +2,7 @@
 // flags and commands are errors with a "did you mean", never silently ignored (finding 81).
 import { parseArgs } from "node:util";
 
-import { ALIASES, COMMANDS, GLOBAL_FLAGS, REMOVED } from "./commands/table.mjs";
+import { ALIASES, COMMANDS, GLOBAL_FLAGS, REMOVED, SHORTCUTS } from "./commands/table.mjs";
 import { CliError, usage } from "./errors.mjs";
 
 /** @typedef {import("./commands/table.mjs").CommandSpec} CommandSpec */
@@ -33,7 +33,7 @@ const TASK_REF = /^(#?\d+|T-\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
 /**
  * Finds the command in argv. `nb task 4` is a shortcut for `nb task view 4`.
  * @param {string[]} argv
- * @returns {{ spec: CommandSpec | null, rest: string[], alias: { from: string, to: string } | null }}
+ * @returns {{ spec: CommandSpec | null, rest: string[], alias: { from: string, to: string, shortcut?: boolean } | null }}
  */
 export function resolveCommand(argv) {
   // Help groups these under "Classes", so nb class … is nb assignment … (C16 #10).
@@ -44,13 +44,16 @@ export function resolveCommand(argv) {
     if (token.startsWith("-")) break;
     words.push(token);
   }
+  // `nb` on its own is the home screen (C1); `nb --help` stays the help page.
+  if (argv.length === 0) return { spec: /** @type {CommandSpec} */ (COMMANDS.find((c) => c.name === "home")), rest: [], alias: null };
   if (words.length === 0) return { spec: null, rest: argv, alias: null };
   for (let n = Math.min(3, words.length); n >= 1; n--) {
     const name = words.slice(0, n).join(" ");
     if (name in REMOVED) throw new CliError("USAGE", /** @type {Record<string, string>} */ (REMOVED)[name]);
-    const target = /** @type {Record<string, string>} */ (ALIASES)[name] ?? name;
+    const short = /** @type {Record<string, string>} */ (SHORTCUTS);
+    const target = short[short[name] ?? ""] ?? short[name] ?? /** @type {Record<string, string>} */ (ALIASES)[name] ?? name;
     const spec = COMMANDS.find((c) => c.name === target);
-    if (spec) return { spec, rest: argv.slice(n), alias: target !== name ? { from: name, to: target } : null };
+    if (spec) return { spec, rest: argv.slice(n), alias: target !== name ? { from: name, to: target, ...(short[name] ? { shortcut: true } : {}) } : null };
   }
   if (words[0] === "task" && words[1] && TASK_REF.test(words[1])) {
     return { spec: /** @type {CommandSpec} */ (COMMANDS.find((c) => c.name === "task view")), rest: argv.slice(1), alias: null };
@@ -117,24 +120,37 @@ const wrap = (text, width) => text.split(" ").reduce((/** @type {string[]} */ ou
 }, []);
 
 /** Overview help: every command by group, summaries wrapped to the terminal. @param {number} [columns] */
+/** The commands most people use, shown first in nb help (C1). */
+const MOST_USED = ["init", "status", "pull", "push", "next", "task list", "task start", "task done", "task create", "inbox"];
+
+/** A short help page (C1): the 10 most-used commands, then the rest by area, names only. */
 export function overviewHelp(columns = 80) {
+  const width = columns || 80;
+  const top = MOST_USED.map((name) => /** @type {CommandSpec} */ (COMMANDS.find((c) => c.name === name)));
+  const w = Math.max(...top.map((c) => c.name.length));
+  const lines = ["NetworkBase CLI", "", "Usage", "  nb <command> [flags]", "", "Most used"];
+  for (const c of top) {
+    const [first = "", ...rest] = wrap(c.summary, Math.max(16, width - w - 4));
+    lines.push(`  ${c.name.padEnd(w)}  ${first}`, ...rest.map((l) => `  ${" ".repeat(w)}  ${l}`));
+  }
+  lines.push("", "More");
   const groups = new Map();
   for (const c of COMMANDS) {
-    if (c.hidden) continue;
+    if (c.hidden || MOST_USED.includes(c.name)) continue;
     if (!groups.has(c.group)) groups.set(c.group, []);
-    groups.get(c.group).push(c);
+    groups.get(c.group).push(c.name);
   }
-  const w = Math.max(...COMMANDS.map((c) => c.name.length));
-  const lines = ["NetworkBase CLI", "", "Usage", "  nb <command> [flags]", ""];
-  for (const [group, cmds] of groups) {
-    lines.push(group);
-    for (const c of cmds) {
-      const [first = "", ...rest] = wrap(c.summary, Math.max(16, (columns || 80) - w - 4));
-      lines.push(`  ${c.name.padEnd(w)}  ${first}`, ...rest.map((l) => `  ${" ".repeat(w)}  ${l}`));
-    }
-    lines.push("");
+  for (const [group, names] of groups) {
+    // Wrapped between names, never inside one ("inbox / open").
+    const rows = names.reduce((/** @type {string[]} */ out, /** @type {string} */ name) => {
+      const last = out.at(-1);
+      if (last !== undefined && last.length + name.length + 2 <= Math.max(16, width - 5)) out[out.length - 1] = `${last}, ${name}`;
+      else out.push(name);
+      return out;
+    }, []);
+    lines.push(`  ${group}`, ...rows.map((r, i) => `    ${r}${i < rows.length - 1 ? "," : ""}`));
   }
-  lines.push(...wrap("Every command takes --json, --quiet, --plain and --help.", columns || 80), "Docs: https://networkbase.in/docs/cli");
+  lines.push("", ...wrap("nb help <command> explains one. Every command takes --json, --quiet, --plain and --help.", width), "Docs: https://networkbase.in/docs/cli");
   return lines.join("\n");
 }
 
@@ -143,6 +159,6 @@ export function helpData() {
   return {
     commands: COMMANDS.filter((c) => !c.hidden).map((c) => ({ name: c.name, summary: c.summary, usage: c.usage, flags: Object.fromEntries(Object.entries(c.flags ?? {}).filter(([, f]) => !f.hidden)), examples: c.examples ?? [], exitCodes: c.exit ?? [0, 1] })),
     globalFlags: GLOBAL_FLAGS,
-    aliases: ALIASES,
+    aliases: { ...ALIASES, ...SHORTCUTS },
   };
 }

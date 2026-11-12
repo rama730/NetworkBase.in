@@ -49,7 +49,7 @@ export async function filesFromLastCommit(cwd) {
 
 // ───────────────────────────────── saved filters (finding 148)
 
-const FILTER_KEYS = ["mine", "all", "status", "limit"];
+const FILTER_KEYS = ["mine", "all", "status", "limit", "due", "to", "sprint", "priority", "sort"];
 
 /** `--save <name>` stores the list flags; `@name` brings them back. @param {Context} ctx */
 export function applySavedFilter(ctx) {

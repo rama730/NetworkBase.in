@@ -15,6 +15,7 @@ export const API_OPERATIONS: Operation[] = [
   { method: "post", path: "/api/v1/extension/fast-push", summary: "Same as /api/v1/files/place (CLI 1.x address)", body: s.filePlaceSchema, auth: "token" },
   { method: "post", path: "/api/v1/extension/create-task", summary: "Create a task", body: s.createTaskSchema, auth: "token" },
   { method: "post", path: "/api/v1/extension/task-subtask", summary: "Add a subtask", body: s.addSubtaskSchema, auth: "token" },
+  { method: "post", path: "/api/v1/tasks/bulk", summary: "Move, assign or edit several tasks at once (all or nothing, one undo)", body: s.bulkTaskSchema, auth: "token" },
   { method: "patch", path: "/api/v1/extension/task-update", summary: "Change status, tick a subtask, review or resubmit a task", body: s.taskUpdateSchema, auth: "token" },
   { method: "post", path: "/api/v1/extension/comments", summary: "Comment on a task or a line of a file", body: z.union([s.taskCommentSchema, s.fileCommentSchema]), auth: "token" },
   { method: "post", path: "/api/v1/extension/file-operation", summary: "Move, rename or trash a file", body: s.fileOperationSchema, auth: "token" },

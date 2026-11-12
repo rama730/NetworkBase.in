@@ -114,7 +114,8 @@ describe("NetworkBase High-EQ CLI & Unified Ecosystem", () => {
       });
       // CLI 2.0 command language (report §17.4); the 1.x daemon, --done and git commands are gone.
       for (const words of ["init", "status", "push", "pull", "watch", "task create", "task done", "subtask add", "subtask check", "mcp", "agent setup"]) {
-        assert.ok(helpOut.includes(`  ${words} `), `help lists ${words}`);
+        // Most used as a table, the rest as comma lists by area (C1's shorter help).
+        assert.match(helpOut, new RegExp(`(^ {2}|, | {4})${words}(,| |$)`, "m"), `help lists ${words}`);
       }
     });
 

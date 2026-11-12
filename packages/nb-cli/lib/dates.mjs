@@ -31,3 +31,17 @@ export function parseDate(text, now = new Date()) {
   }
   return null;
 }
+
+/**
+ * `--due today|week|overdue` (or a date) as the instants the server filters on, in the person's own day (C2).
+ * @param {string} word @param {Date} [now] @returns {{ after?: string, before?: string } | null}
+ */
+export function dueRange(word, now = new Date()) {
+  const w = String(word ?? "").trim().toLowerCase();
+  if (w === "overdue") return { before: now.toISOString() };
+  if (w === "week") return { after: now.toISOString(), before: new Date(now.getTime() + 7 * 86_400_000).toISOString() };
+  const date = parseDate(w === "today" ? "today" : w, now);
+  if (!date) return null;
+  const [y, m, d] = date.split("-").map(Number);
+  return { after: new Date(y, m - 1, d).toISOString(), before: new Date(y, m - 1, d + 1).toISOString() };
+}

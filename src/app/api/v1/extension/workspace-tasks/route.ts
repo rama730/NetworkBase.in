@@ -36,7 +36,17 @@ const querySchema = z.object({
   scope: z.enum(["mine","all"]).default("all"),
   q: z.string().max(200).default(""),
   cursor: z.string().max(2048).optional(),
+  // nb task list filters (report C2). Due ranges come as instants so "today" is the person's own day.
+  open: z.enum(["1"]).optional(),
+  status: z.array(z.enum(["todo", "in_progress", "done", "blocked"])).max(4).optional(),
+  priority: z.array(z.enum(["low", "medium", "high", "urgent"])).max(4).optional(),
+  assignee: z.union([z.string().uuid(), z.literal("none")]).optional(),
+  sprint: z.string().uuid().optional(),
+  dueAfter: z.string().datetime().optional(),
+  dueBefore: z.string().datetime().optional(),
+  sort: z.enum(["updated", "due", "priority"]).default("updated"),
 });
+const csv = (value: string | null) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : undefined);
 
 function decodeCursor(value: string | undefined) {
   if (!value) return null;
@@ -69,12 +79,22 @@ export async function GET(request: Request) {
       cursor: searchParams.get("cursor")?.trim() || undefined,
       scope: searchParams.get("scope") || "all",
       q: searchParams.get("q") || "",
+      open: searchParams.get("open") || undefined,
+      status: csv(searchParams.get("status")),
+      priority: csv(searchParams.get("priority")),
+      assignee: searchParams.get("assignee") || undefined,
+      sprint: searchParams.get("sprint") || undefined,
+      dueAfter: searchParams.get("dueAfter") || undefined,
+      dueBefore: searchParams.get("dueBefore") || undefined,
+      sort: searchParams.get("sort") || undefined,
     });
     if (!parsed.success)
       return jsonError("Invalid workspace task query", 400, "BAD_REQUEST");
 
-    const cursor = decodeCursor(parsed.data.cursor);
-    if (parsed.data.cursor && !cursor)
+    const f = parsed.data;
+    // Pages follow updatedAt; another sort answers one page (limit up to 100) with no cursor.
+    const cursor = f.sort === "updated" ? decodeCursor(f.cursor) : null;
+    if (f.sort === "updated" && f.cursor && !cursor)
       return jsonError("Invalid task cursor", 400, "BAD_REQUEST");
     const { projectId, limit } = parsed.data;
     const access = await getWorkspaceAccessById(projectId, user.id);
@@ -116,8 +136,19 @@ export async function GET(request: Request) {
             // Organizations: the same read rule as the Tasks tab (decision 19).
             orgTaskReadFilter(access, user.id),
             parsed.data.scope === "mine" ? eq(tasks.assigneeId, user.id) : undefined,
-            parsed.data.q
-              ? sql`(${tasks.title} ILIKE ${"%" + parsed.data.q.replace(/[\%_]/g, (c) => "\\" + c) + "%"} OR ${tasks.taskNumber}::text = ${parsed.data.q.replace(/^.*[#-]/, "")})`
+            f.open ? sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')` : undefined,
+            f.status ? inArray(tasks.status, f.status) : undefined,
+            f.priority ? inArray(tasks.priority, f.priority) : undefined,
+            f.assignee === "none" ? isNull(tasks.assigneeId) : f.assignee ? eq(tasks.assigneeId, f.assignee) : undefined,
+            f.sprint ? eq(tasks.sprintId, f.sprint) : undefined,
+            f.dueAfter ? sql`${tasks.dueDate} >= ${f.dueAfter}::timestamptz` : undefined,
+            f.dueBefore ? sql`${tasks.dueDate} < ${f.dueBefore}::timestamptz` : undefined,
+            // Every word in the title, in any order ("bug login" finds "Fix the login bug"), or the number (C2).
+            parsed.data.q.trim()
+              ? or(
+                  and(...parsed.data.q.trim().split(/\s+/).slice(0, 8).map((word) => sql`${tasks.title} ILIKE ${"%" + word.replace(/[\%_]/g, (c) => "\\" + c) + "%"}`)),
+                  sql`${tasks.taskNumber}::text = ${parsed.data.q.trim().replace(/^.*[#-]/, "")}`,
+                )
               : undefined,
             cursor && cursorDate
               ? or(
@@ -127,7 +158,11 @@ export async function GET(request: Request) {
               : undefined,
           ),
         )
-        .orderBy(desc(tasks.updatedAt), desc(tasks.id))
+        .orderBy(
+          ...(f.sort === "due" ? [sql`${tasks.dueDate} ASC NULLS LAST`] : f.sort === "priority" ? [sql`array_position(ARRAY['urgent','high','medium','low']::text[], ${tasks.priority}::text)`] : []),
+          desc(tasks.updatedAt),
+          desc(tasks.id),
+        )
         .limit(limit + 1),
       getWorkspaceTaskSummary(projectId),
     ]);
@@ -303,7 +338,7 @@ export async function GET(request: Request) {
       query: parsed.data.q,
       totalScope: "project",
       hasMore,
-      nextCursor: hasMore && lastTask ? encodeCursor(lastTask) : null,
+      nextCursor: hasMore && lastTask && f.sort === "updated" ? encodeCursor(lastTask) : null,
     });
   } catch (error) {
     logger.error(

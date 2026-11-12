@@ -29,7 +29,10 @@ export async function init(ctx) {
   }
   if (!chosen) {
     if (!workspaces.length) throw new CliError("WORKSPACE_NOT_FOUND", "You have no workspaces yet", { hint: "Create one at networkbase.in first" });
-    const slug = await ask(ctx, { key: "workspace", header: "Workspace", question: "Which workspace should this folder link to?", options: workspaces.slice(0, 9).map((/** @type {any} */ w, /** @type {number} */ i) => ({ value: w.slug, label: safe(w.title), description: w.slug, recommended: i === 0 })) });
+    // The workspace named like this folder (or its repository) comes first (C1).
+    const matches = folderMatches(workspaces, here);
+    const ordered = [...matches, ...workspaces.filter((/** @type {any} */ w) => !matches.includes(w))];
+    const slug = await ask(ctx, { key: "workspace", header: "Workspace", question: "Which workspace should this folder link to?", options: ordered.slice(0, 9).map((/** @type {any} */ w, /** @type {number} */ i) => ({ value: w.slug, label: safe(w.title), description: i === 0 && matches.length ? `${w.slug} · matches this folder` : w.slug, recommended: i === 0 })) });
     chosen = workspaces.find((/** @type {any} */ w) => w.slug === slug);
   }
   const remoteRoot = ctx.flags.path ? `/${String(ctx.flags.path).replace(/^\/+|\/+$/g, "")}` : "/";
@@ -44,6 +47,35 @@ export async function init(ctx) {
   }
   ctx.out.result("nb.init/1", { workspace: { id: chosen.id, slug: chosen.slug, title: chosen.title }, root: here, remoteRoot, notes }, () =>
     ctx.out.c.muted(`Next: nb pull to get the files, or edit and nb push <files>${ctx.flags.task ? "" : " (nb task start <n> to work on a task)"}`));
+}
+
+const plain = (/** @type {unknown} */ s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** The folder's name and its git repository's name: what a person most likely called the workspace. @param {string} cwd */
+function folderNames(cwd) {
+  const names = new Set([plain(path.basename(cwd))]);
+  for (let dir = cwd; ; dir = path.dirname(dir)) {
+    const config = path.join(dir, ".git", "config");
+    if (fs.existsSync(config)) {
+      const url = /\[remote "origin"\][^[]*?url\s*=\s*(\S+)/.exec(fs.readFileSync(config, "utf8"))?.[1];
+      if (url) names.add(plain(path.basename(url).replace(/\.git$/, "")));
+      if (dir !== cwd) names.add(plain(path.basename(dir)));
+      break;
+    }
+    if (path.dirname(dir) === dir) break;
+  }
+  names.delete("");
+  return [...names];
+}
+
+/**
+ * Workspaces whose slug or title matches this folder or its repository, best first (C1).
+ * @template {{ slug: string, title: string }} W @param {W[]} workspaces @param {string} cwd @returns {W[]}
+ */
+export function folderMatches(workspaces, cwd) {
+  const names = folderNames(cwd);
+  const score = (/** @type {W} */ w) => Math.max(0, ...[plain(w.slug), plain(w.title)].flatMap((label) => names.map((n) => (label === n ? 3 : label && (label.includes(n) || n.includes(label)) && Math.min(label.length, n.length) >= 3 ? 2 : 0))));
+  return workspaces.map((w, i) => ({ w, s: score(w), i })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.w);
 }
 
 /**

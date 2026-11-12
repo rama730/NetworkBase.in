@@ -12,6 +12,34 @@ import { safe } from "../print/style.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
+/** `nb` on its own (report C1): signed out → sign in; not linked → the matching workspace; linked → nb status. @param {Context} ctx */
+export async function home(ctx) {
+  const { c } = ctx.out;
+  if (!ctx.profile.token) {
+    ctx.out.result("nb.home/1", { state: "signed-out" }, () => [
+      `${c.brand("NetworkBase")} ${c.muted(ctx.version)}`, "", "You're not signed in.", "",
+      `  nb login   ${c.muted("Sign in (one click in your browser)")}`,
+      `  nb help    ${c.muted("What the CLI can do")}`,
+    ]);
+    return;
+  }
+  if (!ctx.project) {
+    const { folderMatches } = await import("./link.mjs");
+    const { workspaces } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspaces"));
+    const matches = folderMatches(workspaces, ctx.cwd).slice(0, 3).map((/** @type {any} */ w) => ({ slug: w.slug, title: w.title }));
+    ctx.out.result("nb.home/1", { state: "not-linked", matches, workspaces: workspaces.length }, (d) => [
+      "This folder isn't linked to a workspace.",
+      ...(d.matches.length
+        ? ["", `Best match${d.matches.length > 1 ? "es" : ""}:`, ...d.matches.map((/** @type {any} */ m) => `  nb init ${safe(m.slug)}   ${c.muted(safe(m.title))}`)]
+        : ["", `  nb init    ${c.muted(d.workspaces ? "Choose one of your workspaces" : "Create a workspace at networkbase.in first")}`]),
+      `  nb help    ${c.muted("What the CLI can do")}`,
+    ]);
+    return;
+  }
+  const { status } = await import("./files.mjs");
+  return status(ctx);
+}
+
 /** @param {Context} ctx */
 export async function help(ctx) {
   const name = ctx.positionals.join(" ");

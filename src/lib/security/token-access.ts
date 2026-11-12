@@ -119,6 +119,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route("/api/v1/files/place"), write: "file:write", agent: "route" },
   { pattern: route("/api/v1/me"), read: null, agent: "self" },
   { pattern: route("/api/v1/tasks/count"), read: "task:read", agent: "self" },
+  // nb on its own (report C1): the person's terminal only, since it includes the inbox.
+  { pattern: route("/api/v1/home"), read: "task:read" },
   { pattern: route(`/api/v1/workspaces/${ID}/docs`), read: "workspace:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/docs/${ID}`), read: "workspace:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/manifest`), read: "file:read", agent: "path" },
@@ -129,6 +131,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/workspaces/${ID}/updates`), write: "task:write", agent: "path" },
   // Attach a workspace file to a task, or take it off; the route checks the workspace and final-file permission.
   { pattern: route(`/api/v1/tasks/${ID}/files`), write: "file:write", agent: "route" },
+  // Several tasks at once (report C2); the route checks the workspace and asks for task:complete to finish.
+  { pattern: route("/api/v1/tasks/bulk"), write: "task:write", agent: "route" },
   // Agents asking people (report §20.4); the routes check the workspace and who may answer.
   { pattern: route("/api/v1/questions"), read: "task:read", write: "task:write", agent: "route" },
   { pattern: route(`/api/v1/questions/${ID}`), read: "task:read", agent: "route" },

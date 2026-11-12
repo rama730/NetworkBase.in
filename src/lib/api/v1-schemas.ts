@@ -71,6 +71,17 @@ export const addSubtaskSchema = z.object({
 });
 
 // extension/task-update
+/** Several tasks at once (report C2): one request, all or nothing, one undo. */
+export const bulkTaskSchema = z.object({
+  projectId: z.string().uuid(),
+  taskIds: z.array(z.string().uuid()).min(1).max(50),
+  change: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("status"), status: z.enum(["todo", "in_progress", "done", "blocked"]), note: z.string().trim().max(2000).optional() }),
+    z.object({ kind: z.literal("assign"), assigneeId: z.string().uuid().nullable() }),
+    z.object({ kind: z.literal("edit"), field: z.enum(["priority", "dueDate"]), value: z.string().max(100).nullable() }),
+  ]),
+});
+
 export const taskUpdateSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("request_changes"), projectId: z.string().uuid(), taskId: z.string().uuid(), reason: z.string().trim().min(1).max(2000), expectedUpdatedAt: z.string().datetime() }),
   z.object({ kind: z.literal("resubmit"), projectId: z.string().uuid(), taskId: z.string().uuid(), expectedUpdatedAt: z.string().datetime() }),

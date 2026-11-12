@@ -606,7 +606,7 @@
     {
       "name": "task list",
       "summary": "Tasks (default: yours, not done)",
-      "usage": "nb task list [@saved] [--mine|--all] [--status list] [--save name]",
+      "usage": "nb task list [@saved] [--mine|--all] [--status list] [--due week] [--to @sam] [--sprint current] [--priority high] [--sort due] [--save name]",
       "flags": {
         "mine": {
           "type": "boolean",
@@ -626,6 +626,31 @@
           "describe": "At most this many",
           "valueName": "n"
         },
+        "due": {
+          "type": "string",
+          "describe": "today, week, overdue, or a date",
+          "valueName": "when"
+        },
+        "to": {
+          "type": "string",
+          "describe": "Assigned to @username, me or none (looks at everyone's tasks)",
+          "valueName": "person"
+        },
+        "sprint": {
+          "type": "string",
+          "describe": "A sprint name, current, or id",
+          "valueName": "sprint"
+        },
+        "priority": {
+          "type": "string",
+          "describe": "low,medium,high,urgent",
+          "valueName": "list"
+        },
+        "sort": {
+          "type": "string",
+          "describe": "due, priority or updated (default)",
+          "valueName": "by"
+        },
         "save": {
           "type": "string",
           "describe": "Save these filters under a name (nb task list @name)",
@@ -633,9 +658,27 @@
         }
       },
       "examples": [
+        "nb task list --due week --sort due",
         "nb task list --all --status blocked --save stuck",
         "nb task list @stuck"
       ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "next",
+      "summary": "What to work on now: overdue, due soon, in progress",
+      "usage": "nb next [--limit 5]",
+      "flags": {
+        "limit": {
+          "type": "string",
+          "describe": "At most this many (default 5)",
+          "valueName": "n"
+        }
+      },
+      "examples": [],
       "exitCodes": [
         0,
         1
@@ -754,7 +797,7 @@
     {
       "name": "task move",
       "summary": "Move to todo, in_progress or blocked",
-      "usage": "nb task move <task> <status> [--reason text]",
+      "usage": "nb task move <task…> <status> [--reason text]",
       "flags": {
         "reason": {
           "type": "string",
@@ -824,7 +867,7 @@
     {
       "name": "task edit",
       "summary": "Change a task's title, description, priority or due date",
-      "usage": "nb task edit <task> [--title text] [-m description] [--priority high] [--due 2026-11-14|none]",
+      "usage": "nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none]",
       "flags": {
         "title": {
           "type": "string",
@@ -856,10 +899,19 @@
     },
     {
       "name": "task assign",
-      "summary": "Assign a task to someone, you, or nobody",
-      "usage": "nb task assign <task> <@username|me|none>",
-      "flags": {},
-      "examples": [],
+      "summary": "Assign tasks to someone, you, or nobody",
+      "usage": "nb task assign <task…> <@username|me|none> | --to @sam",
+      "flags": {
+        "to": {
+          "type": "string",
+          "describe": "Who: @username, me or none (for several tasks)",
+          "valueName": "person"
+        }
+      },
+      "examples": [
+        "nb task assign 4 @sam",
+        "nb task assign 3 4 5 --to me"
+      ],
       "exitCodes": [
         0,
         1
@@ -1756,6 +1808,9 @@
     "file read": "file view",
     "workspace ls": "workspace list",
     "ws list": "workspace list",
-    "ws": "workspace list"
+    "ws": "workspace list",
+    "ls": "file list",
+    "add": "task add",
+    "task add": "task create"
   }
 }

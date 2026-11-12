@@ -76,7 +76,10 @@ export function recordBase(state, p, f) {
 
 /** @param {Context} ctx */
 export async function status(ctx) {
+  // The day's counts ride along (C2 "a home screen in nb status"); offline or refused, status still works.
+  const todayP = ctx.api.get("/api/v1/home").then((/** @type {any} */ h) => ({ dueThisWeek: h.tasks.dueThisWeek, overdue: h.tasks.overdue, unread: h.unread }), () => null);
   const { root, project, items, skipped, offline, manifest } = await buildPlan(ctx);
+  const today = await todayP;
   const changed = items.filter((i) => i.state !== "unchanged");
   const conflicts = changed.filter((i) => i.state === "conflict");
   const data = {
@@ -85,6 +88,7 @@ export async function status(ctx) {
     offline,
     readOnly: !manifest.canWrite,
     queued: readQueue(root).length,
+    today,
     files: changed.map((i) => ({ path: i.path, state: i.state, action: i.action, ...(i.note ? { note: i.note } : {}), ...(i.remote ? { remoteVersion: i.remote.version } : {}) })),
     skipped,
   };
@@ -93,6 +97,9 @@ export async function status(ctx) {
     const task = d.startedTask ? ` · #${d.startedTask.number ?? ""} ${safe(d.startedTask.title ?? "")}` : "";
     const head = `${c.brand(sym.brand)} ${safe(project.slug ?? project.workspaceId)}${task}${d.readOnly ? ` · ${c.warning("read only")}` : ""}${d.offline ? ` · ${c.warning("offline: server side not checked")}` : ""}`;
     const queued = d.queued ? [`  ${c.warning(`${d.queued} push(es) queued while offline: nb sync`)}`] : [];
+    const t = d.today;
+    const day = t ? [t.dueThisWeek && `${t.dueThisWeek} due this week`, t.overdue && c.warning(`${t.overdue} overdue`), t.unread && `${t.unread} unread`].filter(Boolean) : [];
+    if (day.length) queued.unshift(`  ${day.join(" · ")}`);
     if (!d.files.length) return [head, ...queued, `  ${c.muted(`Up to date · ${root}`)}`, ...skippedLines(d.skipped)];
     // A freshly linked folder: hundreds of server files are one line, not a table (C16 #5).
     const waiting = d.files.filter((f) => f.state === "remote-added");

@@ -45,7 +45,7 @@ try {
   const ctx = createContext({ flags: spec.name === "prompt" ? { ...flags, quiet: true } : flags, positionals });
   if (alias) {
     const { remindOnce } = await import("../lib/print/remind.mjs");
-    remindOnce(ctx, `alias:${alias.from}`, `nb ${alias.from} is now nb ${alias.to} (the old name works until 3.0)`);
+    remindOnce(ctx, `alias:${alias.from}`, alias.shortcut ? `nb ${alias.from} is short for nb ${alias.to}` : `nb ${alias.from} is now nb ${alias.to} (the old name works until 3.0)`);
   }
   // login is what signs you in, so it can't look a workspace up first; an agent's workspace is picked on the approval page.
   if (spec.name !== "login") await ctx.resolveWorkspace();

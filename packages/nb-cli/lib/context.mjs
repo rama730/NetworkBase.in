@@ -32,6 +32,11 @@ export function createContext({ flags, positionals, cwd = process.cwd(), env = p
     onRetry: ({ waitMs, reason }) => out.note(out.c.muted(`${reason}; retrying in ${Math.max(1, Math.round(waitMs / 1000))} s`)),
   });
 
+  // The first step comes first (C1): signed out, "link this folder" is the wrong advice.
+  const signedInFirst = () => {
+    if (!profile.token) throw new CliError("NOT_SIGNED_IN", "Sign in first: nb login", { hint: "Then run this again" });
+  };
+
   return {
     out,
     flags,
@@ -45,6 +50,7 @@ export function createContext({ flags, positionals, cwd = process.cwd(), env = p
     version: VERSION,
     /** Workspace id from --workspace or the link; an error naming the fix otherwise. */
     requireWorkspace() {
+      signedInFirst();
       if (flags.workspace) return /** @type {string} */ (flags.workspace);
       if (project?.workspaceId) return project.workspaceId;
       // A default for scripts, CI and the hosted MCP server (an agent token's own workspace).
@@ -63,6 +69,7 @@ export function createContext({ flags, positionals, cwd = process.cwd(), env = p
     },
     /** The linked folder; commands that sync files need one. */
     requireRoot() {
+      signedInFirst();
       if (!root || !project) throw new CliError("NOT_LINKED", "This folder isn't linked to a workspace", { hint: "Run nb init <workspace> here" });
       return { root, project };
     },

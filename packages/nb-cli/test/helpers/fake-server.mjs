@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, dueDate?: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -106,8 +106,18 @@ const exact = {
     const access = agent ? state.agentAccess ?? { agentName: "Claude Code", preset: "small", sentence: "Claude Code can work in Design Lab for 30 days. It does small things itself and can't finish tasks, change final files or edit docs.", workspaceId: WORKSPACE_ID, workspaceTitle: "Design Lab", allWorkspaces: false, expiresAt: "2026-12-11T00:00:00.000Z" } : null;
     return { data: { user: { id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", type: agent ? "agent" : String(req.headers.authorization ?? "").startsWith("Bearer nb_dev_") ? "device" : "pat", expiresAt: "2027-11-06T09:34:59.663Z", workspaceId: agent ? WORKSPACE_ID : null, scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 }, access } };
   },
-  "GET /api/v1/extension/workspaces": (_req, state) => ({ data: { workspaces: [state.workspace] } }),
-  "GET /api/v1/extension/workspace-tasks": (req, state) => ({ data: { tasks: state.tasks.filter((t) => req.query.get("scope") !== "mine" || t.assigneeUsername === "tester").map((t) => ({ ...t, subtaskSummary: { completed: t.subtasks.filter((s) => s.completed).length, total: t.subtasks.length } })) } }),
+  "GET /api/v1/extension/workspaces": (_req, state) => ({ data: { workspaces: [state.workspace, ...(state.extraWorkspaces ?? [])] } }),
+  "GET /api/v1/home": (_req, state) => ({ data: state.home ?? { tasks: { open: 0, byStatus: { todo: 0, in_progress: 0, blocked: 0, in_review: 0 }, overdue: 0, dueThisWeek: 0 }, unread: 0 } }),
+  "GET /api/v1/extension/workspace-tasks": (req, state) => {
+    state.lastListQuery = req.query;
+    // Like the server: open work, every word of q in the title (or the number), and the due sort (C2).
+    const words = String(req.query.get("q") ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+    let rows = state.tasks.filter((t) => (req.query.get("scope") !== "mine" || t.assigneeUsername === "tester")
+      && (req.query.get("open") !== "1" || t.status !== "done" || t.reviewStatus === "pending")
+      && (!words.length || words.every((w) => t.title.toLowerCase().includes(w)) || words.join(" ").replace(/^#/, "") === String(t.taskNumber)));
+    if (req.query.get("sort") === "due") rows = [...rows].sort((a, b) => (a.dueDate ? Date.parse(a.dueDate) : Infinity) - (b.dueDate ? Date.parse(b.dueDate) : Infinity));
+    return { data: { tasks: rows.map((t) => ({ ...t, subtaskSummary: { completed: t.subtasks.filter((s) => s.completed).length, total: t.subtasks.length } })), nextCursor: null } };
+  },
   "GET /api/v1/extension/task-detail": (req, state) => {
     const t = findTask(state, req.query.get("taskId") ?? req.query.get("taskNumber") ?? "");
     if (!t) return fail(404, "NOT_FOUND", "Task not found");
@@ -120,6 +130,20 @@ const exact = {
     const open = state.tasks.filter((t) => t.status !== "done" || t.reviewStatus === "pending");
     const by = (/** @type {string} */ s) => open.filter((t) => t.status === s).length;
     return { data: { open: open.length, byStatus: { todo: by("todo"), in_progress: by("in_progress"), blocked: by("blocked"), in_review: open.filter((t) => t.reviewStatus === "pending").length }, overdue: 0, dueThisWeek: 0 } };
+  },
+  "POST /api/v1/tasks/bulk": (req, state) => {
+    // Like the server (C2): every task or none, one undo.
+    const found = req.body.taskIds.map((/** @type {string} */ id) => findTask(state, id));
+    if (found.some((/** @type {any} */ t) => !t)) return fail(404, "NOT_FOUND", "Some of those tasks aren’t in this workspace");
+    const c = req.body.change;
+    for (const t of /** @type {FakeTask[]} */ (found)) {
+      if (c.kind === "status") t.status = c.status;
+      else if (c.kind === "assign") t.assigneeUsername = c.assigneeId?.startsWith("aaaaaaaa") ? "tester" : c.assigneeId?.startsWith("bbbbbbbb") ? "sam" : null;
+      else /** @type {any} */ (t)[c.field] = c.value;
+      t.updatedAt = now();
+    }
+    state.lastBulk = req.body;
+    return { data: { changed: found.length, tasks: found.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber })), summary: "bulk", undoToken: crypto.randomUUID() } };
   },
   "POST /api/v1/extension/create-task": (req, state) => {
     state.lastCreate = req.body;
