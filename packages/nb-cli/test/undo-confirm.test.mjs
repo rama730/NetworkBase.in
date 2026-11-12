@@ -29,7 +29,8 @@ describe("nb undo and held changes", () => {
     assert.equal(JSON.parse(list.stdout).data.changes[0].what, "push");
     const r = await runCli(["undo"], { api: api.url, cwd, home });
     assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /Undid: Pushed 1 file/);
+    assert.match(r.stdout, /Undid the push of 1 file/);
+    assert.doesNotMatch(r.stdout, /\(/, "one plain sentence, no doubled wording (C16 #6)");
     assert.deepEqual(api.state.undone[0].paths, ["/a.txt"]);
     const again = await runCli(["undo"], { api: api.url, cwd, home });
     assert.equal(again.code, 1);

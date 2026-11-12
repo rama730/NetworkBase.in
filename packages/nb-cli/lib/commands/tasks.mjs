@@ -18,14 +18,14 @@ const ROLE = /** @type {Record<string, string>} */ ({ deliverable: "final", work
 
 /**
  * A task by number (4, #4, T-4) or id, with subtasks and files (report A2.7).
- * @param {Context} ctx @param {string} ref
+ * @param {Context} ctx @param {string} ref @param {{ brief?: boolean }} [opts] brief: the task row only (no subtasks or files)
  */
-export async function resolveTask(ctx, ref) {
+export async function resolveTask(ctx, ref, { brief = false } = {}) {
   const workspaceId = ctx.requireWorkspace();
   const cleaned = ref.trim().replace(/^(T-|#)/i, "");
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleaned);
   if (!isUuid && !/^\d+$/.test(cleaned)) throw usage(`${ref} isn't a task number or id`, "Use the number shown in nb task list, like 4");
-  const detail = /** @type {any} */ (await ctx.api.get("/api/v1/extension/task-detail", { query: { projectId: workspaceId, ...(isUuid ? { taskId: cleaned } : { taskNumber: cleaned }) } }).catch((error) => {
+  const detail = /** @type {any} */ (await ctx.api.get("/api/v1/extension/task-detail", { query: { projectId: workspaceId, ...(isUuid ? { taskId: cleaned } : { taskNumber: cleaned }), ...(brief ? { brief: "1" } : {}) } }).catch((error) => {
     if (error instanceof CliError && (error.status === 404 || error.code === "NOT_FOUND")) throw new CliError("TASK_NOT_FOUND", `No task ${ref} in this workspace`, { hint: "See nb task list" });
     throw error;
   }));
@@ -202,18 +202,19 @@ async function resolveSprint(ctx, ref) {
 /** Make it this folder's task and move it to In progress — and say so (finding 24). @param {Context} ctx */
 export async function start(ctx) {
   const { root, project } = ctx.requireRoot();
-  const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]));
+  const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]), { brief: true });
   writeProjectConfig(root, { ...project, startedTask: { id: task.id, number: task.taskNumber, title: task.title } });
+  // The move checks updatedAt, so it goes before the assign (which changes it).
+  let moved = null;
+  if (task.status === "todo") {
+    const res = await setStatus(ctx, task, "in_progress").catch((error) => ({ error: error instanceof Error ? error.message : String(error) }));
+    moved = res?.error ? { ok: false, message: res.error } : { ok: true, status: "in_progress" };
+  }
   // Starting an unassigned task makes it yours (C16 #3), so it shows in your nb task list.
   let assigned = false;
   if (!task.assignee && !task.assigneeId && !task.assigneeUsername) {
     const me = ctx.profile.profile?.user?.id ?? /** @type {any} */ (await ctx.api.get("/api/v1/me")).user.id;
     assigned = await ctx.api.patch("/api/v1/extension/task-update", { kind: "assign", projectId: ctx.requireWorkspace(), taskId: task.id, assigneeId: me }).then(() => true, () => false);
-  }
-  let moved = null;
-  if (task.status === "todo") {
-    const res = await setStatus(ctx, task, "in_progress").catch((error) => ({ error: error instanceof Error ? error.message : String(error) }));
-    moved = res?.error ? { ok: false, message: res.error } : { ok: true, status: "in_progress" };
   }
   // --branch: a git branch per task (finding 146), created the first time.
   let branch = null;

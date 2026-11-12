@@ -17,6 +17,8 @@ import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
 import { afterTaskTransition, lockTaskForWrite, transitionTaskTx } from "@/lib/workspaces/task-transition-service";
 import type { TaskStatus } from "@/lib/workspaces/task-transition-service";
 
+const STATUS_WORDS: Record<string, string> = { todo: "To do", in_progress: "In progress", done: "Done", blocked: "Blocked" };
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -69,7 +71,9 @@ async function runInverse(user: { id: string; email?: string; user_metadata?: Re
         return { locked, result };
       });
       await afterTaskTransition(user as Parameters<typeof afterTaskTransition>[0], changed.locked, inverse.taskId, changed.result);
-      return `Moved the task back to ${inverse.to.replace("_", " ")}`;
+      const [numbered] = await db.select({ n: tasks.taskNumber }).from(tasks).where(eq(tasks.id, inverse.taskId)).limit(1);
+      // Plain words (report C16 #6): "Moved #1 back to In progress".
+      return `Moved ${numbered?.n ? `#${numbered.n}` : "the task"} back to ${STATUS_WORDS[inverse.to] ?? inverse.to}`;
     }
     case "task.field": {
       const [task] = await db.select({ title: tasks.title, description: tasks.description, priority: tasks.priority, dueDate: tasks.dueDate }).from(tasks).where(eq(tasks.id, inverse.taskId)).limit(1);

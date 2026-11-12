@@ -4,7 +4,7 @@ import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { agentAccessCard } from "@/lib/agents/access-settings";
 import { db } from "@/lib/db";
-import { profiles } from "@/lib/db/schema";
+import { extensionDeviceSessions, personalAccessTokens, profiles } from "@/lib/db/schema";
 import { TOKEN_SCOPES } from "@/lib/security/token-access";
 import { WORKSPACE_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
 
@@ -27,10 +27,16 @@ export async function GET(request: Request) {
       .where(eq(profiles.id, auth.user.id))
       .limit(1);
     const scopes = auth.tokenScopes ? [...auth.tokenScopes].sort() : [...TOKEN_SCOPES];
+    // When this sign-in ends, for nb whoami's sentence (report C16 #7) and the expiry warning (C6).
+    const kind = "tokenKind" in auth ? auth.tokenKind : null;
+    const id = "extensionSessionId" in auth ? auth.extensionSessionId : null;
+    const [ends] = !id ? [] : kind === "pat"
+      ? await db.select({ at: personalAccessTokens.expiresAt }).from(personalAccessTokens).where(eq(personalAccessTokens.id, id)).limit(1)
+      : await db.select({ at: extensionDeviceSessions.expiresAt }).from(extensionDeviceSessions).where(eq(extensionDeviceSessions.id, id)).limit(1);
     return jsonSuccess(
       {
         user: { id: auth.user.id, username: profile?.username ?? null, fullName: profile?.fullName ?? null, email: profile?.email ?? null, avatarUrl: profile?.avatarUrl ?? null, visibility: profile?.visibility ?? "public" },
-        credential: auth.tokenScopes ? { kind: "token", sessionId: auth.extensionSessionId, scopes, type: "tokenKind" in auth ? auth.tokenKind : null, workspaceId: auth.tokenWorkspaceId } : { kind: "browser", scopes },
+        credential: auth.tokenScopes ? { kind: "token", sessionId: auth.extensionSessionId, scopes, type: kind, workspaceId: auth.tokenWorkspaceId, expiresAt: ends?.at?.toISOString() ?? null } : { kind: "browser", scopes },
         limits: { largestFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES },
         /** For agent sign-ins: where, what and how long, in the approval page's words (report A6). */
         access: "tokenKind" in auth && auth.tokenKind === "agent" && auth.extensionSessionId ? await agentAccessCard(auth.extensionSessionId) : null,

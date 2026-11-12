@@ -44,7 +44,7 @@ export async function undo(ctx) {
   try {
     const res = /** @type {any} */ (await ctx.api.post(`/api/v1/undo/${encodeURIComponent(entry.token)}`, {}));
     dropUndo(ctx.env, entry.token);
-    ctx.out.result("nb.undo/1", { token: entry.token, undone: res.undone, result: res.result }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Undid: ${safe(d.undone)} (${safe(d.result)})`);
+    ctx.out.result("nb.undo/1", { token: entry.token, undone: res.undone, result: res.result }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${safe(d.result || `Undid: ${d.undone}`)}`);
   } catch (error) {
     if (error instanceof CliError && error.status === 410) dropUndo(ctx.env, entry.token);
     throw error;

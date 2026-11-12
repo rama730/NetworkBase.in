@@ -283,9 +283,11 @@ export async function whoami(ctx) {
   ctx.out.result("nb.whoami/1", data, (d) => [
     `${ctx.out.c.brand(ctx.out.sym.brand)} ${safe(d.user.username ? `@${d.user.username}` : d.user.email ?? d.user.id)}${d.user.fullName ? ` · ${safe(d.user.fullName)}` : ""}`,
     `  server   ${new URL(d.origin).host}${d.profile !== "default" ? ` (profile ${d.profile})` : ""}`,
-    `  token    ${d.credential.type ? `${d.credential.type === "agent" ? "agent" : d.credential.type === "pat" ? "personal access" : "device"} · ` : ""}${d.tokenSource === "env" ? "from NETWORKBASE_TOKEN" : `kept in ${storageWords(d.storage)}`} · ${d.access ? (d.access.allWorkspaces ? "all your workspaces" : `only ${safe(d.access.workspaceTitle ?? "one workspace")}`) : d.credential.workspaceId ? "one workspace only" : `${d.credential.scopes.length} permissions`}`,
+    `  token    ${d.credential.type ? `${d.credential.type === "agent" ? "agent" : d.credential.type === "pat" ? "personal access" : "device"} · ` : ""}${d.tokenSource === "env" ? "from NETWORKBASE_TOKEN" : `kept in ${storageWords(d.storage)}`} · ${d.access ? (d.access.allWorkspaces ? "all your workspaces" : `only ${safe(d.access.workspaceTitle ?? "one workspace")}`) : d.credential.workspaceId ? "one workspace only" : d.credential.type === "device" ? "all your workspaces" : `${d.credential.scopes.length} permissions`}`,
     // An agent's access in the approval page's words (report A4, A10 "nb whoami and Settings show the same sentence").
     ...(d.access ? [`  access   ${safe(d.access.sentence)}`] : []),
+    // Your own sign-in in a sentence too (report C16 #7).
+    ...(!d.access && d.credential.type === "device" ? [`  access   Your own sign-in: does what you can, in all your workspaces${d.credential.expiresAt ? `, until ${new Date(d.credential.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}.`] : []),
     `  files    up to ${Math.round(d.limits.largestFileBytes / 1024 / 1024)} MB each`,
     ...(ctx.flags.verbose ? [`  can      ${d.credential.scopes.join(", ")}`] : []),
   ]);

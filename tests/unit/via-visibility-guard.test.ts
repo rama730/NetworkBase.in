@@ -18,6 +18,10 @@ const READS = [
   /\b[a-z_]+\.via\s*(=|IN\b)/,
   /\b(payload|metadata|meta|row|value)\??\.(via|agentName)\b/,
   /->>'(via|agentName)'/,
+  // Whole rows carry the labels too (found in M4: task-detail sent subtasks with select()).
+  /\.select\(\)\s*\.from\((taskSubtasks|taskComments|fileVersions)\)/,
+  // A db.query read without `columns:` returns every column, labels included.
+  /db\.query\.(taskSubtasks|taskComments|fileVersions)\.find(First|Many)\(\{(?:(?!columns:)[^;])*\}\)/,
 ];
 
 function* files(dir: string): Generator<string> {

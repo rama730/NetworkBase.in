@@ -67,6 +67,7 @@ async function recoverFinalizedIntent(intent: typeof uploadIntents.$inferSelect)
       eq(fileVersions.s3Key, intent.storageKey),
     ),
     orderBy: [desc(fileVersions.version)],
+    columns: { version: true, size: true, mimeType: true, contentHash: true },
   });
   const node = await db.query.workspaceNodes.findFirst({
     where: eq(workspaceNodes.id, nodeId),

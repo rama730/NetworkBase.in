@@ -1,4 +1,5 @@
 import { canSeeOrgTask } from "@/lib/organizations/assignments";
+import { labelScope, visibleVia } from "@/lib/agents/via-scope";
 import { copyRules } from "@/lib/organizations/my-assignments";
 import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId, denyOutsideTokenWorkspace } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
@@ -81,6 +82,16 @@ export async function GET(request: Request) {
     if (!canReadWorkspaceTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
     if (!(await canSeeOrgTask(access, user.id, taskId))) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
     const canReadFiles = canReadWorkspaceTab(access, "files");
+
+    // brief=1: only what nb task start needs, after the same checks (C16 #9: start was 3 s).
+    if (searchParams.get("brief") === "1") {
+      const brief = await db.query.tasks.findFirst({
+        where: eq(tasks.id, taskId),
+        columns: { id: true, taskNumber: true, title: true, status: true, reviewStatus: true, updatedAt: true, assigneeId: true },
+      });
+      if (!brief) return jsonError("Task not found", 404, "NOT_FOUND");
+      return jsonSuccess({ task: { ...brief, projectId: row.projectId } });
+    }
 
     const fullTask = await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
     if (!fullTask) return jsonError("Task not found", 404, "NOT_FOUND");
@@ -183,8 +194,11 @@ export async function GET(request: Request) {
         .limit(25),
     ]);
 
+    // Labels only as this viewer may see them (report Part B); the rest of each row is unchanged.
+    const labels = await labelScope(user.id, row.projectId, taskId);
     const enrichedSubtasks = subtasks.map((st, idx) => ({
       ...st,
+      ...visibleVia(labels, { via: st.via, agentName: st.agentName, authorId: st.createdBy }),
       index: idx + 1,
     }));
     const completedSubtasksCount = enrichedSubtasks.filter((st) => st.completed).length;
@@ -228,6 +242,7 @@ export async function GET(request: Request) {
     return jsonSuccess({
       task: {
         ...fullTask,
+        ...visibleVia(labels, { via: fullTask.via, agentName: fullTask.agentName, authorId: fullTask.creatorId }),
         reviewContentChanged,
         reviewReason: typeof latestRequest?.payload?.reason === "string" ? latestRequest.payload.reason : null,
         assignee: assignee

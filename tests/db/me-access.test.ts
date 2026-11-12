@@ -38,7 +38,9 @@ test("an agent reads where, what and how long in the approval page's words", asy
   assert.match(all.access.sentence, /^Claude Code can work in all your workspaces for 30 days\./);
 });
 
-test("a person's own terminal has no agent card", async () => {
+test("a person's own terminal has no agent card, and /me says when the sign-in ends (C16 #7)", async () => {
   const userId = await sql.begin((tx) => createUser(tx));
-  assert.equal((await get(await token(userId, "device", null, []))).access, null);
+  const me = await get(await token(userId, "device", null, []));
+  assert.equal(me.access, null);
+  assert.ok(Date.parse(me.credential.expiresAt) > Date.now() + 29 * 86_400_000);
 });

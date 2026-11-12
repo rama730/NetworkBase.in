@@ -355,6 +355,7 @@ export async function PUT(request: Request) {
           eq(fileVersions.nodeId, node.id),
           eq(fileVersions.s3Key, intent.storageKey),
         ),
+        columns: { version: true, size: true, mimeType: true, contentHash: true },
       });
       if (existingVersion) {
         const recoveredData = {

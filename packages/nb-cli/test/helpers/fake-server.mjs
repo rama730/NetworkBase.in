@@ -104,13 +104,16 @@ const exact = {
   "GET /api/v1/me": (req, state) => {
     const agent = String(req.headers.authorization ?? "").startsWith("Bearer nb_agt_");
     const access = agent ? state.agentAccess ?? { agentName: "Claude Code", preset: "small", sentence: "Claude Code can work in Design Lab for 30 days. It does small things itself and can't finish tasks, change final files or edit docs.", workspaceId: WORKSPACE_ID, workspaceTitle: "Design Lab", allWorkspaces: false, expiresAt: "2026-12-11T00:00:00.000Z" } : null;
-    return { data: { user: { id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", type: agent ? "agent" : "pat", workspaceId: agent ? WORKSPACE_ID : null, scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 }, access } };
+    return { data: { user: { id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", type: agent ? "agent" : String(req.headers.authorization ?? "").startsWith("Bearer nb_dev_") ? "device" : "pat", expiresAt: "2027-11-06T09:34:59.663Z", workspaceId: agent ? WORKSPACE_ID : null, scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 }, access } };
   },
   "GET /api/v1/extension/workspaces": (_req, state) => ({ data: { workspaces: [state.workspace] } }),
   "GET /api/v1/extension/workspace-tasks": (req, state) => ({ data: { tasks: state.tasks.filter((t) => req.query.get("scope") !== "mine" || t.assigneeUsername === "tester").map((t) => ({ ...t, subtaskSummary: { completed: t.subtasks.filter((s) => s.completed).length, total: t.subtasks.length } })) } }),
   "GET /api/v1/extension/task-detail": (req, state) => {
     const t = findTask(state, req.query.get("taskId") ?? req.query.get("taskNumber") ?? "");
     if (!t) return fail(404, "NOT_FOUND", "Task not found");
+    state.detailReads = [...(state.detailReads ?? []), req.query.get("brief") === "1" ? "brief" : "full"];
+    // Like the server's brief=1 (C16 #9): the task row only.
+    if (req.query.get("brief") === "1") return { data: { task: { id: t.id, taskNumber: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus, updatedAt: t.updatedAt, assigneeId: t.assigneeUsername ? "aaaaaaaa-1111-4111-8111-111111111111" : null } } };
     return { data: { task: t, subtasks: t.subtasks, files: t.files, comments: t.comments, pushes: [] } };
   },
   "GET /api/v1/tasks/count": (_req, state) => {
@@ -150,7 +153,7 @@ const exact = {
       return { data: { subtask: s } };
     }
     if (req.body.kind === "edit") { /** @type {any} */ (t)[req.body.field === "dueDate" ? "dueDate" : req.body.field] = req.body.value; t.updatedAt = now(); return { data: { success: true, undoToken: crypto.randomUUID() } }; }
-    if (req.body.kind === "assign") { t.assigneeUsername = req.body.assigneeId?.startsWith("aaaaaaaa") ? "tester" : req.body.assigneeId?.startsWith("bbbbbbbb") ? "sam" : null; return { data: { success: true } }; }
+    if (req.body.kind === "assign") { t.assigneeUsername = req.body.assigneeId?.startsWith("aaaaaaaa") ? "tester" : req.body.assigneeId?.startsWith("bbbbbbbb") ? "sam" : null; t.updatedAt = now(); return { data: { success: true } }; }
     if (req.body.kind === "delete") { state.tasks.splice(state.tasks.indexOf(t), 1); return { data: { deleted: true } }; }
     if (req.body.kind === "subtask_edit") { const s = t.subtasks.find((x) => x.id === req.body.subtaskId); if (!s) return fail(404, "NOT_FOUND", "Subtask not found"); s.title = req.body.title; return { data: { success: true } }; }
     if (req.body.kind === "subtask_delete") { t.subtasks = t.subtasks.filter((x) => x.id !== req.body.subtaskId); return { data: { deleted: true } }; }
@@ -297,7 +300,7 @@ const patterns = [
     if (!op) return fail(410, "EXPIRED", "Nothing to undo: it was undone already, is older than 24 hours, or isn't yours");
     state.undos.delete(req.params[0] ?? "");
     state.undone.push(op);
-    return { data: { undone: op.kind === "push" ? `Pushed ${op.paths.length} file(s)` : op.kind, result: "Undid it", operation: op.kind } };
+    return { data: { undone: op.kind === "push" ? `Pushed ${op.paths.length} file(s)` : op.kind, result: op.kind === "push" ? `Undid the push of ${op.paths.length} file${op.paths.length === 1 ? "" : "s"}` : "Undid it", operation: op.kind } };
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", role: "owner" }, { id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || m.username.includes(String(req.query.get("q")))) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...state.files.values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],

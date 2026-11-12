@@ -94,6 +94,15 @@ export async function status(ctx) {
     const head = `${c.brand(sym.brand)} ${safe(project.slug ?? project.workspaceId)}${task}${d.readOnly ? ` · ${c.warning("read only")}` : ""}${d.offline ? ` · ${c.warning("offline: server side not checked")}` : ""}`;
     const queued = d.queued ? [`  ${c.warning(`${d.queued} push(es) queued while offline: nb sync`)}`] : [];
     if (!d.files.length) return [head, ...queued, `  ${c.muted(`Up to date · ${root}`)}`, ...skippedLines(d.skipped)];
+    // A freshly linked folder: hundreds of server files are one line, not a table (C16 #5).
+    const waiting = d.files.filter((f) => f.state === "remote-added");
+    if (waiting.length > 20) {
+      const rest = d.files.filter((f) => f.state !== "remote-added");
+      const line = `  ${waiting.length} files on the server · ${c.muted("nb pull to get them")}`;
+      if (!rest.length) return [head, ...queued, line, ...skippedLines(d.skipped)];
+      d = { ...d, files: rest };
+      queued.push(line);
+    }
     const color = (/** @type {string} */ s) => (s === "conflict" ? c.danger : s === "modified" || s === "added" ? c.accent : s.startsWith("remote") ? c.info : c.muted);
     const counts = Object.entries(d.files.reduce((/** @type {Record<string, number>} */ acc, f) => ({ ...acc, [f.state]: (acc[f.state] ?? 0) + 1 }), {})).map(([s, n]) => `${n} ${s}`).join(" · ");
     const rows = ctx.out.table([
