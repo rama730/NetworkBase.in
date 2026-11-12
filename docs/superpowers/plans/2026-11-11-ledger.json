@@ -1912,9 +1912,9 @@
       "text": "nb on its own becomes a home screen that knows where you are (today it prints the full help; nb help stays):",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/home.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C1.87023095",
@@ -1932,9 +1932,9 @@
       "text": "nb init suggests the matching workspace from the folder or git repository name.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/home.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C1.943df3a5",
@@ -1942,9 +1942,9 @@
       "text": "Aliases people expect (nb ls → nb file list, nb add → nb task add). Each prints the real name once.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C1.1b9175a1",
@@ -1962,9 +1962,9 @@
       "text": "A shorter nb help: the 10 most-used commands first, then \"more\" grouped by area.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/tty.test.mjs (help-80); tests/unit/cli-high-eq-ecosystem.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C1.2dbeb6a0",
@@ -1982,9 +1982,9 @@
       "text": "A home screen in nb status: \"3 tasks due this week · 2 unread · 4 files changed here\", then the details.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/home.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C2.924762a6",
@@ -1992,9 +1992,9 @@
       "text": "nb next: what to work on now, ranked by overdue, due soon, blocked work to unblock, reviews waiting, and assignments due (see F1).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs; tests/db/home-route.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C2.0d49d1b8",
@@ -2002,9 +2002,9 @@
       "text": "Tasks by words as well as numbers: nb task start \"login bug\". One match runs; several ask which (in a terminal) or return the choices (--json, agents).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C2.ab20a820",
@@ -2012,9 +2012,9 @@
       "text": "Natural dates everywhere a date is taken: --due friday, --due \"next week\", --due 2026-12-01, read in the person's time zone.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs; packages/nb-cli/test/dates.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C2.c6725312",
@@ -2032,9 +2032,9 @@
       "text": "Quick capture: nb task add \"fix the footer\" --due tomorrow, a short form of task create.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C2.c4034bdc",
@@ -2042,9 +2042,9 @@
       "text": "nb task create takes everything at once: --due, --to <person> and --sprint (today it takes only a title, description, priority and subtasks; due dates need task",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs; tests/db/cli-create-task.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C2.070e6220",
@@ -2052,9 +2052,9 @@
       "text": "nb task list filters: --due today|week|overdue, --to <person>, --sprint, --priority, --sort due|priority|updated (today: --mine, --all, --status, --limit, --sav",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs; tests/db/task-list-filters.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C2.4e69dd35",
@@ -2062,9 +2062,9 @@
       "text": "Bulk changes: nb task move 3 4 5 done, nb task assign 3 4 --to sam, nb task edit 3 4 --due friday. One request for each command, all or nothing, one Undo.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs; tests/db/tasks-bulk.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C2.2a8db4e6",
@@ -2132,9 +2132,9 @@
       "text": "Versions: nb file history <file> (exists) gains \"based on vN\" and which version is active.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/work.test.mjs; tests/db/files-place.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C3.792b89f4",
@@ -2142,9 +2142,9 @@
       "text": "nb file use <file> v1: the same as \"Use this version\" in the app (moves the active version; the next save is \"based on v1\").",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/work.test.mjs; tests/db/files-place.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C3.f9d9cead",
@@ -2232,9 +2232,9 @@
       "text": "Act from the inbox: nb inbox reply 3 \"done\", nb inbox approve 3 (for reviews), plus the existing read and open.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/live.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C4.91ff4288",
@@ -2312,9 +2312,9 @@
       "text": "Every error ends with the exact next command. An audit checks all of them.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/errors-audit.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C5.d4616129",
@@ -2322,9 +2322,9 @@
       "text": "Every error links to its docs section (/docs/cli#error-…).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/errors-audit.test.mjs; tests/unit/api-schemas-fresh.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C5.e3bd06ff",
@@ -2452,9 +2452,9 @@
       "text": "The CLI remembers your current task. It comes from nb task start 4, or the git branch made by --branch.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C8.6cbaa0e8",
@@ -2462,9 +2462,9 @@
       "text": "The current task in your shell prompt: nb prompt prints a short marker such as [#4 · 2 changed]. nb setup shell offers to add it to the prompt (asks first, like",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs; packages/nb-cli/test/smoke.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C8.2928a3ef",
@@ -2602,9 +2602,9 @@
       "text": "the home screen and the right advice order (C1)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/home.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C14b.69af6882",
@@ -2612,9 +2612,9 @@
       "text": "task create with due date and assignee, and the list filters (C2)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs; packages/nb-cli/test/daily-work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C14b.ec1be9eb",
@@ -2622,9 +2622,9 @@
       "text": "nb next",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C14b.afc5f2a3",
@@ -2632,9 +2632,9 @@
       "text": "tasks by words and natural dates",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C14b.7344ea38",
@@ -2642,9 +2642,9 @@
       "text": "bulk changes",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs; tests/db/tasks-bulk.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C14b.c2a0728c",
@@ -2652,9 +2652,9 @@
       "text": "nb file history with \"based on\", and nb file use (C3)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C14b.8cca14b4",
@@ -2662,9 +2662,9 @@
       "text": "inbox reply and approve (C4)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/live.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C14b.dfbac3c5",
@@ -2672,9 +2672,9 @@
       "text": "every error with its next command (C5)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/errors-audit.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C14b.f9d8c2db",
@@ -2752,9 +2752,9 @@
       "text": "Home screen, nb next · new GET /api/v1/home: counts, tasks due, unread, reviews waiting, assignments due, current task; one call",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/home-route.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C15.15b7db73",
@@ -2802,9 +2802,9 @@
       "text": "Bulk changes · new POST /api/v1/tasks/bulk { ids, action, value }: one transaction, one undo (new inverse kind tasks.bulk)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/tasks-bulk.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C15.8cd028fc",
@@ -3052,9 +3052,9 @@
       "text": "nb push links to the started task by default and says so (\"linked to #4\"); --no-task opts out. Today nb task start promises this but push ignores it, so nb task",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C16.6b22fd0f",
@@ -3072,9 +3072,9 @@
       "text": "Your tasks are yours: nb task create assigns the creator unless --assignee says otherwise, and nb task start assigns an unassigned task to you, so both show in ",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs; tests/db/cli-create-task.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C16.08be29b3",
@@ -3082,9 +3082,9 @@
       "text": "Task numbers without a key read \"#1\", never \"-1\".",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C16.b4f0eaac",
@@ -3092,9 +3092,9 @@
       "text": "A freshly linked folder says \"379 files on the server · nb pull to get them\" in nb status, not a 379-row table.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C16.e8cf0fd2",
@@ -3102,9 +3102,9 @@
       "text": "Undo speaks plainly: \"Undid: #1 back to In progress\".",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/undo-confirm.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C16.6988c8fc",
@@ -3112,9 +3112,9 @@
       "text": "nb whoami describes your own sign-in in a sentence (\"your own sign-in: does what you can, in all your workspaces, until <date>\"), like agents get.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs; tests/db/me-access.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C16.8737cfe4",
@@ -3122,9 +3122,9 @@
       "text": "nb task create ends with the next step (\"Next: nb task start 1\").",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C16.b58ca7ce",
@@ -3132,9 +3132,9 @@
       "text": "nb task start is as fast as the other commands (3.1 s measured, against about 0.5 s elsewhere).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs (start reads brief); tests/db/task-detail-labels.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "C16.0a431413",
@@ -3742,9 +3742,9 @@
       "text": "Counts say what they cover: networkbasetaskcount and nb task count name the workspaces counted (\"across all your workspaces: Gstack 1, CSE 3B 1\"), and the tool ",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/cli-resources.test.ts; packages/nb-cli/test/daily-work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "CLI 2.1.0 (npm) + site 0abbcb38b, live check 2026-11-12 (@ch_rama in Gstack and DeepScope AI; inbox reply member side; start 1.1 s moving, 0.54 s started)"
     },
     {
       "key": "G.fb141630",
