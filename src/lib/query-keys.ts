@@ -138,7 +138,7 @@ export const queryKeys = {
       taskPanel: (
         projectId: string,
         taskId: string,
-        section: "subtasks" | "comments" | "files" | "agent-notes",
+        section: "subtasks" | "comments" | "files" | "agent-notes" | "agent-presence",
       ) =>
         ["project", projectId, "detail", "task-panel", taskId, section] as const,
       sprintTasksRoot: (projectId: string) =>

@@ -1148,6 +1148,51 @@
         }
       }
     },
+    "/api/v1/tasks/{taskId}/presence": {
+      "post": {
+        "summary": "An agent's heartbeat on a task; answers with the other agents there",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "agentName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "sessionId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "`{ success: true, data }`"
+          },
+          "4XX": {
+            "description": "`{ success: false, errorCode, message, details? }`"
+          }
+        }
+      }
+    },
     "/api/v1/agent-sessions/end": {
       "post": {
         "summary": "End an agent session: send its held notifications and its What I did list",

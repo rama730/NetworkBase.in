@@ -585,6 +585,26 @@
       ],
       "additionalProperties": false
     },
+    "POST /api/v1/tasks/{taskId}/presence": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "agentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "additionalProperties": false
+    },
     "POST /api/v1/agent-sessions/end": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",

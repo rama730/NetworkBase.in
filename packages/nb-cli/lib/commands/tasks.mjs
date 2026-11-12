@@ -621,3 +621,14 @@ export async function taskNote(ctx) {
   ctx.out.result("nb.task.note/1", { number: task.taskNumber, id: res.note.id }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Noted on #${d.number}: the next session starts from it`);
 }
 
+/**
+ * `nb task presence <task>` (hidden; report D5): the MCP server's heartbeat while it works on a task, so the task shows
+ * "Claude Code is working on this". Answers with the other agents there.
+ * @param {Context} ctx
+ */
+export async function taskPresence(ctx) {
+  const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]));
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/tasks/${encodeURIComponent(task.id)}/presence`, { sessionId: String(ctx.env.NB_AGENT_SESSION ?? "cli").slice(0, 80), ...(ctx.env.NB_AGENT_NAME ? { agentName: ctx.env.NB_AGENT_NAME } : {}) }));
+  ctx.out.result("nb.task.presence/1", { number: task.taskNumber, others: res.others ?? [] }, (d) => (d.others.length ? `${d.others.join(" and ")} ${d.others.length === 1 ? "is" : "are"} also working on #${d.number}` : `Working on #${d.number}`));
+}
+

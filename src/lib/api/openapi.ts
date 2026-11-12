@@ -19,6 +19,7 @@ export const API_OPERATIONS: Operation[] = [
   { method: "put", path: "/api/v1/workspaces/{id}/files/{nodeId}/star", summary: "Star or unstar a file (shared with the Files tab)", body: z.object({ starred: z.boolean() }), auth: "token" },
   { method: "post", path: "/api/v1/tasks/{taskId}/reminders", summary: "Remind me about a task at a time", body: s.taskReminderSchema, auth: "token" },
   { method: "post", path: "/api/v1/tasks/{taskId}/agent-notes", summary: "Save where an agent stopped on a task", body: s.agentNoteSchema, auth: "token" },
+  { method: "post", path: "/api/v1/tasks/{taskId}/presence", summary: "An agent's heartbeat on a task; answers with the other agents there", body: s.agentPresenceSchema, auth: "token" },
   { method: "post", path: "/api/v1/agent-sessions/end", summary: "End an agent session: send its held notifications and its What I did list", body: s.agentSessionEndSchema, auth: "token" },
   { method: "patch", path: "/api/v1/extension/comments", summary: "Edit your own task comment", body: s.commentEditSchema, auth: "token" },
   { method: "patch", path: "/api/v1/me/notifications", summary: "Change your notification settings (only the named ones)", body: s.notificationSettingsSchema, auth: "token" },

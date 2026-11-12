@@ -4,7 +4,7 @@
 import crypto from "node:crypto";
 import readline from "node:readline";
 
-import { HOSTED_EXCLUDED, accessCard, callTool as runTool, morePacks, readAccess, readSessionLog, toolList as listTools } from "../mcp/tools.mjs";
+import { HOSTED_EXCLUDED, accessCard, callTool as runTool, morePacks, presencePing, readAccess, readSessionLog, toolList as listTools } from "../mcp/tools.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -65,10 +65,20 @@ export function createMcpHandler({ where, send, version, hosted = false, access,
   let accessRead = null;
   const getAccess = () => (accessRead ??= (access ? access() : readAccess(where)).catch(() => null));
   const toolList = async () => listTools(hosted, await getAccess(), packs);
-  const callTool = (/** @type {string} */ name, /** @type {any} */ args, /** @type {any} */ w) =>
-    hosted && HOSTED_EXCLUDED.has(name)
-      ? Promise.resolve({ isError: true, content: [{ type: "text", text: `${name} needs NetworkBase on your computer (nb mcp); the hosted server can't use local files` }] })
-      : runTool(name, args, w);
+  /** Heartbeats sent per task (report D5): the task shows this agent for 90 seconds after each. */
+  const pinged = new Map();
+  const callTool = async (/** @type {string} */ name, /** @type {any} */ args, /** @type {any} */ w) => {
+    if (hosted && HOSTED_EXCLUDED.has(name)) return { isError: true, content: [{ type: "text", text: `${name} needs NetworkBase on your computer (nb mcp); the hosted server can't use local files` }] };
+    const task = typeof args?.task === "string" || typeof args?.task === "number" ? String(args.task) : null;
+    const due = task && Date.now() - (pinged.get(task) ?? 0) > 55_000;
+    if (due) pinged.set(task, Date.now());
+    const [result, here] = await Promise.all([runTool(name, args, w), due ? presencePing(where, task, args.workspace) : Promise.resolve(null)]);
+    // Another agent on the same task (D17): say so, so they don't save over each other.
+    if (here?.others.length && Array.isArray(result?.content) && result.content[0]?.type === "text") {
+      result.content[0].text += `\n\nNote: ${here.others.join(" and ")} ${here.others.length === 1 ? "is" : "are"} also working on #${here.number}. File locks stop you saving over each other; tell the user if you both need the same files.`;
+    }
+    return result;
+  };
   /** @param {any} msg */
   return async function handle(msg) {
     const { id, method, params } = msg;
