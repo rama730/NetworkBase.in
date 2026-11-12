@@ -155,3 +155,31 @@ test('five toast types and their closing rules (decisions 46, 47)', () => {
   assert.equal(feedbackStore.getSnapshot().items.find((item) => item.id === id)?.type, 'info');
   toast.dismiss(id);
 });
+
+test('error toasts end with a next step: Retry when the caller can try again, and the connection when that failed (0.8 #6)', async () => {
+  toast.clear();
+  let tries = 0;
+  const id = toast.error('Failed to fetch', { retry: () => { tries += 1; } });
+  const item = feedbackStore.getSnapshot().items.find((i) => i.id === id)!;
+  assert.equal(item.action && 'label' in item.action ? item.action.label : null, 'Retry');
+  assert.equal(item.description, 'Check your connection, then retry.');
+  (item.action as { onClick: (e?: unknown) => void }).onClick();
+  assert.equal(tries, 1);
+  toast.clear();
+  const plainId = toast.error('Failed to fetch');
+  const plain = feedbackStore.getSnapshot().items.find((i) => i.id === plainId)!;
+  assert.equal(plain.action, undefined, 'no Retry where the caller can’t retry');
+  assert.equal(plain.description, 'Check your connection and try again.');
+  toast.clear();
+  // A promise made by a function is simply made again.
+  let runs = 0;
+  const failing = () => { runs += 1; return Promise.reject(new Error('Failed to fetch')); };
+  await toast.promise(failing, { error: 'Couldn’t load' }).unwrap().catch(() => undefined);
+  await new Promise((r) => setTimeout(r, 0));
+  const failed = feedbackStore.getSnapshot().items.find((i) => i.type === 'error' && i.action && 'label' in i.action && i.action.label === 'Retry' && i.id !== id);
+  assert.ok(failed, 'the promise toast offers Retry');
+  (failed!.action as { onClick: (e?: unknown) => void }).onClick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(runs, 2);
+  toast.clear();
+});

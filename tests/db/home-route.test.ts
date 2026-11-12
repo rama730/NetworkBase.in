@@ -13,12 +13,12 @@ before(async () => { home = await loadAppModule(() => import("../../src/app/api/
 after(async () => { await sql.end(); await closeAppDb(); });
 
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
-async function read(userId: string) {
+async function read(userId: string, query = "") {
   const raw = `nb_dev_${randomUUID().replace(/-/g, "")}`;
   await sql`INSERT INTO extension_device_sessions (user_id, token_hash, token_prefix, device_name, client_version, expires_at)
             VALUES (${userId}, ${hash(raw)}, ${raw.slice(0, 11)}, 'laptop', '2.1.0', now() + interval '30 days')`;
   headerValues = { authorization: `Bearer ${raw}`, "x-networkbase-request-method": "GET", "x-networkbase-request-target": "/api/v1/home" };
-  const res = await home.GET(new Request("https://app.test/api/v1/home"));
+  const res = await home.GET(new Request(`https://app.test/api/v1/home${query}`));
   const body = await res.json();
   assert.equal(res.status, 200, JSON.stringify(body));
   return body.data;
@@ -40,4 +40,14 @@ test("home: counts, unread, and the reviews waiting for you as owner or admin, n
   assert.equal(forMember.tasks.open, 2, "a task in review still counts as open work");
   assert.equal(typeof forMember.unread, "number");
   assert.deepEqual(forMember.assignments, []);
+});
+
+test("home: the folder's current task comes back while it exists, and null once it's deleted", async () => {
+  const owner = await sql.begin((tx) => createUser(tx));
+  const ws = await sql.begin((tx) => createProject(tx, owner));
+  const [t] = await sql`INSERT INTO tasks (workspace_id, title, status, task_number) VALUES (${ws}, 'Current one', 'in_progress', 4) RETURNING id`;
+  assert.deepEqual((await read(owner, `?task=${t!.id}`)).currentTask, { id: t!.id, number: 4, title: "Current one", status: "in_progress" });
+  await sql`UPDATE tasks SET deleted_at = now() WHERE id = ${t!.id}`;
+  assert.equal((await read(owner, `?task=${t!.id}`)).currentTask, null);
+  assert.equal("currentTask" in (await read(owner)), false, "not asked, not sent");
 });

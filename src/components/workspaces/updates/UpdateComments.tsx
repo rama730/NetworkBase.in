@@ -525,13 +525,15 @@ export function UpdateComments({
       );
       return { tempId, previousComments, previousUpdates };
     },
-    onError: (error, _content, context) => {
+    onError: (error, content, context) => {
       if (context?.previousComments)
         queryClient.setQueryData(commentsKey, context.previousComments);
       if (context?.previousUpdates)
         queryClient.setQueryData(updatesQueryKey, context.previousUpdates);
+      // Retry sends the same text again, so a dropped connection doesn't lose the comment (0.8 #6).
       toast.error(
         feedbackError(error instanceof Error ? error.message : "Couldn’t post comment", "Couldn’t post comment"),
+        { retry: () => commentMutation.mutate(content) },
       );
     },
     onSuccess: (comment, _content, context) => {

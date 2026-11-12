@@ -81,9 +81,17 @@ export function recordBase(state, p, f) {
 /** @param {Context} ctx */
 export async function status(ctx) {
   // The day's counts ride along (C2 "a home screen in nb status"); offline or refused, status still works.
-  const todayP = ctx.api.get("/api/v1/home").then((/** @type {any} */ h) => ({ dueThisWeek: h.tasks.dueThisWeek, overdue: h.tasks.overdue, unread: h.unread }), () => null);
+  const started = ctx.project?.startedTask?.id ?? null;
+  const homeP = ctx.api.get("/api/v1/home", { query: started ? { task: started } : {} }).then((/** @type {any} */ h) => h, () => null);
   const { root, project, items, skipped, offline, manifest } = await buildPlan(ctx);
-  const today = await todayP;
+  const home = /** @type {any} */ (await homeP);
+  const today = home ? { dueThisWeek: home.tasks.dueThisWeek, overdue: home.tasks.overdue, unread: home.unread } : null;
+  // A started task deleted elsewhere (or no longer yours to see) stops being this folder's task (found in M4a).
+  if (started && home && home.currentTask === null) {
+    writeProjectConfig(root, { ...project, startedTask: null });
+    ctx.out.note(ctx.out.c.muted(`#${project.startedTask?.number ?? ""} was deleted (or you can't see it now), so no task is started here: nb task start <n>`));
+    project.startedTask = null;
+  }
   const changed = items.filter((i) => i.state !== "unchanged");
   const conflicts = changed.filter((i) => i.state === "conflict");
   const data = {

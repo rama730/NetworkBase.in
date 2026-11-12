@@ -11,6 +11,8 @@ export type FeedbackOptions = ExternalToast & {
   dismissOnAction?: boolean;
   progress?: { completed: number; total: number };
   context?: string;
+  /** Errors that are worth trying again get a Retry button that runs this (report 0.8 #6). */
+  retry?: () => void;
 };
 export type FeedbackItem = {
   id: FeedbackId; type: FeedbackType; title: ReactNode; description?: ReactNode;

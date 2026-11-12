@@ -384,7 +384,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
         }),
       );
     } catch (err) {
-      toast.error(feedbackError(err instanceof Error ? err.message : "Couldn’t upload file to task", "Couldn’t upload file to task"));
+      toast.error(feedbackError(err instanceof Error ? err.message : "Couldn’t upload file to task", "Couldn’t upload file to task"), { retry: () => void handleConfirmUpload(confirmResult) });
     } finally {
       setTargetUploadTask(null);
     }

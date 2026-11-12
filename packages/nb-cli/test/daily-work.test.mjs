@@ -165,6 +165,17 @@ describe("daily work (C2)", () => {
     assert.match(r.stdout, /@sam: @Rama can you confirm\?/);
   });
 
+  it("a started task deleted elsewhere stops being current at the next nb status", async () => {
+    api.state.tasks.length = 0;
+    addTask(api.state, { title: "Soon gone", status: "todo" });
+    await nb(["task", "start", "1"]);
+    api.state.tasks.length = 0;
+    const r = await nb(["status"]);
+    assert.match(r.stderr, /#1 was deleted .* no task is started here/);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(cwd, ".networkbase", "config.json"), "utf8")).startedTask, null);
+    assert.doesNotMatch((await nb(["status"])).stdout, /#1/);
+  });
+
   it("nb ls is nb file list", async () => {
     const r = await nb(["ls"]);
     assert.equal(r.code, 0, r.stderr);

@@ -63,9 +63,23 @@ export function feedbackError(value: unknown, fallback = 'Action couldn’t fini
   return fallback;
 }
 
+/** Connection problems the person can fix or just try again (report 0.8 #6). */
+const OFFLINE = /failed to fetch|network ?error|load failed|networkerror|timed? ?out|offline|ECONNRESET|503|502|504/i;
+
 function emit(type: FeedbackType, message: Message, options: FeedbackOptions = {}) {
   const value = typeof message === 'function' ? message() : message;
-  const compact = compactFeedback(type === 'error' && typeof value === 'string' ? feedbackError(value) : value, type, options);
+  // Every error toast ends with its next step (0.8 #6, C5 in the app): Retry when the caller can try again, and
+  // "check your connection" when the connection is what failed.
+  const raw = typeof value === 'string' ? value : '';
+  const { retry, ...rest } = options;
+  const withStep: FeedbackOptions = type === 'error'
+    ? {
+        ...rest,
+        ...(retry && !rest.action ? { action: { label: 'Retry', onClick: () => retry() } } : {}),
+        ...(!rest.description && OFFLINE.test(raw) ? { description: retry ? 'Check your connection, then retry.' : 'Check your connection and try again.' } : {}),
+      }
+    : rest;
+  const compact = compactFeedback(type === 'error' && typeof value === 'string' ? feedbackError(value) : value, type, withStep);
   return feedbackStore.put(compact.type, compact.message, compact.options);
 }
 
@@ -91,6 +105,8 @@ export const toast = Object.assign(notify, {
     let settled = false;
     let dismissed = false;
     const base: FeedbackOptions = { ...options, description: undefined, id, onDismiss: item => { dismissed = true; options.onDismiss?.(item); } };
+    // A promise made by a function can simply be made again: its error toast offers Retry (0.8 #6).
+    const retryBase: FeedbackOptions = typeof input === 'function' ? { ...base, retry: () => { toast.promise(input, options); } } : base;
     const timer = setTimeout(() => { if (!settled && epoch === accountEpoch && options.loading) emit('loading', options.loading, base); }, 400);
     const source = Promise.resolve().then(() => typeof input === 'function' ? input() : input);
     const result = source.then(async value => {
@@ -108,8 +124,8 @@ export const toast = Object.assign(notify, {
       clearTimeout(timer);
       if (!dismissed && epoch === accountEpoch && options.error !== undefined) {
         const failure = typeof options.error === 'function' ? await options.error(error) : options.error;
-        if (failure && typeof failure === 'object' && 'message' in failure) emit('error', failure.message, { ...base, ...failure });
-        else emit('error', feedbackError(failure, typeof options.error === 'string' ? options.error : 'Action couldn’t finish'), base);
+        if (failure && typeof failure === 'object' && 'message' in failure) emit('error', failure.message, { ...retryBase, ...failure });
+        else emit('error', feedbackError(failure, typeof options.error === 'string' ? options.error : 'Action couldn’t finish'), { ...retryBase, ...(OFFLINE.test(error instanceof Error ? error.message : String(error)) ? { description: 'Check your connection, then retry.' } : {}) });
       } else if (!dismissed && epoch === accountEpoch) feedbackStore.remove(id, 'action');
       throw error;
     }).finally(options.finally);

@@ -525,6 +525,8 @@ export function FolderListView({
       const file = pendingRevisionFile;
       const node = targetRevisionNode;
       setPendingRevisionFile(null);
+      // Retry brings the same file back to the version dialog (0.8 #6).
+      const reopen = () => { setTargetRevisionNode(node); setPendingRevisionFile(file); setIsRevisionModalOpen(true); };
 
       try {
         const [{ saveFileRevision }, { logger }] = await Promise.all([
@@ -554,10 +556,10 @@ export function FolderListView({
             newVersion: result.version.version,
           });
         } else {
-          toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));
+          toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"), { retry: reopen });
         }
       } catch {
-        toast.error("Couldn’t save version");
+        toast.error("Couldn’t save version", { retry: reopen });
       }
     },
     [pendingRevisionFile, targetRevisionNode, projectId, upsertNodes]
@@ -708,17 +710,18 @@ export function FolderListView({
         );
         if (target.kind === "version") {
           const file = validation.files[0]!;
-          void (async () => {
+          const attempt = async (): Promise<void> => {
             const { saveFileRevision } = await import("@/hooks/useFileVersions");
             const res = await saveFileRevision({ projectId, nodeId: node.id, file, mode: "new_revision" });
-            if (!res.success) { toast.error(feedbackError(res.error, "Couldn’t save the new version")); return; }
+            if (!res.success) { toast.error(feedbackError(res.error, "Couldn’t save the new version"), { retry: () => void attempt() }); return; }
             upsertNodes(projectId, [res.node]);
             const previous = res.version.basedOnVersion ?? res.version.version - 1;
             toast.success(`${node.name} · v${previous} → v${res.version.version}`, {
               duration: 8_000,
               action: { label: "Undo", onClick: () => void import("@/lib/files/place-drop").then(({ undoDrop }) => undoDrop(projectId, { created: [], versions: [{ nodeId: node.id, name: node.name, previous, version: res.version.version }], skipped: [] }, () => void loadFolderContent(folderId, "refresh"))) },
             });
-          })();
+          };
+          void attempt();
           return;
         }
         void dropInto(validation.files, node.parentId ?? null);

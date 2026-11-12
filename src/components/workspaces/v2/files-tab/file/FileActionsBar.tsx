@@ -252,6 +252,8 @@ export function FileActionsBar({
       if (!pendingFile || !projectId || !nodeId) return;
       const file = pendingFile;
       setPendingFile(null);
+      // Retry brings the same file back to the version dialog (0.8 #6).
+      const reopen = () => { setPendingFile(file); setIsModalOpen(true); };
 
       setIsReplacing(true);
       setLockConflict(null);
@@ -284,11 +286,11 @@ export function FileActionsBar({
         } else if (result.lockConflict) {
           setLockConflict(result.lockConflict);
         } else {
-          toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));
+          toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"), { retry: reopen });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Couldn’t replace file";
-        toast.error(feedbackError(message, "Action couldn’t finish"));
+        toast.error(feedbackError(message, "Action couldn’t finish"), { retry: reopen });
       } finally {
         setIsReplacing(false);
       }

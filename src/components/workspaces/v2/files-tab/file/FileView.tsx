@@ -362,17 +362,21 @@ export function FileView({
           }
 
           // Dropping on an open file is a new version of it, no pop-up (§19.2); Undo puts the old content back.
-          const result = await saveAsNewVersion(droppedFile, {});
-          if (!result.success) {
-            toast.error(feedbackError(result.error || "Couldn’t save the new version", "Couldn’t save the new version"));
-            return;
-          }
-          useFilesStore.getState().setNodes(projectId, [result.node]);
-          const previous = result.version.basedOnVersion ?? result.version.version - 1;
-          toast.success(`New version · v${previous} → v${result.version.version}`, {
-            duration: 8_000,
-            action: { label: "Undo", onClick: () => void import("@/lib/files/place-drop").then(({ undoDrop }) => undoDrop(projectId, { created: [], versions: [{ nodeId: node.id, name: node.name, previous, version: result.version.version }], skipped: [] })) },
-          });
+          // A failed save offers Retry with the same file (0.8 #6).
+          const attempt = async (): Promise<void> => {
+            const result = await saveAsNewVersion(droppedFile, {});
+            if (!result.success) {
+              toast.error(feedbackError(result.error || "Couldn’t save the new version", "Couldn’t save the new version"), { retry: () => void attempt() });
+              return;
+            }
+            useFilesStore.getState().setNodes(projectId, [result.node]);
+            const previous = result.version.basedOnVersion ?? result.version.version - 1;
+            toast.success(`New version · v${previous} → v${result.version.version}`, {
+              duration: 8_000,
+              action: { label: "Undo", onClick: () => void import("@/lib/files/place-drop").then(({ undoDrop }) => undoDrop(projectId, { created: [], versions: [{ nodeId: node.id, name: node.name, previous, version: result.version.version }], skipped: [] })) },
+            });
+          };
+          await attempt();
         } catch (err) {
           const message =
             err instanceof Error ? err.message : "Drop failed";
@@ -390,13 +394,16 @@ export function FileView({
       setPendingDropFile(null);
 
       try {
-        const result = await saveAsNewVersion(file, { comment: choice.comment });
-        if (result.success) {
-          toast.success(`Saved as v${result.version.version}`);
-          useFilesStore.getState().setNodes(projectId, [result.node]);
-        } else {
-          toast.error(feedbackError(result.error || "Couldn’t save the version", "Couldn’t save the version"));
-        }
+        const attempt = async (): Promise<void> => {
+          const result = await saveAsNewVersion(file, { comment: choice.comment });
+          if (result.success) {
+            toast.success(`Saved as v${result.version.version}`);
+            useFilesStore.getState().setNodes(projectId, [result.node]);
+          } else {
+            toast.error(feedbackError(result.error || "Couldn’t save the version", "Couldn’t save the version"), { retry: () => void attempt() });
+          }
+        };
+        await attempt();
       } catch (err) {
         const message = err instanceof Error ? err.message : "Upload failed";
         toast.error(feedbackError(message, "Action couldn’t finish"));
