@@ -9871,9 +9871,9 @@
       "text": "When: after Parts A and B are live (CLI 2.0.4 and the new approval page). It walks what exists then; features not built yet are noted as \"planned in C/D/G\", not",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E0.3b3b9b9d",
@@ -9881,9 +9881,9 @@
       "text": "Who runs it:",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E0.a81e593c",
@@ -9891,9 +9891,9 @@
       "text": "Machines:",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E0.7e94a150",
@@ -9901,9 +9901,9 @@
       "text": "Where findings go: docs/superpowers/plans/<date>-walkthrough-findings.md, linked from this report as \"Part E results\".",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E1.2ee35f29",
@@ -9911,9 +9911,9 @@
       "text": "At the terminal: install → nb → sign in → link a folder → see tasks → work on one → push → hand in an assignment → see the review → undo a mistake.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E1.1a9985d7",
@@ -9921,19 +9921,19 @@
       "text": "Through an AI: nb agent setup → approve (one click) → \"what should I do today?\" → \"work on #4\" → questions → drafts → \"finish it\" → the yes → the reviewer's vie",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E1.7a97b241",
       "section": "E1",
       "text": "Branches and merge requests (once Part H is live): create a branch → save on it → a git folder switching branches → open a merge request → review with a suggest",
       "kind": "build",
-      "milestone": "M3",
+      "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E2.53959c1d",
@@ -9941,9 +9941,9 @@
       "text": "A student: classes, hand-ins, take back, \"check my hand-in\".",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.e3353e6d",
@@ -9951,9 +9951,9 @@
       "text": "A teacher: review queue, batch return, class progress.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.9d6d1836",
@@ -9961,9 +9961,9 @@
       "text": "A team lead: planning a sprint, assigning, reviewing.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.a70bc713",
@@ -9971,9 +9971,9 @@
       "text": "A solo developer: files, git, nb watch, an agent on their own work.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.a0b004cf",
@@ -9981,39 +9981,39 @@
       "text": "An organization admin: agent policy, pausing agents, roles.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.b0aa4016",
       "section": "E2",
       "text": "Someone with no Node installed: the single-file install (C7).",
       "kind": "build",
-      "milestone": "M3",
+      "milestone": "M4",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E2.a1925b02",
       "section": "E2",
       "text": "A heavy user: many branches, many open change sets, the terminal dashboard, bulk commands.",
       "kind": "build",
-      "milestone": "M3",
+      "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E2.c31d43c8",
       "section": "E2",
       "text": "A GitHub user: a repository connected, working locally with git on several branches.",
       "kind": "build",
-      "milestone": "M3",
+      "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E3.ddaaf770",
@@ -10021,9 +10021,9 @@
       "text": "macOS, Windows and Linux.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E3.8df414c4",
@@ -10031,29 +10031,29 @@
       "text": "A server over SSH (no browser; QR approval from a phone, A4).",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E3.a7b70eaf",
       "section": "E3",
       "text": "A cloud sandbox (GitHub Codespaces).",
       "kind": "build",
-      "milestone": "M3",
+      "milestone": "M9",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E3.e9776d50",
       "section": "E3",
       "text": "Behind a company proxy with its own certificates.",
       "kind": "build",
-      "milestone": "M3",
+      "milestone": "M9",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E4.84f22fe0",
@@ -10061,9 +10061,9 @@
       "text": "Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E4.69482b6b",
@@ -10071,9 +10071,9 @@
       "text": "A cloud agent on hosted MCP (OAuth sign-in, no local folder).",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.2ef6aaea",
@@ -10081,9 +10081,9 @@
       "text": "Install to first push · under 3 minutes",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.06b293e3",
@@ -10091,9 +10091,9 @@
       "text": "Connecting an agent · 1 approval click",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.494f735a",
@@ -10101,9 +10101,9 @@
       "text": "The agent's first useful answer · under 60 seconds",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.6adb3ac1",
@@ -10111,9 +10111,9 @@
       "text": "Handing in an assignment · no help page needed",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.9ace04a9",
@@ -10121,9 +10121,9 @@
       "text": "Any error · says the next step without reading docs",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.2eb22cc7",
@@ -10131,9 +10131,9 @@
       "text": "The network drops in the middle of a push.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.f5b82771",
@@ -10141,9 +10141,9 @@
       "text": "The sign-in expires, or is revoked from Settings while in use.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.539f9f43",
@@ -10151,9 +10151,9 @@
       "text": "The workspace is paused, or the organization turns agents off.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.7a36cf71",
@@ -10161,9 +10161,9 @@
       "text": "A conflict with a teammate's change.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.869c1515",
@@ -10171,29 +10171,29 @@
       "text": "A 25 MB file.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.fc9b40be",
       "section": "E6",
       "text": "A slow connection (throttled).",
       "kind": "build",
-      "milestone": "M3",
+      "milestone": "M9",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E7.15413bb7",
       "section": "E7",
       "text": "The terminal journey with a screen reader (VoiceOver, Narrator), using --plain.",
       "kind": "build",
-      "milestone": "M3",
+      "milestone": "M9",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E7.e936b136",
@@ -10201,9 +10201,9 @@
       "text": "The approval page with a screen reader and keyboard only.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E8.5ebd454c",
@@ -10211,9 +10211,9 @@
       "text": "Terminal recordings and agent transcripts, kept with the findings (secrets removed).",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E8.d13ad46f",
@@ -10221,9 +10221,9 @@
       "text": "Every finding with a severity: blocker, annoying, or polish.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E8.ba2e03a6",
@@ -10231,9 +10231,9 @@
       "text": "Every finding marked \"already planned in A–D/F\" or \"new\".",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E8.e54bd4b0",
@@ -10241,9 +10241,9 @@
       "text": "Times measured against E5.",
       "kind": "build",
       "milestone": "M3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
+      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E9.6b2fedaf",

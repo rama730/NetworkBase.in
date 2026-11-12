@@ -2177,6 +2177,8 @@ Before Parts C, D and G are built in detail, walk both journeys as real people w
 
 **Output:** the findings list is added to this report as Part E results. The user then chooses what goes in, and anything new is added to C, D or F.
 
+**Part E results (12 Nov 2026):** [2026-11-12-walkthrough-findings.md](2026-11-12-walkthrough-findings.md): 13 findings (4 annoying, 9 polish; 1 already planned in C), times against E5, and what wasn't walked yet.
+
 ---
 
 # Part F: the other areas
