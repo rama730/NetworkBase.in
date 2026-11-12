@@ -43,6 +43,12 @@ const RESOURCES = [
   { uri: "networkbase://workspace/overview", name: "This workspace at a glance", mimeType: "text/plain", tool: "networkbase_workspace_view" },
 ];
 
+/** A client's name in words people know. @param {{ name: string, title?: string }} info */
+export function agentNameFor(info) {
+  const n = info.name.toLowerCase();
+  return /claude/.test(n) ? "Claude Code" : /codex/.test(n) ? "Codex" : /cursor/.test(n) ? "Cursor" : /gemini/.test(n) ? "Gemini CLI" : /copilot/.test(n) ? "GitHub Copilot" : String(info.title ?? info.name).slice(0, 80);
+}
+
 /**
  * One MCP message handler for both servers (report A7.1): `nb mcp` over stdio, and the hosted one over HTTP
  * (src/app/api/mcp, P6.1). `hosted` leaves out tools that need a local folder and the local undo log.
@@ -75,6 +81,8 @@ export function createMcpHandler({ where, send, version, hosted = false, access,
     switch (method) {
       case "initialize": {
         const asked = params?.protocolVersion;
+        // Which agent this is (report D16): notes and labels name it.
+        if (!where.env.NB_AGENT_NAME && typeof params?.clientInfo?.name === "string") where.env.NB_AGENT_NAME = agentNameFor(params.clientInfo);
         return reply({
           protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
           capabilities: { tools: { listChanged: true }, resources: { listChanged: false }, prompts: { listChanged: false }, logging: {} },

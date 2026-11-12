@@ -6252,3 +6252,14 @@ export const taskReminders = pgTable("task_reminders", {
   sentAt: timestamp("sent_at", { withTimezone: true }),
   claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
 }, (t) => ({ taskUserIdx: index("task_reminders_task_user_idx").on(t.taskId, t.userId), userIdx: index("task_reminders_user_idx").on(t.userId) }));
+
+/** Report D16 (0089): where an agent stopped on a task, for its next session; the person reads or deletes them. */
+export const taskAgentNotes = pgTable("task_agent_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  sessionId: text("session_id"),
+  agentName: text("agent_name"),
+  note: text("note").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ taskCreatedIdx: index("task_agent_notes_task_created_idx").on(t.taskId, t.createdAt.desc()), userIdx: index("task_agent_notes_user_idx").on(t.userId) }));

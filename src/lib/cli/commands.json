@@ -1265,6 +1265,33 @@
       ]
     },
     {
+      "name": "task note",
+      "summary": "Save where an agent stopped on a task, for its next session",
+      "usage": "nb task note <task> \"where it stopped\" | --list | --delete <id>",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "list": {
+          "type": "boolean",
+          "describe": "The task's agent notes"
+        },
+        "delete": {
+          "type": "string",
+          "describe": "Delete this note",
+          "valueName": "id"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "task remind",
       "summary": "Remind me about a task at a time (in the inbox)",
       "usage": "nb task remind <task> \"tomorrow 9am\" [-m note] | --list | --off",

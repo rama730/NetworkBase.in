@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string, active?: number }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, dueDate?: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, lastTokenBody?: any, countWorkspaces?: any[], stars?: Set<string>, trash?: any[], locks?: any[], memberOps?: any[], feed?: any[], prefs?: any, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, lastTokenBody?: any, countWorkspaces?: any[], stars?: Set<string>, trash?: any[], agentNotes?: any[], locks?: any[], memberOps?: any[], feed?: any[], prefs?: any, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -452,6 +452,17 @@ const patterns = [
     const all = [...state.files.values()];
     const files = req.query.get("kind") === "starred" ? all.filter((f) => state.stars?.has(f.nodeId)) : all.slice(-2).reverse();
     return { data: { kind: req.query.get("kind"), files: files.map((f) => ({ nodeId: f.nodeId, path: f.path, name: f.path.split("/").pop(), size: f.content.length, currentVersion: f.version, at: f.updatedAt })) } };
+  }],
+  // Agent notes (D16, 0089).
+  [/^\/api\/v1\/tasks\/([^/]+)\/agent-notes$/, "GET", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => ({ data: { notes: (state.agentNotes ??= []).filter((n) => n.taskId === req.params[0]).slice().reverse() } })],
+  [/^\/api\/v1\/tasks\/([^/]+)\/agent-notes$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
+    const note = { id: crypto.randomUUID(), taskId: req.params[0], note: req.body.note, agentName: req.body.agentName ?? null, sessionId: req.body.sessionId ?? null, createdAt: now() };
+    (state.agentNotes ??= []).push(note);
+    return { data: { note } };
+  }],
+  [/^\/api\/v1\/tasks\/([^/]+)\/agent-notes$/, "DELETE", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
+    state.agentNotes = (state.agentNotes ?? []).filter((n) => n.id !== req.body.id);
+    return { data: { deleted: req.body.id } };
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", role: "owner" }, { id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || `${m.username} ${m.fullName}`.toLowerCase().includes(String(req.query.get("q")).toLowerCase())) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...state.files.values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],

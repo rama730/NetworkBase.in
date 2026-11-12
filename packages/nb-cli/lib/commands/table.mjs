@@ -177,6 +177,8 @@ export const COMMANDS = [
       "blocked-by": { type: "string", multiple: true, describe: "This task waits on that one", valueName: "task" }, "not-blocked-by": { type: "string", multiple: true, describe: "Stop waiting on that task", valueName: "task" },
       link: { type: "string", multiple: true, describe: "Add a link, like a pull request (https://…)", valueName: "url" } },
     examples: ["nb task edit 4 --label bug --blocked-by 7", "nb task edit 4 --link https://github.com/acme/app/pull/42"] },
+  { group: "Tasks", name: "task note", summary: "Save where an agent stopped on a task, for its next session", usage: 'nb task note <task> "where it stopped" | --list | --delete <id>', module: "tasks", fn: "taskNote",
+    flags: { ...MESSAGE, list: { type: "boolean", describe: "The task's agent notes" }, delete: { type: "string", describe: "Delete this note", valueName: "id" } } },
   { group: "Tasks", name: "task remind", summary: "Remind me about a task at a time (in the inbox)", usage: 'nb task remind <task> "tomorrow 9am" [-m note] | --list | --off', module: "work", fn: "taskRemind",
     flags: { ...MESSAGE, list: { type: "boolean", describe: "Your reminders on the task" }, off: { type: "boolean", describe: "Cancel your reminders on the task" } },
     examples: ['nb task remind 4 "tomorrow 9am"', 'nb task remind 4 "in 2 hours" -m "check the build"'] },

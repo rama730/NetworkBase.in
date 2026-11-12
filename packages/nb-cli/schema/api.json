@@ -561,6 +561,30 @@
       ],
       "additionalProperties": false
     },
+    "POST /api/v1/tasks/{taskId}/agent-notes": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "agentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "sessionId": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "note"
+      ],
+      "additionalProperties": false
+    },
     "POST /api/v1/agent-sessions/end": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",

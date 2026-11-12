@@ -189,6 +189,9 @@ export const TOOLS = [
       ].join("\n");
       return { schema: "nb.mcp.briefing/1", data: { since, next: items, unread: inbox?.data.unread ?? 0, inbox: unread, changes }, text: `<untrusted source="networkbase briefing">\n${text}\n</untrusted>`, warnings: [] };
     } },
+  { name: "networkbase_task_note", title: "Note where I stopped", tier: "small", props: { task: taskProp, note: { type: "string", description: "Like \"parsed 3 of 5 files; next: tests\"" }, workspace: workspaceProp }, required: ["note"],
+    description: "Save where you stopped on a task, so the next session (any computer) carries on from it. Do it before you finish.",
+    run: (nb, a) => nb("task note", a.task ? [String(a.task), a.note] : [], { ...ws(a), ...(a.task ? {} : { message: a.note }) }) },
   { name: "networkbase_what_i_did", title: "What I did", tier: "read", props: {},
     description: "This session's changes, each with its undo. Show it to the user when you finish.",
     run: async () => { throw new CliError("INTERNAL", "networkbase_what_i_did is answered from the session log"); } },

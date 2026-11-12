@@ -86,6 +86,10 @@ export const taskMetaSchema = z.object({
 }).strict();
 
 /** `nb task remind` (report C2, 0088): when, as an instant, and an optional note. */
+/** Report D16 (0089): where an agent stopped on a task. */
+export const agentNoteSchema = z.object({ note: z.string().trim().min(1).max(2000), agentName: z.string().trim().min(1).max(80).optional(), sessionId: z.string().trim().max(80).optional() }).strict();
+export const agentNoteDeleteSchema = z.object({ id: z.string().uuid() }).strict();
+
 /** Report D19: the agent's "What I did" lines, sent when its MCP session ends. */
 export const agentSessionEndSchema = z.object({ did: z.array(z.string().trim().max(300)).max(50).optional() }).strict();
 

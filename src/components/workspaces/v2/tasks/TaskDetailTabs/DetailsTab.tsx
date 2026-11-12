@@ -25,6 +25,7 @@ import {
   Zap,
 } from "lucide-react";
 import { addDays, format, formatDistanceToNow } from "@/lib/utils/date";
+import { AgentNotes } from "./AgentNotes";
 import ReactMarkdown from "react-markdown";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -1113,6 +1114,7 @@ export default function DetailsTab({
         </div>
       </div>
       </MoreDetails>
+      {task.projectId ? <AgentNotes projectId={task.projectId} taskId={task.id} /> : null}
       <WorkWithAgent projectSlug={projectSlug} taskNumber={task.taskNumber} canEdit={canEdit} />
     </div>
   );
