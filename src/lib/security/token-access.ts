@@ -148,6 +148,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/workspaces/${ID}/files/mine`), read: "file:read", agent: "path" },
   // The workspace Trash (report C3); restoring goes through file-operation.
   { pattern: route(`/api/v1/workspaces/${ID}/files/trash`), read: "file:read", agent: "path" },
+  // Search beyond files: tasks, comments, docs, people (report C2); the route applies the Tasks tab's read rules.
+  { pattern: route(`/api/v1/workspaces/${ID}/search`), read: "task:read", agent: "path" },
   // Agents asking people (report §20.4); the routes check the workspace and who may answer.
   { pattern: route("/api/v1/questions"), read: "task:read", write: "task:write", agent: "route" },
   { pattern: route(`/api/v1/questions/${ID}`), read: "task:read", agent: "route" },

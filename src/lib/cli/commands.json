@@ -2322,10 +2322,19 @@
     },
     {
       "name": "search",
-      "summary": "Find files by name",
-      "usage": "nb search \"<text>\"",
-      "flags": {},
-      "examples": [],
+      "summary": "Find tasks, files, comments, docs and people",
+      "usage": "nb search \"<text>\" [--in tasks,files,comments,docs,people]",
+      "flags": {
+        "in": {
+          "type": "string",
+          "describe": "Only these: tasks, files, comments, docs, people",
+          "valueName": "kinds"
+        }
+      },
+      "examples": [
+        "nb search \"login\"",
+        "nb search \"login\" --in tasks,comments"
+      ],
       "exitCodes": [
         0,
         1

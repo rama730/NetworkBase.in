@@ -264,7 +264,8 @@ export const COMMANDS = [
   { group: "Docs and workspaces", name: "update like", summary: "Like an update (again to unlike)", usage: "nb update like <n>", module: "browse", fn: "updateLike" },
   { group: "Docs and workspaces", name: "update comment", summary: "Comment on an update", usage: "nb update comment <n> -m text", module: "browse", fn: "updateComment", flags: { ...MESSAGE } },
   { group: "Docs and workspaces", name: "member list", summary: "People in the workspace", usage: "nb member list [name]", module: "docs", fn: "memberList" },
-  { group: "Docs and workspaces", name: "search", summary: "Find files by name", usage: "nb search \"<text>\"", module: "docs", fn: "search" },
+  { group: "Docs and workspaces", name: "search", summary: "Find tasks, files, comments, docs and people", usage: "nb search \"<text>\" [--in tasks,files,comments,docs,people]", module: "docs", fn: "search",
+    flags: { in: { type: "string", describe: "Only these: tasks, files, comments, docs, people", valueName: "kinds" } }, examples: ['nb search "login"', 'nb search "login" --in tasks,comments'] },
 ];
 
 /** Old 1.x names → new commands (report §17.5); they work through 2.x and print the new name once a day. */

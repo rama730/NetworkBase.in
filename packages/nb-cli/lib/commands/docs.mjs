@@ -7,7 +7,7 @@ import path from "node:path";
 
 import { readUserConfig } from "../config.mjs";
 import { CliError, EXIT, usage } from "../errors.mjs";
-import { safe } from "../print/style.mjs";
+import { commentText, safe } from "../print/style.mjs";
 import { unifiedDiff } from "../sync/diff.mjs";
 import { fetchManifest } from "../sync/transfer.mjs";
 import { confirm } from "../tui/ask.mjs";
@@ -127,9 +127,35 @@ export async function workspaceList(ctx) {
 /** @param {Context} ctx */
 export async function search(ctx) {
   const q = ctx.positionals.join(" ").trim();
-  if (!q) throw usage('nb search "<text>"');
-  const res = /** @type {any} */ (await ctx.api.get("/api/v1/extension/search", { query: { projectId: ctx.requireWorkspace(), q, kind: "file" } }));
-  ctx.out.result("nb.search/1", { query: q, files: res.files.map((/** @type {any} */ f) => ({ path: f.path, version: f.currentVersion })) }, (/** @type {any} */ d) => (d.files.length ? d.files.map((/** @type {any} */ f) => `  ${safe(f.path)} ${ctx.out.c.muted(`v${f.version}`)}`) : `Nothing named like "${safe(q)}"`));
+  if (!q) throw usage('nb search "<text>" [--in tasks,files,comments,docs,people]');
+  // Beyond files (C2): tasks, comments, docs and people from the workspace search, files from the file search.
+  const kinds = String(ctx.flags.in ?? "files,tasks,comments,docs,people").split(",").map((k) => k.trim()).filter(Boolean);
+  const bad = kinds.find((k) => !["files", "tasks", "comments", "docs", "people"].includes(k));
+  if (bad) throw usage(`--in ${bad}: use tasks, files, comments, docs or people`);
+  const others = kinds.filter((k) => k !== "files");
+  const workspaceId = ctx.requireWorkspace();
+  const [files, rest] = await Promise.all([
+    kinds.includes("files") ? ctx.api.get("/api/v1/extension/search", { query: { projectId: workspaceId, q, kind: "file" } }).then((/** @type {any} */ r) => r.files) : [],
+    others.length && q.length >= 2 ? ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/search`, { query: { q, in: others.join(",") } }) : {},
+  ]);
+  const r = /** @type {any} */ (rest);
+  const data = {
+    query: q,
+    files: /** @type {any[]} */ (files).map((f) => ({ path: f.path, version: f.currentVersion })),
+    tasks: r.tasks ?? [], comments: r.comments ?? [], docs: r.docs ?? [], people: r.people ?? [],
+  };
+  const { c } = ctx.out;
+  ctx.out.result("nb.search/1", data, (d) => {
+    const section = (/** @type {string} */ title, /** @type {any[]} */ items, /** @type {(x: any) => string} */ line) => (items.length ? [c.bold(title), ...items.map((x) => `  ${line(x)}`), ""] : []);
+    const lines = [
+      ...section("Tasks", d.tasks, (t) => `#${t.number} ${safe(t.title)} ${c.muted(t.status)}`),
+      ...section("Files", d.files, (f) => `${safe(f.path)} ${c.muted(`v${f.version}`)}`),
+      ...section("Comments", d.comments, (m) => `#${m.number} ${m.by ? `@${safe(m.by)}` : "someone"}: ${commentText(m.text).replace(/\s+/g, " ").slice(0, 100)}`),
+      ...section("Docs", d.docs, (x) => `${safe(x.title)} ${c.muted(`nb doc view ${x.slug}`)}`),
+      ...section("People", d.people, (p) => `@${safe(p.username ?? "")} ${safe(p.name ?? "")} ${c.muted(p.role)}`),
+    ];
+    return lines.length ? lines.slice(0, -1) : `Nothing matches "${safe(q)}"`;
+  });
 }
 
 // ───────────────────────────────── file list / view

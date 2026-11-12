@@ -415,6 +415,13 @@ const patterns = [
     u.commentList = [...(u.commentList ?? []), { authorUsername: "tester", content: req.body.text }];
     return { data: { comment: { id: crypto.randomUUID() } } };
   }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/search$/, "GET", (req, state) => {
+    const q = String(req.query.get("q") ?? "").toLowerCase();
+    const want = String(req.query.get("in") ?? "tasks,comments,docs,people").split(",");
+    const tasks = want.includes("tasks") ? state.tasks.filter((t) => t.title.toLowerCase().includes(q)).map((t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status })) : [];
+    const comments = want.includes("comments") ? state.tasks.flatMap((t) => t.comments.filter((c) => String(c.content).toLowerCase().includes(q)).map((c) => ({ id: c.id, taskId: t.id, number: t.taskNumber, taskTitle: t.title, text: c.content, by: c.authorUsername }))) : [];
+    return { data: { tasks, comments, docs: [], people: want.includes("people") && "sam lee".includes(q) ? [{ id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", name: "Sam Lee", role: "member" }] : [] } };
+  }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/files\/trash$/, "GET", (_req, state) => ({ data: { items: state.trash ?? [], nextCursor: null } })],
   [/^\/api\/v1\/files\/([^/]+)\/lock$/, "POST", (req, state) => {
     state.locks = [...(state.locks ?? []), { nodeId: req.params[0], op: "lock", sessionId: req.body.sessionId }];
