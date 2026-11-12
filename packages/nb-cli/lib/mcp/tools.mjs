@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 
 import { COMMANDS } from "../commands/table.mjs";
-import { currentProfile, globalDir, readJson, writeAtomic } from "../config.mjs";
+import { currentProfile, findRoot, globalDir, readJson, readProjectConfig, writeAtomic } from "../config.mjs";
 import { createContext } from "../context.mjs";
 import { CliError } from "../errors.mjs";
 
@@ -167,6 +167,25 @@ export const TOOLS = [
     required: ["question", "options"],
     description: "Ask a person in NetworkBase who isn't in this chat (a cloud agent's person, a reviewer); they answer in the app. Ask in this chat when the user is here.",
     run: async (nb, a) => nb("ask", [a.question], { ...ws(a), option: a.options, ...(a.to ? { to: a.to } : {}), ...(a.task ? { task: String(a.task) } : {}), ...(a.wait === false ? {} : { wait: true, timeout: "600" }) }) },
+  { name: "networkbase_briefing", title: "Briefing", tier: "read", props: { since: { type: "string", description: "30m, 3h, 1d (default), 2w or a date" }, workspace: workspaceProp },
+    description: `What changed since a time, what's waiting in the inbox and what to work on next, in one call ("what changed since yesterday?", "catch me up"). ${DATA}`,
+    run: async (nb, a) => {
+      const since = String(a.since ?? "1d");
+      const [next, inbox, activity] = await Promise.all([
+        nb("next", [], { ...ws(a), limit: "5" }).catch(() => null),
+        nb("inbox").catch(() => null),
+        nb("activity", [], { ...ws(a), since, limit: "15" }).catch(() => null),
+      ]);
+      const items = next?.data.items ?? [];
+      const unread = (inbox?.data.items ?? []).filter((/** @type {any} */ i) => !i.readAt).slice(0, 5);
+      const changes = activity?.data.items ?? [];
+      const text = [
+        "Next up:", ...(items.length ? items.map((/** @type {any} */ t) => `  #${t.number} ${t.title} · ${t.why}${t.dueDate ? ` (due ${String(t.dueDate).slice(0, 10)})` : ""}`) : ["  nothing open is theirs"]),
+        `Inbox: ${inbox?.data.unread ?? 0} unread`, ...unread.map((/** @type {any} */ i) => `  ${i.title}${i.body ? ` · ${String(i.body).replace(/\n/g, " ").slice(0, 80)}` : ""}`),
+        `Changes since ${since} ago:`, ...(changes.length ? changes.map((/** @type {any} */ e) => `  ${e.by ? `@${e.by} ` : ""}${e.task ? `#${e.task.number} ${e.task.title} ` : ""}${e.detail ?? e.type}${e.via === "agent" ? ` (via ${e.agentName ?? "an agent"})` : ""}`) : ["  none"]),
+      ].join("\n");
+      return { schema: "nb.mcp.briefing/1", data: { since, next: items, unread: inbox?.data.unread ?? 0, inbox: unread, changes }, text, warnings: [] };
+    } },
   { name: "networkbase_undo", title: "Undo", tier: "small", props: { token: { type: "string", description: "An undoToken (default: the last change)" }, all: { type: "boolean", description: "Everything from this session, newest first" } },
     description: "Undo a NetworkBase change from the last 24 hours. Refused if someone changed it since.",
     run: (nb, a) => (a.all ? nb("undo", [], { session: true }) : nb("undo", a.token ? [String(a.token)] : [])) },
@@ -369,8 +388,16 @@ const NEEDS_SCOPE = /** @type {Record<string, string>} */ ({ networkbase_task_do
  */
 export async function readAccess(where) {
   try {
-    const r = await executor(where, {})("whoami");
-    return { user: r.data.user, access: r.data.access ?? null, scopes: r.data.credential?.scopes ?? [] };
+    // Who, plus where and what's next (report D1): read side by side; the extras are left out when they fail.
+    const nb = executor(where, {});
+    const [r, next, inbox] = await Promise.all([nb("whoami"), nb("next", [], { limit: "3" }).catch(() => null), nb("inbox").catch(() => null)]);
+    const root = findRoot(where.cwd);
+    const project = root ? readProjectConfig(root, () => {}) : null;
+    return {
+      user: r.data.user, access: r.data.access ?? null, scopes: r.data.credential?.scopes ?? [],
+      workspace: project?.slug ? { title: project.title ?? project.slug, slug: project.slug } : null,
+      next: next?.data.items ?? null, unread: inbox?.data.unread ?? null,
+    };
   } catch {
     return null;
   }
@@ -380,13 +407,20 @@ export async function readAccess(where) {
 export function accessCard(a) {
   if (!a?.user) return "";
   const who = `${a.user.fullName ?? a.user.username ?? a.user.email ?? "the person"}${a.user.username ? ` (@${a.user.username})` : ""}`;
-  if (!a.access) return `Signed in as ${who} with their own sign-in: you can do what they can, and big changes still go to them first.`;
-  return [
-    `You are working for ${who} on NetworkBase.`,
-    `What they approved: "${a.access.sentence}"`,
-    "Whatever the access, finishing tasks, final files, doc edits and deleting wait for their yes (needs_confirmation).",
-    "If a tool answers access_requested, NetworkBase has asked them for that permission: tell them, and try again after they answer. Never look for another way round.",
-  ].join("\n");
+  const lines = a.access
+    ? [
+        `You are working for ${who} on NetworkBase.`,
+        `What they approved: "${a.access.sentence}"`,
+        "Whatever the access, finishing tasks, final files, doc edits and deleting wait for their yes (needs_confirmation).",
+        "If a tool answers access_requested, NetworkBase has asked them for that permission: tell them, and try again after they answer. Never look for another way round.",
+      ]
+    : [`Signed in as ${who} with their own sign-in: you can do what they can, and big changes still go to them first.`];
+  // Where and what's next (report D1), so "what should I do today?" needs no lookups.
+  if (a.workspace) lines.push(`This folder is linked to ${a.workspace.title} (${a.workspace.slug}): tools use it unless another workspace is named.`);
+  else if (a.next !== undefined) lines.push("This folder isn't linked to a workspace: name one (networkbase_workspace_find).");
+  if (a.next?.length) lines.push(`Their next work: ${a.next.slice(0, 3).map((/** @type {any} */ t) => `#${t.number} ${String(t.title).slice(0, 60)} (${t.why})`).join("; ")}.`);
+  if (a.unread) lines.push(`${a.unread} unread in their inbox (networkbase_briefing shows it).`);
+  return lines.join("\n");
 }
 
 /** @param {string} name @param {any} args @param {string} summary @param {string | undefined} preview @param {NodeJS.ProcessEnv} env */

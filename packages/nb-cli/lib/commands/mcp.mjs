@@ -29,11 +29,19 @@ const PROMPTS = [
     text: (/** @type {any} */ a) => `Write a short summary of what we did on task ${a.task} and list the checks we ran (tests, lint) with their results. Show me, then call networkbase_task_done with them.` },
   { name: "standup", description: "My open tasks and what changed", arguments: [],
     text: () => "Call networkbase_task_count and networkbase_task_list, then give me a three-line standup: in progress, next, blocked." },
+  // Report D21 (M4c).
+  { name: "plan-week", description: "Plan my week from what's due, waiting and changed", arguments: [],
+    text: () => "Call networkbase_briefing with since 7d and networkbase_task_list. Propose a plan for this week: what to finish first, what's at risk, what to ask about. Don't change anything until I agree." },
+  { name: "check-hand-in", description: "Check my work against an assignment before I hand it in", arguments: [{ name: "assignment", description: "Assignment number", required: true }],
+    text: (/** @type {any} */ a) => `Load the classes pack (networkbase_more_tools pack classes), then call networkbase_assignment_view for assignment ${a.assignment}. Read its steps, due date and AI policy. If the AI policy is Not allowed, tell me you can't help with this assignment and stop. Otherwise check my files against each step and list what's missing. Don't hand it in until I say so.` },
+  { name: "review-class", description: "Go through hand-ins waiting for my review", arguments: [{ name: "workspace", description: "The class (organization) slug", required: false }],
+    text: (/** @type {any} */ a) => `Load the classes pack (networkbase_more_tools pack classes), then call networkbase_review_list${a.workspace ? ` for ${a.workspace}` : ""}. For each hand-in waiting, say what it is, whether it's late, and suggest approve or return with a one-line reason. Don't approve or return anything until I say which.` },
 ];
 
 const RESOURCES = [
   { uri: "networkbase://me/tasks", name: "My open tasks", mimeType: "text/plain", tool: "networkbase_task_list" },
   { uri: "networkbase://workspace/readme", name: "This workspace's README", mimeType: "text/markdown", tool: "networkbase_doc_view" },
+  { uri: "networkbase://workspace/overview", name: "This workspace at a glance", mimeType: "text/plain", tool: "networkbase_workspace_view" },
 ];
 
 /**
