@@ -1,0 +1,92 @@
+name: agent-eval
+
+# Report D22 (M4c): the ~150-request agent test, every night against a seeded server, scored against the last
+# release (tests/agents/baseline.json). A drop below it fails the run. Opt-in like the nightly E2E: until the repository
+# variable AGENT_EVAL_ENABLED is 'true' it skips with a visible warning; once enabled, a missing secret fails closed.
+on:
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AGENT_EVAL_ENABLED: ${{ vars.AGENT_EVAL_ENABLED }}
+        run: |
+          if [ "$AGENT_EVAL_ENABLED" != "true" ]; then
+            echo "::warning::Agent eval skipped: set repository variable AGENT_EVAL_ENABLED=true and the four secrets to run it"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          for name in ANTHROPIC_API_KEY NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Agent eval: repository secret $name is not set"; exit 1; fi
+          done
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+  claude-code:
+    needs: secrets
+    if: needs.secrets.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/nb_eval
+      DATABASE_URL_FRESH: postgres://postgres:postgres@localhost:5432/nb_eval
+      RATE_LIMIT_MODE: best-effort
+      NB_NO_UPDATE_CHECK: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Database from empty, then the eval seed
+        run: |
+          psql postgres://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE nb_eval"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/db/supabase-shim.sql
+          npx tsx scripts/setup-database.ts
+          npx tsx scripts/agents/seed-eval.ts > "$RUNNER_TEMP/seed.out"
+          echo "::add-mask::$(grep '^NETWORKBASE_TOKEN=' "$RUNNER_TEMP/seed.out" | cut -d= -f2)"
+      - name: Start the site on the seeded database
+        run: |
+          npm run build
+          (npx next start -p 3000 > "$RUNNER_TEMP/server.log" 2>&1 &)
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000/robots.txt && exit 0; sleep 2; done
+          tail -50 "$RUNNER_TEMP/server.log"; exit 1
+      - name: Agent test (Claude Code)
+        run: |
+          npm i -g @anthropic-ai/claude-code
+          export NETWORKBASE_TOKEN=$(grep '^NETWORKBASE_TOKEN=' "$RUNNER_TEMP/seed.out" | cut -d= -f2)
+          export NETWORKBASE_API_URL=http://localhost:3000 NB_CLI="$PWD/packages/nb-cli/bin/nb.mjs"
+          mkdir -p "$RUNNER_TEMP/eval-folder"
+          (cd "$RUNNER_TEMP/eval-folder" && node "$NB_CLI" init design-lab)
+          npx tsx scripts/agents/eval.mts --agent claude --folder "$RUNNER_TEMP/eval-folder" --out agent-eval.json --baseline tests/agents/baseline.json
+      - name: Keep the scores
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-eval
+          path: agent-eval.json

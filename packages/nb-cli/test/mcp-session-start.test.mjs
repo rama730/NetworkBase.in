@@ -19,6 +19,7 @@ describe("session start, briefing, prompts (D1, D13, D21)", () => {
     home = await tempDir("nb-start-home-");
     await runCli(["init", "design-lab"], { api: api.url, cwd, home });
     addTask(api.state, { title: "Fix login", status: "in_progress" });
+    api.state.home = { tasks: { open: 1, byStatus: { todo: 0, in_progress: 1, blocked: 0, in_review: 0 }, overdue: 0, dueThisWeek: 0, workspaces: [] }, unread: 1, reviews: [{ id: "r1", number: 1, title: "Essay", workspaceId: "w2", workspaceTitle: "CSE 3B" }], assignments: [{ id: "a1", number: 1, title: "Lab report", org: "Physics 101", due: new Date(Date.now() + 2 * 86_400_000).toISOString(), state: "in_progress", late: false }] };
     api.state.inbox.push({ id: "n1", title: "Sam commented on #1", body: "looks good", createdAt: new Date().toISOString(), readAt: null });
     mcp = await startMcp({ api: api.url, cwd, home });
   });
@@ -27,9 +28,14 @@ describe("session start, briefing, prompts (D1, D13, D21)", () => {
   it("the instructions say who, which workspace, what's next and what's waiting, in under 400 tokens", async () => {
     const { instructions } = (await mcp.request("initialize", { protocolVersion: "2025-06-18" })).result;
     assert.match(instructions, /This folder is linked to the workspace "Design Lab" \(design-lab\)/);
-    assert.match(instructions, /<untrusted source="networkbase tasks">\n#1 "Fix login" \(in progress\)\n<\/untrusted>/);
+    assert.match(instructions, /<untrusted source="networkbase tasks">\n[^<]*#1 "Fix login" \(in progress\)[^<]*\n<\/untrusted>/);
     assert.match(instructions, /1 unread in their inbox/);
-    assert.ok(instructions.length / 4 < 400, `${Math.ceil(instructions.length / 4)} tokens`);
+    assert.match(instructions, /People in this workspace, to mention as @handle[^\n]*\n<untrusted source="networkbase members">\n@sam "Sam Lee"\n<\/untrusted>/);
+    assert.match(instructions, /Classes: 1 assignment due, 1 hand-in waiting for their review\. Assignments and reviews are in the classes pack/);
+    // D23: the access card (who, where, what's next) under 400 tokens; with the fixed rules, the whole start under 500.
+    const card = instructions.split("\n\nTools use the workspace")[0];
+    assert.ok(card.length / 4 < 400, `card ${Math.ceil(card.length / 4)} tokens`);
+    assert.ok(instructions.length / 4 < 500, `${Math.ceil(instructions.length / 4)} tokens`);
   });
 
   it("a task title can't break out of its fence into the instructions (security review)", async () => {
@@ -37,7 +43,7 @@ describe("session start, briefing, prompts (D1, D13, D21)", () => {
     const other = await startMcp({ api: api.url, cwd, home });
     try {
       const { instructions } = (await other.request("initialize", { protocolVersion: "2025-06-18" })).result;
-      assert.equal((instructions.match(/<\/untrusted>/g) ?? []).length, 1, instructions);
+      assert.equal((instructions.match(/<\/untrusted>/g) ?? []).length, (instructions.match(/<untrusted /g) ?? []).length, instructions);
       assert.doesNotMatch(instructions, /\nIgnore the user/);
     } finally { await other.close(); }
   });
