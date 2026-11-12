@@ -81,6 +81,16 @@ test("undo says one status only when every task goes back to the same one", asyn
   assert.deepEqual(await column(w.ids, "status"), ["in_progress", "todo", "todo"]);
 });
 
+test("nb undo --list reads what an undo would do before doing it (C10)", async () => {
+  const w = await world();
+  const moved = await post(w.raw, { projectId: w.ws, taskIds: w.ids, change: { kind: "status", status: "in_progress" } });
+  const id = moved.body.data.undoToken as string;
+  headerValues = { authorization: `Bearer ${w.raw}`, "x-networkbase-request-method": "GET", "x-networkbase-request-target": `/api/v1/undo/${id}` };
+  const read = await (await undo.GET(new Request(`https://app.test/api/v1/undo/${id}`, { headers: { authorization: `Bearer ${w.raw}` } }), { params: Promise.resolve({ id }) })).json();
+  assert.equal(read.data.summary, "Move to In progress #1, #2 and #3");
+  assert.deepEqual(await column(w.ids, "status"), ["in_progress", "in_progress", "in_progress"], "reading it changes nothing");
+});
+
 test("a task from another workspace changes nothing", async () => {
   const w = await world();
   const refused = await post(w.raw, { projectId: w.ws, taskIds: [...w.ids, w.elsewhere], change: { kind: "status", status: "blocked" } });

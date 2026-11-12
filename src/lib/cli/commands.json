@@ -173,13 +173,30 @@
     },
     {
       "name": "open",
-      "summary": "Open the workspace, a task or a file in the browser",
-      "usage": "nb open [task|path]",
-      "flags": {},
+      "summary": "Open the workspace, a task or a file in the browser (--code: in VS Code or Cursor)",
+      "usage": "nb open [task|path] [--code]",
+      "flags": {
+        "code": {
+          "type": "boolean",
+          "describe": "Open the file in VS Code or Cursor instead"
+        }
+      },
       "examples": [],
       "exitCodes": [
         0,
         1
+      ]
+    },
+    {
+      "name": "uninstall",
+      "summary": "Sign out and remove nb's data and shell lines (asks first)",
+      "usage": "nb uninstall",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        7,
+        130
       ]
     },
     {
@@ -272,7 +289,7 @@
     {
       "name": "undo",
       "summary": "Undo your last change from this machine (24 hours)",
-      "usage": "nb undo [token] [--list]",
+      "usage": "nb undo [n|token] [--list]",
       "flags": {
         "list": {
           "type": "boolean",
@@ -499,6 +516,10 @@
         "no-pull": {
           "type": "boolean",
           "describe": "Only push; don't pull other people's changes"
+        },
+        "inbox": {
+          "type": "boolean",
+          "describe": "Also show your notifications as they come"
         }
       },
       "examples": [],
@@ -717,6 +738,52 @@
           "type": "string",
           "describe": "How long: 30s, 10m, 2h (default: until Ctrl+C)",
           "valueName": "time"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "edit",
+      "summary": "Edit a file in your editor; a new version when it closes",
+      "usage": "nb edit <file> [-m note]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "commit",
+      "summary": "git commit with the current task linked (NetworkBase-Task trailer)",
+      "usage": "nb commit -m \"message\" [-a] [--task 4]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "all": {
+          "type": "boolean",
+          "short": "a",
+          "describe": "Commit every changed tracked file (git commit -a)"
+        },
+        "task": {
+          "type": "string",
+          "describe": "This task instead of the current one",
+          "valueName": "n"
         }
       },
       "examples": [],
@@ -2327,6 +2394,11 @@
     "dry-run": {
       "type": "boolean",
       "describe": "Show what would change, and change nothing"
+    },
+    "format": {
+      "type": "string",
+      "describe": "Lists as table (default), json, csv or md",
+      "valueName": "table|json|csv|md"
     },
     "help": {
       "type": "boolean",

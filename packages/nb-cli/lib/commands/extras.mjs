@@ -112,3 +112,20 @@ export async function createFromMarkdown(ctx, file) {
   ctx.out.result("nb.task.create.many/1", { tasks: made }, (d) => [`${ctx.out.c.success(ctx.out.sym.done)} Created ${d.tasks.length} tasks`, ...d.tasks.map((t) => `  #${t.number} ${safe(t.title)}`)]);
   return EXIT.ok;
 }
+
+/**
+ * `nb commit -m "…"` (C12): git commit with a `NetworkBase-Task: #4` trailer for the current task (nb task start, or
+ * the nb/<n>- branch), so the task links to it. Without a current task it's a plain git commit.
+ * @param {Context} ctx
+ */
+export async function commit(ctx) {
+  const message = String(ctx.flags.message ?? "").trim();
+  if (!message) throw usage('nb commit -m "what changed" [-a]');
+  const cwd = ctx.root ?? ctx.cwd;
+  const { branchTask } = await import("./tasks.mjs");
+  const number = ctx.flags.task ? String(ctx.flags.task).replace(/^#/, "") : ctx.project?.startedTask?.number ? String(ctx.project.startedTask.number) : branchTask(cwd);
+  const args = ["commit", ...(ctx.flags.all ? ["-a"] : []), "-m", message, ...(number ? ["--trailer", `NetworkBase-Task: #${number}`] : [])];
+  const out = await git(cwd, args);
+  const hash = (/\[[^\]]* ([0-9a-f]{7,})\]/.exec(out) ?? [])[1] ?? null;
+  ctx.out.result("nb.commit/1", { commit: hash, task: number ? Number(number) : null }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Committed${d.commit ? ` ${d.commit}` : ""}${d.task ? ` for #${d.task}` : ""}${d.task ? "" : ctx.out.c.muted(" (no current task: nb task start <n> links commits)")}`);
+}

@@ -360,6 +360,10 @@ const patterns = [
     return { data: { decision: req.body.decision } };
   }],
   [/^\/api\/v1\/tokens\/([^/]+)\/revoke$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => { state.revoked.add(req.params[0] ?? ""); return { data: { revoked: true } }; }],
+  [/^\/api\/v1\/undo\/([^/]+)$/, "GET", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
+    const u = state.undos.get(req.params[0]);
+    return u ? { data: { id: req.params[0], summary: u.kind === "push" ? `Pushed ${u.paths.join(", ")}` : "A change", operation: u.kind } } : fail(410, "EXPIRED", "Nothing to undo");
+  }],
   [/^\/api\/v1\/undo\/([^/]+)$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
     const op = state.undos.get(req.params[0] ?? "");
     if (!op) return fail(410, "EXPIRED", "Nothing to undo: it was undone already, is older than 24 hours, or isn't yours");

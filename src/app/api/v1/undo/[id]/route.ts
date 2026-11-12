@@ -181,3 +181,21 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   return idempotentWrite(request, "undo", (req) => handlePost(req, context));
 }
+
+/** What an undo would do, before doing it (report C10, `nb undo --list`): the change's summary and when it expires. */
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const auth = await requireAuthenticatedUser();
+    if (auth.response) return auth.response;
+    if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
+    const { id } = await context.params;
+    const op = await findUndo(id, auth.user.id);
+    if (!op) return jsonError("Nothing to undo: it was undone already, is older than 24 hours, or isn't yours", 410, "EXPIRED");
+    // An agent only sees changes in its own workspace, as with POST.
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId: op.workspaceId });
+    if (outside) return outside;
+    return jsonSuccess({ id: op.id, summary: op.summary, operation: op.operation, createdAt: op.createdAt, expiresAt: op.expiresAt }, undefined, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/undo", fallback: "Couldn’t read the undo" });
+  }
+}

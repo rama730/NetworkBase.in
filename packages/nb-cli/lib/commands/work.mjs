@@ -8,7 +8,7 @@ import { CliError, EXIT, usage } from "../errors.mjs";
 import { commentText, safe } from "../print/style.mjs";
 import { confirm } from "../tui/ask.mjs";
 import { parseDate } from "../dates.mjs";
-import { bulkChange, resolveTask, taskRef } from "./tasks.mjs";
+import { bulkChange, formatWhen, resolveTask, taskRef } from "./tasks.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -258,7 +258,7 @@ export async function commentList(ctx) {
   const task = await resolveTask(ctx, taskRef(ctx, undefined));
   const comments = task.comments.map((/** @type {any} */ c) => ({ id: c.id, by: c.authorUsername ?? c.authorName ?? null, text: c.content, at: c.createdAt }));
   ctx.out.result("nb.comment.list/1", { number: task.taskNumber, comments, untrusted: true }, (d) =>
-    d.comments.length ? d.comments.map((/** @type {any} */ c) => `  ${ctx.out.c.muted(String(c.at).slice(0, 16).replace("T", " "))} ${c.by ? `@${safe(c.by)}` : "someone"}: ${commentText(c.text).replace(/\n/g, " ")}${c.id ? ctx.out.c.muted(`  ${String(c.id).slice(0, 8)}`) : ""}`) : `#${d.number} has no comments`);
+    d.comments.length ? d.comments.map((/** @type {any} */ c) => `  ${ctx.out.c.muted(formatWhen(String(c.at)))} ${c.by ? `@${safe(c.by)}` : "someone"}: ${commentText(c.text).replace(/\n/g, " ")}${c.id ? ctx.out.c.muted(`  ${String(c.id).slice(0, 8)}`) : ""}`) : `#${d.number} has no comments`);
 }
 
 /** A comment on lines of a file (report D10): `nb comment add -m "…" --file src/app.ts:12-18`. @param {Context} ctx */

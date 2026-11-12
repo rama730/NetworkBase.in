@@ -21,6 +21,7 @@ export const GLOBAL_FLAGS = {
   "api-url": { type: "string", describe: "Server for this profile", valueName: "url" },
   confirm: { type: "string", describe: "The yes for a change held for confirmation (exit 7 gives the token)", valueName: "token" },
   "dry-run": { type: "boolean", describe: "Show what would change, and change nothing" },
+  format: { type: "string", describe: "Lists as table (default), json, csv or md", valueName: "table|json|csv|md" },
   help: { type: "boolean", short: "h", describe: "Help for this command" },
 };
 
@@ -75,7 +76,8 @@ export const COMMANDS = [
   { group: "Account and setup", name: "status", summary: "What changed here, the started task, conflicts", usage: "nb status", module: "files", fn: "status", exit: [0, 3, 4, 8] },
   { group: "Account and setup", name: "doctor", summary: "Check sign-in, server, link, Node and this folder", usage: "nb doctor [--repair]", module: "misc", fn: "doctor",
     flags: { repair: { type: "boolean", describe: "Fix what can be fixed (lock, temp files)" } } },
-  { group: "Account and setup", name: "open", summary: "Open the workspace, a task or a file in the browser", usage: "nb open [task|path]", module: "misc", fn: "open" },
+  { group: "Account and setup", name: "open", summary: "Open the workspace, a task or a file in the browser (--code: in VS Code or Cursor)", usage: "nb open [task|path] [--code]", module: "misc", fn: "open", flags: { code: { type: "boolean", describe: "Open the file in VS Code or Cursor instead" } } },
+  { group: "Account and setup", name: "uninstall", summary: "Sign out and remove nb's data and shell lines (asks first)", usage: "nb uninstall", module: "misc", fn: "uninstall", exit: [0, 7, 130] },
   { group: "Account and setup", name: "version", summary: "CLI, Node and server versions", usage: "nb version", module: "misc", fn: "version" },
   { group: "Account and setup", name: "home", hidden: true, summary: "Where you are and what to do next", usage: "nb", module: "misc", fn: "home", exit: [0, 3, 4, 8] },
   { group: "Account and setup", name: "help", summary: "Help for a command, or a topic: files, agents, classes, sign-in, offline", usage: "nb help [command|topic]", module: "misc", fn: "help" },
@@ -88,7 +90,7 @@ export const COMMANDS = [
   { group: "Account and setup", name: "config", summary: "Show or change settings", usage: "nb config list | get <key> | set <key> <value>", module: "misc", fn: "config" },
 
   // Files
-  { group: "Files", name: "undo", summary: "Undo your last change from this machine (24 hours)", usage: "nb undo [token] [--list]", module: "undo", fn: "undo",
+  { group: "Files", name: "undo", summary: "Undo your last change from this machine (24 hours)", usage: "nb undo [n|token] [--list]", module: "undo", fn: "undo",
     flags: { list: { type: "boolean", describe: "Changes you can undo, newest first" }, session: { type: "boolean", describe: "Everything this agent session did (inside nb mcp)" } }, exit: [0, 1, 4] },
   { group: "Files", name: "diff", summary: "Changes against the version you last pulled, or between two versions", usage: "nb diff [path...] | nb diff <path> --from v1 [--to v3]", module: "resolve", fn: "diff",
     flags: { from: { type: "string", describe: "Compare this server version…", valueName: "vN" }, to: { type: "string", describe: "…with this one (default: the active one)", valueName: "vN" } } },
@@ -111,7 +113,7 @@ export const COMMANDS = [
   { group: "Files", name: "resolve", summary: "Settle a conflict", usage: "nb resolve <path> --mine|--theirs|--both", module: "resolve", fn: "resolve",
     flags: { mine: { type: "boolean", describe: "Keep yours and push it" }, theirs: { type: "boolean", describe: "Take the server's version" }, both: { type: "boolean", describe: "Keep both as separate files" } } },
   { group: "Files", name: "watch", summary: "Push your saves as drafts; pull teammates' changes (foreground)", usage: "nb watch [--no-pull]", module: "watch", fn: "watch",
-    flags: { "no-pull": { type: "boolean", describe: "Only push; don't pull other people's changes" } } },
+    flags: { "no-pull": { type: "boolean", describe: "Only push; don't pull other people's changes" }, inbox: { type: "boolean", describe: "Also show your notifications as they come" } } },
   { group: "Account and setup", name: "inbox", summary: "Your notifications, as in the app", usage: "nb inbox [--unread] [--follow [--notify]]", module: "inbox", fn: "inbox",
     flags: { unread: { type: "boolean", describe: "Only unread" }, follow: { type: "boolean", describe: "Keep waiting and print new ones" }, notify: { type: "boolean", describe: "With --follow: also a desktop notification" } },
     examples: ["nb inbox --unread", "nb inbox --follow --notify"] },
@@ -130,6 +132,9 @@ export const COMMANDS = [
   { group: "Files", name: "file copy", summary: "Copy a file to a new path (a new file, same content)", usage: "nb file copy <file> <to>", module: "browse", fn: "fileCopy" },
   { group: "Files", name: "file lock", summary: "Show teammates you're editing a file, until Ctrl+C or --for", usage: "nb file lock <path> [--for 30m]", module: "browse", fn: "fileLock",
     flags: { for: { type: "string", describe: "How long: 30s, 10m, 2h (default: until Ctrl+C)", valueName: "time" } } },
+  { group: "Files", name: "edit", summary: "Edit a file in your editor; a new version when it closes", usage: "nb edit <file> [-m note]", module: "docs", fn: "fileEdit", flags: { ...MESSAGE } },
+  { group: "Files", name: "commit", summary: "git commit with the current task linked (NetworkBase-Task trailer)", usage: 'nb commit -m "message" [-a] [--task 4]', module: "extras", fn: "commit",
+    flags: { ...MESSAGE, all: { type: "boolean", short: "a", describe: "Commit every changed tracked file (git commit -a)" }, task: { type: "string", describe: "This task instead of the current one", valueName: "n" } } },
   { group: "Files", name: "file recent", summary: "Files you changed lately", usage: "nb file recent", module: "docs", fn: "fileRecent" },
   { group: "Files", name: "file star", summary: "Star a file, shared with the Files tab (--off to unstar)", usage: "nb file star <path> [--off]", module: "docs", fn: "fileStar", flags: { off: { type: "boolean", describe: "Unstar" } } },
   { group: "Files", name: "file history", summary: "A file's versions: who, when, based on, which is active", usage: "nb file history <path>", module: "browse", fn: "fileHistory" },

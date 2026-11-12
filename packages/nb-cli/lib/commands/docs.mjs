@@ -11,7 +11,7 @@ import { safe } from "../print/style.mjs";
 import { unifiedDiff } from "../sync/diff.mjs";
 import { fetchManifest } from "../sync/transfer.mjs";
 import { confirm } from "../tui/ask.mjs";
-import { formatDate, resolveTask } from "./tasks.mjs";
+import { formatWhen, resolveTask } from "./tasks.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -155,7 +155,7 @@ async function myFiles(ctx, kind) {
   const { files } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/files/mine`, { query: { kind } }));
   ctx.out.result(`nb.file.${kind}/1`, { files: files.map((/** @type {any} */ f) => ({ path: f.path, version: f.currentVersion, size: f.size, at: f.at })) }, (d) =>
     d.files.length
-      ? ctx.out.table([{ title: "Path", value: (f) => safe(f.path), flex: true, path: true }, { title: kind === "recent" ? "Changed" : "Version", value: (f) => (kind === "recent" ? formatDate(f.at) : f.version ? `v${f.version}` : ""), align: "right" }], d.files)
+      ? ctx.out.table([{ title: "Path", value: (f) => safe(f.path), flex: true, path: true }, { title: kind === "recent" ? "Changed" : "Version", value: (f) => (kind === "recent" ? formatWhen(f.at) : f.version ? `v${f.version}` : ""), align: "right" }], d.files)
       : kind === "starred" ? "No starred files · nb file star <path>" : "No files you changed in the last 30 days");
 }
 /** @param {Context} ctx */
@@ -243,4 +243,54 @@ export async function workspaceLeave(ctx) {
   if (!(await confirm(ctx, { key: "leave", question: "Leave this workspace? Your open tasks become unassigned, and you'll need a new invitation to come back.", yesLabel: "Leave", defaultYes: false }))) return EXIT.cancelled;
   await members(ctx, "DELETE", { leave: true });
   ctx.out.result("nb.workspace.leave/1", { left: true }, () => `${ctx.out.c.success(ctx.out.sym.done)} You left the workspace${ctx.root ? " · nb unlink to unlink this folder" : ""}`);
+}
+
+/**
+ * `nb edit <file>` (C10): in a linked folder, opens your copy (pulled first if it isn't here) and pushes a new version
+ * when the editor closes, with push's conflict rules; elsewhere, edits a downloaded copy and saves it as a new
+ * version based on the one you opened.
+ * @param {Context} ctx
+ */
+export async function fileEdit(ctx) {
+  const p = ctx.positionals[0];
+  if (!p) throw usage("nb edit <file> [-m note]");
+  if (!ctx.out.interactive && !ctx.env.NB_EDITOR) throw new CliError("NEEDS_INPUT", "nb edit opens your editor, so it needs a terminal", { hint: "Change the file, then nb push <file>" });
+  const [cmd, ...args] = editorCommand(ctx).split(" ");
+  const win = process.platform === "win32";
+  const openEditor = (/** @type {string} */ file) => {
+    const run = spawnSync(/** @type {string} */ (cmd), [...args, win ? `"${file}"` : file], { stdio: "inherit", shell: win });
+    if (run.status !== 0) throw new CliError("EDITOR_FAILED", `The editor exited with ${run.status ?? run.signal}`);
+  };
+  const message = ctx.flags.message ? String(ctx.flags.message) : `Edited with nb edit`;
+  if (ctx.root) {
+    const rel = path.relative(ctx.root, path.resolve(ctx.cwd, p));
+    if (rel.startsWith("..") || path.isAbsolute(rel)) throw usage(`${p} is outside the linked folder ${ctx.root}`);
+    const abs = path.join(ctx.root, rel);
+    const files = await import("./files.mjs");
+    if (!fs.existsSync(abs)) await files.pull(/** @type {Context} */ ({ ...ctx, cwd: ctx.root, positionals: [rel] }), { quietResult: true });
+    if (!fs.existsSync(abs)) throw new CliError("NOT_FOUND", `No file ${rel} here or in the workspace`, { hint: "nb file list" });
+    const before = fs.readFileSync(abs);
+    openEditor(abs);
+    if (fs.readFileSync(abs).equals(before)) return ctx.out.result("nb.edit/1", { path: rel, changed: false }, () => "No changes, nothing pushed");
+    return files.push(/** @type {Context} */ ({ ...ctx, cwd: ctx.root, positionals: [rel], flags: { ...ctx.flags, message } }));
+  }
+  // Not in a linked folder: a temporary copy, saved back as a new version based on the one opened.
+  const remotePath = p.startsWith("/") ? p : `/${p}`;
+  const projectId = ctx.requireWorkspace();
+  const meta = /** @type {any} */ (await ctx.api.get("/api/v1/extension/file", { query: { projectId, path: remotePath, transfer: "metadata" } }));
+  const res = await ctx.api.download("/api/v1/extension/file", { projectId, path: remotePath, transfer: "raw" });
+  const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "nb-edit-")), path.posix.basename(remotePath).replace(/[^A-Za-z0-9._-]/g, "_") || "file");
+  const before = Buffer.from(await res.arrayBuffer());
+  fs.writeFileSync(tmp, before);
+  try {
+    openEditor(tmp);
+    const after = fs.readFileSync(tmp);
+    if (after.equals(before)) return ctx.out.result("nb.edit/1", { path: remotePath, changed: false }, () => "No changes, nothing saved");
+    const { mimeFor } = await import("../sync/transfer.mjs");
+    const placed = /** @type {any} */ (await ctx.api.post("/api/v1/files/place", { projectId, message, files: [{ path: remotePath, contentHash: crypto.createHash("sha256").update(after).digest("hex"), size: after.length, mimeType: mimeFor(remotePath), contentBase64: after.toString("base64"), baseVersion: meta.currentVersion }] }));
+    const f = placed.files?.[0];
+    ctx.out.result("nb.edit/1", { path: remotePath, changed: true, version: f?.version ?? null }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Saved ${safe(d.path)}${d.version ? ` as v${d.version}` : ""}`);
+  } finally {
+    fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
+  }
 }

@@ -15,8 +15,14 @@ const WHAT = /** @type {Record<string, string>} */ ({
 export async function undo(ctx) {
   const log = readUndoLog(ctx.env, ctx.profile.origin);
   if (ctx.flags.list) {
-    return ctx.out.result("nb.undo.list/1", { changes: log.slice().reverse().map((e) => ({ token: e.token, at: new Date(e.at).toISOString(), what: WHAT[e.path] ?? e.path })) }, (d) =>
-      d.changes.length ? d.changes.map((c, i) => `  ${i === 0 ? ctx.out.c.brand(ctx.out.sym.brand) : " "} ${c.at.slice(11, 16)}  ${c.what}  ${ctx.out.c.muted(c.token.slice(0, 8))}`) : "Nothing to undo from the last 24 hours");
+    // What each would undo, in the server's words (C10), newest first; nb undo <n> picks one.
+    const recent = log.slice().reverse().slice(0, 20);
+    const summaries = await Promise.all(recent.map((e) => ctx.api.get(`/api/v1/undo/${encodeURIComponent(e.token)}`).then((/** @type {any} */ r) => String(r.summary), () => null)));
+    const changes = recent.map((e, i) => ({ n: i + 1, token: e.token, at: new Date(e.at).toISOString(), what: summaries[i] ?? WHAT[e.path] ?? e.path, available: summaries[i] !== null }));
+    return ctx.out.result("nb.undo.list/1", { changes }, (d) =>
+      d.changes.length
+        ? [...d.changes.map((c) => `  ${String(c.n).padStart(2)}. ${ctx.out.c.muted(c.at.slice(11, 16))}  ${safe(c.what)}${c.available ? "" : ctx.out.c.muted(" (can't be undone any more)")}`), ctx.out.c.muted("  nb undo <n> undoes that one")]
+        : "Nothing to undo from the last 24 hours");
   }
   if (ctx.flags.session) {
     // Everything this agent session did, newest first (report A7.7): `nb mcp` tags its changes with a session id.
@@ -39,7 +45,9 @@ export async function undo(ctx) {
     return results.every((r) => r.ok) ? 0 : 4;
   }
   const given = ctx.positionals[0];
-  const entry = given ? log.find((e) => e.token.startsWith(given)) ?? { token: given } : log.at(-1);
+  // A number is a line of nb undo --list (newest first); anything else is a token or its start.
+  const numbered = given && /^\d{1,2}$/.test(given) ? log.slice().reverse()[Number(given) - 1] : null;
+  const entry = numbered ?? (given ? log.find((e) => e.token.startsWith(given)) ?? { token: given } : log.at(-1));
   if (!entry) throw new CliError("NOT_FOUND", "Nothing to undo from the last 24 hours on this machine", { hint: "nb undo --list" });
   try {
     const res = /** @type {any} */ (await ctx.api.post(`/api/v1/undo/${encodeURIComponent(entry.token)}`, {}));

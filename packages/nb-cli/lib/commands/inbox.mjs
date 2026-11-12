@@ -4,7 +4,7 @@ import { execFile } from "node:child_process";
 
 import { CliError, EXIT, usage } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
-import { formatDate } from "./tasks.mjs";
+import { formatWhen } from "./tasks.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -21,7 +21,7 @@ export async function inbox(ctx) {
   const { c, sym } = ctx.out;
   ctx.out.result("nb.inbox/1", { unread: p.unreadCount, items }, (d) => d.items.length ? [
     `${d.unread} unread`,
-    ...d.items.map((i, n) => `${i.readAt ? " " : c.brand(sym.brand)} ${String(n + 1).padStart(2)}  ${c.muted(formatDate(i.activityAt ?? i.createdAt))}  ${safe(i.title)}${i.body ? c.muted(` · ${safe(String(i.body)).replace(/\n/g, " ").slice(0, 80)}`) : ""}`),
+    ...d.items.map((i, n) => `${i.readAt ? " " : c.brand(sym.brand)} ${String(n + 1).padStart(2)}  ${c.muted(formatWhen(i.activityAt ?? i.createdAt))}  ${i.href ? ctx.out.link(safe(i.title), new URL(i.href, ctx.profile.origin).toString(), ctx.profile.origin) : safe(i.title)}${i.body ? c.muted(` · ${safe(String(i.body)).replace(/\n/g, " ").slice(0, 80)}`) : ""}`),
     c.muted("  nb inbox reply <n> \"text\" · nb inbox approve <n> · nb inbox read <n> · nb inbox open <n>"),
   ] : "Nothing in your inbox", { page: true });
 }

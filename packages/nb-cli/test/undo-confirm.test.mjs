@@ -26,8 +26,10 @@ describe("nb undo and held changes", () => {
     fs.writeFileSync(path.join(cwd, "a.txt"), "hello");
     assert.equal((await runCli(["push", "a.txt"], { api: api.url, cwd, home })).code, 0);
     const list = await runCli(["undo", "--list", "--json"], { api: api.url, cwd, home });
-    assert.equal(JSON.parse(list.stdout).data.changes[0].what, "push");
-    const r = await runCli(["undo"], { api: api.url, cwd, home });
+    // What it would undo, in the server's words (C10).
+    assert.equal(JSON.parse(list.stdout).data.changes[0].what, "Pushed /a.txt");
+    assert.match((await runCli(["undo", "--list"], { api: api.url, cwd, home })).stdout, /1\. .*Pushed \/a\.txt/);
+    const r = await runCli(["undo", "1"], { api: api.url, cwd, home });
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, /Undid the push of 1 file/);
     assert.doesNotMatch(r.stdout, /\(/, "one plain sentence, no doubled wording (C16 #6)");

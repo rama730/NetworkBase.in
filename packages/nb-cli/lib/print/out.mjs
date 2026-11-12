@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { colorLevel, palette, pad, safe, symbols, truncateEnd, truncateMiddle, asciiOnly, width, hyperlinks } from "./style.mjs";
 
 /**
- * @typedef {{ json: boolean, quiet: boolean, plain: boolean, verbose: boolean, fields: string[] | null, pager: boolean }} OutputMode
+ * @typedef {{ json: boolean, quiet: boolean, plain: boolean, verbose: boolean, fields: string[] | null, pager: boolean, format?: "table" | "json" | "csv" | "md" | null }} OutputMode
  * @typedef {ReturnType<typeof createOutput>} Output
  */
 
@@ -23,7 +23,11 @@ export function createOutput(mode, io = {}) {
   const level = plain ? 0 : colorLevel(stderr, env);
   const c = palette(level);
   const sym = symbols(plain || asciiOnly(env));
-  const json = Boolean(mode.json);
+  // --format (C11): json is --json; csv and md print lists as a spreadsheet or a Markdown table, and nothing else.
+  const json = Boolean(mode.json) || mode.format === "json";
+  const format = mode.format === "csv" || mode.format === "md" ? mode.format : null;
+  /** Lines a table made in csv/md form, so result() prints only those. @type {Set<string>} */
+  const tableLines = new Set();
   const quiet = Boolean(mode.quiet);
   const columns = () => Math.max(40, stderr.columns || stdout.columns || 80);
   /** @type {string[]} */
@@ -79,8 +83,9 @@ export function createOutput(mode, io = {}) {
         stdout.write(`${JSON.stringify(envelope)}\n`);
         return;
       }
-      const lines = human(data);
+      let lines = human(data);
       if (lines === null || lines === undefined) return;
+      if (format) lines = (Array.isArray(lines) ? lines : [lines]).filter((l) => tableLines.has(l));
       const text = Array.isArray(lines) ? lines.join("\n") : lines;
       if (text === "") return;
       const out = text.endsWith("\n") ? text : `${text}\n`;
@@ -114,6 +119,19 @@ export function createOutput(mode, io = {}) {
      * @param {any[]} rows
      */
     table(allCols, rows) {
+      if (format) {
+        // Plain text without colour or truncation: a cell is what the column's value says.
+        const plainCell = (/** @type {string} */ s) => stripForJson(String(s ?? ""));
+        const csv = (/** @type {string} */ s) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+        const md = (/** @type {string} */ s) => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
+        const head = allCols.map((col) => col.title || " ");
+        const body = rows.map((row) => allCols.map((col) => plainCell(col.value(row))));
+        const out = format === "csv"
+          ? [head, ...body].map((r) => r.map(csv).join(","))
+          : [`| ${head.map(md).join(" | ")} |`, `|${head.map(() => " --- ").join("|")}|`, ...body.map((r) => `| ${r.map(md).join(" | ")} |`)];
+        for (const l of out) tableLines.add(l);
+        return out;
+      }
       const natural = (/** @type {typeof allCols[number]} */ col) => Math.max(width(col.title), ...rows.map((r) => width(col.value(r))));
       const fixedWidth = (/** @type {typeof allCols} */ cs) => cs.reduce((a, col) => a + (col.flex ? 10 : natural(col)), 0) + 2 * cs.length;
       let cols = allCols;

@@ -154,12 +154,70 @@ export function openInBrowser(url) {
 /** @param {Context} ctx */
 export async function open(ctx) {
   const target = ctx.positionals[0];
+  // --code (C10): the file in VS Code or Cursor, from this linked folder.
+  if (ctx.flags.code) return openInCode(ctx, target);
   const slug = ctx.project?.slug ?? ctx.flags.workspace;
   if (!slug) throw new CliError("NOT_LINKED", "No workspace to open", { hint: "Run nb init <workspace>, or pass --workspace" });
   const base = `${ctx.profile.origin}/workspaces/${encodeURIComponent(slug)}`;
   const url = !target ? base : /^#?\d+$/.test(target) ? `${base}?tab=tasks&task=${target.replace("#", "")}` : `${base}?tab=files&path=${encodeURIComponent(target.startsWith("/") ? target : `/${target}`)}`;
   const opened = await openInBrowser(url);
   ctx.out.result("nb.open/1", { url, opened }, (d) => (d.opened ? `Opened ${d.url}` : `Open ${d.url}`));
+}
+
+/** Which of Cursor and VS Code is on PATH (Cursor first: it's the one people pick when they have both). @param {NodeJS.ProcessEnv} env */
+function codeEditor(env) {
+  const dirs = String(env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  const names = process.platform === "win32" ? ["cursor.cmd", "code.cmd"] : ["cursor", "code"];
+  for (const name of names) for (const dir of dirs) if (fs.existsSync(path.join(dir, name))) return path.join(dir, name);
+  return null;
+}
+
+/** @param {Context} ctx @param {string | undefined} target */
+async function openInCode(ctx, target) {
+  const { root } = ctx.requireRoot();
+  const editor = codeEditor(ctx.env);
+  if (!editor) throw new CliError("NOT_FOUND", "Neither VS Code nor Cursor is on your PATH", { hint: "In VS Code: Command Palette → \"Shell Command: Install 'code' command in PATH\"" });
+  const file = target ? path.resolve(ctx.cwd, target) : root;
+  if (target && !path.relative(root, file).split(path.sep).every((s) => s !== "..")) throw usage(`${target} is outside the linked folder ${root}`);
+  const { spawn } = await import("node:child_process");
+  // The folder too, so the editor opens in this workspace's window.
+  spawn(editor, target ? [root, file] : [root], { detached: true, stdio: "ignore", shell: process.platform === "win32" }).unref();
+  ctx.out.result("nb.open.code/1", { editor: path.basename(editor).replace(/\.cmd$/, ""), path: file }, (d) => `Opened ${safe(path.relative(root, d.path) || ".")} in ${d.editor === "cursor" ? "Cursor" : "VS Code"}`);
+}
+
+/**
+ * `nb uninstall` (C14): signs out (revoking this sign-in), deletes ~/.networkbase (sign-ins, caches, settings) and the
+ * lines nb setup shell added, then says how to remove the package itself. Linked folders keep their .networkbase
+ * (nb unlink in each). Asks first.
+ * @param {Context} ctx
+ */
+export async function uninstall(ctx) {
+  const { confirm } = await import("../tui/ask.mjs");
+  const { globalDir } = await import("../config.mjs");
+  const dir = globalDir(ctx.env);
+  if (!(await confirm(ctx, { key: "uninstall", question: `Sign out and delete ${dir} (sign-ins, caches, settings)?`, yesLabel: "Uninstall", defaultYes: false }))) return 130;
+  let signedOut = false;
+  if (ctx.profile.token && ctx.profile.profile?.source !== "env") {
+    signedOut = await ctx.api.post("/api/v1/extension/session", {}).then(() => true, () => false);
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+  /** @type {string[]} */
+  const cleaned = [];
+  for (const rc of Object.values(RC)) {
+    const file = rc.file(os.homedir());
+    if (!fs.existsSync(file)) continue;
+    const text = fs.readFileSync(file, "utf8");
+    const kept = text.split("\n").filter((l) => l !== "# NetworkBase CLI" && l !== rc.line && l !== rc.prompt);
+    if (kept.length !== text.split("\n").length) { fs.writeFileSync(file, kept.join("\n")); cleaned.push(file); }
+  }
+  const how = installMethod(fs.realpathSync(process.argv[1] ?? ""));
+  const remove = how === "npm" ? "npm rm -g @networkbase/cli" : how === "npx" ? null : "Remove nb the way you installed it";
+  ctx.out.result("nb.uninstall/1", { signedOut, removed: dir, shellFiles: cleaned, remove }, (d) => [
+    `${ctx.out.c.success(ctx.out.sym.done)} ${d.signedOut ? "Signed out (the sign-in is revoked), and deleted" : "Deleted"} ${safe(d.removed)}`,
+    ...d.shellFiles.map((/** @type {string} */ f) => `  Removed nb's lines from ${safe(f)}`),
+    ...(d.remove ? [`  Last step: ${d.remove}`] : ["  npx keeps nothing installed: you're done"]),
+    ctx.out.c.muted("  Linked folders keep their .networkbase folder; nb unlink in each removes it"),
+  ]);
 }
 
 /** Health checks with a next step each (A6.4). @param {Context} ctx */

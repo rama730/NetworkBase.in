@@ -172,7 +172,7 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route("/api/v1/tokens"), read: null },
   { pattern: route(`/api/v1/tokens/${ID}/revoke`), write: null },
   // Undo a change made with this person's token (report A2.9); the route checks the workspace.
-  { pattern: route(`/api/v1/undo/${ID}`), write: null, agent: "route" },
+  { pattern: route(`/api/v1/undo/${ID}`), read: null, write: null, agent: "route" },
 ];
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);

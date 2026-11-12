@@ -18,7 +18,8 @@ export const VERSION = JSON.parse(fs.readFileSync(PACKAGE_JSON, "utf8")).version
  * @param {{ flags: Record<string, any>, positionals: string[], cwd?: string, env?: NodeJS.ProcessEnv, fetchImpl?: typeof fetch, io?: Parameters<typeof createOutput>[1] }} input
  */
 export function createContext({ flags, positionals, cwd = process.cwd(), env = process.env, fetchImpl, io }) {
-  const out = createOutput({ json: Boolean(flags.json || env.NB_JSON === "1"), quiet: Boolean(flags.quiet), plain: Boolean(flags.plain), verbose: Boolean(flags.verbose), fields: flags.fields ? String(flags.fields).split(",").map((f) => f.trim()).filter(Boolean) : null, pager: !flags["no-pager"] }, io);
+  if (flags.format !== undefined && !["table", "json", "csv", "md"].includes(String(flags.format))) throw new CliError("USAGE", `--format ${flags.format}: use table, json, csv or md`);
+  const out = createOutput({ json: Boolean(flags.json || env.NB_JSON === "1"), quiet: Boolean(flags.quiet), plain: Boolean(flags.plain), verbose: Boolean(flags.verbose), fields: flags.fields ? String(flags.fields).split(",").map((f) => f.trim()).filter(Boolean) : null, pager: !flags["no-pager"], format: flags.format ? /** @type {any} */ (String(flags.format)) : null }, io);
   const root = findRoot(cwd);
   const project = root ? readProjectConfig(root, (m) => out.warn(m)) : null;
   const profile = currentProfile({ flags, env, project });

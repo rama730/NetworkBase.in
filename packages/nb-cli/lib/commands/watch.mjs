@@ -47,9 +47,12 @@ export async function watch(ctx) {
     let backoff = 1000;
     while (!stopping) {
       try {
-        const res = /** @type {any} */ (await ctx.api.get("/api/v1/events", { query: { since, workspace: project.workspaceId, inbox: 0 }, timeoutMs: 40_000 }));
+        const res = /** @type {any} */ (await ctx.api.get("/api/v1/events", { query: { since, workspace: project.workspaceId, inbox: ctx.flags.inbox ? 1 : 0 }, timeoutMs: 40_000 }));
         since = res.cursor;
         backoff = 1000;
+        // --inbox (C13): your notifications as they happen, one line each; your settings and quiet hours already apply.
+        if (ctx.flags.inbox) for (const n of res.notifications ?? []) ctx.out.note(`${ctx.out.c.brand(ctx.out.sym.brand)} ${safe(n.title ?? "")}${n.body ? ctx.out.c.muted(` · ${safe(String(n.body)).replace(/\s+/g, " ").slice(0, 100)}`) : ""}`);
+        if (ctx.flags["no-pull"]) continue;
         const theirs = [...new Set(res.files.filter((/** @type {any} */ f) => !f.mine).map((/** @type {any} */ f) => toRelative(project.remoteRoot, f.path)).filter(Boolean))];
         if (!theirs.length || stopping) continue;
         while (busy) await new Promise((r) => setTimeout(r, 200));
@@ -68,7 +71,7 @@ export async function watch(ctx) {
       }
     }
   };
-  if (!ctx.flags["no-pull"]) void livePull();
+  if (!ctx.flags["no-pull"] || ctx.flags.inbox) void livePull();
 
   /** One batch: files whose last change is older than the quiet window. */
   async function flush() {

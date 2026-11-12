@@ -176,8 +176,19 @@ export function formatDate(iso) {
   if (days === 0) return "today";
   if (days === 1) return "tomorrow";
   if (days === -1) return "yesterday";
-  if (days > 1 && days < 7) return d.toLocaleDateString(undefined, { weekday: "short" });
+  // Relative within a week (C11): "in 3 days", "4 days ago"; exact dates stay in --json.
+  if (days > 1 && days < 7) return `in ${days} days`;
+  if (days < -1 && days > -7) return `${-days} days ago`;
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+/** When something happened (C11): "just now", "5 min ago", "3 h ago", then as formatDate. @param {string} iso */
+export function formatWhen(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms >= 0 && ms < 60_000) return "just now";
+  if (ms >= 0 && ms < 3_600_000) return `${Math.floor(ms / 60_000)} min ago`;
+  if (ms >= 0 && ms < 86_400_000) return `${Math.floor(ms / 3_600_000)} h ago`;
+  return formatDate(iso);
 }
 
 /** "How many tasks do I have?" (report §18.2). @param {Context} ctx */
