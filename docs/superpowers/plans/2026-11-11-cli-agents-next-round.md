@@ -662,6 +662,18 @@ Marks used below:
 - Scope creep makes 2.1.0 too big. Handled by the release split above.
 - Messages through tokens raise privacy questions. Handled with their own scopes, which are off for agents.
 
+**C16. From the walkthrough (Part E results, 12 Nov 2026; built in M4)**
+1. **`nb push` links to the started task by default** and says so ("linked to #4"); `--no-task` opts out. Today `nb task start` promises this but push ignores it, so `nb task done` finds no files.
+2. **A file named on the command line that's skipped is an error,** with the reason and the limit ("big.bin is 26 MB; files can be up to 25 MB"), never "Nothing changed".
+3. **Your tasks are yours:** `nb task create` assigns the creator unless `--assignee` says otherwise, and `nb task start` assigns an unassigned task to you, so both show in `nb task list`.
+4. **Task numbers without a key read "#1",** never "-1".
+5. **A freshly linked folder says "379 files on the server · nb pull to get them"** in `nb status`, not a 379-row table.
+6. **Undo speaks plainly:** "Undid: #1 back to In progress".
+7. **`nb whoami` describes your own sign-in in a sentence** ("your own sign-in: does what you can, in all your workspaces, until <date>"), like agents get.
+8. **`nb task create` ends with the next step** ("Next: nb task start 1").
+9. **`nb task start` is as fast as the other commands** (3.1 s measured, against about 0.5 s elsewhere).
+10. **`nb class list` and `nb class`** work as aliases of the Classes group.
+
 ---
 
 # Part D: the person asks an AI, the AI uses the CLI
@@ -803,6 +815,10 @@ Marks used below:
 **Risks:**
 - Agents ignoring tool packs and calling unloaded tools. Handled: unknown tool calls answer with which pack to load.
 - Headless modes differ between agents. Handled: manual runs in Part E where no non-interactive mode exists.
+
+**D24. From the walkthrough (Part E results, 12 Nov 2026; built in M4)**
+1. **A yes given to a headless agent works across turns.** Local confirmation tokens (the person's own sign-in) are signed like the server's (HMAC with a per-profile key, 10 minutes, once), so `claude -p --continue`, CI and any new MCP process can check them. Today each turn starts a new server and the yes is lost ("New token (prior one expired)").
+2. **Counts say what they cover:** `networkbase_task_count` and `nb task count` name the workspaces counted ("across all your workspaces: Gstack 1, CSE 3B 1"), and the tool description says so, so agents don't mix another workspace's overdue task with this one.
 
 ---
 

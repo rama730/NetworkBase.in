@@ -2,7 +2,8 @@
   "report": "docs/superpowers/plans/2026-11-11-cli-agents-next-round.md",
   "closedMilestones": [
     "M1",
-    "M2"
+    "M2",
+    "M3"
   ],
   "rows": [
     {
@@ -3046,6 +3047,106 @@
       "evidence": ""
     },
     {
+      "key": "C16.7445226a",
+      "section": "C16",
+      "text": "nb push links to the started task by default and says so (\"linked to #4\"); --no-task opts out. Today nb task start promises this but push ignores it, so nb task",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "C16.6b22fd0f",
+      "section": "C16",
+      "text": "A file named on the command line that's skipped is an error, with the reason and the limit (\"big.bin is 26 MB; files can be up to 25 MB\"), never \"Nothing change",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "C16.449e6b8d",
+      "section": "C16",
+      "text": "Your tasks are yours: nb task create assigns the creator unless --assignee says otherwise, and nb task start assigns an unassigned task to you, so both show in ",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "C16.08be29b3",
+      "section": "C16",
+      "text": "Task numbers without a key read \"#1\", never \"-1\".",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "C16.b4f0eaac",
+      "section": "C16",
+      "text": "A freshly linked folder says \"379 files on the server · nb pull to get them\" in nb status, not a 379-row table.",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "C16.e8cf0fd2",
+      "section": "C16",
+      "text": "Undo speaks plainly: \"Undid: #1 back to In progress\".",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "C16.6988c8fc",
+      "section": "C16",
+      "text": "nb whoami describes your own sign-in in a sentence (\"your own sign-in: does what you can, in all your workspaces, until <date>\"), like agents get.",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "C16.8737cfe4",
+      "section": "C16",
+      "text": "nb task create ends with the next step (\"Next: nb task start 1\").",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "C16.b58ca7ce",
+      "section": "C16",
+      "text": "nb task start is as fast as the other commands (3.1 s measured, against about 0.5 s elsewhere).",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "C16.0a431413",
+      "section": "C16",
+      "text": "nb class list and nb class work as aliases of the Classes group.",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
       "key": "D.6259eb09",
       "section": "D",
       "text": "34 tools, about 27,000 characters (~6,700 tokens) of descriptions, sent before the person says anything. The server instructions are ~200 tokens.",
@@ -3619,6 +3720,26 @@
       "key": "D23.8e412656",
       "section": "D23",
       "text": "Headless modes differ between agents. Handled: manual runs in Part E where no non-interactive mode exists.",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "D24.bd19a0ab",
+      "section": "D24",
+      "text": "A yes given to a headless agent works across turns. Local confirmation tokens (the person's own sign-in) are signed like the server's (HMAC with a per-profile k",
+      "kind": "build",
+      "milestone": "M4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "D24.c5d5aad1",
+      "section": "D24",
+      "text": "Counts say what they cover: networkbasetaskcount and nb task count name the workspaces counted (\"across all your workspaces: Gstack 1, CSE 3B 1\"), and the tool ",
       "kind": "build",
       "milestone": "M4",
       "status": "todo",
