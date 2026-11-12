@@ -45,7 +45,9 @@ try {
   }
   const { createContext } = await import("../lib/context.mjs");
   // nb prompt runs on every shell prompt: errors only, no notices.
-  const ctx = createContext({ flags: spec.name === "prompt" ? { ...flags, quiet: true } : flags, positionals });
+  // push and pull plan their own dry run; for every other command the API client stops at the first write.
+  const ownDryRun = Boolean(spec.flags?.["dry-run"]);
+  const ctx = createContext({ flags: spec.name === "prompt" ? { ...flags, quiet: true } : { ...flags, ownDryRun }, positionals });
   if (alias) {
     const { remindOnce } = await import("../lib/print/remind.mjs");
     remindOnce(ctx, `alias:${alias.from}`, alias.shortcut ? `nb ${alias.from} is short for nb ${alias.to}` : `nb ${alias.from} is now nb ${alias.to} (the old name works until 3.0)`);
@@ -70,6 +72,13 @@ try {
   await (await import("../lib/print/notices.mjs")).afterCommand(ctx);
 } catch (error) {
   const cliError = toCliError(error);
+  // A dry run ends at the first change: that's its answer, not an error (C3).
+  if (cliError.code === "DRY_RUN") {
+    const d = /** @type {any} */ (cliError.details);
+    if (argv.includes("--json") || process.env.NB_JSON === "1") process.stdout.write(`${JSON.stringify({ ok: true, schema: "nb.dry-run/1", data: { wouldSend: d } })}\n`);
+    else process.stdout.write(`Dry run, nothing changed. Would ${d.method} ${d.path}${d.body ? `\n  ${JSON.stringify(d.body).slice(0, 400)}` : ""}\n`);
+    process.exit(EXIT.ok);
+  }
   // A usage error's next step is the command's own help (C5).
   if (!cliError.hint && cliError.exitCode === EXIT.usage && commandName) cliError.hint = `See nb ${commandName} --help`;
   early.error(cliError);

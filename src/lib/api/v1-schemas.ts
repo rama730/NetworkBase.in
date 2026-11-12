@@ -218,6 +218,9 @@ export const fileOperationSchema = z.discriminatedUnion("kind", [
     nodeId: z.string().uuid(),
     expectedUpdatedAt: z.string().datetime(),
   }),
+  // Report C3 (M4b): bring a file back from the Trash; a new folder.
+  z.object({ kind: z.literal("restore"), projectId: z.string().uuid(), nodeId: z.string().uuid() }),
+  z.object({ kind: z.literal("mkdir"), projectId: z.string().uuid(), parentId: z.string().uuid().nullable(), name: z.string().min(1).max(255) }),
 ]);
 
 // extension/bulk-intent

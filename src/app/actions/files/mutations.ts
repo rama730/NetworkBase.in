@@ -225,8 +225,8 @@ export async function createFolder(
     name: string,
     options?: { taskId?: string },
 ) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Browser session or a CLI/agent token (report C3: nb file mkdir, restore, trash).
+    const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
@@ -1040,8 +1040,8 @@ export async function moveWorkspaceNodes(
 }
 
 export async function restoreNode(nodeId: string, projectId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Browser session or a CLI/agent token (report C3: nb file mkdir, restore, trash).
+    const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
@@ -1309,8 +1309,8 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
 
 /** Paged trash browser; the legacy sidebar getter remains backward compatible. */
 export async function getTrashPage(projectId: string, query = "", cursor?: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Browser session or a CLI/agent token (report C3: nb file mkdir, restore, trash).
+    const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Sign in to continue");
     await assertWorkspaceWriteAccess(projectId, user.id);
     // Newest deletion first; the cursor is "<deleted_at as database text>~<id>" (exact microseconds).

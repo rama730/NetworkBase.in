@@ -160,3 +160,91 @@ async function attach(ctx, detach) {
 export const fileAttach = (ctx) => attach(ctx, false);
 /** @param {Context} ctx */
 export const fileDetach = (ctx) => attach(ctx, true);
+
+// ───────────────────────────────── trash, restore, folders, copies, locks (report C3, M4b)
+
+/** What's in the workspace Trash, with the days left before it's gone. @param {Context} ctx */
+export async function fileTrash(ctx) {
+  const { items } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/files/trash`, { query: { q: ctx.positionals[0] } }));
+  ctx.out.result("nb.file.trash/1", { items }, (d) => (d.items.length
+    ? [...ctx.out.table([
+        { title: "Path", value: (i) => safe(i.path), flex: true, path: true },
+        { title: "Deleted", value: (i) => `${String(i.deletedAt).slice(0, 10)}${i.deletedBy ? ` by @${safe(i.deletedBy)}` : ""}`, optional: true },
+        { title: "Days left", value: (i) => String(i.daysLeft), align: "right" },
+      ], d.items), ctx.out.c.muted("  nb file restore <path> brings one back")]
+    : "The Trash is empty"));
+}
+
+/** @param {Context} ctx */
+export async function fileRestore(ctx) {
+  const p = ctx.positionals[0];
+  if (!p) throw usage("nb file restore <path>", "See what's there: nb file trash");
+  const want = p.startsWith("/") ? p : `/${p}`;
+  const { items } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/files/trash`, { query: { q: want.split("/").pop() } }));
+  const hit = items.find((/** @type {any} */ i) => i.path === want) ?? (items.length === 1 ? items[0] : null);
+  if (!hit) throw new CliError("NOT_FOUND", `${want} isn't in the Trash`, { hint: "nb file trash" });
+  await ctx.api.post("/api/v1/extension/file-operation", { kind: "restore", projectId: ctx.requireWorkspace(), nodeId: hit.nodeId });
+  ctx.out.result("nb.file.restore/1", { path: hit.path }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Restored ${safe(d.path)} · nb pull gets it here`);
+}
+
+/** @param {Context} ctx */
+export async function fileMkdir(ctx) {
+  const p = ctx.positionals[0];
+  if (!p) throw usage("nb file mkdir <folder>");
+  const clean = remote(p.replace(/\/+$/, ""));
+  const parentPath = clean.slice(0, clean.lastIndexOf("/")) || "/";
+  const parentId = parentPath === "/" ? null : (await nodeOf(ctx, parentPath)).nodeId ?? null;
+  const { folder } = /** @type {any} */ (await ctx.api.post("/api/v1/extension/file-operation", { kind: "mkdir", projectId: ctx.requireWorkspace(), parentId, name: clean.slice(clean.lastIndexOf("/") + 1) }));
+  ctx.out.result("nb.file.mkdir/1", { path: folder.path }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Made ${safe(d.path)}/`);
+}
+
+/** A copy is a new file with the same content, placed like a push (every check applies). @param {Context} ctx */
+export async function fileCopy(ctx) {
+  const [from, to] = ctx.positionals;
+  if (!from || !to) throw usage("nb file copy <file> <to>", "Like nb file copy report.md drafts/report-v2.md");
+  const projectId = ctx.requireWorkspace();
+  const source = remote(from);
+  const target = to.endsWith("/") ? `${remote(to).replace(/\/+$/, "")}/${source.split("/").pop()}` : remote(to);
+  const res = await ctx.api.download("/api/v1/extension/file", { projectId, path: source, transfer: "raw" });
+  const bytes = Buffer.from(await res.arrayBuffer());
+  const crypto = await import("node:crypto");
+  const { mimeFor } = await import("../sync/transfer.mjs");
+  const placed = /** @type {any} */ (await ctx.api.post("/api/v1/files/place", { projectId, onSameName: "keep-both", message: `Copy of ${source}`, files: [{ path: target, contentHash: crypto.createHash("sha256").update(bytes).digest("hex"), size: bytes.length, mimeType: mimeFor(target), contentBase64: bytes.toString("base64") }] }));
+  const out = placed.files?.[0];
+  ctx.out.result("nb.file.copy/1", { from: source, to: out?.path ?? target }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Copied ${safe(d.from)} to ${safe(d.to)}`);
+}
+
+/**
+ * `nb file lock <file> [--for 30m]` (C3): the same lease as the app's editor, so teammates see you're editing. It
+ * holds until Ctrl+C (or --for), renewing every minute, and lets go when it ends.
+ * @param {Context} ctx
+ */
+export async function fileLock(ctx) {
+  const p = ctx.positionals[0];
+  if (!p) throw usage("nb file lock <path> [--for 30m]");
+  const projectId = ctx.requireWorkspace();
+  const node = await nodeOf(ctx, p);
+  const nodeId = node.nodeId ?? node.id;
+  const crypto = await import("node:crypto");
+  const sessionId = crypto.randomUUID();
+  const forText = ctx.flags.for ? String(ctx.flags.for) : null;
+  const m = forText ? /^(\d+)\s*(s|m|h)$/.exec(forText) : null;
+  if (forText && !m) throw usage("--for takes 30s, 10m or 2h");
+  const holdMs = m ? Number(m[1]) * (m[2] === "h" ? 3_600_000 : m[2] === "m" ? 60_000 : 1000) : Infinity;
+  const lease = /** @type {any} */ (await ctx.api.post(`/api/v1/files/${nodeId}/lock`, { projectId, sessionId, ttlSeconds: 120 }));
+  const creds = () => ({ projectId, sessionId, leaseId: lease.leaseId ?? lease.id, fencingToken: lease.fencingToken });
+  ctx.out.note(`${ctx.out.c.success(ctx.out.sym.done)} Locked ${safe(node.path ?? p)}: teammates see you're editing it${Number.isFinite(holdMs) ? ` for ${forText}` : " · Ctrl+C to let go"}`);
+  const ends = Date.now() + holdMs;
+  let stop = false;
+  process.once("SIGINT", () => { stop = true; });
+  while (!stop && Date.now() < ends) {
+    await new Promise((r) => setTimeout(r, Math.min(1000, Math.max(0, ends - Date.now()))));
+    if (!stop && Date.now() - (lease.renewedAt ?? lease.acquiredAt ?? 0) > 60_000) {
+      const renewed = /** @type {any} */ (await ctx.api.post(`/api/v1/files/${nodeId}/lock-renew`, { ...creds(), ttlSeconds: 120 }).catch(() => null));
+      lease.renewedAt = Date.now();
+      if (renewed?.fencingToken) lease.fencingToken = renewed.fencingToken;
+    }
+  }
+  await ctx.api.request("DELETE", `/api/v1/files/${nodeId}/lock`, { body: creds() }).catch(() => undefined);
+  ctx.out.result("nb.file.lock/1", { path: node.path ?? p, released: true }, (d) => `Let go of ${safe(d.path)}`);
+}

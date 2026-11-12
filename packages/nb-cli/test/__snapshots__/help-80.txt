@@ -22,8 +22,9 @@ More
     inbox reply, inbox approve, inbox open
   Files
     undo, diff, queue, queue retry, queue drop, sync, resolve, watch, file list,
-    file recent, file star, file history, file use, file move, file rename,
-    file delete, file attach, file detach, file view
+    file trash, file restore, file mkdir, file copy, file lock, file recent,
+    file star, file history, file use, file move, file rename, file delete,
+    file attach, file detach, file view
   Tasks
     task count, task view, task stop, task move, task review, task resubmit,
     task edit, task remind, task watch, task star, task assign, task report,

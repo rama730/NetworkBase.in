@@ -276,9 +276,20 @@
     },
     {
       "name": "diff",
-      "summary": "Changes against the version you last pulled",
-      "usage": "nb diff [path...]",
-      "flags": {},
+      "summary": "Changes against the version you last pulled, or between two versions",
+      "usage": "nb diff [path...] | nb diff <path> --from v1 [--to v3]",
+      "flags": {
+        "from": {
+          "type": "string",
+          "describe": "Compare this server version…",
+          "valueName": "vN"
+        },
+        "to": {
+          "type": "string",
+          "describe": "…with this one (default: the active one)",
+          "valueName": "vN"
+        }
+      },
       "examples": [],
       "exitCodes": [
         0,
@@ -418,13 +429,19 @@
     {
       "name": "sync",
       "summary": "Pull, then push changed tracked files",
-      "usage": "nb sync",
+      "usage": "nb sync [--only design/ docs/ | --only all]",
       "flags": {
         "message": {
           "type": "string",
           "short": "m",
           "describe": "Text for this command",
           "valueName": "text"
+        },
+        "only": {
+          "type": "string",
+          "multiple": true,
+          "describe": "Keep only these folders in sync from now on (all = everything)",
+          "valueName": "folder"
         }
       },
       "examples": [],
@@ -573,6 +590,67 @@
         "starred": {
           "type": "boolean",
           "describe": "Only files you starred (the same as the Files tab)"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file trash",
+      "summary": "What's in the workspace Trash, with days left",
+      "usage": "nb file trash [name]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file restore",
+      "summary": "Bring a file back from the Trash",
+      "usage": "nb file restore <path>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file mkdir",
+      "summary": "Make a folder in the workspace",
+      "usage": "nb file mkdir <folder>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file copy",
+      "summary": "Copy a file to a new path (a new file, same content)",
+      "usage": "nb file copy <file> <to>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file lock",
+      "summary": "Show teammates you're editing a file, until Ctrl+C or --for",
+      "usage": "nb file lock <path> [--for 30m]",
+      "flags": {
+        "for": {
+          "type": "string",
+          "describe": "How long: 30s, 10m, 2h (default: until Ctrl+C)",
+          "valueName": "time"
         }
       },
       "examples": [],
@@ -2000,6 +2078,10 @@
       "type": "string",
       "describe": "The yes for a change held for confirmation (exit 7 gives the token)",
       "valueName": "token"
+    },
+    "dry-run": {
+      "type": "boolean",
+      "describe": "Show what would change, and change nothing"
     },
     "help": {
       "type": "boolean",

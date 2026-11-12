@@ -94,7 +94,7 @@ const BATCH_FILES = 50;
 /**
  * Uploads through files/place in batches (≤ 50 files, ≤ 3 MiB inline); bigger files use signed upload slots.
  * @param {Api} api
- * @param {{ workspaceId: string, items: Array<{ path: string, abs: string, size: number, hash: string, baseVersion?: number | null }>, taskId?: string | null, as?: string | null, message?: string | null, keepBoth?: boolean, folder?: string | null, confirmSecrets?: boolean, keyBase?: string }} input
+ * @param {{ workspaceId: string, items: Array<{ path: string, abs: string, size: number, hash: string, baseVersion?: number | null }>, taskId?: string | null, as?: string | null, message?: string | null, keepBoth?: boolean, folder?: string | null, confirmSecrets?: boolean, keyBase?: string, onBytes?: (path: string, sent: number, total: number) => void }} input
  * @param {(done: number, total: number) => void} [progress]
  */
 export async function uploadFiles(api, input, progress) {
@@ -135,7 +135,7 @@ export async function uploadFiles(api, input, progress) {
     progress?.(done, input.items.length);
   }
   if (large.length) {
-    results.push(...(await uploadLarge(api, input.workspaceId, large, input.message ?? null)));
+    results.push(...(await uploadLarge(api, input.workspaceId, large, input.message ?? null, input.onBytes)));
     progress?.(input.items.length, input.items.length);
   }
   return { files: results, transition: lastTransition };
@@ -145,8 +145,9 @@ export async function uploadFiles(api, input, progress) {
  * Files over 3 MiB: signed upload slots, PUT, then finalize (the 1.x bulk path). The base-version check happened
  * just before through a fresh manifest; the bulk routes don't take one (noted in the phase notes).
  * @param {Api} api @param {string} workspaceId @param {Array<{ path: string, abs: string, size: number, hash: string }>} items @param {string | null} message
+ * @param {(path: string, sent: number, total: number) => void} [onBytes] progress of each big file (C3)
  */
-async function uploadLarge(api, workspaceId, items, message) {
+async function uploadLarge(api, workspaceId, items, message, onBytes) {
   /** @type {any[]} */
   const out = [];
   for (let i = 0; i < items.length; i += BATCH_FILES) {
@@ -158,7 +159,12 @@ async function uploadLarge(api, workspaceId, items, message) {
     for (const slot of intent.files) {
       const item = batch.find((f) => f.path === slot.path);
       if (!item) continue;
-      const put = await fetch(slot.uploadUrl, /** @type {RequestInit} */ ({ method: "PUT", headers: { "content-type": mimeFor(item.path), "content-length": String(item.size) }, body: /** @type {any} */ (fs.createReadStream(item.abs)), duplex: "half", signal: AbortSignal.timeout(10 * 60_000) }));
+      // ponytail: a file stopped midway (Ctrl+C) goes up whole on the next push, not from where it stopped; files are
+      // at most 25 MB. Byte-level resume needs a resumable upload protocol on storage.
+      const stream = fs.createReadStream(item.abs);
+      let sent = 0;
+      stream.on("data", (chunk) => { sent += chunk.length; onBytes?.(item.path, sent, item.size); });
+      const put = await fetch(slot.uploadUrl, /** @type {RequestInit} */ ({ method: "PUT", headers: { "content-type": mimeFor(item.path), "content-length": String(item.size) }, body: /** @type {any} */ (stream), duplex: "half", signal: AbortSignal.timeout(10 * 60_000) }));
       if (!put.ok) throw new CliError("UPLOAD_FAILED", `Uploading ${item.path} failed (HTTP ${put.status})`, { hint: "Run the command again" });
     }
     const finalized = /** @type {any} */ (await api.post("/api/v1/extension/bulk-finalize", {

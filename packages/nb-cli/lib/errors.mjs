@@ -41,6 +41,7 @@ const EXIT_BY_CODE = {
   NEEDS_CONFIRMATION: EXIT.needsConfirmation,
   OFFLINE: EXIT.offline,
   CANCELLED: EXIT.cancelled,
+  DRY_RUN: EXIT.ok,
 };
 
 export class CliError extends Error {

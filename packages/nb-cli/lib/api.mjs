@@ -26,11 +26,11 @@ const HINTS = /** @type {Record<string, string>} */ ({
 });
 
 /**
- * @param {{ origin: string, token: string | null, version: string, fetchImpl?: typeof fetch, onRetry?: (info: { attempt: number, waitMs: number, reason: string }) => void, confirmToken?: string | null, onUndo?: (u: { token: string, method: string, path: string, summary: string | null }) => void }} options
+ * @param {{ origin: string, token: string | null, version: string, fetchImpl?: typeof fetch, onRetry?: (info: { attempt: number, waitMs: number, reason: string }) => void, confirmToken?: string | null, onUndo?: (u: { token: string, method: string, path: string, summary: string | null }) => void, dryRun?: boolean }} options
  *   confirmToken: the person's yes for a held agent change (sent as X-NB-Confirm); onUndo: called with every undo
  *   token a write returns, so `nb undo` can use it (report A2.8, A2.9).
  */
-export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, confirmToken = null, onUndo }) {
+export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, confirmToken = null, onUndo, dryRun = false }) {
   /**
    * @param {"GET" | "POST" | "PUT" | "PATCH" | "DELETE"} method
    * @param {string} path
@@ -39,6 +39,10 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, 
   async function request(method, path, options = {}) {
     if (options.auth !== false && !token) {
       throw new CliError("NOT_SIGNED_IN", `You're not signed in to ${new URL(origin).host}`, { hint: "Run nb login" });
+    }
+    // --dry-run on every write command (C3): reads go ahead, the first change stops here and is shown instead.
+    if (dryRun && method !== "GET" && !path.startsWith("/api/v1/device/") && path !== "/api/v1/extension/auth-code") {
+      throw new CliError("DRY_RUN", `Dry run: would ${method} ${path}`, { details: { method, path, body: options.body ?? null } });
     }
     const url = new URL(path, origin);
     for (const [k, v] of Object.entries(options.query ?? {})) if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));

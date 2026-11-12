@@ -29,6 +29,7 @@ const BORN_AFTER_RENAME = new Set([
   // Starred and recent files for the CLI (report C3, 0087), 2026-11-12.
   'src/app/api/v1/workspaces/[id]/files/[nodeId]/star/route.ts',
   'src/app/api/v1/workspaces/[id]/files/mine/route.ts',
+  'src/app/api/v1/workspaces/[id]/files/trash/route.ts',
 ]);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 const routes = (dir: string): string[] => readdirSync(dir).flatMap((name) => {

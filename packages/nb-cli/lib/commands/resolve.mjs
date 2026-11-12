@@ -16,6 +16,8 @@ import { buildPlan, localPathOf, moveToLocalTrash, recordBase, relativeArgs } fr
 
 /** @param {Context} ctx */
 export async function diff(ctx) {
+  // Two server versions (C3): nb diff report.md --from v1 --to v3 (--to defaults to the active one).
+  if (ctx.flags.from) return versionDiff(ctx);
   const { root } = ctx.requireRoot();
   const plan = await buildPlan(ctx, { only: relativeArgs(ctx, root) });
   const changed = plan.items.filter((i) => i.local && (i.state === "modified" || i.state === "conflict" || i.state === "added"));
@@ -39,6 +41,30 @@ export async function diff(ctx) {
     }
     return lines;
   });
+}
+
+/** @param {Context} ctx */
+async function versionDiff(ctx) {
+  const p = ctx.positionals[0];
+  if (!p) throw usage("nb diff <path> --from v1 [--to v3]");
+  const num = (/** @type {unknown} */ v) => Number(String(v ?? "").replace(/^v/i, ""));
+  const { nodeOf } = await import("./browse.mjs");
+  const node = await nodeOf(ctx, p);
+  const nodeId = node.nodeId ?? node.id;
+  const projectId = ctx.requireWorkspace();
+  const from = num(ctx.flags.from);
+  let to = ctx.flags.to ? num(ctx.flags.to) : null;
+  if (to === null) to = (/** @type {any} */ (await ctx.api.get("/api/v1/extension/file-history", { query: { projectId, nodeId } }))).activeVersion;
+  if (!Number.isInteger(from) || from < 1 || !Number.isInteger(to) || /** @type {number} */ (to) < 1) throw usage("Versions look like v1, v3", "See them: nb file history <path>");
+  const read = async (/** @type {number} */ v) => /** @type {any} */ (await ctx.api.get("/api/v1/extension/file-history", { query: { projectId, nodeId, version: v } })).content;
+  const [a, b] = await Promise.all([read(from), read(/** @type {number} */ (to))]);
+  const binary = String(a).includes("\u0000") || String(b).includes("\u0000");
+  const result = binary ? null : unifiedDiff(String(a), String(b));
+  const { c } = ctx.out;
+  ctx.out.result("nb.diff.versions/1", { path: node.path ?? p, from, to, binary, diff: result }, (d) => [
+    c.bold(`${safe(d.path)}: v${d.from} → v${d.to}`),
+    ...(d.binary ? [c.muted("  binary file: no line diff")] : !d.diff?.lines.length ? [c.muted("  the same content")] : d.diff.lines.map((/** @type {any} */ l) => (l.kind === "@" ? c.muted(l.text) : l.kind === "+" ? c.success(`+${safe(l.text)}`) : l.kind === "-" ? c.danger(`-${safe(l.text)}`) : ` ${safe(l.text)}`))),
+  ]);
 }
 
 // ───────────────────────────────── resolve

@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DIR_NAME, readUserConfig } from "../config.mjs";
+import { DIR_NAME, readUserConfig, writeProjectConfig } from "../config.mjs";
 import { CliError, EXIT, usage } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { scanLocal, toRelative, toRemote } from "../sync/local.mjs";
@@ -19,6 +19,8 @@ import { branchTask, resolveTask } from "./tasks.mjs";
 
 /** Paths given on the command line, as paths relative to the linked folder. @param {Context} ctx @param {string} root */
 export function relativeArgs(ctx, root) {
+  // No paths given: the folders this copy keeps (C3, nb sync --only), or everything.
+  if (!ctx.positionals.length && ctx.project?.only?.length) return [...ctx.project.only];
   return ctx.positionals.map((p) => {
     const rel = path.relative(root, path.resolve(ctx.cwd, p));
     if (rel.startsWith("..") || path.isAbsolute(rel)) throw usage(`${p} is outside the linked folder ${root}`);
@@ -31,6 +33,8 @@ export function relativeArgs(ctx, root) {
  * @param {Context} ctx @param {{ only?: string[] }} [options]
  */
 export async function buildPlan(ctx, options = {}) {
+  // A copy that keeps only some folders (C3) plans just those, so status doesn't list the rest as server-only.
+  if (!options.only?.length && ctx.project?.only?.length) options = { ...options, only: ctx.project.only };
   const { root, project } = ctx.requireRoot();
   const state = readState(root, project.workspaceId);
   let offline = false;
@@ -329,6 +333,11 @@ export async function push(ctx) {
           folder: ctx.flags.folder ?? null,
           confirmSecrets: Boolean(ctx.flags["confirm-secrets"]),
           keyBase,
+          // A big file shows how far it got (C3), on one line in a terminal.
+          onBytes: ctx.out.interactive && !ctx.out.json ? (p, sent, total) => {
+            const mb = (/** @type {number} */ n) => (n / 1024 / 1024).toFixed(1);
+            ctx.out.stderr.write(`\r\x1b[2K${ctx.out.c.muted(`Uploading ${safe(p)} ${mb(sent)} of ${mb(total)} MB`)}${sent >= total ? "\n" : ""}`);
+          } : undefined,
         }, (done, total) => { if (total > 1) ctx.out.note(ctx.out.c.muted(`Uploading ${done} of ${total}`)); }).catch((error) => handlePushError(ctx, root, state, error instanceof CliError && error.code === "OFFLINE" ? queueOffline() : error))
       : { files: [], transition: null };
 
@@ -413,6 +422,20 @@ function handlePushError(ctx, root, state, error) {
 /** Pull, then push changed tracked files; new files are pushed by naming them (report §17.4). @param {Context} ctx */
 export async function sync(ctx) {
   oldStatusFlags(ctx);
+  // `nb sync --only design/ docs/` remembers which folders this copy keeps; `--only all` goes back to everything (C3).
+  if (ctx.flags.only !== undefined) {
+    const { root, project } = ctx.requireRoot();
+    const raw = /** @type {string[]} */ ([ctx.flags.only].flat()).concat(ctx.positionals).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
+    const only = raw.includes("all") ? [] : raw.map((p) => {
+      const rel = path.relative(root, path.resolve(ctx.cwd, p));
+      if (rel.startsWith("..") || path.isAbsolute(rel)) throw usage(`${p} is outside the linked folder ${root}`);
+      return rel;
+    });
+    writeProjectConfig(root, { ...project, only });
+    ctx.project = { ...project, only };
+    ctx.positionals = [];
+    ctx.out.note(only.length ? `This copy keeps ${only.map((o) => `${o}/`).join(", ")} in sync · nb sync --only all for everything` : "This copy keeps everything in sync");
+  }
   await replayQueue(ctx);
   const pulled = await pull(ctx, { quietResult: true });
   if (pulled === EXIT.conflict) {

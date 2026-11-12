@@ -140,6 +140,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   // Your starred and recent files (report C3, 0087): a star is your own shortcut, so reading is enough.
   { pattern: route(`/api/v1/workspaces/${ID}/files/${ID}/star`), write: "file:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/files/mine`), read: "file:read", agent: "path" },
+  // The workspace Trash (report C3); restoring goes through file-operation.
+  { pattern: route(`/api/v1/workspaces/${ID}/files/trash`), read: "file:read", agent: "path" },
   // Agents asking people (report §20.4); the routes check the workspace and who may answer.
   { pattern: route("/api/v1/questions"), read: "task:read", write: "task:write", agent: "route" },
   { pattern: route(`/api/v1/questions/${ID}`), read: "task:read", agent: "route" },

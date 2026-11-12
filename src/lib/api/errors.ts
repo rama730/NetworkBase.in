@@ -20,6 +20,7 @@ const CLI_ONLY: Record<string, ErrorEntry> = {
   NOT_A_TASK: { status: 0, exit: 1, meaning: "That inbox item isn't about a task", fix: "nb inbox open <n>" },
   NOTHING_TO_APPROVE: { status: 0, exit: 1, meaning: "The task isn't waiting for review", fix: "nb inbox open <n>" },
   NEEDS_INPUT: { status: 0, exit: 6, meaning: "The command needs a choice and there's no terminal to ask in", fix: "Answer with --answer key=value, or --yes for the recommended choice" },
+  DRY_RUN: { status: 0, exit: 0, meaning: "--dry-run stopped before the first change and showed it", fix: "Run the same command without --dry-run to make the change" },
   CANCELLED: { status: 0, exit: 130, meaning: "You stopped it; nothing was changed", fix: "Run the command again when ready" },
   OFFLINE: { status: 0, exit: 8, meaning: "The server couldn't be reached; pushes wait in the queue", fix: "nb doctor checks the connection; nb sync sends the queue" },
   TIMEOUT: { status: 0, exit: 1, meaning: "The server took too long to answer", fix: "Try again; nb doctor checks the connection" },

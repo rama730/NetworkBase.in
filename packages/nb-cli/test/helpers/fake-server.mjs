@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string, active?: number }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, dueDate?: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, lastTokenBody?: any, countWorkspaces?: any[], stars?: Set<string>, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, lastTokenBody?: any, countWorkspaces?: any[], stars?: Set<string>, trash?: any[], locks?: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -26,7 +26,7 @@ const now = () => new Date().toISOString();
 /** @param {FakeState} state @param {string} path @param {Buffer} content */
 export function putFile(state, path, content) {
   const prev = state.files.get(path);
-  const file = { path, nodeId: prev?.nodeId ?? crypto.randomUUID(), version: (prev?.version ?? 0) + 1, content, updatedAt: now() };
+  const file = { path, nodeId: prev?.nodeId ?? crypto.randomUUID(), version: (prev?.version ?? 0) + 1, content, updatedAt: now(), history: [...(/** @type {any} */ (prev)?.history ?? []), content] };
   state.files.set(path, file);
   return { file, prev };
 }
@@ -228,6 +228,13 @@ const exact = {
   },
   "POST /api/v1/extension/file-operation": (req, state) => {
     state.fileOps.push(req.body);
+    if (req.body.kind === "mkdir") return { data: { folder: { id: crypto.randomUUID(), path: `/${req.body.name}`, name: req.body.name } } };
+    if (req.body.kind === "restore") {
+      const hit = (state.trash ?? []).find((t) => t.nodeId === req.body.nodeId);
+      if (!hit) return fail(404, "NOT_FOUND", "File not found");
+      state.trash = (state.trash ?? []).filter((t) => t !== hit);
+      return { data: { restored: true, nodeId: hit.nodeId } };
+    }
     if (req.body.kind === "rename") {
       const hit = [...state.files].find(([, f]) => f.nodeId === req.body.nodeId);
       if (hit) { const [p, f] = hit; state.files.delete(p); const np = `${p.slice(0, p.lastIndexOf("/"))}/${req.body.name}`; state.files.set(np, { ...f, path: np }); }
@@ -240,6 +247,12 @@ const exact = {
   "GET /api/v1/extension/file-history": (req, state) => {
     const f = [...state.files.values()].find((x) => x.nodeId === req.query.get("nodeId"));
     if (!f) return fail(404, "NOT_FOUND", "File not found");
+    // One version's content (C3 version diff), like the server's ?version=N.
+    if (req.query.get("version")) {
+      const v = Number(req.query.get("version"));
+      const content = /** @type {any} */ (f).history?.[v - 1];
+      return content === undefined ? fail(404, "NOT_FOUND", "Version not found") : { data: { content: content.toString("utf8"), encoding: "utf8" } };
+    }
     return { data: { activeVersion: f.active ?? f.version, versions: Array.from({ length: f.version }, (_, i) => ({ version: f.version - i, basedOnVersion: f.version - i > 1 ? f.version - i - 1 : null, uploadedAt: f.updatedAt, uploadedByUsername: "tester", via: i === 0 ? "agent" : null, agentName: i === 0 ? "Claude Code" : null, comment: null })) } };
   },
   "POST /api/v1/extension/file-history": (req, state) => {
@@ -372,6 +385,15 @@ const patterns = [
     const n = t?.reminders?.length ?? 0;
     if (t) t.reminders = [];
     return { data: { cancelled: n } };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/files\/trash$/, "GET", (_req, state) => ({ data: { items: state.trash ?? [], nextCursor: null } })],
+  [/^\/api\/v1\/files\/([^/]+)\/lock$/, "POST", (req, state) => {
+    state.locks = [...(state.locks ?? []), { nodeId: req.params[0], op: "lock", sessionId: req.body.sessionId }];
+    return { data: { leaseId: crypto.randomUUID(), sessionId: req.body.sessionId, fencingToken: 1, acquiredAt: Date.now(), renewedAt: Date.now(), expiresAt: Date.now() + 120_000 } };
+  }],
+  [/^\/api\/v1\/files\/([^/]+)\/lock$/, "DELETE", (req, state) => {
+    state.locks = [...(state.locks ?? []), { nodeId: req.params[0], op: "release", sessionId: req.body.sessionId }];
+    return { data: { released: true } };
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/files\/([^/]+)\/star$/, "PUT", (req, state) => {
     state.stars = new Set(state.stars ?? []);

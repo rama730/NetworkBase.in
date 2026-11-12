@@ -30,6 +30,8 @@ export function createContext({ flags, positionals, cwd = process.cwd(), env = p
     confirmToken: typeof flags.confirm === "string" ? flags.confirm : null,
     onUndo: (u) => appendUndo(env, { token: u.token, at: Date.now(), method: u.method, path: u.path, origin: profile.origin, session: env.NB_AGENT_SESSION ?? null }),
     onRetry: ({ waitMs, reason }) => out.note(out.c.muted(`${reason}; retrying in ${Math.max(1, Math.round(waitMs / 1000))} s`)),
+    // Commands with their own --dry-run (push, pull) plan without writing; every other one stops at its first write.
+    dryRun: Boolean(flags["dry-run"]) && !flags.ownDryRun,
   });
 
   // The first step comes first (C1): signed out, "link this folder" is the wrong advice.

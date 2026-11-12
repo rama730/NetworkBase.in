@@ -190,6 +190,8 @@ export function readProjectConfig(root, warn) {
     startedTask: raw.startedTask ?? null,
     profile: raw.profile ?? null,
     linkedAt: raw.linkedAt,
+    /** Folders this copy keeps in sync (C3 `nb sync --only`); none = everything. */
+    only: Array.isArray(raw.only) ? raw.only.filter((/** @type {unknown} */ x) => typeof x === "string") : [],
   };
 }
 

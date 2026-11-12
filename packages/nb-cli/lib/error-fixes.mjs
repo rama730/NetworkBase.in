@@ -38,6 +38,7 @@ export const FIXES = /** @type {Record<string, string>} */ ({
   "NOT_A_TASK": "nb inbox open <n>",
   "NOTHING_TO_APPROVE": "nb inbox open <n>",
   "NEEDS_INPUT": "Answer with --answer key=value, or --yes for the recommended choice",
+  "DRY_RUN": "Run the same command without --dry-run to make the change",
   "CANCELLED": "Run the command again when ready",
   "OFFLINE": "nb doctor checks the connection; nb sync sends the queue",
   "TIMEOUT": "Try again; nb doctor checks the connection",
