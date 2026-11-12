@@ -145,8 +145,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/tasks/${ID}/reminders`), read: "task:read", write: "task:read", agent: "route" },
   // Agent notes on a task (report D16, 0089): where an agent stopped; writing one is a small task change.
   { pattern: route(`/api/v1/tasks/${ID}/agent-notes`), read: "task:read", write: "task:write", agent: "route" },
-  // Who's working on a task (report D5): reading the task is enough to say "I'm here".
-  { pattern: route(`/api/v1/tasks/${ID}/presence`), read: "task:read", write: "task:read", agent: "route" },
+  // Who's working on a task (report D5): saying "I'm here" needs the right to change the task.
+  { pattern: route(`/api/v1/tasks/${ID}/presence`), read: "task:read", write: "task:write", agent: "route" },
   // Your starred and recent files (report C3, 0087): a star is your own shortcut, so reading is enough.
   { pattern: route(`/api/v1/workspaces/${ID}/files/${ID}/star`), write: "file:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/files/mine`), read: "file:read", agent: "path" },

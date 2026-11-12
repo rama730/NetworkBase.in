@@ -48,8 +48,8 @@ export function AgentPresence({ projectId, taskId }: { projectId: string; taskId
   return (
     <p role="status" className="flex items-center gap-1.5 rounded-[5px] border border-border bg-muted/20 px-3 py-1.5 text-[12px] text-foreground">
       <span className="relative flex size-2" aria-hidden="true">
-        <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-60 motion-reduce:animate-none" />
-        <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+        <span className="absolute inline-flex size-full animate-ping rounded-[2px] bg-emerald-500 opacity-60 motion-reduce:animate-none" />
+        <span className="relative inline-flex size-2 rounded-[2px] bg-emerald-500" />
       </span>
       <Bot className="size-3.5 text-muted-foreground" aria-hidden="true" />
       {line}

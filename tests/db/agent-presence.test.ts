@@ -43,3 +43,21 @@ test("two agents on one task: each is shown, the second hears about the first, a
   assert.equal(broadcasts.filter((b) => (b as { event: string }).event === "agent.presence").length, 2, "only arrivals are broadcast");
   assert.equal((await call(await token(stranger!, null), task!.id, "GET")).status, 403);
 });
+
+test("only people who can change the task can say an agent is there; a person's own sign-in can't invent a name; stale and excess sessions go", async () => {
+  const [owner, viewer] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const ws = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${viewer!}, 'viewer')`;
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, status, creator_id) VALUES (${ws}, 'Busy', 'in_progress', ${owner!}) RETURNING id`;
+  assert.equal((await call(await token(viewer!, null), task!.id, "POST", { sessionId: "v1", agentName: "Claude Code" })).status, 403, "a viewer can't");
+  const mine = await token(owner!, null);
+  await call(mine, task!.id, "POST", { sessionId: "own-1", agentName: "Totally Real Admin Bot" });
+  assert.deepEqual((await call(mine, task!.id, "GET")).body.data.agents.map((a: { agentName: string }) => a.agentName), ["An AI agent"]);
+  for (let i = 0; i < 15; i++) await call(mine, task!.id, "POST", { sessionId: `own-${i + 2}`, agentName: "Codex" });
+  const excess = await call(mine, task!.id, "POST", { sessionId: "own-99", agentName: "Codex" });
+  assert.equal(excess.status, 429, "at most 16 sessions per task");
+  const presence = await loadAppModule(() => import("../../src/lib/agents/presence"));
+  const later = Date.now() + 91_000;
+  await presence.markAgentWorking(task!.id, { sessionId: "fresh", agentName: "Cursor", userId: owner! }, later);
+  assert.deepEqual((await presence.agentsOnTask(task!.id, later)).map((a) => a.sessionId), ["fresh"], "stale sessions are dropped");
+});

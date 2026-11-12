@@ -21,7 +21,9 @@ export async function listAgentNotes(userId: string, taskId: string) {
 }
 
 export async function addAgentNote(userId: string, taskId: string, input: { note: string; agentName: string | null; sessionId: string | null }) {
-  await readableTask(taskId, userId);
+  const task = await readableTask(taskId, userId);
+  // A note is shown to everyone on the task, like a comment: it needs the right to change the task.
+  if (!(await getWorkspaceAccessById(task.projectId, userId)).canWrite) throw new TaskMetaError("Only people who can change this task can leave agent notes on it", 403);
   return db.transaction(async (tx) => {
     // One writer at a time per task, so the trim below never races another insert.
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`agent-notes:${taskId}`}, 0))`);

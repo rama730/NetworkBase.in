@@ -1,6 +1,7 @@
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { denyOutsideTokenWorkspace, getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { agentNoteDeleteSchema, agentNoteSchema } from "@/lib/api/v1-schemas";
+import { agentNameFrom } from "@/lib/agents/presence";
 import { addAgentNote, deleteAgentNote, listAgentNotes } from "@/lib/domain/task-agent-notes";
 import { TaskMetaError } from "@/lib/domain/task-meta";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -41,7 +42,7 @@ export async function POST(request: Request, context: Context) {
     const parsed = agentNoteSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return jsonError("Write the note: 1 to 2000 characters", 400, "BAD_REQUEST");
     const tokenAgent = "tokenAgentName" in auth && typeof auth.tokenAgentName === "string" ? auth.tokenAgentName : null;
-    const agentName = auth.tokenKind === "agent" ? (tokenAgent ?? "An AI agent") : (parsed.data.agentName ?? null);
+    const agentName = auth.tokenKind === "agent" ? (tokenAgent ?? "An AI agent") : parsed.data.agentName ? agentNameFrom(parsed.data.agentName) : null;
     const note = await addAgentNote(auth.user.id, taskId, { note: parsed.data.note, agentName, sessionId: parsed.data.sessionId ?? null });
     return jsonSuccess({ note });
   }));

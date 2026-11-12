@@ -1,6 +1,7 @@
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { denyOutsideTokenWorkspace, getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
-import { agentsOnTask, markAgentWorking } from "@/lib/agents/presence";
+import { agentNameFrom, agentsOnTask, markAgentWorking } from "@/lib/agents/presence";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { agentPresenceSchema } from "@/lib/api/v1-schemas";
 import { readableTask, TaskMetaError } from "@/lib/domain/task-meta";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -20,7 +21,9 @@ async function withTask(request: Request, context: Context, run: (auth: Awaited<
     if (!UUID.test(taskId)) return jsonError("Task not found", 404, "NOT_FOUND");
     const outside = await denyOutsideTokenWorkspace(auth, { taskId });
     if (outside) return outside;
-    await readableTask(taskId, auth.user.id);
+    const task = await readableTask(taskId, auth.user.id);
+    // Saying an agent works here changes what everyone sees on the task: it needs write access (security review).
+    if (request.method === "POST" && !(await getWorkspaceAccessById(task.projectId, auth.user.id)).canWrite) return jsonError("Only people who can change this task can say an agent is working on it", 403, "FORBIDDEN");
     return await run(auth as typeof auth & { user: { id: string } }, taskId);
   } catch (error) {
     if (error instanceof TaskMetaError) return jsonError(error.message, error.status, error.status === 404 ? "NOT_FOUND" : "FORBIDDEN");
@@ -44,8 +47,10 @@ export async function POST(request: Request, context: Context) {
     const parsed = agentPresenceSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return jsonError("Send the agent's session id", 400, "BAD_REQUEST");
     const tokenAgent = "tokenAgentName" in auth && typeof auth.tokenAgentName === "string" ? auth.tokenAgentName : null;
-    const agentName = auth.tokenKind === "agent" ? (tokenAgent ?? "An AI agent") : (parsed.data.agentName ?? "An AI agent");
-    const { others } = await markAgentWorking(taskId, { sessionId: parsed.data.sessionId, agentName, userId: auth.user.id });
+    // An agent sign-in names itself; a person's own sign-in may only pick a known agent's name.
+    const agentName = auth.tokenKind === "agent" ? (tokenAgent ?? "An AI agent") : agentNameFrom(parsed.data.agentName);
+    const { others, full } = await markAgentWorking(taskId, { sessionId: parsed.data.sessionId, agentName, userId: auth.user.id });
+    if (full) return jsonError("Too many agents are working on this task right now", 429, "RATE_LIMITED");
     return jsonSuccess({ others: others.map((o) => o.agentName) });
   });
 }
