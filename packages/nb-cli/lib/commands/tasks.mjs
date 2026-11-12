@@ -29,7 +29,7 @@ export async function resolveTask(ctx, ref, { brief = false } = {}) {
     if (error instanceof CliError && (error.status === 404 || error.code === "NOT_FOUND")) throw new CliError("TASK_NOT_FOUND", `No task ${ref} in this workspace`, { hint: "See nb task list" });
     throw error;
   }));
-  return { ...detail.task, subtasks: detail.subtasks ?? [], files: detail.files ?? [], comments: detail.comments ?? [], pushes: detail.pushes ?? [] };
+  return { ...detail.task, subtasks: detail.subtasks ?? [], files: detail.files ?? [], comments: detail.comments ?? [], pushes: detail.pushes ?? [], meta: detail.meta ?? null };
 }
 
 /**
@@ -110,11 +110,13 @@ export async function list(ctx) {
   if (ctx.flags.sprint) query.sprint = await resolveSprint(ctx, String(ctx.flags.sprint));
   if (ctx.flags.priority) query.priority = String(ctx.flags.priority);
   if (ctx.flags.sort) query.sort = String(ctx.flags.sort);
+  if (ctx.flags.label) query.label = String(ctx.flags.label).toLowerCase();
+  if (ctx.flags.starred) { query.starred = "1"; query.scope = "all"; }
   const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query }));
   let rows = tasks.filter((/** @type {any} */ t) => (wanted ? wanted.has(t.status) || (wanted.has("review") && t.reviewStatus === "pending") : true));
   const more = Math.max(0, rows.length - limit);
   rows = rows.slice(0, limit);
-  const data = { scope, tasks: rows.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus ?? null, priority: t.priority ?? null, dueDate: t.dueDate ?? null, assignee: t.assigneeUsername ?? t.assigneeName ?? null, subtasks: t.subtaskSummary ?? null })), more };
+  const data = { scope, tasks: rows.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus ?? null, priority: t.priority ?? null, dueDate: t.dueDate ?? null, assignee: t.assigneeUsername ?? t.assigneeName ?? null, labels: t.labels ?? [], subtasks: t.subtaskSummary ?? null })), more };
   ctx.out.result("nb.task.list/1", data, (d) => {
     if (!d.tasks.length) return scope === "mine" ? "No open tasks assigned to you · nb task list --all for everyone's" : "No open tasks";
     const started = ctx.project?.startedTask?.id;
@@ -122,7 +124,7 @@ export async function list(ctx) {
       ...ctx.out.table([
         // The started task gets a marker and a space, so plain output never reads as "-1" (C16 #4).
         { title: "#", value: (t) => `${t.id === started ? ctx.out.c.brand(ctx.out.sym.cursor) : " "} ${t.number ?? ""}`, align: "right" },
-        { title: "Task", value: (t) => safe(t.title), flex: true },
+        { title: "Task", value: (t) => `${safe(t.title)}${t.labels?.length ? ` ${ctx.out.c.accent(t.labels.map((/** @type {string} */ l) => `[${safe(l)}]`).join(" "))}` : ""}`, flex: true },
         { title: "Status", value: (t) => statusWord(t) },
         { title: "Due", value: (t) => (t.dueDate ? formatDate(t.dueDate) : "—"), optional: true },
         { title: "Assignee", value: (t) => (t.assignee ? `@${safe(t.assignee)}` : "—"), optional: true },
@@ -202,16 +204,29 @@ export async function view(ctx) {
     assignee: task.assignee?.username ?? task.assignee?.name ?? null, sprint: task.sprint?.name ?? null, description: task.description ?? "",
     subtasks: task.subtasks.map((/** @type {any} */ s, /** @type {number} */ i) => ({ n: s.index ?? i + 1, id: s.id, title: s.title, done: Boolean(s.completed) })),
     files: task.files.map((/** @type {any} */ f) => ({ path: f.path ?? f.name, as: ROLE[f.role] ?? "draft", version: f.currentVersion ?? null })),
+    // The one-screen view (C11): labels, what it waits on and what waits on it, links, the latest 3 comments.
+    labels: task.meta?.labels ?? task.labels ?? [],
+    blockedBy: (task.meta?.blockedBy ?? []).map((/** @type {any} */ t) => ({ number: t.number, title: t.title, status: t.status })),
+    blocking: (task.meta?.blocking ?? []).map((/** @type {any} */ t) => ({ number: t.number, title: t.title, status: t.status })),
+    links: task.meta?.links ?? [],
+    watching: Boolean(task.meta?.watching),
+    starred: Boolean(task.meta?.starred),
+    comments: task.comments.slice(0, 3).map((/** @type {any} */ cm) => ({ by: cm.authorUsername ?? cm.authorName ?? null, text: cm.content, at: cm.createdAt })),
   };
   const { c, sym } = ctx.out;
   const slug = ctx.project?.slug ?? ctx.flags.workspace;
   const taskUrl = slug ? `${ctx.profile.origin}/workspaces/${encodeURIComponent(String(slug))}?tab=tasks&task=${data.number}` : null;
   ctx.out.result("nb.task.view/1", data, (d) => [
     `${c.brand(sym.brand)} ${taskUrl ? ctx.out.link(`#${d.number}`, taskUrl, ctx.profile.origin) : `#${d.number}`} ${c.bold(safe(d.title))}`,
-    `  ${statusWord(d)}${d.priority ? ` · ${d.priority}` : ""}${d.assignee ? ` · @${safe(d.assignee)}` : ""}${d.sprint ? ` · ${safe(d.sprint)}` : ""}`,
+    `  ${statusWord(d)}${d.priority ? ` · ${d.priority}` : ""}${d.assignee ? ` · @${safe(d.assignee)}` : ""}${d.sprint ? ` · ${safe(d.sprint)}` : ""}${d.starred ? ` · ${c.warning("★")}` : ""}${d.watching ? c.muted(" · watching") : ""}`,
+    ...(d.labels.length ? [`  ${d.labels.map((/** @type {string} */ l) => c.accent(`[${safe(l)}]`)).join(" ")}`] : []),
+    ...(d.blockedBy.length ? [`  ${c.warning("Waiting on")} ${d.blockedBy.map((/** @type {any} */ t) => `#${t.number} ${safe(t.title)}${t.status === "done" ? c.muted(" (done)") : ""}`).join(", ")}`] : []),
+    ...(d.blocking.length ? [`  ${c.muted("Blocks")} ${d.blocking.map((/** @type {any} */ t) => `#${t.number}`).join(", ")}`] : []),
     ...(d.description.trim() ? ["", ...safe(d.description.trim()).split("\n").map((l) => `  ${l}`)] : []),
     ...(d.subtasks.length ? ["", `  Subtasks (${d.subtasks.filter((/** @type {any} */ s) => s.done).length}/${d.subtasks.length})`, ...d.subtasks.map((/** @type {any} */ s) => `  ${s.done ? c.success("[x]") : "[ ]"} ${s.n}. ${safe(s.title)}`)] : []),
     ...(d.files.length ? ["", "  Files", ...d.files.map((/** @type {any} */ f) => `  ${safe(f.path)} ${c.muted(`${f.as}${f.version ? ` · v${f.version}` : ""}`)}`)] : []),
+    ...(d.links.length ? ["", "  Links", ...d.links.map((/** @type {any} */ l) => `  ${l.kind === "pull_request" ? "PR " : l.kind === "issue" ? "Issue " : ""}${l.title ? `${safe(l.title)} ${c.muted(safe(l.url))}` : safe(l.url)}`)] : []),
+    ...(d.comments.length ? ["", "  Latest comments", ...d.comments.map((/** @type {any} */ cm) => `  ${cm.by ? `@${safe(cm.by)}` : "someone"}: ${commentText(cm.text).replace(/\n/g, " ").slice(0, 160)}`)] : []),
   ], { page: true });
 }
 

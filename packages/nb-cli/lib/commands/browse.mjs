@@ -90,7 +90,7 @@ export async function updatePost(ctx) {
 const remote = (p) => `/${p.replace(/^\/+/, "")}`;
 
 /** @param {Context} ctx @param {string} p */
-async function nodeOf(ctx, p) {
+export async function nodeOf(ctx, p) {
   return /** @type {any} */ (await ctx.api.get("/api/v1/extension/file", { query: { projectId: ctx.requireWorkspace(), path: remote(p), transfer: "metadata" } }).catch((error) => {
     if (error instanceof CliError && error.status === 404) throw new CliError("NOT_FOUND", `No file ${remote(p)} in this workspace`);
     throw error;

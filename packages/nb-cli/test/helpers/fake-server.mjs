@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string, active?: number }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, dueDate?: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, lastTokenBody?: any, countWorkspaces?: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, lastTokenBody?: any, countWorkspaces?: any[], stars?: Set<string>, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -37,6 +37,12 @@ export function addTask(state, task) {
   state.tasks.push(t);
   return t;
 }
+
+/** The meta route's answer for a fake task. @param {FakeState} state @param {any} t */
+const metaOf = (state, t) => {
+  const brief = (/** @type {any} */ x) => ({ id: x.id, number: x.taskNumber, title: x.title, status: x.status });
+  return { taskId: t.id, labels: t.labels ?? [], blockedBy: (t.blockedBy ?? []).map((/** @type {string} */ id) => brief(findTask(state, id))), blocking: state.tasks.filter((x) => (/** @type {any} */ (x).blockedBy ?? []).includes(t.id)).map(brief), links: t.links ?? [], watching: Boolean(t.watching), starred: Boolean(t.starred) };
+};
 
 /** @param {FakeFile} f */
 const meta = (f) => ({ nodeId: f.nodeId, path: f.path, version: f.version, contentHash: sha256(f.content), size: f.content.length, updatedAt: f.updatedAt });
@@ -125,7 +131,7 @@ const exact = {
     state.detailReads = [...(state.detailReads ?? []), req.query.get("brief") === "1" ? "brief" : "full"];
     // Like the server's brief=1 (C16 #9): the task row only.
     if (req.query.get("brief") === "1") return { data: { task: { id: t.id, taskNumber: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus, updatedAt: t.updatedAt, assigneeId: t.assigneeUsername ? "aaaaaaaa-1111-4111-8111-111111111111" : null, projectId: WORKSPACE_ID } } };
-    return { data: { task: t, subtasks: t.subtasks, files: t.files, comments: t.comments, pushes: [] } };
+    return { data: { task: t, subtasks: t.subtasks, files: t.files, comments: t.comments, pushes: [], meta: metaOf(state, t) } };
   },
   "GET /api/v1/tasks/count": (_req, state) => {
     const open = state.tasks.filter((t) => t.status !== "done" || t.reviewStatus === "pending");
@@ -335,6 +341,32 @@ const patterns = [
     state.undos.delete(req.params[0] ?? "");
     state.undone.push(op);
     return { data: { undone: op.kind === "push" ? `Pushed ${op.paths.length} file(s)` : op.kind, result: op.kind === "push" ? `Undid the push of ${op.paths.length} file${op.paths.length === 1 ? "" : "s"}` : "Undid it", operation: op.kind } };
+  }],
+  // Labels, blocked by, links, watch and star (0087), like the server's meta route.
+  [/^\/api\/v1\/tasks\/([^/]+)\/meta$/, "GET", (req, state) => {
+    const t = findTask(state, req.params[0]);
+    return t ? { data: metaOf(state, t) } : fail(404, "NOT_FOUND", "Task not found");
+  }],
+  [/^\/api\/v1\/tasks\/([^/]+)\/meta$/, "PATCH", (req, state) => {
+    const t = /** @type {any} */ (findTask(state, req.params[0]));
+    if (!t) return fail(404, "NOT_FOUND", "Task not found");
+    const b = req.body;
+    t.labels = [...new Set([...(t.labels ?? []), ...(b.labels?.add ?? []).map((/** @type {string} */ l) => l.toLowerCase())])].filter((l) => !(b.labels?.remove ?? []).includes(l));
+    t.blockedBy = [...new Set([...(t.blockedBy ?? []), ...(b.blockedBy?.add ?? [])])].filter((id) => !(b.blockedBy?.remove ?? []).includes(id));
+    t.links = [...(t.links ?? []), ...(b.links?.add ?? []).map((/** @type {any} */ l) => ({ url: l.url, title: /pull\/(\d+)/.test(l.url) ? `acme/app#${/pull\/(\d+)/.exec(l.url)?.[1]}` : null, kind: /pull\//.test(l.url) ? "pull_request" : "link" }))];
+    if (b.watch !== undefined) t.watching = b.watch;
+    if (b.star !== undefined) t.starred = b.star;
+    return { data: metaOf(state, t) };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/files\/([^/]+)\/star$/, "PUT", (req, state) => {
+    state.stars = new Set(state.stars ?? []);
+    if (req.body.starred) state.stars.add(req.params[1]); else state.stars.delete(req.params[1]);
+    return { data: { nodeId: req.params[1], starred: req.body.starred } };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/files\/mine$/, "GET", (req, state) => {
+    const all = [...state.files.values()];
+    const files = req.query.get("kind") === "starred" ? all.filter((f) => state.stars?.has(f.nodeId)) : all.slice(-2).reverse();
+    return { data: { kind: req.query.get("kind"), files: files.map((f) => ({ nodeId: f.nodeId, path: f.path, name: f.path.split("/").pop(), size: f.content.length, currentVersion: f.version, at: f.updatedAt })) } };
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", role: "owner" }, { id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || m.username.includes(String(req.query.get("q")))) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...state.files.values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],

@@ -89,7 +89,8 @@
     "drizzle/0083_agent_access_defaults.sql",
     "drizzle/0084_agent_access_requests.sql",
     "drizzle/0085_agent_requests_close_on_revoke.sql",
-    "drizzle/0086_agent_label_visibility.sql"
+    "drizzle/0086_agent_label_visibility.sql",
+    "drizzle/0087_task_labels_links_stars.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

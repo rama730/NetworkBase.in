@@ -242,6 +242,8 @@ export type FilesStoreState = {
   setFoldersFirst: (projectId: string, foldersFirst: boolean) => void;
   addRecent: (projectId: string, nodeId: string) => void;
   toggleFavorite: (projectId: string, nodeId: string) => void;
+  /** Replaces the starred files with the server's list (report C3, useServerStars). */
+  setFavorites: (projectId: string, nodeIds: string[]) => void;
 
   // cache actions
   upsertNodes: (projectId: string, nodes: WorkspaceNode[]) => void;

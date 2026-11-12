@@ -3,6 +3,7 @@
 
 "use client";
 
+import { useServerStars } from "./hooks/useServerStars";
 import { toast, feedbackError } from "@/lib/feedback";
 import { typeProfile } from "@/lib/organizations/type-profile";
 import { useQueryClient } from "@tanstack/react-query";
@@ -146,6 +147,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
   useEffect(() => {
     ensureProjectFilesState(projectId);
   }, [ensureProjectFilesState, projectId]);
+  useServerStars(projectId);
 
   // ── 2. Role derivation ───────────────────────────────────────────
   //

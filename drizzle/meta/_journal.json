@@ -603,6 +603,13 @@
       "when": 1794375004000,
       "tag": "0086_agent_label_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1794460213725,
+      "tag": "0087_task_labels_links_stars",
+      "breakpoints": true
     }
   ]
 }

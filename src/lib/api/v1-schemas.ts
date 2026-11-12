@@ -71,6 +71,20 @@ export const addSubtaskSchema = z.object({
 });
 
 // extension/task-update
+/** A task's labels, "blocked by", links, watch and star (report C2, C12, 0087). */
+const label = z.string().trim().toLowerCase().min(1).max(32).regex(/^[a-z0-9][a-z0-9 _-]*$/, "Labels are letters, numbers, spaces, - and _");
+const addRemove = <T extends z.ZodTypeAny>(item: T) => z.object({ add: z.array(item).max(20).optional(), remove: z.array(item).max(20).optional() }).strict();
+export const taskMetaSchema = z.object({
+  labels: addRemove(label).optional(),
+  blockedBy: addRemove(z.string().uuid()).optional(),
+  links: z.object({
+    add: z.array(z.object({ url: z.string().url().max(2000).refine((u) => u.startsWith("https://"), "Links start with https://"), title: z.string().trim().max(300).optional() })).max(10).optional(),
+    remove: z.array(z.string().max(2000)).max(10).optional(),
+  }).strict().optional(),
+  watch: z.boolean().optional(),
+  star: z.boolean().optional(),
+}).strict();
+
 /** Several tasks at once (report C2): one request, all or nothing, one undo. */
 export const bulkTaskSchema = z.object({
   projectId: z.string().uuid(),

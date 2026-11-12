@@ -11,7 +11,7 @@ import { safe } from "../print/style.mjs";
 import { unifiedDiff } from "../sync/diff.mjs";
 import { fetchManifest } from "../sync/transfer.mjs";
 import { confirm } from "../tui/ask.mjs";
-import { resolveTask } from "./tasks.mjs";
+import { formatDate, resolveTask } from "./tasks.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -137,6 +137,7 @@ export async function search(ctx) {
 /** @param {Context} ctx */
 export async function fileList(ctx) {
   const workspaceId = ctx.requireWorkspace();
+  if (ctx.flags.starred) return myFiles(ctx, "starred");
   if (ctx.flags.task) {
     const task = await resolveTask(ctx, String(ctx.flags.task));
     const files = /** @type {any[]} */ (task.files ?? []).map((f) => ({ path: f.path ?? f.name, as: f.role === "deliverable" ? "final" : f.role === "working" ? "draft" : f.role ?? "draft", version: f.currentVersion ?? null, size: f.size ?? null }));
@@ -147,6 +148,28 @@ export async function fileList(ctx) {
   const list = [...files.values()].filter((f) => f.path.startsWith(folder)).sort((a, b) => a.path.localeCompare(b.path));
   ctx.out.result("nb.file.list/1", { files: list.map((f) => ({ path: f.path, version: f.version, size: f.size })) }, (d) =>
     d.files.length ? ctx.out.table([{ title: "Path", value: (f) => safe(f.path), flex: true, path: true }, { title: "Version", value: (f) => `v${f.version}`, align: "right" }, { title: "Size", value: (f) => formatBytes(f.size), align: "right" }], d.files) : "No files");
+}
+
+/** Your starred files, or the ones you changed lately (C3, 0087). @param {Context} ctx @param {"starred" | "recent"} kind */
+async function myFiles(ctx, kind) {
+  const { files } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/files/mine`, { query: { kind } }));
+  ctx.out.result(`nb.file.${kind}/1`, { files: files.map((/** @type {any} */ f) => ({ path: f.path, version: f.currentVersion, size: f.size, at: f.at })) }, (d) =>
+    d.files.length
+      ? ctx.out.table([{ title: "Path", value: (f) => safe(f.path), flex: true, path: true }, { title: kind === "recent" ? "Changed" : "Version", value: (f) => (kind === "recent" ? formatDate(f.at) : f.version ? `v${f.version}` : ""), align: "right" }], d.files)
+      : kind === "starred" ? "No starred files · nb file star <path>" : "No files you changed in the last 30 days");
+}
+/** @param {Context} ctx */
+export const fileRecent = (ctx) => myFiles(ctx, "recent");
+
+/** @param {Context} ctx */
+export async function fileStar(ctx) {
+  const p = ctx.positionals[0];
+  if (!p) throw usage("nb file star <path> [--off]");
+  const { nodeOf } = await import("./browse.mjs");
+  const node = await nodeOf(ctx, p);
+  const on = !ctx.flags.off;
+  await ctx.api.put(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/files/${node.nodeId ?? node.id}/star`, { starred: on });
+  ctx.out.result("nb.file.star/1", { path: node.path ?? p, starred: on }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${on ? "Starred" : "Unstarred"} ${safe(d.path)}${on ? " · the Files tab shows it too" : ""}`);
 }
 
 /** @param {number} bytes */

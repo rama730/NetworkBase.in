@@ -416,7 +416,7 @@ const collectionInfo = {
   recent:
     "Recent files are shortcuts saved in this browser, ordered by when you opened them. Deleted files and files you can no longer access are excluded.",
   starred:
-    "Starred files are shortcuts saved in this browser. Star or unstar a file from its actions menu. Deleted files and inaccessible files are excluded.",
+    "Starred files are your shortcuts, the same in every browser and in nb file list --starred. Star or unstar a file from its actions menu. Deleted files and inaccessible files are excluded.",
   trash:
     "Restore an item and the contents deleted with it. Earlier deletions stay in Trash. Permanent deletion cannot be undone and does not delete anything from GitHub.",
 };

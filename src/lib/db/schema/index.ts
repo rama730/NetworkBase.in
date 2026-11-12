@@ -2473,6 +2473,8 @@ export const tasks = pgTable(
     /** Can be handed in until this, past due and after Close: Fix by on Return, or reopened for one person (0054). */
     submitUntil: timestamp("submit_until", { withTimezone: true }),
     teamName: text("team_name"),
+    /** Report C2 (0087): short labels like "bug", at most 20. */
+    labels: text("labels").array().default(sql`'{}'::text[]`).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -6199,3 +6201,42 @@ export type WorkspaceGitBranch = typeof workspaceGitBranches.$inferSelect;
 export type WorkspaceGitCommit = typeof workspaceGitCommits.$inferSelect;
 export type WorkspaceBranchRule = typeof workspaceBranchRules.$inferSelect;
 export type WorkspaceWebhook = typeof workspaceWebhooks.$inferSelect;
+
+/** Report C2, C3, C12 (0087): "blocked by", watching a task, starred tasks and files, links on a task. */
+export const taskDependencies = pgTable("task_dependencies", {
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  blockedByTaskId: uuid("blocked_by_task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.taskId, t.blockedByTaskId] }),
+  blockedByIdx: index("task_dependencies_blocked_by_idx").on(t.blockedByTaskId),
+}));
+
+export const taskWatchers = pgTable("task_watchers", {
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.taskId, t.userId] }), userIdx: index("task_watchers_user_idx").on(t.userId) }));
+
+export const taskStars = pgTable("task_stars", {
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.taskId, t.userId] }), userIdx: index("task_stars_user_idx").on(t.userId) }));
+
+export const nodeStars = pgTable("node_stars", {
+  nodeId: uuid("node_id").notNull().references(() => workspaceNodes.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.nodeId, t.userId] }), userIdx: index("node_stars_user_idx").on(t.userId) }));
+
+export const taskLinks = pgTable("task_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  title: text("title"),
+  kind: text("kind").$type<"pull_request" | "issue" | "link">().default("link").notNull(),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ taskUrlUnique: unique("task_links_task_url_unique").on(t.taskId, t.url) }));

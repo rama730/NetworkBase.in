@@ -8,13 +8,15 @@ import { z } from "zod";
 import { ERROR_CATALOG } from "@/lib/api/errors";
 import * as s from "@/lib/api/v1-schemas";
 
-type Operation = { method: "post" | "patch"; path: string; summary: string; body: z.ZodType; auth: "token" | "none" };
+type Operation = { method: "post" | "patch" | "put"; path: string; summary: string; body: z.ZodType; auth: "token" | "none" };
 
 export const API_OPERATIONS: Operation[] = [
   { method: "post", path: "/api/v1/files/place", summary: "Put files in a workspace: new files, new versions, or on a task with a role", body: s.filePlaceSchema, auth: "token" },
   { method: "post", path: "/api/v1/extension/fast-push", summary: "Same as /api/v1/files/place (CLI 1.x address)", body: s.filePlaceSchema, auth: "token" },
   { method: "post", path: "/api/v1/extension/create-task", summary: "Create a task", body: s.createTaskSchema, auth: "token" },
   { method: "post", path: "/api/v1/extension/task-subtask", summary: "Add a subtask", body: s.addSubtaskSchema, auth: "token" },
+  { method: "patch", path: "/api/v1/tasks/{taskId}/meta", summary: "Labels, blocked by, links; watch and star a task", body: s.taskMetaSchema, auth: "token" },
+  { method: "put", path: "/api/v1/workspaces/{id}/files/{nodeId}/star", summary: "Star or unstar a file (shared with the Files tab)", body: z.object({ starred: z.boolean() }), auth: "token" },
   { method: "post", path: "/api/v1/tasks/bulk", summary: "Move, assign or edit several tasks at once (all or nothing, one undo)", body: s.bulkTaskSchema, auth: "token" },
   { method: "patch", path: "/api/v1/extension/task-update", summary: "Change status, tick a subtask, review or resubmit a task", body: s.taskUpdateSchema, auth: "token" },
   { method: "post", path: "/api/v1/extension/comments", summary: "Comment on a task or a line of a file", body: z.union([s.taskCommentSchema, s.fileCommentSchema]), auth: "token" },

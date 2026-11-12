@@ -127,6 +127,7 @@ export interface ExplorerSlice {
   setFoldersFirst: (projectId: string, foldersFirst: boolean) => void;
   addRecent: (projectId: string, nodeId: string) => void;
   toggleFavorite: (projectId: string, nodeId: string) => void;
+  setFavorites: (projectId: string, nodeIds: string[]) => void;
   /** FW9: Remove expandedFolderIds entries whose node no longer exists */
   pruneDeadExpanded: (projectId: string) => void;
 
@@ -310,6 +311,12 @@ export const createExplorerSlice: StateCreator<FilesStoreState, [], [], Explorer
           [projectId]: { ...ws, recents: next },
         },
       };
+    }),
+
+  setFavorites: (projectId, nodeIds) =>
+    set((state) => {
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
+      return { byProjectId: { ...state.byProjectId, [projectId]: { ...ws, favorites: Object.fromEntries(nodeIds.map((id) => [id, true])) } } };
     }),
 
   toggleFavorite: (projectId, nodeId) =>

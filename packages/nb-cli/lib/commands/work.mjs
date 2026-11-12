@@ -32,7 +32,28 @@ export async function taskEdit(ctx) {
     if (due !== "none" && !date) throw usage(`--due ${due} isn't a date I know`, "Use today, tomorrow, friday, next week, in 3 days, 2026-12-01, or none");
     changes.push(["dueDate", date]);
   }
-  if (!changes.length) throw usage("nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none]");
+  // Labels, "blocked by" and links (C2, C12, 0087) go to the task's meta route.
+  const list = (/** @type {unknown} */ v) => (v === undefined ? [] : /** @type {string[]} */ ([v].flat()).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean));
+  const labelAdd = list(ctx.flags.label).map((l) => l.toLowerCase()), labelRemove = list(ctx.flags.unlabel).map((l) => l.toLowerCase()), blockAdd = list(ctx.flags["blocked-by"]), blockRemove = list(ctx.flags["not-blocked-by"]), linkAdd = list(ctx.flags.link);
+  const metaWanted = labelAdd.length || labelRemove.length || blockAdd.length || blockRemove.length || linkAdd.length;
+  if (!changes.length && !metaWanted) throw usage("nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none] [--label bug] [--blocked-by 7] [--link url]");
+  if (metaWanted) {
+    if (ctx.positionals.length > 1) throw usage("Labels, blocked-by and links change one task at a time");
+    const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]), { brief: true });
+    const ids = async (/** @type {string[]} */ refs) => Promise.all(refs.map(async (r) => (await resolveTask(ctx, r, { brief: true })).id));
+    const meta = /** @type {any} */ (await ctx.api.patch(`/api/v1/tasks/${task.id}/meta`, {
+      ...(labelAdd.length || labelRemove.length ? { labels: { ...(labelAdd.length ? { add: labelAdd } : {}), ...(labelRemove.length ? { remove: labelRemove } : {}) } } : {}),
+      ...(blockAdd.length || blockRemove.length ? { blockedBy: { ...(blockAdd.length ? { add: await ids(blockAdd) } : {}), ...(blockRemove.length ? { remove: await ids(blockRemove) } : {}) } } : {}),
+      ...(linkAdd.length ? { links: { add: linkAdd.map((url) => ({ url })) } } : {}),
+    }));
+    for (const [field, value] of changes) await update(ctx, { kind: "edit", taskId: task.id, field, value });
+    return ctx.out.result("nb.task.edit/1", { number: task.taskNumber, changed: changes.map(([f]) => f), labels: meta.labels, blockedBy: meta.blockedBy.map((/** @type {any} */ t) => t.number), links: meta.links }, (d) => [
+      `${ctx.out.c.success(ctx.out.sym.done)} Changed #${d.number}${d.changed.length ? `: ${d.changed.join(", ")}` : ""}`,
+      ...(d.labels.length ? [`  labels ${d.labels.map((/** @type {string} */ l) => `[${safe(l)}]`).join(" ")}`] : []),
+      ...(d.blockedBy.length ? [`  waiting on ${d.blockedBy.map((/** @type {number} */ n) => `#${n}`).join(", ")}`] : []),
+      ...(d.links.length ? [`  links ${d.links.map((/** @type {any} */ l) => safe(l.title ?? l.url)).join(", ")}`] : []),
+    ]);
+  }
   if (ctx.positionals.length > 1) {
     if (changes.some(([f]) => f === "title" || f === "description")) throw usage("Several tasks take --priority and --due; change a title one task at a time");
     let numbers = [];
@@ -69,6 +90,19 @@ async function pickPerson(ctx) {
     { value: "none", label: "Nobody" },
   ] });
 }
+
+/** Watching and starring are your own (C2, 0087): `nb task watch 4`, `nb task star 4`, and `--off`. @param {Context} ctx @param {"watch" | "star"} what */
+async function personal(ctx, what) {
+  const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]), { brief: true });
+  const on = !ctx.flags.off;
+  await ctx.api.patch(`/api/v1/tasks/${task.id}/meta`, { [what]: on });
+  ctx.out.result(`nb.task.${what}/1`, { number: task.taskNumber, [what === "watch" ? "watching" : "starred"]: on }, () =>
+    `${ctx.out.c.success(ctx.out.sym.done)} ${what === "watch" ? (on ? `Watching #${task.taskNumber}: you'll hear when it changes` : `Stopped watching #${task.taskNumber}`) : on ? `Starred #${task.taskNumber} · nb task list --starred` : `Unstarred #${task.taskNumber}`}`);
+}
+/** @param {Context} ctx */
+export const taskWatch = (ctx) => personal(ctx, "watch");
+/** @param {Context} ctx */
+export const taskStar = (ctx) => personal(ctx, "star");
 
 /** @param {Context} ctx */
 export async function taskAssign(ctx) {

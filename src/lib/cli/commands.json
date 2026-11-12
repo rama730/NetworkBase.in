@@ -562,13 +562,44 @@
     {
       "name": "file list",
       "summary": "Files in the workspace",
-      "usage": "nb file list [folder] [--task 4]",
+      "usage": "nb file list [folder] [--task 4] [--starred]",
       "flags": {
         "task": {
           "type": "string",
           "short": "t",
           "describe": "Task number or id (default: the started task)",
           "valueName": "task"
+        },
+        "starred": {
+          "type": "boolean",
+          "describe": "Only files you starred (the same as the Files tab)"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file recent",
+      "summary": "Files you changed lately",
+      "usage": "nb file recent",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file star",
+      "summary": "Star a file, shared with the Files tab (--off to unstar)",
+      "usage": "nb file star <path> [--off]",
+      "flags": {
+        "off": {
+          "type": "boolean",
+          "describe": "Unstar"
         }
       },
       "examples": [],
@@ -733,6 +764,15 @@
           "type": "string",
           "describe": "due, priority or updated (default)",
           "valueName": "by"
+        },
+        "label": {
+          "type": "string",
+          "describe": "Only tasks with this label",
+          "valueName": "label"
+        },
+        "starred": {
+          "type": "boolean",
+          "describe": "Only tasks you starred"
         },
         "save": {
           "type": "string",
@@ -950,7 +990,7 @@
     {
       "name": "task edit",
       "summary": "Change a task's title, description, priority or due date",
-      "usage": "nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none]",
+      "usage": "nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none] [--label bug] [--blocked-by 7] [--link url]",
       "flags": {
         "title": {
           "type": "string",
@@ -972,6 +1012,71 @@
           "type": "string",
           "describe": "A date, or none",
           "valueName": "date"
+        },
+        "label": {
+          "type": "string",
+          "multiple": true,
+          "describe": "Add a label (or several, comma-separated)",
+          "valueName": "label"
+        },
+        "unlabel": {
+          "type": "string",
+          "multiple": true,
+          "describe": "Remove a label",
+          "valueName": "label"
+        },
+        "blocked-by": {
+          "type": "string",
+          "multiple": true,
+          "describe": "This task waits on that one",
+          "valueName": "task"
+        },
+        "not-blocked-by": {
+          "type": "string",
+          "multiple": true,
+          "describe": "Stop waiting on that task",
+          "valueName": "task"
+        },
+        "link": {
+          "type": "string",
+          "multiple": true,
+          "describe": "Add a link, like a pull request (https://…)",
+          "valueName": "url"
+        }
+      },
+      "examples": [
+        "nb task edit 4 --label bug --blocked-by 7",
+        "nb task edit 4 --link https://github.com/acme/app/pull/42"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task watch",
+      "summary": "Hear about a task's changes without being assigned (--off to stop)",
+      "usage": "nb task watch <task> [--off]",
+      "flags": {
+        "off": {
+          "type": "boolean",
+          "describe": "Stop"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "task star",
+      "summary": "Star a task for nb task list --starred (--off to unstar)",
+      "usage": "nb task star <task> [--off]",
+      "flags": {
+        "off": {
+          "type": "boolean",
+          "describe": "Unstar"
         }
       },
       "examples": [],

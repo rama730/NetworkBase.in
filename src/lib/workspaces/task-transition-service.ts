@@ -469,6 +469,9 @@ export async function afterTaskTransition(
         });
         for (const lead of leads) recipients.add(lead.userId);
       }
+      // People watching the task get its status changes too (report C2, 0087).
+      const watchers = await db.execute<{ user_id: string }>(sql`SELECT user_id FROM task_watchers WHERE task_id = ${taskId}`);
+      for (const w of watchers) recipients.add(w.user_id);
       recipients.delete(user.id);
       const outcomeText =
         result.reviewStatus === "pending"
@@ -510,6 +513,27 @@ export async function afterTaskTransition(
         // COR-028: one id per transition, so becoming blocked/done again notifies again.
         sourceEventId: result.activityEventId,
       });
+      // Finishing a task tells whoever has a task waiting on it (report C2, "blocked by").
+      if (result.status === "done" && result.reviewStatus !== "pending") {
+        const waiting = await db.execute<{ id: string; task_number: number | null; title: string; assignee_id: string }>(sql`
+          SELECT t.id, t.task_number, t.title, t.assignee_id FROM task_dependencies d JOIN tasks t ON t.id = d.task_id
+          WHERE d.blocked_by_task_id = ${taskId} AND t.deleted_at IS NULL AND t.status <> 'done' AND t.assignee_id IS NOT NULL AND t.assignee_id <> ${user.id}`);
+        for (const w of waiting) {
+          await enqueueWorkspaceNotificationEvent({
+            projectId: locked.projectId,
+            actorUserId: user.id,
+            ...actor,
+            eventKey: "tasks.status_attention",
+            taskParticipantIds: [w.assignee_id],
+            title: `${actor.actorName || "Someone"} finished ${locked.taskNumber ? `#${locked.taskNumber}` : "a task"}, which ${w.task_number ? `#${w.task_number}` : "your task"} was waiting on`,
+            body: w.title,
+            href: projectTaskHref(locked.projectSlug || locked.projectId, w.id),
+            entityRefs: { projectId: locked.projectId, projectSlug: locked.projectSlug ?? null, taskId: w.id, status: "unblocked" },
+            preview: { actorName: actor.actorName, actorAvatarUrl: actor.actorAvatarUrl, contextLabel: taskContextLabel(locked.projectKey, w.task_number), contextKind: "task", secondaryText: "Ready to start" },
+            sourceEventId: `${result.activityEventId}:unblocks:${w.id}`,
+          });
+        }
+      }
     } catch (notificationError) {
       logger.error("tasks.status_attention_notification_failed", {
         module: "tasks",

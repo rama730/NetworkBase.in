@@ -45,6 +45,8 @@ const querySchema = z.object({
   dueAfter: z.string().datetime().optional(),
   dueBefore: z.string().datetime().optional(),
   sort: z.enum(["updated", "due", "priority"]).default("updated"),
+  label: z.string().trim().toLowerCase().max(32).optional(),
+  starred: z.enum(["1"]).optional(),
 });
 const csv = (value: string | null) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : undefined);
 
@@ -87,6 +89,8 @@ export async function GET(request: Request) {
       dueAfter: searchParams.get("dueAfter") || undefined,
       dueBefore: searchParams.get("dueBefore") || undefined,
       sort: searchParams.get("sort") || undefined,
+      label: searchParams.get("label") || undefined,
+      starred: searchParams.get("starred") || undefined,
     });
     if (!parsed.success)
       return jsonError("Invalid workspace task query", 400, "BAD_REQUEST");
@@ -123,6 +127,7 @@ export async function GET(request: Request) {
           assigneeUsername: profiles.username,
           assigneeAvatarUrl: profiles.avatarUrl,
           dueDate: tasks.dueDate,
+          labels: tasks.labels,
           taskNumber: tasks.taskNumber,
           updatedAt: tasks.updatedAt,
         })
@@ -143,6 +148,8 @@ export async function GET(request: Request) {
             f.sprint ? eq(tasks.sprintId, f.sprint) : undefined,
             f.dueAfter ? sql`${tasks.dueDate} >= ${f.dueAfter}::timestamptz` : undefined,
             f.dueBefore ? sql`${tasks.dueDate} < ${f.dueBefore}::timestamptz` : undefined,
+            f.label ? sql`${tasks.labels} @> ARRAY[${f.label}]::text[]` : undefined,
+            f.starred ? sql`EXISTS (SELECT 1 FROM task_stars s WHERE s.task_id = ${tasks.id} AND s.user_id = ${user.id})` : undefined,
             // Every word in the title, in any order ("bug login" finds "Fix the login bug"), or the number (C2).
             parsed.data.q.trim()
               ? or(

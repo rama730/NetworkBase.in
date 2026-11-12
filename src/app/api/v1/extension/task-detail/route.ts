@@ -1,4 +1,5 @@
 import { canSeeOrgTask } from "@/lib/organizations/assignments";
+import { readTaskMeta } from "@/lib/domain/task-meta";
 import { labelScope, visibleVia } from "@/lib/agents/via-scope";
 import { copyRules } from "@/lib/organizations/my-assignments";
 import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId, denyOutsideTokenWorkspace } from "@/app/api/v1/_shared";
@@ -257,6 +258,8 @@ export async function GET(request: Request) {
         // An assignment copy's rules, so a CLI or agent brief states the AI policy (CLI report A8.2 item 3).
         assignment: fullTask.assignmentId ? await copyRules(taskId) : null,
       },
+      // Labels, "blocked by", links, watching and starred (report C2, C11 one-screen view, 0087).
+      meta: await readTaskMeta(taskId, user.id),
       subtasks: enrichedSubtasks,
       subtaskSummary: {
         completed: completedSubtasksCount,

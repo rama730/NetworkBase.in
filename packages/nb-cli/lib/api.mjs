@@ -148,6 +148,8 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, 
     post: (path, body, o) => request("POST", path, { ...o, body }),
     /** @param {string} path @param {unknown} body @param {Parameters<typeof request>[2]} [o] */
     patch: (path, body, o) => request("PATCH", path, { ...o, body }),
+    /** @param {string} path @param {unknown} body @param {Parameters<typeof request>[2]} [o] */
+    put: (path, body, o) => request("PUT", path, { ...o, body }),
   };
 }
 
