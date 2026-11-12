@@ -5,7 +5,7 @@
 /** Node versions whose fetch can use HTTPS_PROXY. @param {string} version like "22.22.0" */
 export function proxyCapable(version) {
   const [major = 0, minor = 0] = version.split(".").map(Number);
-  return major >= 24 || (major === 22 && minor >= 21) || major === 23;
+  return major >= 23 || (major === 22 && minor >= 21);
 }
 
 /**

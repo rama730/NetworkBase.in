@@ -20,8 +20,7 @@ export function useServerStars(projectId: string) {
         const local = Object.keys(useFilesStore.getState().byProjectId[projectId]?.favorites ?? {});
         const server = new Set(await listMyNodeStarsAction(projectId));
         const onlyHere = local.filter((id) => !server.has(id));
-        if (onlyHere.length) await setNodeStarsAction(projectId, onlyHere, true);
-        const merged = onlyHere.length ? await listMyNodeStarsAction(projectId) : [...server];
+        const merged = [...server, ...(onlyHere.length ? (await setNodeStarsAction(projectId, onlyHere, true)).ids : [])];
         if (cancelled) return;
         useFilesStore.getState().setFavorites(projectId, merged);
         ready.current = true;

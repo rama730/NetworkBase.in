@@ -2452,7 +2452,7 @@
     "UPGRADE_FAILED": {
       "status": 0,
       "exit": 1,
-      "meaning": "npm couldn't update nb",
+      "meaning": "npm couldn’t update nb",
       "fix": "Run npm i -g @networkbase/cli@latest yourself to see why"
     },
     "GIT_FAILED": {

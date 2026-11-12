@@ -35,7 +35,7 @@ async function refresh(ctx, workspaceId) {
   /** @type {CompleteCache} */
   const cache = {
     at: Date.now(),
-    tasks: tasks.slice(0, 100).map((/** @type {any} */ t) => [t.taskNumber, String(t.title).slice(0, 60)]),
+    tasks: tasks.map((/** @type {any} */ t) => [t.taskNumber, String(t.title).slice(0, 60)]),
     members: members.map((/** @type {any} */ m) => m.username).filter(Boolean).slice(0, 200),
     files: manifest.map((/** @type {any} */ f) => String(f.path).replace(/^\//, "")).slice(0, 2000),
   };

@@ -21,7 +21,7 @@ export const API_OPERATIONS: Operation[] = [
   { method: "patch", path: "/api/v1/extension/comments", summary: "Edit your own task comment", body: s.commentEditSchema, auth: "token" },
   { method: "patch", path: "/api/v1/me/notifications", summary: "Change your notification settings (only the named ones)", body: s.notificationSettingsSchema, auth: "token" },
   { method: "post", path: "/api/v1/workspaces/{id}/members", summary: "Invite someone into an open role (your own sign-in)", body: s.memberInviteSchema, auth: "token" },
-  { method: "patch", path: "/api/v1/workspaces/{id}/members", summary: "Change a member's role (your own sign-in)", body: s.memberRoleSchema, auth: "token" },
+  { method: "patch", path: "/api/v1/workspaces/{id}/members", summary: "Change a member’s role (your own sign-in)", body: s.memberRoleSchema, auth: "token" },
   { method: "post", path: "/api/v1/workspaces/{id}/updates/{updateId}", summary: "Like or comment on an update", body: s.updateActionSchema, auth: "token" },
   { method: "post", path: "/api/v1/tasks/bulk", summary: "Move, assign or edit several tasks at once (all or nothing, one undo)", body: s.bulkTaskSchema, auth: "token" },
   { method: "patch", path: "/api/v1/extension/task-update", summary: "Change status, tick a subtask, review or resubmit a task", body: s.taskUpdateSchema, auth: "token" },

@@ -45,7 +45,7 @@ test("a star from the CLI shows in the Files tab, and the other way round; recen
   assert.equal(res.status, 200, await res.text());
   viewer = w.owner;
   assert.deepEqual(await actions.listMyNodeStarsAction(w.ws), [w.nodes[0]], "the Files tab sees the CLI's star");
-  await actions.setNodeStarsAction(w.ws, [w.nodes[1]!, randomUUID()], true);
+  assert.deepEqual((await actions.setNodeStarsAction(w.ws, [w.nodes[1]!, randomUUID()], true)).ids, [w.nodes[1]], "a file not in the workspace is skipped");
   const list = async (kind: string) => {
     const t = `/api/v1/workspaces/${w.ws}/files/mine?kind=${kind}`;
     as(w.raw, "GET", t);

@@ -272,7 +272,7 @@ async function ownComment(request: Request, schema: typeof commentRefSchema | ty
     if (!result.success) return jsonError(result.error ?? "Couldn’t change the comment", /own/.test(result.error ?? "") ? 403 : 400, /own/.test(result.error ?? "") ? "FORBIDDEN" : "BAD_REQUEST");
     return jsonSuccess(result.data ?? {});
   } catch (error) {
-    if (error instanceof Error && /not found/i.test(error.message)) return jsonError("Comment not found", 404, "NOT_FOUND");
+    if (error instanceof Error && /not found|does not belong/i.test(error.message)) return jsonError("Comment not found", 404, "NOT_FOUND");
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/comments", fallback: "Couldn’t change the comment" });
   }
 }

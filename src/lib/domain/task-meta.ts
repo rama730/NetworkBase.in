@@ -84,7 +84,7 @@ export async function updateTaskMeta(userId: string, taskId: string, input: Task
     for (const blocker of input.blockedBy?.add ?? []) {
       const [other] = await tx.select({ projectId: tasks.projectId, number: tasks.taskNumber }).from(tasks).where(and(eq(tasks.id, blocker), isNull(tasks.deletedAt))).limit(1);
       if (!other || other.projectId !== task.projectId) throw new TaskMetaError("A task can only wait on tasks in the same workspace", 409);
-      if (blocker === taskId || (await makesCycle(tx, taskId, blocker))) throw new TaskMetaError(`#${other.number} already waits on this task, so this one can't wait on it`, 409);
+      if (blocker === taskId || (await makesCycle(tx, taskId, blocker))) throw new TaskMetaError(`#${other.number} already waits on this task, so this one can’t wait on it`, 409);
       await tx.insert(taskDependencies).values({ taskId, blockedByTaskId: blocker, createdBy: userId }).onConflictDoNothing();
     }
     if (input.links?.remove?.length) await tx.delete(taskLinks).where(and(eq(taskLinks.taskId, taskId), inArray(taskLinks.url, input.links.remove)));

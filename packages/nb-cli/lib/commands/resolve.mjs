@@ -12,6 +12,9 @@ import { buildPlan, localPathOf, moveToLocalTrash, recordBase, relativeArgs } fr
 
 /** @typedef {import("../context.mjs").Context} Context */
 
+/** One diff line, coloured. @param {any} c @param {{ kind: string, text: string }} l */
+const paint = (c, l) => (l.kind === "@" ? c.muted(l.text) : l.kind === "+" ? c.success(`+${safe(l.text)}`) : l.kind === "-" ? c.danger(`-${safe(l.text)}`) : ` ${safe(l.text)}`);
+
 // ───────────────────────────────── diff
 
 /** @param {Context} ctx */
@@ -37,7 +40,7 @@ export async function diff(ctx) {
       lines.push(c.bold(`${f.state === "added" ? "new" : f.state}: ${safe(f.path)}`));
       if (f.binary) { lines.push(c.muted("  binary file changed")); continue; }
       if (!f.diff) { lines.push(c.muted("  no saved copy of the last-pulled version to compare (it was large, or pulled before 2.0)")); continue; }
-      for (const l of f.diff.lines) lines.push(l.kind === "@" ? c.muted(l.text) : l.kind === "+" ? c.success(`+${safe(l.text)}`) : l.kind === "-" ? c.danger(`-${safe(l.text)}`) : ` ${safe(l.text)}`);
+      for (const l of f.diff.lines) lines.push(paint(c, l));
     }
     return lines;
   });
@@ -63,7 +66,7 @@ async function versionDiff(ctx) {
   const { c } = ctx.out;
   ctx.out.result("nb.diff.versions/1", { path: node.path ?? p, from, to, binary, diff: result }, (d) => [
     c.bold(`${safe(d.path)}: v${d.from} → v${d.to}`),
-    ...(d.binary ? [c.muted("  binary file: no line diff")] : !d.diff?.lines.length ? [c.muted("  the same content")] : d.diff.lines.map((/** @type {any} */ l) => (l.kind === "@" ? c.muted(l.text) : l.kind === "+" ? c.success(`+${safe(l.text)}`) : l.kind === "-" ? c.danger(`-${safe(l.text)}`) : ` ${safe(l.text)}`))),
+    ...(d.binary ? [c.muted("  binary file: no line diff")] : !d.diff?.lines.length ? [c.muted("  the same content")] : d.diff.lines.map((/** @type {any} */ l) => paint(c, l))),
   ]);
 }
 

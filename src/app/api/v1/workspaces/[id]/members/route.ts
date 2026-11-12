@@ -208,7 +208,7 @@ async function personAt(request: Request) {
 const answer = (r: { success: boolean; message?: string; errorCode?: string }, ok: unknown) =>
   r.success ? jsonSuccess(ok) : jsonError(r.message ?? "Couldn’t change the member", r.errorCode === "FORBIDDEN" ? 403 : r.errorCode === "NOT_FOUND" ? 404 : 400, r.errorCode === "FORBIDDEN" ? "FORBIDDEN" : r.errorCode === "NOT_FOUND" ? "NOT_FOUND" : "BAD_REQUEST");
 async function personByName(username: string) {
-  const [p] = await db.select({ id: profiles.id, username: profiles.username }).from(profiles).where(ilike(profiles.username, username.replace(/^@/, ""))).limit(1);
+  const [p] = await db.select({ id: profiles.id, username: profiles.username }).from(profiles).where(sql`lower(${profiles.username}) = lower(${username.replace(/^@/, "")})`).limit(1);
   return p ?? null;
 }
 
@@ -224,7 +224,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const roles = await db.select({ id: workspaceOpenRoles.id, title: workspaceOpenRoles.title }).from(workspaceOpenRoles).where(eq(workspaceOpenRoles.projectId, id));
   const want = parsed.data.role.toLowerCase();
   const role = roles.find((r) => r.id === parsed.data.role || (r.title ?? "").toLowerCase() === want);
-  if (!role) return jsonError(roles.length ? `No open role "${parsed.data.role}". Open roles: ${roles.map((r) => r.title ?? "untitled").join(", ")}` : "This workspace has no open roles; add one in the app's Members page first", 404, "NOT_FOUND");
+  if (!role) return jsonError(roles.length ? `No open role "${parsed.data.role}". Open roles: ${roles.map((r) => r.title ?? "untitled").join(", ")}` : "This workspace has no open roles; add one in the app’s Members page first", 404, "NOT_FOUND");
   try {
     const created = await createWorkspaceInvitation({ actorId: user!.id, candidateId: person.id, projectId: id, kind: "ordinary_role", roleId: role.id, note: parsed.data.note ?? null, guidanceLabel: null, reviewAt: null, idempotencyKey: request.headers.get("idempotency-key") });
     return jsonSuccess({ invited: `@${person.username}`, role: role.title ?? "the role", invitationId: created.invitation.id });

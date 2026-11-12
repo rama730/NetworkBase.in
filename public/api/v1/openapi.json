@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "NetworkBase API (CLI and agents)",
-    "version": "2.1.1",
+    "version": "2.1.2",
     "description": "Routes the NetworkBase CLI, its MCP server and AI agents write to. Tokens: `Authorization: Bearer nb_dev_… | nb_agt_… | nb_pat_…`."
   },
   "components": {
@@ -335,7 +335,7 @@
     "UPGRADE_FAILED": {
       "status": 0,
       "exit": 1,
-      "meaning": "npm couldn't update nb",
+      "meaning": "npm couldn’t update nb",
       "fix": "Run npm i -g @networkbase/cli@latest yourself to see why"
     },
     "GIT_FAILED": {
@@ -1637,7 +1637,7 @@
         }
       },
       "patch": {
-        "summary": "Change a member's role (your own sign-in)",
+        "summary": "Change a member’s role (your own sign-in)",
         "security": [
           {
             "bearer": []

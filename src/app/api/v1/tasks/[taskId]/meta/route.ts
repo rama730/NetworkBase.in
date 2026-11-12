@@ -46,7 +46,7 @@ async function handlePatch(request: Request, context: Context) {
     const outside = await denyOutsideTokenWorkspace(auth, { taskId });
     if (outside) return outside;
     const meta = await readTaskMeta(taskId, auth.user.id);
-    const held = await agentGate(auth, request, parsed.data, { workspaceId: meta.projectId, kinds: ["small"], summary: "Change the task's labels, links or what it waits on", taskId });
+    const held = await agentGate(auth, request, parsed.data, { workspaceId: meta.projectId, kinds: ["small"], summary: "Change the task’s labels, links or what it waits on", taskId });
     if (held) return held;
     return jsonSuccess(await updateTaskMeta(auth.user.id, taskId, parsed.data));
   } catch (error) {

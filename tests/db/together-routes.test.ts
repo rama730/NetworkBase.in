@@ -68,6 +68,10 @@ test("members: role and removal by the owner's own sign-in; a personal token can
   assert.equal((await sql`SELECT role FROM workspace_members WHERE workspace_id = ${ws} AND user_id = ${sam!}`)[0]!.role, "admin");
   const viaPat = await members.PATCH(req(await pat(owner!), "PATCH", `/api/v1/workspaces/${ws}/members`, { username: samName, role: "member" }) as never, ctx);
   assert.equal(viaPat.status, 403, "a personal token can't change members");
+  // "_" and "%" are LIKE wildcards: a name that only pattern-matches Kim must not change Kim.
+  const [{ username: kimName }] = await sql`SELECT username FROM profiles WHERE id = ${kim!}`;
+  const lookalike = await members.PATCH(req(ownerRaw, "PATCH", `/api/v1/workspaces/${ws}/members`, { username: `${kimName.slice(0, 2)}_${kimName.slice(3)}`, role: "admin" }) as never, ctx);
+  assert.equal(lookalike.status, 404, "names match exactly, ignoring case only");
   const kimRaw = await device(kim!);
   const left = await members.DELETE(req(kimRaw, "DELETE", `/api/v1/workspaces/${ws}/members`, { leave: true }) as never, ctx);
   assert.equal(left.status, 200, await left.clone().text());
@@ -78,9 +82,11 @@ test("members: role and removal by the owner's own sign-in; a personal token can
   assert.equal(removed.status, 200, await removed.clone().text());
 });
 
-test("updates: post, list, like and comment with a CLI token", async () => {
+test("updates: post, list, like and comment with a CLI token", async (t) => {
   const [owner, sam] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
   const ws = await sql.begin((tx) => createProject(tx, owner!));
+  // The workspace is public, so its update would show in the Discover feed that discover-updates.test.ts checks.
+  t.after(() => sql`DELETE FROM workspace_updates WHERE workspace_id = ${ws}`);
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${sam!}, 'member')`;
   const ownerRaw = await device(owner!);
   const ctx = { params: Promise.resolve({ id: ws }) };
