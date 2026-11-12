@@ -111,3 +111,18 @@ test("an agent session's notifications are held, then sent as one summary per pe
   assert.equal(notes[0]!.kind, "agent_session_summary");
   assert.match(notes[0]!.title, /^Claude Code \(for .*\) made 3 changes$/);
 });
+
+test("when the session ends, the person gets its What I did list (report D19)", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const { sessionId } = await agentToken(userId, projectId);
+  headerValues = {};
+  const did = ["Moved #4 to in progress", "Commented on #4", "Pushed /notes.md"];
+  assert.deepEqual(await batching.flushAgentSession(sessionId, did), { sent: 1 });
+  const notes = await sql`SELECT kind, title, body FROM user_notifications WHERE user_id = ${userId}`;
+  assert.equal(notes.length, 1);
+  assert.equal(notes[0]!.kind, "agent_session_summary");
+  assert.match(notes[0]!.title, /^Claude Code finished: 3 changes$/);
+  assert.equal(notes[0]!.body, "Moved #4 to in progress · Commented on #4 · Pushed /notes.md");
+  assert.deepEqual(await batching.flushAgentSession(sessionId, []), { sent: 0 }, "nothing to say, nothing sent");
+});

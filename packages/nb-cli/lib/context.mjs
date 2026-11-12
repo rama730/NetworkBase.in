@@ -15,7 +15,7 @@ const PACKAGE_JSON = path.join(path.dirname(fileURLToPath(import.meta.url)), "..
 export const VERSION = JSON.parse(fs.readFileSync(PACKAGE_JSON, "utf8")).version;
 
 /**
- * @param {{ flags: Record<string, any>, positionals: string[], cwd?: string, env?: NodeJS.ProcessEnv, fetchImpl?: typeof fetch, io?: Parameters<typeof createOutput>[1] }} input
+ * @param {{ flags: Record<string, any>, positionals: string[], cwd?: string, env?: NodeJS.ProcessEnv, fetchImpl?: typeof fetch, io?: Parameters<typeof createOutput>[1] & { onUndo?: (u: { token: string }) => void } }} input
  */
 export function createContext({ flags, positionals, cwd = process.cwd(), env = process.env, fetchImpl, io }) {
   if (flags.format !== undefined && !["table", "json", "csv", "md"].includes(String(flags.format))) throw new CliError("USAGE", `--format ${flags.format}: use table, json, csv or md`);
@@ -29,7 +29,8 @@ export function createContext({ flags, positionals, cwd = process.cwd(), env = p
     version: VERSION,
     fetchImpl,
     confirmToken: typeof flags.confirm === "string" ? flags.confirm : null,
-    onUndo: (u) => appendUndo(env, { token: u.token, at: Date.now(), method: u.method, path: u.path, origin: profile.origin, session: env.NB_AGENT_SESSION ?? null }),
+    onUndo: (u) => { appendUndo(env, { token: u.token, at: Date.now(), method: u.method, path: u.path, origin: profile.origin, session: env.NB_AGENT_SESSION ?? null }); io?.onUndo?.(u); },
+    keySeed: typeof flags["key-seed"] === "string" ? flags["key-seed"] : null,
     onRetry: ({ waitMs, reason }) => out.note(out.c.muted(`${reason}; retrying in ${Math.max(1, Math.round(waitMs / 1000))} s`)),
     // Commands with their own --dry-run (push, pull) plan without writing; every other one stops at its first write.
     dryRun: Boolean(flags["dry-run"]) && !flags.ownDryRun,

@@ -86,6 +86,9 @@ export const taskMetaSchema = z.object({
 }).strict();
 
 /** `nb task remind` (report C2, 0088): when, as an instant, and an optional note. */
+/** Report D19: the agent's "What I did" lines, sent when its MCP session ends. */
+export const agentSessionEndSchema = z.object({ did: z.array(z.string().trim().max(300)).max(50).optional() }).strict();
+
 export const taskReminderSchema = z.object({ at: z.string().datetime({ offset: true }), note: z.string().trim().max(300).optional() }).strict();
 
 /** Report C4 (M4b): edit or delete your own task comment. */

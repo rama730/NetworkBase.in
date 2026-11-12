@@ -475,6 +475,7 @@ export async function startFakeServer({ routes = {}, fault = {} } = {}) {
   /** @type {FakeRequest[]} */
   const requests = [];
   const faults = new Map(Object.entries(fault));
+  const faultSeen = new Set();
   /** @type {Map<string, any>} */
   const idempotent = new Map();
   const table = { ...exact, ...routes };
@@ -504,6 +505,16 @@ export async function startFakeServer({ routes = {}, fault = {} } = {}) {
     if (f === "503") { res.writeHead(503, { "content-type": "text/plain" }); res.end("Service Unavailable"); return; }
     if (f === "corrupt") { res.writeHead(200, { "content-type": "application/json" }); res.end("{not json"); return; }
     if (f === "slow") await new Promise((r) => setTimeout(r, 2000));
+    // The second write to this path fails once with a conflict, so a tool stops halfway (D10 recovery test).
+    if (f === "409-second" && fakeReq.method !== "GET") {
+      if (faultSeen.has(url.pathname)) {
+        faults.delete(url.pathname);
+        res.writeHead(409, { "content-type": "application/json" });
+        res.end(JSON.stringify({ success: false, message: "Changed elsewhere", errorCode: "CONFLICT" }));
+        return;
+      }
+      faultSeen.add(url.pathname);
+    }
 
     let handler = table[`${fakeReq.method} ${url.pathname}`];
     if (!handler) {

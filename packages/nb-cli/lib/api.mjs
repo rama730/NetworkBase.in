@@ -30,7 +30,10 @@ const HINTS = /** @type {Record<string, string>} */ ({
  *   confirmToken: the person's yes for a held agent change (sent as X-NB-Confirm); onUndo: called with every undo
  *   token a write returns, so `nb undo` can use it (report A2.8, A2.9).
  */
-export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, confirmToken = null, onUndo, dryRun = false }) {
+export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, confirmToken = null, onUndo, dryRun = false, keySeed = null }) {
+  // With a seed (an agent's retryKey, report D10), the nth write gets the same key on every try, so a retry after a
+  // failure halfway is replayed by the server for the steps already done instead of done twice.
+  let writes = 0;
   /**
    * @param {"GET" | "POST" | "PUT" | "PATCH" | "DELETE"} method
    * @param {string} path
@@ -47,7 +50,7 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, 
     const url = new URL(path, origin);
     for (const [k, v] of Object.entries(options.query ?? {})) if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
     const body = options.body === undefined ? undefined : JSON.stringify(options.body);
-    const key = method === "GET" ? null : options.key ?? crypto.randomUUID();
+    const key = method === "GET" ? null : options.key ?? (keySeed ? `nbk_${crypto.createHash("sha256").update(`${keySeed}:${writes++}`).digest("hex").slice(0, 40)}` : crypto.randomUUID());
     const timeoutMs = options.timeoutMs ?? 20_000 + Math.ceil((body?.length ?? 0) / (256 * 1024)) * 1000;
     /** @type {Record<string, string>} */
     const headers = {
