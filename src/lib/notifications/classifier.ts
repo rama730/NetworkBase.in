@@ -10,6 +10,7 @@ const J1_KIND_LIST: readonly NotificationKind[] = [
     "task_comment_mention",
     "chat_invite",
     "chat_reminder",
+    "task_reminder",
     "task_file_needs_review",
     "connection_request_received",
     "project_member_removed",

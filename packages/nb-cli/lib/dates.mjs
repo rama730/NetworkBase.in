@@ -45,3 +45,27 @@ export function dueRange(word, now = new Date()) {
   const [y, m, d] = date.split("-").map(Number);
   return { after: new Date(y, m - 1, d).toISOString(), before: new Date(y, m - 1, d + 1).toISOString() };
 }
+
+/**
+ * A moment for reminders (C2): "tomorrow 9am", "friday 14:30", "in 2 hours", "in 30 minutes", "today 5pm", or a
+ * date alone (9:00 that day). Read in the person's time zone; null when it isn't one.
+ * @param {string} text @param {Date} [now] @returns {Date | null}
+ */
+export function parseWhen(text, now = new Date()) {
+  const t = String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  const rel = /^in (\d{1,4}) ?(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)$/.exec(t);
+  if (rel) return new Date(now.getTime() + Number(rel[1]) * (rel[2].startsWith("h") ? 3_600_000 : 60_000));
+  if (!Number.isNaN(Date.parse(t)) && /\d{4}-\d{2}-\d{2}t/.test(t)) return new Date(t.toUpperCase());
+  const time = /(?:^|\s)(?:at\s)?(\d{1,2})(?::(\d{2}))?\s?(am|pm)?$/.exec(t);
+  const dayPart = time ? t.slice(0, time.index).trim() : t;
+  if (time && !time[3] && !time[2] && !dayPart) return null; // a bare number isn't a time
+  const day = parseDate(dayPart || "today", now);
+  if (!day) return null;
+  let hour = time ? Number(time[1]) : 9;
+  const minute = time?.[2] ? Number(time[2]) : 0;
+  if (time?.[3] === "pm" && hour < 12) hour += 12;
+  if (time?.[3] === "am" && hour === 12) hour = 0;
+  if (hour > 23 || minute > 59) return null;
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d, hour, minute);
+}

@@ -17,6 +17,7 @@ export const API_OPERATIONS: Operation[] = [
   { method: "post", path: "/api/v1/extension/task-subtask", summary: "Add a subtask", body: s.addSubtaskSchema, auth: "token" },
   { method: "patch", path: "/api/v1/tasks/{taskId}/meta", summary: "Labels, blocked by, links; watch and star a task", body: s.taskMetaSchema, auth: "token" },
   { method: "put", path: "/api/v1/workspaces/{id}/files/{nodeId}/star", summary: "Star or unstar a file (shared with the Files tab)", body: z.object({ starred: z.boolean() }), auth: "token" },
+  { method: "post", path: "/api/v1/tasks/{taskId}/reminders", summary: "Remind me about a task at a time", body: s.taskReminderSchema, auth: "token" },
   { method: "post", path: "/api/v1/tasks/bulk", summary: "Move, assign or edit several tasks at once (all or nothing, one undo)", body: s.bulkTaskSchema, auth: "token" },
   { method: "patch", path: "/api/v1/extension/task-update", summary: "Change status, tick a subtask, review or resubmit a task", body: s.taskUpdateSchema, auth: "token" },
   { method: "post", path: "/api/v1/extension/comments", summary: "Comment on a task or a line of a file", body: z.union([s.taskCommentSchema, s.fileCommentSchema]), auth: "token" },

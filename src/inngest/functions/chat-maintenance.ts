@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { jobHeartbeats } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
+import { fireDueTaskReminders, TASK_REMINDER_LIMIT } from "@/lib/domain/task-reminders";
 import { DUE_MESSAGE_LIMIT, DUE_REMINDER_LIMIT, dueTimesWithinNextHour, fireDueReminders, sendDueScheduledMessages } from "@/lib/messaging/due";
 import { auditChatIntegrity, purgeOldChatMentions } from "@/lib/messaging/maintenance";
 
@@ -59,14 +60,16 @@ export const chatDue = inngest.createFunction(
   async ({ event, step }) => {
     const scheduled = await step.run("send-scheduled", () => sendDueScheduledMessages());
     const reminders = await step.run("fire-reminders", () => fireDueReminders());
+    // Task reminders (report C2, 0088): the same job, so no new function or scheduled runs.
+    const tasks = await step.run("fire-task-reminders", () => fireDueTaskReminders());
     // More was due than one run takes: the rest goes now rather than at the next hourly run.
-    if (scheduled.due >= DUE_MESSAGE_LIMIT || reminders.reminders >= DUE_REMINDER_LIMIT) await step.sendEvent("drain-more", { name: "chat/due.wake", data: {} });
+    if (scheduled.due >= DUE_MESSAGE_LIMIT || reminders.reminders >= DUE_REMINDER_LIMIT || tasks.due >= TASK_REMINDER_LIMIT) await step.sendEvent("drain-more", { name: "chat/due.wake", data: {} });
     // Only the hourly run arms: this is the on-time guarantee for anything scheduled far ahead, so it uses Inngest's own retries.
     if (event.name !== "chat/due.wake") {
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }
     if (scheduled.due || reminders.reminders) logger.info("chat.due.completed", { module: "chat", count: scheduled.sent + reminders.reminders });
-    return { ...scheduled, ...reminders };
+    return { ...scheduled, ...reminders, ...tasks };
   },
 );

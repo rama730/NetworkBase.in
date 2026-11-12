@@ -58,4 +58,13 @@ describe("task and file details (M4b)", () => {
     await nb(["file", "star", "notes.md", "--off"]);
     assert.match((await nb(["file", "list", "--starred"])).stdout, /No starred files/);
   });
+  it("nb task remind sets, lists and cancels your reminders", async () => {
+    const set = await nb(["task", "remind", "1", "tomorrow 9am", "-m", "check CI"]);
+    assert.equal(set.code, 0, set.stderr);
+    assert.match(set.stdout, /I'll remind you about #1/);
+    assert.match((await nb(["task", "remind", "1", "--list"])).stdout, /check CI/);
+    assert.equal((await nb(["task", "remind", "1", "someday"])).code, 2);
+    assert.match((await nb(["task", "remind", "1", "--off"])).stdout, /Cancelled 1 reminder on #1/);
+    assert.match((await nb(["task", "remind", "1"])).stdout, /No reminders on #1/);
+  });
 });

@@ -6,6 +6,7 @@ export type NotificationKind =
     | "connection_request_received"
     | "connection_request_accepted"
     | "task_assigned"
+    | "task_reminder"
     | "task_status_attention"
     | "task_comment_mention"
     | "task_comment_reply"

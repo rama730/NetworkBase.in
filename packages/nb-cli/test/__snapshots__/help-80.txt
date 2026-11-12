@@ -26,8 +26,8 @@ More
     file delete, file attach, file detach, file view
   Tasks
     task count, task view, task stop, task move, task review, task resubmit,
-    task edit, task watch, task star, task assign, task report, task delete,
-    task open, task pull, subtask list, subtask add, subtask check,
+    task edit, task remind, task watch, task star, task assign, task report,
+    task delete, task open, task pull, subtask list, subtask add, subtask check,
     subtask uncheck, subtask edit, subtask delete, subtask move, comment add,
     comment list, comment resolve
   Classes

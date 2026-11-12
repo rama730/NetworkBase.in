@@ -85,6 +85,9 @@ export const taskMetaSchema = z.object({
   star: z.boolean().optional(),
 }).strict();
 
+/** `nb task remind` (report C2, 0088): when, as an instant, and an optional note. */
+export const taskReminderSchema = z.object({ at: z.string().datetime({ offset: true }), note: z.string().trim().max(300).optional() }).strict();
+
 /** Several tasks at once (report C2): one request, all or nothing, one undo. */
 export const bulkTaskSchema = z.object({
   projectId: z.string().uuid(),

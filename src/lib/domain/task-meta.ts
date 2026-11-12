@@ -29,7 +29,7 @@ export function linkKind(url: string): { kind: "pull_request" | "issue" | "link"
   return m ? { kind: m[2] === "pull" ? "pull_request" : "issue", title: `${m[1]}#${m[3]}` } : { kind: "link", title: null };
 }
 
-async function readableTask(taskId: string, userId: string) {
+export async function readableTask(taskId: string, userId: string) {
   const [task] = await db.select({ id: tasks.id, projectId: tasks.projectId }).from(tasks).where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt))).limit(1);
   if (!task) throw new TaskMetaError("Task not found", 404);
   const access = await getWorkspaceAccessById(task.projectId, userId);

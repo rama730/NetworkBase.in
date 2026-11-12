@@ -358,6 +358,21 @@ const patterns = [
     if (b.star !== undefined) t.starred = b.star;
     return { data: metaOf(state, t) };
   }],
+  [/^\/api\/v1\/tasks\/([^/]+)\/reminders$/, "POST", (req, state) => {
+    const t = /** @type {any} */ (findTask(state, req.params[0]));
+    if (!t) return fail(404, "NOT_FOUND", "Task not found");
+    if (Date.parse(req.body.at) < Date.now()) return fail(409, "CONFLICT", "That time has passed: pick one in the future");
+    const r = { id: crypto.randomUUID(), remindAt: req.body.at, note: req.body.note ?? null };
+    t.reminders = [...(t.reminders ?? []), r];
+    return { data: { reminder: r } };
+  }],
+  [/^\/api\/v1\/tasks\/([^/]+)\/reminders$/, "GET", (req, state) => ({ data: { reminders: /** @type {any} */ (findTask(state, req.params[0]))?.reminders ?? [] } })],
+  [/^\/api\/v1\/tasks\/([^/]+)\/reminders$/, "DELETE", (req, state) => {
+    const t = /** @type {any} */ (findTask(state, req.params[0]));
+    const n = t?.reminders?.length ?? 0;
+    if (t) t.reminders = [];
+    return { data: { cancelled: n } };
+  }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/files\/([^/]+)\/star$/, "PUT", (req, state) => {
     state.stars = new Set(state.stars ?? []);
     if (req.body.starred) state.stars.add(req.params[1]); else state.stars.delete(req.params[1]);

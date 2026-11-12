@@ -99,6 +99,34 @@ async function personal(ctx, what) {
   ctx.out.result(`nb.task.${what}/1`, { number: task.taskNumber, [what === "watch" ? "watching" : "starred"]: on }, () =>
     `${ctx.out.c.success(ctx.out.sym.done)} ${what === "watch" ? (on ? `Watching #${task.taskNumber}: you'll hear when it changes` : `Stopped watching #${task.taskNumber}`) : on ? `Starred #${task.taskNumber} · nb task list --starred` : `Unstarred #${task.taskNumber}`}`);
 }
+/**
+ * `nb task remind 4 "tomorrow 9am" [-m note]` (C2, 0088): your own reminder, delivered to your inbox (and push or
+ * email as your settings say). `--list` shows yours on the task; `--off` cancels them.
+ * @param {Context} ctx
+ */
+export async function taskRemind(ctx) {
+  const [ref, ...words] = ctx.positionals;
+  if (!ref) throw usage('nb task remind <task> "tomorrow 9am" [-m note]', "Or --list to see yours, --off to cancel them");
+  const task = await resolveTask(ctx, ref, { brief: true });
+  const path = `/api/v1/tasks/${task.id}/reminders`;
+  if (ctx.flags.off) {
+    const { cancelled } = /** @type {any} */ (await ctx.api.request("DELETE", path));
+    return ctx.out.result("nb.task.remind/1", { number: task.taskNumber, cancelled }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Cancelled ${d.cancelled} reminder${d.cancelled === 1 ? "" : "s"} on #${d.number}`);
+  }
+  if (ctx.flags.list || !words.length) {
+    const { reminders } = /** @type {any} */ (await ctx.api.get(path));
+    return ctx.out.result("nb.task.reminders/1", { number: task.taskNumber, reminders }, (d) => (d.reminders.length
+      ? d.reminders.map((/** @type {any} */ r) => `  ${new Date(r.remindAt).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}${r.note ? `  ${ctx.out.c.muted(safe(r.note))}` : ""}`)
+      : `No reminders on #${d.number} · nb task remind ${d.number} "tomorrow 9am"`));
+  }
+  const { parseWhen } = await import("../dates.mjs");
+  const at = parseWhen(words.join(" "));
+  if (!at) throw usage(`"${words.join(" ")}" isn't a time I know`, 'Try: "tomorrow 9am", "friday 14:30", "in 2 hours", "today 5pm"');
+  const { reminder } = /** @type {any} */ (await ctx.api.post(path, { at: at.toISOString(), ...(ctx.flags.message ? { note: String(ctx.flags.message) } : {}) }));
+  ctx.out.result("nb.task.remind/1", { number: task.taskNumber, at: reminder.remindAt, note: reminder.note }, (d) =>
+    `${ctx.out.c.success(ctx.out.sym.done)} I'll remind you about #${d.number} ${new Date(d.at).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}`);
+}
+
 /** @param {Context} ctx */
 export const taskWatch = (ctx) => personal(ctx, "watch");
 /** @param {Context} ctx */

@@ -171,7 +171,7 @@ export function resolveNotificationDeliveryPolicy(params: {
     if (kind === "trust_safety" || kind === "agent_access_request") return { allowed: true, delayUntil: null, delayReason: null };
     const preferences = preferenceMap.get(recipientUserId) ?? DEFAULT_NOTIFICATION_PREFERENCES;
     // Reminders the user set themselves ("Remind me about this") come through whatever category is off.
-    if (kind !== "chat_reminder" && !preferences[category]) return { allowed: false, reason: "category_off" };
+    if (kind !== "chat_reminder" && kind !== "task_reminder" && !preferences[category]) return { allowed: false, reason: "category_off" };
     const muted = preferences.mutedScopes.some((scope) => notificationMatchesMuteScope({
         kind,
         actorUserId,

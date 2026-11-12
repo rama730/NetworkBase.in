@@ -74,6 +74,10 @@ export async function dueTimesWithinNextHour(limit = 200) {
       UNION ALL
       SELECT remind_at FROM chat_saved
       WHERE reminded_at IS NULL AND remind_at > now() AND remind_at <= now() + interval '65 minutes'
+      UNION ALL
+      -- Task reminders (report C2, 0088) ride the same job.
+      SELECT remind_at FROM task_reminders
+      WHERE sent_at IS NULL AND remind_at > now() AND remind_at <= now() + interval '65 minutes'
     ) due
     ORDER BY at LIMIT ${limit}
   `);

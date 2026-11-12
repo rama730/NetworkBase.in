@@ -1054,6 +1054,35 @@
       ]
     },
     {
+      "name": "task remind",
+      "summary": "Remind me about a task at a time (in the inbox)",
+      "usage": "nb task remind <task> \"tomorrow 9am\" [-m note] | --list | --off",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "list": {
+          "type": "boolean",
+          "describe": "Your reminders on the task"
+        },
+        "off": {
+          "type": "boolean",
+          "describe": "Cancel your reminders on the task"
+        }
+      },
+      "examples": [
+        "nb task remind 4 \"tomorrow 9am\"",
+        "nb task remind 4 \"in 2 hours\" -m \"check the build\""
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "task watch",
       "summary": "Hear about a task's changes without being assigned (--off to stop)",
       "usage": "nb task watch <task> [--off]",

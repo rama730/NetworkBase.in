@@ -135,6 +135,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route("/api/v1/tasks/bulk"), write: "task:write", agent: "route" },
   // Labels, "blocked by", links, watch and star (report C2, 0087); the route checks the task's workspace.
   { pattern: route(`/api/v1/tasks/${ID}/meta`), read: "task:read", write: "task:write", agent: "route" },
+  // Your reminders on a task (report C2, 0088): your own, so reading the task is enough.
+  { pattern: route(`/api/v1/tasks/${ID}/reminders`), read: "task:read", write: "task:read", agent: "route" },
   // Your starred and recent files (report C3, 0087): a star is your own shortcut, so reading is enough.
   { pattern: route(`/api/v1/workspaces/${ID}/files/${ID}/star`), write: "file:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/files/mine`), read: "file:read", agent: "path" },

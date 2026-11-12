@@ -6240,3 +6240,15 @@ export const taskLinks = pgTable("task_links", {
   createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({ taskUrlUnique: unique("task_links_task_url_unique").on(t.taskId, t.url) }));
+
+/** Report C2 (0088): `nb task remind`. Fired by the chat due job (chat/due.wake). */
+export const taskReminders = pgTable("task_reminders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  remindAt: timestamp("remind_at", { withTimezone: true }).notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
+}, (t) => ({ taskUserIdx: index("task_reminders_task_user_idx").on(t.taskId, t.userId), userIdx: index("task_reminders_user_idx").on(t.userId) }));
