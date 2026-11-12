@@ -15,6 +15,7 @@ export type WorkspaceSettingsSectionId =
   | "roles-applications"
   | "tasks-workflow"
   | "files-workspace"
+  | "ai-agents"
   | "readme"
   | "updates"
   | "notifications"
@@ -588,6 +589,11 @@ export const WORKSPACE_SETTINGS_SECTIONS: ProjectSettingsSectionDefinition[] = [
     label: "Files and storage",
     description:
       "Who can upload, versions and file reviews.",
+  },
+  {
+    id: "ai-agents",
+    label: "AI agents",
+    description: "What agents may change, pausing them, and who sees when they helped.",
   },
   // Group 4: System & Governance
   {

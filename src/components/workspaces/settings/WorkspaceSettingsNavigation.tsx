@@ -23,6 +23,7 @@ import {
   MessagesSquare,
   HardDrive,
   Flag,
+  Bot,
 } from "lucide-react";
 import type { WorkspaceSettingsSectionId } from "@/lib/workspaces/settings-policies";
 
@@ -41,6 +42,7 @@ const icons = {
   updates: Newspaper,
   "tasks-workflow": Workflow,
   "files-workspace": Folder,
+  "ai-agents": Bot,
   notifications: Bell,
   "privacy-policies": Scale,
   "privacy-terms": Scale,

@@ -96,7 +96,7 @@ test("refresh errors keep authoritative values mounted and disable mutations", (
 
 test("navigation exposes all permitted sections with one current item in each responsive menu", () => {
   const sections = getVisibleWorkspaceSettingsSections();
-  assert.equal(sections.length, 12);
+  assert.equal(sections.length, 13);
   const markup = renderToStaticMarkup(
     h(WorkspaceSettingsNavigation, {
       sections,
@@ -105,7 +105,7 @@ test("navigation exposes all permitted sections with one current item in each re
     }),
   );
   assert.equal((markup.match(/aria-current="page"/g) ?? []).length, 2); // desktop and mobile
-  assert.equal((markup.match(/class="nb-nav-link min-w-0/g) ?? []).length, 24);
+  assert.equal((markup.match(/class="nb-nav-link min-w-0/g) ?? []).length, 26);
   assert.doesNotMatch(
     markup,
     /Project preferences|Project Profile|Workspace Policies/,

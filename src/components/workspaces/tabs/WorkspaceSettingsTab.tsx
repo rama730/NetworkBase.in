@@ -261,7 +261,7 @@ function ProjectSettingsContent({
         if (inheritedOnly) return [childOrgSection, { id: "collaborators" as const, label: "Members and teams", description: "Teams, their seats and team leads." }];
         if (isProjectOwner) return showsChildOrg ? visible.flatMap((section) => (section.id === "general" ? [section, childOrgSection] : [section])) : visible;
         if (actorProjectRole === "admin" && project?.parentOrg) {
-            const adminSections: WorkspaceSettingsSectionId[] = ["links", "access", "collaborators", "roles-applications", "readme", "updates", "tasks-workflow", "files-workspace", "notifications", "privacy-policies", "privacy-terms"];
+            const adminSections: WorkspaceSettingsSectionId[] = ["links", "access", "collaborators", "roles-applications", "readme", "updates", "tasks-workflow", "files-workspace", "ai-agents", "notifications", "privacy-policies", "privacy-terms"];
             return [childOrgSection, ...visible.filter((section) => adminSections.includes(section.id))];
         }
         if (actorProjectRole === "admin") {
@@ -274,6 +274,7 @@ function ProjectSettingsContent({
                 "updates",
                 "tasks-workflow",
                 "files-workspace",
+                "ai-agents",
                 "notifications",
                 "privacy-policies",
                 "privacy-terms",
@@ -1949,7 +1950,6 @@ function ProjectSettingsContent({
                     <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-8">
                         <SettingsPageHeader level={2} title="Stages and workflow" description="Manage task completion and your workspace’s lifecycle stages." />
                         <TaskCompletionSettings projectId={projectId} />
-                        {canManageSettings ? <AgentSettings projectId={projectId} /> : null}
                         <div className="space-y-6">
                             <LifecycleSettingsEditor
                                 initialStages={project?.lifecycle_stages || project?.lifecycleStages || ["Concept", "MVP", "Launch"]}
@@ -2044,6 +2044,12 @@ function ProjectSettingsContent({
                             />
                             <DownloadHistory projectId={projectId} />
                         </SettingsCard>
+                    </section>
+                )}
+                {sections.some((s) => s.id === "ai-agents") && canManageSettings && (
+                    <section id="project-settings-ai-agents" data-project-settings-section className="space-y-8">
+                        <SettingsPageHeader level={2} title="AI agents" description="What agents may change, pausing them, and who sees when they helped." />
+                        <AgentSettings projectId={projectId} />
                     </section>
                 )}
                 {sections.some((s) => s.id === "notifications") && (
