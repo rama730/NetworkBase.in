@@ -108,7 +108,7 @@ export const TOOLS = [
   { name: "networkbase_task_edit", title: "Edit a task", tier: "small",
     props: { task: taskProp, title: { type: "string" }, description: { type: "string", description: "Markdown" }, priority: { type: "string", enum: ["low", "medium", "high", "urgent"] }, due: { type: "string", description: "Like 2026-11-14, friday, or none" }, workspace: workspaceProp },
     required: ["task"],
-    description: "Change a task's title, description, priority or due date.",
+    description: "Change a task's title, description, priority or due date. Labels, blocked by, watch and star: networkbase_task_tags.",
     run: (nb, a) => nb("task edit", [String(a.task)], { ...ws(a), ...(a.title ? { title: a.title } : {}), ...(a.description !== undefined ? { message: a.description } : {}), ...(a.priority ? { priority: a.priority } : {}), ...(a.due ? { due: a.due } : {}) }) },
   { name: "networkbase_task_assign", title: "Assign a task", tier: "small",
     props: { task: taskProp, to: { type: "string", description: "@username, me, or none" }, workspace: workspaceProp }, required: ["task", "to"],
@@ -365,7 +365,7 @@ TOOLS.push(
   { name: "networkbase_task_tags", title: "Labels, blocked by, links, watch, star", tier: "small", pack: "planning",
     props: { task: taskProp, addLabels: { type: "array", items: { type: "string" } }, removeLabels: { type: "array", items: { type: "string" } }, blockedBy: { type: "array", items: { type: "string" }, description: "Tasks this one waits on" }, notBlockedBy: { type: "array", items: { type: "string" } }, link: { type: "string", description: "A URL, like a pull request" }, watch: { type: "boolean" }, star: { type: "boolean" }, workspace: workspaceProp },
     required: ["task"],
-    description: "A task's labels, what it waits on, links, and whether the user watches or starred it.",
+    description: "Label a task, say it waits on (is blocked by) another task, add a link, or watch or star it for the user.",
     run: async (nb, a) => {
       const task = String(a.task);
       /** @type {Result | null} */

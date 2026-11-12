@@ -296,6 +296,18 @@ export async function create(ctx) {
   const priority = ctx.flags.priority;
   if (priority && !["low", "medium", "high", "urgent"].includes(priority)) throw usage("--priority must be low, medium, high or urgent");
   const projectId = ctx.requireWorkspace();
+  // An open task with this title already? Ask first (found by the D22 agent test: a request about an existing task
+  // created a second one). Scripts answer with --answer duplicate=existing|new.
+  const { tasks: same } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query: { projectId, scope: "all", open: "1", q: title, limit: "10" } }).catch(() => ({ tasks: [] })));
+  const twin = same.find((/** @type {any} */ t) => String(t.title).trim().toLowerCase() === title.toLowerCase());
+  if (twin) {
+    const { ask } = await import("../tui/ask.mjs");
+    const choice = await ask(ctx, { key: "duplicate", header: "Already there", question: `#${twin.taskNumber} "${safe(twin.title)}" already exists. Use it, or create another?`, options: [
+      { value: "existing", label: `Use #${twin.taskNumber}`, recommended: true },
+      { value: "new", label: "Create another" },
+    ] });
+    if (choice === "existing") return ctx.out.result("nb.task.create/1", { id: twin.id, number: twin.taskNumber, title: twin.title, subtasks: 0, dueDate: twin.dueDate ?? null, existing: true }, (d) => `#${d.number} ${safe(d.title)} already exists; nothing created`);
+  }
   // Everything at once (report C2): a due date in words, who it's for, and the sprint.
   const dueDate = ctx.flags.due === undefined ? undefined : parseDate(String(ctx.flags.due));
   if (dueDate === null) throw usage(`--due ${ctx.flags.due} isn't a date I know`, "Try today, tomorrow, friday, next week, in 3 days, or 2026-12-01");
