@@ -36,6 +36,8 @@ const TASK_REF = /^(#?\d+|T-\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
  * @returns {{ spec: CommandSpec | null, rest: string[], alias: { from: string, to: string } | null }}
  */
 export function resolveCommand(argv) {
+  // Help groups these under "Classes", so nb class … is nb assignment … (C16 #10).
+  if (argv[0] === "class") argv = ["assignment", ...argv.slice(1)];
   /** @type {string[]} */
   const words = [];
   for (const token of argv) {

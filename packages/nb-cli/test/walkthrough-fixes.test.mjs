@@ -63,6 +63,14 @@ describe("walkthrough fixes (C16)", () => {
     assert.deepEqual(api.state.detailReads, ["brief"], "C16 #9: start reads the short task only");
   });
 
+  it("12: nb class is nb assignment, so the Classes group in help works as typed", async () => {
+    const { resolveCommand } = await import("../lib/args.mjs");
+    assert.equal(resolveCommand(["class", "list"]).spec?.name, "assignment list");
+    assert.equal(resolveCommand(["class", "view", "3"]).spec?.name, "assignment view");
+    assert.equal(resolveCommand(["class", "list"]).alias, null, "a synonym, not a renamed command: no reminder");
+    assert.throws(() => resolveCommand(["class"]), /needs an action: list, view/);
+  });
+
   it("4: the started task's marker never reads as a minus sign in --plain", async () => {
     const r = await nb(["task", "list", "--all", "--plain"]);
     assert.doesNotMatch(r.stdout, /(^|\s)-\d+\s/m);
