@@ -1,4 +1,5 @@
 import "server-only";
+import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { encodeFilePermissionCursor, normalizeFilePermissionOptions, type FilePermissionOptions } from "@/lib/workspaces/file-permission-pagination";
 
 import { type WorkspaceVisibility, normalizeWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
@@ -1458,10 +1459,8 @@ export async function updateWorkspaceMemberRoleAction(
   nextRole: "admin" | "member" | "viewer",
 ): Promise<ProjectMemberMutationResult> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Browser session or a CLI token (report C4: nb member role / remove).
+    const { user } = await requireAuthenticatedUser();
     if (!user)
       return {
         success: false,
@@ -1585,10 +1584,8 @@ export async function getWorkspaceMemberRemovalPreflightAction(
   memberUserId: string,
 ): Promise<ProjectMemberRemovalPreflightResult> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Browser session or a CLI token (report C4: nb member role / remove).
+    const { user } = await requireAuthenticatedUser();
     if (!user)
       return {
         success: false,
@@ -1755,13 +1752,13 @@ export async function removeWorkspaceMemberAction(
       | "unassign_active_tasks"
       | "reassign_active_tasks";
     reassignToUserId?: string | null;
+    /** `nb workspace leave` (report C4, the plain leave): the person removes themself; the owner can't. */
+    leave?: boolean;
   },
 ): Promise<ProjectMemberMutationResult> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Browser session or a CLI token (report C4: nb member role / remove).
+    const { user } = await requireAuthenticatedUser();
     if (!user)
       return {
         success: false,
@@ -1785,6 +1782,7 @@ export async function removeWorkspaceMemberAction(
           targetUserId: memberUserId,
           mode: parsed.data.mode,
           reassignToUserId: parsed.data.reassignToUserId ?? null,
+          ...(options?.leave && memberUserId === user.id ? { allowSelf: true, ending: { reason: "left" as const, by: user.id } } : {}),
         });
         return { ok: true as const, lifecycle };
     }).catch((error: unknown) => {

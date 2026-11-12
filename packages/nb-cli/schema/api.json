@@ -561,6 +561,231 @@
       ],
       "additionalProperties": false
     },
+    "PATCH /api/v1/extension/comments": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "commentId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        }
+      },
+      "required": [
+        "projectId",
+        "commentId",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "PATCH /api/v1/me/notifications": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "mentions": {
+          "type": "boolean"
+        },
+        "workflows": {
+          "type": "boolean"
+        },
+        "projects": {
+          "type": "boolean"
+        },
+        "tasks": {
+          "type": "boolean"
+        },
+        "applications": {
+          "type": "boolean"
+        },
+        "connections": {
+          "type": "boolean"
+        },
+        "pausedUntil": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quietHours": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "startMinute": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1439
+            },
+            "endMinute": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1439
+            },
+            "timeZone": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "enabled",
+            "startMinute",
+            "endMinute"
+          ]
+        },
+        "mutedScopes": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "notification_type",
+                  "project",
+                  "task",
+                  "update",
+                  "person",
+                  "organization"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "label": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "POST /api/v1/workspaces/{id}/members": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "username",
+        "role"
+      ]
+    },
+    "PATCH /api/v1/workspaces/{id}/members": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "admin",
+            "member",
+            "viewer"
+          ]
+        }
+      },
+      "required": [
+        "username",
+        "role"
+      ]
+    },
+    "POST /api/v1/workspaces/{id}/updates/{updateId}": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "like"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "comment"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "parentId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ]
+        }
+      ]
+    },
     "POST /api/v1/tasks/bulk": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",

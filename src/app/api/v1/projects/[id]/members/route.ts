@@ -2,4 +2,4 @@
 // It serves the same handlers until the extension moves to the new path; then this file is deleted.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export { GET } from "@/app/api/v1/workspaces/[id]/members/route";
+export { GET, POST, PATCH, DELETE } from "@/app/api/v1/workspaces/[id]/members/route";

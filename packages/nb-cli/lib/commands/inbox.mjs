@@ -59,7 +59,10 @@ export async function inboxReply(ctx) {
   if (!ref || !text) throw usage('nb inbox reply <n> "your reply"');
   const [item] = await pick({ ...ctx, positionals: [ref] });
   const refs = taskOf(item, ref);
-  await ctx.api.post("/api/v1/extension/comments", { kind: "task", ...(refs.projectId ? { projectId: refs.projectId } : {}), taskId: refs.taskId, text, ...(refs.commentId ? { replyTo: refs.commentId } : {}) });
+  // @names become real mentions in the item's workspace (C4).
+  const { withMentions } = await import("./tasks.mjs");
+  const said = refs.projectId ? await withMentions({ ...ctx, requireWorkspace: () => /** @type {string} */ (refs.projectId) }, text) : text;
+  await ctx.api.post("/api/v1/extension/comments", { kind: "task", ...(refs.projectId ? { projectId: refs.projectId } : {}), taskId: refs.taskId, text: said, ...(refs.commentId ? { replyTo: refs.commentId } : {}) });
   await ctx.api.post("/api/v1/inbox/read", { ids: [item.id] });
   ctx.out.result("nb.inbox.reply/1", { item: item.id, taskId: refs.taskId }, () => `${ctx.out.c.success(ctx.out.sym.done)} Replied on ${safe(item.title)}`);
 }
@@ -127,4 +130,69 @@ async function follow(ctx) {
     }
   }
   return EXIT.ok;
+}
+
+// ───────────────────────────────── settings and mute (report C4, M4b): the same as Settings → Notifications
+
+const CATEGORIES = ["mentions", "tasks", "workflows", "projects", "applications", "connections"];
+const hhmm = (/** @type {number} */ m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+/**
+ * `nb inbox settings` shows them; `--on tasks`, `--off projects`, `--quiet 22:00-08:00|off`, `--pause 2h|off` change
+ * only what's named.
+ * @param {Context} ctx
+ */
+export async function inboxSettings(ctx) {
+  /** @type {Record<string, unknown>} */
+  const change = {};
+  const names = (/** @type {unknown} */ v) => /** @type {string[]} */ ([v ?? []].flat()).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
+  for (const [flag, on] of /** @type {const} */ ([["on", true], ["off", false]])) {
+    for (const n of names(ctx.flags[flag])) {
+      if (!CATEGORIES.includes(n)) throw usage(`${n} isn't a kind of notification`, `Kinds: ${CATEGORIES.join(", ")}`);
+      change[n] = on;
+    }
+  }
+  if (ctx.flags.quiet !== undefined) {
+    const q = String(ctx.flags.quiet);
+    const m = /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(q);
+    if (q !== "off" && !m) throw usage("--quiet takes 22:00-08:00, or off");
+    change.quietHours = q === "off" ? { enabled: false, startMinute: 1320, endMinute: 480 } : { enabled: true, startMinute: Number(m?.[1]) * 60 + Number(m?.[2]), endMinute: Number(m?.[3]) * 60 + Number(m?.[4]), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+  }
+  if (ctx.flags.pause !== undefined) {
+    const p = String(ctx.flags.pause);
+    const m = /^(\d{1,3})(m|h|d)$/.exec(p);
+    if (p !== "off" && !m) throw usage("--pause takes 30m, 2h, 1d, or off");
+    change.pausedUntil = p === "off" ? null : new Date(Date.now() + Number(m?.[1]) * (m?.[2] === "d" ? 86_400_000 : m?.[2] === "h" ? 3_600_000 : 60_000)).toISOString();
+  }
+  const { preferences: p } = /** @type {any} */ (Object.keys(change).length ? await ctx.api.patch("/api/v1/me/notifications", change) : await ctx.api.get("/api/v1/me/notifications"));
+  const { c } = ctx.out;
+  ctx.out.result("nb.inbox.settings/1", p, (d) => [
+    ...CATEGORIES.map((k) => `  ${k.padEnd(13)}${d[k] ? c.success("on") : c.muted("off")}`),
+    `  quiet hours  ${d.quietHours?.enabled ? `${hhmm(d.quietHours.startMinute)}–${hhmm(d.quietHours.endMinute)}` : c.muted("off")}`,
+    `  paused       ${d.pausedUntil && Date.parse(d.pausedUntil) > Date.now() ? `until ${new Date(d.pausedUntil).toLocaleString()}` : c.muted("no")}`,
+    `  muted        ${d.mutedScopes?.length ? d.mutedScopes.map((/** @type {any} */ s) => safe(s.label ?? `${s.kind} ${String(s.value).slice(0, 8)}`)).join(", ") : c.muted("nothing")}`,
+    c.muted("  nb inbox settings --off projects · --quiet 22:00-08:00 · --pause 2h · nb inbox mute <workspace|#task>"),
+  ]);
+}
+
+/** `nb inbox mute deepscope-ai` or `nb inbox mute #4`; `--off` unmutes. @param {Context} ctx */
+export async function inboxMute(ctx) {
+  const ref = ctx.positionals[0];
+  if (!ref) throw usage("nb inbox mute <workspace|#task> [--off]");
+  /** @type {{ kind: "project" | "task", value: string, label: string }} */
+  let scope;
+  if (/^(#|T-)?\d+$/i.test(ref)) {
+    const { resolveTask } = await import("./tasks.mjs");
+    const t = await resolveTask(ctx, ref, { brief: true });
+    scope = { kind: "task", value: t.id, label: `#${t.taskNumber} ${t.title}`.slice(0, 200) };
+  } else {
+    const { workspaces } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspaces"));
+    const w = workspaces.find((/** @type {any} */ x) => String(x.slug).toLowerCase() === ref.toLowerCase() || String(x.title).toLowerCase() === ref.toLowerCase());
+    if (!w) throw new CliError("WORKSPACE_NOT_FOUND", `No workspace ${ref} in your list`, { hint: "nb workspace list" });
+    scope = { kind: "project", value: w.id, label: w.title };
+  }
+  const { preferences } = /** @type {any} */ (await ctx.api.get("/api/v1/me/notifications"));
+  const others = (preferences.mutedScopes ?? []).filter((/** @type {any} */ s) => !(s.kind === scope.kind && s.value === scope.value));
+  await ctx.api.patch("/api/v1/me/notifications", { mutedScopes: ctx.flags.off ? others : [...others, scope] });
+  ctx.out.result("nb.inbox.mute/1", { ...scope, muted: !ctx.flags.off }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${d.muted ? "Muted" : "Unmuted"} ${safe(d.label)}`);
 }

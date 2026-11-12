@@ -189,13 +189,48 @@ export async function reviewView(ctx) {
   ], { page: true });
 }
 
-/** @param {Context} ctx @param {"approve" | "return"} decision */
+/**
+ * Approve or return one hand-in, or several at once (`nb review approve 3 5 8`, C4). Each is its own decision, so one
+ * that fails (changed meanwhile) is reported and the rest still go through.
+ * @param {Context} ctx @param {"approve" | "return"} decision
+ */
 async function decide(ctx, decision) {
-  const row = await rowByRef(ctx, ctx.positionals[0]);
+  const refs = ctx.positionals.length ? ctx.positionals : [undefined];
   const reason = String(ctx.flags.message ?? "").trim();
   if (decision === "return" && !reason) throw usage('Say what to fix: nb review return <ref> -m "…"');
-  await ctx.api.post(`/api/v1/reviews/${encodeURIComponent(row.copyId)}`, decision === "approve" ? { decision } : { decision, reason, ...(ctx.flags["fix-by"] ? { fixBy: new Date(String(ctx.flags["fix-by"])).toISOString() } : {}) });
-  ctx.out.result(`nb.review.${decision}/1`, { copyId: row.copyId }, () => `${ctx.out.c.success(ctx.out.sym.done)} ${decision === "approve" ? "Approved" : "Returned"} ${safe(row.who)}’s ${safe(row.title)}`);
+  // Read the queue once: numbers refer to it as listed, before any decision moves rows.
+  const rows = await Promise.all(refs.map((ref) => rowByRef(ctx, /** @type {string} */ (ref))));
+  /** @type {Array<{ copyId: string, who: string, title: string, ok: boolean, error?: string }>} */
+  const done = [];
+  for (const row of rows) {
+    try {
+      await ctx.api.post(`/api/v1/reviews/${encodeURIComponent(row.copyId)}`, decision === "approve" ? { decision } : { decision, reason, ...(ctx.flags["fix-by"] ? { fixBy: new Date(String(ctx.flags["fix-by"])).toISOString() } : {}) });
+      done.push({ copyId: row.copyId, who: row.who, title: row.title, ok: true });
+    } catch (error) {
+      if (rows.length === 1) throw error;
+      done.push({ copyId: row.copyId, who: row.who, title: row.title, ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  const verb = decision === "approve" ? "Approved" : "Returned";
+  ctx.out.result(`nb.review.${decision}/1`, rows.length === 1 ? { copyId: rows[0].copyId } : { results: done }, () => done.map((r) => (r.ok ? `${ctx.out.c.success(ctx.out.sym.done)} ${verb} ${safe(r.who)}’s ${safe(r.title)}` : ctx.out.c.warning(`  ${safe(r.who)}’s ${safe(r.title)}: ${safe(r.error ?? "")}`))));
+  return done.some((r) => !r.ok) ? 1 : 0;
+}
+
+/** What changed since the last hand-in (C4): files added, removed and changed between the latest two. @param {Context} ctx */
+export async function reviewDiff(ctx) {
+  const row = await rowByRef(ctx, ctx.positionals[0]);
+  const versions = [...(row.versions ?? [])].sort((a, b) => a.version - b.version);
+  const [before, after] = versions.slice(-2);
+  // ponytail: hand-ins record which files, not which version of each, so changes are by size; a line diff needs the
+  // hand-in to keep each file's version number.
+  const files = !before || !after ? [] : [
+    ...after.files.filter((/** @type {any} */ f) => !before.files.some((/** @type {any} */ b) => b.nodeId === f.nodeId)).map((/** @type {any} */ f) => ({ name: f.name, change: "added" })),
+    ...before.files.filter((/** @type {any} */ b) => !after.files.some((/** @type {any} */ f) => f.nodeId === b.nodeId)).map((/** @type {any} */ b) => ({ name: b.name, change: "removed" })),
+    ...after.files.filter((/** @type {any} */ f) => before.files.some((/** @type {any} */ b) => b.nodeId === f.nodeId && b.size !== f.size)).map((/** @type {any} */ f) => ({ name: f.name, change: "changed" })),
+  ];
+  ctx.out.result("nb.review.diff/1", { from: before?.version ?? null, to: after?.version ?? null, files }, (d) => (d.from === null
+    ? `${safe(row.who)}’s ${safe(row.title)} has one hand-in so far · nb review view ${ctx.positionals[0]}`
+    : [`${safe(row.who)}’s ${safe(row.title)}: v${d.from} → v${d.to}`, ...(d.files.length ? d.files.map((/** @type {any} */ f) => `  ${f.change === "added" ? ctx.out.c.success("+") : f.change === "removed" ? ctx.out.c.danger("-") : ctx.out.c.accent("~")} ${safe(f.name)} ${ctx.out.c.muted(f.change)}`) : [ctx.out.c.muted("  the same files, the same sizes")])]));
 }
 /** @param {Context} ctx */
 export const reviewApprove = (ctx) => decide(ctx, "approve");

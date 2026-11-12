@@ -799,3 +799,96 @@ export async function createTaskCommentAs(
     return { success: false as const, error: error?.message || "Couldn’t create comment" };
   }
 }
+
+/**
+ * Delete your own comment (the task panel and `nb comment delete`, report C4): a reply or a comment without replies
+ * goes; one with replies leaves a "deleted" marker so the thread still reads.
+ */
+export async function deleteTaskCommentAs(userId: string, commentId: string, projectId: string) {
+  {
+    const viewer = { userId };
+
+    const { allowed } = await consumeRateLimit(`task-comment:${viewer.userId}`, 60, 60);
+    if (!allowed) {
+      return { success: false as const, error: "Too many attempts. Try again in a minute." };
+    }
+
+    const comment = await assertCommentAccess({
+      commentId,
+      projectId,
+      userId: viewer.userId,
+      mode: "write",
+    });
+    if (comment.userId !== viewer.userId) {
+      return { success: false as const, error: "You can only delete your own comments" };
+    }
+
+    const lockId = comment.parentCommentId ?? commentId;
+    const mode = await db.transaction(async (tx): Promise<TaskDiscussionDeleteMode> => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockId}, 0))`);
+      const [current] = await tx
+        .select({ parentCommentId: taskComments.parentCommentId })
+        .from(taskComments)
+        .where(eq(taskComments.id, commentId))
+        .limit(1);
+      if (!current) throw new Error("Comment not found");
+
+      if (current.parentCommentId) {
+        await tx.delete(taskComments).where(eq(taskComments.id, commentId));
+        return "hard_delete";
+      }
+
+      const [replyRow] = await tx
+        .select({ id: taskComments.id })
+        .from(taskComments)
+        .where(eq(taskComments.parentCommentId, commentId))
+        .limit(1);
+      if (!replyRow) {
+        await tx.delete(taskComments).where(eq(taskComments.id, commentId));
+        return "hard_delete";
+      }
+
+      await tx
+        .update(taskComments)
+        .set({
+          deletedAt: new Date(),
+          deletedBy: viewer.userId,
+          updatedAt: new Date(),
+        })
+        .where(eq(taskComments.id, commentId));
+      return "tombstone";
+    });
+
+    const entry = mode === "tombstone"
+      ? await readTaskDiscussionCommentInternal({
+          projectId,
+          taskId: comment.taskId,
+          commentId,
+          viewerId: viewer.userId,
+        })
+      : null;
+
+    return {
+      success: true as const,
+      data: {
+        mode,
+        commentId,
+        parentCommentId: comment.parentCommentId,
+        entry,
+      },
+    };
+  }
+}
+
+/** Edit your own comment (report C4, `nb comment edit`). Mentions in the new text are kept but not notified again. */
+export async function editTaskCommentAs(userId: string, commentId: string, projectId: string, content: string) {
+  const { allowed } = await consumeRateLimit(`task-comment:${userId}`, 60, 60);
+  if (!allowed) return { success: false as const, error: "Too many attempts. Try again in a minute." };
+  const text = content.trim();
+  if (!text || text.length > 4000) return { success: false as const, error: "A comment is 1 to 4000 characters" };
+  const comment = await assertCommentAccess({ commentId, projectId, userId, mode: "write" });
+  if (comment.userId !== userId) return { success: false as const, error: "You can only edit your own comments" };
+  if (comment.deletedAt) return { success: false as const, error: "That comment was deleted" };
+  await db.update(taskComments).set({ content: text, updatedAt: new Date() }).where(eq(taskComments.id, commentId));
+  return { success: true as const, data: { commentId, taskId: comment.taskId } };
+}

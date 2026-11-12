@@ -20,6 +20,7 @@
 
 import { NextRequest } from "next/server";
 import { and, eq, ilike, or, sql } from "drizzle-orm";
+import { memberInviteSchema, memberRemoveSchema, memberRoleSchema } from "@/lib/api/v1-schemas";
 
 import {
     jsonError,
@@ -27,7 +28,10 @@ import {
     requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { profiles, workspaceMembers, workspaces } from "@/lib/db/schema";
+import { profiles, workspaceMembers, workspaceOpenRoles, workspaces } from "@/lib/db/schema";
+import { removeWorkspaceMemberAction, updateWorkspaceMemberRoleAction } from "@/lib/workspaces/server/settings";
+import { createWorkspaceInvitation } from "@/lib/workspaces/workspace-invitations";
+import { validateCsrf } from "@/lib/security/csrf";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { isWorkspaceMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -187,4 +191,69 @@ export async function GET(
         undefined,
         { headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=120" } },
     );
+}
+
+// ───────────── nb member invite / role / remove and nb workspace leave (report C4, M4b)
+
+/** Changing who is in a workspace needs the person's own sign-in: personal tokens and agents are refused. */
+async function personAt(request: Request) {
+  const csrf = validateCsrf(request);
+  if (csrf) return { response: csrf, user: null };
+  const auth = await requireAuthenticatedUser();
+  if (auth.response) return { response: auth.response, user: null };
+  if (!auth.user) return { response: jsonError("Sign in to continue", 401, "UNAUTHORIZED"), user: null };
+  if (auth.tokenKind && auth.tokenKind !== "device") return { response: jsonError("Changing members needs your own sign-in (nb login), not a token", 403, "FORBIDDEN"), user: null };
+  return { response: null, user: auth.user };
+}
+const answer = (r: { success: boolean; message?: string; errorCode?: string }, ok: unknown) =>
+  r.success ? jsonSuccess(ok) : jsonError(r.message ?? "Couldn’t change the member", r.errorCode === "FORBIDDEN" ? 403 : r.errorCode === "NOT_FOUND" ? 404 : 400, r.errorCode === "FORBIDDEN" ? "FORBIDDEN" : r.errorCode === "NOT_FOUND" ? "NOT_FOUND" : "BAD_REQUEST");
+async function personByName(username: string) {
+  const [p] = await db.select({ id: profiles.id, username: profiles.username }).from(profiles).where(ilike(profiles.username, username.replace(/^@/, ""))).limit(1);
+  return p ?? null;
+}
+
+/** Invite someone into one of the workspace's open roles (workspace invitations are for a role). */
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { response, user } = await personAt(request);
+  if (response) return response;
+  const { id } = await context.params;
+  const parsed = memberInviteSchema.safeParse(await request.json().catch(() => null));
+  if (!isLooseUuid(id) || !parsed.success) return jsonError("Who, and into which role?", 400, "BAD_REQUEST");
+  const person = await personByName(parsed.data.username);
+  if (!person) return jsonError(`No one called @${parsed.data.username.replace(/^@/, "")}`, 404, "NOT_FOUND");
+  const roles = await db.select({ id: workspaceOpenRoles.id, title: workspaceOpenRoles.title }).from(workspaceOpenRoles).where(eq(workspaceOpenRoles.projectId, id));
+  const want = parsed.data.role.toLowerCase();
+  const role = roles.find((r) => r.id === parsed.data.role || (r.title ?? "").toLowerCase() === want);
+  if (!role) return jsonError(roles.length ? `No open role "${parsed.data.role}". Open roles: ${roles.map((r) => r.title ?? "untitled").join(", ")}` : "This workspace has no open roles; add one in the app's Members page first", 404, "NOT_FOUND");
+  try {
+    const created = await createWorkspaceInvitation({ actorId: user!.id, candidateId: person.id, projectId: id, kind: "ordinary_role", roleId: role.id, note: parsed.data.note ?? null, guidanceLabel: null, reviewAt: null, idempotencyKey: request.headers.get("idempotency-key") });
+    return jsonSuccess({ invited: `@${person.username}`, role: role.title ?? "the role", invitationId: created.invitation.id });
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "Couldn’t invite", 409, "CONFLICT");
+  }
+}
+
+/** Change a member's role (owner and admins, the app's rules). */
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { response } = await personAt(request);
+  if (response) return response;
+  const { id } = await context.params;
+  const parsed = memberRoleSchema.safeParse(await request.json().catch(() => null));
+  if (!isLooseUuid(id) || !parsed.success) return jsonError("Who, and admin, member or viewer?", 400, "BAD_REQUEST");
+  const person = await personByName(parsed.data.username);
+  if (!person) return jsonError(`No one called @${parsed.data.username.replace(/^@/, "")}`, 404, "NOT_FOUND");
+  return answer(await updateWorkspaceMemberRoleAction(id, person.id, parsed.data.role), { username: person.username, role: parsed.data.role });
+}
+
+/** Remove a member (their open tasks are unassigned), or leave yourself with `{ leave: true }`. */
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { response, user } = await personAt(request);
+  if (response) return response;
+  const { id } = await context.params;
+  const parsed = memberRemoveSchema.safeParse(await request.json().catch(() => null));
+  if (!isLooseUuid(id) || !parsed.success || (!parsed.data.username && !parsed.data.leave)) return jsonError("Who? Or leave: true", 400, "BAD_REQUEST");
+  if (parsed.data.leave) return answer(await removeWorkspaceMemberAction(id, user!.id, { mode: "unassign_active_tasks", leave: true }), { left: true });
+  const person = await personByName(parsed.data.username!);
+  if (!person) return jsonError(`No one called @${parsed.data.username!.replace(/^@/, "")}`, 404, "NOT_FOUND");
+  return answer(await removeWorkspaceMemberAction(id, person.id, { mode: "unassign_active_tasks" }), { removed: person.username });
 }

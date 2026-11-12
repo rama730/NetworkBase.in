@@ -1,7 +1,7 @@
 // workspace view, activity, sprint list|view, update post, file history|move|rename|delete|attach|detach
 // (report §17.4, A2.5, A8.7, D25).
 import { CliError, EXIT, usage } from "../errors.mjs";
-import { safe } from "../print/style.mjs";
+import { commentText, safe } from "../print/style.mjs";
 import { confirm } from "../tui/ask.mjs";
 import { formatDate, resolveTask, taskRef } from "./tasks.mjs";
 
@@ -247,4 +247,52 @@ export async function fileLock(ctx) {
   }
   await ctx.api.request("DELETE", `/api/v1/files/${nodeId}/lock`, { body: creds() }).catch(() => undefined);
   ctx.out.result("nb.file.lock/1", { path: node.path ?? p, released: true }, (d) => `Let go of ${safe(d.path)}`);
+}
+
+// ───────────────────────────────── updates (report C4, M4b)
+
+/** The workspace's feed. @param {Context} ctx */
+export async function updateList(ctx) {
+  const data = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates`));
+  const updates = (data.updates ?? []).map((/** @type {any} */ u, /** @type {number} */ i) => ({ n: i + 1, id: u.id, by: u.authorUsername ?? u.author?.username ?? u.authorName ?? u.author?.name ?? null, at: u.createdAt, text: String(u.content ?? u.body ?? ""), likes: u.likeCount ?? u.likes ?? 0, comments: u.commentCount ?? u.comments ?? 0, liked: Boolean(u.likedByViewer ?? u.liked) }));
+  ctx.out.result("nb.update.list/1", { updates }, (d) => (d.updates.length
+    ? d.updates.flatMap((/** @type {any} */ u) => [`${String(u.n).padStart(2)}  ${u.by ? `@${safe(u.by)}` : "someone"} ${ctx.out.c.muted(formatDate(u.at))}  ${ctx.out.c.muted(`♥ ${u.likes} · ${u.comments} comments`)}`, `    ${commentText(u.text).replace(/\s+/g, " ").slice(0, 160)}`])
+      .concat(ctx.out.c.muted("  nb update like <n> · nb update comment <n> -m text · nb update view <n>"))
+    : "No updates yet · nb update post -m \"…\""));
+}
+
+/** @param {Context} ctx */
+async function updateByRef(ctx) {
+  const ref = ctx.positionals[0];
+  if (!ref) throw usage("Which update?", "The numbers are in nb update list");
+  const data = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates`));
+  const list = data.updates ?? [];
+  const hit = /^\d+$/.test(ref) ? list[Number(ref) - 1] : list.find((/** @type {any} */ u) => String(u.id).startsWith(ref));
+  if (!hit) throw new CliError("NOT_FOUND", `No update ${ref}`, { hint: "nb update list" });
+  return hit;
+}
+
+/** One update and its comments. @param {Context} ctx */
+export async function updateView(ctx) {
+  const u = await updateByRef(ctx);
+  const data = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates/${u.id}`));
+  const comments = (data.comments ?? []).map((/** @type {any} */ c) => ({ by: c.authorUsername ?? c.author?.username ?? c.authorName ?? null, text: String(c.content ?? c.body ?? "") }));
+  ctx.out.result("nb.update.view/1", { id: u.id, text: String(u.content ?? u.body ?? ""), comments }, (d) => [commentText(d.text), "", ...(d.comments.length ? d.comments.map((/** @type {any} */ c) => `  ${c.by ? `@${safe(c.by)}` : "someone"}: ${commentText(c.text)}`) : [ctx.out.c.muted("  No comments yet")])]);
+}
+
+/** Like (or unlike) an update. @param {Context} ctx */
+export async function updateLike(ctx) {
+  const u = await updateByRef(ctx);
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates/${u.id}`, { kind: "like" }));
+  const liked = res?.liked ?? res?.viewerHasLiked ?? !u.likedByViewer;
+  ctx.out.result("nb.update.like/1", { id: u.id, liked: Boolean(liked) }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${d.liked ? "Liked" : "Unliked"} the update`);
+}
+
+/** Comment on an update (everyone in the workspace sees it). @param {Context} ctx */
+export async function updateComment(ctx) {
+  const u = await updateByRef(ctx);
+  const text = String(ctx.flags.message ?? ctx.positionals.slice(1).join(" ")).trim();
+  if (!text) throw usage('nb update comment <n> -m "text"');
+  await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates/${u.id}`, { kind: "comment", text });
+  ctx.out.result("nb.update.comment/1", { id: u.id }, () => `${ctx.out.c.success(ctx.out.sym.done)} Commented on the update`);
 }

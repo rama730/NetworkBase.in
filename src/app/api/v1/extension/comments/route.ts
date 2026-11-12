@@ -10,7 +10,7 @@ import {
   profiles,
   tasks,
 } from "@/lib/db/schema";
-import { createTaskCommentAs } from "@/lib/domain/task-comments";
+import { createTaskCommentAs, deleteTaskCommentAs, editTaskCommentAs } from "@/lib/domain/task-comments";
 import {requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
@@ -25,7 +25,7 @@ import {
   recordNodeEvent,
 } from "@/lib/files/internal-helpers";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
-import { fileCommentSchema, taskCommentSchema } from "@/lib/api/v1-schemas";
+import { commentEditSchema, commentRefSchema, fileCommentSchema, taskCommentSchema } from "@/lib/api/v1-schemas";
 import { agentGate, recordUndo } from "@/lib/agents/policy";
 export const runtime = "nodejs";
 async function readable(projectId: string, nodeId: string, userId: string) {
@@ -251,4 +251,36 @@ async function handlePost(request: Request) {
 /** Retries with the same Idempotency-Key and body write once (report A2.4, F72). */
 export async function POST(request: Request) {
   return idempotentWrite(request, "extension.comments", handlePost);
+}
+
+
+/** `nb comment edit` and `nb comment delete` (report C4): your own task comments only. */
+async function ownComment(request: Request, schema: typeof commentRefSchema | typeof commentEditSchema, run: (userId: string, input: z.infer<typeof commentEditSchema>) => Promise<{ success: boolean; error?: string; data?: unknown }>) {
+  const csrf = validateCsrf(request);
+  if (csrf) return csrf;
+  try {
+    const auth = await requireAuthenticatedUser();
+    if (auth.response) return auth.response;
+    if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
+    const parsed = schema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return jsonError("Which comment?", 400, "BAD_REQUEST");
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId: parsed.data.projectId });
+    if (outside) return outside;
+    const held = await agentGate(auth, request, parsed.data, { workspaceId: parsed.data.projectId, kinds: ["small"], summary: "text" in parsed.data ? "Edit your comment" : "Delete your comment" });
+    if (held) return held;
+    const result = await run(auth.user.id, parsed.data as z.infer<typeof commentEditSchema>);
+    if (!result.success) return jsonError(result.error ?? "Couldn’t change the comment", /own/.test(result.error ?? "") ? 403 : 400, /own/.test(result.error ?? "") ? "FORBIDDEN" : "BAD_REQUEST");
+    return jsonSuccess(result.data ?? {});
+  } catch (error) {
+    if (error instanceof Error && /not found/i.test(error.message)) return jsonError("Comment not found", 404, "NOT_FOUND");
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/comments", fallback: "Couldn’t change the comment" });
+  }
+}
+
+export async function PATCH(request: Request) {
+  return ownComment(request, commentEditSchema, (userId, i) => editTaskCommentAs(userId, i.commentId, i.projectId, i.text));
+}
+
+export async function DELETE(request: Request) {
+  return ownComment(request, commentRefSchema, (userId, i) => deleteTaskCommentAs(userId, i.commentId, i.projectId));
 }

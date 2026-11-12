@@ -509,11 +509,67 @@ export const subtaskUncheck = (ctx) => setSubtasks(ctx, false);
 
 /** @param {Context} ctx */
 export async function commentAdd(ctx) {
+  // A comment on a doc is a comment on its file (C4): nb comment add --doc readme -m "…".
+  if (ctx.flags.doc) {
+    const { docs } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/docs`));
+    const doc = docs.find((/** @type {any} */ d) => d.slug === String(ctx.flags.doc).toLowerCase());
+    if (!doc?.nodePath) throw new CliError("DOC_NOT_FOUND", doc ? `${doc.slug} has no file yet` : `No doc called ${ctx.flags.doc}`, { hint: "nb doc list" });
+    ctx.flags.file = `${doc.nodePath.replace(/^\//, "")}:1`;
+  }
   if (ctx.flags.file) return (await import("./work.mjs")).commentOnFile(ctx);
-  const text = String(ctx.flags.message ?? ctx.positionals.join(" ")).trim();
-  if (!text) throw usage('nb comment add -m "<text>" [--task 4]');
+  const raw = String(ctx.flags.message ?? ctx.positionals.join(" ")).trim();
+  if (!raw) throw usage('nb comment add -m "<text>" [--task 4] [--reply <id>]');
   const task = await resolveTask(ctx, taskRef(ctx, undefined));
-  await ctx.api.post("/api/v1/extension/comments", { kind: "task", projectId: ctx.requireWorkspace(), taskId: task.id, text });
-  ctx.out.result("nb.comment.add/1", { number: task.taskNumber }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Commented on #${d.number}`);
+  const text = await withMentions(ctx, raw);
+  const replyTo = ctx.flags.reply ? commentIdOf(task, String(ctx.flags.reply)) : null;
+  await ctx.api.post("/api/v1/extension/comments", { kind: "task", projectId: ctx.requireWorkspace(), taskId: task.id, text, ...(replyTo ? { replyTo } : {}) });
+  ctx.out.result("nb.comment.add/1", { number: task.taskNumber, reply: Boolean(replyTo) }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${d.reply ? "Replied" : "Commented"} on #${d.number}`);
 }
+
+/**
+ * `@sam` in a comment becomes a real mention (C4), so Sam is told, as in the app. A name that isn't a member of the
+ * workspace is an error that says so, never a mention that quietly goes nowhere.
+ * @param {Context} ctx @param {string} text
+ */
+export async function withMentions(ctx, text) {
+  const names = [...new Set([...text.matchAll(/(?<![\w@{])@([a-z0-9_.-]{2,40})\b/gi)].map((m) => m[1].toLowerCase()))];
+  if (!names.length) return text;
+  const { members } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/members`));
+  let out = text;
+  for (const name of names) {
+    const m = members.find((/** @type {any} */ x) => String(x.username ?? "").toLowerCase() === name);
+    if (!m) throw new CliError("NOT_FOUND", `@${name} isn't in this workspace, so they wouldn't be told`, { hint: "nb member list" });
+    out = out.replace(new RegExp(`(?<![\\w@{])@${name.replace(/[.]/g, "\\.")}\\b`, "gi"), `@{${m.id}|${String(m.fullName ?? m.username).replace(/[|}]/g, "")}}`);
+  }
+  return out;
+}
+
+/** A comment by the id shown in nb comment list (its first characters are enough). @param {any} task @param {string} ref */
+function commentIdOf(task, ref) {
+  const hits = task.comments.filter((/** @type {any} */ c) => String(c.id).startsWith(ref.toLowerCase()));
+  if (hits.length !== 1) throw new CliError("NOT_FOUND", hits.length ? `${ref} matches more than one comment` : `No comment ${ref} on #${task.taskNumber}`, { hint: `nb comment list --task ${task.taskNumber}` });
+  return hits[0].id;
+}
+
+/** `nb comment edit <id> -m "…"` and `nb comment delete <id>` (C4): your own task comments. @param {Context} ctx @param {"edit" | "delete"} what */
+async function ownComment(ctx, what) {
+  const ref = ctx.positionals[0];
+  if (!ref) throw usage(what === "edit" ? 'nb comment edit <id> -m "new text" [--task 4]' : "nb comment delete <id> [--task 4]", "The ids are in nb comment list");
+  const task = await resolveTask(ctx, taskRef(ctx, undefined));
+  const commentId = commentIdOf(task, ref);
+  if (what === "edit") {
+    const raw = String(ctx.flags.message ?? ctx.positionals.slice(1).join(" ")).trim();
+    if (!raw) throw usage('nb comment edit <id> -m "new text"');
+    await ctx.api.patch("/api/v1/extension/comments", { projectId: ctx.requireWorkspace(), commentId, text: await withMentions(ctx, raw) });
+  } else {
+    const { confirm } = await import("../tui/ask.mjs");
+    if (!(await confirm(ctx, { key: "delete", question: `Delete your comment ${ref} on #${task.taskNumber}?`, yesLabel: "Delete", defaultYes: false }))) return 130;
+    await ctx.api.request("DELETE", "/api/v1/extension/comments", { body: { projectId: ctx.requireWorkspace(), commentId } });
+  }
+  ctx.out.result(`nb.comment.${what}/1`, { number: task.taskNumber, commentId }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${what === "edit" ? "Edited" : "Deleted"} your comment on #${d.number}`);
+}
+/** @param {Context} ctx */
+export const commentEdit = (ctx) => ownComment(ctx, "edit");
+/** @param {Context} ctx */
+export const commentDelete = (ctx) => ownComment(ctx, "delete");
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
-import { createWorkspaceUpdateAction } from "@/app/actions/workspace/updates";
+import { createWorkspaceUpdateAction, readWorkspaceUpdatesAction } from "@/app/actions/workspace/updates";
 import { agentGate } from "@/lib/agents/policy";
 import { validateCsrf } from "@/lib/security/csrf";
 
@@ -34,4 +34,20 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   return idempotentWrite(request, "workspace.updates", (req) => handlePost(req, context));
+}
+
+/** The workspace's feed (`nb update list`, report C4): the same posts, order and pages as the app. */
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const auth = await requireAuthenticatedUser();
+    if (auth.response) return auth.response;
+    if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
+    const id = (await context.params).id;
+    if (!z.string().uuid().safeParse(id).success) return jsonError("Workspace not found", 404, "NOT_FOUND");
+    const result = await readWorkspaceUpdatesAction(id, { cursor: new URL(request.url).searchParams.get("cursor") });
+    if (!result.success) return jsonError(result.error ?? "Updates aren’t available", 403, "FORBIDDEN");
+    return jsonSuccess(result.data, undefined, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/workspaces/updates", fallback: "Couldn’t read the updates" });
+  }
 }

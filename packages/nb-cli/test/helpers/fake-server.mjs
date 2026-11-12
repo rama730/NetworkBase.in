@@ -15,7 +15,7 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
 /** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string, active?: number }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, dueDate?: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, lastTokenBody?: any, countWorkspaces?: any[], stars?: Set<string>, trash?: any[], locks?: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, lastTokenBody?: any, countWorkspaces?: any[], stars?: Set<string>, trash?: any[], locks?: any[], memberOps?: any[], feed?: any[], prefs?: any, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -37,6 +37,8 @@ export function addTask(state, task) {
   state.tasks.push(t);
   return t;
 }
+
+const defaultPrefs = () => ({ mentions: true, workflows: true, projects: true, tasks: true, applications: true, connections: true, pausedUntil: null, quietHours: { enabled: false, startMinute: 1320, endMinute: 480 }, mutedScopes: [] });
 
 /** The meta route's answer for a fake task. @param {FakeState} state @param {any} t */
 const metaOf = (state, t) => {
@@ -71,7 +73,7 @@ const exact = {
     return { data: q };
   },
   "GET /api/v1/assignments": (_req, state) => ({ data: { copies: state.assignments.map((a) => ({ id: a.id, number: a.number, title: a.title, org: "Physics 101", orgId: WORKSPACE_ID, workspaceId: WORKSPACE_ID, due: a.due, state: a.state, late: false, submissionType: a.submissionType, aiPolicy: a.aiPolicy, team: null })) } }),
-  "GET /api/v1/reviews": (req, state) => (req.query.get("org") ? { data: { rows: state.assignments.filter((a) => a.state === "submitted").map((a) => ({ kind: "copy", mine: true, copyId: a.id, masterId: a.id, title: a.title, who: "Sam Lee", submittedBy: "u2", submittedAt: now(), late: false, href: "", projectId: WORKSPACE_ID, updatedAt: now(), version: 1, link: null, text: null, note: null, files: [], versions: [] })), total: 1, nextCursor: null } } : fail(400, "BAD_REQUEST", "Which organization?")),
+  "GET /api/v1/reviews": (req, state) => (req.query.get("org") ? { data: { rows: state.assignments.filter((a) => a.state === "submitted").map((a) => ({ kind: "copy", mine: true, copyId: a.id, masterId: a.id, title: a.title, who: "Sam Lee", submittedBy: "u2", submittedAt: now(), late: false, href: "", projectId: WORKSPACE_ID, updatedAt: now(), version: 1, link: null, text: null, note: null, files: [], versions: a.versions ?? [] })), total: 1, nextCursor: null } } : fail(400, "BAD_REQUEST", "Which organization?")),
   "GET /api/v1/inbox": (_req, state) => ({ data: { items: state.inbox, nextCursor: null, hasMore: false, unreadCount: state.inbox.filter((i) => !i.readAt).length, unreadImportantCount: 0 } }),
   "POST /api/v1/inbox/read": (req, state) => {
     const ids = req.body.all ? state.inbox.filter((i) => !i.readAt).map((i) => i.id) : req.body.ids;
@@ -215,7 +217,7 @@ const exact = {
     }
     const t = findTask(state, req.body.taskId);
     if (!t) return fail(404, "NOT_FOUND", "Task not found");
-    t.comments.push({ authorUsername: "tester", content: req.body.text ?? req.body.content });
+    t.comments.push({ id: crypto.randomUUID(), authorUsername: "tester", content: req.body.text ?? req.body.content, replyTo: req.body.replyTo ?? null });
     return { data: { comment: { id: crypto.randomUUID() } } };
   },
   "GET /api/v1/extension/search": (req, state) => ({ data: { files: [...state.files.values()].filter((f) => f.path.includes(req.query.get("q") ?? "")).map((f) => ({ ...meta(f), currentVersion: f.version })), nextCursor: null } }),
@@ -265,6 +267,16 @@ const exact = {
     return { data: { nodeId: f.nodeId, path: f.path, activeVersion: req.body.version, previousVersion, undoToken: crypto.randomUUID() } };
   },
   "GET /api/v1/extension/comments": (_req, state) => ({ data: { events: state.fileComments } }),
+  "PATCH /api/v1/extension/comments": (req, state) => {
+    for (const t of state.tasks) for (const c of t.comments) if (c.id === req.body.commentId) { if (c.authorUsername !== "tester") return fail(403, "FORBIDDEN", "You can only edit your own comments"); c.content = req.body.text; return { data: { commentId: c.id } }; }
+    return fail(404, "NOT_FOUND", "Comment not found");
+  },
+  "DELETE /api/v1/extension/comments": (req, state) => {
+    for (const t of state.tasks) { const i = t.comments.findIndex((c) => c.id === req.body.commentId); if (i >= 0) { t.comments.splice(i, 1); return { data: { mode: "hard_delete" } }; } }
+    return fail(404, "NOT_FOUND", "Comment not found");
+  },
+  "GET /api/v1/me/notifications": (_req, state) => ({ data: { preferences: state.prefs ?? defaultPrefs() } }),
+  "PATCH /api/v1/me/notifications": (req, state) => { state.prefs = { ...(state.prefs ?? defaultPrefs()), ...req.body }; return { data: { preferences: state.prefs } }; },
   "POST /api/v1/files/place": (req, state) => {
     if (!state.canWrite) return fail(403, "FORBIDDEN", "You don’t have write access to this workspace");
     const files = req.body.files ?? [];
@@ -385,6 +397,19 @@ const patterns = [
     const n = t?.reminders?.length ?? 0;
     if (t) t.reminders = [];
     return { data: { cancelled: n } };
+  }],
+  // Report C4 (M4b): members, updates.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "POST", (req, state) => (req.body.role === "Designer" ? { data: { invited: `@${req.body.username}`, role: "Designer", invitationId: crypto.randomUUID() } } : fail(404, "NOT_FOUND", `No open role "${req.body.role}". Open roles: Designer`))],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "PATCH", (req, state) => { state.memberOps = [...(state.memberOps ?? []), { op: "role", ...req.body }]; return { data: { username: req.body.username, role: req.body.role } }; }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "DELETE", (req, state) => { state.memberOps = [...(state.memberOps ?? []), { op: req.body.leave ? "leave" : "remove", ...req.body }]; return { data: req.body.leave ? { left: true } : { removed: req.body.username } }; }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/updates$/, "GET", (_req, state) => ({ data: { updates: (state.feed ?? []), nextCursor: null, hasMore: false } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/updates\/([^/]+)$/, "GET", (req, state) => ({ data: { comments: (state.feed ?? []).find((u) => u.id === req.params[1])?.commentList ?? [], nextCursor: null, hasMore: false } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/updates\/([^/]+)$/, "POST", (req, state) => {
+    const u = (state.feed ?? []).find((x) => x.id === req.params[1]);
+    if (!u) return fail(404, "NOT_FOUND", "Update not found");
+    if (req.body.kind === "like") { u.likedByViewer = !u.likedByViewer; u.likeCount += u.likedByViewer ? 1 : -1; return { data: { liked: u.likedByViewer } }; }
+    u.commentList = [...(u.commentList ?? []), { authorUsername: "tester", content: req.body.text }];
+    return { data: { comment: { id: crypto.randomUUID() } } };
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/files\/trash$/, "GET", (_req, state) => ({ data: { items: state.trash ?? [], nextCursor: null } })],
   [/^\/api\/v1\/files\/([^/]+)\/lock$/, "POST", (req, state) => {

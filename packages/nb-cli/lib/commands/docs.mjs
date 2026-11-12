@@ -205,3 +205,42 @@ export async function memberList(ctx) {
       ? [...ctx.out.table([{ title: "Member", value: (m) => (m.username ? `@${safe(m.username)}` : ""), flex: true }, { title: "Name", value: (m) => safe(m.name ?? "") }, { title: "Role", value: (m) => m.role }], d.members), ...(d.members.length >= 10 ? [ctx.out.c.muted("  First 10 shown: add a name to narrow it")] : [])]
       : `No members match "${safe(q)}"`);
 }
+
+// ───────────────────────────────── members (report C4, M4b): owner and admins change them; your own sign-in only
+
+/** @param {Context} ctx @param {"POST" | "PATCH" | "DELETE"} method @param {Record<string, unknown>} body */
+const members = (ctx, method, body) => ctx.api.request(method, `/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/members`, { body });
+
+/** `nb member invite @sam --role "Frontend developer"`: workspace invitations are for one of its open roles. @param {Context} ctx */
+export async function memberInvite(ctx) {
+  const who = ctx.positionals[0];
+  if (!who || !ctx.flags.role) throw usage('nb member invite @username --role "<open role>"', "The open roles are on the workspace's Members page");
+  const res = /** @type {any} */ (await members(ctx, "POST", { username: who.replace(/^@/, ""), role: String(ctx.flags.role), ...(ctx.flags.message ? { note: String(ctx.flags.message) } : {}) }));
+  ctx.out.result("nb.member.invite/1", res, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Invited ${safe(d.invited)} as ${safe(d.role)}; they accept in NetworkBase`);
+}
+
+/** `nb member role @sam admin` @param {Context} ctx */
+export async function memberRole(ctx) {
+  const [who, role] = ctx.positionals;
+  if (!who || !["admin", "member", "viewer"].includes(String(role))) throw usage("nb member role @username admin|member|viewer");
+  await members(ctx, "PATCH", { username: who.replace(/^@/, ""), role });
+  ctx.out.result("nb.member.role/1", { username: who.replace(/^@/, ""), role }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} @${safe(d.username)} is now ${d.role}`);
+}
+
+/** `nb member remove @sam`: their open tasks become unassigned (asks first). @param {Context} ctx */
+export async function memberRemove(ctx) {
+  const who = ctx.positionals[0];
+  if (!who) throw usage("nb member remove @username");
+  const { confirm } = await import("../tui/ask.mjs");
+  if (!(await confirm(ctx, { key: "remove", question: `Remove ${who.startsWith("@") ? who : `@${who}`} from this workspace? Their open tasks become unassigned.`, yesLabel: "Remove", defaultYes: false }))) return EXIT.cancelled;
+  await members(ctx, "DELETE", { username: who.replace(/^@/, "") });
+  ctx.out.result("nb.member.remove/1", { username: who.replace(/^@/, "") }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Removed @${safe(d.username)}`);
+}
+
+/** `nb workspace leave` (the plain leave): your open tasks become unassigned; the owner can't leave. @param {Context} ctx */
+export async function workspaceLeave(ctx) {
+  const { confirm } = await import("../tui/ask.mjs");
+  if (!(await confirm(ctx, { key: "leave", question: "Leave this workspace? Your open tasks become unassigned, and you'll need a new invitation to come back.", yesLabel: "Leave", defaultYes: false }))) return EXIT.cancelled;
+  await members(ctx, "DELETE", { leave: true });
+  ctx.out.result("nb.workspace.leave/1", { left: true }, () => `${ctx.out.c.success(ctx.out.sym.done)} You left the workspace${ctx.root ? " · nb unlink to unlink this folder" : ""}`);
+}

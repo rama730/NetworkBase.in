@@ -19,7 +19,7 @@ More
   Account and setup
     login, logout, token list, token revoke, whoami, unlink, doctor, open,
     version, help, completion, setup shell, feedback, config, inbox read,
-    inbox reply, inbox approve, inbox open
+    inbox reply, inbox approve, inbox settings, inbox mute, inbox open
   Files
     undo, diff, queue, queue retry, queue drop, sync, resolve, watch, file list,
     file trash, file restore, file mkdir, file copy, file lock, file recent,
@@ -30,18 +30,19 @@ More
     task edit, task remind, task watch, task star, task assign, task report,
     task delete, task open, task pull, subtask list, subtask add, subtask check,
     subtask uncheck, subtask edit, subtask delete, subtask move, comment add,
-    comment list, comment resolve
+    comment edit, comment delete, comment list, comment resolve
   Classes
     assignment list, assignment view, assignment pull, assignment hand-in,
     assignment unsubmit, assignment question, review list, review view,
-    review approve, review return, review pull
+    review approve, review diff, review return, review pull
   Agents
     ask, ask wait, ask list, ask answer, agent setup, agent status,
     agent access, agent remove, mcp
   Docs and workspaces
     doc list, doc view, doc edit, doc set, workspace list, workspace view,
     workspace open, activity, sprint list, sprint view, update post,
-    member list, search
+    member invite, member role, member remove, workspace leave, update list,
+    update view, update like, update comment, member list, search
 
 nb help <command> explains one. Every command takes --json, --quiet, --plain and
 --help.

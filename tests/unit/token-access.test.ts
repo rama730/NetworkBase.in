@@ -56,8 +56,10 @@ describe("token routes (report A3.7)", () => {
   });
 
   it("refuses writes on read-only token routes", () => {
-    assert.equal(tokenRouteScope("GET", "/api/v1/workspaces/w1/members"), "workspace:read");
-    assert.equal(tokenRouteScope("POST", "/api/v1/workspaces/w1/members"), "forbidden");
+    assert.equal(tokenRouteScope("GET", "/api/v1/workspaces/w1/capabilities"), "workspace:read");
+    assert.equal(tokenRouteScope("POST", "/api/v1/workspaces/w1/capabilities"), "forbidden");
+    // Members take writes since M4b (report C4); the route itself refuses anything but the person's own sign-in.
+    assert.equal(tokenRouteScope("POST", "/api/v1/workspaces/w1/members"), null);
   });
 
   it("denies when the trusted target is missing, and names the missing scope", () => {

@@ -59,6 +59,7 @@ import {
   DISCUSSION_PAGE_SIZE,
   DISCUSSION_REPLY_PREVIEW_SIZE,
   createTaskCommentAs,
+  deleteTaskCommentAs,
 } from "@/lib/domain/task-comments";
 
 export async function readTaskDiscussionAction(
@@ -229,76 +230,7 @@ export async function deleteTaskCommentAction(
     if (!viewer.userId) {
       return { success: false as const, error: "Sign in to continue" };
     }
-
-    const { allowed } = await consumeRateLimit(`task-comment:${viewer.userId}`, 60, 60);
-    if (!allowed) {
-      return { success: false as const, error: "Too many attempts. Try again in a minute." };
-    }
-
-    const comment = await assertCommentAccess({
-      commentId,
-      projectId,
-      userId: viewer.userId,
-      mode: "write",
-    });
-    if (comment.userId !== viewer.userId) {
-      return { success: false as const, error: "You can only delete your own comments" };
-    }
-
-    const lockId = comment.parentCommentId ?? commentId;
-    const mode = await db.transaction(async (tx): Promise<TaskDiscussionDeleteMode> => {
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockId}, 0))`);
-      const [current] = await tx
-        .select({ parentCommentId: taskComments.parentCommentId })
-        .from(taskComments)
-        .where(eq(taskComments.id, commentId))
-        .limit(1);
-      if (!current) throw new Error("Comment not found");
-
-      if (current.parentCommentId) {
-        await tx.delete(taskComments).where(eq(taskComments.id, commentId));
-        return "hard_delete";
-      }
-
-      const [replyRow] = await tx
-        .select({ id: taskComments.id })
-        .from(taskComments)
-        .where(eq(taskComments.parentCommentId, commentId))
-        .limit(1);
-      if (!replyRow) {
-        await tx.delete(taskComments).where(eq(taskComments.id, commentId));
-        return "hard_delete";
-      }
-
-      await tx
-        .update(taskComments)
-        .set({
-          deletedAt: new Date(),
-          deletedBy: viewer.userId,
-          updatedAt: new Date(),
-        })
-        .where(eq(taskComments.id, commentId));
-      return "tombstone";
-    });
-
-    const entry = mode === "tombstone"
-      ? await readTaskDiscussionCommentInternal({
-          projectId,
-          taskId: comment.taskId,
-          commentId,
-          viewerId: viewer.userId,
-        })
-      : null;
-
-    return {
-      success: true as const,
-      data: {
-        mode,
-        commentId,
-        parentCommentId: comment.parentCommentId,
-        entry,
-      },
-    };
+    return await deleteTaskCommentAs(viewer.userId, commentId, projectId);
   } catch (error: any) {
     console.error("Failed to delete task discussion comment:", error);
     return { success: false as const, error: error?.message || "Couldn’t delete comment" };

@@ -114,10 +114,14 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/files/${ID}/(lock|lock-renew)`), write: "file:write" },
   { pattern: route("/api/v1/files/locks"), read: "file:read" },
   { pattern: route(`/api/v1/uploads/${ID}`), read: "file:read", write: "file:write" },
-  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/(capabilities|members)`), read: "workspace:read", agent: "path" },
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/capabilities`), read: "workspace:read", agent: "path" },
+  // Members (report C4): reading for any token; changes check for the person's own sign-in in the route.
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/members`), read: "workspace:read", write: null, agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/sync-diff`), read: "file:read" },
   { pattern: route("/api/v1/files/place"), write: "file:write", agent: "route" },
   { pattern: route("/api/v1/me"), read: null, agent: "self" },
+  // Your notification settings (report C4, nb inbox settings and mute): the person's own terminal, not agents.
+  { pattern: route("/api/v1/me/notifications"), read: "workspace:read", write: "workspace:read" },
   { pattern: route("/api/v1/tasks/count"), read: "task:read", agent: "self" },
   // nb on its own (report C1): the person's terminal only, since it includes the inbox.
   { pattern: route("/api/v1/home"), read: "task:read" },
@@ -128,7 +132,9 @@ export const TOKEN_ROUTES: RouteRule[] = [
   // One workspace, its activity and sprints, and updates (report A2.5, A8.7, D25).
   { pattern: route(`/api/v1/workspaces/${ID}`), read: "workspace:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/(activity|sprints)`), read: "task:read", agent: "path" },
-  { pattern: route(`/api/v1/workspaces/${ID}/updates`), write: "task:write", agent: "path" },
+  { pattern: route(`/api/v1/workspaces/${ID}/updates`), read: "workspace:read", write: "task:write", agent: "path" },
+  // One update: read its comments, like it, comment (report C4).
+  { pattern: route(`/api/v1/workspaces/${ID}/updates/${ID}`), read: "workspace:read", write: "task:write", agent: "path" },
   // Attach a workspace file to a task, or take it off; the route checks the workspace and final-file permission.
   { pattern: route(`/api/v1/tasks/${ID}/files`), write: "file:write", agent: "route" },
   // Several tasks at once (report C2); the route checks the workspace and asks for task:complete to finish.

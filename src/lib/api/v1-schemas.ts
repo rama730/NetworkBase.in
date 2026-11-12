@@ -88,6 +88,26 @@ export const taskMetaSchema = z.object({
 /** `nb task remind` (report C2, 0088): when, as an instant, and an optional note. */
 export const taskReminderSchema = z.object({ at: z.string().datetime({ offset: true }), note: z.string().trim().max(300).optional() }).strict();
 
+/** Report C4 (M4b): edit or delete your own task comment. */
+export const commentRefSchema = z.object({ projectId: z.string().uuid(), commentId: z.string().uuid() }).strict();
+export const commentEditSchema = commentRefSchema.extend({ text: z.string().trim().min(1).max(4000) }).strict();
+/** Report C4: members (invite into an open role, change a role, remove or leave). */
+export const memberInviteSchema = z.object({ username: z.string().min(1).max(80), role: z.string().min(1).max(120), note: z.string().max(500).optional() });
+export const memberRoleSchema = z.object({ username: z.string().min(1).max(80), role: z.enum(["admin", "member", "viewer"]) });
+export const memberRemoveSchema = z.object({ username: z.string().min(1).max(80).optional(), leave: z.boolean().optional() });
+/** Report C4: like or comment on an update. */
+export const updateActionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("like") }),
+  z.object({ kind: z.literal("comment"), text: z.string().trim().min(1).max(2000), parentId: z.string().uuid().optional() }),
+]);
+/** Report C4: the notification settings `nb inbox settings` and `nb inbox mute` change; only the named ones change. */
+export const notificationSettingsSchema = z.object({
+  mentions: z.boolean(), workflows: z.boolean(), projects: z.boolean(), tasks: z.boolean(), applications: z.boolean(), connections: z.boolean(),
+  pausedUntil: z.string().datetime({ offset: true }).nullable(),
+  quietHours: z.object({ enabled: z.boolean(), startMinute: z.number().int().min(0).max(1439), endMinute: z.number().int().min(0).max(1439), timeZone: z.string().max(80).nullable().optional() }),
+  mutedScopes: z.array(z.object({ kind: z.enum(["notification_type", "project", "task", "update", "person", "organization"]), value: z.string().min(1).max(200), label: z.string().max(200).nullable().optional() })).max(200),
+}).partial().strict();
+
 /** Several tasks at once (report C2): one request, all or nothing, one undo. */
 export const bulkTaskSchema = z.object({
   projectId: z.string().uuid(),

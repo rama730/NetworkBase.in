@@ -566,6 +566,56 @@
       ]
     },
     {
+      "name": "inbox settings",
+      "summary": "Which notifications you get, quiet hours, pause",
+      "usage": "nb inbox settings [--on kinds] [--off kinds] [--quiet 22:00-08:00|off] [--pause 2h|off]",
+      "flags": {
+        "on": {
+          "type": "string",
+          "multiple": true,
+          "describe": "Turn kinds on: mentions, tasks, workflows, projects, applications, connections",
+          "valueName": "kinds"
+        },
+        "off": {
+          "type": "string",
+          "multiple": true,
+          "describe": "Turn kinds off",
+          "valueName": "kinds"
+        },
+        "quiet": {
+          "type": "string",
+          "describe": "Quiet hours, like 22:00-08:00, or off",
+          "valueName": "hours"
+        },
+        "pause": {
+          "type": "string",
+          "describe": "Pause for 30m, 2h, 1d, or off",
+          "valueName": "time"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "inbox mute",
+      "summary": "Mute a workspace or a task (--off to unmute)",
+      "usage": "nb inbox mute <workspace|#task> [--off]",
+      "flags": {
+        "off": {
+          "type": "boolean",
+          "describe": "Unmute"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "inbox open",
       "summary": "Open an inbox item in the browser",
       "usage": "nb inbox open <n>",
@@ -1394,8 +1444,21 @@
     },
     {
       "name": "review approve",
-      "summary": "Approve a hand-in",
-      "usage": "nb review approve <n>",
+      "summary": "Approve a hand-in, or several",
+      "usage": "nb review approve <n…>",
+      "flags": {},
+      "examples": [
+        "nb review approve 3 5 8"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "review diff",
+      "summary": "What changed since the last hand-in",
+      "usage": "nb review diff <n>",
       "flags": {},
       "examples": [],
       "exitCodes": [
@@ -1405,8 +1468,8 @@
     },
     {
       "name": "review return",
-      "summary": "Return a hand-in with what to fix",
-      "usage": "nb review return <n> -m reason [--fix-by date]",
+      "summary": "Return hand-ins with what to fix",
+      "usage": "nb review return <n…> -m reason [--fix-by date]",
       "flags": {
         "message": {
           "type": "string",
@@ -1577,7 +1640,7 @@
     {
       "name": "comment add",
       "summary": "Comment on a task",
-      "usage": "nb comment add -m \"<text>\" [--task 4]",
+      "usage": "nb comment add -m \"<text>\" [--task 4] [--reply <id>] [--doc readme]",
       "flags": {
         "task": {
           "type": "string",
@@ -1595,12 +1658,69 @@
           "type": "string",
           "describe": "Comment on lines of a file instead: path:12 or path:12-18",
           "valueName": "path:line"
+        },
+        "reply": {
+          "type": "string",
+          "describe": "Reply to this comment (its id from nb comment list)",
+          "valueName": "id"
+        },
+        "doc": {
+          "type": "string",
+          "describe": "Comment on a doc instead (readme, …)",
+          "valueName": "slug"
+        }
+      },
+      "examples": [
+        "nb comment add -m \"@sam can you check this?\"",
+        "nb comment add --reply 3f2a9c1e -m \"done\"",
+        "nb comment add --doc readme -m \"Install step is out of date\""
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "comment edit",
+      "summary": "Edit your own comment",
+      "usage": "nb comment edit <id> -m \"new text\" [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
         }
       },
       "examples": [],
       "exitCodes": [
         0,
         1
+      ]
+    },
+    {
+      "name": "comment delete",
+      "summary": "Delete your own comment (asks first)",
+      "usage": "nb comment delete <id> [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        7,
+        130
       ]
     },
     {
@@ -1983,6 +2103,115 @@
       "name": "update post",
       "summary": "Post an update to the workspace (asks first)",
       "usage": "nb update post -m text",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "member invite",
+      "summary": "Invite someone into one of the workspace's open roles",
+      "usage": "nb member invite @username --role \"<open role>\" [-m note]",
+      "flags": {
+        "role": {
+          "type": "string",
+          "describe": "The open role's title",
+          "valueName": "role"
+        },
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "member role",
+      "summary": "Change a member's role (owner and admins)",
+      "usage": "nb member role @username admin|member|viewer",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "member remove",
+      "summary": "Remove a member (asks first)",
+      "usage": "nb member remove @username",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        7,
+        130
+      ]
+    },
+    {
+      "name": "workspace leave",
+      "summary": "Leave this workspace (asks first)",
+      "usage": "nb workspace leave",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        7,
+        130
+      ]
+    },
+    {
+      "name": "update list",
+      "summary": "The workspace's updates",
+      "usage": "nb update list",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "update view",
+      "summary": "One update and its comments",
+      "usage": "nb update view <n>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "update like",
+      "summary": "Like an update (again to unlike)",
+      "usage": "nb update like <n>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "update comment",
+      "summary": "Comment on an update",
+      "usage": "nb update comment <n> -m text",
       "flags": {
         "message": {
           "type": "string",
