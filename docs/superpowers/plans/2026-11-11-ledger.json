@@ -2072,9 +2072,9 @@
       "text": "Search beyond files: nb search finds tasks, comments, docs and people as well as files (today: files only), with --in tasks|files|comments|docs|people.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/workspace-search.test.ts; packages/nb-cli/test/search.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); tasks, comments, files"
     },
     {
       "key": "C2.5ba57e6d",
@@ -2082,9 +2082,9 @@
       "text": "Task labels: nb task edit 4 --label bug, nb task list --label bug. (new server)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/task-meta.test.ts; packages/nb-cli/test/task-meta.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); labels shown to the other person"
     },
     {
       "key": "C2.55ff38fb",
@@ -2092,9 +2092,9 @@
       "text": "\"Blocked by\": nb task edit 4 --blocked-by 7. The task shows it, and finishing #7 tells #4's assignee. (new server)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/task-meta.test.ts; packages/nb-cli/test/task-meta.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); loop refused; finishing #28 told #29's assignee"
     },
     {
       "key": "C2.2e97872f",
@@ -2102,9 +2102,9 @@
       "text": "Watch a task to get its notifications without being assigned: nb task watch 4. (new server)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/task-meta.test.ts; packages/nb-cli/test/task-meta.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); watcher told of the owner's move"
     },
     {
       "key": "C2.694f5cae",
@@ -2112,9 +2112,9 @@
       "text": "Star a task: nb task star 4, then nb task list --starred. (new server)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/task-meta.test.ts; packages/nb-cli/test/task-meta.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); stars stay personal"
     },
     {
       "key": "C2.2909ae3d",
@@ -2122,9 +2122,9 @@
       "text": "Reminders: nb task remind 4 \"tomorrow 9am\". Delivered to the inbox and by email, following notification settings. (new server)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/task-reminders.test.ts; packages/nb-cli/test/task-meta.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); reminder in the inbox one minute after its time"
     },
     {
       "key": "C3.be816be6",
@@ -2162,9 +2162,9 @@
       "text": "Trash: nb file trash lists deleted files with how many days are left, and nb file restore <file> brings one back. (app has it)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/file-ops-cli.test.ts; packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); delete, Trash, restore"
     },
     {
       "key": "C3.4f1ca546",
@@ -2172,9 +2172,9 @@
       "text": "Folders and copies: nb file mkdir <folder>, nb file copy <file> <to>.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/file-ops-cli.test.ts; packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); mkdir, copy"
     },
     {
       "key": "C3.b3be8b03",
@@ -2182,9 +2182,9 @@
       "text": "Starred and Recent, as in the Files tab: nb file star <file>, nb file list --starred, nb file recent. (new server) The app keeps Starred in the browser only (lo",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/file-stars.test.ts; packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); CLI side; seeing it in the Files tab needs a signed-in browser"
     },
     {
       "key": "C3.8f4dc084",
@@ -2192,9 +2192,9 @@
       "text": "Locks: nb file lock <file> / unlock, which shows teammates \"Ram is editing this\", using the same leases as the app's editor.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); --for 3s lets go"
     },
     {
       "key": "C3.a929ca58",
@@ -2222,9 +2222,9 @@
       "text": "--dry-run on every write command: prints what would happen and changes nothing (today on push and pull only).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); task edit --dry-run"
     },
     {
       "key": "C4.78558301",
@@ -2242,9 +2242,9 @@
       "text": "Inbox settings: nb inbox mute <workspace|task>, quiet hours, and turning notification types on or off, matching Settings → Notifications. (app has it)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/together-routes.test.ts; packages/nb-cli/test/together.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); settings read"
     },
     {
       "key": "C4.87467888",
@@ -2252,9 +2252,9 @@
       "text": "@mentions in comments that complete member names in a terminal, and are checked against members in scripts.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/together.test.mjs; packages/nb-cli/test/complete.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); @ramanayudu_ch reached the owner's inbox"
     },
     {
       "key": "C4.6267b98b",
@@ -2262,9 +2262,9 @@
       "text": "Comments:",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/comment-edit-delete.test.ts; packages/nb-cli/test/together.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); add, reply, edit"
     },
     {
       "key": "C4.c0fd267f",
@@ -2272,9 +2272,9 @@
       "text": "Members (owner and admin only for changes):",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/together-routes.test.ts; packages/nb-cli/test/together.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); role admin and back; lookalike name refused"
     },
     {
       "key": "C4.1f196199",
@@ -2282,9 +2282,9 @@
       "text": "Updates: nb update list (the workspace's feed), comment on an update, and like one, as well as the existing nb update post.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/together-routes.test.ts; packages/nb-cli/test/together.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); list, view, like and unlike (no post: the CLI can't delete one)"
     },
     {
       "key": "C4.72552a94",
@@ -2332,9 +2332,9 @@
       "text": "nb help <topic> for files, agents, classes, sign-in and offline, with real examples tested in CI.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/help-network.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); nb help offline"
     },
     {
       "key": "C5.01ae7ad4",
@@ -2342,9 +2342,9 @@
       "text": "nb upgrade updates the CLI the way it was installed (npm, npx needs nothing).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/help-network.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); --dry-run"
     },
     {
       "key": "C6.49c48f14",
@@ -2372,9 +2372,9 @@
       "text": "App and nb watch together: a test where the same file is edited in the app while nb watch runs. The result must be a conflict copy, never lost work.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/reliability.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); CI at publish"
     },
     {
       "key": "C6.f01b96f7",
@@ -2382,9 +2382,9 @@
       "text": "Network drops: a CI test that cuts the network at every step of a push and a pull, and checks nothing is lost or doubled.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/reliability.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); CI on Ubuntu, macOS, Windows × Node 20, 22 at publish"
     },
     {
       "key": "C6.8f34e5a3",
@@ -2392,9 +2392,9 @@
       "text": "Large workspaces: a timed test with 5,000 files and deep folders; nb status, nb pull and nb push stay within set limits.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/reliability.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); CI at publish"
     },
     {
       "key": "C6.16dd1698",
@@ -2422,9 +2422,9 @@
       "text": "A startup-speed budget checked in CI for nb status and nb help.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/budgets.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); CI at publish"
     },
     {
       "key": "C7.de4f32b6",
@@ -2472,9 +2472,9 @@
       "text": "Tab completion that knows real names: task numbers with their titles, member names and workspace file paths. They come from a small local cache, refreshed in th",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/complete.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); tasks and members from the cache"
     },
     {
       "key": "C9.a7eb9eab",
@@ -2512,9 +2512,9 @@
       "text": "nb undo --list: your recent changes from this computer, newest first, with what each would undo, so you can choose which one.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C11.f73aaa69",
@@ -2522,9 +2522,9 @@
       "text": "--format table|json|csv|md on every list. Markdown pastes straight into chat or a document; CSV opens in a spreadsheet. --json stays the same.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); md"
     },
     {
       "key": "C11.df7ddd04",
@@ -2532,9 +2532,9 @@
       "text": "Relative times everywhere in human output: \"due in 2 days\", \"updated 5 min ago\". Exact times stay in --json.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C11.3ccc0129",
@@ -2552,9 +2552,9 @@
       "text": "nb task view shows on one screen: the checklist, files with their roles, the latest 3 comments, who's assigned, and who (person or agent) is working on it now.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C12.5c0f8d52",
@@ -2782,9 +2782,9 @@
       "text": "task list filters · extend GET /api/v1/workspaces/:id/tasks with due, assignee, sprint, priority, label, starred, sort",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/task-meta.test.ts; packages/nb-cli/test/task-meta.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.ded6ec5f",
@@ -2812,9 +2812,9 @@
       "text": "Search beyond files · extend search with in=tasks,files,comments,docs,people, using the existing search and text search",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/workspace-search.test.ts",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.0eee889f",
@@ -2822,9 +2822,9 @@
       "text": "Labels, blocked by, watch, star tasks, star files, PR links · migration 0087: tasks.labels text[] (GIN), taskdependencies (taskid, blockedbytaskid), taskwatcher",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/task-meta.test.ts; tests/db/file-stars.test.ts",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.30496a68",
@@ -2832,9 +2832,9 @@
       "text": "Reminders · migration 0088: taskreminders (id, taskid, userid, remindat, sentat), a route, and one Inngest scheduled function that sleeps until remindat (counte",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/task-reminders.test.ts",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.816f242e",
@@ -2852,9 +2852,9 @@
       "text": "Trash, restore, folders, copy · v1 routes over the existing Files actions (restore, createFolder, copy as a new node)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/file-ops-cli.test.ts",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.a0aa13c8",
@@ -2862,9 +2862,9 @@
       "text": "Locks · the existing file lease routes",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.261f62a3",
@@ -2872,9 +2872,9 @@
       "text": "Inbox reply, approve, settings · reply = comment add; approve = the existing review route; new GET/PATCH /api/v1/me/notifications over the existing preferences",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/together-routes.test.ts",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.cacb852c",
@@ -2882,9 +2882,9 @@
       "text": "Comments: reply, edit, delete, on docs · routes over the existing comment actions (deleteTaskCommentAction exists; edit and docs are new)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/comment-edit-delete.test.ts",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.7670a76b",
@@ -2892,9 +2892,9 @@
       "text": "Members, updates · routes over the existing invite, role and remove actions; GET /workspaces/:id/updates plus like and comment",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/together-routes.test.ts",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.21b07922",
@@ -3002,9 +3002,9 @@
       "text": "the new routes pass DB tests",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db (npm run test:db)",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.17b040d2",
@@ -3012,9 +3012,9 @@
       "text": "the size and startup budgets hold",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/budgets.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI)"
     },
     {
       "key": "C15.f4b640ad",
@@ -10612,9 +10612,9 @@
       "text": "nb upgrade (see C5).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/help-network.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "site 922a65192 + CLI 2.1.2 (npm), live check 2026-11-12 (@ch_rama in Gstack; @ramanayudu_ch + @ch_rama in DeepScope AI); --dry-run"
     },
     {
       "key": "F7.297f83c7",
