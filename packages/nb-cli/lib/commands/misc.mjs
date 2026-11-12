@@ -164,15 +164,40 @@ export async function feedback(ctx) {
 
 /** One short line for your shell prompt: the linked workspace and started task. No network; empty outside a link. @param {Context} ctx */
 export async function prompt(ctx) {
-  if (!ctx.project) return;
-  const task = ctx.project.startedTask?.number ? ` #${ctx.project.startedTask.number}` : "";
-  ctx.out.raw(`${safe(ctx.project.slug ?? "nb")}${task}`);
+  if (!ctx.project || !ctx.root) return;
+  const { branchTask } = await import("./tasks.mjs");
+  const number = ctx.project.startedTask?.number ?? branchTask(ctx.root);
+  // "2 changed": tracked files whose size or time moved since the last sync, by stat only (it runs on every prompt).
+  // ponytail: new untracked files aren't counted, and past 3,000 tracked files the count is left out.
+  let changed = 0;
+  try {
+    const { readState } = await import("../sync/state.mjs");
+    const { toRelative } = await import("../sync/local.mjs");
+    const entries = Object.entries(readState(ctx.root, ctx.project.workspaceId).files);
+    if (entries.length <= 3000) {
+      for (const [remotePath, base] of entries) {
+        const rel = toRelative(ctx.project.remoteRoot ?? "/", remotePath);
+        if (rel === null) continue;
+        try {
+          const st = fs.statSync(path.join(ctx.root, ...rel.split("/")));
+          if (st.size !== base.size || Math.trunc(st.mtimeMs) !== Math.trunc(base.mtimeMs)) changed++;
+        } catch {
+          changed++;
+        }
+      }
+    }
+  } catch {
+    // No sync yet: nothing to count.
+  }
+  const parts = [number ? `#${number}` : safe(ctx.project.slug ?? "nb"), changed ? `${changed} changed` : null].filter(Boolean);
+  // A trailing space, so `PS1='$(nb prompt)'$PS1` reads well and adds nothing outside linked folders.
+  ctx.out.raw(`[${parts.join(" · ")}] `);
 }
 
-const RC = /** @type {Record<string, { file: (home: string) => string, line: string }>} */ ({
-  zsh: { file: (h) => path.join(h, ".zshrc"), line: "command -v nb >/dev/null && source <(nb completion zsh)" },
-  bash: { file: (h) => path.join(h, ".bashrc"), line: "command -v nb >/dev/null && source <(nb completion bash)" },
-  fish: { file: (h) => path.join(h, ".config", "fish", "conf.d", "nb.fish"), line: "type -q nb; and nb completion fish | source" },
+const RC = /** @type {Record<string, { file: (home: string) => string, line: string, prompt: string }>} */ ({
+  zsh: { file: (h) => path.join(h, ".zshrc"), line: "command -v nb >/dev/null && source <(nb completion zsh)", prompt: "setopt PROMPT_SUBST; PROMPT='$(nb prompt 2>/dev/null)'$PROMPT" },
+  bash: { file: (h) => path.join(h, ".bashrc"), line: "command -v nb >/dev/null && source <(nb completion bash)", prompt: "PS1='$(nb prompt 2>/dev/null)'$PS1" },
+  fish: { file: (h) => path.join(h, ".config", "fish", "conf.d", "nb.fish"), line: "type -q nb; and nb completion fish | source", prompt: "functions -q _nb_prompt_was; or functions -c fish_prompt _nb_prompt_was; function fish_prompt; nb prompt 2>/dev/null; _nb_prompt_was; end" },
 });
 
 /** Adds completions to your shell's startup file, after a yes (A6.6). @param {Context} ctx */
@@ -186,14 +211,20 @@ export async function setupShell(ctx) {
   if (/[\\/]_npx[\\/]/.test(process.argv[1] ?? "")) ctx.out.warn("nb isn't installed, so completions won't find it: npm i -g @networkbase/cli");
   const file = rc.file(os.homedir());
   const current = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
-  if (current.includes("nb completion")) return ctx.out.result("nb.setup.shell/1", { shell, file, added: false }, () => `Completions are already set up in ${file}`);
   const { confirm } = await import("../tui/ask.mjs");
-  if (!(await confirm(ctx, { key: "shell", question: `Add nb completions to ${file}?`, preview: rc.line, yesLabel: "Add", defaultYes: true }))) return 130;
+  /** @type {string[]} */
+  const lines = [];
+  if (!current.includes("nb completion")) {
+    if (!(await confirm(ctx, { key: "shell", question: `Add nb completions to ${file}?`, preview: rc.line, yesLabel: "Add", defaultYes: true }))) return 130;
+    lines.push(rc.line);
+  }
+  // The current task in the prompt, [#4 · 2 changed] (C8): a separate yes, since it changes how the prompt looks.
+  if (!current.includes("nb prompt") && (await confirm(ctx, { key: "prompt", question: `Show the current task in your prompt too, like [#4 · 2 changed]?`, preview: rc.prompt, yesLabel: "Add", defaultYes: true }).catch(() => false))) lines.push(rc.prompt);
+  if (!lines.length) return ctx.out.result("nb.setup.shell/1", { shell, file, added: false }, () => `Already set up in ${file}`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.appendFileSync(file, `${current && !current.endsWith("\n") ? "\n" : ""}# NetworkBase CLI\n${rc.line}\n`);
-  ctx.out.result("nb.setup.shell/1", { shell, file, added: true }, () => [
-    `${ctx.out.c.success(ctx.out.sym.done)} Added completions to ${file}; open a new terminal to use them`,
-    ctx.out.c.muted(`  Workspace in your prompt too: ${shell === "fish" ? "add (nb prompt) to fish_prompt" : "PS1='$(nb prompt) '$PS1"}`),
+  fs.appendFileSync(file, `${current && !current.endsWith("\n") ? "\n" : ""}# NetworkBase CLI\n${lines.join("\n")}\n`);
+  ctx.out.result("nb.setup.shell/1", { shell, file, added: true, prompt: lines.includes(rc.prompt) }, (d) => [
+    `${ctx.out.c.success(ctx.out.sym.done)} Added ${lines.includes(rc.line) ? "completions" : ""}${lines.length === 2 ? " and " : ""}${d.prompt ? "the task in your prompt" : ""} to ${file}; open a new terminal to use ${lines.length === 2 ? "them" : "it"}`,
   ]);
 }
 

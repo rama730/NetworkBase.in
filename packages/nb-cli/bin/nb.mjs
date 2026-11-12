@@ -21,6 +21,8 @@ const restoreCursor = () => { if (process.stderr.isTTY) process.stderr.write("\x
 process.on("exit", restoreCursor);
 for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) process.on(signal, () => { restoreCursor(); process.exit(EXIT.cancelled); });
 
+/** The command being run, so a usage error can point at its help (C5). @type {string | null} */
+let commandName = null;
 try {
   if (argv.length === 1 && (argv[0] === "--version" || argv[0] === "-v")) {
     const { VERSION } = await import("../lib/context.mjs");
@@ -28,6 +30,7 @@ try {
     process.exit(EXIT.ok);
   }
   const { spec, rest, alias } = resolveCommand(argv);
+  commandName = spec?.name ?? null;
   if (!spec) {
     if (argv.includes("--json")) {
       const { helpData } = await import("../lib/args.mjs");
@@ -67,6 +70,8 @@ try {
   await (await import("../lib/print/notices.mjs")).afterCommand(ctx);
 } catch (error) {
   const cliError = toCliError(error);
+  // A usage error's next step is the command's own help (C5).
+  if (!cliError.hint && cliError.exitCode === EXIT.usage && commandName) cliError.hint = `See nb ${commandName} --help`;
   early.error(cliError);
   if (cliError.code === "INTERNAL" && process.env.NB_DEBUG === "1" && error instanceof Error) process.stderr.write(`${error.stack}\n`);
   process.exitCode = cliError.exitCode;

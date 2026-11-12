@@ -1,11 +1,13 @@
 // Size and startup budgets (report A13.8). Reports always; `--enforce` fails when over.
 // Size: report A13.8 aimed for 150 KB; 2.0 with its MCP server and the full §17.4 command set was held to 320 KB,
 // unminified (phase 3 notes). Phases 5–6 (assignments, review, inbox, live pull, git extras) took it to 344 KiB
-// (103 KB packed), so the ceiling is 400 KiB. Startup stays within budget because command modules load only when used.
+// (103 KB packed), so the ceiling was 400 KiB. M4a (2.1.0: home screen, filters, bulk, queue, file use, inbox reply,
+// the error catalog's next steps) took it to 421 KiB, so the ceiling is 480 KiB; each later M4 phase checks it again.
+// Startup stays within budget because command modules load only when used.
 import { startFakeServer } from "./helpers/fake-server.mjs";
 import { cliMs, unpackedBytes } from "./helpers/measure.mjs";
 
-const BUDGET = { unpackedBytes: 400 * 1024, versionMs: 120, helpMs: 200 };
+const BUDGET = { unpackedBytes: 480 * 1024, versionMs: 120, helpMs: 200 };
 
 const api = await startFakeServer();
 const result = {

@@ -73,7 +73,7 @@ export function normalizeOrigin(origin) {
 }
 
 /**
- * @typedef {{ origin: string, token: string, user?: { id: string, username?: string | null, email?: string | null } | null, savedAt?: string, source?: "file" | "env", storage?: "keychain" | "secret-service" | "dpapi" | "file", sealed?: string }} Profile
+ * @typedef {{ origin: string, token: string, user?: { id: string, username?: string | null, email?: string | null } | null, savedAt?: string, expiresAt?: string, source?: "file" | "env", storage?: "keychain" | "secret-service" | "dpapi" | "file", sealed?: string }} Profile
  */
 
 /** Settings: flag > environment > project > user > default. @param {{ profile?: string }} [flags] @param {NodeJS.ProcessEnv} [env] @param {any} [project] */

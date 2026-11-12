@@ -12,7 +12,7 @@ import { enqueue, QUEUE_TTL_MS, readQueue, writeQueue } from "../sync/queue.mjs"
 import { acquireLock, pruneBaseCopies, readState, saveBaseCopy, writeState } from "../sync/state.mjs";
 import { conflictCopyPath, downloadTo, fetchManifest, renameRetry, safeJoin, uploadFiles } from "../sync/transfer.mjs";
 import { confirm } from "../tui/ask.mjs";
-import { resolveTask } from "./tasks.mjs";
+import { branchTask, resolveTask } from "./tasks.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 /** @typedef {import("../sync/plan.mjs").PlanItem} PlanItem */
@@ -84,7 +84,8 @@ export async function status(ctx) {
   const conflicts = changed.filter((i) => i.state === "conflict");
   const data = {
     workspace: { id: project.workspaceId, slug: project.slug, title: project.title },
-    startedTask: project.startedTask ?? null,
+    // The current task (C8): the started one, or the one the nb/<n>- git branch names.
+    startedTask: project.startedTask ?? (branchTask(root) ? { number: Number(branchTask(root)), title: "(from the git branch)" } : null),
     offline,
     readOnly: !manifest.canWrite,
     queued: readQueue(root).length,
@@ -96,7 +97,7 @@ export async function status(ctx) {
   ctx.out.result("nb.status/1", data, (d) => {
     const task = d.startedTask ? ` · #${d.startedTask.number ?? ""} ${safe(d.startedTask.title ?? "")}` : "";
     const head = `${c.brand(sym.brand)} ${safe(project.slug ?? project.workspaceId)}${task}${d.readOnly ? ` · ${c.warning("read only")}` : ""}${d.offline ? ` · ${c.warning("offline: server side not checked")}` : ""}`;
-    const queued = d.queued ? [`  ${c.warning(`${d.queued} push(es) queued while offline: nb sync`)}`] : [];
+    const queued = d.queued ? [`  ${c.warning(`${d.queued} push(es) queued while offline: nb queue`)}`] : [];
     const t = d.today;
     const day = t ? [t.dueThisWeek && `${t.dueThisWeek} due this week`, t.overdue && c.warning(`${t.overdue} overdue`), t.unread && `${t.unread} unread`].filter(Boolean) : [];
     if (day.length) queued.unshift(`  ${day.join(" · ")}`);
@@ -252,7 +253,7 @@ export async function push(ctx) {
   const queueOffline = () => {
     if (ctx.flags["dry-run"]) return new CliError("OFFLINE", "Can't reach the server", { hint: "Try again when you're online" });
     const flags = Object.fromEntries(["task", "as", "message", "keep-both", "folder", "all"].filter((k) => ctx.flags[k] !== undefined).map((k) => [k, ctx.flags[k]]));
-    const n = enqueue(root, { id: keyBase, op: "push", paths: only, flags, queuedAt: new Date().toISOString() });
+    const n = enqueue(root, { id: keyBase, op: "push", paths: only, flags, queuedAt: new Date().toISOString(), reason: "the server couldn't be reached" });
     return new CliError("OFFLINE", `Offline: queued this push${n > 1 ? ` (${n} waiting)` : ""}`, { hint: "It sends with your next nb sync; your files are unchanged" });
   };
   const release = ctx.flags["dry-run"] ? () => {} : await acquireLock(root, "nb push");
@@ -313,7 +314,8 @@ export async function push(ctx) {
     }
     moves = moves.filter((m) => state.files[m.path]);
     // The started task gets the files unless told otherwise (C16 #1, C8): nb task start promises it.
-    const taskRef = ctx.flags.task ?? (ctx.flags["no-task"] ? null : ctx.project?.startedTask?.id ?? null);
+    // The current task (C8): --task, the started one, or the nb/<n>- git branch; --no-task opts out.
+    const taskRef = ctx.flags.task ?? (ctx.flags["no-task"] ? null : ctx.project?.startedTask?.id ?? branchTask(root));
     const task = taskRef ? await resolveTask(ctx, String(taskRef)) : null;
     const uploaded = items.length
       ? await uploadFiles(ctx.api, {
@@ -425,6 +427,42 @@ export async function sync(ctx) {
   }
   const ctx2 = /** @type {Context} */ ({ ...ctx, positionals: [], flags: { ...ctx.flags, all: true } });
   return push(ctx2);
+}
+
+// ───────────────────────────────── queue (C6)
+
+/** What's waiting to send, since when and why (C6). @param {Context} ctx */
+export async function queue(ctx) {
+  const { root } = ctx.requireRoot();
+  const entries = readQueue(root).map((e, i) => ({ n: i + 1, id: e.id, paths: e.paths, task: e.flags?.task ?? null, queuedAt: e.queuedAt, reason: e.reason ?? "the server couldn't be reached", dropsAt: new Date(Date.parse(e.queuedAt) + QUEUE_TTL_MS).toISOString() }));
+  const { c } = ctx.out;
+  ctx.out.result("nb.queue/1", { entries }, (d) => (d.entries.length ? [
+    `${d.entries.length} ${d.entries.length === 1 ? "push is" : "pushes are"} waiting to send`,
+    ...d.entries.map((e) => `  ${e.n}. ${e.paths.length ? e.paths.map((p) => safe(p)).slice(0, 3).join(", ") + (e.paths.length > 3 ? ` and ${e.paths.length - 3} more` : "") : "every changed file"}${e.task ? ` · task ${safe(String(e.task))}` : ""}  ${c.muted(`queued ${e.queuedAt.slice(0, 16).replace("T", " ")}: ${e.reason}`)}`),
+    c.muted("  nb queue retry sends them · nb queue drop <n> forgets one (your files stay as they are)"),
+  ] : "Nothing waiting: every push has gone up"));
+}
+
+/** Send the queue now (C6). @param {Context} ctx */
+export async function queueRetry(ctx) {
+  const { root } = ctx.requireRoot();
+  const before = readQueue(root).length;
+  await replayQueue(ctx);
+  ctx.out.result("nb.queue.retry/1", { sent: before }, (d) => (d.sent ? `${ctx.out.c.success(ctx.out.sym.done)} Sent ${d.sent} queued ${d.sent === 1 ? "push" : "pushes"}` : "Nothing waiting"));
+}
+
+/** Forget queued pushes; the files themselves don't change (C6). @param {Context} ctx */
+export async function queueDrop(ctx) {
+  const { root } = ctx.requireRoot();
+  const entries = readQueue(root);
+  if (!ctx.flags.all && !ctx.positionals.length) throw usage("Which ones?", "nb queue drop 1, or nb queue drop --all");
+  const drop = ctx.flags.all ? entries : ctx.positionals.map((r) => {
+    const hit = /^\d+$/.test(r) ? entries[Number(r) - 1] : entries.find((e) => e.id.startsWith(r));
+    if (!hit) throw new CliError("NOT_FOUND", `Nothing queued as ${r}`, { hint: "nb queue" });
+    return hit;
+  });
+  writeQueue(root, entries.filter((e) => !drop.includes(e)));
+  ctx.out.result("nb.queue.drop/1", { dropped: drop.length }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Dropped ${d.dropped} queued ${d.dropped === 1 ? "push" : "pushes"}; your files are unchanged (nb status shows them)`);
 }
 
 /**

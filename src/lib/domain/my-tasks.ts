@@ -50,6 +50,8 @@ export type MyTaskCounts = {
   byStatus: { todo: number; in_progress: number; blocked: number; in_review: number };
   overdue: number;
   dueThisWeek: number;
+  /** Which workspaces the counts cover (report D24), most open first. */
+  workspaces: Array<{ id: string; title: string; open: number; overdue: number; dueThisWeek: number }>;
 };
 
 /** "How many tasks do I have": the person's open work, the same set My work counts (report §18.2). */
@@ -58,31 +60,40 @@ export type MyTaskCounts = {
 export async function countMyOpenTasks(userId: string, now = new Date(), onlyWorkspaces: Set<string> | null = null): Promise<MyTaskCounts> {
   const nowIso = now.toISOString();
   const weekAheadIso = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
-  const [row] = await db
+  const where = and(
+    isNull(tasks.deletedAt),
+    sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
+    mineSql(userId),
+    orgCopyRules(userId),
+    memberWorkspaceSql(userId),
+    onlyWorkspaces ? (onlyWorkspaces.size ? inArray(tasks.projectId, [...onlyWorkspaces]) : sql`false`) : undefined,
+  );
+  const overdue = sql<number>`count(*) FILTER (WHERE ${tasks.status} <> 'done' AND ${tasks.dueDate} < ${nowIso}::timestamptz)::int`;
+  const dueThisWeek = sql<number>`count(*) FILTER (WHERE ${tasks.status} <> 'done' AND ${tasks.dueDate} >= ${nowIso}::timestamptz AND ${tasks.dueDate} < ${weekAheadIso}::timestamptz)::int`;
+  const rows = await db
     .select({
+      id: workspaces.id,
+      title: workspaces.title,
       open: sql<number>`count(*)::int`,
       todo: sql<number>`count(*) FILTER (WHERE ${tasks.status} = 'todo')::int`,
       inProgress: sql<number>`count(*) FILTER (WHERE ${tasks.status} = 'in_progress')::int`,
       blocked: sql<number>`count(*) FILTER (WHERE ${tasks.status} = 'blocked')::int`,
       inReview: sql<number>`count(*) FILTER (WHERE ${tasks.status} = 'done' AND ${tasks.reviewStatus} = 'pending')::int`,
-      overdue: sql<number>`count(*) FILTER (WHERE ${tasks.status} <> 'done' AND ${tasks.dueDate} < ${nowIso}::timestamptz)::int`,
-      dueThisWeek: sql<number>`count(*) FILTER (WHERE ${tasks.status} <> 'done' AND ${tasks.dueDate} >= ${nowIso}::timestamptz AND ${tasks.dueDate} < ${weekAheadIso}::timestamptz)::int`,
+      overdue,
+      dueThisWeek,
     })
     .from(tasks)
-    .where(
-      and(
-        isNull(tasks.deletedAt),
-        sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
-        mineSql(userId),
-        orgCopyRules(userId),
-        memberWorkspaceSql(userId),
-        onlyWorkspaces ? (onlyWorkspaces.size ? inArray(tasks.projectId, [...onlyWorkspaces]) : sql`false`) : undefined,
-      ),
-    );
+    .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
+    .where(where)
+    .groupBy(workspaces.id, workspaces.title);
+  const sum = (key: "open" | "todo" | "inProgress" | "blocked" | "inReview" | "overdue" | "dueThisWeek") => rows.reduce((n, r) => n + (r[key] ?? 0), 0);
   return {
-    open: row?.open ?? 0,
-    byStatus: { todo: row?.todo ?? 0, in_progress: row?.inProgress ?? 0, blocked: row?.blocked ?? 0, in_review: row?.inReview ?? 0 },
-    overdue: row?.overdue ?? 0,
-    dueThisWeek: row?.dueThisWeek ?? 0,
+    open: sum("open"),
+    byStatus: { todo: sum("todo"), in_progress: sum("inProgress"), blocked: sum("blocked"), in_review: sum("inReview") },
+    overdue: sum("overdue"),
+    dueThisWeek: sum("dueThisWeek"),
+    workspaces: rows
+      .map((r) => ({ id: r.id, title: r.title, open: r.open, overdue: r.overdue, dueThisWeek: r.dueThisWeek }))
+      .sort((x, y) => y.open - x.open || x.title.localeCompare(y.title)),
   };
 }

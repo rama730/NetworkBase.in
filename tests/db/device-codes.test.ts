@@ -43,8 +43,8 @@ async function startCode(type: "device" | "agent" = "agent") {
   assert.match(json.data.verificationUriComplete, /\/device\?code=/);
   return json.data as { deviceCode: string; userCode: string };
 }
-const poll = async (deviceCode: string) => {
-  const res = await tokenRoute.POST(post("/api/v1/device/token", { deviceCode }));
+const poll = async (deviceCode: string, renew?: string) => {
+  const res = await tokenRoute.POST(post("/api/v1/device/token", { deviceCode, ...(renew ? { renew } : {}) }));
   return { status: res.status, json: await res.json() };
 };
 
@@ -66,6 +66,26 @@ test("a code goes pending → approved → token once, then it's used up", async
   assert.ok(!JSON.stringify(await sql`SELECT * FROM device_codes WHERE user_code = ${userCode}`).includes(approved.json.data.token), "the token isn't stored");
   assert.equal((await poll(deviceCode)).status, 410, "a second poll gets nothing");
   assert.equal(await lib.decideDeviceCode(userId, userCode, { decision: "deny" }), false, "can't be decided again");
+});
+
+test("nb login on the same computer renews its sign-in: the old one closes, never someone else's (C6)", async () => {
+  const [userId, other] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const signIn = async (who: string, renew?: string) => {
+    const { deviceCode, userCode } = await startCode("device");
+    await lib.decideDeviceCode(who, userCode, { decision: "approve", type: "device" });
+    await new Promise((r) => setTimeout(r, 0));
+    const res = await poll(deviceCode, renew);
+    assert.equal(res.json.data.status, "approved", JSON.stringify(res.json));
+    return res.json.data.token as string;
+  };
+  const first = await signIn(userId!);
+  const second = await signIn(userId!, first);
+  const open = await sql`SELECT token_prefix FROM extension_device_sessions WHERE user_id = ${userId!} AND revoked_at IS NULL`;
+  assert.deepEqual(open.map((r) => r.token_prefix), [second.slice(0, 11)], "one sign-in for this computer");
+  const theirs = await signIn(other!);
+  await signIn(userId!, theirs);
+  const [still] = await sql`SELECT revoked_at FROM extension_device_sessions WHERE user_id = ${other!}`;
+  assert.equal(still!.revoked_at, null, "a token of another person's is never closed");
 });
 
 test("denied and expired codes say so", async () => {

@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   try {
     const parsed = deviceTokenSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return jsonError("Invalid sign-in code", 400, "BAD_REQUEST");
-    const result = await pollDeviceCode(parsed.data.deviceCode);
+    const result = await pollDeviceCode(parsed.data.deviceCode, new Date(), parsed.data.renew);
     if (result.status === "denied") return jsonError("Sign-in was denied in the browser", 403, "FORBIDDEN", { status: "denied" });
     if (result.status === "expired") return jsonError("This sign-in code has expired or was already used", 410, "EXPIRED", { status: "expired" });
     return jsonSuccess(result.status === "approved"

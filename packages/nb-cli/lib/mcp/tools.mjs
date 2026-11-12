@@ -2,8 +2,10 @@
 // in-process, so agents get the same checks, conflicts and errors as people. Questions come back as needs_input;
 // anything that needs a person's yes comes back as needs_confirmation with a one-time token.
 import crypto from "node:crypto";
+import path from "node:path";
 
 import { COMMANDS } from "../commands/table.mjs";
+import { currentProfile, globalDir, readJson, writeAtomic } from "../config.mjs";
 import { createContext } from "../context.mjs";
 import { CliError } from "../errors.mjs";
 
@@ -67,7 +69,7 @@ export const TOOLS = [
       return pick(rank(r.data.workspaces, a.query, (w) => [w.slug, w.id], (w) => w.title), "workspace", (w) => `${w.title} (${w.slug})`, (w) => w.slug);
     } },
   { name: "networkbase_task_count", title: "Count my tasks", tier: "read", props: {},
-    description: `Count the user's open NetworkBase tasks by status across workspaces. Use for "how many tasks do I have".`,
+    description: `Count the user's open NetworkBase tasks across all their workspaces, by status and per workspace. Use for "how many tasks do I have". The totals are for every workspace, not only this folder's: say which workspace each overdue task is in (data.workspaces).`,
     run: (nb) => nb("task count") },
   { name: "networkbase_task_list", title: "List tasks", tier: "read",
     props: { workspace: workspaceProp, all: { type: "boolean", description: "Include tasks assigned to others" }, status: { type: "string", description: "Comma list of todo, in_progress, blocked, review, done" }, limit: { type: "number", description: "At most this many (default 50)" } },
@@ -222,28 +224,45 @@ export const TOOLS = [
 ];
 
 /**
- * In-process confirmation tokens: single use, 10 minutes, bound to the tool and its exact arguments, so a "yes"
- * can't be reused for something else. ponytail: local only; server-side tiers and tokens come with P3.4.
+ * Local yes tokens (report D24): signed like the server's (HMAC, 10 minutes, bound to the tool and its exact
+ * arguments, used once), with a key made from this computer's sign-in. Any nb process signed in the same way can
+ * check one, so a headless agent (`claude -p --continue`, CI) that starts a new MCP server each turn can still
+ * confirm. No "." in them: a dotted token is the server's and goes to the server.
  */
-const confirmations = new Map();
 /** @param {string} name @param {any} args */
 const fingerprint = (name, args) => {
   const { confirmToken: _t, answers: _a, ...rest } = args ?? {};
   return crypto.createHash("sha256").update(`${name}\n${JSON.stringify(rest, Object.keys(rest).sort())}`).digest("hex");
 };
-/** @param {string} name @param {any} args */
-function issueConfirmation(name, args) {
-  const token = crypto.randomBytes(16).toString("hex");
-  confirmations.set(token, { print: fingerprint(name, args), expires: Date.now() + 10 * 60_000 });
-  return token;
+/** Without a saved sign-in there is nothing to share, so the key stays in this process. */
+const processKey = crypto.randomBytes(32).toString("hex");
+/** @param {NodeJS.ProcessEnv} env */
+const yesKey = (env) => crypto.createHash("sha256").update(`nb-local-yes\n${currentProfile({ flags: {}, env, project: null }).token ?? processKey}`).digest();
+/** @param {NodeJS.ProcessEnv} env @param {string} print @param {string} expires @param {string} nonce */
+const yesMac = (env, print, expires, nonce) => crypto.createHmac("sha256", yesKey(env)).update(`${print}|${expires}|${nonce}`).digest("hex").slice(0, 32);
+/** @param {string} name @param {any} args @param {NodeJS.ProcessEnv} env */
+function issueConfirmation(name, args, env) {
+  const expires = (Date.now() + 10 * 60_000).toString(36);
+  const nonce = crypto.randomBytes(9).toString("hex");
+  return `y_${expires}_${nonce}_${yesMac(env, fingerprint(name, args), expires, nonce)}`;
 }
-/** @param {string} name @param {any} args */
-function takeConfirmation(name, args) {
+/** @param {string} name @param {any} args @param {NodeJS.ProcessEnv} env */
+function takeConfirmation(name, args, env) {
   const token = args?.confirmToken;
   if (!token) return false;
-  const entry = confirmations.get(token);
-  confirmations.delete(token);
-  if (!entry || entry.expires < Date.now() || entry.print !== fingerprint(name, args)) throw new CliError("CONFIRMATION_INVALID", "That confirmToken doesn't match this call or has expired", { hint: "Call again without confirmToken to get a new one, and show it to the user" });
+  const invalid = () => new CliError("CONFIRMATION_INVALID", "That confirmToken doesn't match this call or has expired", { hint: "Call again without confirmToken to get a new one, and show it to the user" });
+  const [, expires = "", nonce = "", mac = ""] = /^y_([0-9a-z]+)_([0-9a-f]{18})_([0-9a-f]{32})$/.exec(String(token)) ?? [];
+  if (!mac || parseInt(expires, 36) < Date.now()) throw invalid();
+  const want = yesMac(env, fingerprint(name, args), expires, nonce);
+  if (!crypto.timingSafeEqual(Buffer.from(want), Buffer.from(mac))) throw invalid();
+  // Once only, across processes: used nonces are kept until they'd have expired anyway.
+  const file = path.join(globalDir(env), "used-yes.json");
+  /** @type {Record<string, number>} */
+  let used = {};
+  try { used = readJson(file) ?? {}; } catch { used = {}; }
+  if (used[nonce]) throw invalid();
+  const now = Date.now();
+  try { writeAtomic(file, JSON.stringify(Object.fromEntries([...Object.entries(used).filter(([, until]) => until > now), [nonce, parseInt(expires, 36)]]))); } catch { /* read-only home: once per process at least */ }
   return true;
 }
 
@@ -276,11 +295,11 @@ export async function callTool(name, args = {}, where) {
   try {
     // A server-issued yes (signed, contains a dot) goes to the server as X-NB-Confirm; it decides.
     const serverYes = typeof args.confirmToken === "string" && args.confirmToken.includes(".") ? args.confirmToken : null;
-    const confirmed = serverYes ? false : takeConfirmation(name, args);
+    const confirmed = serverYes ? false : takeConfirmation(name, args, where.env);
     // With an agent token the server holds big changes itself (report §26.6), so asking here too would ask twice.
     const agentToken = String(createContext({ flags: {}, positionals: [], cwd: where.cwd, env: where.env, io: { stdout: /** @type {any} */ ({ write: () => true }), stderr: process.stderr } }).profile.token ?? "").startsWith("nb_agt_");
     const summary = !confirmed && !serverYes && !agentToken && tool.needsYes ? tool.needsYes(args) : null;
-    if (summary) return confirmationResult(name, args, summary, undefined);
+    if (summary) return confirmationResult(name, args, summary, undefined, where.env);
     const answers = Object.entries(args.answers ?? {}).map(([k, v]) => `${k}=${v}`);
     const nb = executor(where, { ...(confirmed || serverYes ? { yes: true } : {}), ...(serverYes ? { confirm: serverYes } : {}), ...(answers.length ? { answer: answers } : {}) });
     const r = await tool.run(nb, args);
@@ -294,7 +313,7 @@ export async function callTool(name, args = {}, where) {
         structuredContent: { status: "needs_confirmation", summary: held.summary ?? "this change needs a yes", ...(held.preview ? { preview: held.preview } : {}), confirmToken: held.confirmToken, by: "server" },
       };
     }
-    if (error instanceof CliError && error.code === "NEEDS_CONFIRMATION") return confirmationResult(name, args, error.message, /** @type {any} */ (error.details)?.questions?.[0]?.preview);
+    if (error instanceof CliError && error.code === "NEEDS_CONFIRMATION") return confirmationResult(name, args, error.message, /** @type {any} */ (error.details)?.questions?.[0]?.preview, where.env);
     if (error instanceof CliError && error.code === "NEEDS_INPUT") {
       const questions = /** @type {any} */ (error.details)?.questions ?? [];
       const lines = questions.map((/** @type {any} */ q) => `${q.question} (answers.${q.key}: ${q.options.map((/** @type {any} */ o) => `${o.value}${o.recommended ? " [recommended]" : ""}`).join(" | ")})`);
@@ -352,9 +371,9 @@ export function accessCard(a) {
   ].join("\n");
 }
 
-/** @param {string} name @param {any} args @param {string} summary @param {string | undefined} preview */
-function confirmationResult(name, args, summary, preview) {
-  const confirmToken = issueConfirmation(name, args);
+/** @param {string} name @param {any} args @param {string} summary @param {string | undefined} preview @param {NodeJS.ProcessEnv} env */
+function confirmationResult(name, args, summary, preview, env) {
+  const confirmToken = issueConfirmation(name, args, env);
   return {
     content: [{ type: "text", text: `needs_confirmation: ${summary}${preview ? `\n\n${preview}` : ""}\n\nShow this to the user. Only if they agree, call ${name} again with the same arguments and confirmToken "${confirmToken}".` }],
     structuredContent: { status: "needs_confirmation", summary, ...(preview ? { preview } : {}), confirmToken },

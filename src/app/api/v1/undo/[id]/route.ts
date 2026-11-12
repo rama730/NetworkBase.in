@@ -142,6 +142,7 @@ async function runInverse(user: { id: string; email?: string; user_metadata?: Re
         });
       }
       if (created.length) await bulkTrashNodes(created, inverse.projectId);
+      if (inverse.use) return `v${inverse.files[0]?.previousVersion} is active again`;
       return `Undid the push of ${inverse.files.length} file${inverse.files.length === 1 ? "" : "s"}`;
     }
   }

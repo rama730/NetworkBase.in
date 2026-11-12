@@ -55,6 +55,8 @@ export function resolveCommand(argv) {
     const spec = COMMANDS.find((c) => c.name === target);
     if (spec) return { spec, rest: argv.slice(n), alias: target !== name ? { from: name, to: target, ...(short[name] ? { shortcut: true } : {}) } : null };
   }
+  // `nb comment "looks good"` comments on the current task (C8).
+  if (words[0] === "comment" && words[1]) return { spec: /** @type {CommandSpec} */ (COMMANDS.find((c) => c.name === "comment add")), rest: argv.slice(1), alias: null };
   if (words[0] === "task" && words[1] && TASK_REF.test(words[1])) {
     return { spec: /** @type {CommandSpec} */ (COMMANDS.find((c) => c.name === "task view")), rest: argv.slice(1), alias: null };
   }

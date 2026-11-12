@@ -377,6 +377,45 @@
       ]
     },
     {
+      "name": "queue",
+      "summary": "Pushes waiting to send while offline: what, since when, why",
+      "usage": "nb queue",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "queue retry",
+      "summary": "Send the queued pushes now",
+      "usage": "nb queue retry",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        4,
+        8
+      ]
+    },
+    {
+      "name": "queue drop",
+      "summary": "Forget queued pushes (your files stay as they are)",
+      "usage": "nb queue drop <n…> | --all",
+      "flags": {
+        "all": {
+          "type": "boolean",
+          "describe": "Every queued push"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "sync",
       "summary": "Pull, then push changed tracked files",
       "usage": "nb sync",
@@ -479,6 +518,37 @@
       ]
     },
     {
+      "name": "inbox reply",
+      "summary": "Reply on an inbox item's task",
+      "usage": "nb inbox reply <n> \"text\"",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [
+        "nb inbox reply 1 \"fixed, thanks\""
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "inbox approve",
+      "summary": "Approve the task an inbox item asks you to review",
+      "usage": "nb inbox approve <n>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "inbox open",
       "summary": "Open an inbox item in the browser",
       "usage": "nb inbox open <n>",
@@ -509,10 +579,23 @@
     },
     {
       "name": "file history",
-      "summary": "A file's versions: who, when, how",
+      "summary": "A file's versions: who, when, based on, which is active",
       "usage": "nb file history <path>",
       "flags": {},
       "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "file use",
+      "summary": "Make an earlier version active (as Use this version in the app)",
+      "usage": "nb file use <path> v<n>",
+      "flags": {},
+      "examples": [
+        "nb file use report.md v1"
+      ],
       "exitCodes": [
         0,
         1
@@ -1810,6 +1893,7 @@
     "ws list": "workspace list",
     "ws": "workspace list",
     "ls": "file list",
+    "done": "task done",
     "add": "task add",
     "task add": "task create"
   }

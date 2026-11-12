@@ -67,7 +67,14 @@ describe("more commands", () => {
     putFile(api.state, "/notes.md", Buffer.from("a"));
     putFile(api.state, "/notes.md", Buffer.from("b"));
     addTask(api.state, { title: "T" });
-    assert.match((await nb(["file", "history", "notes.md"])).stdout, /v2 .* @tester via Claude Code/);
+    assert.match((await nb(["file", "history", "notes.md"])).stdout, /v2 .* @tester via Claude Code\s+active/);
+    // C3: nb file use moves the active version; history marks it.
+    const used = await nb(["file", "use", "notes.md", "v1"]);
+    assert.equal(used.code, 0, used.stderr);
+    assert.match(used.stdout, /v1 of \/notes.md is active \(was v2\)/);
+    assert.match((await nb(["file", "history", "notes.md"])).stdout, /v1 .*active/);
+    assert.equal((await nb(["file", "use", "notes.md", "v9"])).code, 1);
+    assert.equal((await nb(["file", "use", "notes.md", "latest"])).code, 2);
     assert.equal((await nb(["file", "attach", "notes.md", "--task", "1", "--as", "reference"])).code, 0);
     assert.equal(api.state.tasks[0]?.files[0]?.role, "reference");
     assert.equal((await nb(["file", "detach", "notes.md", "--task", "1"])).code, 0);

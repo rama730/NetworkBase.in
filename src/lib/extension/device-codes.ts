@@ -95,7 +95,7 @@ export type PollResult =
  * One poll from the terminal. An approved code turns into a token exactly once: the status moves to consumed in
  * the same transaction that creates the session, so two polls can't both get a token.
  */
-export async function pollDeviceCode(deviceCode: string, now = new Date()): Promise<PollResult> {
+export async function pollDeviceCode(deviceCode: string, now = new Date(), renew?: string): Promise<PollResult> {
   const codeHash = hash(deviceCode);
   return db.transaction(async (tx) => {
     const [row] = await tx.select().from(deviceCodes).where(eq(deviceCodes.deviceCodeHash, codeHash)).limit(1).for("update");
@@ -107,8 +107,25 @@ export async function pollDeviceCode(deviceCode: string, now = new Date()): Prom
       return { status: tooSoon ? "slow_down" : "pending" } as const;
     }
 
-    return issueApprovedToken(tx, row, now, "device_code");
+    const issued = await issueApprovedToken(tx, row, now, "device_code");
+    if (renew) await closeRenewedSession(tx, { renew, userId: row.userId!, now });
+    return issued;
   });
+}
+
+/**
+ * `nb login` again on the same computer (report C6): the token it already had is closed with the new one, so the
+ * computer is listed once. Only the same person's own device sign-in; anything else is ignored.
+ */
+export async function closeRenewedSession(tx: Tx, input: { renew: string; userId: string; now: Date }) {
+  const closed = await tx
+    .update(extensionDeviceSessions)
+    .set({ revokedAt: input.now })
+    .where(and(eq(extensionDeviceSessions.tokenHash, hash(input.renew)), eq(extensionDeviceSessions.userId, input.userId), eq(extensionDeviceSessions.tokenType, "device"), isNull(extensionDeviceSessions.revokedAt)))
+    .returning({ id: extensionDeviceSessions.id });
+  for (const s of closed) {
+    await tx.insert(extensionDeviceSessionEvents).values({ sessionId: s.id, eventType: EXTENSION_DEVICE_SESSION_EVENTS.revocation, metadata: { reason: "renewed" }, createdAt: input.now });
+  }
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

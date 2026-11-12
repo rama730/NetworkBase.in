@@ -26,6 +26,23 @@ describe("nb login --device (report A3.1)", () => {
     assert.match(fs.readFileSync(path.join(home, ".networkbase", "credentials.json"), "utf8"), /nb_pat_test0123456789abcdef/);
   });
 
+  it("signing in again sends this computer's sign-in to be renewed; 7 days before it ends, nb says so (C6)", async () => {
+    Object.assign(api.state.device, { answer: "approve", afterPolls: 1, polls: 0, tokenType: "device" });
+    const home = await tempDir("nb-login-renew-");
+    const old = "nb_dev_0123456789abcdef0123456789abcdef";
+    const soon = new Date(Date.now() + 3 * 86_400_000).toISOString();
+    fs.mkdirSync(path.join(home, ".networkbase"), { recursive: true });
+    fs.writeFileSync(path.join(home, ".networkbase", "credentials.json"), JSON.stringify({ profiles: { default: { origin: api.url, token: old, storage: "file", expiresAt: soon } } }));
+    const who = await runCli(["whoami"], { api: api.url, home, token: null });
+    assert.equal(who.code, 0, who.stderr);
+    assert.match(who.stderr, /Your sign-in on this computer ends \d+ \w+: nb login renews it/);
+    const r = await runCli(["login", "--device"], { api: api.url, home, token: null });
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(api.state.lastTokenBody.renew, old);
+    const saved = JSON.parse(fs.readFileSync(path.join(home, ".networkbase", "credentials.json"), "utf8")).profiles.default;
+    assert.equal(saved.expiresAt, "2027-11-06T09:34:59.663Z", "the new end date is kept");
+  });
+
   it("is used without asking over SSH", async () => {
     Object.assign(api.state.device, { answer: "approve", afterPolls: 1, tokenType: "device" });
     const { r } = await login([], { SSH_CONNECTION: "10.0.0.1 22 10.0.0.2 22" });

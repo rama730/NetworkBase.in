@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { putFile, startFakeServer } from "./helpers/fake-server.mjs";
+import { addTask, putFile, startFakeServer } from "./helpers/fake-server.mjs";
 import { CLI_PATH, cleanEnv, runCli, tempDir } from "./helpers/run-cli.mjs";
 
 // Report A11.1–A11.2, A1.13 item 5: the inbox, waiting for new items, and nb watch pulling a teammate's version.
@@ -69,5 +69,24 @@ describe("inbox and live changes", () => {
     api.state.events.push({ notifications: [], files: [{ path: "/plan.md", nodeId: file.nodeId, version: file.version, at: new Date().toISOString(), by: "sam", mine: false }] });
     const out = await runUntil(["watch"], () => fs.readFileSync(path.join(cwd, "plan.md"), "utf8") === "v2 from Sam");
     assert.equal(fs.readFileSync(path.join(cwd, "plan.md"), "utf8"), "v2 from Sam", `nb watch said:\n${out}`);
+  });
+  it("replies and approves from the inbox (C4)", async () => {
+    const t = addTask(api.state, { title: "Logo", status: "done", reviewStatus: "pending" });
+    const other = addTask(api.state, { title: "Copy", status: "todo" });
+    api.state.inbox.unshift(
+      { id: "11111111-aaaa-4000-8000-000000000003", title: "Sam asked for your review on Logo", body: null, href: null, readAt: null, activityAt: new Date().toISOString(), entityRefs: { taskId: t.id, projectId: api.state.workspace.id } },
+      { id: "11111111-aaaa-4000-8000-000000000004", title: "Sam commented on Copy", body: "ok?", href: null, readAt: null, activityAt: new Date().toISOString(), entityRefs: { taskId: other.id, projectId: api.state.workspace.id, commentId: "22222222-bbbb-4000-8000-000000000001" } },
+    );
+    const replied = await nb(["inbox", "reply", "2", "fixed", "now"]);
+    assert.equal(replied.code, 0, replied.stderr);
+    assert.equal(other.comments.at(-1)?.content, "fixed now");
+    assert.equal(api.state.inbox[1].readAt !== null, true);
+    const approved = await nb(["inbox", "approve", "1"]);
+    assert.equal(approved.code, 0, approved.stderr);
+    assert.equal(t.reviewStatus, "none");
+    const again = await nb(["inbox", "approve", "1"]);
+    assert.match(again.stderr, /isn't waiting for review/);
+    const plain = await nb(["inbox", "reply", "3", "hi"]);
+    assert.match(plain.stderr, /isn't about a task/);
   });
 });

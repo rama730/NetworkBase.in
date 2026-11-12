@@ -99,6 +99,9 @@ export const COMMANDS = [
       "from-git": { type: "boolean", describe: "Push what the last git commit changed (its NetworkBase-Task trailer picks the task)" },
       "confirm-secrets": { type: "boolean", describe: "Upload even though a file looks like it holds a password or key" } },
     examples: ["nb push src/app.ts -m \"Fix login\"", "nb push report.pdf --task 4 --as final", "nb push shots/ --task 5 --as reference"], exit: [0, 2, 4, 5, 7, 8] },
+  { group: "Files", name: "queue", summary: "Pushes waiting to send while offline: what, since when, why", usage: "nb queue", module: "files", fn: "queue" },
+  { group: "Files", name: "queue retry", summary: "Send the queued pushes now", usage: "nb queue retry", module: "files", fn: "queueRetry", exit: [0, 4, 8] },
+  { group: "Files", name: "queue drop", summary: "Forget queued pushes (your files stay as they are)", usage: "nb queue drop <n…> | --all", module: "files", fn: "queueDrop", flags: { all: { type: "boolean", describe: "Every queued push" } } },
   { group: "Files", name: "sync", summary: "Pull, then push changed tracked files", usage: "nb sync", module: "files", fn: "sync", flags: { ...MESSAGE, ...OLD_STATUS }, exit: [0, 4, 8] },
   { group: "Files", name: "resolve", summary: "Settle a conflict", usage: "nb resolve <path> --mine|--theirs|--both", module: "resolve", fn: "resolve",
     flags: { mine: { type: "boolean", describe: "Keep yours and push it" }, theirs: { type: "boolean", describe: "Take the server's version" }, both: { type: "boolean", describe: "Keep both as separate files" } } },
@@ -108,9 +111,12 @@ export const COMMANDS = [
     flags: { unread: { type: "boolean", describe: "Only unread" }, follow: { type: "boolean", describe: "Keep waiting and print new ones" }, notify: { type: "boolean", describe: "With --follow: also a desktop notification" } },
     examples: ["nb inbox --unread", "nb inbox --follow --notify"] },
   { group: "Account and setup", name: "inbox read", summary: "Mark inbox items read", usage: "nb inbox read <n…> | --all", module: "inbox", fn: "inboxRead", flags: { all: { type: "boolean", describe: "Every unread item" } } },
+  { group: "Account and setup", name: "inbox reply", summary: "Reply on an inbox item's task", usage: "nb inbox reply <n> \"text\"", module: "inbox", fn: "inboxReply", flags: { ...MESSAGE }, examples: ["nb inbox reply 1 \"fixed, thanks\""] },
+  { group: "Account and setup", name: "inbox approve", summary: "Approve the task an inbox item asks you to review", usage: "nb inbox approve <n>", module: "inbox", fn: "inboxApprove" },
   { group: "Account and setup", name: "inbox open", summary: "Open an inbox item in the browser", usage: "nb inbox open <n>", module: "inbox", fn: "inboxOpen" },
   { group: "Files", name: "file list", summary: "Files in the workspace", usage: "nb file list [folder] [--task 4]", module: "docs", fn: "fileList", flags: { ...TASK } },
-  { group: "Files", name: "file history", summary: "A file's versions: who, when, how", usage: "nb file history <path>", module: "browse", fn: "fileHistory" },
+  { group: "Files", name: "file history", summary: "A file's versions: who, when, based on, which is active", usage: "nb file history <path>", module: "browse", fn: "fileHistory" },
+  { group: "Files", name: "file use", summary: "Make an earlier version active (as Use this version in the app)", usage: "nb file use <path> v<n>", module: "browse", fn: "fileUse", examples: ["nb file use report.md v1"] },
   { group: "Files", name: "file move", summary: "Move a file to another folder (asks first)", usage: "nb file move <path> <folder>", module: "browse", fn: "fileMove" },
   { group: "Files", name: "file rename", summary: "Rename a file (asks first)", usage: "nb file rename <path> <new name>", module: "browse", fn: "fileRename" },
   { group: "Files", name: "file delete", summary: "Move a file to the workspace Trash (asks first)", usage: "nb file delete <path>", module: "browse", fn: "fileDelete" },
@@ -241,6 +247,7 @@ export const ALIASES = {
 /** Short names people expect (report C1); each says its full name once. Not renamed, so no "until 3.0". */
 export const SHORTCUTS = {
   ls: "file list",
+  done: "task done",
   add: "task add",
   "task add": "task create",
 };

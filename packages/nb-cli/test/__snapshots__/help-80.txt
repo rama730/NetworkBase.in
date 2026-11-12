@@ -19,10 +19,11 @@ More
   Account and setup
     login, logout, token list, token revoke, whoami, unlink, doctor, open,
     version, help, completion, setup shell, feedback, config, inbox read,
-    inbox open
+    inbox reply, inbox approve, inbox open
   Files
-    undo, diff, sync, resolve, watch, file list, file history, file move,
-    file rename, file delete, file attach, file detach, file view
+    undo, diff, queue, queue retry, queue drop, sync, resolve, watch, file list,
+    file history, file use, file move, file rename, file delete, file attach,
+    file detach, file view
   Tasks
     task count, task view, task stop, task move, task review, task resubmit,
     task edit, task assign, task report, task delete, task open, task pull,

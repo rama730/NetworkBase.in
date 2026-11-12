@@ -16,6 +16,14 @@ const TOKEN_SHAPE = /^nb_(dev|pat|agt)_[A-Za-z0-9_-]{16,}$/;
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** @param {Context} ctx @param {string} token */
+/**
+ * This computer's own sign-in, sent with a new sign-in so the server closes it (C6): one entry per computer.
+ * Only a saved device token; never an agent's, an environment token, or a personal token.
+ * @param {Context} ctx
+ */
+const renewing = (ctx) => (!ctx.flags.agent && ctx.profile.profile?.source === "file" && String(ctx.profile.token ?? "").startsWith("nb_dev_") ? { renew: String(ctx.profile.token) } : {});
+
+/** @param {Context} ctx @param {string} token */
 async function whoIs(ctx, token) {
   const api = createApi({ origin: ctx.profile.origin, token, version: ctx.version });
   return /** @type {any} */ (await api.get("/api/v1/me"));
@@ -44,7 +52,8 @@ export function connectedLines(ctx, access) {
 /** @param {Context} ctx @param {string} token @param {string} method */
 async function finish(ctx, token, method) {
   const me = await whoIs(ctx, token);
-  saveProfile(ctx.profile.name, { origin: ctx.profile.origin, token, user: { id: me.user.id, username: me.user.username, email: me.user.email } }, ctx.env);
+  // The end date is kept so nb can warn 7 days before (C6).
+  saveProfile(ctx.profile.name, { origin: ctx.profile.origin, token, user: { id: me.user.id, username: me.user.username, email: me.user.email }, ...(me.credential?.expiresAt ? { expiresAt: me.credential.expiresAt } : {}) }, ctx.env);
   ctx.out.result("nb.login/1", { method, origin: ctx.profile.origin, profile: ctx.profile.name, user: me.user, scopes: me.credential.scopes, access: me.access ?? null }, (d) =>
     d.access ? connectedLines(ctx, d.access) : `${ctx.out.c.success(ctx.out.sym.done)} Signed in as ${safe(d.user.username ? `@${d.user.username}` : d.user.email ?? d.user.id)} on ${new URL(d.origin).host}${d.profile !== "default" ? ` (profile ${d.profile})` : ""}`);
 }
@@ -121,7 +130,7 @@ export async function deviceLogin(ctx, agentName = /** @type {string | null} */ 
   try {
     while (Date.now() < until) {
       await new Promise((resolve) => setTimeout(resolve, interval * 1000));
-      const res = /** @type {any} */ (await api.post("/api/v1/device/token", { deviceCode: start.deviceCode }, { auth: false }).catch((/** @type {unknown} */ error) => {
+      const res = /** @type {any} */ (await api.post("/api/v1/device/token", { deviceCode: start.deviceCode, ...renewing(ctx) }, { auth: false }).catch((/** @type {unknown} */ error) => {
         if (error instanceof CliError && error.status === 403) throw new CliError("CANCELLED", "Sign-in was denied in the browser");
         if (error instanceof CliError && error.status === 410) throw new CliError("TIMEOUT", "The sign-in code expired before it was approved", { hint: "Run nb login --device again" });
         throw error;
@@ -205,7 +214,7 @@ function browserLogin(ctx) {
       if (!code || url.searchParams.get("state") !== state) return reply(400, "Not this sign-in", "This window doesn't match the sign-in your terminal started.");
       try {
         const api = createApi({ origin, token: null, version: ctx.version });
-        const exchanged = /** @type {any} */ (await api.post("/api/v1/extension/auth-code", { code, state, codeVerifier: verifier }, { auth: false }));
+        const exchanged = /** @type {any} */ (await api.post("/api/v1/extension/auth-code", { code, state, codeVerifier: verifier, ...renewing(ctx) }, { auth: false }));
         reply(200, "Signed in", "Your terminal is signed in. You can close this window.");
         done(null, exchanged.token);
       } catch (error) {

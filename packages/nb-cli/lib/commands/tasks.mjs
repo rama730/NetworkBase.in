@@ -44,9 +44,28 @@ async function taskByWords(ctx, words) {
   return ask(ctx, { key: "task", header: "Task", question: `Which task do you mean by "${words}"?`, options: tasks.slice(0, 4).map((/** @type {any} */ t, /** @type {number} */ i) => ({ value: String(t.taskNumber), label: `#${t.taskNumber} ${safe(t.title)}`, recommended: i === 0 })) });
 }
 
-/** The task a command means: an argument, --task, or the folder's started task. @param {Context} ctx @param {string | undefined} given */
+/**
+ * The task number in this folder's git branch, when it's one `nb task start --branch` made (nb/4-login-bug), C8.
+ * Reads .git/HEAD directly (a worktree's .git file points at its own); no git process, so it's cheap.
+ * @param {string | null} dir @returns {string | null}
+ */
+export function branchTask(dir) {
+  for (let d = dir; d; d = path.dirname(d) === d ? null : path.dirname(d)) {
+    const dotGit = path.join(d, ".git");
+    if (!fs.existsSync(dotGit)) continue;
+    try {
+      const gitDir = fs.statSync(dotGit).isFile() ? path.resolve(d, fs.readFileSync(dotGit, "utf8").replace(/^gitdir:\s*/, "").trim()) : dotGit;
+      return /^ref: refs\/heads\/nb\/(\d+)-/.exec(fs.readFileSync(path.join(gitDir, "HEAD"), "utf8"))?.[1] ?? null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** The task a command means (C8): an argument, --task, the folder's started task, or its nb/<n>- git branch. @param {Context} ctx @param {string | undefined} given */
 export function taskRef(ctx, given) {
-  const ref = given ?? ctx.flags.task ?? (ctx.project?.startedTask?.number ? String(ctx.project.startedTask.number) : ctx.project?.startedTask?.id);
+  const ref = given ?? ctx.flags.task ?? (ctx.project?.startedTask?.number ? String(ctx.project.startedTask.number) : ctx.project?.startedTask?.id) ?? branchTask(ctx.root);
   if (!ref) throw usage("Which task?", "Pass a task number, --task <n>, or start one with nb task start <n>");
   return String(ref);
 }
@@ -148,7 +167,13 @@ export async function count(ctx) {
   const counts = /** @type {any} */ (await ctx.api.get("/api/v1/tasks/count"));
   ctx.out.result("nb.task.count/1", counts, (c) => {
     const parts = [["in progress", c.byStatus.in_progress], ["to do", c.byStatus.todo], ["blocked", c.byStatus.blocked], ["in review", c.byStatus.in_review]].filter(([, n]) => n).map(([w, n]) => `${n} ${w}`);
-    return [`${c.open} open ${c.open === 1 ? "task" : "tasks"}${parts.length ? `: ${parts.join(", ")}` : ""}`, ...(c.overdue || c.dueThisWeek ? [`${c.overdue ? `${c.overdue} overdue` : ""}${c.overdue && c.dueThisWeek ? " · " : ""}${c.dueThisWeek ? `${c.dueThisWeek} due this week` : ""}`] : [])];
+    // Which workspaces these cover (D24), so "1 overdue" is never read as this folder's.
+    const where = (c.workspaces ?? []).filter((/** @type {any} */ w) => w.open);
+    return [
+      `${c.open} open ${c.open === 1 ? "task" : "tasks"}${where.length > 1 ? " across all your workspaces" : where.length === 1 ? ` in ${safe(where[0].title)}` : ""}${parts.length ? `: ${parts.join(", ")}` : ""}`,
+      ...(c.overdue || c.dueThisWeek ? [`${c.overdue ? `${c.overdue} overdue` : ""}${c.overdue && c.dueThisWeek ? " · " : ""}${c.dueThisWeek ? `${c.dueThisWeek} due this week` : ""}`] : []),
+      ...(where.length > 1 ? where.map((/** @type {any} */ w) => `  ${safe(w.title)}: ${w.open} open${w.overdue ? `, ${w.overdue} overdue` : ""}${w.dueThisWeek ? `, ${w.dueThisWeek} due this week` : ""}`) : []),
+    ];
   });
 }
 

@@ -22,7 +22,7 @@ export async function inbox(ctx) {
   ctx.out.result("nb.inbox/1", { unread: p.unreadCount, items }, (d) => d.items.length ? [
     `${d.unread} unread`,
     ...d.items.map((i, n) => `${i.readAt ? " " : c.brand(sym.brand)} ${String(n + 1).padStart(2)}  ${c.muted(formatDate(i.activityAt ?? i.createdAt))}  ${safe(i.title)}${i.body ? c.muted(` · ${safe(String(i.body)).replace(/\n/g, " ").slice(0, 80)}`) : ""}`),
-    c.muted("  nb inbox read <n> · nb inbox open <n> · nb inbox --follow"),
+    c.muted("  nb inbox reply <n> \"text\" · nb inbox approve <n> · nb inbox read <n> · nb inbox open <n>"),
   ] : "Nothing in your inbox", { page: true });
 }
 
@@ -43,6 +43,38 @@ export async function inboxRead(ctx) {
   const items = ctx.flags.all ? [] : await pick(ctx);
   const res = /** @type {any} */ (await ctx.api.post("/api/v1/inbox/read", ctx.flags.all ? { all: true } : { ids: items.map((i) => i.id) }));
   ctx.out.result("nb.inbox.read/1", { read: res.read }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Marked ${d.read} read`);
+}
+
+/** The task an inbox item is about; replying and approving work on those (C4). @param {any} item @param {string} ref */
+function taskOf(item, ref) {
+  const refs = item.entityRefs ?? {};
+  if (!refs.taskId) throw new CliError("NOT_A_TASK", "That item isn't about a task, so there's nothing to reply to here", { hint: `nb inbox open ${ref}` });
+  return /** @type {{ taskId: string, projectId?: string, commentId?: string }} */ (refs);
+}
+
+/** `nb inbox reply 3 "done"` (C4): a comment on the item's task, as a reply when the item is a comment. @param {Context} ctx */
+export async function inboxReply(ctx) {
+  const [ref, ...words] = ctx.positionals;
+  const text = String(ctx.flags.message ?? words.join(" ")).trim();
+  if (!ref || !text) throw usage('nb inbox reply <n> "your reply"');
+  const [item] = await pick({ ...ctx, positionals: [ref] });
+  const refs = taskOf(item, ref);
+  await ctx.api.post("/api/v1/extension/comments", { kind: "task", ...(refs.projectId ? { projectId: refs.projectId } : {}), taskId: refs.taskId, text, ...(refs.commentId ? { replyTo: refs.commentId } : {}) });
+  await ctx.api.post("/api/v1/inbox/read", { ids: [item.id] });
+  ctx.out.result("nb.inbox.reply/1", { item: item.id, taskId: refs.taskId }, () => `${ctx.out.c.success(ctx.out.sym.done)} Replied on ${safe(item.title)}`);
+}
+
+/** `nb inbox approve 3` (C4): approve the task waiting for your review. @param {Context} ctx */
+export async function inboxApprove(ctx) {
+  const ref = ctx.positionals[0];
+  if (!ref) throw usage("nb inbox approve <n>");
+  const [item] = await pick(ctx);
+  const refs = taskOf(item, ref);
+  const { task } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/task-detail", { query: { taskId: refs.taskId, brief: "1" } }));
+  if (task.reviewStatus !== "pending") throw new CliError("NOTHING_TO_APPROVE", `#${task.taskNumber} isn't waiting for review`, { hint: `nb inbox open ${ref}` });
+  await ctx.api.patch("/api/v1/extension/task-update", { kind: "approve", projectId: task.projectId, taskId: task.id, expectedUpdatedAt: new Date(task.updatedAt).toISOString() });
+  await ctx.api.post("/api/v1/inbox/read", { ids: [item.id] });
+  ctx.out.result("nb.inbox.approve/1", { number: task.taskNumber }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Approved #${d.number}`);
 }
 
 /** @param {Context} ctx */

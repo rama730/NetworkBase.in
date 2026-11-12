@@ -29,7 +29,7 @@ describe("tasks, subtasks, comments", () => {
     const list = await nb(["task", "list", "--json"]);
     assert.deepEqual(JSON.parse(list.stdout).data.tasks.map((/** @type {any} */ t) => t.title), ["Fix login"]);
     const count = await nb(["task", "count"]);
-    assert.match(count.stdout, /2 open tasks: 1 in progress, 1 to do/);
+    assert.match(count.stdout, /2 open tasks in Design Lab: 1 in progress, 1 to do/);
   });
 
   it("create with subtasks, start (says it moved), check by number only", async () => {

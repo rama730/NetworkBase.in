@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { closeRenewedSession } from "@/lib/extension/device-codes";
 import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -24,6 +25,8 @@ const exchangeSchema = z.object({
   state: z.string().max(256).optional().nullable(),
   /** PKCE verifier (RFC 7636): required when the authorization carried a code challenge. */
   codeVerifier: z.string().min(43).max(128).optional().nullable(),
+  /** This computer's current token: closed once the new sign-in is made, so it's listed once (report C6). */
+  renew: z.string().min(20).max(200).optional(),
 });
 
 function readMetadata(event: { metadata: unknown }) {
@@ -161,6 +164,7 @@ export async function POST(request: Request) {
         .update(extensionDeviceSessions)
         .set({ lastSeenAt: now, userAgent })
         .where(eq(extensionDeviceSessions.id, activeSession.id));
+      if (parsed.data.renew) await closeRenewedSession(tx, { renew: parsed.data.renew, userId: verified.userId, now });
 
       return activeSession;
     });

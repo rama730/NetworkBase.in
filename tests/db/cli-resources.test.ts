@@ -51,7 +51,11 @@ test("task count matches the person's open work across workspaces", async () => 
   const res = await count.GET(new Request("https://app.test/api/v1/tasks/count"));
   const json = await res.json();
   assert.equal(res.status, 200, JSON.stringify(json));
-  assert.deepEqual(json.data, { open: 4, byStatus: { todo: 1, in_progress: 1, blocked: 1, in_review: 1 }, overdue: 1, dueThisWeek: 1 });
+  const { workspaces, ...totals } = json.data;
+  assert.deepEqual(totals, { open: 4, byStatus: { todo: 1, in_progress: 1, blocked: 1, in_review: 1 }, overdue: 1, dueThisWeek: 1 });
+  // D24 (walkthrough #13): the count names the workspaces it covers, so "1 overdue" isn't read as this one's.
+  const [ta, tb] = await Promise.all([a, b].map(async (id) => (await sql`SELECT title FROM workspaces WHERE id = ${id}`)[0]!.title as string));
+  assert.deepEqual(workspaces, [{ id: a, title: ta, open: 2, overdue: 1, dueThisWeek: 1 }, { id: b, title: tb, open: 2, overdue: 0, dueThisWeek: 0 }].sort((x, y) => y.open - x.open || x.title.localeCompare(y.title)));
 });
 
 test("me says who is signed in, what the token may do, and the file limit", async () => {

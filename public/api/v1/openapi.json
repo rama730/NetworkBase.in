@@ -169,6 +169,186 @@
       "exit": 1,
       "meaning": "Something broke on the server",
       "fix": "Try again; if it keeps happening, nb feedback"
+    },
+    "USAGE": {
+      "status": 0,
+      "exit": 2,
+      "meaning": "The command was missing something or had a value it can't use",
+      "fix": "nb <command> --help shows what it takes"
+    },
+    "UNKNOWN_COMMAND": {
+      "status": 0,
+      "exit": 2,
+      "meaning": "There's no command by that name",
+      "fix": "nb help lists them; the error suggests the closest one"
+    },
+    "UNKNOWN_FLAG": {
+      "status": 0,
+      "exit": 2,
+      "meaning": "That command has no such flag",
+      "fix": "nb <command> --help lists its flags"
+    },
+    "NOT_SIGNED_IN": {
+      "status": 0,
+      "exit": 3,
+      "meaning": "This computer has no sign-in for NetworkBase",
+      "fix": "nb login"
+    },
+    "NOT_LINKED": {
+      "status": 0,
+      "exit": 3,
+      "meaning": "This folder isn't linked to a workspace",
+      "fix": "nb init <workspace>, or pass --workspace"
+    },
+    "WORKSPACE_NOT_FOUND": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "No workspace by that name in your list",
+      "fix": "nb workspace list"
+    },
+    "TASK_NOT_FOUND": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "No task by that number or words in this workspace",
+      "fix": "nb task list --all"
+    },
+    "DOC_NOT_FOUND": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "No doc by that name in this workspace",
+      "fix": "nb doc list"
+    },
+    "NOT_A_TASK": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "That inbox item isn't about a task",
+      "fix": "nb inbox open <n>"
+    },
+    "NOTHING_TO_APPROVE": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "The task isn't waiting for review",
+      "fix": "nb inbox open <n>"
+    },
+    "NEEDS_INPUT": {
+      "status": 0,
+      "exit": 6,
+      "meaning": "The command needs a choice and there's no terminal to ask in",
+      "fix": "Answer with --answer key=value, or --yes for the recommended choice"
+    },
+    "CANCELLED": {
+      "status": 0,
+      "exit": 130,
+      "meaning": "You stopped it; nothing was changed",
+      "fix": "Run the command again when ready"
+    },
+    "OFFLINE": {
+      "status": 0,
+      "exit": 8,
+      "meaning": "The server couldn't be reached; pushes wait in the queue",
+      "fix": "nb doctor checks the connection; nb sync sends the queue"
+    },
+    "TIMEOUT": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "The server took too long to answer",
+      "fix": "Try again; nb doctor checks the connection"
+    },
+    "SERVER_ERROR": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "The server answered with something the CLI can't read",
+      "fix": "Try again in a minute; nb doctor checks the connection"
+    },
+    "UNEXPECTED_RESPONSE": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "The server's answer wasn't what the CLI expected",
+      "fix": "Update: npm i -g @networkbase/cli@latest"
+    },
+    "LOCAL_CONFLICT": {
+      "status": 0,
+      "exit": 4,
+      "meaning": "Your copy and the server's both changed",
+      "fix": "nb resolve <path> --mine|--theirs|--both"
+    },
+    "READ_ONLY": {
+      "status": 0,
+      "exit": 5,
+      "meaning": "You can read this workspace but not change it",
+      "fix": "Ask the owner for edit access"
+    },
+    "PLAN_LIMIT_FILE_SIZE": {
+      "status": 0,
+      "exit": 5,
+      "meaning": "The file is bigger than your plan allows",
+      "fix": "Make it smaller, or see the limits in Settings → Plan"
+    },
+    "LOCKED": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "Another nb command is working in this folder",
+      "fix": "Wait for it to finish, then run this again"
+    },
+    "UNSAFE_PATH": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "A file path would land outside the linked folder, so it was refused",
+      "fix": "Rename the file in the app, then nb pull"
+    },
+    "RESERVED_NAME": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "Windows can't hold a file with that name",
+      "fix": "Rename the file in the app, then nb pull"
+    },
+    "CORRUPT_STATE": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "This folder's .networkbase record is damaged",
+      "fix": "nb doctor; relinking with nb init keeps your files"
+    },
+    "CORRUPT_DOWNLOAD": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "A download didn't match its checksum, so it wasn't saved",
+      "fix": "Run nb pull again"
+    },
+    "UPLOAD_FAILED": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "A file didn't finish uploading",
+      "fix": "Run nb push again; it picks up where it stopped"
+    },
+    "CONFIRMATION_INVALID": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "That --confirm token is wrong or expired",
+      "fix": "Run the command without --confirm to get a new one"
+    },
+    "GIT_FAILED": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "A git command nb ran failed",
+      "fix": "Run the git command yourself to see why"
+    },
+    "EDITOR_FAILED": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "Your editor exited with an error",
+      "fix": "Set your editor: export EDITOR=nano"
+    },
+    "UNKNOWN_TOOL": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "An agent asked for a tool nb mcp doesn't have",
+      "fix": "Restart the agent so it reads the current tool list"
+    },
+    "INTERNAL": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "Something went wrong inside nb",
+      "fix": "If it keeps happening, tell us: nb feedback"
     }
   },
   "paths": {
@@ -2150,6 +2330,11 @@
                 "type": "object",
                 "properties": {
                   "deviceCode": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 200
+                  },
+                  "renew": {
                     "type": "string",
                     "minLength": 20,
                     "maxLength": 200

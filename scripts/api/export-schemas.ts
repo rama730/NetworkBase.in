@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { cliSchemas, openApiDocument } from "../../src/lib/api/openapi";
+import { cliErrorFixes, cliSchemas, openApiDocument } from "../../src/lib/api/openapi";
 
 const root = process.cwd();
 const version = JSON.parse(fs.readFileSync(path.join(root, "packages/nb-cli/package.json"), "utf8")).version;
@@ -13,6 +13,10 @@ const write = (file: string, data: unknown) => {
 };
 write("public/api/v1/openapi.json", openApiDocument(version));
 write("packages/nb-cli/schema/api.json", cliSchemas());
+// Every error's next step, shipped with the CLI (report C5): nb prints it when the server sends none.
+fs.writeFileSync(path.join(root, "packages/nb-cli/lib/error-fixes.mjs"), cliErrorFixes());
+console.log("wrote packages/nb-cli/lib/error-fixes.mjs");
 
 // The CLI's command table for /docs/cli (report A9.10): the docs list exactly what `nb help --json` lists.
 void import("../../packages/nb-cli/lib/args.mjs").then(({ helpData }) => write("src/lib/cli/commands.json", helpData()));
+

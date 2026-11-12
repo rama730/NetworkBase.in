@@ -252,4 +252,5 @@ export const deviceCodeSchema = z.object({
 });
 
 // device/token
-export const deviceTokenSchema = z.object({ deviceCode: z.string().min(20).max(200) });
+/** renew: this computer's current token (proof it's theirs), closed once the new one is made (report C6). */
+export const deviceTokenSchema = z.object({ deviceCode: z.string().min(20).max(200), renew: z.string().min(20).max(200).optional() });

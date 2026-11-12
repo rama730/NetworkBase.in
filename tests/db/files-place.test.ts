@@ -7,15 +7,18 @@ import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql 
 // Report §19.3, A1.8, D11, D13, A3.13, A2.5: one way to place files, with version conflicts instead of
 // overwrites, keep-both copies, role words, a server secret check, and a paged manifest.
 let actingUser = "";
+let actingScopes: Set<string> | null = null;
 const uploaded = new Map<string, Buffer>();
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 let place: typeof import("../../src/app/api/v1/files/place/route");
 let manifest: typeof import("../../src/app/api/v1/workspaces/[id]/manifest/route");
+let history: typeof import("../../src/app/api/v1/extension/file-history/route");
+let undo: typeof import("../../src/app/api/v1/undo/[id]/route");
 before(async () => {
   const shared = await loadAppModule(() => import("../../src/app/api/v1/_shared"));
   moduleStubs.set("@/app/api/v1/_shared", {
     ...shared,
-    requireAuthenticatedUser: async () => ({ user: { id: actingUser, email: "a@example.com", user_metadata: {} }, extensionSessionId: "ext", tokenScopes: null, response: null }),
+    requireAuthenticatedUser: async () => ({ user: { id: actingUser, email: "a@example.com", user_metadata: {} }, extensionSessionId: "ext", tokenScopes: actingScopes, response: null }),
   });
   moduleStubs.set("@/lib/security/csrf", { validateCsrf: () => null });
   const server = await loadAppModule(() => import("../../src/lib/supabase/server"));
@@ -25,6 +28,8 @@ before(async () => {
   });
   place = await loadAppModule(() => import("../../src/app/api/v1/files/place/route"));
   manifest = await loadAppModule(() => import("../../src/app/api/v1/workspaces/[id]/manifest/route"));
+  history = await loadAppModule(() => import("../../src/app/api/v1/extension/file-history/route"));
+  undo = await loadAppModule(() => import("../../src/app/api/v1/undo/[id]/route"));
 });
 after(async () => { await sql.end(); await closeAppDb(); });
 
@@ -148,6 +153,34 @@ test("versions only grow: going back makes an old version active, and the next s
 
   await assert.rejects(activate(2, 3), ActiveVersionChangedError, "an undo only moves back when nobody saved since");
   assert.equal((await activate(3)).node.currentVersion, 3, "any version can be made active again");
+});
+
+test("nb file use: an old version becomes active, history says so, and one undo puts the newer one back (C3)", async () => {
+  const { projectId } = await workspace();
+  for (const [text, base] of [["one", undefined], ["two", 1], ["three", 2]] as const) await post({ projectId, files: [file("use.md", text, base ? { baseVersion: base } : {})] });
+  const [{ id: nodeId }] = await sql<{ id: string }[]>`SELECT id FROM workspace_nodes WHERE workspace_id = ${projectId} AND path = '/use.md'`;
+  actingScopes = new Set(["file:read", "file:write"]);
+  try {
+    const call = async (body: unknown) => {
+      const res = await history.POST(new Request("https://app.test/api/v1/extension/file-history", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": randomUUID() }, body: JSON.stringify(body) }));
+      return { status: res.status, json: await res.json() };
+    };
+    const used = await call({ projectId, nodeId, version: 1 });
+    assert.equal(used.status, 200, JSON.stringify(used.json));
+    assert.deepEqual([used.json.data.activeVersion, used.json.data.previousVersion], [1, 3]);
+    const read = await (await history.GET(new Request(`https://app.test/api/v1/extension/file-history?projectId=${projectId}&nodeId=${nodeId}`))).json();
+    assert.equal(read.data.activeVersion, 1);
+    assert.deepEqual(read.data.versions.map((v: { version: number; basedOnVersion: number | null }) => [v.version, v.basedOnVersion]), [[3, 2], [2, 1], [1, null]]);
+    assert.equal((await call({ projectId, nodeId, version: 9 })).status, 404);
+    assert.equal((await call({ projectId, nodeId, version: 2, expectActive: 3 })).status, 409, "only from the version you saw");
+    const id = used.json.data.undoToken as string;
+    const back = await (await undo.POST(new Request(`https://app.test/api/v1/undo/${id}`, { method: "POST", headers: { "idempotency-key": randomUUID() } }), { params: Promise.resolve({ id }) })).json();
+    assert.equal(back.data.result, "v3 is active again");
+    const [node] = await sql`SELECT current_version FROM workspace_nodes WHERE id = ${nodeId}`;
+    assert.equal(node!.current_version, 3);
+  } finally {
+    actingScopes = null;
+  }
 });
 
 test("the old 'apply to active version' mode adds a version instead of rewriting one", async () => {

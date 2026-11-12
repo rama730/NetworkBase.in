@@ -102,7 +102,7 @@ describe("nb 2.0 basics", () => {
     assert.ok(!report.stdout.includes("@tester"), "no username");
     assert.ok(!report.stdout.includes("nb_pat_test"), "no token");
     const promptOut = await runCli(["prompt"], { api: api.url, cwd, home });
-    assert.equal(promptOut.stdout, "design-lab");
+    assert.equal(promptOut.stdout, "[design-lab] ");
     assert.equal(promptOut.stderr, "");
   });
 
@@ -112,6 +112,7 @@ describe("nb 2.0 basics", () => {
     assert.equal(r.code, 0, r.stderr);
     const rc = fs.readFileSync(path.join(home, ".zshrc"), "utf8");
     assert.match(rc, /source <\(nb completion zsh\)/);
+    assert.match(rc, /PROMPT='\$\(nb prompt 2>\/dev\/null\)'\$PROMPT/, "the task in the prompt, after its own yes (C8)");
     await runCli(["setup", "shell", "zsh", "--yes"], { api: api.url, home, env: { HOME: home } });
     assert.equal(fs.readFileSync(path.join(home, ".zshrc"), "utf8"), rc, "not added twice");
     assert.equal((await runCli(["setup", "shell", "zsh"], { api: api.url, home: await tempDir("nb-home-") })).code, 7, "asks first");

@@ -136,13 +136,33 @@ describe("files: init, push, pull, conflicts", () => {
     const queued = await nb(["push", "a.txt"]);
     assert.equal(queued.code, 8, queued.stderr);
     assert.match(queued.stderr, /queued this push/);
-    assert.match((await nb(["status"])).stdout, /1 push\(es\) queued/);
+    assert.match((await nb(["status"])).stdout, /1 push\(es\) queued while offline: nb queue/);
+    // C6: the queue is visible, and nb queue retry sends it.
+    const listed = await nb(["queue"]);
+    assert.match(listed.stdout, /1 push is waiting to send/);
+    assert.match(listed.stdout, /1\. a\.txt .*queued .*: the server couldn't be reached/);
     api.setFault(`/api/v1/workspaces/${WORKSPACE_ID}/manifest`, null);
-    const synced = await nb(["sync"]);
+    const synced = await nb(["queue", "retry"]);
+    assert.match(synced.stdout, /Sent 1 queued push/);
     assert.equal(synced.code, 0, synced.stderr);
     assert.equal(remote("/a.txt")?.content.toString(), "v2 offline");
     assert.equal(remote("/a.txt")?.version, 2);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(cwd, ".networkbase", "queue.json"), "utf8")).entries, []);
+  });
+
+  it("nb queue drop forgets a queued push and leaves the file alone (C6)", async () => {
+    write("b.txt", "v1");
+    await nb(["push", "b.txt"]);
+    write("b.txt", "v2 offline");
+    api.setFault(`/api/v1/workspaces/${WORKSPACE_ID}/manifest`, "drop");
+    assert.equal((await nb(["push", "b.txt"])).code, 8);
+    api.setFault(`/api/v1/workspaces/${WORKSPACE_ID}/manifest`, null);
+    const dropped = await nb(["queue", "drop", "1"]);
+    assert.equal(dropped.code, 0, dropped.stderr);
+    assert.match((await nb(["queue"])).stdout, /Nothing waiting/);
+    assert.equal(read("b.txt"), "v2 offline");
+    assert.equal(remote("/b.txt")?.version, 1);
+    assert.equal((await nb(["queue", "drop"])).code, 2);
   });
 
   it("a queued push whose file changed on the server meanwhile becomes a conflict, not an overwrite", async () => {

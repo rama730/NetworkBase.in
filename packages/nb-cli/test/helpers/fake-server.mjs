@@ -13,9 +13,9 @@ const API_SCHEMAS = JSON.parse(fs.readFileSync(new URL("../../schema/api.json", 
 /** @typedef {{ method: string, path: string, query: URLSearchParams, headers: http.IncomingHttpHeaders, body: any, params: string[] }} FakeRequest */
 /** @typedef {{ status?: number, headers?: Record<string, string>, body?: any, data?: any, raw?: Buffer }} FakeResponse */
 /** @typedef {(req: FakeRequest, state: FakeState) => FakeResponse | Promise<FakeResponse>} Handler */
-/** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string }} FakeFile */
+/** @typedef {{ path: string, nodeId: string, version: number, content: Buffer, updatedAt: string, active?: number }} FakeFile */
 /** @typedef {{ id: string, taskNumber: number, title: string, status: string, reviewStatus: string, updatedAt: string, description: string, priority: string, assigneeUsername: string | null, dueDate?: string | null, subtasks: any[], files: any[], comments: any[] }} FakeTask */
-/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
+/** @typedef {{ workspace: { id: string, title: string, slug: string, role: string }, files: Map<string, FakeFile>, tasks: FakeTask[], docs: Array<{ slug: string, filename: string, nodePath: string | null, starter?: string }>, reviewRequired: boolean, canWrite: boolean, revoked: Set<string>, undos: Map<string, any>, undone: any[], questions: any[], autoAnswer: string | null, sessionsEnded: number, fileOps: any[], fileComments: any[], updates: string[], assignments: any[], inbox: any[], events: any[], agentAccess?: any, lastCreate?: any, detailReads?: string[], extraWorkspaces?: any[], home?: any, lastListQuery?: URLSearchParams, lastBulk?: any, lastTokenBody?: any, countWorkspaces?: any[], device: { answer: "approve" | "deny" | "never", afterPolls: number, polls: number, lastBody: any, tokenType: "device" | "agent" } }} FakeState */
 
 export const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 export const TOKEN = "nb_pat_test0123456789abcdef";
@@ -94,8 +94,9 @@ const exact = {
     state.device.polls = 0;
     return { data: { deviceCode: "dc_0123456789abcdefghijklmnop", userCode: "ABCD-EFGH", verificationUri: "http://fake/device", verificationUriComplete: "http://fake/device?code=ABCD-EFGH", interval: 0, expiresIn: 600 } };
   },
-  "POST /api/v1/device/token": (_req, state) => {
+  "POST /api/v1/device/token": (req, state) => {
     const d = state.device;
+    state.lastTokenBody = req.body;
     d.polls += 1;
     if (d.polls < d.afterPolls || d.answer === "never") return { data: { status: d.polls === 1 ? "slow_down" : "pending" } };
     if (d.answer === "deny") return fail(403, "FORBIDDEN", "Sign-in was denied in the browser", { status: "denied" });
@@ -123,13 +124,13 @@ const exact = {
     if (!t) return fail(404, "NOT_FOUND", "Task not found");
     state.detailReads = [...(state.detailReads ?? []), req.query.get("brief") === "1" ? "brief" : "full"];
     // Like the server's brief=1 (C16 #9): the task row only.
-    if (req.query.get("brief") === "1") return { data: { task: { id: t.id, taskNumber: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus, updatedAt: t.updatedAt, assigneeId: t.assigneeUsername ? "aaaaaaaa-1111-4111-8111-111111111111" : null } } };
+    if (req.query.get("brief") === "1") return { data: { task: { id: t.id, taskNumber: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus, updatedAt: t.updatedAt, assigneeId: t.assigneeUsername ? "aaaaaaaa-1111-4111-8111-111111111111" : null, projectId: WORKSPACE_ID } } };
     return { data: { task: t, subtasks: t.subtasks, files: t.files, comments: t.comments, pushes: [] } };
   },
   "GET /api/v1/tasks/count": (_req, state) => {
     const open = state.tasks.filter((t) => t.status !== "done" || t.reviewStatus === "pending");
     const by = (/** @type {string} */ s) => open.filter((t) => t.status === s).length;
-    return { data: { open: open.length, byStatus: { todo: by("todo"), in_progress: by("in_progress"), blocked: by("blocked"), in_review: open.filter((t) => t.reviewStatus === "pending").length }, overdue: 0, dueThisWeek: 0 } };
+    return { data: { open: open.length, byStatus: { todo: by("todo"), in_progress: by("in_progress"), blocked: by("blocked"), in_review: open.filter((t) => t.reviewStatus === "pending").length }, overdue: 0, dueThisWeek: 0, workspaces: state.countWorkspaces ?? [{ id: WORKSPACE_ID, title: "Design Lab", open: open.length, overdue: 0, dueThisWeek: 0 }] } };
   },
   "POST /api/v1/tasks/bulk": (req, state) => {
     // Like the server (C2): every task or none, one undo.
@@ -233,7 +234,16 @@ const exact = {
   "GET /api/v1/extension/file-history": (req, state) => {
     const f = [...state.files.values()].find((x) => x.nodeId === req.query.get("nodeId"));
     if (!f) return fail(404, "NOT_FOUND", "File not found");
-    return { data: { versions: Array.from({ length: f.version }, (_, i) => ({ version: f.version - i, uploadedAt: f.updatedAt, uploadedByUsername: "tester", via: i === 0 ? "agent" : null, agentName: i === 0 ? "Claude Code" : null, comment: null })) } };
+    return { data: { activeVersion: f.active ?? f.version, versions: Array.from({ length: f.version }, (_, i) => ({ version: f.version - i, basedOnVersion: f.version - i > 1 ? f.version - i - 1 : null, uploadedAt: f.updatedAt, uploadedByUsername: "tester", via: i === 0 ? "agent" : null, agentName: i === 0 ? "Claude Code" : null, comment: null })) } };
+  },
+  "POST /api/v1/extension/file-history": (req, state) => {
+    // Like the server's "Use this version" (C3): the active pointer moves, nothing is copied.
+    const f = [...state.files.values()].find((x) => x.nodeId === req.body.nodeId);
+    if (!f) return fail(404, "NOT_FOUND", "File not found");
+    if (req.body.version > f.version) return fail(404, "NOT_FOUND", "That file has no such version");
+    const previousVersion = f.active ?? f.version;
+    f.active = req.body.version;
+    return { data: { nodeId: f.nodeId, path: f.path, activeVersion: req.body.version, previousVersion, undoToken: crypto.randomUUID() } };
   },
   "GET /api/v1/extension/comments": (_req, state) => ({ data: { events: state.fileComments } }),
   "POST /api/v1/files/place": (req, state) => {

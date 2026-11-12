@@ -1,5 +1,7 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { addTask, startFakeServer } from "./helpers/fake-server.mjs";
 import { runCli, tempDir } from "./helpers/run-cli.mjs";
 import { dueRange } from "../lib/dates.mjs";
@@ -111,6 +113,38 @@ describe("daily work (C2)", () => {
     const picked = await nb(["task", "assign", "1", "--answer", "person=@sam"]);
     assert.equal(picked.code, 0, picked.stderr);
     assert.equal(api.state.tasks[0]?.assigneeUsername, "sam");
+  });
+
+  it("the current task (C8): nb done and nb comment need no number; a nb/<n>- branch counts; the prompt shows it", async () => {
+    api.state.tasks.length = 0;
+    const t = addTask(api.state, { title: "Login bug", status: "todo" });
+    assert.equal((await nb(["task", "start", "1"])).code, 0);
+    const said = await nb(["comment", "found", "it"]);
+    assert.equal(said.code, 0, said.stderr);
+    assert.equal(t.comments.at(-1)?.content, "found it");
+    assert.match((await nb(["prompt"])).stdout, /^\[#1\] $/);
+    const done = await nb(["done", "-m", "fixed"]);
+    assert.equal(done.code, 0, done.stderr);
+    assert.equal(t.status, "done");
+    assert.equal((await nb(["task", "stop"])).code, 0);
+    // No started task: the git branch nb task start --branch made names it.
+    const t2 = addTask(api.state, { title: "Footer", status: "todo" });
+    fs.mkdirSync(path.join(cwd, ".git"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, ".git", "HEAD"), `ref: refs/heads/nb/${t2.taskNumber}-footer\n`);
+    const onBranch = await nb(["comment", "on", "the", "branch"]);
+    assert.equal(onBranch.code, 0, onBranch.stderr);
+    assert.equal(t2.comments.at(-1)?.content, "on the branch");
+    assert.match((await nb(["prompt"])).stdout, new RegExp(`^\\[#${t2.taskNumber}\\] $`));
+    fs.rmSync(path.join(cwd, ".git"), { recursive: true });
+  });
+
+  it("task count names the workspaces it covers (D24)", async () => {
+    api.state.countWorkspaces = [{ id: "w1", title: "Design Lab", open: 2, overdue: 0, dueThisWeek: 1 }, { id: "w2", title: "Gstack", open: 1, overdue: 1, dueThisWeek: 0 }];
+    const r = await nb(["task", "count"]);
+    assert.match(r.stdout, /open tasks? across all your workspaces/);
+    assert.match(r.stdout, /Gstack: 1 open, 1 overdue/);
+    delete api.state.countWorkspaces;
+    assert.match((await nb(["task", "count"])).stdout, / in Design Lab/);
   });
 
   it("nb ls is nb file list", async () => {

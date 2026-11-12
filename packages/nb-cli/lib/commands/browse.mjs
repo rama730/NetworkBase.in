@@ -98,8 +98,25 @@ export async function fileHistory(ctx) {
   if (!p) throw usage("nb file history <path>");
   const node = await nodeOf(ctx, p);
   const res = /** @type {any} */ (await ctx.api.get("/api/v1/extension/file-history", { query: { projectId: ctx.requireWorkspace(), nodeId: node.nodeId ?? node.id } }));
-  ctx.out.result("nb.file.history/1", { path: remote(p), versions: res.versions }, (d) =>
-    d.versions.map((/** @type {any} */ v) => `  v${v.version}  ${ctx.out.c.muted(String(v.uploadedAt).slice(0, 16).replace("T", " "))}  ${v.uploadedByUsername ? `@${safe(v.uploadedByUsername)}` : safe(v.uploadedByName ?? "someone")}${v.via ? ctx.out.c.muted(` via ${v.via === "agent" ? safe(v.agentName ?? "an agent") : "CLI"}`) : ""}${v.comment ? `  ${safe(v.comment)}` : ""}`));
+  const { c } = ctx.out;
+  // Which version is active and what each was based on (C3), so "going back" reads plainly.
+  ctx.out.result("nb.file.history/1", { path: remote(p), activeVersion: res.activeVersion ?? null, versions: res.versions }, (d) => [
+    ...d.versions.map((/** @type {any} */ v) => `${v.version === d.activeVersion ? c.brand(ctx.out.sym.cursor) : " "} v${v.version}  ${c.muted(String(v.uploadedAt).slice(0, 16).replace("T", " "))}  ${v.uploadedByUsername ? `@${safe(v.uploadedByUsername)}` : safe(v.uploadedByName ?? "someone")}${v.via ? c.muted(` via ${v.via === "agent" ? safe(v.agentName ?? "an agent") : "CLI"}`) : ""}${v.basedOnVersion && v.basedOnVersion !== v.version - 1 ? c.muted(`  based on v${v.basedOnVersion}`) : ""}${v.version === d.activeVersion ? `  ${c.success("active")}` : ""}${v.comment ? `  ${safe(v.comment)}` : ""}`),
+    ...(d.versions.length > 1 ? ["", c.muted(`  Go back: nb file use ${safe(d.path.slice(1))} v<n>`)] : []),
+  ]);
+}
+
+/** `nb file use <file> v1` (C3): the app's "Use this version"; the next save is based on it. @param {Context} ctx */
+export async function fileUse(ctx) {
+  const [p, raw] = ctx.positionals;
+  const version = Number(String(raw ?? "").replace(/^v/i, ""));
+  if (!p || !Number.isInteger(version) || version < 1) throw usage("nb file use <path> v<n>", "See the versions: nb file history <path>");
+  const node = await nodeOf(ctx, p);
+  const res = /** @type {any} */ (await ctx.api.post("/api/v1/extension/file-history", { projectId: ctx.requireWorkspace(), nodeId: node.nodeId ?? node.id, version }));
+  ctx.out.result("nb.file.use/1", { path: remote(p), activeVersion: res.activeVersion, previousVersion: res.previousVersion }, (d) => [
+    d.previousVersion === d.activeVersion ? `v${d.activeVersion} of ${safe(d.path)} was already active` : `${ctx.out.c.success(ctx.out.sym.done)} v${d.activeVersion} of ${safe(d.path)} is active (was v${d.previousVersion}); the next save is based on it`,
+    ctx.out.c.muted(`  nb pull gets it here · nb undo puts v${d.previousVersion} back`),
+  ]);
 }
 
 /** @param {Context} ctx @param {"move" | "rename" | "trash"} kind */

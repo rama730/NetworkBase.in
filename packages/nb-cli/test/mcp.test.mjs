@@ -13,11 +13,13 @@ describe("nb mcp (report A7)", () => {
   /** @type {Awaited<ReturnType<typeof startMcp>>} */
   let mcp;
   /** @type {string} */
+  let home;
+  /** @type {string} */
   let cwd;
   before(async () => {
     api = await startFakeServer();
     cwd = await tempDir("nb-mcp-proj-");
-    const home = await tempDir("nb-mcp-home-");
+    home = await tempDir("nb-mcp-home-");
     await runCli(["init", "design-lab"], { api: api.url, cwd, home });
     mcp = await startMcp({ api: api.url, cwd, home });
   });
@@ -80,6 +82,25 @@ describe("nb mcp (report A7)", () => {
     const done = await mcp.call("networkbase_task_done", { ...args, confirmToken: again.structuredContent.confirmToken });
     assert.equal(done.structuredContent.status, "ok", done.content[0].text);
     assert.equal(api.state.tasks.find((x) => x.id === t.id)?.status, "done");
+  });
+
+  it("a yes from one MCP server process is good in the next, once (D24: headless agents)", async () => {
+    const t = addTask(api.state, { title: "Headless", status: "in_progress" });
+    const args = { task: String(t.taskNumber), summary: "Done in CI" };
+    const first = await mcp.call("networkbase_task_done", args);
+    const token = first.structuredContent.confirmToken;
+    assert.match(token, /^y_[0-9a-z]+_[0-9a-f]{18}_[0-9a-f]{32}$/);
+    const next = await startMcp({ api: api.url, cwd, home });
+    try {
+      const done = await next.call("networkbase_task_done", { ...args, confirmToken: token });
+      assert.equal(done.structuredContent.status, "ok", done.content[0].text);
+      const replay = await next.call("networkbase_task_done", { ...args, confirmToken: token });
+      assert.equal(replay.isError, true, "used once");
+    } finally {
+      await next.close();
+    }
+    const forged = await mcp.call("networkbase_task_done", { ...args, confirmToken: token.replace(/.$/, (c) => (c === "0" ? "1" : "0")) });
+    assert.equal(forged.isError, true);
   });
 
   it("pushes files only with a message; untrusted text is marked", async () => {

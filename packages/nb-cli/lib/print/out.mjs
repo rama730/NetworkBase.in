@@ -1,5 +1,6 @@
 // The only place the CLI writes to the terminal (report A4.5, A4.7, A4.8, A13.1). stdout carries results
 // (text or one JSON envelope); stderr carries progress, hints, warnings and prompts.
+import { FIXES } from "../error-fixes.mjs";
 import { spawnSync } from "node:child_process";
 
 import { colorLevel, palette, pad, safe, symbols, truncateEnd, truncateMiddle, asciiOnly, width, hyperlinks } from "./style.mjs";
@@ -92,8 +93,9 @@ export function createOutput(mode, io = {}) {
     },
     /** @param {import("../errors.mjs").CliError} error */
     error(error) {
-      // Server errors link to their entry on /docs/cli (report A2.6).
-      const docs = error.status && /^[A-Z_]+$/.test(error.code) ? `https://networkbase.in/docs/cli#error-${error.code}` : null;
+      // Every catalogued code links to its entry on /docs/cli (report A2.6, C5), and ends with a next step.
+      const docs = FIXES[error.code] && error.code !== "CANCELLED" ? `https://networkbase.in/docs/cli#error-${error.code}` : null;
+      if (!error.hint && FIXES[error.code] && error.code !== "CANCELLED") error.hint = FIXES[error.code];
       if (json) {
         const body = { ok: false, error: { code: error.code, message: error.message, ...(error.hint ? { hint: error.hint } : {}), ...(error.details !== undefined ? { details: error.details } : {}), ...(docs ? { docs } : {}) } };
         stdout.write(`${JSON.stringify(body)}\n`);

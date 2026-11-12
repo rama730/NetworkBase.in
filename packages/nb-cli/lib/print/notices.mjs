@@ -22,6 +22,12 @@ export function newer(a, b) {
 
 /** @param {import("../context.mjs").Context} ctx */
 export async function afterCommand(ctx) {
+  // 7 days before this computer's sign-in ends, once a day (C6); nb login renews the same sign-in.
+  const ends = ctx.profile.profile?.source === "file" ? Date.parse(ctx.profile.profile.expiresAt ?? "") : NaN;
+  if (ends > Date.now() && ends - Date.now() < 7 * DAY) {
+    const { remindOnce } = await import("./remind.mjs");
+    remindOnce(ctx, "sign-in-ends", `Your sign-in on this computer ends ${new Date(ends).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}: nb login renews it`);
+  }
   if (ctx.out.json || ctx.flags.quiet || ctx.env.CI || ctx.env.NB_NO_UPDATE_CHECK || !process.stderr.isTTY) return;
   const file = path.join(globalDir(ctx.env), "update.json");
   /** @type {{ lastRun?: string, checkedAt?: number, latest?: string }} */
