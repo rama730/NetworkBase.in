@@ -1975,8 +1975,8 @@
     },
     {
       "name": "agent setup",
-      "summary": "Connect Claude Code, Codex or Cursor to this workspace (asks first)",
-      "usage": "nb agent setup claude|codex|cursor [--token agent|mine]",
+      "summary": "Connect your AI agents to this workspace: every one installed, or the one named (asks first)",
+      "usage": "nb agent setup [claude|codex|cursor|gemini|copilot] [--token agent|mine]",
       "flags": {
         "token": {
           "type": "string",

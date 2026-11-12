@@ -14,10 +14,10 @@ export const TOPICS = /** @type {Record<string, { title: string, lines: string[]
   agents: {
     title: "Agents: Claude Code, Codex, Cursor and others working with you",
     lines: [
-      "nb agent setup connects an agent; you approve it once in the browser and choose what it may do alone.",
+      "nb agent setup connects every agent installed here (or the one you name); you approve each once in the browser and choose what it may do alone.",
       "Big changes (finishing tasks, final files, deleting) wait for your yes. Everything it changes can be undone.",
     ],
-    examples: ["nb agent setup claude", "nb agent access claude --small", "nb agent status", "nb undo --session"],
+    examples: ["nb agent setup", "nb agent setup claude", "nb agent access claude --small", "nb agent status", "nb undo --session"],
   },
   classes: {
     title: "Classes: assignments, hand-ins and reviews",

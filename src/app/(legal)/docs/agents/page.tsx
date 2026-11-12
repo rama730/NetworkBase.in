@@ -24,7 +24,8 @@ export default function AgentsDocsPage() {
           title: "1. Connect an agent",
           content: (
             <>
-              <p>In a folder linked to a workspace (<code>nb init</code>), run setup for your agent. It shows the change and asks first, then opens NetworkBase in your browser: the page is already filled in, so approving is one click. The terminal then says what you allowed, for example “Claude Code connected · all workspaces · asks before big changes · until 11 Dec”.</p>
+              <p>In a folder linked to a workspace (<code>nb init</code>), run setup. On its own it finds every agent installed on this computer (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot) and sets them all up after one preview; name one to set up just that one. It shows the change and asks first, then opens NetworkBase in your browser: the page is already filled in, so approving is one click. The terminal then says what you allowed, for example “Claude Code connected · all workspaces · asks before big changes · until 11 Dec”.</p>
+              <TerminalBlock variant="command" label="Every agent installed here">{"$ nb agent setup"}</TerminalBlock>
               <TerminalBlock variant="command" label="Claude Code">{"$ nb agent setup claude\n$ claude"}</TerminalBlock>
               <TerminalBlock variant="command" label="Codex">{"$ nb agent setup codex\n$ codex"}</TerminalBlock>
               <TerminalBlock variant="command" label="Cursor">{"$ nb agent setup cursor"}</TerminalBlock>

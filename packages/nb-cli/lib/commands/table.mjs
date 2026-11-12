@@ -234,7 +234,7 @@ export const COMMANDS = [
   { group: "Agents", name: "ask wait", summary: "Wait for the answer to a question", usage: "nb ask wait <id> [--timeout 600]", module: "ask", fn: "askWait", flags: { timeout: { type: "string", describe: "Seconds to wait (default 600)", valueName: "s" } }, exit: [0, 1, 8] },
   { group: "Agents", name: "ask list", summary: "Questions agents asked you", usage: "nb ask list", module: "ask", fn: "askList" },
   { group: "Agents", name: "ask answer", summary: "Answer a question an agent asked you", usage: "nb ask answer <id> <option number or text>", module: "ask", fn: "askAnswer" },
-  { group: "Agents", name: "agent setup", summary: "Connect Claude Code, Codex or Cursor to this workspace (asks first)", usage: "nb agent setup claude|codex|cursor [--token agent|mine]", module: "agent", fn: "setup",
+  { group: "Agents", name: "agent setup", summary: "Connect your AI agents to this workspace: every one installed, or the one named (asks first)", usage: "nb agent setup [claude|codex|cursor|gemini|copilot] [--token agent|mine]", module: "agent", fn: "setup",
     flags: { token: { type: "string", describe: "agent (default): its own sign-in, which you approve; mine: use yours", valueName: "kind" } },
     examples: ["nb agent setup claude", "nb agent setup codex"] },
   { group: "Agents", name: "agent status", summary: "Which agents are connected here, and what each may do", usage: "nb agent status", module: "agent", fn: "status" },

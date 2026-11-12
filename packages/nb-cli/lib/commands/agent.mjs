@@ -1,4 +1,5 @@
-// nb agent setup|status|remove (report A7.8, A7.9, §26.5): connects Claude Code, Codex or Cursor to `nb mcp` and
+// nb agent setup|status|remove (report A7.8, A7.9, §26.5, D8): connects Claude Code, Codex, Cursor, Gemini CLI or
+// GitHub Copilot (every one installed, when none is named) to `nb mcp` and
 // adds a short NetworkBase section to the agent's instructions file. Always shows the change and asks first.
 import fs from "node:fs";
 import os from "node:os";
@@ -13,7 +14,9 @@ import { confirm } from "../tui/ask.mjs";
 const BASE_ARGS = ["-y", "@networkbase/cli@2", "mcp"];
 /** @param {string | null} profile */
 const server = (profile) => ({ command: "npx", args: profile ? [...BASE_ARGS, "--profile", profile] : BASE_ARGS });
-const AGENT_NAMES = /** @type {Record<string, string>} */ ({ claude: "Claude Code", codex: "Codex", cursor: "Cursor" });
+const AGENT_NAMES = /** @type {Record<string, string>} */ ({ claude: "Claude Code", codex: "Codex", cursor: "Cursor", gemini: "Gemini CLI", copilot: "GitHub Copilot" });
+/** The commands that show an agent is installed (report D8). */
+const BINS = /** @type {Record<string, string[]>} */ ({ claude: ["claude"], codex: ["codex"], cursor: ["cursor", "cursor-agent"], gemini: ["gemini"], copilot: ["copilot"] });
 const START = "<!-- networkbase:start -->";
 const END = "<!-- networkbase:end -->";
 const TOML_HEADER = "[mcp_servers.networkbase]";
@@ -41,7 +44,18 @@ const AGENTS = (root, env) => ({
   claude: { name: "Claude Code", config: path.join(root, ".mcp.json"), kind: "json", notes: path.join(root, "CLAUDE.md") },
   codex: { name: "Codex", config: path.join(env.CODEX_HOME || path.join(os.homedir(), ".codex"), "config.toml"), kind: "toml", notes: path.join(root, "AGENTS.md") },
   cursor: { name: "Cursor", config: path.join(root, ".cursor", "mcp.json"), kind: "json", notes: path.join(root, ".cursor", "rules", "networkbase.mdc") },
+  gemini: { name: "Gemini CLI", config: path.join(root, ".gemini", "settings.json"), kind: "json", notes: path.join(root, "GEMINI.md") },
+  copilot: { name: "GitHub Copilot", config: path.join(root, ".github", "mcp.json"), kind: "json", notes: path.join(root, ".github", "copilot-instructions.md") },
 });
+
+/** Which supported agents are installed: their command is on PATH (report D8). @param {NodeJS.ProcessEnv} env */
+export function installedAgents(env) {
+  const dirs = String(env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  const exts = process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"] : [""];
+  return Object.keys(BINS).filter((key) => BINS[key]?.some((bin) => dirs.some((d) => exts.some((x) => fs.existsSync(path.join(d, bin + x))))));
+}
+/** "A, B and C". @param {string[]} names */
+const listWords = (names) => (names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0] ?? "");
 
 const read = (/** @type {string} */ file) => (fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "");
 /** @param {string | null} profile */
@@ -71,15 +85,53 @@ function pickAgent(ctx) {
   const { root, project } = ctx.requireRoot();
   const which = ctx.positionals[0];
   const agents = AGENTS(root, ctx.env);
-  if (!which || !(which in agents)) throw usage(`Which agent? nb agent ${ctx.positionals.length ? "…" : "setup"} claude|codex|cursor`);
+  if (!which || !(which in agents)) throw usage(`Which agent? nb agent ${ctx.positionals.length ? "…" : "setup"} claude|codex|cursor|gemini|copilot`);
   return { root, project, agent: agents[/** @type {keyof typeof agents} */ (which)], key: which };
 }
 
 /** @param {Context} ctx */
 export async function setup(ctx) {
-  const { project, agent, key } = pickAgent(ctx);
   const mode = ctx.flags.token ?? "agent";
   if (!["agent", "mine"].includes(mode)) throw usage("--token is agent (its own sign-in, which you approve) or mine (your sign-in)");
+  const { root, project } = ctx.requireRoot();
+  // A name sets up that agent; none sets up every supported agent installed here, after one preview (report D8).
+  const keys = ctx.positionals.length ? [pickAgent(ctx).key] : installedAgents(ctx.env);
+  if (!keys.length) throw usage("No supported agent found on this computer", "Install one, or name it: nb agent setup claude|codex|cursor|gemini|copilot");
+  const plans = keys.map((key) => planFor(root, project, key, mode, ctx.env));
+  const todo = plans.filter((p) => p.changes.length);
+  if (!todo.length) return ctx.out.result("nb.agent.setup/1", { agent: keys[0], agents: keys, changed: [] }, () => `${listWords(plans.map((p) => p.agent.name))} ${plans.length === 1 ? "is" : "are"} already set up here`);
+  const preview = todo.flatMap((p) => p.changes).map((c) => `${c.file}\n${c.change.split("\n").map((l) => `  + ${l}`).join("\n")}`).join("\n\n");
+  if (!(await confirm(ctx, { key: "agent", question: `Connect ${listWords(todo.map((p) => p.agent.name))} to NetworkBase?`, preview, yesLabel: "Connect", defaultYes: true }))) return EXIT.cancelled;
+  for (const p of todo) {
+    if (p.profile && !hasServer(p.agent.kind, p.configText)) {
+      const { currentProfile } = await import("../config.mjs");
+      const existing = currentProfile({ flags: { profile: p.profile, "api-url": ctx.profile.origin }, env: { ...ctx.env, NB_TOKEN: "", NETWORKBASE_TOKEN: "" } });
+      if (!existing.token) {
+        ctx.out.note(`${p.agent.name} gets its own sign-in. Approve it in your browser; you choose where it works and what it may do.`);
+        const { connectedLines, deviceLogin, saveToken } = await import("./account.mjs");
+        const token = await deviceLogin(ctx, AGENT_NAMES[p.key] ?? p.agent.name);
+        const me = await saveToken(ctx, p.profile, token);
+        if (me.access) for (const line of connectedLines(ctx, me.access)) ctx.out.note(line);
+      }
+    }
+    for (const c of p.changes) {
+      fs.mkdirSync(path.dirname(c.file), { recursive: true });
+      fs.writeFileSync(c.file, c.write);
+    }
+  }
+  ctx.out.result("nb.agent.setup/1", { agent: todo[0]?.key, agents: todo.map((p) => p.key), changed: todo.flatMap((p) => p.changes.map((c) => c.file)) }, (d) => [
+    `${ctx.out.c.success(ctx.out.sym.done)} ${listWords(todo.map((p) => p.agent.name))} can use NetworkBase in ${safe(project.title ?? project.slug ?? "")}`,
+    ...d.changed.map((/** @type {string} */ f) => ctx.out.c.muted(`  ${f}`)),
+    ctx.out.c.muted(`  Try: "how many tasks do I have?"${d.agents.includes("claude") ? " (restart Claude Code, then approve the networkbase server)" : ""}`),
+  ]);
+}
+
+/**
+ * The files one agent's setup changes (nothing when it's set up already).
+ * @param {string} root @param {any} project @param {string} key @param {string} mode @param {NodeJS.ProcessEnv} env
+ */
+function planFor(root, project, key, mode, env) {
+  const agent = /** @type {any} */ (AGENTS(root, env))[key];
   const configText = read(agent.config);
   // The agent gets its own sign-in (report A3.3, A7.8, A5), in a profile of its own; the person chooses its access.
   const profile = mode === "agent" ? `agent-${key}` : null;
@@ -92,37 +144,16 @@ export async function setup(ctx) {
       /** @type {any} */
       let json;
       try { json = JSON.parse(configText || "{}"); } catch { throw new CliError("CORRUPT_STATE", `${agent.config} isn't valid JSON`, { hint: "Fix or move it, then run this again" }); }
-      json.mcpServers = { ...(json.mcpServers ?? {}), networkbase: server(profile) };
-      changes.push({ file: agent.config, write: `${JSON.stringify(json, null, 2)}\n`, change: `"networkbase": ${JSON.stringify(server(profile))}` });
+      // GitHub Copilot lists which tools a local server may offer.
+      const entry = key === "copilot" ? { type: "local", ...server(profile), tools: ["*"] } : server(profile);
+      json.mcpServers = { ...(json.mcpServers ?? {}), networkbase: entry };
+      changes.push({ file: agent.config, write: `${JSON.stringify(json, null, 2)}\n`, change: `"networkbase": ${JSON.stringify(entry)}` });
     }
   }
   const notesText = read(agent.notes);
-  const section = key === "cursor" ? `---\ndescription: NetworkBase workspace rules\nalwaysApply: true\n---\n${instructions(/** @type {any} */ (project))}` : instructions(/** @type {any} */ (project));
+  const section = key === "cursor" ? `---\ndescription: NetworkBase workspace rules\nalwaysApply: true\n---\n${instructions(project)}` : instructions(project);
   if (!notesRange(notesText)) changes.push({ file: agent.notes, write: `${notesText}${notesText && !notesText.endsWith("\n") ? "\n" : ""}${notesText ? "\n" : ""}${section}\n`, change: section });
-
-  if (!changes.length) return ctx.out.result("nb.agent.setup/1", { agent: key, changed: [] }, () => `${agent.name} is already set up here`);
-  const preview = changes.map((c) => `${c.file}\n${c.change.split("\n").map((l) => `  + ${l}`).join("\n")}`).join("\n\n");
-  if (!(await confirm(ctx, { key: "agent", question: `Connect ${agent.name} to NetworkBase?`, preview, yesLabel: "Connect", defaultYes: true }))) return EXIT.cancelled;
-  if (profile && !hasServer(agent.kind, configText)) {
-    const { currentProfile } = await import("../config.mjs");
-    const existing = currentProfile({ flags: { profile, "api-url": ctx.profile.origin }, env: { ...ctx.env, NB_TOKEN: "", NETWORKBASE_TOKEN: "" } });
-    if (!existing.token) {
-      ctx.out.note(`${agent.name} gets its own sign-in. Approve it in your browser; you choose where it works and what it may do.`);
-      const { connectedLines, deviceLogin, saveToken } = await import("./account.mjs");
-      const token = await deviceLogin(ctx, AGENT_NAMES[key] ?? agent.name);
-      const me = await saveToken(ctx, profile, token);
-      if (me.access) for (const line of connectedLines(ctx, me.access)) ctx.out.note(line);
-    }
-  }
-  for (const c of changes) {
-    fs.mkdirSync(path.dirname(c.file), { recursive: true });
-    fs.writeFileSync(c.file, c.write);
-  }
-  ctx.out.result("nb.agent.setup/1", { agent: key, changed: changes.map((c) => c.file) }, (d) => [
-    `${ctx.out.c.success(ctx.out.sym.done)} ${agent.name} can use NetworkBase in ${safe(project.title ?? project.slug ?? "")}`,
-    ...d.changed.map((f) => ctx.out.c.muted(`  ${f}`)),
-    ctx.out.c.muted(`  Try: "how many tasks do I have?"${key === "claude" ? " (restart Claude Code, then approve the networkbase server)" : ""}`),
-  ]);
+  return { agent, key, profile, configText, changes };
 }
 
 /** Which agents are connected in this folder. @param {string} root @param {NodeJS.ProcessEnv} env */

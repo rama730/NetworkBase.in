@@ -47,6 +47,30 @@ describe("nb agent setup (report A7.8, A7.9)", () => {
     assert.ok(!fs.existsSync(path.join(cwd, "AGENTS.md")), "the file it created is gone");
   });
 
+  it("with no name, sets up every agent installed here in one go, after one preview (D8)", async () => {
+    const cwd = await tempDir("nb-agent-all-");
+    const home = await tempDir("nb-agent-all-home-");
+    const bin = await tempDir("nb-agent-bin-");
+    for (const name of ["claude", "gemini", "copilot"]) { fs.writeFileSync(path.join(bin, name), "#!/bin/sh\n"); fs.chmodSync(path.join(bin, name), 0o755); }
+    const nb = (/** @type {string[]} */ args, /** @type {string} */ PATH = bin) => runCli(args, { api: api.url, cwd, home, env: { PATH } });
+    await nb(["init", "design-lab"]);
+    const ask = await nb(["agent", "setup", "--token", "mine"]);
+    assert.equal(ask.code, 7, "one yes for all of them");
+    assert.match(ask.stderr + ask.stdout, /Claude Code, Gemini CLI and GitHub Copilot/);
+    const r = await nb(["agent", "setup", "--token", "mine", "--yes"]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.ok(JSON.parse(fs.readFileSync(path.join(cwd, ".mcp.json"), "utf8")).mcpServers.networkbase);
+    assert.ok(JSON.parse(fs.readFileSync(path.join(cwd, ".gemini", "settings.json"), "utf8")).mcpServers.networkbase);
+    assert.match(fs.readFileSync(path.join(cwd, "GEMINI.md"), "utf8"), /## NetworkBase/);
+    assert.ok(JSON.parse(fs.readFileSync(path.join(cwd, ".github", "mcp.json"), "utf8")).mcpServers.networkbase);
+    assert.match(fs.readFileSync(path.join(cwd, ".github", "copilot-instructions.md"), "utf8"), /## NetworkBase/);
+    assert.ok(!fs.existsSync(path.join(cwd, ".cursor")), "only installed agents");
+    assert.match(r.stdout, /Claude Code/);
+    const none = await nb(["agent", "setup", "--token", "mine", "--yes"], await tempDir("nb-empty-bin-"));
+    assert.equal(none.code, 2);
+    assert.match(none.stderr, /No supported agent found.*claude\|codex\|cursor\|gemini\|copilot/s);
+  });
+
   it("by default the agent gets its own workspace-bound sign-in, in its own profile", async () => {
     const cwd = await tempDir("nb-agent-");
     const home = await tempDir("nb-agent-home-");
