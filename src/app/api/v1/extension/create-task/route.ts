@@ -1,4 +1,7 @@
 import { validateCsrf } from "@/lib/security/csrf";
+import { and, eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { workspaceMembers } from "@/lib/db/schema";
 import {requireAuthenticatedUser,
   jsonSuccess,
   jsonError,
@@ -25,8 +28,14 @@ async function handlePost(request: Request) {
     // Small change for agents (report §26.6); only "Ask for everything" holds it for a yes.
     const held = await agentGate(auth, request, parsed.data, { workspaceId: parsed.data.projectId, kinds: ["small"], summary: `Create the task "${parsed.data.title}"` });
     if (held) return held;
+    // Your tasks are yours (report C16 #3): left out means the person creating it, when they can hold tasks here
+    // (a member row; some older workspaces list their owner only as owner).
+    const self = parsed.data.assigneeId === undefined
+      ? (await db.select({ id: workspaceMembers.id }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, parsed.data.projectId), eq(workspaceMembers.userId, auth.user.id))).limit(1))[0]
+      : undefined;
     const result = await createTaskAction({
       ...parsed.data,
+      assigneeId: parsed.data.assigneeId === undefined ? (self ? auth.user.id : null) : parsed.data.assigneeId,
       status: "todo",
       priority: parsed.data.priority || "medium",
     });

@@ -349,6 +349,10 @@
           "type": "boolean",
           "describe": "Upload again files that were deleted on the server but you still have"
         },
+        "no-task": {
+          "type": "boolean",
+          "describe": "Don't link these files to the task you started"
+        },
         "from-git": {
           "type": "boolean",
           "describe": "Push what the last git commit changed (its NetworkBase-Task trailer picks the task)"
@@ -666,8 +670,8 @@
     },
     {
       "name": "task create",
-      "summary": "Create a task",
-      "usage": "nb task create \"<title>\" [-m description] [--priority high]",
+      "summary": "Create a task (yours unless --to says otherwise)",
+      "usage": "nb task create \"<title>\" [-m description] [--priority high] [--due friday] [--to @sam] [--sprint current]",
       "flags": {
         "message": {
           "type": "string",
@@ -679,6 +683,21 @@
           "type": "string",
           "describe": "low, medium, high or urgent",
           "valueName": "level"
+        },
+        "due": {
+          "type": "string",
+          "describe": "When it's due: today, tomorrow, friday, next week, in 3 days, or 2026-12-01",
+          "valueName": "date"
+        },
+        "to": {
+          "type": "string",
+          "describe": "Who it's for: @username, me, or none (default: you)",
+          "valueName": "person"
+        },
+        "sprint": {
+          "type": "string",
+          "describe": "A sprint by name, or current",
+          "valueName": "sprint"
         },
         "subtask": {
           "type": "string",
@@ -694,6 +713,7 @@
       },
       "examples": [
         "nb task create \"Fix login\" --priority high",
+        "nb task create \"Update the logo\" --due friday --to @sam --sprint current",
         "nb task create \"Write report\" --subtask Outline --subtask Draft",
         "nb task create --from tasks.md"
       ],

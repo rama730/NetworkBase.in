@@ -46,7 +46,7 @@ Tasks
   task list            Tasks (default: yours, not done)
   task count           How many open tasks you have
   task view            A task's details (--context: brief for an AI agent)
-  task create          Create a task
+  task create          Create a task (yours unless --to says otherwise)
   task start           Make it this folder's task and move it to In progress
   task stop            Clear this folder's task (status unchanged)
   task move            Move to todo, in_progress or blocked

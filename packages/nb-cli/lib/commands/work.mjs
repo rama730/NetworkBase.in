@@ -35,20 +35,23 @@ export async function taskEdit(ctx) {
   ctx.out.result("nb.task.edit/1", { number: task.taskNumber, changed: changes.map(([f]) => f) }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Changed ${d.changed.join(", ")} on #${d.number}`);
 }
 
+/** A person for --to and task assign: @username, me, or none (null). @param {Context} ctx @param {string} who */
+export async function resolvePerson(ctx, who) {
+  if (who === "none") return null;
+  if (who === "me") return /** @type {any} */ (await ctx.api.get("/api/v1/me")).user.id;
+  const name = who.replace(/^@/, "").toLowerCase();
+  const { members } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/members`, { query: { q: name } }));
+  const hit = members.find((/** @type {any} */ m) => String(m.username ?? "").toLowerCase() === name);
+  if (!hit) throw new CliError("NOT_FOUND", `No member @${name} in this workspace`, { hint: "nb member list" });
+  return hit.id;
+}
+
 /** @param {Context} ctx */
 export async function taskAssign(ctx) {
   const [ref, who] = ctx.positionals;
   if (!ref || !who) throw usage("nb task assign <task> <@username|me|none>");
   const task = await resolveTask(ctx, ref);
-  let assigneeId = null;
-  if (who === "me") assigneeId = /** @type {any} */ (await ctx.api.get("/api/v1/me")).user.id;
-  else if (who !== "none") {
-    const name = who.replace(/^@/, "").toLowerCase();
-    const { members } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/members`, { query: { q: name } }));
-    const hit = members.find((/** @type {any} */ m) => String(m.username ?? "").toLowerCase() === name);
-    if (!hit) throw new CliError("NOT_FOUND", `No member @${name} in this workspace`, { hint: "nb member list" });
-    assigneeId = hit.id;
-  }
+  const assigneeId = await resolvePerson(ctx, who);
   await update(ctx, { kind: "assign", taskId: task.id, assigneeId });
   ctx.out.result("nb.task.assign/1", { number: task.taskNumber, assignee: who === "none" ? null : who.replace(/^@/, "") }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} #${d.number} ${d.assignee ? `is assigned to ${d.assignee === "me" ? "you" : `@${safe(d.assignee)}`}` : "is unassigned"}`);
 }

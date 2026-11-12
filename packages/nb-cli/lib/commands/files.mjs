@@ -244,6 +244,17 @@ export async function push(ctx) {
     const plan = await buildPlan(ctx, { only });
     if (plan.offline) throw queueOffline();
     const { project, state } = plan;
+    // A file you named that can't go up is an error that says why, never "Nothing changed" (C16 #2).
+    const named = new Set(only.map((p) => p.split(path.sep).join("/").replace(/^\/+/, "")));
+    const refused = plan.skipped.find((s) => named.has(s.path.replace(/^\/+/, "")));
+    if (refused) {
+      const limit = plan.manifest.largestFileBytes;
+      const bytes = (() => { try { return fs.statSync(path.join(root, refused.path)).size; } catch { return 0; } })();
+      const mb = (/** @type {number} */ n) => Math.ceil(n / 1024 / 1024);
+      throw /^over the/.test(refused.reason) && limit
+        ? new CliError("PLAN_LIMIT_FILE_SIZE", `${safe(refused.path)} is ${mb(bytes)} MB; files can be up to ${mb(limit)} MB`, { hint: "Make it smaller, or share it as a link" })
+        : new CliError("USAGE", `${safe(refused.path)} can't be pushed: ${refused.reason}`);
+    }
     if (!plan.manifest.canWrite) throw new CliError("READ_ONLY", "You can read this workspace but not change it", { hint: "Ask an owner for member access" });
     // With no paths, only files NetworkBase already tracks; new files are pushed by naming them (A1.6, §17.4).
     let items = plan.items.filter((i) => i.action === "push" && (only.length || i.base));
@@ -285,7 +296,9 @@ export async function push(ctx) {
       }
     }
     moves = moves.filter((m) => state.files[m.path]);
-    const task = ctx.flags.task ? await resolveTask(ctx, String(ctx.flags.task)) : null;
+    // The started task gets the files unless told otherwise (C16 #1, C8): nb task start promises it.
+    const taskRef = ctx.flags.task ?? (ctx.flags["no-task"] ? null : ctx.project?.startedTask?.id ?? null);
+    const task = taskRef ? await resolveTask(ctx, String(taskRef)) : null;
     const uploaded = items.length
       ? await uploadFiles(ctx.api, {
           workspaceId: project.workspaceId,

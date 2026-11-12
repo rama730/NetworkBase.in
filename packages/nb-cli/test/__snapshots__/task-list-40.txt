@@ -1,4 +1,4 @@
-   #  Task              Status       Due
-   1  Rewrite the onb…  in progress  —
-   2  Fix login         to do        —
+    #  Task             Status       Due
+    1  Rewrite the on…  in progress  —
+    2  Fix login        to do        —
   2 tasks · nb task view <n>

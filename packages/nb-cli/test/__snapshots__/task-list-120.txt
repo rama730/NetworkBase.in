@@ -1,4 +1,4 @@
-   #  Task                                                                  Status       Due  Assignee
-   1  Rewrite the onboarding checklist so new members see their first task  in progress  —    @tester
-   2  Fix login                                                             to do        —    @tester
+    #  Task                                                                  Status       Due  Assignee
+    1  Rewrite the onboarding checklist so new members see their first task  in progress  —    @tester
+    2  Fix login                                                             to do        —    @tester
   2 tasks · nb task view <n>

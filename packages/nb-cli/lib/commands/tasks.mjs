@@ -1,4 +1,5 @@
 // Tasks, subtasks and comments (report §17.4, §42.10, findings 1–3, 7–9, 24, 51–58).
+import { parseDate } from "../dates.mjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -66,7 +67,8 @@ export async function list(ctx) {
     const started = ctx.project?.startedTask?.id;
     return [
       ...ctx.out.table([
-        { title: "#", value: (t) => `${t.id === started ? ctx.out.c.brand(ctx.out.sym.brand) : " "}${t.number ?? ""}`, align: "right" },
+        // The started task gets a marker and a space, so plain output never reads as "-1" (C16 #4).
+        { title: "#", value: (t) => `${t.id === started ? ctx.out.c.brand(ctx.out.sym.cursor) : " "} ${t.number ?? ""}`, align: "right" },
         { title: "Task", value: (t) => safe(t.title), flex: true },
         { title: "Status", value: (t) => statusWord(t) },
         { title: "Due", value: (t) => (t.dueDate ? formatDate(t.dueDate) : "—"), optional: true },
@@ -170,10 +172,31 @@ export async function create(ctx) {
   const priority = ctx.flags.priority;
   if (priority && !["low", "medium", "high", "urgent"].includes(priority)) throw usage("--priority must be low, medium, high or urgent");
   const projectId = ctx.requireWorkspace();
-  const res = /** @type {any} */ (await ctx.api.post("/api/v1/extension/create-task", { projectId, title, ...(ctx.flags.message ? { description: ctx.flags.message } : {}), ...(priority ? { priority } : {}) }));
+  // Everything at once (report C2): a due date in words, who it's for, and the sprint.
+  const dueDate = ctx.flags.due === undefined ? undefined : parseDate(String(ctx.flags.due));
+  if (dueDate === null) throw usage(`--due ${ctx.flags.due} isn't a date I know`, "Try today, tomorrow, friday, next week, in 3 days, or 2026-12-01");
+  const { resolvePerson } = await import("./work.mjs");
+  const assigneeId = ctx.flags.to === undefined ? undefined : await resolvePerson(ctx, String(ctx.flags.to));
+  const sprintId = ctx.flags.sprint === undefined ? undefined : await resolveSprint(ctx, String(ctx.flags.sprint));
+  const res = /** @type {any} */ (await ctx.api.post("/api/v1/extension/create-task", { projectId, title, ...(ctx.flags.message ? { description: ctx.flags.message } : {}), ...(priority ? { priority } : {}),
+    ...(dueDate ? { dueDate } : {}), ...(assigneeId !== undefined ? { assigneeId } : {}), ...(sprintId ? { sprintId } : {}) }));
   const task = res.task ?? res;
   for (const sub of /** @type {string[]} */ (ctx.flags.subtask ?? [])) await ctx.api.post("/api/v1/extension/task-subtask", { projectId, taskId: task.id, title: sub });
-  ctx.out.result("nb.task.create/1", { id: task.id, number: task.taskNumber, title: task.title ?? title, subtasks: (ctx.flags.subtask ?? []).length }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Created #${d.number} ${safe(d.title)}${d.subtasks ? ` with ${d.subtasks} subtasks` : ""}`);
+  ctx.out.result("nb.task.create/1", { id: task.id, number: task.taskNumber, title: task.title ?? title, subtasks: (ctx.flags.subtask ?? []).length, dueDate: dueDate ?? null }, (d) => [
+    `${ctx.out.c.success(ctx.out.sym.done)} Created #${d.number} ${safe(d.title)}${d.subtasks ? ` with ${d.subtasks} subtasks` : ""}${d.dueDate ? ` · due ${d.dueDate}` : ""}`,
+    // The next step (C16 #8).
+    ctx.out.c.muted(`  Next: nb task start ${d.number}`),
+  ]);
+}
+
+/** A sprint by id, name, or "current" (the active one). @param {Context} ctx @param {string} ref */
+async function resolveSprint(ctx, ref) {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref)) return ref;
+  const { sprints } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/sprints`));
+  const want = ref.toLowerCase();
+  const hit = want === "current" ? sprints.find((/** @type {any} */ s) => s.status === "active") : sprints.find((/** @type {any} */ s) => String(s.name).toLowerCase() === want);
+  if (!hit) throw new CliError("NOT_FOUND", want === "current" ? "No sprint is running here" : `No sprint called ${ref}`, { hint: "nb sprint list" });
+  return hit.id;
 }
 
 /** Make it this folder's task and move it to In progress — and say so (finding 24). @param {Context} ctx */
@@ -181,6 +204,12 @@ export async function start(ctx) {
   const { root, project } = ctx.requireRoot();
   const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]));
   writeProjectConfig(root, { ...project, startedTask: { id: task.id, number: task.taskNumber, title: task.title } });
+  // Starting an unassigned task makes it yours (C16 #3), so it shows in your nb task list.
+  let assigned = false;
+  if (!task.assignee && !task.assigneeId && !task.assigneeUsername) {
+    const me = ctx.profile.profile?.user?.id ?? /** @type {any} */ (await ctx.api.get("/api/v1/me")).user.id;
+    assigned = await ctx.api.patch("/api/v1/extension/task-update", { kind: "assign", projectId: ctx.requireWorkspace(), taskId: task.id, assigneeId: me }).then(() => true, () => false);
+  }
   let moved = null;
   if (task.status === "todo") {
     const res = await setStatus(ctx, task, "in_progress").catch((error) => ({ error: error instanceof Error ? error.message : String(error) }));
@@ -193,8 +222,8 @@ export async function start(ctx) {
     const name = branchName(task.taskNumber, task.title);
     branch = { name, did: await switchToBranch(root, name) };
   }
-  ctx.out.result("nb.task.start/1", { id: task.id, number: task.taskNumber, title: task.title, moved, branch }, (d) => [
-    `${ctx.out.c.success(ctx.out.sym.done)} Started #${d.number} ${safe(d.title)}`,
+  ctx.out.result("nb.task.start/1", { id: task.id, number: task.taskNumber, title: task.title, moved, branch, assigned }, (d) => [
+    `${ctx.out.c.success(ctx.out.sym.done)} Started #${d.number} ${safe(d.title)}${d.assigned ? " · assigned to you" : ""}`,
     ...(d.moved ? [d.moved.ok ? "  Moved to In progress" : ctx.out.c.warning(`  Status not changed: ${safe(d.moved.message)}`)] : []),
     ...(d.branch ? [`  On branch ${d.branch.name} (${d.branch.did}). Link commits: git commit --trailer "NetworkBase-Task: ${d.number}"`] : []),
     ctx.out.c.muted(`  nb push <files> links to it · nb task done when finished`),

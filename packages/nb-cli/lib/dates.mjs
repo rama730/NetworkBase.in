@@ -1,0 +1,33 @@
+// Natural dates for --due and friends (report C2): "today", "tomorrow", "friday", "next week", "in 3 days",
+// "2026-12-01". Read in the person's own time zone; the result is a calendar date (YYYY-MM-DD).
+
+const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const iso = (/** @type {Date} */ d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const plus = (/** @type {Date} */ d, /** @type {number} */ days) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+
+/**
+ * A calendar date for words people type, or null when it isn't one.
+ * @param {string} text @param {Date} [now]
+ */
+export function parseDate(text, now = new Date()) {
+  const t = String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!t) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+    const [y, m, d] = t.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.getMonth() === m - 1 && date.getDate() === d ? t : null;
+  }
+  if (t === "today" || t === "eod") return iso(now);
+  if (t === "tomorrow" || t === "tmrw") return iso(plus(now, 1));
+  if (t === "next week") return iso(plus(now, ((8 - now.getDay()) % 7) || 7));
+  const inN = /^in (\d{1,3}) (day|days|week|weeks)$/.exec(t);
+  if (inN) return iso(plus(now, Number(inN[1]) * (inN[2].startsWith("week") ? 7 : 1)));
+  const day = DAYS.findIndex((d) => d === t.replace(/^(next |this )/, "") || d.slice(0, 3) === t.replace(/^(next |this )/, ""));
+  if (day >= 0) {
+    // "friday" is the coming one (today counts only as "this friday"); "next friday" is the one after.
+    const ahead = (day - now.getDay() + 7) % 7;
+    const base = t.startsWith("this ") ? ahead : ahead || 7;
+    return iso(plus(now, t.startsWith("next ") && ahead !== 0 ? base + 7 : base));
+  }
+  return null;
+}

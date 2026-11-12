@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { extensionReviewEvidenceSchema } from "@/lib/extension/review-evidence";
 import { FILE_REVISION_MODES } from "@/lib/files/revision-policy";
-import { taskSubtaskTitleSchema } from "@/lib/validations/task";
+import { taskDueDateSchema, taskSubtaskTitleSchema } from "@/lib/validations/task";
 
 const checksumSchema = z.string().regex(/^[a-f0-9]{64}$/i);
 export const MAX_FAST_PUSH_BATCH_BYTES = 4 * 1024 * 1024; // 4 MiB total inline fast-path ceiling
@@ -57,6 +57,10 @@ export const createTaskSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().max(10000).optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  /** Everything at once (report C2). Left out, the task is yours; null leaves it unassigned (C16 #3). */
+  assigneeId: z.string().uuid().nullable().optional(),
+  dueDate: taskDueDateSchema.nullable().optional(),
+  sprintId: z.string().uuid().nullable().optional(),
 });
 
 // extension/task-subtask
