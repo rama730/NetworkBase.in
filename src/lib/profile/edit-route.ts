@@ -20,6 +20,14 @@ export function profileEditHref(
     return `/my-profile/edit?${params}`;
 }
 
+/** The edit section that holds a missing item from calculateProfileCompletion. Everything else lives in General. */
+export function completionItemSection(item: string | undefined): ProfileEditSection {
+    if (!item) return 'general';
+    if (/skill/i.test(item)) return 'skills';
+    if (/social link/i.test(item)) return 'social';
+    return 'general';
+}
+
 export function profileEditReturnHref(returnTab: unknown): string {
     return returnTab === 'portfolio' ? '/my-profile?tab=portfolio' : '/my-profile';
 }

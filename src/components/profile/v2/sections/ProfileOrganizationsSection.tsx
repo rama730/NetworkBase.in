@@ -9,6 +9,7 @@ import { readMyProfileOrganizationsAction, saveMyOrganizationOrderAction, update
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RailSection } from "@/components/ui/rail-section";
+import { OwnerOnlyNote } from "./Card";
 import { profileEditHref } from "@/lib/profile/edit-route";
 import { toast } from "@/lib/feedback";
 import { currentOrganizations, sinceMonth } from "@/lib/organizations/profile-rules";
@@ -57,7 +58,10 @@ export function ProfileOrganizationsSection({ contributions, isOwner }: { contri
           })}
         </ul>
       ) : (
-        <p className="text-sm text-muted-foreground">Organizations you’re part of show here.</p>
+        <div>
+          <p className="text-sm text-muted-foreground">Organizations you’re part of show here.</p>
+          <OwnerOnlyNote />
+        </div>
       )}
       {isOwner ? (
         <Link href="/join" className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">

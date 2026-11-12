@@ -2,6 +2,7 @@
 
 import { Briefcase, Pencil } from 'lucide-react'
 import { RailSection } from '@/components/ui/rail-section'
+import { OwnerOnlyNote } from './Card'
 import { Button } from '@/components/ui/button'
 import {
   experienceLevelLabel,
@@ -96,9 +97,13 @@ export function OpenToRolesCard({
             ))}
           </dl>
         ) : (
-          <p className="nb-body text-muted-foreground">
-            {isOwner ? 'Add the role types, roles, and categories that interest you.' : 'Open to collaboration. Specific role preferences have not been added yet.'}
-          </p>
+          <div>
+            <p className="nb-body text-muted-foreground">
+              {isOwner ? 'Add the role types, roles, and categories that interest you.' : 'Open to collaboration. Specific role preferences have not been added yet.'}
+            </p>
+            {/* Visitors see this card only when Open to collaborate is on. */}
+            {isOwner && !openToCollaborate ? <OwnerOnlyNote /> : null}
+          </div>
         )}
 
         {showApply || showInvite ? (

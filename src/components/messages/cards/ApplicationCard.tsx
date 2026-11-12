@@ -22,6 +22,7 @@ import { conversationHref } from "@/lib/messaging/routes";
 import type { ApplicationCardView } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { profileHref } from "@/lib/routing/identifiers";
+import { personCardSubtitle } from "@/lib/network/person-card";
 
 const when = (value: string | null) =>
   value ? new Date(value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
@@ -151,6 +152,8 @@ export function ApplicationCard({ view }: { view: ApplicationCardView }) {
   const outcome = applicationOutcome(view);
   const role = view.role_removed ? "a role that was removed" : view.role_title ?? "a role";
   const name = personName(view.applicant);
+  // Headline, else @username, so the applicant is never just a name.
+  const subtitle = personCardSubtitle({ headline: view.applicant_headline, username: view.applicant.username }).text;
   return (
     <Shell
       label="Application"
@@ -166,7 +169,7 @@ export function ApplicationCard({ view }: { view: ApplicationCardView }) {
             applied for <span className="font-medium">{role}</span> in{" "}
             <Link href={`/workspaces/${view.project_slug ?? view.project_id}`} className="text-primary hover:underline">{view.project_title}</Link>
           </p>
-          {view.applicant_headline ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{view.applicant_headline}</p> : null}
+          {subtitle ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p> : null}
         </div>
       </div>
       {view.applicant_skills.length || view.details.portfolioUrl || view.details.availability ? (

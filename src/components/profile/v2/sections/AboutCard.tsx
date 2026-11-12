@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Pencil } from 'lucide-react'
-import { Card } from './Card'
+import { Card, OwnerOnlyNote } from './Card'
 
 interface AboutCardProps {
     profile: any
@@ -10,13 +10,25 @@ interface AboutCardProps {
     onEdit?: () => void
 }
 
+/** "Vijay", from the full name's first word; "@vijay23" when there is no name. */
+function shortName(profile: any) {
+    const first = typeof profile?.fullName === 'string' ? profile.fullName.trim().split(/\s+/)[0] : ''
+    if (first) return first
+    return typeof profile?.username === 'string' && profile.username ? `@${profile.username}` : 'This member'
+}
+
 export function AboutCard({ profile, isOwner, onEdit }: AboutCardProps) {
     const bio = typeof profile?.bio === 'string' ? profile.bio.trim() : ''
     const hasBio = bio.length > 0
     const [expanded, setExpanded] = useState(false)
 
+    // Always shown to visitors too, so the Overview tab never ends in blank space.
     if (!isOwner && !hasBio) {
-        return null
+        return (
+            <Card title="About">
+                <p className="nb-body px-5 py-4 text-muted-foreground max-md:px-4">{shortName(profile)} hasn’t written an introduction yet.</p>
+            </Card>
+        )
     }
 
     return (
@@ -59,6 +71,7 @@ export function AboutCard({ profile, isOwner, onEdit }: AboutCardProps) {
                                 Add bio
                             </button>
                         ) : null}
+                        {isOwner ? <OwnerOnlyNote /> : null}
                     </div>
                 )}
             </div>

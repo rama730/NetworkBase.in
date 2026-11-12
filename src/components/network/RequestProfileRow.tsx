@@ -3,6 +3,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { profileHref } from "@/lib/routing/identifiers";
+import { personCardSubtitle } from "@/lib/network/person-card";
 
 export type RequestProfile = {
   id: string;
@@ -24,6 +25,9 @@ export function RequestProfileRow({
   actions: ReactNode;
 }) {
   const name = profile.fullName || profile.username || "User";
+  // Never a bare name: headline, else location, else @username; the location line only when it isn't the subtitle.
+  const subtitle = personCardSubtitle(profile);
+  const showLocation = Boolean(profile.location) && subtitle.kind !== "location";
 
   return (
     <div className="flex items-center gap-4 rounded-[8px] border border-border bg-card p-4 transition-colors hover:border-border/80">
@@ -32,8 +36,8 @@ export function RequestProfileRow({
       </Link>
       <Link href={profileHref(profile)} className="min-w-0 flex-1">
         <h3 className="truncate text-sm max-md:text-[13px] font-semibold text-foreground hover:text-primary">{name}</h3>
-        {profile.headline ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{profile.headline}</p> : null}
-        {profile.location ? <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{profile.location}</p> : null}
+        {subtitle.text ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle.text}</p> : null}
+        {showLocation ? <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{profile.location}</p> : null}
       </Link>
       <p className="hidden shrink-0 text-xs text-muted-foreground sm:block">
         {formatDistanceToNow(new Date(requestedAt), { addSuffix: true })}

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ItemMenu } from "@/components/reports/ItemMenu";
 import { EyeOff, FolderGit2, Pencil, Plus } from "lucide-react";
-import { Card } from "./Card";
+import { Card, OwnerOnlyNote } from "./Card";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
 import { ContributionStoryView } from "@/components/profile/ContributionStoryView";
 import { dismissContributionNudgeAction } from "@/app/actions/org-profile";
@@ -212,6 +212,7 @@ export function WorkspaceContributionsCard({
                 Add contribution
               </button>
             )}
+            {isOwner ? <OwnerOnlyNote /> : null}
           </div>
         )}
       </div>

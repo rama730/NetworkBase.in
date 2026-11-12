@@ -36,6 +36,9 @@ import { OpenToRolesCard } from './sections/OpenToRolesCard'
 import { WorkspaceContributionsCard } from './sections/WorkspaceContributionsCard'
 import { WorkspacesGridCard } from './sections/WorkspacesGridCard'
 import { ProfileOrganizationsSection } from './sections/ProfileOrganizationsSection'
+import { DetailsCard } from './sections/DetailsCard'
+import { profileDetailsRows } from '@/lib/profile/details'
+import { usePersonContext } from '@/components/messages/useConversation'
 
 type UserConnectionsModalComponent = typeof import('@/components/profile/v2/UserConnectionsModal')['UserConnectionsModal'];
 type ProfileInviteModalComponent = typeof import('./ProfileInviteModal')['default'];
@@ -183,6 +186,26 @@ export function ProfileV2Client({
     useEffect(() => { setShareOpen(false); }, [profile.id]);
 
     const safeProfile = liveProfile as any
+    // Their local time for the Details card: signed-in visitors only, same source and privacy as the hover card.
+    const personContext = usePersonContext(profile.id, Boolean(viewerUser && !isOwner && !lockedShell))
+    const theirTimeZone = personContext.data?.timeZone ?? null
+    const [now, setNow] = useState(() => new Date())
+    useEffect(() => {
+        if (!theirTimeZone) return
+        const timer = window.setInterval(() => setNow(new Date()), 60_000)
+        return () => window.clearInterval(timer)
+    }, [theirTimeZone])
+    const detailsRows = profileDetailsRows({
+        isOwner,
+        // Collaboration preferences shows experience and availability whenever it is on the page.
+        preferencesShownElsewhere: isOwner || safeProfile.openToCollaborate === true,
+        experienceLevel: safeProfile.experienceLevel,
+        hoursPerWeek: safeProfile.hoursPerWeek,
+        interests: safeProfile.interests,
+        timeZone: theirTimeZone,
+        createdAt: safeProfile.createdAt,
+        now,
+    })
     const connectionCountQuery = useQuery({
         queryKey: queryKeys.profile.connectionCount(profile.id),
         queryFn: async () => {
@@ -590,7 +613,7 @@ export function ProfileV2Client({
                         lockedShell={lockedShell}
                         isLoadingConnection={isLoading}
                         isBlocking={false}
-                        onEdit={() => openEditPage('general')}
+                        onEdit={(section) => openEditPage(section ?? 'general')}
                         onShare={handleShareProfile}
                         onAvailabilityToggle={(checked) => startTransition(() => { void toggleAvailability(checked) })}
                         isSavingAvailability={isSavingAvailability}
@@ -617,6 +640,9 @@ export function ProfileV2Client({
                 mainBottom={renderMainBottom()}
                 highlights={lockedShell ? null : (
                     <>
+                    <ComponentErrorBoundary fallbackMessage="Couldn’t load details.">
+                        <DetailsCard rows={detailsRows} />
+                    </ComponentErrorBoundary>
                     <ComponentErrorBoundary fallbackMessage="Couldn’t load role preferences.">
                         <OpenToRolesCard
                             openTo={safeProfile.openTo}

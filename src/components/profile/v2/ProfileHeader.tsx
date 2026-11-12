@@ -21,6 +21,8 @@ import { usePresenceUi } from '@/components/presence/presence-ui-store'
 import { usePersonPresence } from '@/components/presence/usePresence'
 import { resolveProfileActionState } from './profile-action-state'
 import { OpenToCollaborateBadge } from '@/components/profile/OpenToCollaborateBadge'
+import { completionItemSection, type ProfileEditSection } from '@/lib/profile/edit-route'
+import { profileNewMemberLine } from '@/lib/profile/details'
 
 /** Owner status lives with profile actions; visitors see status beside identity. */
 function PresenceChips({ userId, lastActiveAt, isOwner, className }: { userId: string | null; lastActiveAt?: string | null; isOwner: boolean; className?: string }) {
@@ -86,7 +88,8 @@ export function ProfileHeader({
     isOwner: boolean
     isAuthenticated: boolean
     connectionState: ConnectionState
-    onEdit: () => void
+    /** Opens profile edit at a section; General when none is given. */
+    onEdit: (section?: ProfileEditSection) => void
     onShare?: (trigger?: HTMLElement) => void
     onAvailabilityToggle?: (checked: boolean) => void
     isSavingAvailability?: boolean
@@ -118,6 +121,8 @@ export function ProfileHeader({
     const isOpenToCollaborate = !lockedShell && vm.openToCollaborate === true
     const connectionsCount = stats?.connectionsCount ?? vm.connectionsCount ?? 0
     const projectsCount = stats?.projectsCount ?? vm.projectsCount ?? 0
+    // A visitor on a brand-new account reads "New member · joined Nov 2026", not two zeros.
+    const newMemberLine = lockedShell ? null : profileNewMemberLine({ isOwner, connectionsCount, workspacesCount: projectsCount, createdAt: vm.createdAt })
     // Own-profile completion prompt (spec §17 / §08); phones get it here instead of the rail card.
     const completionScore = Math.max(0, Math.min(100, Number((vm as any).profileStrength || 0)))
     const completionHint: string | undefined = Array.isArray(profile?.completionMissing) ? profile.completionMissing[0] : undefined
@@ -268,24 +273,30 @@ export function ProfileHeader({
                             {location}
                         </span>
                     ) : null}
-                    <button
-                        type="button"
-                        onClick={onConnectionsClick}
-                        disabled={!onConnectionsClick || lockedShell}
-                        aria-label={`View ${connectionsCount} ${connectionsCount === 1 ? 'connection' : 'connections'}`}
-                        className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
-                    >
-                        {connectionsCount} connections
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onProjectsClick}
-                        disabled={!onProjectsClick || lockedShell}
-                        aria-label={`View ${projectsCount} ${projectsCount === 1 ? 'project' : 'projects'}`}
-                        className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
-                    >
-                        {projectsCount} projects
-                    </button>
+                    {newMemberLine ? (
+                        <span>{newMemberLine}</span>
+                    ) : (
+                        <>
+                        <button
+                            type="button"
+                            onClick={onConnectionsClick}
+                            disabled={!onConnectionsClick || lockedShell}
+                            aria-label={`View ${connectionsCount} ${connectionsCount === 1 ? 'connection' : 'connections'}`}
+                            className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
+                        >
+                            {connectionsCount} {connectionsCount === 1 ? 'connection' : 'connections'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onProjectsClick}
+                            disabled={!onProjectsClick || lockedShell}
+                            aria-label={`View ${projectsCount} ${projectsCount === 1 ? 'workspace' : 'workspaces'}`}
+                            className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
+                        >
+                            {projectsCount} {projectsCount === 1 ? 'workspace' : 'workspaces'}
+                        </button>
+                        </>
+                    )}
                     {vm.website ? (
                         <a
                             href={vm.website}
@@ -320,7 +331,7 @@ export function ProfileHeader({
                                     <Share2 className="size-4" />
                                     <span className="max-md:sr-only">Share</span>
                                 </Button>
-                                <Button onClick={onEdit} size="sm" className="max-md:flex-1 max-md:min-h-11">
+                                <Button onClick={() => onEdit()} size="sm" className="max-md:flex-1 max-md:min-h-11">
                                     <Pencil className="size-4" />
                                     Edit profile
                                 </Button>
@@ -340,7 +351,7 @@ export function ProfileHeader({
                             {completionScore > 0 && completionScore < 100 ? (
                                 <button
                                     type="button"
-                                    onClick={onEdit}
+                                    onClick={() => onEdit(completionItemSection(completionHint))}
                                     className="w-full space-y-1.5 border-t border-border pt-3 text-left md:hidden"
                                     aria-label={`Profile ${completionScore}% complete${completionHint ? `. Next: ${completionHint}` : ''}`}
                                 >

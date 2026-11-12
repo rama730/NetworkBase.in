@@ -13,6 +13,11 @@ interface CardProps {
     id?: string
 }
 
+/** Under an owner's empty-section prompt: visitors don't see this section until it has content. */
+export function OwnerOnlyNote({ className }: { className?: string }) {
+    return <p className={cn('nb-compact mt-1 text-muted-foreground/80', className)}>Only you can see this</p>
+}
+
 export function Card({ title, children, className, action, onAdd, addLabel, id }: CardProps) {
     const headingId = useId()
     return (

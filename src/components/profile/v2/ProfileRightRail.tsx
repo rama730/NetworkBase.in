@@ -7,6 +7,8 @@ import { RailSection } from '@/components/ui/rail-section'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { normalizeSocialLinks as normalizeSocialLinksShared } from '@/lib/profile/normalization'
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon'
+import { OwnerOnlyNote } from './sections/Card'
+import { completionItemSection, type ProfileEditSection } from "@/lib/profile/edit-route"
 
 export function ProfileRightRail({
     profile,
@@ -19,7 +21,7 @@ export function ProfileRightRail({
     isOwner: boolean
     canMessage?: boolean
     socialLinks: any
-    onEditSection?: (section: "general" | "experience" | "skills" | "social") => void
+    onEditSection?: (section: ProfileEditSection) => void
 }) {
     const vm = normalizeProfile(profile)
     const [showAllLinks, setShowAllLinks] = useState(false)
@@ -72,6 +74,14 @@ export function ProfileRightRail({
                         ) : null}
                     </div>
                 </RailSection>
+            ) : isOwner && onEditSection ? (
+                <RailSection title="Links" contentClassName="px-5 max-md:px-4">
+                    <p className="nb-compact text-muted-foreground">Add your GitHub, LinkedIn or site.</p>
+                    <button type="button" onClick={() => onEditSection('social')} className="nb-ui-label mt-2 inline-flex text-primary hover:underline max-md:min-h-11 max-md:items-center">
+                        Add links
+                    </button>
+                    <OwnerOnlyNote />
+                </RailSection>
             ) : null}
 
             {isOwner ? (
@@ -100,7 +110,13 @@ export function ProfileRightRail({
                         {missingItems.length > 0 ? (
                             <ul className="nb-compact space-y-1 text-muted-foreground">
                                 {missingItems.slice(0, 3).map((item) => (
-                                    <li key={item}>• {item}</li>
+                                    <li key={item}>
+                                        {onEditSection ? (
+                                            <button type="button" onClick={() => onEditSection(completionItemSection(item))} className="text-left hover:text-primary hover:underline max-md:min-h-11">
+                                                • {item}
+                                            </button>
+                                        ) : <>• {item}</>}
+                                    </li>
                                 ))}
                             </ul>
                         ) : completionScore >= 100 ? (
