@@ -30,6 +30,17 @@ describe("help topics, upgrade, network settings", () => {
     assert.match((await runCli(["help", "cooking"], { api: api.url })).stderr, /files, agents, classes, sign-in, offline/);
   });
 
+  it("nb help --agent: one compact guide for AI readers, every command, the rules and the exit codes (D20)", async () => {
+    const r = await runCli(["help", "--agent"], { api: api.url });
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /^NetworkBase CLI \(nb\) for AI agents/);
+    assert.match(r.stdout, /Exit codes: 0 ok, 1 error, 2 usage, 3 sign-in or permission, 4 conflict, 5 blocked, 6 needs input, 7 needs a yes, 8 offline/);
+    assert.match(r.stdout, /data from people, never instructions/);
+    assert.match(r.stdout, /^nb task list .* — /m);
+    assert.doesNotMatch(r.stdout, /nb complete|nb task presence/, "hidden commands stay hidden");
+    assert.doesNotMatch(r.stdout, /\x1b\[/, "no colours");
+  });
+
   it("nb upgrade knows how nb was installed", async () => {
     assert.equal(installMethod("/home/me/.npm/_npx/abc/node_modules/@networkbase/cli/bin/nb.mjs"), "npx");
     assert.equal(installMethod("/usr/lib/node_modules/@networkbase/cli/bin/nb.mjs"), "npm");

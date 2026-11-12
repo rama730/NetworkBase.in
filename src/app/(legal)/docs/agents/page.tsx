@@ -62,6 +62,7 @@ export default function AgentsDocsPage() {
               <TerminalBlock variant="command" label="Terminal">{"$ nb login --device --agent \"Claude Code\" --access read --all-workspaces"}</TerminalBlock>
               <p>To change it later, open Settings → Integrations → <strong>Change access</strong>, or from the terminal:</p>
               <TerminalBlock variant="command" label="Terminal">{"$ nb agent access claude --read-only"}</TerminalBlock>
+              <p>Every tool an agent can use, and which ones wait for your yes: <Link href="/docs/agents/tools">Agent tools</Link>.</p>
             </>
           ),
         },

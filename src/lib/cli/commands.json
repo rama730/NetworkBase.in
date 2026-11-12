@@ -213,8 +213,13 @@
     {
       "name": "help",
       "summary": "Help for a command, or a topic: files, agents, classes, sign-in, offline",
-      "usage": "nb help [command|topic]",
-      "flags": {},
+      "usage": "nb help [command|topic] [--agent]",
+      "flags": {
+        "agent": {
+          "type": "boolean",
+          "describe": "One compact guide for AI readers"
+        }
+      },
       "examples": [],
       "exitCodes": [
         0,

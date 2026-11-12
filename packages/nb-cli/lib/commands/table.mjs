@@ -81,7 +81,7 @@ export const COMMANDS = [
   { group: "Account and setup", name: "version", summary: "CLI, Node and server versions", usage: "nb version", module: "misc", fn: "version" },
   { group: "Account and setup", name: "complete", hidden: true, summary: "Names for tab completion (from a 10-minute cache)", usage: "nb complete tasks|members|files [prefix]", module: "complete", fn: "complete", flags: { refresh: { type: "boolean", describe: "Update the cache now" } } },
   { group: "Account and setup", name: "home", hidden: true, summary: "Where you are and what to do next", usage: "nb", module: "misc", fn: "home", exit: [0, 3, 4, 8] },
-  { group: "Account and setup", name: "help", summary: "Help for a command, or a topic: files, agents, classes, sign-in, offline", usage: "nb help [command|topic]", module: "misc", fn: "help" },
+  { group: "Account and setup", name: "help", summary: "Help for a command, or a topic: files, agents, classes, sign-in, offline", usage: "nb help [command|topic] [--agent]", module: "misc", fn: "help", flags: { agent: { type: "boolean", describe: "One compact guide for AI readers" } } },
   { group: "Account and setup", name: "upgrade", summary: "Update nb the way it was installed (asks first)", usage: "nb upgrade [--dry-run]", module: "misc", fn: "upgrade", flags: { "dry-run": { type: "boolean", describe: "Show the command, run nothing" } } },
   { group: "Account and setup", name: "completion", summary: "Shell completion script", usage: "nb completion zsh|bash|fish|powershell", module: "misc", fn: "completion" },
   { group: "Account and setup", name: "setup shell", summary: "Add completions to your shell (asks first)", usage: "nb setup shell [zsh|bash|fish|powershell]", module: "misc", fn: "setupShell" },

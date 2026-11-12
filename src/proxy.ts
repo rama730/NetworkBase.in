@@ -138,6 +138,7 @@ const STATIC_LEGAL_PATHS = new Set([
   "/cookies",
   "/copyright",
   "/docs/agents",
+  "/docs/agents/tools",
   "/docs/cli",
   "/dpa",
   "/eula",
