@@ -108,7 +108,11 @@ async function postTaskComment(
     input.projectId ??
     (await db.query.tasks.findFirst({ where: and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)), columns: { projectId: true } }))?.projectId;
   if (!projectId) return jsonError("Task not found", 404, "NOT_FOUND");
-  const held = await agentGate(auth, request, input, { workspaceId: projectId, kinds: ["small"], summary: "Comment on the task", taskId: input.taskId });
+  // A mention tells someone, so an agent's comment that mentions people waits for the person's yes (report D12).
+  const told = [...input.text.matchAll(/@\{[0-9a-f-]{36}\|([^}]{1,80})\}/gi)].map((m) => m[1]!);
+  const held = await agentGate(auth, request, input, told.length
+    ? { workspaceId: projectId, kinds: ["message"], summary: `Comment on the task that tells ${[...new Set(told)].join(", ")}`, preview: input.text, taskId: input.taskId }
+    : { workspaceId: projectId, kinds: ["small"], summary: "Comment on the task", taskId: input.taskId });
   if (held) return held;
   // Name and avatar come from the profile row, never from session metadata the person can edit.
   const [profile] = await db

@@ -99,3 +99,11 @@ test("a student lists and hands in; agents can't hand in; a reviewer returns, th
   assert.equal(back.status, 200, JSON.stringify(back.json));
   assert.equal((await sql`SELECT review_status FROM tasks WHERE id = ${c.copy}`)[0]!.review_status, "rejected");
 });
+
+test("an agent's comment that mentions someone waits for the person's yes (report D12)", async () => {
+  const easy = await classWith("labelled");
+  const agent = await token(easy.student, "agent", easy.org);
+  const held = await call(comments.POST, agent, "POST", "/api/v1/extension/comments", { kind: "task", projectId: easy.org, taskId: easy.copy, text: `@{${easy.owner}|Ms Rao} please look` });
+  assert.equal(held.status, 428, JSON.stringify(held.json));
+  assert.match(held.json.message, /tells Ms Rao/);
+});

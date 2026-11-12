@@ -70,11 +70,20 @@ export async function taskEdit(ctx) {
 export async function resolvePerson(ctx, who) {
   if (who === "none") return null;
   if (who === "me") return /** @type {any} */ (await ctx.api.get("/api/v1/me")).user.id;
-  const name = who.replace(/^@/, "").toLowerCase();
+  const name = who.replace(/^@/, "").trim().toLowerCase();
   const { members } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/members`, { query: { q: name } }));
-  const hit = members.find((/** @type {any} */ m) => String(m.username ?? "").toLowerCase() === name);
-  if (!hit) throw new CliError("NOT_FOUND", `No member @${name} in this workspace`, { hint: "nb member list" });
-  return hit.id;
+  // A username, then a full name, then the only member whose name holds every word (report D2). Several: ask which.
+  const words = name.split(/\s+/).filter(Boolean);
+  const text = (/** @type {any} */ m) => `${m.username ?? ""} ${m.fullName ?? ""}`.toLowerCase();
+  const hit = members.find((/** @type {any} */ m) => String(m.username ?? "").toLowerCase() === name)
+    ?? members.find((/** @type {any} */ m) => String(m.fullName ?? "").toLowerCase() === name);
+  if (hit) return hit.id;
+  const fits = members.filter((/** @type {any} */ m) => m.username && words.every((w) => text(m).includes(w)));
+  if (fits.length === 1) return fits[0].id;
+  if (!fits.length) throw new CliError("NOT_FOUND", `No member @${name} in this workspace`, { hint: "nb member list" });
+  const { ask } = await import("../tui/ask.mjs");
+  const picked = await ask(ctx, { key: "person", header: "Who", question: `Which member did you mean by "${who}"?`, options: fits.slice(0, 4).map((/** @type {any} */ m) => ({ value: `@${m.username}`, label: safe(m.fullName ?? m.username), description: `@${m.username}` })) });
+  return resolvePerson(ctx, picked);
 }
 
 /**

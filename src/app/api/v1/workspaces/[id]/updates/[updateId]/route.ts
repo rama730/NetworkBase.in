@@ -46,7 +46,7 @@ async function handlePost(request: Request, context: Context) {
     if (!ref || !parsed.success) return jsonError("Like it, or say what to comment", 400, "BAD_REQUEST");
     // A comment is public to the workspace: an agent's person agrees first.
     if (parsed.data.kind === "comment") {
-      const held = await agentGate(auth, request, parsed.data, { workspaceId: ref.id, kinds: ["review"], summary: "Comment on an update everyone sees", preview: parsed.data.text });
+      const held = await agentGate(auth, request, parsed.data, { workspaceId: ref.id, kinds: ["message"], summary: "Comment on an update everyone sees", preview: parsed.data.text });
       if (held) return held;
     }
     const result = parsed.data.kind === "like"

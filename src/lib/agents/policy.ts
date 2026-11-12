@@ -28,7 +28,8 @@ export type ChangeKind =
   | "delete" // deleting tasks
   | "batch" // more than 20 items at once
   | "others-task" // a task assigned to someone else
-  | "overwrite"; // replacing a newer version after a conflict
+  | "overwrite" // replacing a newer version after a conflict
+  | "message"; // words other people receive: a mention, an update, a reply (report D12: always a yes)
 
 export const BATCH_LIMIT = 20;
 export const CONFIRM_HEADER = "x-nb-confirm";

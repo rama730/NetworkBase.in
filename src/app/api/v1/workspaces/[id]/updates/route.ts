@@ -22,7 +22,7 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
     const id = (await context.params).id;
     const parsed = schema.safeParse(await request.json().catch(() => null));
     if (!parsed.success || !z.string().uuid().safeParse(id).success) return jsonError("Write the update's text", 400, "BAD_REQUEST");
-    const held = await agentGate(auth, request, parsed.data, { workspaceId: id, kinds: ["review"], summary: "Post an update everyone in the workspace sees", preview: parsed.data.content });
+    const held = await agentGate(auth, request, parsed.data, { workspaceId: id, kinds: ["message"], summary: "Post an update everyone in the workspace sees", preview: parsed.data.content });
     if (held) return held;
     const result = await createWorkspaceUpdateAction(id, { content: parsed.data.content });
     if (!result.success) return jsonError(result.error ?? "Couldn’t post the update", 403, "FORBIDDEN");
