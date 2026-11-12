@@ -42,6 +42,20 @@ describe("tool packs (D14)", () => {
     assert.match(list.content[0].text, /files .*loaded/);
   });
 
+  it("Claude Code, which defers MCP tools itself, gets every tool; other clients get packs", async () => {
+    const claude = await startMcp({ api: api.url });
+    try {
+      await claude.request("initialize", { protocolVersion: "2025-06-18", clientInfo: { name: "claude-code", version: "2.1" } });
+      const names = (await claude.request("tools/list")).result.tools.map((/** @type {any} */ t) => t.name);
+      assert.ok(names.includes("networkbase_trash") && names.includes("networkbase_review_list"));
+    } finally { await claude.close(); }
+    const other = await startMcp({ api: api.url });
+    try {
+      await other.request("initialize", { protocolVersion: "2025-06-18", clientInfo: { name: "cursor", version: "1" } });
+      assert.ok(!(await other.request("tools/list")).result.tools.some((/** @type {any} */ t) => t.name === "networkbase_trash"));
+    } finally { await other.close(); }
+  });
+
   it("networkbase_run calls a pack tool by name on any client, and passes its yes along", async () => {
     const r = await mcp.call("networkbase_run", { tool: "networkbase_sprint_list", args: {} });
     assert.equal(r.structuredContent.status, "ok", r.content[0].text);

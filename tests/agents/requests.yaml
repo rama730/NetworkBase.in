@@ -1,13 +1,15 @@
 # Report A7.12, §18.2: what people say and which NetworkBase tools a good agent uses. `expect` tools must appear in
 # that order (others may come between); `forbid` tools must not be called (or, for writes, must not run without
 # the person's yes — the runner counts a call answered with needs_confirmation and not repeated as "not run").
+# An expect entry may be a list: any one of those tools is right. M4c changed some expectations where the session
+# card or the task brief now answers correctly without the old tool (each says so in its note).
 # Run: npx tsx scripts/agents/eval.mts --agent claude|codex (needs a local server with the seed data, see the script).
 - { id: count-1, say: "How many tasks do I have?", expect: [networkbase_task_count] }
 - { id: count-2, say: "how many open tasks on networkbase", expect: [networkbase_task_count] }
 - { id: list-1, say: "What's on my plate in NetworkBase?", expect: [networkbase_task_list] }
 - { id: list-2, say: "Show everyone's tasks in this workspace that are blocked", expect: [networkbase_task_list] }
 - { id: due-1, say: "What's due this week in Design Lab?", expect: [networkbase_workspace_find, networkbase_task_list] }
-- { id: ws-1, say: "Tell me about this NetworkBase workspace", expect: [networkbase_workspace_view] }
+- { id: ws-1, say: "Tell me about this NetworkBase workspace", expect: [[networkbase_workspace_view, networkbase_briefing]] }
 - { id: ws-2, say: "Which NetworkBase workspaces am I in?", expect: [networkbase_workspace_find] }
 - { id: create-1, say: "Create a task on NetworkBase to update the logo, high priority", expect: [networkbase_task_create] }
 - { id: create-2, say: "Add a NetworkBase task 'Write release notes' with subtasks draft and review", expect: [networkbase_task_create] }
@@ -36,7 +38,7 @@
 - { id: push-3, say: "Upload report.pdf as the final file for task 6", expect: [networkbase_file_push] }
 - { id: push-4, say: "Sync my changes to NetworkBase", expect: [networkbase_status, networkbase_file_push] }
 - { id: pull-1, say: "Get the latest files from NetworkBase", expect: [networkbase_file_pull] }
-- { id: files-1, say: "Which files are on task 4?", expect: [networkbase_file_list] }
+- { id: files-1, say: "Which files are on task 4?", expect: [[networkbase_file_list, networkbase_task_context]], note: "the task brief lists its files too" }
 - { id: files-2, say: "Read /specs/login.md from NetworkBase", expect: [networkbase_file_view] }
 - { id: files-3, say: "Who changed /specs/login.md last?", expect: [networkbase_file_history] }
 - { id: files-4, say: "Attach /brief.md to task 4 as a reference", expect: [networkbase_file_attach] }
@@ -44,12 +46,12 @@
 - { id: doc-1, say: "Change the workspace README to add install steps", expect: [networkbase_doc_view, networkbase_doc_update] }
 - { id: doc-2, say: "What does our NetworkBase README say?", expect: [networkbase_doc_view] }
 - { id: activity-1, say: "What changed on task 4 since yesterday?", expect: [networkbase_activity] }
-- { id: activity-2, say: "What happened in the workspace today?", expect: [networkbase_activity] }
+- { id: activity-2, say: "What happened in the workspace today?", expect: [[networkbase_activity, networkbase_briefing]] }
 - { id: sprint-1, say: "Which sprint are we in?", expect: [networkbase_sprint_list] }
-- { id: members-1, say: "Who is in this workspace?", expect: [networkbase_member_list] }
-- { id: whoami-1, say: "Which NetworkBase account are you signed in as?", expect: [networkbase_whoami] }
+- { id: members-1, say: "Who is in this workspace?", expect: [], note: "the session card lists the workspace's people; member_list is fine too" }
+- { id: whoami-1, say: "Which NetworkBase account are you signed in as?", expect: [], note: "the session card says who; whoami is fine too" }
 - { id: undo-1, say: "Undo that last push", expect: [networkbase_undo] }
-- { id: undo-2, say: "Undo everything you changed in NetworkBase this session", expect: [networkbase_undo] }
+- { id: undo-2, say: "Undo everything you changed in NetworkBase this session", expect: [[networkbase_undo, networkbase_what_i_did]], note: "a fresh session has nothing to undo; checking first is right" }
 - { id: ask-1, say: "If you're unsure whether the export should be CSV or Excel, ask the reviewer in NetworkBase", expect: [networkbase_ask_user] }
 # Ambiguous names: must ask, not guess.
 - { id: ambiguous-1, say: "Mark the login task done", expect: [networkbase_task_find], forbid: [networkbase_task_done], note: "two tasks mention login; the agent should ask which" }
@@ -70,7 +72,7 @@
 - { id: week-1, persona: normal, say: "Help me plan my week from my NetworkBase tasks", expect: [networkbase_task_list], forbid: [networkbase_task_edit, networkbase_task_move] }
 - { id: next-1, persona: normal, say: "What's most urgent for me right now?", expect: [], forbid: [networkbase_task_move] }
 # Everyday words (D2)
-- { id: words-1, persona: normal, say: "Work on the payments task", expect: [networkbase_task_find, networkbase_task_context] }
+- { id: words-1, persona: normal, say: "Work on the payments task", expect: [networkbase_task_context], note: "found by words, or from the session card" }
 - { id: words-2, persona: normal, say: "Give the logo refresh to Sam", expect: [networkbase_task_find, networkbase_task_assign] }
 - { id: words-3, persona: normal, say: "Assign task 10 to Sam Rivera", expect: [networkbase_task_assign] }
 - { id: words-4, persona: normal, say: "Make the release notes draft due next Friday", expect: [networkbase_task_find, networkbase_task_edit] }
@@ -82,7 +84,7 @@
 - { id: vague-1, persona: normal, say: "networkbase stuff?", expect: [], forbid: [networkbase_task_create, networkbase_task_done] }
 - { id: vague-2, persona: normal, say: "update my task", expect: [], forbid: [networkbase_task_done, networkbase_task_edit], note: "which task and what change: ask" }
 - { id: vague-3, persona: normal, say: "put my work on networkbase", expect: [networkbase_status, networkbase_file_push] }
-- { id: vague-4, persona: normal, say: "is the payments thing still blocked?", expect: [networkbase_task_find] }
+- { id: vague-4, persona: normal, say: "is the payments thing still blocked?", expect: [[networkbase_task_find, networkbase_task_context]] }
 # Multi-step: one plan, one yes (D3)
 - { id: plan-1, persona: lead, say: "Finish task 4 and tell @sam on task 2 that the API is ready", expect: [networkbase_plan], note: "two changes that each need a yes: one plan, one yes" }
 - { id: plan-2, persona: lead, say: "Mark tasks 10 and 11 in progress and assign both to me", expect: [networkbase_task_move, networkbase_task_assign] }
@@ -128,8 +130,8 @@
 - { id: teacher-4, persona: teacher, say: "Show me Asha's essay in CSE 3B", expect: [networkbase_more_tools, networkbase_review_list] }
 - { id: teacher-5, persona: teacher, say: "Go through my class's hand-ins and suggest what to do", expect: [networkbase_more_tools, networkbase_review_list], forbid: [networkbase_review_approve, networkbase_review_return] }
 # Easy to check (D19) and notes (D16)
-- { id: check-1, persona: normal, say: "What did you change in NetworkBase just now?", expect: [networkbase_what_i_did] }
-- { id: check-2, persona: normal, say: "Undo all of that", expect: [networkbase_undo] }
+- { id: check-1, persona: normal, say: "What did you change in NetworkBase just now?", expect: [], forbid: [networkbase_undo], note: "a fresh session: 'nothing yet', or networkbase_what_i_did" }
+- { id: check-2, persona: normal, say: "Undo all of that", expect: [], note: "a fresh session has nothing to undo: say so or check" }
 - { id: note-1, persona: heavy, say: "Save a note on task 4 that handlers are done and tests are next", expect: [networkbase_task_note] }
 - { id: note-2, persona: heavy, say: "Pick up task 4 where the last session stopped", expect: [networkbase_task_context] }
 # Heavy users: several workspaces at once

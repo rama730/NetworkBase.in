@@ -63,7 +63,10 @@ export function createMcpHandler({ where, send, version, hosted = false, access,
   /** @type {Promise<any> | null} */
   let accessRead = null;
   const getAccess = () => (accessRead ??= (access ? access() : readAccess(where)).catch(() => null));
-  const toolList = async () => listTools(hosted, await getAccess(), packs);
+  // Claude Code defers MCP tools itself and finds them with its own tool search, which can't see pack tools: it
+  // gets every tool, and its deferral keeps the session start small (found in the D22 test, M4c).
+  let everything = false;
+  const toolList = async () => listTools(hosted, await getAccess(), packs, everything);
   /** Heartbeats sent per task (report D5): the task shows this agent for 90 seconds after each. */
   const pinged = new Map();
   const callTool = async (/** @type {string} */ name, /** @type {any} */ args, /** @type {any} */ w) => {
@@ -95,6 +98,7 @@ export function createMcpHandler({ where, send, version, hosted = false, access,
         const asked = params?.protocolVersion;
         // Which agent this is (report D16): notes and labels name it.
         if (!where.env.NB_AGENT_NAME && typeof params?.clientInfo?.name === "string") where.env.NB_AGENT_NAME = agentNameFor(params.clientInfo);
+        everything = /^claude[-_ ]?code$/i.test(String(params?.clientInfo?.name ?? ""));
         return reply({
           protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
           capabilities: { tools: { listChanged: true }, resources: { listChanged: false }, prompts: { listChanged: false }, logging: {} },

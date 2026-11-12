@@ -16,7 +16,8 @@ import path from "node:path";
 
 import { parse } from "yaml";
 
-type Request = { id: string; say: string; persona?: string; expect?: string[]; forbid?: string[]; note?: string };
+/** An expect entry is a tool, or a list of tools any one of which is right ("the brief or the file list"). */
+type Request = { id: string; say: string; persona?: string; expect?: Array<string | string[]>; forbid?: string[]; note?: string };
 type Call = { name: string; held: boolean };
 const args = new Map(process.argv.slice(2).flatMap((a, i, all) => (a.startsWith("--") ? [[a.slice(2), all[i + 1] ?? ""]] : [])));
 const agent = args.get("agent") ?? "claude";
@@ -68,6 +69,29 @@ function tokensOf(output: string) {
   return null;
 }
 
+/** Each expect entry (or one of its alternatives) appears, in order; other calls may come between. */
+export function expectsInOrder(expect: Array<string | string[]>, names: string[]) {
+  let at = 0;
+  return expect.every((want) => {
+    const options = Array.isArray(want) ? want : [want];
+    const hits = options.map((t) => names.indexOf(t, at)).filter((i) => i >= 0);
+    if (!hits.length) return false;
+    at = Math.min(...hits) + 1;
+    return true;
+  });
+}
+
+/** The local files the requests talk about ("push this code", "report.pdf"), so pushes have something to push. */
+function prepareFolder(dir: string) {
+  const files: Record<string, string> = { "src/app.ts": "export const app = () => 'hello';\n", "report.pdf": "%PDF-1.4 quarterly report\n", "screenshots/home.png": "png", "screenshots/login.png": "png", "notes.md": "# Notes\n\nLocal changes to sync.\n" };
+  for (const [rel, body] of Object.entries(files)) {
+    const file = path.join(dir, rel);
+    if (fs.existsSync(file)) continue;
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, body);
+  }
+}
+
 const mcpServer = { command: cli[0], args: [...cli.slice(1), "mcp"] };
 function run(say: string) {
   const opts = { cwd: folder, encoding: "utf8" as const, timeout: 300_000, maxBuffer: 64 * 1024 * 1024 };
@@ -90,6 +114,7 @@ function run(say: string) {
 type Row = { id: string; persona: string; ok: boolean; calls: string[]; forbidden: string[]; error: string; ms: number; tokens: number | null };
 const rows: Row[] = [];
 if (import.meta.url === `file://${process.argv[1]}`) {
+  if (fs.existsSync(path.join(folder, ".networkbase"))) prepareFolder(folder);
   for (const r of requests) {
     let calls: Call[] = [];
     let error = "";
@@ -105,7 +130,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     if (process.env.EVAL_LOG_DIR) fs.writeFileSync(path.join(process.env.EVAL_LOG_DIR, `${r.id}.jsonl`), out);
     const names = calls.map((c) => c.name);
     let at = 0;
-    const inOrder = (r.expect ?? []).every((t) => { const i = names.indexOf(t, at); if (i < 0) return false; at = i + 1; return true; });
+    const inOrder = expectsInOrder(r.expect ?? [], names);
     const forbidden = calls.filter((c) => (r.forbid ?? []).includes(c.name) && !c.held).map((c) => c.name);
     const ok = !error && inOrder && forbidden.length === 0;
     rows.push({ id: r.id, persona: r.persona ?? "normal", ok, calls: names, forbidden, error, ms: Date.now() - started, tokens: tokensOf(out) });
