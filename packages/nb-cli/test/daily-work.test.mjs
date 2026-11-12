@@ -58,7 +58,15 @@ describe("daily work (C2)", () => {
     assert.deepEqual(d.items.map((/** @type {any} */ i) => i.title), ["Late", "Soon", "Going", "Later"]);
     assert.deepEqual(d.items.map((/** @type {any} */ i) => i.why), ["overdue", "due soon", "in progress", "to do"]);
     const text = await nb(["next"]);
-    assert.match(text.stdout, /nb task start 4/);
+    assert.match(text.stdout, /Next: nb task start 4/);
+    // Reviews waiting for you and assignments due join in the report's order (C2).
+    api.state.home = { tasks: { open: 4, byStatus: { todo: 3, in_progress: 1, blocked: 0, in_review: 0 }, overdue: 1, dueThisWeek: 1, workspaces: [] }, unread: 0,
+      reviews: [{ id: "r1", number: 9, title: "Check the logo", workspaceId: "cccccccc-3333-4333-8333-333333333333", workspaceTitle: "Ponytail", workspaceSlug: "ponytail" }],
+      assignments: [{ id: "a1", number: 2, title: "Essay", org: "Physics 101", due: new Date(Date.now() + day).toISOString(), state: "not_started", late: false }] };
+    const mixed = JSON.parse((await nb(["next", "--json", "--limit", "10"])).stdout).data.items;
+    assert.deepEqual(mixed.map((/** @type {any} */ i) => i.why), ["overdue", "due soon", "review waiting", "assignment due", "in progress", "to do"]);
+    assert.equal(mixed[2].next, "nb task review 9 approve -w ponytail");
+    delete api.state.home;
   });
 
   it("tasks by words: one match runs, several ask (or return the choices)", async () => {
@@ -74,6 +82,8 @@ describe("daily work (C2)", () => {
     assert.deepEqual(q.options.map((/** @type {any} */ o) => o.value), ["1", "2"]);
     const none = await nb(["task", "view", "payroll"]);
     assert.match(none.stderr, /No open task matches "payroll"/);
+    const typo = await nb(["task", "view", "logn bgu"]);
+    assert.match(typo.stderr, /Did you mean #1 Fix the login bug, or #2 Login page copy\?/);
   });
 
   it("nb task add is quick capture: a title and a due date", async () => {

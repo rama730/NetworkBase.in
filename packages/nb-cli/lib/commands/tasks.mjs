@@ -38,7 +38,14 @@ export async function resolveTask(ctx, ref, { brief = false } = {}) {
  */
 async function taskByWords(ctx, words) {
   const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query: { projectId: ctx.requireWorkspace(), scope: "all", open: "1", q: words, limit: "10" } }));
-  if (!tasks.length) throw new CliError("TASK_NOT_FOUND", `No open task matches "${words}"`, { hint: "Try fewer words, or nb task list --all" });
+  if (!tasks.length) {
+    // "Did you mean" for task names too (C1): open tasks with a title word one or two letters off.
+    const { didYouMean } = await import("../args.mjs");
+    const { tasks: open } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query: { projectId: ctx.requireWorkspace(), scope: "all", open: "1", limit: "50" } }));
+    const want = words.toLowerCase().split(/\s+/).filter((w) => w.length >= 4);
+    const near = open.filter((/** @type {any} */ t) => want.some((w) => didYouMean(w, String(t.title).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)) !== null)).slice(0, 3);
+    throw new CliError("TASK_NOT_FOUND", `No open task matches "${words}"`, { hint: near.length ? `Did you mean ${near.map((/** @type {any} */ t) => `#${t.taskNumber} ${safe(t.title)}`).join(", or ")}?` : "Try fewer words, or nb task list --all" });
+  }
   if (tasks.length === 1) return String(tasks[0].taskNumber);
   const { ask } = await import("../tui/ask.mjs");
   return ask(ctx, { key: "task", header: "Task", question: `Which task do you mean by "${words}"?`, options: tasks.slice(0, 4).map((/** @type {any} */ t, /** @type {number} */ i) => ({ value: String(t.taskNumber), label: `#${t.taskNumber} ${safe(t.title)}`, recommended: i === 0 })) });
@@ -126,27 +133,36 @@ export async function list(ctx) {
 }
 
 /**
- * What to work on now (C2): your open tasks, overdue first, then due this week, in progress, blocked, to do.
- * ponytail: your own tasks only; reviews waiting for you and assignments due join with F1 (M7).
+ * What to work on now (C2), in the report's order: overdue, due soon, blocked work to unblock, reviews waiting for
+ * you, assignments due; then what's in progress and to do. Each item says the command that starts on it.
  * @param {Context} ctx
  */
 export async function next(ctx) {
   const limit = Number(ctx.flags.limit ?? 5) || 5;
-  const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query: { projectId: ctx.requireWorkspace(), scope: "mine", open: "1", sort: "due", limit: "100" } }));
+  const workspaceId = ctx.requireWorkspace();
+  const [{ tasks }, home] = await Promise.all([
+    /** @type {Promise<any>} */ (ctx.api.get("/api/v1/extension/workspace-tasks", { query: { projectId: workspaceId, scope: "mine", open: "1", sort: "due", limit: "100" } })),
+    /** @type {Promise<any>} */ (ctx.api.get("/api/v1/home").catch(() => ({ reviews: [], assignments: [] }))),
+  ]);
   const now = Date.now();
   const due = (/** @type {any} */ t) => (t.dueDate ? Date.parse(t.dueDate) : Infinity);
-  const why = (/** @type {any} */ t) => (t.reviewStatus === "pending" ? "waiting for review" : due(t) < now ? "overdue" : due(t) < now + 7 * 86_400_000 ? "due soon" : t.status === "in_progress" ? "in progress" : t.status === "blocked" ? "blocked" : "to do");
-  const RANK = ["overdue", "due soon", "in progress", "blocked", "to do", "waiting for review"];
-  const items = tasks.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status, dueDate: t.dueDate ?? null, why: why(t) }))
-    .sort((/** @type {any} */ a, /** @type {any} */ b) => RANK.indexOf(a.why) - RANK.indexOf(b.why) || due(a) - due(b) || a.number - b.number)
+  const why = (/** @type {any} */ t) => (t.reviewStatus === "pending" ? "waiting for review" : due(t) < now ? "overdue" : due(t) < now + 7 * 86_400_000 ? "due soon" : t.status === "blocked" ? "blocked" : t.status === "in_progress" ? "in progress" : "to do");
+  const RANK = ["overdue", "assignment late", "due soon", "blocked", "review waiting", "assignment due", "in progress", "to do", "waiting for review"];
+  const elsewhere = (/** @type {any} */ r) => (r.workspaceId && r.workspaceId !== workspaceId ? ` -w ${r.workspaceSlug ?? r.workspaceId}` : "");
+  const items = [
+    ...tasks.map((/** @type {any} */ t) => ({ kind: "task", id: t.id, number: t.taskNumber, title: t.title, dueDate: t.dueDate ?? null, why: why(t), next: `nb task start ${t.taskNumber}` })),
+    ...(home.reviews ?? []).map((/** @type {any} */ r) => ({ kind: "review", id: r.id, number: r.number, title: r.title, dueDate: null, why: "review waiting", where: r.workspaceId !== workspaceId ? r.workspaceTitle : null, next: `nb task review ${r.number} approve${elsewhere(r)}` })),
+    ...(home.assignments ?? []).map((/** @type {any} */ a) => ({ kind: "assignment", id: a.id, number: a.number, title: a.title, dueDate: a.due, why: a.late ? "assignment late" : "assignment due", where: a.org, next: `nb assignment view ${a.number}` })),
+  ]
+    .sort((a, b) => RANK.indexOf(a.why) - RANK.indexOf(b.why) || due(a) - due(b) || (a.number ?? 0) - (b.number ?? 0))
     .slice(0, limit);
   const { c } = ctx.out;
   ctx.out.result("nb.next/1", { items }, (d) => {
     if (!d.items.length) return "Nothing open is yours · nb task list --all for everyone's";
     return [
-      ...d.items.map((/** @type {any} */ t, /** @type {number} */ i) => `  ${i + 1}. #${t.number} ${safe(t.title)} ${c.muted("·")} ${t.why === "overdue" ? c.warning(t.why) : c.muted(t.why)}${t.dueDate ? c.muted(` (${formatDate(t.dueDate)})`) : ""}`),
+      ...d.items.map((/** @type {any} */ t, /** @type {number} */ i) => `  ${i + 1}. #${t.number} ${safe(t.title)}${t.where ? c.muted(` (${safe(t.where)})`) : ""} ${c.muted("·")} ${t.why === "overdue" || t.why === "assignment late" ? c.warning(t.why) : c.muted(t.why)}${t.dueDate ? c.muted(` (${formatDate(t.dueDate)})`) : ""}`),
       "",
-      c.muted(`  Start: nb task start ${d.items[0].number}`),
+      c.muted(`  Next: ${d.items[0].next}`),
     ];
   });
 }

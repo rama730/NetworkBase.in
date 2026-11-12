@@ -108,7 +108,7 @@ const exact = {
     return { data: { user: { id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", type: agent ? "agent" : String(req.headers.authorization ?? "").startsWith("Bearer nb_dev_") ? "device" : "pat", expiresAt: "2027-11-06T09:34:59.663Z", workspaceId: agent ? WORKSPACE_ID : null, scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 }, access } };
   },
   "GET /api/v1/extension/workspaces": (_req, state) => ({ data: { workspaces: [state.workspace, ...(state.extraWorkspaces ?? [])] } }),
-  "GET /api/v1/home": (_req, state) => ({ data: state.home ?? { tasks: { open: 0, byStatus: { todo: 0, in_progress: 0, blocked: 0, in_review: 0 }, overdue: 0, dueThisWeek: 0 }, unread: 0 } }),
+  "GET /api/v1/home": (_req, state) => ({ data: state.home ?? { tasks: { open: 0, byStatus: { todo: 0, in_progress: 0, blocked: 0, in_review: 0 }, overdue: 0, dueThisWeek: 0, workspaces: [] }, unread: 0, reviews: [], assignments: [] } }),
   "GET /api/v1/extension/workspace-tasks": (req, state) => {
     state.lastListQuery = req.query;
     // Like the server: open work, every word of q in the title (or the number), and the due sort (C2).

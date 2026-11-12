@@ -61,6 +61,8 @@ describe("home screen (C1)", () => {
     const r = await runCli([], { api: api.url, cwd, home });
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, /3 due this week · 1 overdue · 2 unread/);
+    fs.writeFileSync(path.join(cwd, "new.md"), "hello");
+    assert.match((await runCli(["status"], { api: api.url, cwd, home })).stdout, /2 unread · 1 file changed here/);
     assert.match(r.stdout, /design-lab/);
     const s = JSON.parse((await runCli(["status", "--json"], { api: api.url, cwd, home })).stdout);
     assert.deepEqual(s.data.today, { dueThisWeek: 3, overdue: 1, unread: 2 });

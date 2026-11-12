@@ -99,7 +99,8 @@ export async function status(ctx) {
     const head = `${c.brand(sym.brand)} ${safe(project.slug ?? project.workspaceId)}${task}${d.readOnly ? ` · ${c.warning("read only")}` : ""}${d.offline ? ` · ${c.warning("offline: server side not checked")}` : ""}`;
     const queued = d.queued ? [`  ${c.warning(`${d.queued} push(es) queued while offline: nb queue`)}`] : [];
     const t = d.today;
-    const day = t ? [t.dueThisWeek && `${t.dueThisWeek} due this week`, t.overdue && c.warning(`${t.overdue} overdue`), t.unread && `${t.unread} unread`].filter(Boolean) : [];
+    const here = d.files.filter((f) => f.action === "push" || f.state === "conflict").length;
+    const day = t ? [t.dueThisWeek && `${t.dueThisWeek} due this week`, t.overdue && c.warning(`${t.overdue} overdue`), t.unread && `${t.unread} unread`, here && `${here} ${here === 1 ? "file" : "files"} changed here`].filter(Boolean) : [];
     if (day.length) queued.unshift(`  ${day.join(" · ")}`);
     if (!d.files.length) return [head, ...queued, `  ${c.muted(`Up to date · ${root}`)}`, ...skippedLines(d.skipped)];
     // A freshly linked folder: hundreds of server files are one line, not a table (C16 #5).
