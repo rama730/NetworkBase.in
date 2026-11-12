@@ -19,9 +19,10 @@ export async function undo(ctx) {
     const recent = log.slice().reverse().slice(0, 20);
     const summaries = await Promise.all(recent.map((e) => ctx.api.get(`/api/v1/undo/${encodeURIComponent(e.token)}`).then((/** @type {any} */ r) => String(r.summary), () => null)));
     const changes = recent.map((e, i) => ({ n: i + 1, token: e.token, at: new Date(e.at).toISOString(), what: summaries[i] ?? WHAT[e.path] ?? e.path, available: summaries[i] !== null }));
+    const { formatWhen } = await import("./tasks.mjs");
     return ctx.out.result("nb.undo.list/1", { changes }, (d) =>
       d.changes.length
-        ? [...d.changes.map((c) => `  ${String(c.n).padStart(2)}. ${ctx.out.c.muted(c.at.slice(11, 16))}  ${safe(c.what)}${c.available ? "" : ctx.out.c.muted(" (can't be undone any more)")}`), ctx.out.c.muted("  nb undo <n> undoes that one")]
+        ? [...d.changes.map((c) => `  ${String(c.n).padStart(2)}. ${ctx.out.c.muted(formatWhen(c.at).padEnd(10))}  ${safe(c.what)}${c.available ? "" : ctx.out.c.muted(" (can't be undone any more)")}`), ctx.out.c.muted("  nb undo <n> undoes that one")]
         : "Nothing to undo from the last 24 hours");
   }
   if (ctx.flags.session) {

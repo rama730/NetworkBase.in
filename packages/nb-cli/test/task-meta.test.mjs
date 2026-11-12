@@ -35,6 +35,8 @@ describe("task and file details (M4b)", () => {
     assert.equal((await nb(["task", "edit", "1", "2", "--label", "x"])).code, 2, "one task at a time");
     const listed = await nb(["task", "list", "--label", "bug"]);
     assert.equal(api.state.lastListQuery?.get("label"), "bug");
+    // Everyone's tasks with the label, not only yours (M4b live check).
+    assert.equal(api.state.lastListQuery?.get("scope"), "all");
     assert.match(listed.stdout, /\[bug\]/);
   });
 

@@ -39,6 +39,10 @@ test("the Trash lists with days left; restore brings a file back; mkdir makes a 
   as(w.raw, "GET", target);
   const listed = await (await trash.GET(new Request(`https://app.test${target}`), { params: Promise.resolve({ id: w.ws }) })).json();
   assert.deepEqual(listed.data.items.map((i: { path: string; daysLeft: number }) => [i.path, i.daysLeft]), [["/old.md", 27]]);
+  // `nb file trash <path or folder>` matches the path as well as the name (M4b live check).
+  as(w.raw, "GET", target);
+  const byPath = await (await trash.GET(new Request(`https://app.test${target}?q=${encodeURIComponent("/old.md")}`), { params: Promise.resolve({ id: w.ws }) })).json();
+  assert.deepEqual(byPath.data.items.map((i: { path: string }) => i.path), ["/old.md"]);
   const restored = await operate(w, { kind: "restore", projectId: w.ws, nodeId: w.nodeId });
   assert.equal(restored.status, 200, JSON.stringify(restored.body));
   assert.equal((await sql`SELECT deleted_at FROM workspace_nodes WHERE id = ${w.nodeId}`)[0]!.deleted_at, null);

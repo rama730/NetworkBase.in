@@ -92,7 +92,8 @@ export async function list(ctx) {
   const { applySavedFilter } = await import("./extras.mjs");
   applySavedFilter(ctx);
   const workspaceId = ctx.requireWorkspace();
-  const scope = ctx.flags.all || ctx.flags.to ? "all" : "mine";
+  // A label or your stars pick tasks on their own, so they look at everyone's (M4b live check).
+  const scope = ctx.flags.all || ctx.flags.to || ctx.flags.label || ctx.flags.starred ? "all" : "mine";
   const wanted = ctx.flags.status ? new Set(String(ctx.flags.status).split(",").map((s) => s.trim())) : null;
   const limit = ctx.flags.limit ? Number(ctx.flags.limit) : 50;
   // Filters run on the server (C2), so open work never falls off a page of done tasks.
@@ -111,7 +112,7 @@ export async function list(ctx) {
   if (ctx.flags.priority) query.priority = String(ctx.flags.priority);
   if (ctx.flags.sort) query.sort = String(ctx.flags.sort);
   if (ctx.flags.label) query.label = String(ctx.flags.label).toLowerCase();
-  if (ctx.flags.starred) { query.starred = "1"; query.scope = "all"; }
+  if (ctx.flags.starred) query.starred = "1";
   const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query }));
   let rows = tasks.filter((/** @type {any} */ t) => (wanted ? wanted.has(t.status) || (wanted.has("review") && t.reviewStatus === "pending") : true));
   const more = Math.max(0, rows.length - limit);
@@ -528,9 +529,12 @@ export async function commentAdd(ctx) {
     ctx.flags.file = `${doc.nodePath.replace(/^\//, "")}:1`;
   }
   if (ctx.flags.file) return (await import("./work.mjs")).commentOnFile(ctx);
-  const raw = String(ctx.flags.message ?? ctx.positionals.join(" ")).trim();
-  if (!raw) throw usage('nb comment add -m "<text>" [--task 4] [--reply <id>]');
-  const task = await resolveTask(ctx, taskRef(ctx, undefined));
+  // `nb comment add 4 "looks good"`: a leading task number, when text follows it or comes with -m.
+  const lead = !ctx.flags.task && /^#?\d+$/.test(ctx.positionals[0] ?? "") && (ctx.flags.message !== undefined || ctx.positionals.length > 1);
+  const words = lead ? ctx.positionals.slice(1) : ctx.positionals;
+  const raw = String(ctx.flags.message ?? words.join(" ")).trim();
+  if (!raw) throw usage('nb comment add <task> "<text>" [--reply <id>]');
+  const task = await resolveTask(ctx, lead ? ctx.positionals[0].replace("#", "") : taskRef(ctx, undefined));
   const text = await withMentions(ctx, raw);
   const replyTo = ctx.flags.reply ? commentIdOf(task, String(ctx.flags.reply)) : null;
   await ctx.api.post("/api/v1/extension/comments", { kind: "task", projectId: ctx.requireWorkspace(), taskId: task.id, text, ...(replyTo ? { replyTo } : {}) });
@@ -566,18 +570,21 @@ function commentIdOf(task, ref) {
 async function ownComment(ctx, what) {
   const ref = ctx.positionals[0];
   if (!ref) throw usage(what === "edit" ? 'nb comment edit <id> -m "new text" [--task 4]' : "nb comment delete <id> [--task 4]", "The ids are in nb comment list");
-  const task = await resolveTask(ctx, taskRef(ctx, undefined));
-  const commentId = commentIdOf(task, ref);
+  // A full id is enough on its own; the short one from nb comment list is found on the task.
+  const full = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref) && !ctx.flags.task;
+  if (!full && !ctx.flags.task && !ctx.project?.startedTask && !branchTask(ctx.root)) throw usage(`Which task is comment ${ref} on? Add --task <n>`, "Or pass the full comment id from nb comment list --json");
+  const task = full ? null : await resolveTask(ctx, taskRef(ctx, undefined));
+  const commentId = task ? commentIdOf(task, ref) : ref;
   if (what === "edit") {
     const raw = String(ctx.flags.message ?? ctx.positionals.slice(1).join(" ")).trim();
     if (!raw) throw usage('nb comment edit <id> -m "new text"');
     await ctx.api.patch("/api/v1/extension/comments", { projectId: ctx.requireWorkspace(), commentId, text: await withMentions(ctx, raw) });
   } else {
     const { confirm } = await import("../tui/ask.mjs");
-    if (!(await confirm(ctx, { key: "delete", question: `Delete your comment ${ref} on #${task.taskNumber}?`, yesLabel: "Delete", defaultYes: false }))) return 130;
+    if (!(await confirm(ctx, { key: "delete", question: `Delete your comment ${ref}${task ? ` on #${task.taskNumber}` : ""}?`, yesLabel: "Delete", defaultYes: false }))) return 130;
     await ctx.api.request("DELETE", "/api/v1/extension/comments", { body: { projectId: ctx.requireWorkspace(), commentId } });
   }
-  ctx.out.result(`nb.comment.${what}/1`, { number: task.taskNumber, commentId }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${what === "edit" ? "Edited" : "Deleted"} your comment on #${d.number}`);
+  ctx.out.result(`nb.comment.${what}/1`, { number: task?.taskNumber ?? null, commentId }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${what === "edit" ? "Edited" : "Deleted"} your comment${d.number ? ` on #${d.number}` : ""}`);
 }
 /** @param {Context} ctx */
 export const commentEdit = (ctx) => ownComment(ctx, "edit");

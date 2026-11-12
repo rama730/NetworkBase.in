@@ -34,6 +34,10 @@ describe("more file commands (C3)", () => {
 
   it("makes a folder and copies a file", async () => {
     assert.match((await nb(["file", "mkdir", "design"])).stdout, /Made \/design\//);
+    // A folder made here can be deleted by its path (M4b live check).
+    const gone = await nb(["file", "delete", "design", "--yes"]);
+    assert.equal(gone.code, 0, gone.stderr);
+    assert.deepEqual(api.state.fileOps.at(-1)?.kind, "trash");
     putFile(api.state, "/report.md", Buffer.from("hello"));
     const copied = await nb(["file", "copy", "report.md", "drafts/report-v2.md"]);
     assert.equal(copied.code, 0, copied.stderr);

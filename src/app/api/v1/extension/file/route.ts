@@ -5,7 +5,7 @@ import { enforceFileReadLimit, requireAuthenticatedUser, jsonSuccess, jsonError 
 import { publicRequestUrl } from "@/lib/auth/redirects";
 import { db } from "@/lib/db";
 import { workspaceNodes, fileVersions, storageAssets } from "@/lib/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, inArray, isNull } from "drizzle-orm";
 import { getWorkspaceFileContent } from "@/app/actions/files/content";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import { isFileRevisionMode, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
@@ -71,7 +71,8 @@ export async function GET(request: Request) {
         where: and(
           eq(workspaceNodes.projectId, projectId),
           eq(workspaceNodes.path, path),
-          eq(workspaceNodes.type, "file"),
+          // Details find folders too (nb file delete, nb mv into a folder); bytes are files only.
+          transfer === "metadata" ? inArray(workspaceNodes.type, ["file", "folder"]) : eq(workspaceNodes.type, "file"),
           isNull(workspaceNodes.deletedAt)
         ),
         columns: {

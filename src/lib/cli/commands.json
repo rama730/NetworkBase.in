@@ -1723,7 +1723,7 @@
     {
       "name": "comment add",
       "summary": "Comment on a task",
-      "usage": "nb comment add -m \"<text>\" [--task 4] [--reply <id>] [--doc readme]",
+      "usage": "nb comment add [task] \"<text>\" [--reply <id>] [--doc readme]",
       "flags": {
         "task": {
           "type": "string",

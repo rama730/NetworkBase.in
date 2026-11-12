@@ -28,7 +28,8 @@ describe("nb undo and held changes", () => {
     const list = await runCli(["undo", "--list", "--json"], { api: api.url, cwd, home });
     // What it would undo, in the server's words (C10).
     assert.equal(JSON.parse(list.stdout).data.changes[0].what, "Pushed /a.txt");
-    assert.match((await runCli(["undo", "--list"], { api: api.url, cwd, home })).stdout, /1\. .*Pushed \/a\.txt/);
+    // In the person's own time ("just now"), never a UTC clock time (M4b live check).
+    assert.match((await runCli(["undo", "--list"], { api: api.url, cwd, home })).stdout, /1\. just now +Pushed \/a\.txt/);
     const r = await runCli(["undo", "1"], { api: api.url, cwd, home });
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, /Undid the push of 1 file/);

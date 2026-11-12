@@ -36,6 +36,16 @@ describe("working together (C4)", () => {
     assert.equal(t.comments.length, 1);
   });
 
+  it("nb comment add <task> <text>, and a full comment id needs no --task (M4b live check)", async () => {
+    const t = addTask(api.state, { title: "Hero" });
+    const added = await nb(["comment", "add", String(t.taskNumber), "looks", "good"]);
+    assert.equal(added.code, 0, added.stderr);
+    assert.equal(t.comments.at(-1).content, "looks good");
+    const edited = await nb(["comment", "edit", String(t.comments.at(-1).id), "-m", "looks great"]);
+    assert.equal(edited.code, 0, edited.stderr);
+    assert.equal(t.comments.at(-1).content, "looks great");
+  });
+
   it("inbox settings and mute change only what's named", async () => {
     const r = await nb(["inbox", "settings", "--off", "projects", "--quiet", "22:00-08:00"]);
     assert.equal(r.code, 0, r.stderr);
@@ -43,10 +53,10 @@ describe("working together (C4)", () => {
     assert.match(r.stdout, /quiet hours +22:00–08:00/);
     assert.equal(api.state.prefs.mentions, true);
     assert.equal((await nb(["inbox", "settings", "--off", "everything"])).code, 2);
-    addTask(api.state, { title: "Noisy" });
-    assert.match((await nb(["inbox", "mute", "#2"])).stdout, /Muted #2 Noisy/);
+    const noisy = `#${addTask(api.state, { title: "Noisy" }).taskNumber}`;
+    assert.match((await nb(["inbox", "mute", noisy])).stdout, new RegExp(`Muted ${noisy} Noisy`));
     assert.equal(api.state.prefs.mutedScopes.length, 1);
-    await nb(["inbox", "mute", "#2", "--off"]);
+    await nb(["inbox", "mute", noisy, "--off"]);
     assert.equal(api.state.prefs.mutedScopes.length, 0);
   });
 

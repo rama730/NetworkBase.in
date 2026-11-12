@@ -229,6 +229,8 @@ const exact = {
   "GET /api/v1/extension/search": (req, state) => ({ data: { files: [...state.files.values()].filter((f) => f.path.includes(req.query.get("q") ?? "")).map((f) => ({ ...meta(f), currentVersion: f.version })), nextCursor: null } }),
   "GET /api/v1/extension/file": (req, state) => {
     const f = state.files.get(req.query.get("path") ?? "");
+    const folder = (state.folders ?? new Map()).get(req.query.get("path") ?? "");
+    if (!f && folder && req.query.get("transfer") === "metadata") return { data: folder };
     if (!f) return fail(404, "NOT_FOUND", "File not found");
     if (req.query.get("transfer") === "raw") return { raw: f.content };
     if (req.query.get("transfer") === "metadata") return { data: { ...meta(f), id: f.nodeId, currentVersion: f.version } };
@@ -236,7 +238,11 @@ const exact = {
   },
   "POST /api/v1/extension/file-operation": (req, state) => {
     state.fileOps.push(req.body);
-    if (req.body.kind === "mkdir") return { data: { folder: { id: crypto.randomUUID(), path: `/${req.body.name}`, name: req.body.name } } };
+    if (req.body.kind === "mkdir") {
+      const folder = { id: crypto.randomUUID(), path: `/${req.body.name}`, name: req.body.name };
+      (state.folders ??= new Map()).set(folder.path, { ...folder, nodeId: folder.id, type: "folder", updatedAt: new Date().toISOString() });
+      return { data: { folder } };
+    }
     if (req.body.kind === "restore") {
       const hit = (state.trash ?? []).find((t) => t.nodeId === req.body.nodeId);
       if (!hit) return fail(404, "NOT_FOUND", "File not found");

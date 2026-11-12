@@ -1329,7 +1329,8 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
         .leftJoin(profiles, eq(profiles.id, workspaceNodes.deletedBy))
         .where(and(eq(workspaceNodes.projectId, projectId), isNotNull(workspaceNodes.deletedAt),
             search
-                ? ilike(workspaceNodes.name, `%${escapeLikePattern(search.slice(0, 200))}%`)
+                // The name or the path, so a folder name or a full path finds what was inside it.
+                ? or(ilike(workspaceNodes.name, `%${escapeLikePattern(search.slice(0, 200))}%`), ilike(workspaceNodes.path, `%${escapeLikePattern(search.slice(0, 200))}%`))
                 // Browsing lists what was trashed, not every descendant of a trashed folder.
                 : sql`NOT EXISTS (SELECT 1 FROM workspace_nodes parent WHERE parent.id = ${workspaceNodes.parentId} AND parent.deleted_at IS NOT NULL)`,
             cursor ? sql`(${workspaceNodes.deletedAt}, ${workspaceNodes.id}) < (${cursorAt}::timestamptz, ${cursorId}::uuid)` : undefined))

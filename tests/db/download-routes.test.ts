@@ -295,3 +295,15 @@ test("a zip leaves out files with no stored copy and says how many; a folder of 
   const [linked] = await sql`SELECT id FROM public.workspace_nodes WHERE workspace_id = ${file.projectId} AND name = 'linked.md'`;
   assert.equal((await exportRoute.HEAD(request(`${base}?ids=${linked!.id}`, "HEAD"), context())).status, 422);
 });
+
+test("a folder's details are readable by path, so nb file delete and nb mv find folders; its bytes are not (M4b live check)", async () => {
+  const file = await seedFile("inside.pdf");
+  viewer = file.owner;
+  const [folder] = await sql`INSERT INTO public.workspace_nodes (workspace_id, type, name, path, created_by) VALUES (${file.projectId}, 'folder', 'drafts', '/drafts', ${file.owner}) RETURNING id`;
+  const url = `https://app.test/api/v1/extension/file?projectId=${file.projectId}&path=${encodeURIComponent("/drafts")}`;
+  const meta = await extensionFile.GET(new Request(`${url}&transfer=metadata`));
+  assert.equal(meta.status, 200, await meta.clone().text());
+  const body = await meta.json();
+  assert.deepEqual([body.data.nodeId, body.data.type], [folder!.id, "folder"]);
+  assert.equal((await extensionFile.GET(new Request(`${url}&transfer=raw`))).status, 404, "a folder has no bytes");
+});
