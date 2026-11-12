@@ -18,8 +18,9 @@ Most used
 More
   Account and setup
     login, logout, token list, token revoke, whoami, unlink, doctor, open,
-    version, help, completion, setup shell, feedback, config, inbox read,
-    inbox reply, inbox approve, inbox settings, inbox mute, inbox open
+    version, help, upgrade, completion, setup shell, feedback, config,
+    inbox read, inbox reply, inbox approve, inbox settings, inbox mute,
+    inbox open
   Files
     undo, diff, queue, queue retry, queue drop, sync, resolve, watch, file list,
     file trash, file restore, file mkdir, file copy, file lock, file recent,

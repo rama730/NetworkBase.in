@@ -13,6 +13,20 @@ const { createOutput } = await import("../lib/print/out.mjs");
 
 const argv = process.argv.slice(2);
 
+// A company proxy or certificates (C6, nb config set proxy|ca-file, or HTTPS_PROXY): start once more with them set.
+{
+  const { readUserConfig } = await import("../lib/config.mjs");
+  const { networkEnv } = await import("../lib/network.mjs");
+  let userConfig = {};
+  try { userConfig = readUserConfig(process.env); } catch { /* unreadable config: carry on without */ }
+  const add = networkEnv(userConfig, process.env, process.versions.node);
+  if (add) {
+    const { spawnSync } = await import("node:child_process");
+    const again = spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit", env: { ...process.env, ...add } });
+    process.exit(again.status ?? 1);
+  }
+}
+
 /** Errors before a command is known still honour --json. */
 const early = createOutput({ json: argv.includes("--json") || process.env.NB_JSON === "1", plain: argv.includes("--plain") });
 

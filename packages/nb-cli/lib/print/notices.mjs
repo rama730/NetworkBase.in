@@ -38,6 +38,9 @@ export async function afterCommand(ctx) {
   const minor = (/** @type {string} */ v) => v.split(".").slice(0, 2).join(".");
   if (seen.lastRun && minor(seen.lastRun) !== minor(ctx.version)) {
     ctx.out.note(`${c.brand(ctx.out.sym.brand)} Updated to nb ${ctx.version}`);
+    // What's new in this minor version (F7), in three lines.
+    const { WHATS_NEW } = await import("../whats-new.mjs");
+    for (const line of WHATS_NEW[minor(ctx.version)] ?? []) ctx.out.note(c.muted(`  · ${line}`));
     ctx.out.note(c.muted("  What changed: https://www.npmjs.com/package/@networkbase/cli?activeTab=readme · nb help"));
   }
   if (Date.now() - (seen.checkedAt ?? 0) > DAY) {

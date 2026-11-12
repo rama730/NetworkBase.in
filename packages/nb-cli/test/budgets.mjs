@@ -4,16 +4,24 @@
 // (103 KB packed), so the ceiling was 400 KiB. M4a (2.1.0: home screen, filters, bulk, queue, file use, inbox reply,
 // the error catalog's next steps) took it to 421 KiB, so the ceiling is 480 KiB; each later M4 phase checks it again.
 // Startup stays within budget because command modules load only when used.
-import { startFakeServer } from "./helpers/fake-server.mjs";
-import { cliMs, unpackedBytes } from "./helpers/measure.mjs";
+import { putFile, startFakeServer } from "./helpers/fake-server.mjs";
+import { cliMs, medianMs, unpackedBytes } from "./helpers/measure.mjs";
+import { runCli, tempDir } from "./helpers/run-cli.mjs";
 
-const BUDGET = { unpackedBytes: 480 * 1024, versionMs: 120, helpMs: 200 };
+// statusMs (C6): nb status in a linked folder of 50 files, the everyday command, against the local fake server.
+const BUDGET = { unpackedBytes: 480 * 1024, versionMs: 120, helpMs: 200, statusMs: 400 };
 
 const api = await startFakeServer();
+const cwd = await tempDir("nb-budget-");
+const home = await tempDir("nb-budget-home-");
+for (let i = 0; i < 50; i++) putFile(api.state, `/docs/f${i}.md`, Buffer.from(`file ${i}`));
+await runCli(["init", "design-lab"], { api: api.url, cwd, home });
+await runCli(["pull"], { api: api.url, cwd, home });
 const result = {
   unpackedBytes: unpackedBytes(),
   versionMs: await cliMs(["--version"], api.url),
   helpMs: await cliMs(["help"], api.url),
+  statusMs: await medianMs(10, async () => () => runCli(["status"], { api: api.url, cwd, home })),
 };
 await api.close();
 

@@ -47,9 +47,41 @@ export async function help(ctx) {
     ctx.out.result("nb.help/1", helpData(), () => overviewHelp(process.stdout.columns), { page: true });
     return;
   }
+  // A topic (C5): how a part of nb fits together.
+  const { TOPICS } = await import("../help-topics.mjs");
+  const topic = TOPICS[name];
+  if (topic) {
+    ctx.out.result("nb.help.topic/1", { topic: name, ...topic }, (d) => [ctx.out.c.bold(d.title), "", ...d.lines.map((/** @type {string} */ l) => `  ${l}`), "", "Examples", ...d.examples.map((/** @type {string} */ e) => `  ${e}`)]);
+    return;
+  }
   const spec = COMMANDS.find((c) => c.name === name);
-  if (!spec) throw usage(`No command called nb ${name}`, "See nb help");
+  if (!spec) throw usage(`No command or topic called ${name}`, `See nb help, or a topic: ${Object.keys(TOPICS).join(", ")}`);
   ctx.out.result("nb.help.command/1", helpData().commands.find((c) => c.name === name), () => commandHelp(spec));
+}
+
+/**
+ * How nb was installed (C5 `nb upgrade`), from where its own script lives.
+ * @param {string} script process.argv[1] @returns {"npx" | "npm" | "other"}
+ */
+export function installMethod(script) {
+  const s = script.split("\\").join("/");
+  if (/\/_npx\//.test(s)) return "npx";
+  if (/\/node_modules\/@networkbase\/cli\//.test(s)) return "npm";
+  return "other";
+}
+
+/** `nb upgrade` (C5): updates the CLI the way it was installed; npx needs nothing. Asks first. @param {Context} ctx */
+export async function upgrade(ctx) {
+  const how = installMethod(fs.realpathSync(process.argv[1] ?? ""));
+  const command = "npm i -g @networkbase/cli@latest";
+  if (how === "npx") return ctx.out.result("nb.upgrade/1", { how, command: null }, () => "npx runs the latest nb each time: nothing to update");
+  if (how === "other" || ctx.flags["dry-run"]) return ctx.out.result("nb.upgrade/1", { how, command }, (d) => (d.how === "other" ? [`This nb wasn't installed with npm (${safe(process.argv[1] ?? "")}).`, `  To use npm: ${command}`] : `Would run: ${command}`));
+  const { confirm } = await import("../tui/ask.mjs");
+  if (!(await confirm(ctx, { key: "upgrade", question: `Update nb ${ctx.version} to the latest?`, preview: command, yesLabel: "Update", defaultYes: true }))) return 130;
+  const { spawnSync } = await import("node:child_process");
+  const run = spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", ["i", "-g", "@networkbase/cli@latest"], { stdio: "inherit", shell: process.platform === "win32" });
+  if (run.status !== 0) throw new CliError("UPGRADE_FAILED", "npm couldn't update nb", { hint: `Run it yourself: ${command}` });
+  ctx.out.result("nb.upgrade/1", { how, command, updated: true }, () => `${ctx.out.c.success(ctx.out.sym.done)} Updated nb · nb --version`);
 }
 
 /** @param {Context} ctx */
@@ -89,6 +121,9 @@ const SETTINGS = /** @type {Record<string, { describe: string, check: (v: string
   editor: { describe: "Editor for nb doc edit and -m with no text", check: (v) => v.length > 0 },
   "base-cache-mb": { describe: "Space for offline diff copies (MB)", check: (v) => /^\d+$/.test(v) },
   presence: { describe: "Show teammates what you're editing: on or off", check: (v) => v === "on" || v === "off" },
+  // A company network (report C6): its proxy and its own certificates.
+  proxy: { describe: "Proxy for every request, like http://proxy.corp:8080 (Node 22.21+ or 24+)", check: (v) => /^https?:\/\/[^\s]+$/.test(v) },
+  "ca-file": { describe: "Extra certificates (a PEM file) your company network needs", check: (v) => v.length > 0 && fs.existsSync(v) },
 });
 
 /** @param {Context} ctx */
@@ -244,8 +279,11 @@ async function runChecks(ctx) {
   add("Version", !(latest && newer(latest, ctx.version)), latest && newer(latest, ctx.version) ? `${ctx.version}; ${latest} is out` : ctx.version, latest && newer(latest, ctx.version) ? "npm i -g @networkbase/cli" : "");
 
   // Proxy and company certificates (A6.4): Node ignores HTTPS_PROXY unless told to.
-  const proxy = ctx.env.HTTPS_PROXY || ctx.env.https_proxy || ctx.env.HTTP_PROXY || ctx.env.http_proxy;
-  if (proxy) add("Proxy", Boolean(ctx.env.NODE_USE_ENV_PROXY), ctx.env.NODE_USE_ENV_PROXY ? "used (NODE_USE_ENV_PROXY=1)" : "set but Node won't use it", ctx.env.NODE_USE_ENV_PROXY ? "" : "export NODE_USE_ENV_PROXY=1");
+  // nb turns NODE_USE_ENV_PROXY on itself (C6, lib/network.mjs); Node's fetch can only follow a proxy from 22.21 and 24.
+  const { proxyCapable } = await import("../network.mjs");
+  const proxy = readUserConfig(ctx.env).proxy || ctx.env.HTTPS_PROXY || ctx.env.https_proxy || ctx.env.HTTP_PROXY || ctx.env.http_proxy;
+  const canProxy = proxyCapable(process.versions.node);
+  if (proxy) add("Proxy", canProxy, canProxy ? `through ${proxy}` : `${proxy} is set, but Node ${process.versions.node} can't use it`, canProxy ? "" : "Install Node 22 LTS (22.21 or later) or Node 24");
   const ca = ctx.env.NODE_EXTRA_CA_CERTS;
   if (ca) add("Certificates", fs.existsSync(ca), fs.existsSync(ca) ? `extra certificates from ${ca}` : `NODE_EXTRA_CA_CERTS points to a missing file: ${ca}`, fs.existsSync(ca) ? "" : "Fix the path or unset it");
 

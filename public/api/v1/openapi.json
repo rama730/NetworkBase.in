@@ -332,6 +332,12 @@
       "meaning": "That --confirm token is wrong or expired",
       "fix": "Run the command without --confirm to get a new one"
     },
+    "UPGRADE_FAILED": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "npm couldn't update nb",
+      "fix": "Run npm i -g @networkbase/cli@latest yourself to see why"
+    },
     "GIT_FAILED": {
       "status": 0,
       "exit": 1,

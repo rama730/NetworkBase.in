@@ -195,9 +195,25 @@
     },
     {
       "name": "help",
-      "summary": "Help for a command",
-      "usage": "nb help [command]",
+      "summary": "Help for a command, or a topic: files, agents, classes, sign-in, offline",
+      "usage": "nb help [command|topic]",
       "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "upgrade",
+      "summary": "Update nb the way it was installed (asks first)",
+      "usage": "nb upgrade [--dry-run]",
+      "flags": {
+        "dry-run": {
+          "type": "boolean",
+          "describe": "Show the command, run nothing"
+        }
+      },
       "examples": [],
       "exitCodes": [
         0,

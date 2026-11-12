@@ -54,6 +54,7 @@ export const FIXES = /** @type {Record<string, string>} */ ({
   "CORRUPT_DOWNLOAD": "Run nb pull again",
   "UPLOAD_FAILED": "Run nb push again; it picks up where it stopped",
   "CONFIRMATION_INVALID": "Run the command without --confirm to get a new one",
+  "UPGRADE_FAILED": "Run npm i -g @networkbase/cli@latest yourself to see why",
   "GIT_FAILED": "Run the git command yourself to see why",
   "EDITOR_FAILED": "Set your editor: export EDITOR=nano",
   "UNKNOWN_TOOL": "Restart the agent so it reads the current tool list",

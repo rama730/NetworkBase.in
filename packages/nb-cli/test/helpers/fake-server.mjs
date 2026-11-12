@@ -452,6 +452,8 @@ export async function startFakeServer({ routes = {}, fault = {} } = {}) {
   /** @type {FakeRequest[]} */
   const requests = [];
   const faults = new Map(Object.entries(fault));
+  /** @type {Map<string, any>} */
+  const idempotent = new Map();
   const table = { ...exact, ...routes };
 
   const server = http.createServer(async (req, res) => {
@@ -488,7 +490,13 @@ export async function startFakeServer({ routes = {}, fault = {} } = {}) {
       }
     }
     if (!handler) { res.writeHead(404, { "content-type": "application/json" }); res.end(JSON.stringify({ success: false, message: `No fake route for ${fakeReq.method} ${url.pathname}`, errorCode: "NOT_FOUND" })); return; }
-    const out = await handler(fakeReq, state);
+    // Like the server's idempotentWrite: the same write sent again with its key gets the first answer, done once.
+    const idemKey = fakeReq.method !== "GET" ? String(req.headers["idempotency-key"] ?? "") : "";
+    const seen = idemKey ? idempotent.get(`${fakeReq.method} ${url.pathname} ${idemKey}`) : undefined;
+    const out = seen ?? (await handler(fakeReq, state));
+    if (idemKey && !seen && (out.status ?? 200) < 300) idempotent.set(`${fakeReq.method} ${url.pathname} ${idemKey}`, out);
+    // The server did it, but the answer was lost on the way back (C6 network-drop test).
+    if (f === "drop-after") { faults.delete(url.pathname); req.socket.destroy(); return; }
     const status = out.status ?? 200;
     if (out.raw) { res.writeHead(200, { "content-type": "application/octet-stream" }); res.end(out.raw); return; }
     if (status === 304) { res.writeHead(304); res.end(); return; }

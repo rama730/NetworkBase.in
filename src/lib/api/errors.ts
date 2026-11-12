@@ -36,6 +36,7 @@ const CLI_ONLY: Record<string, ErrorEntry> = {
   CORRUPT_DOWNLOAD: { status: 0, exit: 1, meaning: "A download didn't match its checksum, so it wasn't saved", fix: "Run nb pull again" },
   UPLOAD_FAILED: { status: 0, exit: 1, meaning: "A file didn't finish uploading", fix: "Run nb push again; it picks up where it stopped" },
   CONFIRMATION_INVALID: { status: 0, exit: 1, meaning: "That --confirm token is wrong or expired", fix: "Run the command without --confirm to get a new one" },
+  UPGRADE_FAILED: { status: 0, exit: 1, meaning: "npm couldn't update nb", fix: "Run npm i -g @networkbase/cli@latest yourself to see why" },
   GIT_FAILED: { status: 0, exit: 1, meaning: "A git command nb ran failed", fix: "Run the git command yourself to see why" },
   EDITOR_FAILED: { status: 0, exit: 1, meaning: "Your editor exited with an error", fix: "Set your editor: export EDITOR=nano" },
   UNKNOWN_TOOL: { status: 0, exit: 1, meaning: "An agent asked for a tool nb mcp doesn't have", fix: "Restart the agent so it reads the current tool list" },
