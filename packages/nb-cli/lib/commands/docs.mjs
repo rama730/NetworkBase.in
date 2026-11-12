@@ -98,10 +98,16 @@ async function saveDoc(ctx, slug, doc, next) {
     ctx.out.result("nb.doc.edit/1", { slug, changed: false }, () => "No changes");
     return EXIT.ok;
   }
-  const preview = unifiedDiff(doc.content, next)?.lines.slice(0, 30).map((l) => `${l.kind === "@" ? "" : l.kind}${l.text}`).join("\n");
+  const diff = unifiedDiff(doc.content, next);
+  const preview = diff?.lines.slice(0, 30).map((l) => `${l.kind === "@" ? "" : l.kind}${l.text}`).join("\n");
   // A doc with no file yet (a new workspace's starter README) gets one, named by the server, on its first save.
   const target = doc.file ?? { path: `/${String(doc.filename ?? "README.md").replace(/^\/+/, "")}`, nodeId: null, version: 0 };
-  if (!(await confirm(ctx, { key: "save", heldByServer: true, question: doc.file ? `Save ${target.path} as v${target.version + 1}?` : `Save ${slug} as the new file ${target.path}?`, ...(preview ? { preview } : {}), yesLabel: "Save", defaultYes: true }))) return EXIT.cancelled;
+  // The yes names the doc and its size (0.8 #13): "Change the README (+5 −2 lines)?".
+  const name = slug === "readme" ? "the README" : slug;
+  const added = diff?.lines.filter((l) => l.kind === "+").length ?? 0;
+  const removed = diff?.lines.filter((l) => l.kind === "-").length ?? 0;
+  const size = `(${[added ? `+${added}` : "", removed ? `−${removed}` : ""].filter(Boolean).join(" ") || "no"} lines)`;
+  if (!(await confirm(ctx, { key: "save", heldByServer: true, question: doc.file ? `Change ${name} ${size}?` : `Add ${name} as ${target.path} ${size}?`, ...(preview ? { preview } : {}), yesLabel: "Save", defaultYes: true }))) return EXIT.cancelled;
   const bytes = Buffer.from(next, "utf8");
   const content = { contentHash: crypto.createHash("sha256").update(bytes).digest("hex"), size: bytes.length, mimeType: "text/markdown", contentBase64: bytes.toString("base64") };
   const res = /** @type {any} */ (await ctx.api.post("/api/v1/files/place", {

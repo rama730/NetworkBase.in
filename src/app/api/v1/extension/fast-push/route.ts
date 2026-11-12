@@ -52,6 +52,8 @@ import {
   workspaceNodeLocks,
   workspaceNodes,
 } from "@/lib/db/schema";
+import { describePush } from "@/lib/agents/describe-change";
+import { readWorkspaceFileText } from "@/lib/files/content-reader";
 import { inngest } from "@/inngest/client";
 import { pushTransitionTarget, transitionAfterPush } from "@/lib/domain/task-transition";
 import { viaColumns } from "@/lib/server/request-via";
@@ -304,11 +306,14 @@ async function handlePost(request: Request) {
       overwrites && onSameName !== "keep-both" ? "overwrite" : "small",
       (await isOthersTask(taskId, user.id)) ? "others-task" : "small",
     ];
+    // The yes prompt names the change and its size (report D4, 0.8 #13): only agents are held, so only they pay for
+    // reading the old text, and only for one text file of at most 256 KB.
+    const described = auth.tokenKind === "agent" ? await describeAgentPush({ access, projectId, files, existingByPath, editsDoc, role: requestedRole, taskId, finish: transitionStatus === "done" }) : null;
     const held = await agentGate(auth, request, parsed.data, {
       workspaceId: projectId,
       kinds,
-      summary: `Push ${files.length} file${files.length === 1 ? "" : "s"}${requestedRole ? ` as ${toPublicRole(requestedRole)}` : ""}${taskId ? " to a task" : ""}${transitionStatus === "done" ? " and finish the task" : ""}`,
-      preview: files.slice(0, 30).map((f) => normalizePath(f.path)).join("\n"),
+      summary: described?.summary ?? `Push ${files.length} file${files.length === 1 ? "" : "s"}${requestedRole ? ` as ${toPublicRole(requestedRole)}` : ""}${taskId ? " to a task" : ""}${transitionStatus === "done" ? " and finish the task" : ""}`,
+      preview: described?.preview ?? files.slice(0, 30).map((f) => normalizePath(f.path)).join("\n"),
       taskId,
     });
     if (held) return held;
@@ -872,3 +877,44 @@ async function handlePost(request: Request) {
 export async function POST(request: Request) {
   return idempotentWrite(request, "extension.fast-push", handlePost, { required: true });
 }
+
+const DESCRIBE_MAX = 256 * 1024;
+/** Text of inline content, or null for binary or large files. */
+function inlineText(base64: unknown) {
+  if (typeof base64 !== "string") return null;
+  const bytes = Buffer.from(base64, "base64");
+  return bytes.length <= DESCRIBE_MAX && !bytes.includes(0) ? bytes.toString("utf8") : null;
+}
+
+async function describeAgentPush(input: {
+  access: Awaited<ReturnType<typeof getWorkspaceAccessById>>;
+  projectId: string;
+  files: Array<{ path: string; contentBase64?: unknown }>;
+  existingByPath: Map<string, { id: string; size: number | null }>;
+  editsDoc: boolean;
+  role: TaskFileRole | undefined;
+  taskId: string | null | undefined;
+  finish: boolean;
+}) {
+  const { access, projectId, files, existingByPath, editsDoc, role, taskId, finish } = input;
+  const one = files.length === 1 ? files[0]! : null;
+  const current = one ? existingByPath.get(normalizePath(one.path)) : undefined;
+  const after = one ? inlineText(one.contentBase64) : null;
+  const before = current && after !== null && access.project && (current.size ?? 0) <= DESCRIBE_MAX
+    ? await readWorkspaceFileText(access as Parameters<typeof readWorkspaceFileText>[0], projectId, current.id).catch(() => null)
+    : null;
+  const [task] = taskId ? await db.select({ number: tasks.taskNumber }).from(tasks).where(eq(tasks.id, taskId)).limit(1) : [];
+  const name = one ? normalizePath(one.path).split("/").pop() ?? "" : "";
+  const doc = editsDoc ? (/^readme(\.md)?$/i.test(name) ? "README" : name) : null;
+  return describePush({
+    // One file: an existing one we couldn't read is "Change <path>" without counts; a new one is "Add".
+    files: one
+      ? [{ path: normalizePath(one.path), before: current ? (before ?? "") : null, after: current && before === null ? null : after }]
+      : files.map((f) => ({ path: normalizePath(f.path), before: null, after: null })),
+    doc,
+    role: role === "deliverable" ? "final" : null,
+    taskNumber: task?.number ?? null,
+    finish,
+  });
+}
+

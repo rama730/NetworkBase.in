@@ -148,7 +148,7 @@ export const TOOLS = [
     props: { paths: { type: "array", items: { type: "string" }, description: "Files or folders here" }, message: { type: "string", description: "What changed (shown in history)" }, task: { type: "string", description: "Attach to this task" }, as: { type: "string", enum: ["reference", "draft", "final"], description: "Role on the task (default draft)" }, folder: { type: "string", description: "Workspace folder" }, keepBoth: { type: "boolean", description: "Name taken by another file: save as name (2).ext" }, workspace: workspaceProp },
     required: ["paths", "message"],
     description: "Upload files from this folder; the same path becomes a new version. Check networkbase_status first unless the user named the files. Draft unless the user says final; final needs a yes.",
-    needsYes: (a) => (a.as === "final" ? `Push ${a.paths.length} file(s) as final files${a.task ? ` on task ${a.task}` : ""}` : null),
+    needsYes: (a) => (a.as === "final" ? `Push ${a.paths.slice(0, 3).join(", ")}${a.paths.length > 3 ? ` and ${a.paths.length - 3} more` : ""} as ${a.paths.length === 1 ? "the final file" : "final files"}${a.task ? ` on #${String(a.task).replace(/^#/, "")}` : ""}` : null),
     run: (nb, a) => {
       if (!String(a.message ?? "").trim()) throw new CliError("USAGE", "Say what changed in message");
       return nb("push", a.paths, { ...ws(a), message: a.message, ...(a.task ? { task: String(a.task) } : {}), ...(a.as ? { as: a.as } : {}), ...(a.folder ? { folder: a.folder } : {}), ...(a.keepBoth ? { "keep-both": true } : {}) });

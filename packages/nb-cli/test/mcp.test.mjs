@@ -121,6 +121,8 @@ describe("nb mcp (report A7)", () => {
     const first = await mcp.call("networkbase_doc_update", { content: "# Design Lab\n\nInstall: npm i\n" });
     assert.equal(first.structuredContent.status, "needs_confirmation", first.content[0].text);
     assert.match(first.structuredContent.preview ?? "", /\+Install: npm i/);
+    // The yes names the README and its size (0.8 #13), not "Save /README.md as v2".
+    assert.equal(first.structuredContent.summary, "Change the README (+2 lines)?");
     const saved = await mcp.call("networkbase_doc_update", { content: "# Design Lab\n\nInstall: npm i\n", confirmToken: first.structuredContent.confirmToken });
     assert.equal(saved.structuredContent.status, "ok", saved.content[0].text);
     const placed = api.requests.filter((q) => q.path === "/api/v1/files/place").at(-1);

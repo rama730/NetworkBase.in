@@ -18,7 +18,12 @@ let place: typeof import("../../src/app/api/v1/files/place/route");
 let undo: typeof import("../../src/app/api/v1/undo/[id]/route");
 before(async () => {
   const server = await loadAppModule(() => import("../../src/lib/supabase/server"));
-  moduleStubs.set("@/lib/supabase/server", { ...server, createAdminClient: async () => ({ storage: { from: () => ({ upload: async () => ({ error: null }) }) } }) });
+  // Storage in memory: uploads are kept, and a signed URL is a data: URL of them, so reading old text works (D4).
+  const stored = new Map<string, Buffer>();
+  moduleStubs.set("@/lib/supabase/server", { ...server, createAdminClient: async () => ({ storage: { from: () => ({
+    upload: async (key: string, body: Buffer | Uint8Array | string) => { stored.set(key, Buffer.from(body as Buffer)); return { error: null }; },
+    createSignedUrl: async (key: string) => (stored.has(key) ? { data: { signedUrl: `data:application/octet-stream;base64,${stored.get(key)!.toString("base64")}` }, error: null } : { data: null, error: new Error("not found") }),
+  }) } }) });
   createTask = await loadAppModule(() => import("../../src/app/api/v1/extension/create-task/route"));
   taskUpdate = await loadAppModule(() => import("../../src/app/api/v1/extension/task-update/route"));
   place = await loadAppModule(() => import("../../src/app/api/v1/files/place/route"));
@@ -137,4 +142,29 @@ test("pushing a new version undoes back to the old one, and refuses if someone s
   const finals = await agentToken(userId, projectId, ["workspace:read", "file:read", "file:write", "file:final"]);
   const final = await call(place.POST, finals, "POST", "/api/v1/files/place", { projectId, message: "final", role: "final", files: [{ ...file("report"), path: "/report.md" }] });
   assert.equal(final.status, 428, "final files need a yes");
+});
+
+test("an agent's README edit asks 'Change the README (+1 −1 lines)' with the diff, not 'Push 1 file' (report D4, 0.8 #13)", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const docs = await agentToken(userId, projectId, ["workspace:read", "file:read", "file:write", "doc:write"]);
+  const file = (text: string, baseVersion?: number) => ({ path: "/README.md", contentHash: hash(text), size: text.length, mimeType: "text/markdown", contentBase64: Buffer.from(text).toString("base64"), ...(baseVersion ? { baseVersion } : {}) });
+  const v1 = await call(place.POST, docs, "POST", "/api/v1/files/place", { projectId, message: "v1", files: [file("# App\nOld line\n")] });
+  assert.equal(v1.status, 200, JSON.stringify(v1.json));
+  const [node] = await sql`SELECT id FROM workspace_nodes WHERE workspace_id = ${projectId} AND path = '/README.md'`;
+  await sql`INSERT INTO workspace_documents (workspace_id, linked_node_id) VALUES (${projectId}, ${node!.id})`;
+  const held = await call(place.POST, docs, "POST", "/api/v1/files/place", { projectId, message: "v2", files: [file("# App\nNew line\n", 1)] });
+  assert.equal(held.status, 428, JSON.stringify(held.json));
+  assert.equal(held.json.details?.summary ?? held.json.summary, "Change the README (+1 −1 lines)", JSON.stringify(held.json));
+  assert.match(JSON.stringify(held.json), /-Old line.*\+New line/);
+});
+
+test("finishing names the task by number and title (report D4)", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const token = await agentToken(userId, projectId, ["workspace:read", "task:read", "task:write", "task:complete"]);
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, status, assignee_id, task_number) VALUES (${projectId}, 'Logo', 'in_progress', ${userId}, 4) RETURNING id, updated_at`;
+  const held = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", { kind: "status", projectId, taskId: task!.id, status: "done", expectedUpdatedAt: new Date(task!.updated_at).toISOString() });
+  assert.equal(held.status, 428, JSON.stringify(held.json));
+  assert.match(held.json.message, /Finish #4 "Logo"/);
 });

@@ -15,6 +15,7 @@ import {
 } from "@/app/actions/files/mutations";
 import { z } from "zod";
 import { fileOperationSchema } from "@/lib/api/v1-schemas";
+import { nodeLabel } from "@/lib/agents/change-labels";
 import { agentGate } from "@/lib/agents/policy";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
@@ -31,10 +32,14 @@ export async function POST(request: Request) {
     const outside = await denyOutsideTokenWorkspace(auth, { projectId: i.projectId });
     if (outside) return outside;
     // Moving, renaming and deleting files changes what everyone sees: an agent's person agrees first (report §26.6).
+    // The file by its path and where it goes, so the yes names them (report D4).
+    const agent = auth.tokenKind === "agent";
+    const path = agent && i.kind !== "mkdir" ? await nodeLabel(i.nodeId) : "a file";
+    const to = agent && i.kind === "move" ? (i.parentId ? `${await nodeLabel(i.parentId)}/` : "the top folder") : "";
     const held = await agentGate(auth, request, i, {
       workspaceId: i.projectId,
       kinds: [i.kind === "mkdir" ? "small" : "file-move"],
-      summary: i.kind === "trash" ? "Move a file to the Trash" : i.kind === "rename" ? `Rename a file to ${i.name}` : i.kind === "restore" ? "Bring a file back from the Trash" : i.kind === "mkdir" ? `Make a folder ${i.name}` : "Move a file",
+      summary: i.kind === "trash" ? `Move ${path} to the Trash` : i.kind === "rename" ? `Rename ${path} to ${i.name}` : i.kind === "restore" ? `Bring ${path} back from the Trash` : i.kind === "mkdir" ? `Make a folder ${i.name}` : `Move ${path} to ${to || "another folder"}`,
     });
     if (held) return held;
     // Report C3 (M4b): nb file restore and nb file mkdir, through the same actions as the Files tab.

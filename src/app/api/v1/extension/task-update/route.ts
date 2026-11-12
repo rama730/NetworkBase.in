@@ -34,6 +34,7 @@ import {
 } from "@/lib/extension/review-evidence";
 import { viaPayload } from "@/lib/server/request-via";
 import { taskUpdateSchema } from "@/lib/api/v1-schemas";
+import { personLabel, taskLabel } from "@/lib/agents/change-labels";
 import { agentGate, isOthersTask, recordUndo, type ChangeKind } from "@/lib/agents/policy";
 export const runtime = "nodejs";
 async function handlePatch(request: Request) {
@@ -64,12 +65,14 @@ async function handlePatch(request: Request) {
       input.kind === "approve" || input.kind === "request_changes" ? "review" : input.kind === "resubmit" || (input.kind === "status" && input.status === "done") ? "done" : input.kind === "delete" ? "delete" : "small",
       others || (input.kind === "assign" && input.assigneeId && input.assigneeId !== user.id) ? "others-task" : "small",
     ];
+    // The task by number and title, so the yes names it (report D4).
+    const label = auth.tokenKind === "agent" ? await taskLabel(input.taskId) : "the task";
     const what =
-      input.kind === "status" ? (input.status === "done" ? "Finish the task" : `Move the task to ${input.status.replace("_", " ")}`)
+      input.kind === "status" ? (input.status === "done" ? `Finish ${label}` : `Move ${label} to ${input.status.replace("_", " ")}`)
       : input.kind === "subtask" ? `${input.completed ? "Tick" : "Untick"} a subtask`
-      : input.kind === "edit" ? `Change the task's ${input.field}`
-      : input.kind === "assign" ? (input.assigneeId ? "Assign the task" : "Unassign the task")
-      : input.kind === "delete" ? "Delete the task"
+      : input.kind === "edit" ? `Change the ${input.field} of ${label}`
+      : input.kind === "assign" ? (input.assigneeId ? `Assign ${label} to ${auth.tokenKind === "agent" ? await personLabel(input.assigneeId) : "someone"}` : `Unassign ${label}`)
+      : input.kind === "delete" ? `Delete ${label}`
       : input.kind === "subtask_edit" ? "Rename a subtask" : input.kind === "subtask_delete" ? "Delete a subtask" : input.kind === "subtask_move" ? "Reorder a subtask"
       : input.kind === "approve" ? "Approve the task" : input.kind === "request_changes" ? "Ask for changes on the task" : "Send the task for review again";
     // The yes covers this change and its report, not each check's id and run times: `nb task done --check` makes new
