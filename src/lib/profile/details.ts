@@ -6,6 +6,8 @@ export type ProfileDetailsRow = {
     label: string
     /** null only on an owner's empty row, which shows addHref instead. */
     value: string | string[] | null
+    /** Full wording for hover and screen readers, e.g. the time-zone name beside a local time. */
+    description?: string
     addLabel?: string
     addHref?: string
 }
@@ -56,7 +58,7 @@ export function profileDetailsRows(input: {
 
     if (!input.isOwner && input.timeZone) {
         const theirs = clock(input.now, input.timeZone)
-        if (theirs && theirs !== clock(input.now, input.viewerTimeZone)) rows.push({ key: 'localTime', label: 'Local time', value: theirs })
+        if (theirs && theirs !== clock(input.now, input.viewerTimeZone)) rows.push({ key: 'localTime', label: 'Local time', value: theirs, description: `${theirs}, ${input.timeZone}` })
     }
 
     const joined = monthYear(input.createdAt, 'long')

@@ -3,6 +3,7 @@
 import { Briefcase, Pencil } from 'lucide-react'
 import { RailSection } from '@/components/ui/rail-section'
 import { OwnerOnlyNote } from './Card'
+import { FactList } from './FactList'
 import { Button } from '@/components/ui/button'
 import {
   experienceLevelLabel,
@@ -78,24 +79,7 @@ export function OpenToRolesCard({
     >
       <div className="space-y-4">
         {hasPreferences ? (
-          <dl className="nb-compact space-y-3">
-            {preferences.map(row => (
-              <div key={row.label} className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-x-3">
-                <dt className="text-muted-foreground">{row.label}</dt>
-                <dd className="min-w-0 text-right font-medium text-foreground [overflow-wrap:anywhere]">
-                  <ul aria-label={row.label} className="flex flex-wrap justify-end gap-x-1 gap-y-1">
-                    {row.values.map((value, index) => (
-                      <li key={value} title={row.description} className="max-w-full">
-                        <span aria-hidden={row.description ? true : undefined}>{value}</span>
-                        {row.description ? <span className="sr-only">{row.description}</span> : null}
-                        {index < row.values.length - 1 ? ',' : null}
-                      </li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <FactList facts={preferences} />
         ) : (
           <div>
             <p className="nb-body text-muted-foreground">

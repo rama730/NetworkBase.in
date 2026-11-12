@@ -640,9 +640,6 @@ export function ProfileV2Client({
                 mainBottom={renderMainBottom()}
                 highlights={lockedShell ? null : (
                     <>
-                    <ComponentErrorBoundary fallbackMessage="Couldn’t load details.">
-                        <DetailsCard rows={detailsRows} />
-                    </ComponentErrorBoundary>
                     <ComponentErrorBoundary fallbackMessage="Couldn’t load role preferences.">
                         <OpenToRolesCard
                             openTo={safeProfile.openTo}
@@ -661,6 +658,11 @@ export function ProfileV2Client({
                     </ComponentErrorBoundary>
                     {/* Report §4.5, decision 13: between Collaboration preferences and Links; the chip row is gone. */}
                     <ProfileOrganizationsSection contributions={collaborationContributions} isOwner={isOwner} />
+                    {/* Background facts after what the visitor can act on (Apply, Invite) and where they belong. */}
+                    <ComponentErrorBoundary fallbackMessage="Couldn’t load details.">
+                        {/* Interests live in the Skills section of profile edit. */}
+                        <DetailsCard rows={detailsRows} onEdit={isOwner ? () => openEditPage('skills') : undefined} />
+                    </ComponentErrorBoundary>
                     </>
                 )}
                 rail={lockedShell ? null : (

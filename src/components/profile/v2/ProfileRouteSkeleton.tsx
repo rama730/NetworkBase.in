@@ -67,17 +67,17 @@ export function ProfileRouteSkeleton() {
                             <div className="contents lg:sticky lg:block lg:space-y-6" style={{ top: "24px" }}>
                                 {/* Highlights: OpenToRolesCard */}
                                 <div className="order-3 space-y-6">
-                                    {/* Details: shown on every open profile */}
-                                    <RailSection title="Details" contentClassName="p-5 max-md:p-4 space-y-3">
-                                        <Skeleton className="h-4 w-full rounded-[4px]" />
-                                        <Skeleton className="h-4 w-2/3 rounded-[4px]" />
-                                    </RailSection>
                                     <RailSection title="Collaboration preferences" contentClassName="p-5 max-md:p-4 space-y-3">
                                         <Skeleton className="h-4 w-3/4 rounded-[4px]" />
                                         <div className="flex gap-2 pt-1">
                                             <Skeleton className="h-6 w-20 rounded-[4px]" />
                                             <Skeleton className="h-6 w-24 rounded-[4px]" />
                                         </div>
+                                    </RailSection>
+                                    {/* Details: shown on every open profile */}
+                                    <RailSection title="Details" contentClassName="p-5 max-md:p-4 space-y-3">
+                                        <Skeleton className="h-4 w-full rounded-[4px]" />
+                                        <Skeleton className="h-4 w-2/3 rounded-[4px]" />
                                     </RailSection>
                                 </div>
 

@@ -4,7 +4,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { AboutCard } from '../../src/components/profile/v2/sections/AboutCard';
+import { readFileSync } from 'node:fs';
 import { DetailsCard } from '../../src/components/profile/v2/sections/DetailsCard';
+import { OpenToRolesCard } from '../../src/components/profile/v2/sections/OpenToRolesCard';
 import { RequestProfileRow } from '../../src/components/network/RequestProfileRow';
 import { profileDetailsRows, profileNewMemberLine } from '../../src/lib/profile/details';
 import { completionItemSection, PROFILE_EDIT_SECTIONS } from '../../src/lib/profile/edit-route';
@@ -86,6 +88,67 @@ test('Details card renders rows and hides when there are none', () => {
     const owner = html(createElement(DetailsCard, { rows: profileDetailsRows({ now, viewerTimeZone: 'UTC', createdAt: joined, timeZone: null, interests: [], experienceLevel: null, hoursPerWeek: null, isOwner: true, preferencesShownElsewhere: true }) }));
     assert.match(owner, /Add interests/);
     assert.match(owner, /href="\/my-profile\/edit\?section=skills"/);
+});
+
+const rowsWith = (interests: string[], extra: Partial<Parameters<typeof profileDetailsRows>[0]> = {}) =>
+    profileDetailsRows({ now, viewerTimeZone: 'UTC', createdAt: joined, timeZone: null, interests, experienceLevel: null, hoursPerWeek: null, isOwner: false, preferencesShownElsewhere: false, ...extra });
+const visibleText = (markup: string) => markup.replace(/<span class="sr-only">[^<]*<\/span>/g, '').replace(/<[^>]+>/g, '');
+
+test('Details interests read like Collaboration preferences: plain comma list, no chips', () => {
+    const rendered = html(createElement(DetailsCard, { rows: rowsWith(['Startups', 'Web3', 'DevOps']) }));
+    assert.doesNotMatch(rendered, /nb-tag/);
+    assert.match(visibleText(rendered), /Startups,Web3,DevOps/);
+    assert.match(rendered, /<ul aria-label="Interests"/);
+});
+
+test('Details interests: first 5, then a +N more button', () => {
+    const many = ['Open Source', 'Startups', 'AI/ML', 'Web3', 'Gaming', 'Education', 'Healthcare'];
+    const rendered = html(createElement(DetailsCard, { rows: rowsWith(many) }));
+    for (const shown of many.slice(0, 5)) assert.match(rendered, new RegExp(shown.replace('/', '\\/')));
+    assert.doesNotMatch(rendered, /Education|Healthcare/);
+    assert.match(rendered, /<button[^>]*aria-expanded="false"[^>]*>\+2 more<\/button>/);
+
+    const five = html(createElement(DetailsCard, { rows: rowsWith(many.slice(0, 5)) }));
+    assert.doesNotMatch(five, /more<\/button>/);
+});
+
+test('Details local time names the time zone on hover and for screen readers', () => {
+    const rows = rowsWith([], { timeZone: 'Asia/Kolkata' });
+    const local = rows.find((row) => row.key === 'localTime')!;
+    assert.match(local.description ?? '', /Asia\/Kolkata/);
+    const rendered = html(createElement(DetailsCard, { rows }));
+    assert.match(rendered, /title="[^"]*Asia\/Kolkata"/);
+    assert.match(rendered, /<span class="sr-only">[^<]*Asia\/Kolkata<\/span>/);
+});
+
+test('Details owner gets the same edit pencil as Collaboration preferences', () => {
+    const owner = html(createElement(DetailsCard, { rows: rowsWith(['Web3'], { isOwner: true }), onEdit: () => {} }));
+    assert.match(owner, /aria-label="Edit details"/);
+    const visitor = html(createElement(DetailsCard, { rows: rowsWith(['Web3']) }));
+    assert.doesNotMatch(visitor, /Edit details/);
+});
+
+test('Both rail cards draw their rows with the one shared fact list', () => {
+    const details = readFileSync('src/components/profile/v2/sections/DetailsCard.tsx', 'utf8');
+    const roles = readFileSync('src/components/profile/v2/sections/OpenToRolesCard.tsx', 'utf8');
+    assert.match(details, /<FactList /);
+    assert.match(roles, /<FactList /);
+    assert.doesNotMatch(roles, /<dl /, 'no second copy of the row markup');
+
+    const rendered = html(createElement(OpenToRolesCard, { isOwner: false, openToCollaborate: true, openTo: ['part_time'], categories: ['Quality Assurance'], experienceLevel: 'student', hoursPerWeek: 'h_5_10' }));
+    assert.match(rendered, /Role types/);
+    assert.match(rendered, /Quality Assurance/);
+    assert.match(rendered, /title="5–10 hours a week"/);
+});
+
+test('Right column order: Collaboration preferences, Organizations, Details', () => {
+    const client = readFileSync('src/components/profile/v2/ProfileV2Client.tsx', 'utf8');
+    const roles = client.indexOf('<OpenToRolesCard');
+    const orgs = client.indexOf('<ProfileOrganizationsSection');
+    const details = client.indexOf('<DetailsCard');
+    assert.ok(roles >= 0 && roles < orgs && orgs < details, `order ${roles} ${orgs} ${details}`);
+    const skeleton = readFileSync('src/components/profile/v2/ProfileRouteSkeleton.tsx', 'utf8');
+    assert.ok(skeleton.indexOf('title="Collaboration preferences"') < skeleton.indexOf('title="Details"'));
 });
 
 test('Header: visitors see New member instead of zero counts; owners keep their counts', () => {
