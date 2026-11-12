@@ -139,7 +139,7 @@ describe("NetworkBase High-EQ CLI & Unified Ecosystem", () => {
       assert.equal(lines.length, 2);
       assert.equal(lines[0].result.serverInfo.name, "networkbase");
       const toolNames = lines[1].result.tools.map((t: { name: string }) => t.name);
-      for (const name of ["networkbase_whoami", "networkbase_task_count", "networkbase_task_list", "networkbase_task_create", "networkbase_task_done", "networkbase_subtask_add", "networkbase_file_push", "networkbase_doc_update", "networkbase_ask_user", "networkbase_undo"]) {
+      for (const name of ["networkbase_whoami", "networkbase_task_count", "networkbase_task_list", "networkbase_task_create", "networkbase_task_done", "networkbase_subtask_add", "networkbase_file_push", "networkbase_ask_user", "networkbase_undo", "networkbase_more_tools"]) {
         assert.ok(toolNames.includes(name), name);
       }
     });

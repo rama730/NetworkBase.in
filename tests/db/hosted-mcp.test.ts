@@ -70,7 +70,7 @@ test("an All my workspaces agent gets a card saying so, and the tool to find wor
   assert.ok(title);
   // Tool calls go to this site's own API over HTTP (covered by the CLI tests); here the tool must be offered.
   const list = await post(agent, { jsonrpc: "2.0", id: 2, method: "tools/list" });
-  assert.match(list.json.result.tools.find((t: { name: string }) => t.name === "networkbase_workspace_find").description, /names a workspace in words/);
+  assert.match(list.json.result.tools.find((t: { name: string }) => t.name === "networkbase_workspace_find").description, /workspace the user names in words/);
 });
 
 test("device tokens are refused with how to get an agent sign-in", async () => {
@@ -85,4 +85,18 @@ test("no token: 401 with the OAuth hint, not the browser CSRF 403", async () => 
   const res = await mcp.POST(new Request("https://app.test/api/mcp", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }));
   assert.equal(res.status, 401);
   assert.match(res.headers.get("www-authenticate") ?? "", /resource_metadata="[^"]+\/\.well-known\/oauth-protected-resource\/api\/mcp"/);
+});
+
+test("a tool pack loaded in one request stays loaded for the rest of that MCP session (report D14)", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const ws = await sql.begin((tx) => createProject(tx, userId));
+  const agent = await token(userId, "agent", ws);
+  const init = await post(agent, { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } });
+  const names = async (session: string) => (await post(agent, { jsonrpc: "2.0", id: 9, method: "tools/list" }, session)).json.result.tools.map((t: { name: string }) => t.name);
+  assert.ok(!(await names(init.session!)).includes("networkbase_file_history"));
+  const loaded = await post(agent, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "networkbase_more_tools", arguments: { pack: "files" } } }, init.session!);
+  assert.match(loaded.json.result.content[0].text, /^Loaded files/);
+  assert.ok((await names(init.session!)).includes("networkbase_file_history"));
+  const other = await post(agent, { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } });
+  assert.ok(!(await names(other.session!)).includes("networkbase_file_history"), "another session starts with the core set");
 });

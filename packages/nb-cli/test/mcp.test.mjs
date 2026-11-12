@@ -37,6 +37,7 @@ describe("nb mcp (report A7)", () => {
   });
 
   it("lists tools with read-only hints and schemas", async () => {
+    await mcp.call("networkbase_more_tools", { pack: "files" });
     const { result } = await mcp.request("tools/list");
     const byName = Object.fromEntries(result.tools.map((/** @type {any} */ t) => [t.name, t]));
     assert.ok(byName.networkbase_task_create && byName.networkbase_doc_update && byName.networkbase_file_push);
@@ -198,6 +199,7 @@ describe("nb mcp with an agent sign-in (report A6)", () => {
     try {
       const { instructions } = (await mcp.request("initialize", { protocolVersion: "2025-06-18" })).result;
       assert.match(instructions, /^Signed in as Test User \(@tester\) with their own sign-in/);
+      await mcp.call("networkbase_more_tools", { pack: "files" });
       const { tools } = (await mcp.request("tools/list")).result;
       assert.ok(tools.some((/** @type {any} */ t) => t.name === "networkbase_doc_update"));
     } finally { await mcp.close(); }

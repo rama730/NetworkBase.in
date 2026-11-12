@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -57,8 +57,13 @@ export async function POST(request: Request) {
   const sessionRowId = auth.extensionSessionId;
   const userId = auth.user.id;
   const scopes = [...(auth.tokenScopes ?? [])];
+  // Tool packs loaded in this MCP session (report D14), kept beside the token's scratch folder between requests.
+  const packsFile = path.join(home, `packs-${createHash("sha256").update(sessionId).digest("hex").slice(0, 24)}.json`);
+  const packs = new Set<string>(await readFile(packsFile, "utf8").then((t) => JSON.parse(t) as string[]).catch(() => []));
   const handle = createMcpHandler({
     hosted: true,
+    packs,
+    onPacks: (loaded: Set<string>) => void writeFile(packsFile, JSON.stringify([...loaded]), { mode: 0o600 }).catch(() => undefined),
     // The access card and the Read only tool list come straight from the database (report A6), not a call to /me.
     access: async () => {
       const [profile] = await db.select({ username: profiles.username, fullName: profiles.fullName, email: profiles.email }).from(profiles).where(eq(profiles.id, userId)).limit(1);
@@ -85,7 +90,8 @@ export async function POST(request: Request) {
   const headers = { "Mcp-Session-Id": sessionId, "Cache-Control": "no-store" };
   // Only notifications in the request: nothing to answer (Streamable HTTP: 202).
   if (!replies.length) return new Response(null, { status: 202, headers });
-  return Response.json(Array.isArray(body) ? replies : replies[0], { headers });
+  // One message, one answer: a notice sent along the way (tools/list_changed) isn't the answer.
+  return Response.json(Array.isArray(body) ? replies : (replies.find((r) => (r as { id?: unknown }).id !== undefined) ?? replies[0]), { headers });
 }
 
 /** No server-sent stream: every answer comes back on its POST. */

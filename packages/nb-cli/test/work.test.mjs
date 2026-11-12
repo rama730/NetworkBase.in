@@ -99,6 +99,7 @@ describe("more commands", () => {
     addTask(api.state, { title: "Logo" });
     const mcp = await startMcp({ api: api.url, cwd, home });
     try {
+      for (const pack of ["files", "planning"]) await mcp.call("networkbase_more_tools", { pack });
       const names = (await mcp.request("tools/list")).result.tools.map((/** @type {any} */ t) => t.name);
       for (const n of ["networkbase_workspace_view", "networkbase_activity", "networkbase_task_edit", "networkbase_task_report", "networkbase_comment_list", "networkbase_file_history", "networkbase_file_attach", "networkbase_file_move", "networkbase_sprint_list", "networkbase_task_assign"]) assert.ok(names.includes(n), n);
       const edit = (await mcp.request("tools/call", { name: "networkbase_task_edit", arguments: { task: "1", priority: "urgent" } })).result;
