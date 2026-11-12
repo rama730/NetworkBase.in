@@ -157,6 +157,14 @@ describe("daily work (C2)", () => {
     assert.match((await nb(["task", "count"])).stdout, / in Design Lab/);
   });
 
+  it("comments show mentions as @Name, not the stored token (found live)", async () => {
+    api.state.tasks.length = 0;
+    const t = addTask(api.state, { title: "Mention me" });
+    t.comments.push({ authorUsername: "sam", content: "@{08650344-274a-4cc5-bd43-b55be0480df1|Rama} can you confirm?" });
+    const r = await nb(["comment", "list", "--task", "1"]);
+    assert.match(r.stdout, /@sam: @Rama can you confirm\?/);
+  });
+
   it("nb ls is nb file list", async () => {
     const r = await nb(["ls"]);
     assert.equal(r.code, 0, r.stderr);

@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { CliError, EXIT, usage } from "../errors.mjs";
-import { safe } from "../print/style.mjs";
+import { commentText, safe } from "../print/style.mjs";
 import { confirm } from "../tui/ask.mjs";
 import { parseDate } from "../dates.mjs";
 import { bulkChange, resolveTask, taskRef } from "./tasks.mjs";
@@ -196,7 +196,7 @@ export async function commentList(ctx) {
   const task = await resolveTask(ctx, taskRef(ctx, undefined));
   const comments = task.comments.map((/** @type {any} */ c) => ({ id: c.id, by: c.authorUsername ?? c.authorName ?? null, text: c.content, at: c.createdAt }));
   ctx.out.result("nb.comment.list/1", { number: task.taskNumber, comments, untrusted: true }, (d) =>
-    d.comments.length ? d.comments.map((/** @type {any} */ c) => `  ${ctx.out.c.muted(String(c.at).slice(0, 16).replace("T", " "))} ${c.by ? `@${safe(c.by)}` : "someone"}: ${safe(c.text).replace(/\n/g, " ")}`) : `#${d.number} has no comments`);
+    d.comments.length ? d.comments.map((/** @type {any} */ c) => `  ${ctx.out.c.muted(String(c.at).slice(0, 16).replace("T", " "))} ${c.by ? `@${safe(c.by)}` : "someone"}: ${commentText(c.text).replace(/\n/g, " ")}`) : `#${d.number} has no comments`);
 }
 
 /** A comment on lines of a file (report D10): `nb comment add -m "…" --file src/app.ts:12-18`. @param {Context} ctx */

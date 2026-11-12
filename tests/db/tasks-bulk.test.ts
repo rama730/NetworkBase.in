@@ -72,6 +72,15 @@ test("a task already there is left out of the undo, and a refused undo names the
   assert.match(back.body.error ?? back.body.message ?? "", /#3 changed since/);
 });
 
+test("undo says one status only when every task goes back to the same one", async () => {
+  const w = await world();
+  await sql`UPDATE tasks SET status = 'in_progress' WHERE id = ${w.ids[0]!}`;
+  const moved = await post(w.raw, { projectId: w.ws, taskIds: w.ids, change: { kind: "status", status: "blocked" } });
+  const back = await undoIt(w.raw, moved.body.data.undoToken);
+  assert.equal(back.body.data.result, "Put #1, #2 and #3 back");
+  assert.deepEqual(await column(w.ids, "status"), ["in_progress", "todo", "todo"]);
+});
+
 test("a task from another workspace changes nothing", async () => {
   const w = await world();
   const refused = await post(w.raw, { projectId: w.ws, taskIds: [...w.ids, w.elsewhere], change: { kind: "status", status: "blocked" } });

@@ -63,6 +63,8 @@ export function symbols(ascii) {
 const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
 /** @param {unknown} value */
 export const safe = (value) => String(value ?? "").replace(CONTROL, "");
+/** Comment text as people read it: the stored mention `@{id|Rama}` reads `@Rama` (found live in M4a). @param {unknown} value */
+export const commentText = (value) => safe(value).replace(/@\{[^|}]+\|([^}]+)\}/g, "@$1");
 
  
 const ANSI = /\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;

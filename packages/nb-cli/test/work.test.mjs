@@ -87,6 +87,7 @@ describe("more commands", () => {
   it("workspace view, activity, sprints in the workspace's words, update post", async () => {
     addTask(api.state, { title: "Logo" });
     assert.match((await nb(["workspace", "view"])).stdout, /tasks +1 open/);
+    assert.match((await runCli(["workspace", "view", "design-lab"], { api: api.url })).stdout, /Design Lab/, "by name, without a linked folder");
     assert.match((await nb(["activity", "--since", "1d"])).stdout, /@tester via Claude Code +status changed +#1 Logo/);
     assert.match((await nb(["sprint", "list"])).stdout, /Unit +Status/);
     assert.match((await nb(["sprint", "view", "1"])).stdout, /#1 Logo/);

@@ -116,8 +116,10 @@ async function runInverse(user: { id: string; email?: string; user_metadata?: Re
       }
       for (const step of inverse.steps) await runInverse(user, step);
       const which = taskList(inverse.numbers);
-      const first = inverse.steps[0];
-      return first?.kind === "task.status" ? `Moved ${which} back to ${STATUS_WORDS[first.to] ?? first.to}` : `Put ${which} back`;
+      // One status for all of them reads "back to In progress"; different ones (found live) just "back".
+      const to = new Set(inverse.steps.map((s) => (s.kind === "task.status" ? s.to : null)));
+      const [only] = [...to];
+      return to.size === 1 && only ? `Moved ${which} back to ${STATUS_WORDS[only] ?? only}` : `Put ${which} back`;
     }
     case "files.restore": {
       const created = inverse.files.filter((f) => f.created).map((f) => f.nodeId);

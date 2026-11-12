@@ -211,7 +211,7 @@ export const COMMANDS = [
   { group: "Docs and workspaces", name: "doc set", summary: "Replace a doc's text from a file or stdin (asks first)", usage: "nb doc set [slug] --file <path|->", module: "docs", fn: "set",
     flags: { ...MESSAGE, file: { type: "string", describe: "Markdown file, or - for stdin", valueName: "path" } }, examples: ["nb doc set readme --file README.md", "cat notes.md | nb doc set readme --file - --yes"], exit: [0, 4, 7] },
   { group: "Docs and workspaces", name: "workspace list", summary: "Your workspaces", usage: "nb workspace list", module: "docs", fn: "workspaceList" },
-  { group: "Docs and workspaces", name: "workspace view", summary: "The workspace at a glance", usage: "nb workspace view [-w slug]", module: "browse", fn: "workspaceView" },
+  { group: "Docs and workspaces", name: "workspace view", summary: "The workspace at a glance", usage: "nb workspace view [slug]", module: "browse", fn: "workspaceView" },
   { group: "Docs and workspaces", name: "workspace open", summary: "Open the workspace in the browser", usage: "nb workspace open", module: "misc", fn: "open" },
   { group: "Docs and workspaces", name: "activity", summary: "What happened, newest first", usage: "nb activity [--task 4] [--since 1d]", module: "browse", fn: "activity",
     flags: { ...TASK, since: { type: "string", describe: "30m, 3h, 1d, 2w or a date", valueName: "when" }, limit: { type: "string", describe: "At most this many (default 30)", valueName: "n" } } },

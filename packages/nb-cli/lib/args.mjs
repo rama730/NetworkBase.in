@@ -44,8 +44,8 @@ export function resolveCommand(argv) {
     if (token.startsWith("-")) break;
     words.push(token);
   }
-  // `nb` on its own is the home screen (C1); `nb --help` stays the help page.
-  if (argv.length === 0) return { spec: /** @type {CommandSpec} */ (COMMANDS.find((c) => c.name === "home")), rest: [], alias: null };
+  // `nb` on its own (also `nb --plain`, `nb -w x`) is the home screen (C1); `nb --help` and `nb --json` stay the help.
+  if (words.length === 0 && !argv.some((a) => a === "--help" || a === "-h" || a === "--json")) return { spec: /** @type {CommandSpec} */ (COMMANDS.find((c) => c.name === "home")), rest: argv, alias: null };
   if (words.length === 0) return { spec: null, rest: argv, alias: null };
   for (let n = Math.min(3, words.length); n >= 1; n--) {
     const name = words.slice(0, n).join(" ");

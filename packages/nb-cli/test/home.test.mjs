@@ -21,6 +21,9 @@ describe("home screen (C1)", () => {
     assert.match(r.stdout, /not signed in/i);
     assert.match(r.stdout, /nb login/);
     assert.ok(r.stdout.split("\n").length < 15, "a home screen, not the help page");
+    // Found live: a display flag alone is still the home screen.
+    assert.match((await runCli(["--plain"], { api: api.url, token: null })).stdout, /not signed in/i);
+    assert.match((await runCli(["--help"], { api: api.url, token: null })).stdout, /Most used/);
   });
 
   it("signed out: a command that needs a folder says sign in first, not link this folder", async () => {

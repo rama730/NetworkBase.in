@@ -1698,7 +1698,7 @@
     {
       "name": "workspace view",
       "summary": "The workspace at a glance",
-      "usage": "nb workspace view [-w slug]",
+      "usage": "nb workspace view [slug]",
       "flags": {},
       "examples": [],
       "exitCodes": [

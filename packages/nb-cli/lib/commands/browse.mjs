@@ -9,6 +9,11 @@ import { formatDate, resolveTask, taskRef } from "./tasks.mjs";
 
 /** @param {Context} ctx */
 export async function workspaceView(ctx) {
+  // `nb workspace view deepscope-ai` names it directly, like -w (found live in M4a: the name was ignored).
+  if (ctx.positionals[0]) {
+    ctx.flags.workspace = ctx.positionals[0];
+    await ctx.resolveWorkspace();
+  }
   const w = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}`));
   const { c } = ctx.out;
   ctx.out.result("nb.workspace.view/1", w, (d) => [
