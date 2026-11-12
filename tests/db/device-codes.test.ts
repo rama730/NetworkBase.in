@@ -82,6 +82,12 @@ test("nb login on the same computer renews its sign-in: the old one closes, neve
   const second = await signIn(userId!, first);
   const open = await sql`SELECT token_prefix FROM extension_device_sessions WHERE user_id = ${userId!} AND revoked_at IS NULL`;
   assert.deepEqual(open.map((r) => r.token_prefix), [second.slice(0, 11)], "one sign-in for this computer");
+  // An agent's sign-in, even with renew, leaves the person's own open.
+  const agent = await startCode("agent");
+  await lib.decideDeviceCode(userId!, agent.userCode, { decision: "approve", type: "agent", access: "small", workspace: "all", expiryDays: 7 });
+  assert.equal((await poll(agent.deviceCode, second)).json.data.status, "approved");
+  const [mine] = await sql`SELECT revoked_at FROM extension_device_sessions WHERE token_prefix = ${second.slice(0, 11)}`;
+  assert.equal(mine!.revoked_at, null, "an agent sign-in doesn't close the person's");
   const theirs = await signIn(other!);
   await signIn(userId!, theirs);
   const [still] = await sql`SELECT revoked_at FROM extension_device_sessions WHERE user_id = ${other!}`;

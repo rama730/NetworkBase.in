@@ -108,7 +108,8 @@ export async function pollDeviceCode(deviceCode: string, now = new Date(), renew
     }
 
     const issued = await issueApprovedToken(tx, row, now, "device_code");
-    if (renew) await closeRenewedSession(tx, { renew, userId: row.userId!, now });
+    // Only a new sign-in of the same kind replaces this computer's: an agent's sign-in never closes the person's.
+    if (renew && issued.tokenType === "device") await closeRenewedSession(tx, { renew, userId: row.userId!, now });
     return issued;
   });
 }

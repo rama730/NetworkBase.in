@@ -85,7 +85,7 @@ export async function status(ctx) {
   const data = {
     workspace: { id: project.workspaceId, slug: project.slug, title: project.title },
     // The current task (C8): the started one, or the one the nb/<n>- git branch names.
-    startedTask: project.startedTask ?? (branchTask(root) ? { number: Number(branchTask(root)), title: "(from the git branch)" } : null),
+    startedTask: project.startedTask ?? ((n) => (n ? { number: Number(n), title: "(from the git branch)" } : null))(branchTask(root)),
     offline,
     readOnly: !manifest.canWrite,
     queued: readQueue(root).length,

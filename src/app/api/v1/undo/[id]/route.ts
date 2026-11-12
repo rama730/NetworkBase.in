@@ -5,7 +5,7 @@ import { denyOutsideTokenWorkspace, getRequestId, idempotentWrite, jsonError, js
 import { bulkTrashNodes } from "@/app/actions/files/mutations";
 import { updateSubtaskAction } from "@/app/actions/subtask";
 import { assignTaskAction, updateTaskFieldAction } from "@/app/actions/task";
-import { findUndo, type UndoInverse } from "@/lib/agents/policy";
+import { findUndo, STATUS_WORDS, taskList, type UndoInverse } from "@/lib/agents/policy";
 import { db } from "@/lib/db";
 import { taskComments, taskSubtasks, tasks, undoOperations, workspaceNodes } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
@@ -17,7 +17,6 @@ import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
 import { afterTaskTransition, lockTaskForWrite, transitionTaskTx } from "@/lib/workspaces/task-transition-service";
 import type { TaskStatus } from "@/lib/workspaces/task-transition-service";
 
-const STATUS_WORDS: Record<string, string> = { todo: "To do", in_progress: "In progress", done: "Done", blocked: "Blocked" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,8 +115,7 @@ async function runInverse(user: { id: string; email?: string; user_metadata?: Re
         if (!(await stillAsLeft(step))) throw new Changed(`#${inverse.numbers[i] ?? "?"} changed since, so nothing was put back`);
       }
       for (const step of inverse.steps) await runInverse(user, step);
-      const n = inverse.numbers;
-      const which = n.length > 1 ? `${n.slice(0, -1).map((x) => `#${x}`).join(", ")} and #${n.at(-1)}` : `#${n[0]}`;
+      const which = taskList(inverse.numbers);
       const first = inverse.steps[0];
       return first?.kind === "task.status" ? `Moved ${which} back to ${STATUS_WORDS[first.to] ?? first.to}` : `Put ${which} back`;
     }

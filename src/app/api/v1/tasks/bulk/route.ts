@@ -3,7 +3,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { denyOutsideTokenWorkspace, getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser, requireTokenScope } from "@/app/api/v1/_shared";
 import { assignTaskAction, updateTaskFieldAction } from "@/app/actions/task";
-import { agentGate, recordUndo, type ChangeKind, type UndoInverse } from "@/lib/agents/policy";
+import { agentGate, recordUndo, STATUS_WORDS, taskList as list, type ChangeKind, type UndoInverse } from "@/lib/agents/policy";
 import { bulkTaskSchema } from "@/lib/api/v1-schemas";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
@@ -15,8 +15,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Step = Extract<UndoInverse, { kind: "task.status" | "task.field" | "task.assign" }>;
-const STATUS_WORDS: Record<string, string> = { todo: "To do", in_progress: "In progress", done: "Done", blocked: "Blocked" };
-const list = (numbers: number[]) => (numbers.length > 1 ? `${numbers.slice(0, -1).map((n) => `#${n}`).join(", ")} and #${numbers.at(-1)}` : `#${numbers[0]}`);
 
 class StepFailed extends Error {}
 
@@ -56,6 +54,7 @@ async function handlePost(request: Request) {
     if (!limit.allowed) return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
 
     const steps: Step[] = [];
+    const numberOf = new Map(rows.map((r) => [r.id, r.number ?? 0]));
     if (change.kind === "status") {
       // One transaction, tasks locked in id order: every task moves, or none does.
       const moved = await db.transaction(async (tx) => {
@@ -78,14 +77,14 @@ async function handlePost(request: Request) {
       // ponytail: assign and edit reuse the one-task actions (permissions, notifications, history), so "all or
       // nothing" is done by putting finished ones back when a later one fails. One transaction needs those
       // actions to take a transaction first.
-      const done: Step[] = [];
+      const done: Extract<Step, { kind: "task.assign" | "task.field" }>[] = [];
       for (const row of rows) {
         const result = change.kind === "assign"
           ? await assignTaskAction(row.id, change.assigneeId, projectId)
           : await updateTaskFieldAction(row.id, change.field, change.value, projectId);
         if (!result.success) {
           for (const step of done.reverse()) {
-            await (step.kind === "task.assign" ? assignTaskAction(step.taskId, step.assigneeId, projectId) : updateTaskFieldAction(step.taskId, (step as Extract<Step, { kind: "task.field" }>).field, (step as Extract<Step, { kind: "task.field" }>).value, projectId));
+            await (step.kind === "task.assign" ? assignTaskAction(step.taskId, step.assigneeId, projectId) : updateTaskFieldAction(step.taskId, step.field, step.value, projectId));
           }
           return jsonError(`#${row.number}: ${result.error ?? "couldn’t change it"}. No task was changed.`, 409, "CONFLICT");
         }
@@ -96,7 +95,7 @@ async function handlePost(request: Request) {
       steps.push(...done);
     }
     const summary = `${what} ${list(numbers)}`;
-    const undoToken = steps.length ? await recordUndo(auth, { workspaceId: projectId, operation: "tasks.bulk", summary, inverse: { kind: "tasks.bulk", projectId, numbers, steps } }) : null;
+    const undoToken = steps.length ? await recordUndo(auth, { workspaceId: projectId, operation: "tasks.bulk", summary, inverse: { kind: "tasks.bulk", projectId, numbers: steps.map((s) => numberOf.get(s.taskId) ?? 0), steps } }) : null;
     return jsonSuccess({ changed: rows.length, tasks: rows.map((r) => ({ id: r.id, number: r.number })), summary, undoToken });
   } catch (error) {
     if (error instanceof StepFailed) return jsonError(`${error.message}. No task was changed.`, 409, "CONFLICT");

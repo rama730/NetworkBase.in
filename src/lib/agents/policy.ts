@@ -151,6 +151,11 @@ function fresh(identity: { userId: string; sessionId: string; body: unknown }, c
   return { ...(change.preview ? { preview: change.preview.slice(0, 4000) } : {}), confirmToken: token, expiresAt: expiresAt.toISOString(), header: CONFIRM_HEADER };
 }
 
+/** Task statuses in the app's words, for undo and bulk summaries. */
+export const STATUS_WORDS: Record<string, string> = { todo: "To do", in_progress: "In progress", done: "Done", blocked: "Blocked" };
+/** "#1", "#1 and #2", "#1, #2 and #3". */
+export const taskList = (numbers: number[]) => (numbers.length > 1 ? `${numbers.slice(0, -1).map((n) => `#${n}`).join(", ")} and #${numbers.at(-1)}` : `#${numbers[0]}`);
+
 export type UndoInverse =
   | { kind: "task.delete"; taskId: string; projectId: string }
   | { kind: "subtask.delete"; subtaskId: string; taskId: string; projectId: string }

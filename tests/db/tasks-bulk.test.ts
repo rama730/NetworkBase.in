@@ -61,6 +61,17 @@ test("move three tasks at once, then one undo puts all three back", async () => 
   assert.deepEqual(await column(w.ids, "status"), ["todo", "todo", "todo"]);
 });
 
+test("a task already there is left out of the undo, and a refused undo names the right task", async () => {
+  const w = await world();
+  await sql`UPDATE tasks SET status = 'in_progress' WHERE id = ${w.ids[0]!}`;
+  const moved = await post(w.raw, { projectId: w.ws, taskIds: w.ids, change: { kind: "status", status: "in_progress" } });
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+  await sql`UPDATE tasks SET status = 'blocked' WHERE id = ${w.ids[2]!}`;
+  const back = await undoIt(w.raw, moved.body.data.undoToken);
+  assert.equal(back.status, 409);
+  assert.match(back.body.error ?? back.body.message ?? "", /#3 changed since/);
+});
+
 test("a task from another workspace changes nothing", async () => {
   const w = await world();
   const refused = await post(w.raw, { projectId: w.ws, taskIds: [...w.ids, w.elsewhere], change: { kind: "status", status: "blocked" } });
