@@ -9,6 +9,7 @@ import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { signedDownloadRedirect } from "@/lib/storage/download-link";
+import { signedUrlSeconds } from "@/lib/messaging/attachment-ttl";
 import { versionedFilename } from "@/lib/files/versioned-filename";
 import { recordDownload } from "@/lib/files/download-history";
 import { UUID_RE } from "@/app/actions/files/_constants";
@@ -183,13 +184,35 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const etag = `"${nodeId}-${revisionIdentity}"`;
+  if (request.headers.get("if-none-match") === etag) {
+    return new Response(null, {
+      status: 304,
+      headers: { ETag: etag, "Cache-Control": "private, no-cache", Vary: "Cookie, Authorization" },
+    });
+  }
+
   const fileExt = (node.name.split(".").pop() || "").toLowerCase();
+  const isPdf = asset.mimeType === "application/pdf" || fileExt === "pdf";
   const isMediaStream = (asset.mimeType?.startsWith("video/") || asset.mimeType?.startsWith("audio/") || MEDIA_EXTS.has(fileExt)) && request.nextUrl.searchParams.get("download") !== "1";
 
   const admin = await createAdminClient();
-  const directSignedUrl = await getOrGenerateSignedUrl(admin, "project-files", target.s3Key, isMediaStream ? 7200 : 1800);
+  const ttlSeconds = isMediaStream ? signedUrlSeconds("video/mp4") : isPdf ? 1800 : signedUrlSeconds(asset.mimeType);
+  const directSignedUrl = await getOrGenerateSignedUrl(admin, "project-files", target.s3Key, ttlSeconds);
   if (!directSignedUrl) {
     return noStore("Couldn’t prepare file preview", 502);
+  }
+
+  // ponytail: redirect non-PDF GET previews to short-lived signed storage URLs so presentations, images, and media do not proxy through Railway. ceiling: signed URL stays valid for 5m (30m media) after access is revoked. upgrade: Cloudflare Worker edge proxy if sub-minute revocation is required.
+  if (!isPdf && request.method !== "HEAD") {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: directSignedUrl,
+        "Cache-Control": "private, no-store",
+        ETag: etag,
+        Vary: "Cookie, Authorization",
+      },
+    });
   }
 
   return streamPrivateObject({

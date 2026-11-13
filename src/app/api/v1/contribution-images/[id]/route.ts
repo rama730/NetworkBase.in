@@ -97,6 +97,14 @@ export async function GET(
       break;
     }
     if (!allowed) return unavailable();
+    const etag = `"${asset.contentHash}"`;
+    const cacheControl = "private, max-age=300, must-revalidate";
+    if (request.headers.get("if-none-match") === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: { ETag: etag, "Cache-Control": cacheControl, Vary: "Cookie, Authorization" },
+      });
+    }
     const admin = await createAdminClient();
     const { data, error } = await admin.storage
       .from(asset.bucket)
@@ -109,7 +117,7 @@ export async function GET(
       mimeType: asset.verifiedMimeType,
       filename: "contribution-image",
       disposition: "inline",
-      etag: `"${asset.contentHash}"`,
+      etag,
       cacheControl: "private, max-age=300, must-revalidate",
     });
   } catch {

@@ -70,7 +70,8 @@ function buildFailedImportSource(importSource: unknown, reason: string, nowIso: 
 
 export const projectImportStaleReconcile = inngest.createFunction(
   { id: "project-import-stale-reconcile", retries: 1 },
-  { cron: "0 * * * *" },
+  // ponytail: 2-hour sweep for stalled imports (>45m old). ceiling: stalled import status lags up to 2h. upgrade: hourly when concurrent imports exceed 50/day.
+  { cron: "0 */2 * * *" },
   async () => {
     const now = new Date();
     const staleBefore = new Date(now.getTime() - STALE_RECONCILE_AGE_MINUTES * 60_000);

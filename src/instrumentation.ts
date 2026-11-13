@@ -8,6 +8,8 @@ export async function register() {
   const { baseSentryOptions } = await import("@/lib/observability/sentry-options");
   Sentry.init({
     ...baseSentryOptions(),
+    enableOpenTelemetrySetup: false,
+    enableRuntimeChannelInjection: false,
     integrations: [Sentry.captureConsoleIntegration({ levels: ["error"] })],
   });
 }

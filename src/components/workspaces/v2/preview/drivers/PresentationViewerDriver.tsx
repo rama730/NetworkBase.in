@@ -79,6 +79,28 @@ function parseXfrm(container: Element, slideWidthEmu: number, slideHeightEmu: nu
   return { left, top, width, height, rotation };
 }
 
+const MAX_CACHED_PRESENTATION_BYTES = 25 * 1024 * 1024;
+const presentationBufferCache = new Map<string, ArrayBuffer>();
+
+function getCachedPresentationBuffer(url: string): ArrayBuffer | undefined {
+  const existing = presentationBufferCache.get(url);
+  if (existing) {
+    presentationBufferCache.delete(url);
+    presentationBufferCache.set(url, existing);
+  }
+  return existing;
+}
+
+function setCachedPresentationBuffer(url: string, buffer: ArrayBuffer) {
+  if (buffer.byteLength > MAX_CACHED_PRESENTATION_BYTES) return;
+  while (presentationBufferCache.size >= 2) {
+    const oldest = presentationBufferCache.keys().next().value;
+    if (oldest === undefined) break;
+    presentationBufferCache.delete(oldest);
+  }
+  presentationBufferCache.set(url, buffer);
+}
+
 export function PresentationViewerDriver({
   node,
   fileUrl,
@@ -120,10 +142,13 @@ export function PresentationViewerDriver({
 
     async function loadPresentation() {
       try {
-        const res = await fetch(fileUrl);
-        if (!res.ok) throw new Error("Couldn’t fetch presentation file");
-
-        const buffer = await res.arrayBuffer();
+        let buffer = getCachedPresentationBuffer(fileUrl);
+        if (!buffer) {
+          const res = await fetch(fileUrl);
+          if (!res.ok) throw new Error("Couldn’t fetch presentation file");
+          buffer = await res.arrayBuffer();
+          setCachedPresentationBuffer(fileUrl, buffer);
+        }
 
         // Safety limit: 60 MB
         if (buffer.byteLength > 60 * 1024 * 1024) {

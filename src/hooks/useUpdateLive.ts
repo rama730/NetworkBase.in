@@ -220,6 +220,12 @@ export function useUpdateCardLive(ref: RefObject<HTMLElement | null>, projectId:
     const queryClient = useQueryClient();
     const [live, setLive] = useState(false);
     useEffect(() => {
+        if (!enabled || !updateId) return;
+        if (!lastReconcile.has(updateId)) {
+            lastReconcile.set(updateId, Date.now());
+        }
+    }, [enabled, updateId]);
+    useEffect(() => {
         const element = ref.current;
         if (!enabled || !element || typeof IntersectionObserver === 'undefined') return;
         let timer: ReturnType<typeof setTimeout> | null = null;

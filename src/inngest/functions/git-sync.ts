@@ -81,88 +81,87 @@ export const gitPull = inngest.createFunction(
 export const gitSyncRecovery = inngest.createFunction(
   { id: "git-sync-recovery", concurrency: 1 },
   { cron: "0 * * * *" },
-  async ({ step }) =>
-    step.run("recover-and-dispatch-sync", async () => {
-      const [work] = await db.execute<{ pending: boolean }>(sql`
-        SELECT EXISTS (
-          SELECT 1 FROM github_sync_runs
-          WHERE status IN ('review', 'running', 'queued')
-            OR credential IS NOT NULL
-            OR (status IN ('completed', 'cancelled') AND COALESCE(result->>'snapshotsCleaned', 'false') <> 'true')
-        ) AS pending
-      `);
-      if (!work?.pending) return { dispatched: 0 };
-      await db.execute(sql`
-        WITH expired AS (
-          UPDATE github_sync_runs
-          SET status = 'cancelled', credential = NULL, stage = 'Review expired — compare again', updated_at = now()
-          WHERE status = 'review' AND created_at < now() - interval '1 hour'
-          RETURNING id
-        ), interrupted AS (
-          UPDATE github_sync_runs
-          SET status = 'failed', stage = 'Worker interrupted — review and retry',
-            error = 'The worker lease expired. Previously applied files and remote commit identity have been retained.',
-            lease_id = NULL, lease_expires_at = NULL, updated_at = now()
-          WHERE status = 'running' AND lease_expires_at < now()
-          RETURNING id
-        )
+  async () => {
+    const [work] = await db.execute<{ pending: boolean }>(sql`
+      SELECT EXISTS (
+        SELECT 1 FROM github_sync_runs
+        WHERE status IN ('review', 'running', 'queued')
+          OR credential IS NOT NULL
+          OR (status IN ('completed', 'cancelled') AND COALESCE(result->>'snapshotsCleaned', 'false') <> 'true')
+      ) AS pending
+    `);
+    if (!work?.pending) return { dispatched: 0 };
+    await db.execute(sql`
+      WITH expired AS (
         UPDATE github_sync_runs
-        SET credential = NULL
-        WHERE credential IS NOT NULL
-          AND status IN ('failed', 'needs_review', 'cancelled', 'completed')
-          AND created_at < now() - interval '1 hour'
-      `);
-      await cleanupReviewedSyncSnapshots();
-      const queued = await db
-        .select({
-          id: githubSyncRuns.id,
-          projectId: githubSyncRuns.projectId,
-          actorId: githubSyncRuns.actorId,
-          manifest: githubSyncRuns.manifest,
-        })
-        .from(githubSyncRuns)
-        .where(
-          and(
-            eq(githubSyncRuns.status, "queued"),
-            sql`${githubSyncRuns.updatedAt} < now() - interval '30 seconds'`,
-          ),
-        )
-        .limit(50);
-      if (queued.length > 0) {
-        await inngest.send(
-          queued.map((run) => {
-            const direction = run.manifest?.direction === "push" ? "push" : "pull";
-            return {
-              name: (direction === "push" ? "git/push" : "git/pull") as "git/push" | "git/pull",
-              id: `sync-recover:${run.id}:${Math.floor(Date.now() / 120_000)}`,
-              data: {
-                projectId: run.projectId,
-                userId: run.actorId,
-                runId: run.id,
-                commitMessage: run.manifest?.message ?? "Automated sync recovery",
-                jobSignature: createSignedJobRequestToken({
-                  kind: `git/${direction}` as any,
-                  actorId: run.actorId,
-                  subjectId: run.id,
-                  ttlSeconds: 3600,
-                }),
-              },
-            };
-          }),
-        );
-      }
-      return { dispatched: queued.length };
-    }),
+        SET status = 'cancelled', credential = NULL, stage = 'Review expired — compare again', updated_at = now()
+        WHERE status = 'review' AND created_at < now() - interval '1 hour'
+        RETURNING id
+      ), interrupted AS (
+        UPDATE github_sync_runs
+        SET status = 'failed', stage = 'Worker interrupted — review and retry',
+          error = 'The worker lease expired. Previously applied files and remote commit identity have been retained.',
+          lease_id = NULL, lease_expires_at = NULL, updated_at = now()
+        WHERE status = 'running' AND lease_expires_at < now()
+        RETURNING id
+      )
+      UPDATE github_sync_runs
+      SET credential = NULL
+      WHERE credential IS NOT NULL
+        AND status IN ('failed', 'needs_review', 'cancelled', 'completed')
+        AND created_at < now() - interval '1 hour'
+    `);
+    await cleanupReviewedSyncSnapshots();
+    const queued = await db
+      .select({
+        id: githubSyncRuns.id,
+        projectId: githubSyncRuns.projectId,
+        actorId: githubSyncRuns.actorId,
+        manifest: githubSyncRuns.manifest,
+      })
+      .from(githubSyncRuns)
+      .where(
+        and(
+          eq(githubSyncRuns.status, "queued"),
+          sql`${githubSyncRuns.updatedAt} < now() - interval '30 seconds'`,
+        ),
+      )
+      .limit(50);
+    if (queued.length > 0) {
+      await inngest.send(
+        queued.map((run) => {
+          const direction = run.manifest?.direction === "push" ? "push" : "pull";
+          return {
+            name: (direction === "push" ? "git/push" : "git/pull") as "git/push" | "git/pull",
+            id: `sync-recover:${run.id}:${Math.floor(Date.now() / 120_000)}`,
+            data: {
+              projectId: run.projectId,
+              userId: run.actorId,
+              runId: run.id,
+              commitMessage: run.manifest?.message ?? "Automated sync recovery",
+              jobSignature: createSignedJobRequestToken({
+                kind: `git/${direction}` as any,
+                actorId: run.actorId,
+                subjectId: run.id,
+                ttlSeconds: 3600,
+              }),
+            },
+          };
+        }),
+      );
+    }
+    return { dispatched: queued.length };
+  },
 );
 export const uploadIntentCleanup = inngest.createFunction(
   { id: "upload-intent-cleanup", concurrency: 1 },
-  { cron: "55 * * * *" },
-  async ({ step }) =>
-    step.run("cleanup-expired-intents", cleanupExpiredUploadIntents),
+  // ponytail: 2-hour sweep without a sub-step wrapper so each run is a single HTTP round trip. ceiling: expired intents linger up to 2h. upgrade: hourly if pending intent rows exceed 10k.
+  { cron: "55 */2 * * *" },
+  async () => cleanupExpiredUploadIntents(),
 );
 export const lockCleanup = inngest.createFunction(
   { id: "lock-cleanup" },
-  { cron: "50 * * * *" },
+  { cron: "50 */2 * * *" },
   async () => {
     let deleted = 0;
     for (let batch = 0; batch < 10; batch++) {

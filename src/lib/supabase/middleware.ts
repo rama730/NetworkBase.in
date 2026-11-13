@@ -154,27 +154,6 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         )
     }
 
-    const supabase = createServerClient(
-        supabaseEnv.url,
-        supabaseEnv.anonKey,
-        {
-            global: { fetch: authBoundedFetch },
-            cookieOptions: resolveSupabaseServerCookieOptions(),
-            cookies: {
-                getAll() {
-                    return request.cookies.getAll()
-                },
-                setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-                    supabaseResponse = createPassThroughResponse(options.requestHeaders)
-                    cookiesToSet.forEach(({ name, value, options }) =>
-                        supabaseResponse.cookies.set(name, value, options)
-                    )
-                },
-            },
-        }
-    )
-
     let user: Awaited<ReturnType<typeof resolveAuthSnapshot>>['user'] = null
     let onboardingComplete = false
     let emailVerified = false
@@ -183,6 +162,27 @@ export async function updateSession(request: NextRequest, options: UpdateSession
     const shouldResolveAuth = hasAnyAuthCookie(request)
 
     if (shouldResolveAuth) {
+        const supabase = createServerClient(
+            supabaseEnv.url,
+            supabaseEnv.anonKey,
+            {
+                global: { fetch: authBoundedFetch },
+                cookieOptions: resolveSupabaseServerCookieOptions(),
+                cookies: {
+                    getAll() {
+                        return request.cookies.getAll()
+                    },
+                    setAll(cookiesToSet) {
+                        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+                        supabaseResponse = createPassThroughResponse(options.requestHeaders)
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            supabaseResponse.cookies.set(name, value, options)
+                        )
+                    },
+                },
+            }
+        )
+
         const startedAt = Date.now()
         const authResolution = await resolveAuthSnapshot(supabase)
 

@@ -98,6 +98,8 @@ export function baseSentryOptions() {
     enabled: isSentryEnabled(),
     environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT?.trim() || "production",
     dataCollection: DATA_COLLECTION,
+    // ponytail: disable 60s client_report outcome flushes that open a new TLS connection + DNS lookup every minute when tracing is off. ceiling: Sentry UI won't show dropped-span counters. upgrade: re-enable if sampling rate diagnostics are needed.
+    sendClientReports: false,
     beforeSend,
   };
 }

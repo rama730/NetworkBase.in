@@ -11,10 +11,13 @@ import { startVisibleDwell } from '@/lib/workspaces/visible-dwell';
 
 const VIEW_DWELL_MS = 3_000;
 const COUNTS_BATCH_MS = 250;
+const RECONCILE_MIN_MS = 60_000;
 const DISCONNECTED_POLL_MS = 60_000;
 const HIDDEN_CATCH_UP_MS = 60_000;
 const CARD_DWELL_MS = 1_000;
 const CARD_LEAVE_MS = 10_000;
+
+const lastCountsReconcile = new Map<string, number>();
 
 /** The team never counts, so it sends nothing; the server still decides for everyone else. */
 export function useWorkspaceViewBeacon(workspaceId: string | undefined, isTeam: boolean) {
@@ -143,17 +146,29 @@ export function useWorkspaceCardLive(ref: RefObject<HTMLElement | null>, workspa
     }, [enabled, ref, workspaceId]);
 
     useEffect(() => {
+        if (!enabled || !workspaceId) return;
+        if (!lastCountsReconcile.has(workspaceId)) {
+            lastCountsReconcile.set(workspaceId, Date.now());
+        }
+    }, [enabled, workspaceId]);
+
+    useEffect(() => {
         if (!live) return;
-        const read = () => void fetchWorkspaceCounts(workspaceId).then((counts) => {
-            if (counts) queueCounts(queryClient, workspaceId, counts);
-        });
-        read();
+        const read = (force = false) => {
+            const now = Date.now();
+            if (!force && now - (lastCountsReconcile.get(workspaceId) ?? 0) < RECONCILE_MIN_MS) return;
+            lastCountsReconcile.set(workspaceId, now);
+            void fetchWorkspaceCounts(workspaceId).then((counts) => {
+                if (counts) queueCounts(queryClient, workspaceId, counts);
+            });
+        };
+        read(false);
         return followWorkspaceTopic(workspaceId, (event, payload) => {
             if (event !== 'workspace.changed') return;
             queueCounts(queryClient, workspaceId, {
                 viewCount: typeof payload.view_count === 'number' ? payload.view_count : undefined,
                 followersCount: typeof payload.followers_count === 'number' ? payload.followers_count : undefined,
             });
-        }, read);
+        }, () => read(true));
     }, [live, queryClient, workspaceId]);
 }

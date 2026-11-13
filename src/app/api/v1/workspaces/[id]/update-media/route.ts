@@ -74,6 +74,24 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
   ));
   if (!media) return jsonError("Not found", 404, "NOT_FOUND");
 
+  const identity = createHash("sha256")
+    .update(`${owningUpdate.id}:${owningUpdate.assetId}`)
+    .digest("base64url")
+    .slice(0, 20);
+  const etag = `"update-media-${identity}"`;
+  const isPublic = owningUpdate.visibility === "public" && !isOwnerOrMember;
+  const cacheControl = isPublic
+    ? "public, max-age=300, s-maxage=300, must-revalidate"
+    : "private, max-age=300, must-revalidate";
+
+  // The browser already holds these bytes: skip signing and storage reads on 304 revalidation.
+  if (request.headers.get("if-none-match") === etag) {
+    return new Response(null, {
+      status: 304,
+      headers: { ETag: etag, "Cache-Control": cacheControl, Vary: "Cookie, Authorization" },
+    });
+  }
+
   const admin = await createAdminClient();
   const { data, error } = await admin.storage
     .from(WORKSPACE_UPDATE_MEDIA_BUCKET)
@@ -88,11 +106,6 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
     return jsonError("Not found", 404, "NOT_FOUND");
   }
 
-  const identity = createHash("sha256")
-    .update(`${owningUpdate.id}:${owningUpdate.assetId}`)
-    .digest("base64url")
-    .slice(0, 20);
-  const isPublic = owningUpdate.visibility === "public" && !isOwnerOrMember;
   return streamPrivateObject({
     request,
     signedUrl: data.signedUrl,
@@ -101,9 +114,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
     filename: media.label || storageKey.split("/").pop() || "update-image",
     disposition: "inline",
     etag: `"update-media-${identity}"`,
-    cacheControl: isPublic
-      ? "public, max-age=300, s-maxage=300, must-revalidate"
-      : "private, max-age=300, must-revalidate",
+    cacheControl,
   });
 }
 

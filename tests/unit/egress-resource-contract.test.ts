@@ -94,3 +94,62 @@ test("file recovery uses an immutable bounded Git blob identity", () => {
   assert.match(content, /MAX_GITHUB_BLOB_RESPONSE_BYTES/);
   assert.doesNotMatch(content, /\/contents\/\$\{encodeURIComponent\(cleanPath\)\}/);
 });
+
+test("workspace file preview redirects non-PDF GET requests to short-lived signed URLs and short-circuits 304 before storage signing", () => {
+  const preview = read("src/app/api/v1/workspaces/[id]/files/[nodeId]/preview/route.ts");
+  assert.match(preview, /request\.headers\.get\("if-none-match"\) === etag/);
+  assert.match(preview, /!isPdf && request\.method !== "HEAD"/);
+  assert.match(preview, /status: 302/);
+  assert.match(preview, /signedUrlSeconds\(asset\.mimeType\)/);
+  assert.match(preview, /streamPrivateObject/);
+
+  for (const path of [
+    "src/app/api/v1/workspaces/[id]/update-media/route.ts",
+    "src/app/api/v1/contribution-images/[id]/route.ts",
+  ]) {
+    const source = read(path);
+    const etagCheckIndex = source.indexOf('request.headers.get("if-none-match") === etag');
+    const signIndex = source.indexOf("createSignedUrl(");
+    assert.ok(etagCheckIndex > 0 && signIndex > etagCheckIndex, `${path} must check If-None-Match before calling createSignedUrl`);
+  }
+});
+
+test("media and presentation preview drivers avoid duplicate downloads", () => {
+  const mediaDriver = read("src/components/workspaces/v2/preview/drivers/MediaViewerDriver.tsx");
+  assert.doesNotMatch(mediaDriver, /bytes=0-1048576/);
+  assert.match(mediaDriver, /preload="metadata"/);
+
+  const presentationDriver = read("src/components/workspaces/v2/preview/drivers/PresentationViewerDriver.tsx");
+  assert.match(presentationDriver, /presentationBufferCache/);
+  assert.match(presentationDriver, /getCachedPresentationBuffer/);
+});
+
+test("proxy short-circuits scanner probes with 0-byte 404 and skips anonymous Supabase client instantiation", () => {
+  const proxy = read("src/proxy.ts");
+  assert.match(proxy, /isScannerProbePath\(request\.nextUrl\.pathname\)/);
+  assert.match(proxy, /new Response\(null, \{\s*status: 404/);
+  assert.match(proxy, /!isPrefetch && request\.method !== "HEAD"/);
+
+  const middleware = read("src/lib/supabase/middleware.ts");
+  const branchIndex = middleware.indexOf("if (shouldResolveAuth)");
+  const clientIndex = middleware.indexOf("createServerClient(");
+  assert.ok(branchIndex > 0 && clientIndex > branchIndex, "createServerClient must only run when auth cookies exist");
+});
+
+test("Sentry disables 60-second idle client_report flushes and runtime channel injection", () => {
+  const options = read("src/lib/observability/sentry-options.ts");
+  assert.match(options, /sendClientReports:\s*false/);
+
+  const instrumentation = read("src/instrumentation.ts");
+  assert.match(instrumentation, /enableOpenTelemetrySetup:\s*false/);
+  assert.match(instrumentation, /enableRuntimeChannelInjection:\s*false/);
+});
+
+test("database pooler defaults to Supavisor Session mode (:5432) with prepared statements", () => {
+  const db = read("src/lib/db/index.ts");
+  assert.match(db, /resolveConnectionString/);
+  assert.match(db, /url\.port = '5432'/);
+  assert.match(db, /const prepare = !usesTransactionPooler\(connectionString\)/);
+  assert.match(db, /prepare: true/);
+});
+

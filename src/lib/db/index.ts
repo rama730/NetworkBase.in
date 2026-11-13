@@ -16,10 +16,12 @@ function usesTransactionPooler(raw: string) {
 
 function resolveConnectionString(raw: string) {
     if (env.NODE_ENV !== 'production') return raw
+    if (process.env.DB_POOLER_MODE?.trim().toLowerCase() === 'transaction') return raw
     try {
         const url = new URL(raw)
-        if (url.port === '5432' && url.hostname.endsWith('.pooler.supabase.com')) {
-            url.port = '6543'
+        // ponytail: use Supavisor Session mode (5432) for persistent Railway web/worker containers so postgres.js prepared statements stay enabled and eliminate per-query Describe + pg_type round trips. ceiling: total connections across replicas must fit within the session pool limit. upgrade: set DB_POOLER_MODE=transaction if horizontal autoscaling exceeds session pool capacity.
+        if (url.port === '6543' && url.hostname.endsWith('.pooler.supabase.com')) {
+            url.port = '5432'
             return url.toString()
         }
     } catch {
@@ -32,11 +34,16 @@ const connectionString = resolveConnectionString(env.DATABASE_URL)
 const globalForDb = globalThis as unknown as { conn: postgres.Sql | undefined }
 
 const prepare = !usesTransactionPooler(connectionString)
+const defaultPoolMax = env.NODE_ENV === 'development'
+    ? 5
+    : process.env.INNGEST_EXECUTION_ROLE?.trim().toLowerCase() === 'worker'
+        ? 3
+        : 5
 const client = globalForDb.conn ?? postgres(connectionString, {
     prepare,
     fetch_types: false,
-    // Audit 10.1: replicas × DB_POOL_MAX must stay under the pooler's client limit; 10 when unset.
-    max: Number(process.env.DB_POOL_MAX) > 0 ? Number(process.env.DB_POOL_MAX) : env.NODE_ENV === 'development' ? 5 : 10,
+    // Audit 10.1: replicas × DB_POOL_MAX must stay under the pooler's client limit; 5 web + 3 worker when unset.
+    max: Number(process.env.DB_POOL_MAX) > 0 ? Number(process.env.DB_POOL_MAX) : defaultPoolMax,
     idle_timeout: 300,
     max_lifetime: 60 * 30,
     connect_timeout: 10,

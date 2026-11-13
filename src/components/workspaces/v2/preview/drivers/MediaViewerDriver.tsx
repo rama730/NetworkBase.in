@@ -130,63 +130,11 @@ export function MediaViewerDriver({
   const [copiedTimestampLink, setCopiedTimestampLink] = React.useState(false);
   const [snapshotStatus, setSnapshotStatus] = React.useState<"idle" | "capturing" | "copied" | "saved">("idle");
   const [resolution, setResolution] = React.useState<{ width: number; height: number } | null>(null);
-  const [realWaveform, setRealWaveform] = React.useState<number[] | null>(null);
-
-  // Extract true RMS audio waveform envelope from media audio track
-  React.useEffect(() => {
-    if (typeof window === "undefined" || !fileUrl) return;
-    let active = true;
-
-    async function extractRmsWaveform() {
-      let audioCtx: AudioContext | null = null;
-      try {
-        const res = await fetch(fileUrl, { headers: { Range: "bytes=0-1048576" } });
-        if (!res.ok && res.status !== 206) return;
-        const arrayBuffer = await res.arrayBuffer();
-        if (!active) return;
-
-        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        if (!AudioCtx) return;
-        audioCtx = new AudioCtx();
-        const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-        if (!active) {
-          return;
-        }
-
-        const channelData = decoded.getChannelData(0);
-        const binCount = 48;
-        const samplesPerBin = Math.floor(channelData.length / binCount);
-        const bins: number[] = [];
-
-        for (let i = 0; i < binCount; i++) {
-          let sumSquares = 0;
-          const start = i * samplesPerBin;
-          const end = start + samplesPerBin;
-          for (let j = start; j < end; j++) {
-            const val = channelData[j] || 0;
-            sumSquares += val * val;
-          }
-          const rms = Math.sqrt(sumSquares / Math.max(1, samplesPerBin));
-          const normalized = Math.max(15, Math.min(95, Math.round(rms * 280)));
-          bins.push(normalized);
-        }
-
-        if (active) {
-          setRealWaveform(bins);
-        }
-      } catch {
-        // Fall back gracefully to default waveform pattern
-      } finally {
-        audioCtx?.close().catch(() => {});
-      }
-    }
-
-    void extractRmsWaveform();
-
-    return () => {
-      active = false;
-    };
-  }, [fileUrl]);
+  // ponytail: static decorative scrubber waveform instead of fetching a second 1 MB byte-range copy alongside <video>/<audio>. ceiling: scrubber bars show a uniform sine envelope rather than decoded RMS peaks. upgrade: precompute 48 RMS peaks at upload verification time and store in node metadata.
+  const scrubberWaveform = React.useMemo(
+    () => Array.from({ length: 48 }, (_, i) => Math.max(20, Math.sin(i * 0.4) * 80 + 20)),
+    [],
+  );
 
   // On-screen feedback for gestures and adjustments
   const [activeGestureToast, setActiveGestureToast] = React.useState<{
@@ -1025,8 +973,9 @@ export function MediaViewerDriver({
             <video
               ref={mediaRef as React.RefObject<HTMLVideoElement>}
               src={fileUrl}
+              crossOrigin="anonymous"
               loop={isLooping && !abLoop.active}
-              preload="auto"
+              preload="metadata"
               playsInline
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
@@ -1325,10 +1274,7 @@ export function MediaViewerDriver({
                 >
                   {/* Subtle Audio Waveform overlay track */}
                   <div className="absolute inset-0 flex items-center justify-around opacity-20 pointer-events-none overflow-hidden px-1">
-                    {(realWaveform && realWaveform.length === 48
-                      ? realWaveform
-                      : Array.from({ length: 48 }, (_, i) => Math.max(20, Math.sin(i * 0.4) * 80 + 20))
-                    ).map((height, i) => (
+                    {scrubberWaveform.map((height, i) => (
                       <span
                         key={i}
                         className="w-[2px] rounded-[2px] bg-white transition-all"

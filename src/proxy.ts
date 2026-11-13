@@ -18,6 +18,40 @@ const AUTH_PROTECTED_PREFIXES = ["/discover", "/settings", "/messages", "/my-pro
 // /legal/accept resolves the session so an unfinished two-step sign-in is sent to the code step first.
 const AUTH_PROTECTED_EXACT = new Set(["/", "/login", "/signup", "/verify-email", "/legal/accept"]);
 
+const SCANNER_EXACT_PATHS = new Set([
+  "/graphql",
+  "/api/graphql",
+  "/v1/graphql",
+  "/altair",
+  "/graphiql",
+  "/playground",
+  "/console",
+  "/console/",
+  "/xmlrpc.php",
+]);
+const SCANNER_PREFIX_PATHS = [
+  "/wp-admin",
+  "/wp-login",
+  "/wp-content",
+  "/wp-includes",
+  "/actuator",
+  "/phpmyadmin",
+  "/cgi-bin",
+  "/vendor/phpunit",
+];
+const SCANNER_EXTENSION_RE = /\.(?:php|asp|aspx|jsp|cgi|env)$/i;
+
+function isScannerProbePath(pathname: string) {
+  const lower = pathname.toLowerCase();
+  if (lower.startsWith("/.") && !lower.startsWith("/.well-known/")) return true;
+  if (SCANNER_EXACT_PATHS.has(lower)) return true;
+  if (SCANNER_PREFIX_PATHS.some((prefix) => lower === prefix || lower.startsWith(`${prefix}/`))) return true;
+  if (!lower.startsWith("/api/") && !lower.startsWith("/u/") && !lower.startsWith("/workspaces/") && SCANNER_EXTENSION_RE.test(lower)) {
+    return true;
+  }
+  return false;
+}
+
 function toBase64Url(buffer: ArrayBuffer) {
   return Buffer.from(buffer).toString("base64url");
 }
@@ -160,6 +194,14 @@ function buildCsp(nonce: string | null, request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  // ponytail: drop known vulnerability scanner and dotfile probes at the proxy with a 0-byte cached 404 instead of rendering the full SSR not-found document. ceiling: a route added under a scanner path would 404. upgrade: move to a Cloudflare WAF block rule.
+  if (isScannerProbePath(request.nextUrl.pathname)) {
+    return new Response(null, {
+      status: 404,
+      headers: { "Cache-Control": "public, max-age=3600, s-maxage=86400" },
+    });
+  }
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(ROUTE_METRIC_HEADER, toPrivacySafeRouteMetric(request.nextUrl.pathname));
   requestHeaders.set(
@@ -218,7 +260,7 @@ export async function proxy(request: NextRequest) {
   response.headers.set(CSP_NONCE_HEADER, nonce);
   response.headers.set("X-WAF-Edge-Protected", "1");
 
-  if (!isPrefetch) {
+  if (!isPrefetch && request.method !== "HEAD") {
     const csrfCookie = request.cookies.get(CSRF_COOKIE_NAME)?.value?.trim() || "";
     if (!csrfCookie || !csrfCookie.includes(".")) {
       response.cookies.set({
