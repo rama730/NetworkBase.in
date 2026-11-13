@@ -29,12 +29,34 @@ interface DocxViewerDriverProps {
   fileUrl: string;
 }
 
+const MAX_DOCX_CACHE_ENTRIES = 2;
+const MAX_DOCX_CACHE_BYTES = 25 * 1024 * 1024;
+const docxBufferCache = new Map<string, ArrayBuffer>();
+
+function getCachedDocxBuffer(url: string): ArrayBuffer | null {
+  const existing = docxBufferCache.get(url);
+  if (!existing) return null;
+  docxBufferCache.delete(url);
+  docxBufferCache.set(url, existing);
+  return existing;
+}
+
+function setCachedDocxBuffer(url: string, buffer: ArrayBuffer) {
+  if (buffer.byteLength > MAX_DOCX_CACHE_BYTES) return;
+  docxBufferCache.delete(url);
+  while (docxBufferCache.size >= MAX_DOCX_CACHE_ENTRIES) {
+    const oldestKey = docxBufferCache.keys().next().value;
+    if (!oldestKey) break;
+    docxBufferCache.delete(oldestKey);
+  }
+  docxBufferCache.set(url, buffer);
+}
+
 export function DocxViewerDriver({
   node,
   fileUrl,
 }: DocxViewerDriverProps): React.JSX.Element {
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const bufferCacheRef = React.useRef<{ url: string; buffer: ArrayBuffer } | null>(null);
   const abortControllerRef = React.useRef<AbortController | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -70,9 +92,10 @@ export function DocxViewerDriver({
     containerRef.current.innerHTML = "";
 
     try {
+      const cachedBuffer = getCachedDocxBuffer(fileUrl);
       let buffer: ArrayBuffer;
-      if (bufferCacheRef.current && bufferCacheRef.current.url === fileUrl) {
-        buffer = bufferCacheRef.current.buffer;
+      if (cachedBuffer) {
+        buffer = cachedBuffer;
       } else {
         if (abortControllerRef.current) {
           abortControllerRef.current.abort();
@@ -90,7 +113,7 @@ export function DocxViewerDriver({
           throw new Error("File exceeds client-side preview safety limit (60 MB). Download to view.");
         }
 
-        bufferCacheRef.current = { url: fileUrl, buffer };
+        setCachedDocxBuffer(fileUrl, buffer);
       }
 
       await docx.renderAsync(buffer, containerRef.current, undefined, {

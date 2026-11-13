@@ -22,6 +22,27 @@ interface BinaryInspectorDriverProps {
   fileUrl: string | null;
 }
 
+const MAX_BINARY_HEX_CACHE_ENTRIES = 10;
+const binaryHexCache = new Map<string, string>();
+
+function getCachedBinaryHex(url: string): string | null {
+  const existing = binaryHexCache.get(url);
+  if (existing === undefined) return null;
+  binaryHexCache.delete(url);
+  binaryHexCache.set(url, existing);
+  return existing;
+}
+
+function setCachedBinaryHex(url: string, dump: string) {
+  binaryHexCache.delete(url);
+  while (binaryHexCache.size >= MAX_BINARY_HEX_CACHE_ENTRIES) {
+    const oldestKey = binaryHexCache.keys().next().value;
+    if (!oldestKey) break;
+    binaryHexCache.delete(oldestKey);
+  }
+  binaryHexCache.set(url, dump);
+}
+
 export function BinaryInspectorDriver({
   node,
   fileUrl,
@@ -38,6 +59,14 @@ export function BinaryInspectorDriver({
 
     async function fetchHex() {
       try {
+        const cached = getCachedBinaryHex(targetUrl);
+        if (cached !== null) {
+          if (active) {
+            setHexDump(cached);
+            setLoading(false);
+          }
+          return;
+        }
         // Fetch up to first 2KB for hex preview
         const res = await fetch(targetUrl, {
           headers: { Range: "bytes=0-2047" },
@@ -66,6 +95,7 @@ export function BinaryInspectorDriver({
           dump += `${offset}  ${hex} |${ascii}|\n`;
         }
 
+        setCachedBinaryHex(targetUrl, dump);
         if (active) {
           setHexDump(dump);
           setLoading(false);

@@ -283,6 +283,8 @@ async function verifyStoredObjectBytes(params: {
     if (params.decodeImage) {
       try {
         const { default: sharp } = await import("sharp");
+        sharp.cache(false);
+        sharp.concurrency(1);
         const metadata = await sharp(Buffer.concat(imageChunks), {
           animated: true,
           failOn: "error",

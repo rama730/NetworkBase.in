@@ -34,8 +34,30 @@ type CachedInstallationId = {
   expiresAtMs: number;
 };
 
+const MAX_INSTALLATION_CACHE_ENTRIES = 500;
+// ponytail: 500-entry bounded LRU caches for GitHub App installation tokens and repo installation IDs. ceiling: 500 active installations/repos per process (~100KB RAM). upgrade: Upstash Redis cache if installation count exceeds 500 across replicas.
 const installationTokenCache = new Map<number, CachedInstallationToken>();
 const installationIdByRepoCache = new Map<string, CachedInstallationId>();
+
+function setBoundedCacheEntry<K, V extends { expiresAtMs: number }>(
+  cache: Map<K, V>,
+  key: K,
+  value: V,
+) {
+  cache.delete(key);
+  if (cache.size >= MAX_INSTALLATION_CACHE_ENTRIES) {
+    const now = Date.now();
+    for (const [k, entry] of cache) {
+      if (entry.expiresAtMs <= now) cache.delete(k);
+    }
+    while (cache.size >= MAX_INSTALLATION_CACHE_ENTRIES) {
+      const oldest = cache.keys().next().value;
+      if (oldest === undefined) break;
+      cache.delete(oldest);
+    }
+  }
+  cache.set(key, value);
+}
 
 export type GithubAuthSource = "app" | "oauth" | "sealed" | "none";
 
@@ -237,7 +259,7 @@ async function getGithubAppInstallationToken(installationId: number): Promise<st
       return parsed;
     })();
 
-    installationTokenCache.set(installationId, { token, expiresAtMs });
+    setBoundedCacheEntry(installationTokenCache, installationId, { token, expiresAtMs });
     return token;
   });
 }
@@ -275,7 +297,7 @@ export async function resolveGithubRepoInstallationId(repoUrl: string): Promise<
       const installationId = parseInstallationId(data?.id);
       if (!installationId) return null;
 
-      installationIdByRepoCache.set(normalizedRepoUrl, {
+      setBoundedCacheEntry(installationIdByRepoCache, normalizedRepoUrl, {
         installationId,
         expiresAtMs: Date.now() + INSTALLATION_ID_CACHE_TTL_MS,
       });

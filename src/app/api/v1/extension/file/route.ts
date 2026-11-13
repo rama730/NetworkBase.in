@@ -135,10 +135,16 @@ export async function GET(request: Request) {
       if (!parsedKey || parsedKey.projectId !== projectId) {
         return jsonError("File key does not belong to this workspace", 409, "CONFLICT");
       }
+      const etag = `"${version?.contentHash || crypto.createHash("sha256").update(node.s3Key).digest("hex")}"`;
+      if (request.headers.get("if-none-match") === etag) {
+        return new Response(null, {
+          status: 304,
+          headers: { ETag: etag, "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" },
+        });
+      }
       const adminClient = await createAdminClient();
       const { data, error } = await adminClient.storage.from("project-files").createSignedUrl(node.s3Key, 60);
       if (error || !data?.signedUrl) return jsonError("File content unavailable", 404, "NOT_FOUND");
-      const etag = `"${version?.contentHash || crypto.createHash("sha256").update(node.s3Key).digest("hex")}"`;
       return streamPrivateObject({
         request,
         signedUrl: data.signedUrl,

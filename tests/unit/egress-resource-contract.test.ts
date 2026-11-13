@@ -95,17 +95,24 @@ test("file recovery uses an immutable bounded Git blob identity", () => {
   assert.doesNotMatch(content, /\/contents\/\$\{encodeURIComponent\(cleanPath\)\}/);
 });
 
-test("workspace file preview redirects non-PDF GET requests to short-lived signed URLs and short-circuits 304 before storage signing", () => {
+test("workspace file preview redirects non-PDF GET requests to short-lived signed URLs and short-circuits 304 and HEAD before storage signing", () => {
   const preview = read("src/app/api/v1/workspaces/[id]/files/[nodeId]/preview/route.ts");
   assert.match(preview, /request\.headers\.get\("if-none-match"\) === etag/);
+  assert.match(preview, /const safetyMarginMs = Math\.min\(300_000, Math\.floor\(ttlSeconds \* 200\)\)/);
+  assert.match(preview, /if \(request\.method === "HEAD"\)/);
   assert.match(preview, /!isPdf && request\.method !== "HEAD"/);
   assert.match(preview, /status: 302/);
   assert.match(preview, /signedUrlSeconds\(asset\.mimeType\)/);
   assert.match(preview, /streamPrivateObject/);
 
+  const contentAction = read("src/app/actions/files/content.ts");
+  assert.match(contentAction, /\?v=\$\{encodeURIComponent\(String\(node\.currentVersion \?\? 1\)\)\}/);
+
   for (const path of [
+    "src/app/api/v1/workspaces/[id]/image/route.ts",
     "src/app/api/v1/workspaces/[id]/update-media/route.ts",
     "src/app/api/v1/contribution-images/[id]/route.ts",
+    "src/app/api/v1/extension/file/route.ts",
   ]) {
     const source = read(path);
     const etagCheckIndex = source.indexOf('request.headers.get("if-none-match") === etag');
@@ -114,17 +121,41 @@ test("workspace file preview redirects non-PDF GET requests to short-lived signe
   }
 });
 
-test("media and presentation preview drivers avoid duplicate downloads", () => {
+test("preview drivers avoid duplicate downloads via lazy SVG source fetch and bounded LRU caches", () => {
   const mediaDriver = read("src/components/workspaces/v2/preview/drivers/MediaViewerDriver.tsx");
   assert.doesNotMatch(mediaDriver, /bytes=0-1048576/);
   assert.match(mediaDriver, /preload="metadata"/);
 
+  const imageDriver = read("src/components/workspaces/v2/preview/drivers/ImageViewerDriver.tsx");
+  assert.match(imageDriver, /if \(!isSvg \|\| viewMode !== "code" \|\| !fileUrl\) return/);
+  assert.match(imageDriver, /getCachedSvgSource/);
+
   const presentationDriver = read("src/components/workspaces/v2/preview/drivers/PresentationViewerDriver.tsx");
   assert.match(presentationDriver, /presentationBufferCache/);
   assert.match(presentationDriver, /getCachedPresentationBuffer/);
+
+  const docxDriver = read("src/components/workspaces/v2/preview/drivers/DocxViewerDriver.tsx");
+  assert.match(docxDriver, /docxBufferCache/);
+  assert.match(docxDriver, /getCachedDocxBuffer/);
+
+  const sheetDriver = read("src/components/workspaces/v2/preview/drivers/SheetViewerDriver.tsx");
+  assert.match(sheetDriver, /sheetPreviewCache/);
+  assert.match(sheetDriver, /getCachedSheetPreview/);
+
+  const archiveDriver = read("src/components/workspaces/v2/preview/drivers/ArchiveViewerDriver.tsx");
+  assert.match(archiveDriver, /archivePreviewCache/);
+  assert.match(archiveDriver, /getCachedArchivePreview/);
+
+  const binaryDriver = read("src/components/workspaces/v2/preview/drivers/BinaryInspectorDriver.tsx");
+  assert.match(binaryDriver, /binaryHexCache/);
+  assert.match(binaryDriver, /getCachedBinaryHex/);
 });
 
-test("proxy short-circuits scanner probes with 0-byte 404 and skips anonymous Supabase client instantiation", () => {
+test("socket entrypoint and proxy short-circuit scanner probes with 0-byte 404 and skip anonymous Supabase client instantiation", () => {
+  const startProd = read("scripts/start-production.cjs");
+  assert.match(startProd, /isScannerProbePath\(pathname\)/);
+  assert.match(startProd, /"content-length": "0"/);
+
   const proxy = read("src/proxy.ts");
   assert.match(proxy, /isScannerProbePath\(request\.nextUrl\.pathname\)/);
   assert.match(proxy, /new Response\(null, \{\s*status: 404/);

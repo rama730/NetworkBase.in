@@ -6,7 +6,7 @@ export function chatPushTopic(channelId: string) {
 // ponytail: per-instance 30 s suppression per (user, channel) (L-11). ceiling:
 // each server instance may send one extra push, which the push service then
 // coalesces by Topic. upgrade: shared suppression if push volume or complaints grow.
-export function createPushSuppressor(windowMs: number, maxEntries = 10_000) {
+export function createPushSuppressor(windowMs: number, maxEntries = 1_000) {
   const lastSent = new Map<string, number>();
   return function allow(userId: string, channelId: string, now = Date.now()) {
     const key = `${userId}:${channelId}`;

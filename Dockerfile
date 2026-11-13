@@ -61,17 +61,20 @@ RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build \
     INNGEST_SIGNING_KEY=build-only \
     INNGEST_EXECUTION_ROLE=web \
     RAILWAY_GIT_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA \
-    NODE_OPTIONS=--max-old-space-size=6144 \
+    NODE_OPTIONS=--max-old-space-size=4096 \
     npm run build
 
 FROM base AS runner
+# ponytail: cap glibc malloc arenas at 2 (instead of 64 on 8-vCPU containers) and bound V8 old space to 384 MB (instead of 4 GB default on 8 GB cgroup) so GC compacts after traffic bursts. ceiling: 384 MB V8 heap per replica. upgrade: raise --max-old-space-size to 512 or scale horizontally if p95 concurrent SSR exceeds 300 MB.
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3000 \
-    NEXT_TELEMETRY_DISABLED=1
+    NEXT_TELEMETRY_DISABLED=1 \
+    MALLOC_ARENA_MAX=2 \
+    NODE_OPTIONS="--max-old-space-size=384"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates git openssl \
+    && apt-get install -y --no-install-recommends ca-certificates openssl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 1001 nodejs \
     && useradd --system --uid 1001 --gid nodejs nextjs
@@ -79,7 +82,9 @@ RUN apt-get update \
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/start-production.cjs ./start-production.cjs
+RUN find ./node_modules \( -name "*.d.ts" -o -name "*.map" -o -name "*.md" \) -delete 2>/dev/null || true
 
 USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "start-production.cjs"]

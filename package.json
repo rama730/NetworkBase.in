@@ -8,7 +8,7 @@
     "dev:lan": "next dev -H 0.0.0.0 --turbo",
     "build": "next build --webpack",
     "analyze:bundle": "ANALYZE=true next build --webpack",
-    "start": "NODE_OPTIONS='--max-old-space-size=700' next start",
+    "start": "NODE_OPTIONS='--max-old-space-size=384' next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:unit": "tsx --test 'tests/unit/**/*.test.ts'",

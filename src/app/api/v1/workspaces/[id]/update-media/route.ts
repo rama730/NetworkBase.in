@@ -92,6 +92,19 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
     });
   }
 
+  if (request.method === "HEAD") {
+    return streamPrivateObject({
+      request,
+      signedUrl: "",
+      totalSize: owningUpdate.size,
+      mimeType: owningUpdate.mimeType,
+      filename: media.label || storageKey.split("/").pop() || "update-image",
+      disposition: "inline",
+      etag,
+      cacheControl,
+    });
+  }
+
   const admin = await createAdminClient();
   const { data, error } = await admin.storage
     .from(WORKSPACE_UPDATE_MEDIA_BUCKET)

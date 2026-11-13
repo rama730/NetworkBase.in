@@ -141,10 +141,22 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  // ponytail: disable Next.js 50 MB in-memory LRU cache; hot data uses bounded Ponytail Maps and Upstash Redis. ceiling: 0 MB Next.js heap cache. upgrade: custom Redis cacheHandler if ISR/fetch caching is introduced.
+  cacheMaxMemorySize: 0,
+  enablePrerenderSourceMaps: Boolean(process.env.SENTRY_AUTH_TOKEN),
+
   // Performance optimizations
   experimental: {
     globalNotFound: true,
     scrollRestoration: true,
+    // ponytail: load route bundles on first request instead of eagerly require()-ing all 156 routes at boot (-41 to -75 MB RSS per container). ceiling: ~5-15 ms cold-require on first visit to an unvisited route after deploy. upgrade: selectively warm top 3 routes post-boot if first-hit latency matters.
+    preloadEntriesOnStart: false,
+    // ponytail: run Webpack in an isolated build worker and enable Next.js 16 webpack memory optimizations so custom webpack() does not force a single-process 4+ GB build heap. ceiling: single build worker process. upgrade: parallelServerCompiles if build time exceeds CI budget.
+    webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
+    // ponytail: disable libvips 50 MB operation cache and cap image optimizer threads to 1 per container to prevent glibc native arena retention. ceiling: 1 concurrent image optimization per replica. upgrade: dedicated image CDN transform if concurrent image resizing queues.
+    imgOptConcurrency: 1,
+    imgOptOperationCache: false,
     // Going back to a page within 30 s reuses it; a server action or router.refresh still clears it.
     staleTimes: { dynamic: 30 },
     // ponytail: disabling persistent dev cache avoids observed multi-second compaction stalls. ceiling: slower cold dev starts. upgrade: re-enable once Turbopack compaction stops stalling.

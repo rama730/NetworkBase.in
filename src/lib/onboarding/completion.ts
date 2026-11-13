@@ -8,11 +8,15 @@ import { isEmailVerified } from "@/lib/auth/email-verification";
 import { syncOnboardingClaims } from "@/lib/onboarding/claims";
 import { hasOnboardingClaims, isCompletedOnboardingStatus } from "@/lib/onboarding/state";
 
-const COMPLETED_USERS_MAX = 10_000;
+const COMPLETED_USERS_MAX = 1_000;
 const completedUsers = new Set<string>();
 
 function rememberCompleted(userId: string) {
-  if (completedUsers.size >= COMPLETED_USERS_MAX) completedUsers.clear();
+  if (completedUsers.has(userId)) return;
+  if (completedUsers.size >= COMPLETED_USERS_MAX) {
+    const oldest = completedUsers.values().next().value;
+    if (oldest !== undefined) completedUsers.delete(oldest);
+  }
   completedUsers.add(userId);
 }
 

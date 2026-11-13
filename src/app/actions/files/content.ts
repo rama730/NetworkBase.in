@@ -37,7 +37,7 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
 
         const node = await db.query.workspaceNodes.findFirst({
             where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
-            columns: { s3Key: true, path: true, taskId: true, deletedAt: true }
+            columns: { s3Key: true, path: true, taskId: true, deletedAt: true, currentVersion: true }
         });
 
         if (!node) {
@@ -54,7 +54,7 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
             throw new Error("File key does not belong to this workspace");
         }
 
-        const query = download ? "?download=1" : "";
+        const query = download ? "?download=1" : `?v=${encodeURIComponent(String(node.currentVersion ?? 1))}`;
         return { url: `/api/v1/workspaces/${projectId}/files/${nodeId}/preview${query}` };
     });
 }

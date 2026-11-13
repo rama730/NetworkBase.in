@@ -25,15 +25,22 @@ const MEDIA_EXTS = new Set([
   "mp3", "wav", "m4a", "aac", "flac", "ogg",
 ]);
 
-// In-memory LRU cache for generated signed storage URLs to eliminate redundant Supabase Storage API calls
-const MAX_SIGNED_URL_CACHE_SIZE = 5000;
+// ponytail: 500-entry bounded LRU cache for generated signed storage URLs to eliminate redundant Supabase Storage API calls while capping URL string retention under ~300KB. ceiling: 500 concurrent previewed files per replica. upgrade: Upstash Redis cache if multi-replica preview churn exceeds 500 active files.
+const MAX_SIGNED_URL_CACHE_SIZE = 500;
 const mediaSignedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 function setCachedSignedUrl(key: string, value: { url: string; expiresAt: number }) {
+  mediaSignedUrlCache.delete(key);
   if (mediaSignedUrlCache.size >= MAX_SIGNED_URL_CACHE_SIZE) {
-    const oldestKey = mediaSignedUrlCache.keys().next().value;
-    if (oldestKey !== undefined) {
-      mediaSignedUrlCache.delete(oldestKey);
+    const now = Date.now();
+    for (const [k, entry] of mediaSignedUrlCache) {
+      if (entry.expiresAt <= now) mediaSignedUrlCache.delete(k);
+    }
+    if (mediaSignedUrlCache.size >= MAX_SIGNED_URL_CACHE_SIZE) {
+      const oldestKey = mediaSignedUrlCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        mediaSignedUrlCache.delete(oldestKey);
+      }
     }
   }
   mediaSignedUrlCache.set(key, value);
@@ -46,17 +53,19 @@ async function getOrGenerateSignedUrl(
   ttlSeconds: number = 7200,
 ): Promise<string | null> {
   const now = Date.now();
-  const cached = mediaSignedUrlCache.get(storageKey);
-  // Keep a 5-minute safety margin; if more than 5 minutes of validity remains, reuse the cached signed URL
-  if (cached && cached.expiresAt > now + 300_000) {
+  const cacheKey = `${bucket}:${storageKey}:${ttlSeconds}`;
+  const cached = mediaSignedUrlCache.get(cacheKey);
+  // Scale safety margin with TTL (20% of TTL, capped at 5 minutes) so 300s URLs stay cacheable for 4 minutes
+  const safetyMarginMs = Math.min(300_000, Math.floor(ttlSeconds * 200));
+  if (cached && cached.expiresAt > now + safetyMarginMs) {
     // Refresh LRU position
-    mediaSignedUrlCache.delete(storageKey);
-    mediaSignedUrlCache.set(storageKey, cached);
+    mediaSignedUrlCache.delete(cacheKey);
+    mediaSignedUrlCache.set(cacheKey, cached);
     return cached.url;
   }
   const { data, error } = await admin.storage.from(bucket).createSignedUrl(storageKey, ttlSeconds);
   if (error || !data?.signedUrl) return null;
-  setCachedSignedUrl(storageKey, { url: data.signedUrl, expiresAt: now + ttlSeconds * 1000 });
+  setCachedSignedUrl(cacheKey, { url: data.signedUrl, expiresAt: now + ttlSeconds * 1000 });
   return data.signedUrl;
 }
 
@@ -194,6 +203,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const fileExt = (node.name.split(".").pop() || "").toLowerCase();
   const isPdf = asset.mimeType === "application/pdf" || fileExt === "pdf";
   const isMediaStream = (asset.mimeType?.startsWith("video/") || asset.mimeType?.startsWith("audio/") || MEDIA_EXTS.has(fileExt)) && request.nextUrl.searchParams.get("download") !== "1";
+
+  if (request.method === "HEAD") {
+    return streamPrivateObject({
+      request,
+      signedUrl: "",
+      totalSize: asset.size,
+      mimeType: asset.mimeType,
+      filename: node.name,
+      disposition: "inline",
+      etag,
+      cacheControl: "private, no-cache",
+    });
+  }
 
   const admin = await createAdminClient();
   const ttlSeconds = isMediaStream ? signedUrlSeconds("video/mp4") : isPdf ? 1800 : signedUrlSeconds(asset.mimeType);

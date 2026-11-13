@@ -69,27 +69,44 @@ interface CachedBlobMeta {
   blobSha: string;
   isSafe: boolean;
   safeError?: string;
+  expiresAt?: number;
 }
 
-// ponytail: 10,000-entry in-memory LRU cache of Git blob SHA and safety metadata keyed by SHA-256 hash. ceiling: 10,000 entries (~2MB RAM). upgrade: Redis key-value cache if multi-instance worker fleet requires shared blob cache across processes.
+const GIT_BLOB_CACHE_MAX_ENTRIES = 1000;
+const GIT_BLOB_CACHE_TTL_MS = 30 * 60 * 1000;
+// ponytail: 1,000-entry, 30-minute TTL in-memory LRU cache of Git blob SHA and safety metadata keyed by SHA-256 hash. ceiling: 1,000 entries (~200KB RAM). upgrade: Redis key-value cache if multi-instance worker fleet requires shared blob cache across processes.
 const gitBlobCache = new Map<string, CachedBlobMeta>();
 
 function getCachedBlobMeta(hash: string): CachedBlobMeta | undefined {
   const cached = gitBlobCache.get(hash);
-  if (cached) {
+  if (!cached) return undefined;
+  if (cached.expiresAt !== undefined && cached.expiresAt <= Date.now()) {
     gitBlobCache.delete(hash);
-    gitBlobCache.set(hash, cached);
+    return undefined;
   }
+  gitBlobCache.delete(hash);
+  gitBlobCache.set(hash, cached);
   return cached;
 }
 
 function cacheBlobMeta(hash: string, meta: CachedBlobMeta) {
   gitBlobCache.delete(hash);
-  if (gitBlobCache.size >= 10000) {
-    const oldest = gitBlobCache.keys().next().value;
-    if (oldest !== undefined) gitBlobCache.delete(oldest);
+  if (gitBlobCache.size >= GIT_BLOB_CACHE_MAX_ENTRIES) {
+    const now = Date.now();
+    for (const [key, entry] of gitBlobCache) {
+      if (entry.expiresAt !== undefined && entry.expiresAt <= now) {
+        gitBlobCache.delete(key);
+      }
+    }
+    if (gitBlobCache.size >= GIT_BLOB_CACHE_MAX_ENTRIES) {
+      const oldest = gitBlobCache.keys().next().value;
+      if (oldest !== undefined) gitBlobCache.delete(oldest);
+    }
   }
-  gitBlobCache.set(hash, meta);
+  gitBlobCache.set(hash, {
+    ...meta,
+    expiresAt: Date.now() + GIT_BLOB_CACHE_TTL_MS,
+  });
 }
 
 export async function requireSyncOwner(

@@ -9,7 +9,8 @@ import { logger } from "@/lib/logger";
 
 const ACCEPTANCE_RETENTION_YEARS = 3;
 const LEGAL_ACCEPTANCE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const LEGAL_ACCEPTANCE_CACHE_MAX_ENTRIES = 5000;
+// ponytail: 1,000-entry in-memory cache of verified legal acceptances. ceiling: 1,000 active users per 5-minute window (~250KB RAM). upgrade: Upstash Redis key if concurrent active users exceed 1,000 per replica.
+const LEGAL_ACCEPTANCE_CACHE_MAX_ENTRIES = 1000;
 // How long past its TTL a verified acceptance may keep a user in during a database outage.
 const LEGAL_ACCEPTANCE_OUTAGE_GRACE_MS = 15 * 60 * 1000;
 
@@ -37,22 +38,23 @@ export class LegalAcceptanceUnavailableError extends Error {
 const legalAcceptanceCache = new Map<string, CachedAcceptance>();
 
 function pruneLegalAcceptanceCacheIfNeeded() {
-  if (legalAcceptanceCache.size <= LEGAL_ACCEPTANCE_CACHE_MAX_ENTRIES) return;
+  if (legalAcceptanceCache.size < LEGAL_ACCEPTANCE_CACHE_MAX_ENTRIES) return;
   const now = Date.now();
   for (const [key, entry] of legalAcceptanceCache) {
     if (entry.expiresAt <= now) {
       legalAcceptanceCache.delete(key);
     }
   }
-  if (legalAcceptanceCache.size <= LEGAL_ACCEPTANCE_CACHE_MAX_ENTRIES) return;
-  const keysToDelete = Array.from(legalAcceptanceCache.keys()).slice(0, 500);
-  for (const key of keysToDelete) {
-    legalAcceptanceCache.delete(key);
+  while (legalAcceptanceCache.size >= LEGAL_ACCEPTANCE_CACHE_MAX_ENTRIES) {
+    const oldestKey = legalAcceptanceCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    legalAcceptanceCache.delete(oldestKey);
   }
 }
 
 export function setCachedLegalAcceptance(userId: string, accepted: boolean) {
   if (!userId) return;
+  legalAcceptanceCache.delete(userId);
   pruneLegalAcceptanceCacheIfNeeded();
   legalAcceptanceCache.set(userId, {
     accepted,

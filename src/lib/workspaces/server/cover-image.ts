@@ -19,6 +19,8 @@ export class CoverTooLargeError extends Error {}
 /** Every cover ends up the same shape: small square WebP. Animated sources keep every frame. */
 export async function renderWorkspaceCover(source: Buffer): Promise<Buffer> {
   const { default: sharp } = await import("sharp");
+  sharp.cache(false);
+  sharp.concurrency(1);
   const rendered = await sharp(source, { animated: true, limitInputPixels: 16_000_000 })
     .resize(COVER_PIXELS, COVER_PIXELS, { fit: "cover" })
     .webp({ quality: 70, effort: 4 })

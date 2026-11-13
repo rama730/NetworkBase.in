@@ -81,22 +81,35 @@ export async function GET(
             headers: { ETag: etag, "Cache-Control": cacheControl, Vary: "Cookie, Authorization" },
         });
     }
-    const admin = await createAdminClient();
-    const [{ data: signedData, error: signError }, [asset]] = await Promise.all([
-        admin.storage.from(project.bucket).createSignedUrl(project.key, 15 * 60),
-        db
-            .select({ size: storageAssets.verifiedSize, mimeType: storageAssets.verifiedMimeType })
-            .from(storageAssets)
-            .where(and(
-                eq(storageAssets.bucket, project.bucket),
-                eq(storageAssets.storageKey, project.key),
-                eq(storageAssets.state, "verified"),
-            ))
-            .limit(1),
-    ]);
+    const [asset] = await db
+        .select({ size: storageAssets.verifiedSize, mimeType: storageAssets.verifiedMimeType })
+        .from(storageAssets)
+        .where(and(
+            eq(storageAssets.bucket, project.bucket),
+            eq(storageAssets.storageKey, project.key),
+            eq(storageAssets.state, "verified"),
+        ))
+        .limit(1);
 
     // A cover whose bytes never passed verification is not served, even as a download.
     if (!asset) return jsonError("Not found", 404, "NOT_FOUND");
+    if (request.method === "HEAD") {
+        return streamPrivateObject({
+            request,
+            signedUrl: "",
+            totalSize: asset.size,
+            mimeType: asset.mimeType,
+            filename: project.key.split("/").pop() || "project-cover",
+            disposition: "inline",
+            etag,
+            cacheControl,
+        });
+    }
+
+    const admin = await createAdminClient();
+    const { data: signedData, error: signError } = await admin.storage
+        .from(project.bucket)
+        .createSignedUrl(project.key, 15 * 60);
     if (signError || !signedData?.signedUrl) {
         logger.warn("project.image_route_presign_failed", {
             module: "projects",

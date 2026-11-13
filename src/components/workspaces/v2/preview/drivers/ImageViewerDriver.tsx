@@ -28,6 +28,27 @@ interface ImageViewerDriverProps {
   fileUrl: string;
 }
 
+const MAX_SVG_SOURCE_CACHE_ENTRIES = 10;
+const svgSourceCache = new Map<string, string>();
+
+function getCachedSvgSource(url: string): string | null {
+  const existing = svgSourceCache.get(url);
+  if (existing === undefined) return null;
+  svgSourceCache.delete(url);
+  svgSourceCache.set(url, existing);
+  return existing;
+}
+
+function setCachedSvgSource(url: string, text: string) {
+  svgSourceCache.delete(url);
+  while (svgSourceCache.size >= MAX_SVG_SOURCE_CACHE_ENTRIES) {
+    const oldestKey = svgSourceCache.keys().next().value;
+    if (!oldestKey) break;
+    svgSourceCache.delete(oldestKey);
+  }
+  svgSourceCache.set(url, text);
+}
+
 export function ImageViewerDriver({
   node,
   fileUrl,
@@ -59,13 +80,19 @@ export function ImageViewerDriver({
     positionRef.current = position;
   }, [position]);
 
-  // Fetch SVG text if it is an SVG file to support viewing source
+  // ponytail: fetch SVG source text only when the user switches to the "code" tab (viewMode === "code"), avoiding a duplicate SVG download on every image preview open. ceiling: 10 cached SVG source strings. upgrade: IndexedDB cache if offline SVG source inspection is needed.
   React.useEffect(() => {
-    if (!isSvg || !fileUrl) return;
+    if (!isSvg || viewMode !== "code" || !fileUrl) return;
+    const cached = getCachedSvgSource(fileUrl);
+    if (cached !== null) {
+      setSvgSource(cached);
+      return;
+    }
     let active = true;
     fetch(fileUrl)
       .then((res) => (res.ok ? res.text() : Promise.reject(new Error("Couldn’t fetch SVG"))))
       .then((text) => {
+        setCachedSvgSource(fileUrl, text);
         if (active) setSvgSource(text);
       })
       .catch(() => {
@@ -74,7 +101,7 @@ export function ImageViewerDriver({
     return () => {
       active = false;
     };
-  }, [isSvg, fileUrl]);
+  }, [isSvg, viewMode, fileUrl]);
 
   const handleZoomIn = React.useCallback(() => {
     setScale((s) => Math.min(Number((s + 0.25).toFixed(2)), 8));

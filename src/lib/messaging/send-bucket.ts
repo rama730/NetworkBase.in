@@ -2,7 +2,7 @@
 // reactions (L-3). ceiling: the effective limit is multiplied by the instance
 // count. upgrade: Redis rateLimit() for that action once abuse is seen.
 export function createTokenBucket(options: { capacity: number; refillPerSecond: number; maxKeys?: number }) {
-  const { capacity, refillPerSecond, maxKeys = 50_000 } = options;
+  const { capacity, refillPerSecond, maxKeys = 2_000 } = options;
   const buckets = new Map<string, { tokens: number; at: number }>();
   return function take(key: string, now = Date.now()) {
     const bucket = buckets.get(key) ?? { tokens: capacity, at: now };

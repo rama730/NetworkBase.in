@@ -28,6 +28,20 @@ const SCANNER_EXACT_PATHS = new Set([
   "/console",
   "/console/",
   "/xmlrpc.php",
+  "/composer.json",
+  "/composer.lock",
+  "/package.json",
+  "/package-lock.json",
+  "/yarn.lock",
+  "/pnpm-lock.yaml",
+  "/tsconfig.json",
+  "/swagger.json",
+  "/crossdomain.xml",
+  "/autodiscover/autodiscover.xml",
+  "/server-status",
+  "/server-info",
+  "/_all_dbs",
+  "/login.action",
 ]);
 const SCANNER_PREFIX_PATHS = [
   "/wp-admin",
@@ -39,7 +53,7 @@ const SCANNER_PREFIX_PATHS = [
   "/cgi-bin",
   "/vendor/phpunit",
 ];
-const SCANNER_EXTENSION_RE = /\.(?:php|asp|aspx|jsp|cgi|env)$/i;
+const SCANNER_EXTENSION_RE = /\.(?:php|asp|aspx|jsp|cgi|env|map)$/i;
 
 function isScannerProbePath(pathname: string) {
   const lower = pathname.toLowerCase();

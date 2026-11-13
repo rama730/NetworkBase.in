@@ -1,17 +1,8 @@
-import { getRequestId, jsonSuccess, logApiRoute } from "@/app/api/v1/_shared";
+// ponytail: import jsonSuccess directly from _envelope instead of _shared so liveness probes do not pull in Supabase, Drizzle schema, Redis, Sentry, or email outbox modules. ceiling: liveness check only. upgrade: use /api/v1/ready for deep dependency readiness.
+import { jsonSuccess } from "@/app/api/v1/_envelope";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
-  const startedAt = Date.now();
-  const requestId = getRequestId(request);
-
-  logApiRoute(request, {
-    requestId,
-    action: "live.get",
-    startedAt,
-    status: 200,
-    success: true,
-  });
+export async function GET() {
   return jsonSuccess({ status: "ok", probe: "liveness" });
 }

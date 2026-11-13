@@ -30,6 +30,27 @@ interface ArchiveViewerDriverProps {
   fileUrl: string;
 }
 
+const MAX_ARCHIVE_CACHE_ENTRIES = 2;
+const archivePreviewCache = new Map<string, ArchiveEntry[]>();
+
+function getCachedArchivePreview(url: string): ArchiveEntry[] | null {
+  const existing = archivePreviewCache.get(url);
+  if (!existing) return null;
+  archivePreviewCache.delete(url);
+  archivePreviewCache.set(url, existing);
+  return existing;
+}
+
+function setCachedArchivePreview(url: string, entries: ArchiveEntry[]) {
+  archivePreviewCache.delete(url);
+  while (archivePreviewCache.size >= MAX_ARCHIVE_CACHE_ENTRIES) {
+    const oldestKey = archivePreviewCache.keys().next().value;
+    if (!oldestKey) break;
+    archivePreviewCache.delete(oldestKey);
+  }
+  archivePreviewCache.set(url, entries);
+}
+
 export function ArchiveViewerDriver({
   node,
   fileUrl,
@@ -46,6 +67,14 @@ export function ArchiveViewerDriver({
 
     async function loadArchive() {
       try {
+        const cached = getCachedArchivePreview(fileUrl);
+        if (cached) {
+          if (active) {
+            setEntries(cached);
+            setLoading(false);
+          }
+          return;
+        }
         const res = await fetch(fileUrl);
         if (!res.ok) throw new Error("Couldn’t download archive");
         const buffer = await res.arrayBuffer();
@@ -79,6 +108,7 @@ export function ArchiveViewerDriver({
           return a.path.localeCompare(b.path);
         });
 
+        setCachedArchivePreview(fileUrl, parsedEntries);
         if (active) {
           setEntries(parsedEntries);
           setLoading(false);

@@ -8,6 +8,9 @@ import { and, eq, isNull, or } from 'drizzle-orm';
 import { isUuid } from '@/lib/validations/uuid';
 import sharp from 'sharp';
 import { db } from '@/lib/db';
+
+sharp.cache(false);
+sharp.concurrency(1);
 import { profiles, workspaces, storageAssets } from '@/lib/db/schema';
 import { readBoundedStorageBytes } from '@/lib/storage/bounded-object-read';
 import { initialsForName } from '@/lib/profile/display';

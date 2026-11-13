@@ -978,6 +978,8 @@ export async function finalizeContributionImageAction(
     timeoutMs: 10000,
   });
   const { default: sharp } = await import("sharp");
+  sharp.cache(false);
+  sharp.concurrency(1);
   const metadata = await sharp(Buffer.from(bytes), {
     limitInputPixels: 40_000_000,
     animated: false,

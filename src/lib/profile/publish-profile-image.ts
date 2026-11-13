@@ -27,6 +27,9 @@ async function downloadPrivateSource(storageKey: string): Promise<Buffer> {
 
 async function renderPublicImage(source: Buffer, kind: ProfileImageKind): Promise<Buffer> {
   const { default: sharp } = await import("sharp");
+  // ponytail: disable libvips 50 MB native operation cache and limit worker threads to 1 per container to prevent glibc native arena retention. ceiling: 1 concurrent avatar/banner decode per replica. upgrade: dedicated image worker pool if concurrent profile uploads queue.
+  sharp.cache(false);
+  sharp.concurrency(1);
   const pipeline = sharp(source, { limitInputPixels: 16_000_000, animated: false }).rotate();
   const rendered = kind === "avatar"
     ? await pipeline.resize(400, 400, { fit: "cover" }).webp({ quality: 82 }).toBuffer()

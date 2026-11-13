@@ -6,7 +6,7 @@ import type {
 const GITHUB_API_BASE = "https://api.github.com";
 const DEFAULT_TIMEOUT_MS = 5_000;
 const DEFAULT_CACHE_TTL_MS = 5 * 60_000;
-const MAX_CACHE_ENTRIES = 2_000;
+const MAX_CACHE_ENTRIES = 500;
 
 type CachedHealth = {
   expiresAt: number;

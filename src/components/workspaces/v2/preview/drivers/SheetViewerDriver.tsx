@@ -16,6 +16,27 @@ interface SheetViewerDriverProps {
   fileUrl: string;
 }
 
+const MAX_SHEET_CACHE_ENTRIES = 2;
+const sheetPreviewCache = new Map<string, { sheets: SheetData[]; isLegacy: boolean }>();
+
+function getCachedSheetPreview(url: string): { sheets: SheetData[]; isLegacy: boolean } | null {
+  const existing = sheetPreviewCache.get(url);
+  if (!existing) return null;
+  sheetPreviewCache.delete(url);
+  sheetPreviewCache.set(url, existing);
+  return existing;
+}
+
+function setCachedSheetPreview(url: string, value: { sheets: SheetData[]; isLegacy: boolean }) {
+  sheetPreviewCache.delete(url);
+  while (sheetPreviewCache.size >= MAX_SHEET_CACHE_ENTRIES) {
+    const oldestKey = sheetPreviewCache.keys().next().value;
+    if (!oldestKey) break;
+    sheetPreviewCache.delete(oldestKey);
+  }
+  sheetPreviewCache.set(url, value);
+}
+
 /** Converts an Excel column reference (e.g. 'A', 'D', 'AA') to 0-based index */
 function colRefToIndex(cellRef: string): number {
   const match = cellRef.match(/^[A-Z]+/i);
@@ -96,6 +117,16 @@ export function SheetViewerDriver({
 
     async function loadSpreadsheet() {
       try {
+        const cached = getCachedSheetPreview(fileUrl);
+        if (cached) {
+          if (active) {
+            setIsLegacy(cached.isLegacy);
+            setSheets(cached.sheets);
+            setLoading(false);
+          }
+          return;
+        }
+
         const res = await fetch(fileUrl);
         if (!res.ok) throw new Error("Couldn’t fetch spreadsheet file");
 
@@ -104,8 +135,10 @@ export function SheetViewerDriver({
           const text = await res.text();
           const delimiter = ext === "tsv" ? "\t" : ",";
           const parsed = parseDelimitedText(text, delimiter);
+          const csvSheets = [{ name: "Data", headers: parsed.headers, rows: parsed.rows }];
+          setCachedSheetPreview(fileUrl, { sheets: csvSheets, isLegacy: false });
           if (active) {
-            setSheets([{ name: "Data", headers: parsed.headers, rows: parsed.rows }]);
+            setSheets(csvSheets);
             setLoading(false);
           }
           return;
@@ -127,6 +160,7 @@ export function SheetViewerDriver({
           uint8[2] === 0x11 &&
           uint8[3] === 0xe0
         ) {
+          setCachedSheetPreview(fileUrl, { sheets: [], isLegacy: true });
           if (active) {
             setIsLegacy(true);
             setLoading(false);
@@ -137,6 +171,10 @@ export function SheetViewerDriver({
         // Delegate heavy decompression & parsing to background Web Worker
         const workerResult = await parseWithWorker(buffer.slice(0));
         if (workerResult) {
+          setCachedSheetPreview(fileUrl, {
+            sheets: workerResult.sheets,
+            isLegacy: Boolean(workerResult.isLegacy),
+          });
           if (active) {
             if (workerResult.isLegacy) {
               setIsLegacy(true);
@@ -337,6 +375,7 @@ export function SheetViewerDriver({
           if (parsedSheets.length === 0) {
             throw new Error("No readable spreadsheet data found in workbook");
           }
+          setCachedSheetPreview(fileUrl, { sheets: parsedSheets, isLegacy: false });
           setSheets(parsedSheets);
           setLoading(false);
         }

@@ -19,26 +19,41 @@ import { broadcast, type ServerBroadcast } from "@/lib/realtime/server-broadcast
 
 const allowPush = createPushSuppressor(30_000);
 
+function runAfterResponse(task: () => Promise<unknown>) {
+  const safeTask = () =>
+    task().catch((error) =>
+      logger.warn("chat.publish_after_failed", {
+        module: "chat",
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  try {
+    after(safeTask);
+  } catch {
+    void safeTask();
+  }
+}
+
 /** Publish one channel event after the response is sent (never blocks the action). */
 export function publishChannel(channelId: string, event: string, payload: Record<string, unknown>) {
-  after(() => broadcast([{ topic: channelTopic(channelId), event, payload }]));
+  runAfterResponse(() => broadcast([{ topic: channelTopic(channelId), event, payload }]));
 }
 
 /** Publish one event to a user's own topic (multi-tab sync, membership changes). */
 export function publishUser(userId: string, event: string, payload: Record<string, unknown>) {
-  after(() => broadcast([{ topic: userTopic(userId), event, payload }]));
+  runAfterResponse(() => broadcast([{ topic: userTopic(userId), event, payload }]));
 }
 
 /** The same event to several users' topics in one REST batch. */
 export function publishUsers(userIds: readonly string[], event: string, payload: Record<string, unknown>) {
   if (!userIds.length) return;
-  after(() => broadcast(userIds.map((userId) => ({ topic: userTopic(userId), event, payload }))));
+  runAfterResponse(() => broadcast(userIds.map((userId) => ({ topic: userTopic(userId), event, payload }))));
 }
 
 /** Several events to one user's topic in one REST batch. */
 export function publishUserEvents(userId: string, events: { event: string; payload: Record<string, unknown> }[]) {
   if (!events.length) return;
-  after(() => broadcast(events.map(({ event, payload }) => ({ topic: userTopic(userId), event, payload }))));
+  runAfterResponse(() => broadcast(events.map(({ event, payload }) => ({ topic: userTopic(userId), event, payload }))));
 }
 
 /**
@@ -47,7 +62,7 @@ export function publishUserEvents(userId: string, events: { event: string; paylo
  * Application threads use it for every status change; the lines are written by SQL, not the send path.
  */
 export function publishChannelActivity(channelId: string, actorId: string | null) {
-  after(async () => {
+  runAfterResponse(async () => {
     const [state] = await chatRows<{ last_seq: string | number; members: string[] | string | null }>(sql`
       SELECT c.last_seq,
              (SELECT coalesce(jsonb_agg(m.user_id), '[]'::jsonb) FROM chat_channel_members m WHERE m.channel_id = c.id) AS members
@@ -98,7 +113,7 @@ export function publishSentMessage(input: {
   const { message, notify, mentioned } = input;
   const muted = new Set(input.muted ?? []);
   const follows = new Set(input.follows ?? []);
-  after(async () => {
+  runAfterResponse(async () => {
     const events: ServerBroadcast[] = [
       { topic: channelTopic(message.channel_id), event: "message.new", payload: message as unknown as Record<string, unknown> },
       ...notify.map((userId) => ({
