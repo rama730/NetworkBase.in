@@ -83,7 +83,7 @@ export function expectsInOrder(expect: Array<string | string[]>, names: string[]
 
 /** The local files the requests talk about ("push this code", "report.pdf"), so pushes have something to push. */
 function prepareFolder(dir: string) {
-  const files: Record<string, string> = { "src/app.ts": "export const app = () => 'hello';\n", "report.pdf": "%PDF-1.4 quarterly report\n", "screenshots/home.png": "png", "screenshots/login.png": "png", "notes.md": "# Notes\n\nLocal changes to sync.\n" };
+  const files: Record<string, string> = { "src/app.ts": "export const app = () => 'hello';\n", "report.pdf": "%PDF-1.4 quarterly report\n", "screenshots/home.png": "png", "screenshots/login.png": "png", "notes.md": "# Notes\n\nLocal changes to sync.\n" , "lab-report.md": "# Pendulum lab report\\n\\nPeriod T = 2.01 s over 10 swings; plot attached; conclusion: T grows with the square root of the length.\\n" };
   for (const [rel, body] of Object.entries(files)) {
     const file = path.join(dir, rel);
     if (fs.existsSync(file)) continue;

@@ -76,7 +76,7 @@ export const TOOLS = [
     description: "Count the user's open tasks across all their workspaces, by status and per workspace. Say which workspace each overdue task is in.",
     run: (nb) => nb("task count") },
   { name: "networkbase_task_list", title: "List tasks", tier: "read",
-    props: { workspace: workspaceProp, all: { type: "boolean", description: "Include others' tasks" }, status: { type: "string", description: "Comma list: todo, in_progress, blocked, review, done" }, limit: { type: "number", description: "At most (default 50)" } },
+    props: { workspace: workspaceProp, all: { type: "boolean", description: "Include others' tasks" }, status: { type: "string", description: "todo,in_progress,blocked,review,done" }, limit: { type: "number" } },
     description: `List tasks in a workspace (default: the user's open ones). ${DATA}`,
     fields: { tasks: ["number", "title", "status", "dueDate", "assignee", "labels"] },
     run: (nb, a) => nb("task list", [], { ...ws(a), ...(a.all ? { all: true } : {}), ...(a.status ? { status: a.status } : {}), ...(a.limit ? { limit: String(a.limit) } : {}) }) },
@@ -95,7 +95,7 @@ export const TOOLS = [
     description: "Create a new task (\"add a task, issue or to-do\"). If the user names a task that may exist, find it first (networkbase_task_find). For subtasks use networkbase_subtask_add.",
     run: (nb, a) => nb("task create", [a.title], { ...ws(a), ...(a.description ? { message: a.description } : {}), ...(a.priority ? { priority: a.priority } : {}), ...(a.subtasks?.length ? { subtask: a.subtasks } : {}) }) },
   { name: "networkbase_task_move", title: "Change a task's status", tier: "small",
-    props: { task: taskProp, to: { type: "string", enum: ["todo", "in_progress", "blocked"] }, reason: { type: "string", description: "Why (needed for blocked; posted as a comment)" }, workspace: workspaceProp },
+    props: { task: taskProp, to: { type: "string", enum: ["todo", "in_progress", "blocked"] }, reason: { type: "string", description: "Needed for blocked" }, workspace: workspaceProp },
     required: ["task", "to"],
     description: "Move a task to To do, In progress or Blocked (\"I'm starting #3\"). To finish one, use networkbase_task_done.",
     run: (nb, a) => nb("task move", [String(a.task), a.to], { ...ws(a), ...(a.reason ? { reason: a.reason } : {}) }) },
@@ -106,7 +106,7 @@ export const TOOLS = [
     needsYes: (a) => `Mark task ${a.task ?? "(this folder's task)"} done${a.checks?.length ? ` with ${a.checks.length} check(s)` : ""}: "${String(a.summary).slice(0, 200)}"`,
     run: (nb, a) => nb("task done", a.task ? [String(a.task)] : [], { ...ws(a), message: a.summary, check: (a.checks ?? []).map((/** @type {any} */ c) => `${c.name}=${c.passed ? "pass" : "fail"}${c.note ? `:${c.note}` : ""}`) }) },
   { name: "networkbase_task_edit", title: "Edit a task", tier: "small",
-    props: { task: taskProp, title: { type: "string" }, description: { type: "string", description: "Markdown" }, priority: { type: "string", enum: ["low", "medium", "high", "urgent"] }, due: { type: "string", description: "Like 2026-11-14, friday, or none" }, workspace: workspaceProp },
+    props: { task: taskProp, title: { type: "string" }, description: { type: "string" }, priority: { type: "string", enum: ["low", "medium", "high", "urgent"] }, due: { type: "string", description: "2026-11-14, friday or none" }, workspace: workspaceProp },
     required: ["task"],
     description: "Change a task's title, description, priority or due date. Labels, blocked by, watch and star: networkbase_task_tags.",
     run: (nb, a) => nb("task edit", [String(a.task)], { ...ws(a), ...(a.title ? { title: a.title } : {}), ...(a.description !== undefined ? { message: a.description } : {}), ...(a.priority ? { priority: a.priority } : {}), ...(a.due ? { due: a.due } : {}) }) },
@@ -638,8 +638,8 @@ export async function callTool(name, args = {}, where, opts = {}) {
     const held = /** @type {any} */ (error instanceof CliError && error.code === "NEEDS_CONFIRMATION" ? error.details : null);
     if (held?.confirmToken) {
       return {
-        content: [{ type: "text", text: `needs_confirmation: ${held.summary ?? "this change needs a yes"}${held.preview ? `\n\n${held.preview}` : ""}\n\nShow this to the user. Only if they agree, call ${name} again with the same arguments and confirmToken "${held.confirmToken}" (valid 10 minutes, once).` }],
-        structuredContent: { status: "needs_confirmation", summary: held.summary ?? "this change needs a yes", ...(held.preview ? { preview: held.preview } : {}), confirmToken: held.confirmToken, by: "server" },
+        content: [{ type: "text", text: `needs_confirmation: ${held.summary ?? "this change needs a yes"}${held.preview ? `\n\n${held.preview}` : ""}\n\nShow this to the user and end your turn. Only after they reply yes, call ${name} again with the same arguments and confirmToken "${held.confirmToken}" (valid 10 minutes, once). Never in this turn.` }],
+        structuredContent: { status: "needs_confirmation", summary: held.summary ?? "this change needs a yes", ...(held.preview ? { preview: held.preview } : {}), confirmToken: held.confirmToken, by: "server", rule: "Show the summary and end your turn; use confirmToken only after the user replies yes." },
       };
     }
     if (error instanceof CliError && error.code === "NEEDS_CONFIRMATION") return confirmationResult(name, args, error.message, /** @type {any} */ (error.details)?.questions?.[0]?.preview, where.env);
@@ -735,8 +735,8 @@ const plain = (s) => String(s ?? "").replace(/[\u0000-\u001f\u007f<>"]/g, " ").r
 function confirmationResult(name, args, summary, preview, env) {
   const confirmToken = issueConfirmation(name, args, env);
   return {
-    content: [{ type: "text", text: `needs_confirmation: ${summary}${preview ? `\n\n${preview}` : ""}\n\nShow this to the user. Only if they agree, call ${name} again with the same arguments and confirmToken "${confirmToken}".` }],
-    structuredContent: { status: "needs_confirmation", summary, ...(preview ? { preview } : {}), confirmToken },
+    content: [{ type: "text", text: `needs_confirmation: ${summary}${preview ? `\n\n${preview}` : ""}\n\nShow this to the user and end your turn. Only after they reply yes, call ${name} again with the same arguments and confirmToken "${confirmToken}". Never in this turn.` }],
+    structuredContent: { status: "needs_confirmation", summary, ...(preview ? { preview } : {}), confirmToken, rule: "Show the summary and end your turn; use confirmToken only after the user replies yes." },
   };
 }
 
