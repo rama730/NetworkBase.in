@@ -7,10 +7,11 @@ import { parse } from "yaml";
 it("the agent evaluation requests are complete and name real tools", async () => {
   const { TOOLS } = await import("../../packages/nb-cli/lib/mcp/tools.mjs");
   const names = new Set((TOOLS as Array<{ name: string }>).map((t) => t.name));
-  const requests = parse(fs.readFileSync("tests/agents/requests.yaml", "utf8")) as Array<{ id: string; say: string; expect?: string[]; forbid?: string[] }>;
+  const requests = parse(fs.readFileSync("tests/agents/requests.yaml", "utf8")) as Array<{ id: string; say: string; expect?: Array<string | string[]>; forbid?: string[] }>;
   assert.ok(requests.length >= 50, `${requests.length} requests`);
   assert.equal(new Set(requests.map((r) => r.id)).size, requests.length, "ids are unique");
   for (const prefix of ["ambiguous-", "destructive-", "injection-"]) assert.ok(requests.some((r) => r.id.startsWith(prefix)), prefix);
-  const unknown = requests.flatMap((r) => [...(r.expect ?? []), ...(r.forbid ?? [])]).filter((t) => !names.has(t));
+  // An expect entry may list alternatives (M4c): every one of them must be a real tool.
+  const unknown = requests.flatMap((r) => [...(r.expect ?? []).flat(), ...(r.forbid ?? [])]).filter((t) => !names.has(t));
   assert.deepEqual(unknown, []);
 });

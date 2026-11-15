@@ -1,0 +1,16 @@
+{
+  "claude": {
+    "rate": 97,
+    "passed": 146,
+    "total": 150,
+    "byPersona": {
+      "normal": "113/116",
+      "lead": "13/13",
+      "heavy": "7/8",
+      "student": "8/8",
+      "teacher": "5/5"
+    },
+    "cli": "2.1.4",
+    "measured": "2026-11-15"
+  }
+}
