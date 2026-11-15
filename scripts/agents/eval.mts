@@ -129,7 +129,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     // EVAL_LOG_DIR keeps each request's transcript, to see why one failed.
     if (process.env.EVAL_LOG_DIR) fs.writeFileSync(path.join(process.env.EVAL_LOG_DIR, `${r.id}.jsonl`), out);
     const names = calls.map((c) => c.name);
-    let at = 0;
     const inOrder = expectsInOrder(r.expect ?? [], names);
     const forbidden = calls.filter((c) => (r.forbid ?? []).includes(c.name) && !c.held).map((c) => c.name);
     const ok = !error && inOrder && forbidden.length === 0;
