@@ -168,7 +168,7 @@
       "status": 413,
       "exit": 1,
       "meaning": "A change set holds at most 2,000 files and 500 MB",
-      "fix": "Split it into smaller change sets, for example by folder"
+      "fix": "nb change split makes one change set per folder"
     },
     "CHANGE_SET_NOT_READY": {
       "status": 409,

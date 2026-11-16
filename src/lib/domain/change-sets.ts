@@ -321,7 +321,7 @@ export async function upsertItems(actor: Actor, changeSetId: string, raw: ItemIn
     }
     const [{ count, bytes } = { count: 0, bytes: 0 }] = await tx.select({ count: sql<number>`count(*)::int`, bytes: sql<number>`coalesce(sum(${changeSetItems.size}), 0)::bigint` })
       .from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));
-    if (count > LIMITS.items) fail(`A change set holds at most ${LIMITS.items} files; split it into smaller change sets`, 413, "CHANGE_SET_TOO_LARGE");
+    if (count > LIMITS.items) fail(`A change set holds at most ${LIMITS.items} files; nb change split makes one per folder`, 413, "CHANGE_SET_TOO_LARGE");
     if (Number(bytes) > LIMITS.bytes) fail("A change set holds at most 500 MB; split it into smaller change sets", 413, "CHANGE_SET_TOO_LARGE");
     // Drafts count toward storage, capped per person per workspace (G6), so drafts can't get round the limit.
     const [{ drafts } = { drafts: 0 }] = await tx.select({ drafts: sql<number>`coalesce(sum(${changeSetItems.size}), 0)::bigint` })

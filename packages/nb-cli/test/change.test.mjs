@@ -229,6 +229,23 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("nb change split makes one finished change set per top-level folder (G16)", async () => {
+    const api = await startFakeServer();
+    try {
+      const { cwd, nb } = await linked(api);
+      await nb(["change", "start", "Big job"]);
+      for (const dir of ["app", "lib"]) { fs.mkdirSync(path.join(cwd, dir)); for (let i = 0; i < 3; i += 1) fs.writeFileSync(path.join(cwd, dir, `f${i}.ts`), `${dir} ${i}\n`); }
+      fs.writeFileSync(path.join(cwd, "a.txt"), "a changed\n");
+      const r = await nb(["change", "split", "--json"]);
+      assert.equal(r.code, 0, r.stderr);
+      const made = JSON.parse(r.stdout).data.changeSets;
+      assert.deepEqual(made.map((/** @type {any} */ s) => [s.title, s.files]), [["Big job (top level)", 1], ["Big job (app)", 3], ["Big job (lib)", 3]]);
+      const sets = [.../** @type {any} */ (api.state).changeSets.values()];
+      assert.equal(sets.find((/** @type {any} */ s) => s.title === "Big job").status, "discarded");
+      assert.ok(made.every((/** @type {any} */ m) => sets.find((/** @type {any} */ s) => s.id === m.id).status === "ready"));
+    } finally { await api.close(); }
+  });
+
   it("nb watch --change needs an open change set; workspaces without change sets say so", async () => {
     const api = await startFakeServer();
     try {

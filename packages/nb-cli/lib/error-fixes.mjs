@@ -26,7 +26,7 @@ export const FIXES = /** @type {Record<string, string>} */ ({
   "CHANGE_SETS_OFF": "Push with nb push for now",
   "CHANGE_SET_LIMIT": "nb change list, then finish or discard one",
   "CHANGE_SET_CLOSED": "nb change start for a new one, or nb change copy <id>",
-  "CHANGE_SET_TOO_LARGE": "Split it into smaller change sets, for example by folder",
+  "CHANGE_SET_TOO_LARGE": "nb change split makes one change set per folder",
   "CHANGE_SET_NOT_READY": "nb change finish, then apply",
   "CHANGE_SET_CONFLICT": "nb change view <id> to see them, then nb change resolve <path>",
   "CONTENT_MISSING": "Wait for nb change status to show all uploaded, then finish again",

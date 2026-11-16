@@ -350,3 +350,64 @@ export async function pushAsChangeSet(ctx, root, project, items) {
   const res = /** @type {any} */ (await ctx.api.post(`/api/v1/change-sets/${enc(id)}/apply`, {}));
   return { changeSet: res.changeSet, applied: res.applied ?? [] };
 }
+
+/**
+ * nb change split (report G16): a change set over the limits (2,000 files, 500 MB) becomes one per top-level folder,
+ * each sent and finished, ready to apply one at a time. The original is discarded; your files stay as they are.
+ * @param {Context} ctx
+ */
+export async function changeSplit(ctx) {
+  const { root, project } = ctx.requireRoot();
+  const id = currentChange(root);
+  if (!id) throw new CliError("NOT_FOUND", "No open change set in this folder to split", { hint: "nb change status" });
+  const { items } = await draftItems(root, project);
+  if (!items.length) throw new CliError("USAGE", "Nothing to split: no saved changes here");
+  const title = readJournal(root, id).title || "Changes";
+  const MAX_FILES = 1900;
+  const MAX_BYTES = 450 * 1024 * 1024;
+  /** @type {Map<string, typeof items>} */
+  const byFolder = new Map();
+  for (const item of items) {
+    const top = item.path.split("/").filter(Boolean).length > 1 ? item.path.split("/")[1] ?? "/" : "/";
+    byFolder.set(top, [...(byFolder.get(top) ?? []), item]);
+  }
+  // A folder bigger than one change set allows goes in parts, in path order.
+  /** @type {Array<{ name: string, items: typeof items }>} */
+  const groups = [];
+  for (const [folder, list] of [...byFolder].sort(([a], [b]) => a.localeCompare(b))) {
+    let part = /** @type {typeof items} */ ([]);
+    let bytes = 0;
+    const name = folder === "/" ? "top level" : folder;
+    for (const item of list) {
+      if (part.length && (part.length >= MAX_FILES || bytes + (item.size ?? 0) > MAX_BYTES)) { groups.push({ name, items: part }); part = []; bytes = 0; }
+      part.push(item);
+      bytes += item.size ?? 0;
+    }
+    if (part.length) groups.push({ name, items: part });
+  }
+  const counts = new Map();
+  for (const g of groups) counts.set(g.name, (counts.get(g.name) ?? 0) + 1);
+  const seen = new Map();
+  /** @type {Array<{ id: string, title: string, files: number, decision: string }>} */
+  const made = [];
+  for (const g of groups) {
+    const n = (seen.get(g.name) ?? 0) + 1;
+    seen.set(g.name, n);
+    const partTitle = `${title} (${g.name}${counts.get(g.name) > 1 ? ` ${n}` : ""})`.slice(0, 120);
+    const started = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title: partTitle }));
+    const partId = started.changeSet.id;
+    writeJournal(root, { id: partId, title: partTitle, sent: {}, missing: [] });
+    const sync = await syncDraft(ctx.api, root, partId, g.items, { confirmSecrets: Boolean(ctx.flags["confirm-secrets"]) });
+    if (sync.pending || sync.held.length) throw new CliError("CONTENT_MISSING", `${partTitle}: ${plural(sync.pending, "file")} not uploaded yet`, { hint: `nb change status ${partId.slice(0, 8)}, then nb change finish there` });
+    const finished = /** @type {any} */ (await ctx.api.post(`/api/v1/change-sets/${enc(partId)}/finish`, {}));
+    made.push({ id: partId, title: partTitle, files: g.items.length, decision: finished.decision });
+  }
+  await ctx.api.post(`/api/v1/change-sets/${enc(id)}/discard`, {});
+  setCurrentChange(root, null);
+  ctx.out.result("nb.change.split/1", { from: id, changeSets: made }, (d) => [
+    `${ctx.out.c.success(ctx.out.sym.done)} Split into ${plural(d.changeSets.length, "change set")}, each finished:`,
+    ...d.changeSets.map((/** @type {any} */ s) => `  ${ctx.out.c.muted(s.id.slice(0, 8))}  ${safe(s.title)} ${ctx.out.c.muted(`· ${plural(s.files, "file")}`)}`),
+    ctx.out.c.muted(`  Apply each: nb change apply <id>`),
+  ]);
+  return EXIT.ok;
+}

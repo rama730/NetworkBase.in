@@ -735,6 +735,17 @@
       ]
     },
     {
+      "name": "change split",
+      "summary": "Split a change set that's too big into one per folder",
+      "usage": "nb change split",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "change copy",
       "summary": "Copy an undone or discarded change set as a new draft",
       "usage": "nb change copy <id>",

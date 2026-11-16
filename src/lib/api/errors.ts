@@ -70,7 +70,7 @@ export const ERROR_CATALOG: Record<string, ErrorEntry> = {
   CHANGE_SETS_OFF: { status: 403, exit: 3, meaning: "Change sets aren't turned on for this workspace yet", fix: "Push with nb push for now" },
   CHANGE_SET_LIMIT: { status: 409, exit: 4, meaning: "Too many open change sets (3 per agent sign-in, 10 per person, per workspace)", fix: "nb change list, then finish or discard one" },
   CHANGE_SET_CLOSED: { status: 409, exit: 4, meaning: "The change set was applied, discarded or undone, so it takes no more changes", fix: "nb change start for a new one, or nb change copy <id>" },
-  CHANGE_SET_TOO_LARGE: { status: 413, exit: 1, meaning: "A change set holds at most 2,000 files and 500 MB", fix: "Split it into smaller change sets, for example by folder" },
+  CHANGE_SET_TOO_LARGE: { status: 413, exit: 1, meaning: "A change set holds at most 2,000 files and 500 MB", fix: "nb change split makes one change set per folder" },
   CHANGE_SET_NOT_READY: { status: 409, exit: 4, meaning: "The change set isn't finished, or has no files", fix: "nb change finish, then apply" },
   CHANGE_SET_CONFLICT: { status: 409, exit: 4, meaning: "Files in the change set changed since it started", fix: "nb change view <id> to see them, then nb change resolve <path>" },
   CONTENT_MISSING: { status: 409, exit: 4, meaning: "Some files' content hasn't been uploaded yet", fix: "Wait for nb change status to show all uploaded, then finish again" },

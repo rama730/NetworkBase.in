@@ -133,6 +133,7 @@ export const COMMANDS = [
   { group: "Files", name: "change update", summary: "Merge teammates' newer versions into your change set's files", usage: "nb change update", module: "change", fn: "changeUpdate", exit: [0, 4] },
   { group: "Files", name: "change resolve", summary: "Keep yours or theirs for a file that changed on both sides", usage: "nb change resolve <path> --mine|--theirs", module: "change", fn: "changeResolve",
     flags: { mine: { type: "boolean", describe: "Your file goes over theirs" }, theirs: { type: "boolean", describe: "Take the workspace's file; drop yours from the change set" } } },
+  { group: "Files", name: "change split", summary: "Split a change set that's too big into one per folder", usage: "nb change split", module: "change", fn: "changeSplit" },
   { group: "Files", name: "change copy", summary: "Copy an undone or discarded change set as a new draft", usage: "nb change copy <id>", module: "change", fn: "changeCopy" },
   { group: "Files", name: "watch", summary: "Push your saves as drafts; pull teammates' changes (foreground)", usage: "nb watch [--no-pull] [--change]", module: "watch", fn: "watch",
     flags: { "no-pull": { type: "boolean", describe: "Only push; don't pull other people's changes" }, inbox: { type: "boolean", describe: "Also show your notifications as they come" },
