@@ -242,3 +242,27 @@ test("speed: a 2,000-file workspace fills its index over a few searches, then a 
   assert.deepEqual(warm.data.matches.map((m: any) => m.path), ["/bench/f1234.ts"]);
   assert.ok(warm.ms < 1000, `${warm.ms} ms`);
 });
+
+test("security review: a declared but unsent hash never searches another workspace's content; edits and globs are bounded", async () => {
+  // Another workspace's private file, indexed by its own search.
+  const victim = await setup();
+  const secret = `password for the vault: ${randomUUID()}\n`;
+  await addFile(victim.workspace, victim.owner, "/private/notes.txt", secret);
+  await get(victim.agent, victim.workspace, "search", { query: "vault" });
+  assert.equal((await sql`SELECT 1 FROM file_text_index WHERE content_hash = ${sha(secret)}`).length, 1);
+  // The attacker declares an item with that hash (and a binary type) but never sends the bytes.
+  const { workspace, agent, cs } = await setup();
+  const put = await call(items.PUT, agent, "PUT", `/api/v1/change-sets/${cs}/items`, { items: [{ op: "add", path: "/x.png", contentHash: sha(secret), size: Buffer.byteLength(secret), mimeType: "image/png" }] }, { params: Promise.resolve({ cs }) });
+  assert.equal(put.status, 200, JSON.stringify(put.json));
+  const found = await get(agent, workspace, "search", { changeSet: cs, query: ".", regex: "true" });
+  assert.ok(!found.json.data.matches.some((m: any) => m.path === "/x.png"), "no lines from content it never proved it has");
+  assert.equal((await get(agent, workspace, "read", { changeSet: cs, path: "/x.png" })).json.data.files[0].error, "CONTENT_UNAVAILABLE");
+  // Binary-typed or unread content never gets an entry decided for everyone.
+  assert.notEqual((await sql`SELECT content FROM file_text_index WHERE content_hash = ${sha(secret)}`)[0]?.content, null);
+
+  const grow = await post(agent, cs, "edit", { path: "/src/api/client.ts", edits: [{ oldText: "a", newText: "x".repeat(400_000), all: true }] });
+  assert.equal(grow.status, 413);
+  assert.equal(grow.json.errorCode, "FILE_TOO_LARGE");
+  const glob = await get(agent, workspace, "list", { glob: "{a,b}{c,d}{e,f}{g,h}/**/*.ts" });
+  assert.equal(glob.status, 400);
+});

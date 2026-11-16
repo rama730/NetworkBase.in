@@ -196,8 +196,9 @@ export const TOKEN_ROUTES: RouteRule[] = [
   // Your devices, agents and personal tokens (report A3.9). No agent mode: agent tokens can't see or revoke them.
   { pattern: route("/api/v1/tokens"), read: null },
   { pattern: route(`/api/v1/tokens/${ID}/revoke`), write: null },
-  // Your agents' activity, and pausing them (report F4). No agent mode: agents can't read or switch this.
-  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/agents`), read: "workspace:read", write: null },
+  // Your agents' activity, and pausing them (report F4). No agent mode: agents can't read or switch this; the route
+  // also refuses personal access tokens for the switch (only the person's own sign-in, or the app).
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/agents`), read: "workspace:read", write: "task:write" },
   // Undo a change made with this person's token (report A2.9); the route checks the workspace.
   { pattern: route(`/api/v1/undo/${ID}`), read: null, write: null, agent: "route" },
 ];

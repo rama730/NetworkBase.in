@@ -48,7 +48,10 @@ async function view(actor: Actor, workspaceId: string, changeSetId?: string | nu
   for (const item of items) {
     if (item.fromPath) files.delete(item.fromPath);
     if (item.op === "delete") { files.delete(item.path); continue; }
-    files.set(item.path, { path: item.path, hash: item.contentHash, key: null, assetId: item.mergedAssetId ?? item.assetId, size: item.size, mimeType: item.mimeType, live: Boolean(item.baseNodeId) && !item.fromPath, draft: true, renamedFrom: item.fromPath });
+    // A pending item's hash is only what the client declared: its content isn't verified here, so it's not searched
+    // or read by that hash (the index is shared by content across workspaces).
+    const asset = item.mergedAssetId ?? item.assetId;
+    files.set(item.path, { path: item.path, hash: asset ? item.contentHash : null, key: null, assetId: item.mergedAssetId ?? item.assetId, size: item.size, mimeType: item.mimeType, live: Boolean(item.baseNodeId) && !item.fromPath, draft: true, renamedFrom: item.fromPath });
   }
   return files;
 }
@@ -65,6 +68,8 @@ const byPath = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const asText = (bytes: Buffer) => (bytes.byteLength <= FS_LIMITS.readBytes && isTextual(bytes) && !bytes.includes(0) ? bytes.toString("utf8") : null);
 const matcher = (glob?: string | null) => {
   if (!glob) return () => true;
+  // A glob is matched against up to 20,000 paths: short, with few braces, so it can't expand into a slow pattern.
+  if (glob.length > 200 || (glob.match(/[{]/g)?.length ?? 0) > 3 || (glob.match(/\*\*/g)?.length ?? 0) > 4) fail("That glob is too complex; use a shorter one like src/**/*.ts", 400, "BAD_REQUEST");
   const g = glob.startsWith("/") ? glob : `/${glob.includes("/") ? glob : `**/${glob}`}`;
   return (p: string) => path.posix.matchesGlob(p, g);
 };
@@ -105,17 +110,16 @@ async function fill(entries: Entry[]) {
   const hashes = [...new Set(entries.flatMap((e) => (e.hash ? [e.hash] : [])))];
   if (!hashes.length) return 0;
   const known = new Set((await db.select({ h: fileTextIndex.contentHash }).from(fileTextIndex).where(inArray(fileTextIndex.contentHash, hashes))).map((r) => r.h));
-  const byHash = new Map(entries.filter((e) => e.hash && !known.has(e.hash)).map((e) => [e.hash!, e]));
+  const byHash = new Map(entries.filter((e) => e.hash && !known.has(e.hash) && (e.size ?? 0) <= FS_LIMITS.readBytes && !BINARY_MIME.test(e.mimeType ?? "")).map((e) => [e.hash!, e]));
   const todo = [...byHash.values()].slice(0, FS_LIMITS.indexPerSearch);
   for (let i = 0; i < todo.length; i += FS_LIMITS.indexParallel) {
     await Promise.all(todo.slice(i, i + FS_LIMITS.indexParallel).map(async (e) => {
-      const skip = (e.size ?? 0) > FS_LIMITS.readBytes || BINARY_MIME.test(e.mimeType ?? "");
-      const bytes = skip ? null : await bytesOf(e);
-      // Bytes that don't match their hash are never indexed under it.
-      if (bytes && crypto.createHash("sha256").update(bytes).digest("hex") !== e.hash) return;
-      if (!skip && !bytes) return; // not readable now: tried again next search
-      const text = bytes ? asText(bytes) : null;
-      await db.execute(sql`INSERT INTO file_text_index (content_hash, content, bytes) VALUES (${e.hash}, ${text}, ${bytes?.byteLength ?? e.size ?? 0}) ON CONFLICT (content_hash) DO NOTHING`);
+      // Too big or binary by its type: skipped without an entry, so nothing about this hash is decided for others.
+      if ((e.size ?? 0) > FS_LIMITS.readBytes || BINARY_MIME.test(e.mimeType ?? "")) return;
+      const bytes = await bytesOf(e);
+      // Only bytes read here and matching their hash decide the entry, text or not (NULL), for every workspace.
+      if (!bytes || crypto.createHash("sha256").update(bytes).digest("hex") !== e.hash) return;
+      await db.execute(sql`INSERT INTO file_text_index (content_hash, content, bytes) VALUES (${e.hash}, ${asText(bytes)}, ${bytes.byteLength}) ON CONFLICT (content_hash) DO NOTHING`);
     }));
   }
   return byHash.size - todo.length;
@@ -191,7 +195,10 @@ export async function editFile(actor: Actor, changeSetId: string, input: { path:
     const count = text!.split(oldText).length - 1;
     if (!count) fail(`That text isn't in ${p}${at}`, 409, "EDIT_NOT_FOUND", { edit: i });
     if (count > 1 && !edit.all) fail(`That text is in ${p} ${count} times${at}; include more of the lines around it, or replace all`, 409, "EDIT_NOT_UNIQUE", { count, edit: i });
-    text = edit.all ? text!.split(oldText).join(String(edit.newText ?? "")) : text!.replace(oldText, () => String(edit.newText ?? ""));
+    const newText = String(edit.newText ?? "");
+    // The result must still be a file an edit can read back (1 MB): checked before it's built.
+    if (text!.length + (newText.length - oldText.length) * (edit.all ? count : 1) > FS_LIMITS.readBytes) fail(`The edit would make ${p} larger than 1 MB${at}; write it whole instead`, 413, "FILE_TOO_LARGE", { edit: i });
+    text = edit.all ? text!.split(oldText).join(newText) : text!.replace(oldText, () => newText);
     replaced += edit.all ? count : 1;
   });
   return { ...(await writeFile(actor, changeSetId, { path: p, text: text! })), replaced };

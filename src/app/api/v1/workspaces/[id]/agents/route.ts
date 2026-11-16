@@ -56,6 +56,8 @@ export async function POST(request: Request, context: Ctx) {
       if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
       // An agent never switches agents back on (token rules refuse agent tokens here too).
       if (auth.tokenKind === "agent") return jsonError("Agents can't pause or resume agents", 403, "FORBIDDEN");
+      // A personal access token (CI, scripts) never flips the switch: only the person's own sign-in or the app.
+      if (auth.tokenKind === "pat") return jsonError("Pause or resume agents from your own sign-in (nb login) or the app", 403, "FORBIDDEN");
       const id = (await context.params).id;
       const body = z.object({ paused: z.boolean() }).safeParse(await req.json().catch(() => null));
       if (!z.string().uuid().safeParse(id).success || !body.success) return jsonError("Send { paused: true | false }", 400, "BAD_REQUEST");

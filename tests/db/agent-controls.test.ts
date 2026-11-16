@@ -17,10 +17,14 @@ before(async () => { agents = await loadAppModule(() => import("../../src/app/ap
 after(async () => { await sql.end(); await closeAppDb(); });
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
-async function token(userId: string, kind: "device" | "agent", workspaceId: string | null) {
-  const t = `nb_${kind === "agent" ? "agt" : "dev"}_${randomUUID().replace(/-/g, "")}`;
+async function token(userId: string, kind: "device" | "agent" | "pat", workspaceId: string | null, scopes = ["workspace:read", "task:write"]) {
+  const t = `nb_${kind === "agent" ? "agt" : kind === "pat" ? "pat" : "dev"}_${randomUUID().replace(/-/g, "")}`;
+  if (kind === "pat") {
+    await sql`INSERT INTO personal_access_tokens (user_id, label, token_hash, token_prefix, scopes) VALUES (${userId}, 'ci', ${sha(t)}, ${t.slice(0, 12)}, ${sql.json(scopes)})`;
+    return t;
+  }
   await sql`INSERT INTO extension_device_sessions (user_id, token_hash, token_prefix, device_name, client_version, expires_at, token_type, agent_name, workspace_id, scopes)
-            VALUES (${userId}, ${sha(t)}, ${t.slice(0, 11)}, 'laptop', '2.3.0', now() + interval '1 day', ${kind}, ${kind === "agent" ? "Claude Code" : null}, ${workspaceId}, ${sql.json(["workspace:read", "task:write"])})`;
+            VALUES (${userId}, ${sha(t)}, ${t.slice(0, 11)}, 'laptop', '2.3.0', now() + interval '1 day', ${kind}, ${kind === "agent" ? "Claude Code" : null}, ${workspaceId}, ${sql.json(scopes)})`;
   return t;
 }
 async function call(handler: Route, t: string, method: string, workspace: string, body?: unknown) {
@@ -65,6 +69,9 @@ test("pause and resume: owners and admins; a member is refused, an agent never s
   assert.equal((await call(agents.POST, mine, "POST", workspace, { paused: true })).json.data.pausedAt, new Date(at).toISOString(), "pausing again keeps when it started");
   assert.equal((await call(agents.POST, await token(member, "device", null), "POST", workspace, { paused: false })).status, 403);
   assert.equal((await call(agents.POST, await token(owner, "agent", workspace), "POST", workspace, { paused: false })).status, 403);
+  // Security review: a personal access token, or a sign-in without write access, never flips the switch.
+  assert.equal((await call(agents.POST, await token(owner, "pat", null), "POST", workspace, { paused: false })).status, 403);
+  assert.equal((await call(agents.POST, await token(owner, "device", null, ["workspace:read"]), "POST", workspace, { paused: false })).status, 403);
   const resumed = await call(agents.POST, mine, "POST", workspace, { paused: false });
   assert.equal(resumed.json.data.paused, false);
 });
