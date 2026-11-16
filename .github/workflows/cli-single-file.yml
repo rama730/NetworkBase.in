@@ -1,0 +1,32 @@
+name: cli-single-file
+
+# Report C7 (M4d): the single-file nb is built and checked on every push that changes the CLI, so a release never
+# finds out late that it doesn't start. Nothing is published here (publish-cli.yml does that for cli-v* tags).
+on:
+  push:
+    branches: [main]
+    paths: ["packages/nb-cli/**", ".github/workflows/cli-single-file.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Single-file nb (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, name: macos-arm64 }
+          - { os: ubuntu-latest, name: linux-x64 }
+          - { os: windows-latest, name: windows-x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and check (version, help)
+        working-directory: packages/nb-cli
+        run: node scripts/single-file.mjs
