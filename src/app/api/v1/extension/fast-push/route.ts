@@ -106,13 +106,14 @@ function annotationForRole(role: TaskFileRole) {
 /** A push that fails takes back the new file entries it made (0.8 #14). */
 async function handlePost(request: Request) {
   const created: string[] = [];
+  const createdBy = { id: "" };
   const since = new Date();
-  const response = await pushFiles(request, created);
-  if (!response.ok && created.length) await discardUnsavedFileNodes(created, since);
+  const response = await pushFiles(request, created, createdBy);
+  if (!response.ok && created.length && createdBy.id) await discardUnsavedFileNodes(created, since, { userId: createdBy.id });
   return response;
 }
 
-async function pushFiles(request: Request, created: string[]) {
+async function pushFiles(request: Request, created: string[], createdBy: { id: string }) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
 
@@ -467,7 +468,7 @@ async function pushFiles(request: Request, created: string[]) {
           );
         }
         nodeId = resolved.node.id;
-        if (resolved.created) created.push(nodeId);
+        if (resolved.created) { created.push(nodeId); createdBy.id = user.id; }
         nodeName = resolved.node.name;
         currentVersion = 0;
       }

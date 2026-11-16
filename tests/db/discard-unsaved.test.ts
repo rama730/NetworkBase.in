@@ -53,14 +53,19 @@ test("a push that fails at storage leaves no file entry behind; the same push wo
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_nodes WHERE workspace_id = ${ws} AND path = '/notes/today.md'`)[0]!.n, 1);
 });
 
-test("only entries made by the failed push that are still empty go", async () => {
+test("only entries the same person's failed push made, still empty and not being uploaded, go (security review)", async () => {
   const me = await sql.begin((tx) => createUser(tx));
   const ws = await sql.begin((tx) => createProject(tx, me));
   const since = new Date();
   const [fresh] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, size) VALUES (${ws}, 'file', 'a.md', '/a.md', ${me}, 0) RETURNING id`;
   const [appMade] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, size, created_at) VALUES (${ws}, 'file', 'b.md', '/b.md', ${me}, 0, now() - interval '1 hour') RETURNING id`;
   const [saved] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, size) VALUES (${ws}, 'file', 'c.md', '/c.md', ${me}, 5) RETURNING id`;
-  assert.equal(await discard.discardUnsavedFileNodes([fresh!.id, appMade!.id, saved!.id, "not-an-id"], since), 1);
+  const [other] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  const [theirs] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, size) VALUES (${ws}, 'file', 'd.md', '/d.md', ${other!}, 0) RETURNING id`;
+  const [writing] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, size) VALUES (${ws}, 'file', 'e.md', '/e.md', ${me}, 0) RETURNING id`;
+  await sql`INSERT INTO upload_intents (user_id, workspace_id, bucket, storage_key, scope, kind, expected_size, expected_mime_type, expires_at, metadata)
+            VALUES (${me}, ${ws}, 'project-files', ${`k-${writing!.id}`}, 'workspace_file', 'file', 5, 'text/markdown', now() + interval '1 hour', ${sql.json({ nodeId: writing!.id })})`;
+  assert.equal(await discard.discardUnsavedFileNodes([fresh!.id, appMade!.id, saved!.id, theirs!.id, writing!.id, "not-an-id"], since, { userId: me }), 1);
   const left = (await sql`SELECT path FROM workspace_nodes WHERE workspace_id = ${ws} ORDER BY path`).map((r) => r.path);
-  assert.deepEqual(left, ["/b.md", "/c.md"]);
+  assert.deepEqual(left, ["/b.md", "/c.md", "/d.md", "/e.md"], "app-made, saved, someone else's and still uploading stay");
 });

@@ -108,10 +108,10 @@ async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) 
   const resolved = await resolveWritableExtensionFile(body.projectId, body.path, userId, { createIfMissing: true });
   if (resolved.response) return resolved.response;
   const response = await makeIntent(userId, body, resolved).catch(async (error: unknown) => {
-    if (resolved.created) await discardUnsavedFileNodes([resolved.node?.id], since);
+    if (resolved.created) await discardUnsavedFileNodes([resolved.node?.id], since, { userId });
     throw error;
   });
-  if (!response.ok && resolved.created) await discardUnsavedFileNodes([resolved.node?.id], since);
+  if (!response.ok && resolved.created) await discardUnsavedFileNodes([resolved.node?.id], since, { userId });
   return response;
 }
 

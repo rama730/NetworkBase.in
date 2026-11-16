@@ -22,6 +22,7 @@ export async function POST(request: Request) {
   if (csrfError) return csrfError;
   // New file entries made before a later file failed go again (0.8 #14).
   const created: string[] = [];
+  const createdBy = { id: "" };
   const since = new Date();
 
   try {
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
           throw new Error(`Couldn’t resolve file: ${file.path}`);
         }
         const node = resolved.node;
-        if (resolved.created) created.push(node.id);
+        if (resolved.created) { created.push(node.id); createdBy.id = user.id; }
         const operationIdentity = operationId ?? uploadSessionId;
         const storageKey = buildExtensionRevisionStorageKey(projectId, node.id, file.path, file.contentHash, operationIdentity);
         return { file, node, storageKey };
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
       files: results,
     });
   } catch (error) {
-    if (created.length) await discardUnsavedFileNodes(created, since);
+    if (created.length && createdBy.id) await discardUnsavedFileNodes(created, since, { userId: createdBy.id });
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/bulk-intent", fallback: "Couldn’t create bulk upload intents" });
   }
 }
