@@ -80,7 +80,17 @@ async function addVersion(workspace: string, userId: string, path: string, text:
   const [asset] = await sql`INSERT INTO storage_assets (owner_user_id, workspace_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, content_hash, expires_at, verified_at, verified_size, verified_mime_type)
     VALUES (${userId}, ${workspace}, 'project-files', ${key}, 'workspace_file:file', 'verified', 'text/plain', ${bytes.byteLength}, ${sha(bytes)}, now(), now(), ${bytes.byteLength}, 'text/plain') RETURNING id`;
   let [node] = await sql`SELECT id, current_version FROM workspace_nodes WHERE workspace_id = ${workspace} AND path = ${path} AND deleted_at IS NULL`;
-  if (!node) [node] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, size, current_version) VALUES (${workspace}, 'file', ${path.split("/").pop()!}, ${path}, ${userId}, 0, 0) RETURNING id, current_version`;
+  if (!node) {
+    // Folders above it, like the app makes them.
+    let parent: string | null = null;
+    let folder = "";
+    for (const name of path.split("/").filter(Boolean).slice(0, -1)) {
+      folder += `/${name}`;
+      const [f] = await sql`SELECT id FROM workspace_nodes WHERE workspace_id = ${workspace} AND path = ${folder} AND type = 'folder' AND deleted_at IS NULL`;
+      parent = f ? (f.id as string) : ((await sql`INSERT INTO workspace_nodes (workspace_id, parent_id, type, name, path, created_by, current_version) VALUES (${workspace}, ${parent}, 'folder', ${name}, ${folder}, ${userId}, 1) RETURNING id`)[0]!.id as string);
+    }
+    [node] = await sql`INSERT INTO workspace_nodes (workspace_id, parent_id, type, name, path, created_by, size, current_version) VALUES (${workspace}, ${parent}, 'file', ${path.split("/").pop()!}, ${path}, ${userId}, 0, 0) RETURNING id, current_version`;
+  }
   const version = Number(node!.current_version) + 1;
   await sql`INSERT INTO file_versions (node_id, version, s3_key, asset_id, size, mime_type, content_hash, uploaded_by) VALUES (${node!.id}, ${version}, ${key}, ${asset!.id}, ${bytes.byteLength}, 'text/plain', ${sha(bytes)}, ${userId})`;
   await sql`UPDATE workspace_nodes SET current_version = ${version}, s3_key = ${key}, asset_id = ${asset!.id}, size = ${bytes.byteLength} WHERE id = ${node!.id}`;
@@ -696,4 +706,75 @@ test("resolving comments: the set's author can, their agent only its person's ow
   assert.equal((await post(cli, { id: review, resolved: true })).status, 200, "the set's author can");
   const outsider = await token(await sql.begin((tx) => createUser(tx)), "device", null);
   assert.equal((await post(outsider, { id: review, resolved: false })).status, 404);
+});
+
+/** A small Next.js project (report G22's seeded site): pages, components and styles, about 40 files. */
+function sampleSite() {
+  const files: Record<string, string> = {
+    "/package.json": `{ "name": "sample-site", "scripts": { "dev": "next dev" } }\n`,
+    "/app/layout.tsx": "export default function Layout({ children }) {\n  return <html><body>{children}</body></html>;\n}\n",
+    "/app/page.tsx": "export default function Home() {\n  return <main>Home</main>;\n}\n",
+    "/app/login/page.tsx": "import { LoginForm } from '@/components/auth/LoginForm';\n\nexport default function Login() {\n  return <LoginForm />;\n}\n",
+    "/app/login/old-login.tsx": "export const legacy = true;\n",
+    "/app/globals.css": "body {\n  margin: 0;\n  font-family: sans-serif;\n}\n",
+  };
+  for (let i = 1; i <= 14; i += 1) files[`/components/ui/Widget${i}.tsx`] = `export function Widget${i}() {\n  return <div className="w${i}">Widget ${i}</div>;\n}\n// end\n`;
+  for (let i = 1; i <= 10; i += 1) files[`/components/auth/Part${i}.tsx`] = `export function Part${i}() {\n  return <span>Part ${i}</span>;\n}\n`;
+  for (let i = 1; i <= 10; i += 1) files[`/styles/s${i}.css`] = `.s${i} {\n  color: black;\n}\n`;
+  files["/components/auth/LoginForm.tsx"] = "export function LoginForm() {\n  return <form>Sign in</form>;\n}\n";
+  return files;
+}
+
+test("journey (G22, G24b): an agent redesigns sign-in across 30 files; the person reviews, applies, and undoes", async () => {
+  const { owner, workspace, cli } = await setup([]);
+  const site = sampleSite();
+  for (const [path, text] of Object.entries(site)) await addVersion(workspace, owner, path, text);
+  const agent = await token(owner, "agent", workspace, ["file:read", "file:write"]);
+  const diffRoute = await loadAppModule(() => import("../../src/app/api/v1/change-sets/[cs]/diff/route"));
+
+  // The agent's work: 24 changed, 4 added, 1 deleted, 1 renamed.
+  const work: Array<{ op: string; path: string; fromPath?: string; text?: string }> = [];
+  for (let i = 1; i <= 14; i += 1) work.push({ op: "change", path: `/components/ui/Widget${i}.tsx`, text: site[`/components/ui/Widget${i}.tsx`]!.replace(`className="w${i}"`, `className="w${i} rounded"`) });
+  for (let i = 1; i <= 9; i += 1) work.push({ op: "change", path: `/styles/s${i}.css`, text: `.s${i} {\n  color: var(--fg);\n}\n` });
+  work.push({ op: "change", path: "/app/login/page.tsx", text: site["/app/login/page.tsx"]!.replace("<LoginForm />", "<section className=\"card\"><LoginForm /></section>") });
+  for (const name of ["Card", "Field", "Divider", "SocialButtons"]) work.push({ op: "add", path: `/components/auth/${name}.tsx`, text: `export function ${name}() {\n  return null;\n}\n` });
+  work.push({ op: "delete", path: "/app/login/old-login.tsx" });
+  work.push({ op: "rename", path: "/components/auth/SignInForm.tsx", fromPath: "/components/auth/LoginForm.tsx" });
+  assert.equal(work.length, 30);
+  const { cs } = await draft(agent, workspace, work, "Redesign the sign-in page");
+
+  // Finishing: big (over 20 files, a delete), so it waits for the person's yes.
+  const finished = await finishIt(agent, cs);
+  assert.equal(finished.status, 200, JSON.stringify(finished.json));
+  assert.equal(finished.json.data.decision, "needs_confirmation");
+  assert.match(finished.json.data.summary, /30 files \(4 added, 24 changed, 1 deleted, 1 renamed\)/);
+
+  // The person reviews every file's diff.
+  for (const item of work) {
+    const d = await call(diffRoute.GET, cli, "GET", `/api/v1/change-sets/${cs}/diff?path=${encodeURIComponent(item.path)}`, undefined, csCtx(cs));
+    assert.equal(d.status, 200, `${item.path}: ${JSON.stringify(d.json)}`);
+    assert.equal(d.json.data.kind, "text", item.path);
+  }
+
+  // Meanwhile a teammate saves one of the files, on a different line: it merges.
+  await addVersion(workspace, owner, "/components/ui/Widget3.tsx", site["/components/ui/Widget3.tsx"]!.replace("// end", "// end, reviewed"));
+
+  // Without the yes the agent is held; with it, everything lands at once.
+  assert.equal((await applyIt(agent, cs)).status, 428);
+  const applied = await applyIt(agent, cs, { confirmToken: finished.json.data.confirmToken });
+  assert.equal(applied.status, 200, JSON.stringify(applied.json));
+  assert.equal(applied.json.data.applied.length, 30);
+  assert.equal(await textOf(workspace, "/components/ui/Widget3.tsx"), 'export function Widget3() {\n  return <div className="w3 rounded">Widget 3</div>;\n}\n// end, reviewed\n');
+  assert.ok(await textOf(workspace, "/components/auth/SignInForm.tsx"));
+  assert.equal(await textOf(workspace, "/app/login/old-login.tsx"), undefined);
+
+  // Undo: Widget3 moved on since (the merge made it this set's), so everything goes back.
+  const undone = await undoIt(cli, cs);
+  assert.equal(undone.status, 200, JSON.stringify(undone.json));
+  assert.equal(undone.json.data.undone.length, 30);
+  for (const [path, text] of Object.entries(site)) {
+    if (path === "/components/ui/Widget3.tsx") continue;
+    assert.equal(await textOf(workspace, path), text, path);
+  }
+  assert.equal(await textOf(workspace, "/components/auth/Card.tsx"), undefined, "added files went to Trash");
 });

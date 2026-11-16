@@ -50,6 +50,8 @@ async function main() {
 const me = await person("eval_me", "Eval Person");
 const sam = await person("sam", "Sam Rivera");
 const lab = await workspace(me, "Design Lab", "design-lab");
+// Coding jobs (report G22, D22): change sets are on in Design Lab, so agents' multi-file work goes into one.
+await sql`UPDATE workspaces SET change_sets_enabled = true WHERE id = ${lab}`;
 await workspace(me, "Design Ops", "design-ops");
 await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${lab}, ${sam}, 'member')`;
 const [sprint] = await sql<{ id: string }[]>`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status, creator_id)

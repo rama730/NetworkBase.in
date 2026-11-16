@@ -174,3 +174,13 @@
 - { id: lang-hi-1, persona: normal, say: "NetworkBase में मेरे कितने टास्क हैं?", expect: [networkbase_task_count] }
 - { id: lang-fr-1, persona: normal, say: "Crée une tâche « Préparer la démo » dans NetworkBase", expect: [networkbase_task_create] }
 - { id: lang-de-1, persona: normal, say: "Was steht in Aufgabe 7?", expect: [networkbase_task_context] }
+# Coding jobs with change sets (report G22, D22): Design Lab has change sets on, so multi-file work is captured as the
+# agent saves, then finished and applied as one change set (the changes pack). Edits happen with the agent's own tools.
+- { id: changes-1, persona: normal, say: "Redesign the sign-in page across the auth components, then apply it", expect: [networkbase_change_finish, networkbase_change_apply] }
+- { id: changes-2, persona: normal, say: "What's in my NetworkBase change set so far?", expect: [networkbase_change_status] }
+- { id: changes-3, persona: normal, say: "Undo the redesign you just applied in NetworkBase", expect: [[networkbase_change_undo, networkbase_undo]] }
+- { id: changes-4, persona: normal, say: "Throw away the NetworkBase draft, I'll do it differently", expect: [networkbase_change_discard] }
+- { id: changes-5, persona: heavy, say: "Carry on with yesterday's NetworkBase refactor and finish it when the tests pass", expect: [networkbase_change_status, networkbase_change_finish] }
+- { id: changes-6, persona: heavy, say: "Someone changed the same files in NetworkBase, sort it out and finish the change set", expect: [networkbase_change_status, networkbase_change_finish], note: "status shows what changed since; nb change update merges in the folder" }
+- { id: changes-7, persona: heavy, say: "Rename the Button component to PrimaryButton everywhere and apply it in NetworkBase", expect: [networkbase_change_finish, networkbase_change_apply] }
+- { id: changes-8, persona: normal, say: "Are there review comments on my change set I should address?", expect: [networkbase_change_status] }
