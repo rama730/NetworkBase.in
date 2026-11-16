@@ -446,6 +446,9 @@ export function FileView({
   }, [projectId, node.id, node.s3Key, node.currentVersion]);
 
   const fileUrl = deterministicPreviewUrl;
+  // A file a GitHub import listed but hasn't downloaded yet: a size, no stored content (report 2026-11-16). An empty
+  // file made in the app has size 0, so it isn't this.
+  const notDownloaded = !node.s3Key && Number(node.size ?? 0) > 0;
   const fileUrlError = null;
 
   // ── Markdown content fetch ──────────────────────────────────────────
@@ -635,7 +638,9 @@ export function FileView({
         <div className="flex min-h-0 flex-1">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <ComponentErrorBoundary fallbackMessage="Couldn’t load preview">
-              {compareTarget !== null ? (
+              {notDownloaded ? (
+                <NotDownloadedYet projectId={projectId} canStart={canEdit} />
+              ) : compareTarget !== null ? (
                 <FileVersionCompareView
                   projectId={projectId}
                   nodeId={node.id}
@@ -1010,3 +1015,37 @@ function BinaryFallback({
 
 export default FileView;
 
+/**
+ * "Not downloaded from GitHub yet" (report 2026-11-16): instead of a failed preview, say what's going on and, for
+ * people who can change the workspace, Fetch now, which downloads every file still missing.
+ */
+function NotDownloadedYet({ projectId, canStart }: { projectId: string; canStart: boolean }) {
+  const [state, setState] = React.useState<"idle" | "working" | "queued">("idle");
+  const start = async () => {
+    setState("working");
+    const { requestImportDownloadAction } = await import("@/app/actions/files/import-download");
+    const result = await requestImportDownloadAction(projectId).catch(() => ({ success: false as const, error: "Couldn’t start the download" }));
+    if (!result.success) {
+      setState("idle");
+      toast.error(feedbackError(result.error, "Couldn’t start the download"), { retry: () => void start() });
+      return;
+    }
+    setState("queued");
+    toast.success(result.remaining
+      ? `Downloading ${result.remaining.toLocaleString()} ${result.remaining === 1 ? "file" : "files"} from GitHub. They appear as they arrive.`
+      : "Everything is downloaded. Reload to see it.");
+  };
+  return (
+    <div className="nb-empty-state py-12" role="status">
+      <p className="nb-card-title text-foreground">Not downloaded from GitHub yet</p>
+      <p className="mt-1 max-w-md text-sm text-muted-foreground">This file came from a GitHub import, and its content hasn’t been fetched yet.</p>
+      {canStart ? (
+        <Button className="mt-4" variant="outline" size="sm" onClick={() => void start()} disabled={state !== "idle"}>
+          {state === "working" ? "Starting…" : state === "queued" ? "Downloading…" : "Fetch now"}
+        </Button>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">Ask someone who can change this workspace to fetch it.</p>
+      )}
+    </div>
+  );
+}
