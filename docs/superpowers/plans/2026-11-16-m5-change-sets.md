@@ -132,3 +132,18 @@
 - One go-ahead per phase: migration, push, deploy, Inngest re-sync, npm.
 - A live check on the user's workspace (G24b normal-user journey).
 - The parked member-settings concept reminder.
+
+## Built (local, 2026-11-16)
+
+Commits 13392d904..03a00de0d on local main, not pushed. Ledger: 244 M5 rows tested, 14 open (listed below), 7 moved to M6 (text index and git jobs).
+
+- **Server:** 0091, `src/lib/domain/change-sets.ts`, routes 1–13 plus copy (with `/projects` alias), merge3 at apply, update and resolve, one notification per applied set, labels through `visibleVia`, the daily 30-day cleanup, metrics.
+- **CLI 2.2.0:** `nb change` (start, status, list, view, finish, apply, undo, discard, copy, update, resolve), live capture in `nb mcp` and `nb watch --change` with a journal, an oversized plain push as one change set, a `changes` tool pack.
+- **App:** Files › Changes (list, review with diffs, apply some, ask for changes, undo with partial, copy, the merge editor, Update), "Part of …" in versions, `/docs/files/changes`.
+- **Security review fixes (each with a test):** only finished sets split, people only; sizes from stored bytes; verified content never overwritten or removed; keys never stored in a draft; apply never forwards finish's yes token; resolve only settles conflicts and reopens the set; finish marks ready only what it checked.
+- **Gates:** typecheck 0; unit 3,538; DB 1,086 (with the lineage test after recording 0091); CLI 284; browser 28 (Chromium and WebKit; Firefox hangs on launch on this Mac for every spec).
+- **Speed (stub storage):** 50-file finish 51 ms, apply 220 ms; 2,000-file apply 3.5 s.
+
+**Open in M5 (after this deploy):** line comments on change sets; a workspace-header link (Files sidebar shows the ready count instead); "Verify it's you" for finals and docs in the app's apply; presence of open change sets on tasks and files; file locks at capture; Sentry spans; the 30-file end-to-end journey in CI; D22 agent coding jobs; offering to split by folder; executable bit and encoding metadata; a case-only rename test on a case-insensitive disk; a starter README through a change set; "how much space is needed" on the storage limit; a sign-in-expiry capture test.
+
+**Deploy needs:** 0091 in production; push and Railway deploy; Inngest re-sync (the daily job gained a step); turning `change_sets_enabled` on for the user's own workspaces; npm 2.2.0.

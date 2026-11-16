@@ -3753,7 +3753,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3763,7 +3763,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3773,7 +3773,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3783,7 +3783,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3793,7 +3793,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3803,7 +3803,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3813,7 +3813,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3823,7 +3823,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3833,7 +3833,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3843,7 +3843,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3853,7 +3853,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3863,7 +3863,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3873,7 +3873,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3883,7 +3883,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3893,7 +3893,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3903,7 +3903,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3913,7 +3913,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3923,7 +3923,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3933,7 +3933,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3943,7 +3943,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -3952,9 +3952,9 @@
       "text": "A change set becomes a save waiting to happen on a branch.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G.0482a73b",
@@ -3962,9 +3962,9 @@
       "text": "Part G's review (G12) becomes the merge request's Files changed tab.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G.1f147c04",
@@ -3972,9 +3972,9 @@
       "text": "Part G's apply (G10) is the engine for merging into main.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G.486b83f7",
@@ -3982,9 +3982,9 @@
       "text": "Change sets target a branch (branch on route 1; main when absent).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G.8a0f3e1d",
@@ -3992,9 +3992,9 @@
       "text": "Everything below stays valid; Part H adds branches on top and is built after Part G's core (R2).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G1.008ced21",
@@ -4002,9 +4002,9 @@
       "text": "Local speed. The agent edits real files with its own tools, and NetworkBase never sits in the middle of an edit.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G1.3e47ccd2",
@@ -4012,9 +4012,9 @@
       "text": "All or nothing. A change set applies completely or not at all.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G1.35d60395",
@@ -4022,9 +4022,9 @@
       "text": "Reviewable. Every file and every line can be seen before big work lands.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G1.0b2dcfc6",
@@ -4032,9 +4032,9 @@
       "text": "Reversible. One Undo reverses the whole change set.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G1.8ed58c47",
@@ -4042,9 +4042,9 @@
       "text": "Conflict-safe. A teammate's change is never overwritten silently.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G1.5fd861d1",
@@ -4052,9 +4052,9 @@
       "text": "Never lose work. Edits exist locally and on the server as soon as they're uploaded.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G1.e9af08e1",
@@ -4062,9 +4062,9 @@
       "text": "The same everywhere. Local agents, cloud agents, the CLI and the app all use the same change sets.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G2.906432bc",
@@ -4073,7 +4073,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -4083,7 +4083,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -4093,7 +4093,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -4103,7 +4103,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -4113,7 +4113,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -4123,7 +4123,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -4133,7 +4133,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -4143,7 +4143,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -4153,7 +4153,7 @@
       "kind": "fact",
       "milestone": "M5",
       "status": "n/a-live",
-      "test": "",
+      "test": "tests/db/change-sets.test.ts",
       "evidence": ""
     },
     {
@@ -4162,9 +4162,9 @@
       "text": "One domain module (src/lib/domain/change-sets.ts) holds every rule. The /api/v1 routes, the app's server actions and the hosted MCP tools all call it, never the",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G3.9e639368",
@@ -4172,9 +4172,9 @@
       "text": "One merge module: packages/nb-cli/lib/sync/merge3.mjs, pure JavaScript, used by the CLI (\"update the draft\" locally) and the server (apply and update). It build",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.c8d15d01",
@@ -4182,9 +4182,9 @@
       "text": "id · uuid PK · genrandomuuid()",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.0dc90647",
@@ -4192,9 +4192,9 @@
       "text": "workspaceid · uuid NOT NULL → workspaces(id) ON DELETE CASCADE",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.2ce2cd8f",
@@ -4202,9 +4202,9 @@
       "text": "taskid · uuid NULL → tasks(id) ON DELETE SET NULL · the task it's for",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.783a2dab",
@@ -4212,9 +4212,9 @@
       "text": "authorid · uuid NOT NULL → profiles(id) · the person (also when an agent made it)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.5fd76931",
@@ -4222,9 +4222,9 @@
       "text": "via · text NULL CHECK in (cli,agent) · as in other tables (0073)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.20692c81",
@@ -4232,9 +4232,9 @@
       "text": "agentname · text NULL",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.af592dd0",
@@ -4242,9 +4242,9 @@
       "text": "agentsessionid · uuid NULL → extensiondevicesessions(id) ON DELETE SET NULL · which sign-in",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.f1242505",
@@ -4252,9 +4252,9 @@
       "text": "title · text NOT NULL, 1–120 chars",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.77321c11",
@@ -4262,9 +4262,9 @@
       "text": "message · text NULL, ≤ 2,000 chars",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.37bbdfdd",
@@ -4272,9 +4272,9 @@
       "text": "status · text NOT NULL CHECK in (open,ready,applying,applied,discarded,undone) · G5",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.4b2e4d29",
@@ -4282,9 +4282,9 @@
       "text": "filesadded, fileschanged, filesdeleted, filesrenamed · int NOT NULL DEFAULT 0 · kept up to date on every item change",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.92abe4c0",
@@ -4292,9 +4292,9 @@
       "text": "linesadded, linesremoved · int NOT NULL DEFAULT 0 · text files only",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.bf4515e5",
@@ -4302,9 +4302,9 @@
       "text": "bytes · bigint NOT NULL DEFAULT 0 · total new content",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.138a2672",
@@ -4312,9 +4312,9 @@
       "text": "applyresult · jsonb NULL · stored on apply; returned again if apply is repeated",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.02f8ab74",
@@ -4322,9 +4322,9 @@
       "text": "undooperationid · uuid NULL → undooperations(id)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.a73088c7",
@@ -4332,9 +4332,9 @@
       "text": "createdat, updatedat, readyat, appliedat, discardedat, undoneat · timestamptz",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.e2150093",
@@ -4342,9 +4342,9 @@
       "text": "appliedby · uuid NULL → profiles(id) · the person who applied it",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.1526978a",
@@ -4352,9 +4352,9 @@
       "text": "Indexes:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.f95f0c76",
@@ -4362,9 +4362,9 @@
       "text": "id · uuid PK",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.cfe89255",
@@ -4372,9 +4372,9 @@
       "text": "changesetid · uuid NOT NULL → changesets(id) ON DELETE CASCADE",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.3a6104d1",
@@ -4382,9 +4382,9 @@
       "text": "op · text NOT NULL CHECK in (add,change,delete,rename) · rename may also change content",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.e35ffaef",
@@ -4392,9 +4392,9 @@
       "text": "path · text NOT NULL · normalised, starts with /, ≤ 1,024 chars; the new path for renames",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.1f6aa0fb",
@@ -4402,9 +4402,9 @@
       "text": "frompath · text NULL · renames only",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.73e42693",
@@ -4412,9 +4412,9 @@
       "text": "basenodeid · uuid NULL → workspacenodes(id) ON DELETE SET NULL · null for add",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.e0436dec",
@@ -4422,9 +4422,9 @@
       "text": "baseversion · int NULL · null for add",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.a46087ce",
@@ -4432,9 +4432,9 @@
       "text": "basehash · text NULL · content hash of the base, for merging",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.e232b35c",
@@ -4442,9 +4442,9 @@
       "text": "contenthash · text NULL · null for delete (and for a rename with no content change)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.4d5bbcce",
@@ -4452,9 +4452,9 @@
       "text": "assetid · uuid NULL → storageassets(id) · the verified content",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.e68c1b01",
@@ -4462,9 +4462,9 @@
       "text": "size · bigint NULL",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.39c3c184",
@@ -4472,9 +4472,9 @@
       "text": "mimetype · text NULL",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.f09763f6",
@@ -4482,9 +4482,9 @@
       "text": "state · text NOT NULL DEFAULT pending CHECK in (pending,ready,merged,conflict,applied) · G9",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.bbfa9a74",
@@ -4492,9 +4492,9 @@
       "text": "mergedassetid · uuid NULL → storageassets(id) · the automatic merge result, when there is one",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.5f0d43c1",
@@ -4502,9 +4502,9 @@
       "text": "conflict · jsonb NULL · kind, the other version, who changed it and when",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.c8c8fda2",
@@ -4512,9 +4512,9 @@
       "text": "linesadded, linesremoved · int NULL",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.7a60093c",
@@ -4522,9 +4522,9 @@
       "text": "updatedat · timestamptz NOT NULL",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.5738a025",
@@ -4532,9 +4532,9 @@
       "text": "Unique (changesetid, path): one item per path.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.7665bfd6",
@@ -4542,9 +4542,9 @@
       "text": "Index (changesetid, state).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.6b11848f",
@@ -4552,9 +4552,9 @@
       "text": "RLS on for both tables.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.87da08c9",
@@ -4562,9 +4562,9 @@
       "text": "Browser roles (anon, authenticated) revoked.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.f88a792e",
@@ -4572,9 +4572,9 @@
       "text": "nbapp and servicerole granted.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G4.454cacdf",
@@ -4582,9 +4582,9 @@
       "text": "All access goes through the domain module.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.78bf160a",
@@ -4592,9 +4592,9 @@
       "text": "— · open · anyone with write access (people, or agents with file:write) · changestart, nb change start, or the first captured save",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.fce3d69a",
@@ -4602,9 +4602,9 @@
       "text": "open · ready · the author (or their agent) · finish: final rescan, all content uploaded, summary computed, secret scan run",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.15e43c5a",
@@ -4612,9 +4612,9 @@
       "text": "ready · open · automatic · a new item arrives (the agent kept working)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.d6d033f8",
@@ -4622,9 +4622,9 @@
       "text": "ready · applying → applied · the author; for big change sets, only after the person's yes; workspace owners and admins may also apply · G10",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.6fa4e678",
@@ -4632,9 +4632,9 @@
       "text": "applying · ready · automatic · the apply transaction failed; nothing was written",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.cafff461",
@@ -4642,9 +4642,9 @@
       "text": "open/ready · discarded · the author, workspace owners and admins · the content is kept 7 days, then cleaned up (G19)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.a5b86a9a",
@@ -4652,9 +4652,9 @@
       "text": "applied · undone · the author, workspace owners and admins · G11",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.54becad0",
@@ -4662,9 +4662,9 @@
       "text": "pending: content not uploaded yet.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.c9d7e7c1",
@@ -4672,9 +4672,9 @@
       "text": "ready: content verified.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.18e6109f",
@@ -4682,9 +4682,9 @@
       "text": "merged: someone changed the file since the base, and the automatic merge succeeded.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.0d97c02e",
@@ -4692,9 +4692,9 @@
       "text": "conflict: someone changed the file since the base, and it needs a choice.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G5.e6c950c3",
@@ -4702,9 +4702,9 @@
       "text": "applied.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G6.8c372aac",
@@ -4712,9 +4712,9 @@
       "text": "Content is identified by its SHA-256 hash. The server re-checks the hash after upload, as storageassets verification does today.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G6.bc4273ff",
@@ -4722,9 +4722,9 @@
       "text": "Storage: bucket project-files, key <workspaceid>/.changes/<sha256>. These keys are never workspace nodes, so they don't show in the Files tab.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G6.251dafe6",
@@ -4732,9 +4732,9 @@
       "text": "One storageassets row per content, with purpose changesetcontent.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G6.8d193ebc",
@@ -4742,9 +4742,9 @@
       "text": "Deduplication:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G6.258db83e",
@@ -4752,9 +4752,9 @@
       "text": "Upload paths:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G6.f397c179",
@@ -4762,9 +4762,9 @@
       "text": "Storage accounting: content of open and ready change sets counts toward the workspace's storage. Drafts are capped at 1 GB per person per workspace, so drafts c",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G6.e8fa9196",
@@ -4772,9 +4772,9 @@
       "text": "On apply, the item's asset becomes the file version's asset. Nothing is copied.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.32e3e1b1",
@@ -4782,9 +4782,9 @@
       "text": "takes a token or a browser session (with CSRF for browsers)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.5d6b907b",
@@ -4792,9 +4792,9 @@
       "text": "goes through the token route list (TOKENROUTES) with the scope shown",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.81fcab11",
@@ -4802,9 +4802,9 @@
       "text": "runs the workspace access check, plus the pause and organization checks from Part A (A5)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.29d35561",
@@ -4812,9 +4812,9 @@
       "text": "is rate-limited per token",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.45d2d57a",
@@ -4822,9 +4822,9 @@
       "text": "makes writes idempotent with Idempotency-Key",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.d5d11016",
@@ -4832,9 +4832,9 @@
       "text": "1 · POST /workspaces/:id/change-sets · file:write · { title, taskId?, message? } → 201 { changeSet } · CHANGESETLIMIT (too many open)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.0d180fee",
@@ -4842,9 +4842,9 @@
       "text": "2 · GET /workspaces/:id/change-sets?status=&mine=1&cursor= · file:read · → { changeSets[], nextCursor }",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.0bd46d1e",
@@ -4852,9 +4852,9 @@
       "text": "3 · GET /change-sets/:cs · file:read · → { changeSet, items[] (≤ 500 per page), nextCursor } · NOTFOUND",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.f8c5f83b",
@@ -4862,9 +4862,9 @@
       "text": "4 · PUT /change-sets/:cs/items · file:write · { items: [{ op, path, fromPath?, baseVersion?, baseHash?, contentHash?, size?, mimeType? }] } (≤ 200) → { items[],",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.be670f8a",
@@ -4872,9 +4872,9 @@
       "text": "5 · DELETE /change-sets/:cs/items?path= · file:write · → { ok } (drops one item: \"revert this file\")",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.f1b8e315",
@@ -4882,9 +4882,9 @@
       "text": "6 · POST /change-sets/:cs/content · file:write · inline { files: [{ hash, base64 }] } (≤ 4 MB), or { hash, size, mimeType } → signed upload URL · HASHMISMATCH, ",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.614456bc",
@@ -4892,9 +4892,9 @@
       "text": "7 · POST /change-sets/:cs/finish · file:write · { message? } → { summary, decision: \"applynow\" \\ · \"needsconfirmation\", confirmToken? } · CONTENTMISSING, SECRET",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.d20e297e",
@@ -4902,9 +4902,9 @@
       "text": "8 · GET /change-sets/:cs/diff?path= · file:read · → { kind: \"text\" \\ · \"image\" \\ · \"binary\", hunks? } (text ≤ 1 MB)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.aa9b5396",
@@ -4912,9 +4912,9 @@
       "text": "9 · POST /change-sets/:cs/apply · file:write (+ file:final / doc:write when needed) · { confirmToken?, only?: [paths] } → { applied: [{ path, nodeId, version }]",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.833de422",
@@ -4922,9 +4922,9 @@
       "text": "10 · POST /change-sets/:cs/update · file:write · → { merged[], conflicts[] } (\"update the draft\")",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.9771b694",
@@ -4932,9 +4932,9 @@
       "text": "11 · POST /change-sets/:cs/resolve · file:write · { path, choice: \"mine\" \\ · \"theirs\" \\ · \"content\", contentHash? } → { item }",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.971f70e0",
@@ -4942,9 +4942,9 @@
       "text": "12 · POST /change-sets/:cs/discard · file:write · → { ok }",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.bf5fabc8",
@@ -4952,9 +4952,9 @@
       "text": "13 · POST /change-sets/:cs/undo · file:write · { partial?: boolean } → { undone[], blocked[] } · UNDOBLOCKED (409)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.754da235",
@@ -4962,9 +4962,9 @@
       "text": "14 · GET /workspaces/:id/fs/list?glob=&changeSet= · file:read · → { files: [{ path, size, version, inDraft }] }",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.53fe3297",
@@ -4972,9 +4972,9 @@
       "text": "15 · POST /workspaces/:id/fs/read · file:read · { paths (≤ 50), changeSet? } → { files: [{ path, content \\ · base64, version }] } · FILETOOLARGE (> 1 MB per fil",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.fb462aab",
@@ -4982,9 +4982,9 @@
       "text": "16 · GET /workspaces/:id/fs/search?q=&glob=&regex=0\\ · 1&changeSet= · file:read · → { matches: [{ path, line, text }] } (≤ 200)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.50810a32",
@@ -4992,9 +4992,9 @@
       "text": "17 · POST /change-sets/:cs/fs/edit · file:write · { path, edits: [{ old, new }] } → { item } · EDITNOTFOUND, EDITNOTUNIQUE",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.7b2994fc",
@@ -5002,9 +5002,9 @@
       "text": "18 · POST /change-sets/:cs/fs/write · /fs/delete · /fs/move · file:write · whole-file write, delete, rename → { item }",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.c607f7b6",
@@ -5012,9 +5012,9 @@
       "text": "Items · 120 a minute",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.759f1011",
@@ -5022,9 +5022,9 @@
       "text": "Content · 60 a minute",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.d9bd40fb",
@@ -5032,9 +5032,9 @@
       "text": "fs/read and fs/search · 120 a minute",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.64974a83",
@@ -5042,9 +5042,9 @@
       "text": "Apply and undo · 10 a minute",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.b838296e",
@@ -5052,9 +5052,9 @@
       "text": "nb.change.start/1",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.b193efb8",
@@ -5062,9 +5062,9 @@
       "text": "nb.change.status/1",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.5adc7064",
@@ -5072,9 +5072,9 @@
       "text": "nb.change.view/1",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.56a2c579",
@@ -5082,9 +5082,9 @@
       "text": "nb.change.finish/1",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.b32eb14b",
@@ -5092,9 +5092,9 @@
       "text": "nb.change.apply/1",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.f99da89c",
@@ -5102,9 +5102,9 @@
       "text": "nb.change.undo/1",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G7.eae1a234",
@@ -5112,9 +5112,9 @@
       "text": "nb.change.list/1",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G8.b621c6f4",
@@ -5122,9 +5122,9 @@
       "text": "Inside the nb mcp process while an agent's session is open. That process is already running, so there's no background service and the CLI 2.0 report's decision ",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G8.c18b5cf3",
@@ -5132,9 +5132,9 @@
       "text": "For people without an agent: nb watch --change captures into the open change set (nb change start opens one).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G8.97102843",
@@ -5142,9 +5142,9 @@
       "text": "Watch: fs.watch(root, { recursive: true }). Where recursive watching isn't supported (some network drives), it falls back to a poll every 2 seconds using the ex",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G8.68eeb1ee",
@@ -5152,9 +5152,9 @@
       "text": "Ignore: the same rules as sync.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G8.9a9f2ad8",
@@ -5162,9 +5162,9 @@
       "text": "Settle: wait for the file to settle (500 ms, then 2 seconds of quiet), exactly as nb watch does.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G8.c19de77b",
@@ -5172,9 +5172,9 @@
       "text": "Hash: streamed SHA-256, compared with the base hash from .networkbase state and with the last captured hash.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G8.f93fe6af",
@@ -5182,9 +5182,9 @@
       "text": "Classify the change:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G8.16be580b",
@@ -5192,9 +5192,9 @@
       "text": "Queue an item upsert (call 4) and upload only what's missing (call 6). The queue runs 8 at a time (4 on Windows) and retries with the existing retry rules.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G8.a93bb222",
@@ -5202,9 +5202,9 @@
       "text": "Journal each item and its upload state to .networkbase/changes/<id>.json, written atomically, so a crash resumes where it stopped.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.4aa5ac9a",
@@ -5212,9 +5212,9 @@
       "text": "At apply, in a \"prepare\" step, for every item whose file changed since its base.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.c236e112",
@@ -5222,9 +5222,9 @@
       "text": "On \"update the draft\" (call 10, or nb change update).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.4144bef2",
@@ -5232,9 +5232,9 @@
       "text": "Line-based three-way merge of base, theirs (the workspace's current version) and mine (the item).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.06d0f395",
@@ -5242,9 +5242,9 @@
       "text": "What counts as text:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.268fe348",
@@ -5252,9 +5252,9 @@
       "text": "Line endings: follow \"theirs\" (CRLF or LF), and a final newline is kept as it was.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.61b0bab3",
@@ -5262,9 +5262,9 @@
       "text": "Clean merge (no overlapping changes): the merged content is stored as new content (G6). The item becomes merged, and the review shows \"merged automatically\" wit",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.1479c44a",
@@ -5272,9 +5272,9 @@
       "text": "Overlapping changes, binaries and over-size files: the item becomes conflict, with conflict.kind = \"edit\".",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.bb4c67f0",
@@ -5282,9 +5282,9 @@
       "text": "The file was deleted since the base · deleted · recreate it, or drop the item",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.2f2b62e7",
@@ -5292,9 +5292,9 @@
       "text": "The file was moved or renamed since the base · moved · apply the edit at the new path, or drop it",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.6ce6cde8",
@@ -5302,9 +5302,9 @@
       "text": "An add whose path now exists · exists · make it a change of that file (merge), keep both (name (2).ext), or drop it",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.82edf5b9",
@@ -5312,9 +5312,9 @@
       "text": "A folder in the path was deleted · foldergone · recreate the folder, or drop",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.b16b4150",
@@ -5322,9 +5322,9 @@
       "text": "Through call 11 (mine, theirs, or content: a new upload with the edited result).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.5e3e3f20",
@@ -5332,9 +5332,9 @@
       "text": "In the app's merge editor.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.9e5d78ad",
@@ -5342,9 +5342,9 @@
       "text": "With nb change resolve <path>.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G9.3c2de166",
@@ -5352,9 +5352,9 @@
       "text": "The agent through changeresolve.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/merge3.test.mjs; tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.fe1d9346",
@@ -5362,9 +5362,9 @@
       "text": "Check status, permissions, policy and limits (G13), and that all content is verified.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.14ecfeba",
@@ -5372,9 +5372,9 @@
       "text": "For each item, read the workspace's current version. Where it differs from the base, run merge3, store any merged content, and set the item state.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.c4aa5f4e",
@@ -5382,9 +5382,9 @@
       "text": "Record the version each item expects to replace.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.3170d88c",
@@ -5392,9 +5392,9 @@
       "text": "SELECT … FOR UPDATE the change set row. If it's applied, return the stored applyresult (repeating an apply is harmless). If it isn't ready, refuse. Set it to ap",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.bf7f5e1a",
@@ -5402,9 +5402,9 @@
       "text": "Lock every target node with SELECT … FOR UPDATE, in node-id order, so two applies can never deadlock.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.d640308c",
@@ -5412,9 +5412,9 @@
       "text": "Re-check: every node's current version must still equal the expected version from prepare. If a teammate saved in between, roll back and run prepare once more. ",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.ce341df0",
@@ -5422,9 +5422,9 @@
       "text": "Write each item:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.83681714",
@@ -5432,9 +5432,9 @@
       "text": "Insert one undooperations row (kind changeset.undo, G11), one node event per file (type changesetapplied, with the change set id), and the activity entry with P",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.2f199898",
@@ -5442,9 +5442,9 @@
       "text": "Set the change set to applied, with appliedat, appliedby and applyresult.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.c09acd4a",
@@ -5452,9 +5452,9 @@
       "text": "realtime broadcast to the workspace and task (open tabs refresh)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.48c7bc5d",
@@ -5462,9 +5462,9 @@
       "text": "notifications: the task's assignee and watchers, plus the session summary",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.15566327",
@@ -5472,29 +5472,29 @@
       "text": "doc revalidation when a linked doc changed",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G10.05788ca2",
       "section": "G10",
       "text": "the text index job (G14)",
       "kind": "build",
-      "milestone": "M5",
+      "milestone": "M6",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "G-4/G-5 work, moved to M6 with the text index and git (2026-11-16)"
     },
     {
       "key": "G10.a8500b65",
       "section": "G10",
       "text": "the GitHub push job when the workspace syncs with GitHub (G18)",
       "kind": "build",
-      "milestone": "M5",
+      "milestone": "M6",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "G-4/G-5 work, moved to M6 with the text index and git (2026-11-16)"
     },
     {
       "key": "G11.afd6c1a3",
@@ -5502,9 +5502,9 @@
       "text": "change · make the version that was active before the apply active again (activateFileVersion, in one transaction for all files)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G11.1bddac78",
@@ -5512,9 +5512,9 @@
       "text": "add · move the new node to Trash",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G11.0152b9ab",
@@ -5522,9 +5522,9 @@
       "text": "delete · restore the node from Trash",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G11.f8fb36a1",
@@ -5532,9 +5532,9 @@
       "text": "rename · move it back (and make the previous version active, if the content changed)",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G11.20727a9d",
@@ -5542,9 +5542,9 @@
       "text": "Every file must still be at the version this change set gave it. Otherwise the undo is refused with UNDOBLOCKED and the list of files that changed since.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G11.34dffcc9",
@@ -5552,9 +5552,9 @@
       "text": "partial: true undoes the other files and leaves those.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G11.0dea0545",
@@ -5562,9 +5562,9 @@
       "text": "In the app and with nb change undo: none, as long as the files haven't changed since.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G11.bb6534aa",
@@ -5572,9 +5572,9 @@
       "text": "Agents' undo tokens: 24 hours, as for all agent undos (UNDOTTLMS).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.cfa11183",
@@ -5583,8 +5583,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "Open after the M5 build (2026-11-16): Changes is in the Files sidebar with a ready count; no workspace-header link yet"
     },
     {
       "key": "G12.7eea8ee8",
@@ -5592,9 +5592,9 @@
       "text": "On the task each change set belongs to.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.e3ca25f5",
@@ -5602,9 +5602,9 @@
       "text": "The address ?tab=files&changes=<id> opens one directly.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.d1f3d76f",
@@ -5612,9 +5612,9 @@
       "text": "its title, message, task, who made it (with Part B labels) and when, its size, and its base time (\"based on files as of 10:42\")",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.99d95ccd",
@@ -5622,9 +5622,9 @@
       "text": "the file list: grouped added, changed, deleted, renamed, conflicted; +/− counts; a filter box; virtualised for 2,000 files",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.f9883f2d",
@@ -5632,9 +5632,9 @@
       "text": "diffs:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.da374e11",
@@ -5642,9 +5642,9 @@
       "text": "merged files show \"merged automatically\" and can be opened as three columns: base, theirs, result",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.2717c0d6",
@@ -5653,8 +5653,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "Open after the M5 build (2026-11-16): line comments on change sets: not built yet"
     },
     {
       "key": "G12.1a3baa6d",
@@ -5662,9 +5662,9 @@
       "text": "a status line, for example \"Ready · 2 files changed since by Sam (merged automatically)\"",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.cb9d6101",
@@ -5673,8 +5673,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "Open after the M5 build (2026-11-16): apply in the app does not ask Verify it’s you for finals/docs yet"
     },
     {
       "key": "G12.fbca90c6",
@@ -5682,9 +5682,9 @@
       "text": "Discard.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.7fe6f5ba",
@@ -5692,9 +5692,9 @@
       "text": "Apply only some files: the chosen files become their own change set and apply; the rest stay a draft.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.29adec8f",
@@ -5702,9 +5702,9 @@
       "text": "Ask for changes: a comment back to the agent, which it reads next session as an agent note (D16).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.02596caa",
@@ -5712,9 +5712,9 @@
       "text": "Resolve conflicts: opens the merge editor per file.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.06c016fc",
@@ -5722,9 +5722,9 @@
       "text": "Undo (applied change sets).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.8a73212f",
@@ -5732,9 +5732,9 @@
       "text": "Copy as new draft (undone or discarded ones).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.1de5d355",
@@ -5742,9 +5742,9 @@
       "text": "Open and ready change sets: the author, workspace owners and admins, and members with write access.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.d1b37df7",
@@ -5752,9 +5752,9 @@
       "text": "Applied ones: everyone who can read the workspace's files, as part of the history.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G12.aaa9ed80",
@@ -5762,9 +5762,9 @@
       "text": "Files inside task-private folders follow the existing task access rules (canReadWorkspaceTab).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/change-sets.spec.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.03ff3874",
@@ -5772,9 +5772,9 @@
       "text": "Start, add items, finish · ✓ · ✓ · ✓ · ✗",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.c8f269da",
@@ -5782,9 +5782,9 @@
       "text": "Apply a small change set · ✓ · ✓ (with Undo) · ✓ (with Undo) · ✗",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.edb04ec5",
@@ -5792,9 +5792,9 @@
       "text": "Apply a big change set · ✓ · only after the person's yes · only after the person's yes; finals and docs need the extra scope (A5 \"asking for more\") · ✗",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.c9c1d57f",
@@ -5802,9 +5802,9 @@
       "text": "Discard or undo their own · ✓ · ✓ · ✓ · ✗",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.50bee7c8",
@@ -5812,9 +5812,9 @@
       "text": "Apply, discard or undo someone else's · owners and admins · ✗ · ✗ · ✗",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.36c4e1a8",
@@ -5822,9 +5822,9 @@
       "text": "Small means up to 20 files, with no deletes, no final files and no docs.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.3e3aeee4",
@@ -5832,9 +5832,9 @@
       "text": "Big means everything else. The workspace's agent policy can make every change set \"big\" (\"ask for everything\").",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.1f0a0c3a",
@@ -5842,9 +5842,9 @@
       "text": "Policy: agentGate decides with a new change kind, changeset. One confirmation token covers the whole change set. It's bound to the change set id and the hash of",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.1c24c880",
@@ -5852,9 +5852,9 @@
       "text": "Secret scan: runs on every text item at finish. A finding holds the change set (SECRETDETECTED) until the file is fixed. People can confirm (as today); agents c",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.ada1bf84",
@@ -5862,9 +5862,9 @@
       "text": "Organizations:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.33c5f5a7",
@@ -5872,9 +5872,9 @@
       "text": "Pause: \"Pause agents\" stops agents' change sets from being applied, and from receiving new items.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.e774b5e7",
@@ -5882,9 +5882,9 @@
       "text": "Items per change set · 2,000",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.3dc720e5",
@@ -5892,9 +5892,9 @@
       "text": "Content per change set · 500 MB",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.aadf48b7",
@@ -5902,9 +5902,9 @@
       "text": "Per file · 25 MB",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.862b0404",
@@ -5912,9 +5912,9 @@
       "text": "Open change sets per agent sign-in per workspace · 3",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.7f97b4e8",
@@ -5922,9 +5922,9 @@
       "text": "Open change sets per person per workspace · 10",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.8c6f95c9",
@@ -5932,9 +5932,9 @@
       "text": "Draft content per person per workspace · 1 GB",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G13.b45e9127",
@@ -5942,9 +5942,9 @@
       "text": "Applied change sets per agent per day · 50, alongside the daily write limit",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G14.e5ff703d",
@@ -6072,9 +6072,9 @@
       "text": "Several change sets can be open on the same files. The one applied second merges or reports conflicts (G9).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G15.03cd828c",
@@ -6083,8 +6083,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): presence of open change sets on tasks and files: not built"
     },
     {
       "key": "G15.b53b692c",
@@ -6093,8 +6093,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): file locks are not checked at capture yet"
     },
     {
       "key": "G15.0fe2d6c5",
@@ -6102,9 +6102,9 @@
       "text": "The person editing in the app during an agent's session: the person's save goes to the workspace files. The agent's draft shows \"2 files changed since your base",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G16.d930c26c",
@@ -6112,9 +6112,9 @@
       "text": "Thousands of files:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G16.83d17650",
@@ -6122,9 +6122,9 @@
       "text": "Never synced: nodemodules, build output, .git, plus .gitignore and .nbignore rules.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G16.010fea87",
@@ -6133,8 +6133,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): limits refuse with split it; the CLI does not offer to split by folder yet"
     },
     {
       "key": "G16.b98d4ea7",
@@ -6143,8 +6143,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): executable bit and encoding are not stored as item metadata"
     },
     {
       "key": "G17.13422b9d",
@@ -6152,9 +6152,9 @@
       "text": "nb push and files/place stay as they are (already all or nothing up to 50 files and 4 MB). The CLI moves a push to a change set only when it's bigger than one c",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G17.844e1f2f",
@@ -6162,9 +6162,9 @@
       "text": "CLI 2.0.x and the VS Code extension keep working: applied change sets are ordinary file versions.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G17.5075a1cb",
@@ -6172,9 +6172,9 @@
       "text": "Versions, the version panel and \"Use this version\" work on change-set versions like any other. The panel shows \"part of 'Redesign sign-in'\".",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G17.defed850",
@@ -6182,9 +6182,9 @@
       "text": "Undo of a push or drop (2026-11-11) is unchanged.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G18.298ecc9e",
@@ -6222,9 +6222,9 @@
       "text": "Logs: carry changeSetId, workspaceId, via, agent and client (alongside the existing request fields).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G19.f339c5e7",
@@ -6233,8 +6233,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): Sentry spans: not added; logger metrics are"
     },
     {
       "key": "G19.f6d7074d",
@@ -6242,9 +6242,9 @@
       "text": "Measured:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G19.04823951",
@@ -6252,19 +6252,19 @@
       "text": "Cleanup jobs (daily):",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G19.8cf7b3a1",
       "section": "G19",
       "text": "Inngest: the text index and the GitHub push run as background functions. Their counts are checked against the free plan's limit before rollout.",
       "kind": "build",
-      "milestone": "M5",
+      "milestone": "M6",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "G-4/G-5 work, moved to M6 with the text index and git (2026-11-16)"
     },
     {
       "key": "G20.2e47372f",
@@ -6272,9 +6272,9 @@
       "text": "Network drops during upload · Resumes from the journal, sending only missing content",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G20.e0af571d",
@@ -6282,9 +6282,9 @@
       "text": "Laptop crashes mid-session · The draft is on the server up to the last quiet save; the local folder still has everything; the journal resumes",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G20.601a1240",
@@ -6292,9 +6292,9 @@
       "text": "Apply is sent twice · The second returns the stored result",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G20.c523d20f",
@@ -6302,9 +6302,9 @@
       "text": "Server error or timeout mid-apply · One transaction: nothing written; status back to ready; retrying is safe",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G20.5927705f",
@@ -6312,9 +6312,9 @@
       "text": "A teammate saves during apply · Re-check fails; prepare runs again; conflicts are reported if needed",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G20.8752b5bf",
@@ -6322,9 +6322,9 @@
       "text": "Session ends without finishing · The change set stays open; the next session or nb change status picks it up; the 30-day cleanup applies",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G20.c90e77bc",
@@ -6333,8 +6333,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): capture logs the sign-in error and retries at the next save; not tested"
     },
     {
       "key": "G20.5c84f391",
@@ -6342,9 +6342,9 @@
       "text": "Workspace paused mid-session · Capture keeps the journal locally; the server refuses new items until resumed",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G20.39d346cd",
@@ -6353,8 +6353,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): storage limit names the cap but not how much space is needed"
     },
     {
       "key": "G21.da143658",
@@ -6362,9 +6362,9 @@
       "text": "Rename and edit in one change.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G21.5835f581",
@@ -6372,9 +6372,9 @@
       "text": "Delete then recreate with the same name: becomes a change.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G21.a1d70d68",
@@ -6383,8 +6383,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): case-only rename not tested on a case-insensitive disk"
     },
     {
       "key": "G21.8cf40da6",
@@ -6392,9 +6392,9 @@
       "text": "Empty files; binary and image files.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G21.0a787db2",
@@ -6402,9 +6402,9 @@
       "text": "Files attached to tasks: a renamed attachment keeps its task link and role.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G21.2b666587",
@@ -6413,8 +6413,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): a starter README through a change set gets no linked doc file yet"
     },
     {
       "key": "G21.86dd9d90",
@@ -6422,9 +6422,9 @@
       "text": "Final files: the final-file yes applies.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G21.459e7190",
@@ -6432,9 +6432,9 @@
       "text": "A file in Trash that the change set edits: a deleted conflict with \"recreate\".",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G21.11322e8c",
@@ -6442,9 +6442,9 @@
       "text": "A folder deleted by a teammate while the draft adds files into it: foldergone.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G21.420a2fbf",
@@ -6452,9 +6452,9 @@
       "text": "Two change sets applied in either order: the result is the same as applying them one after the other with merges.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G21.7b176741",
@@ -6462,9 +6462,9 @@
       "text": "Paths: Unicode paths are normalised to NFC, and Windows-reserved names are refused (BADPATH).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G22.be5577d1",
@@ -6472,9 +6472,9 @@
       "text": "Unit:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G22.966a75ab",
@@ -6482,9 +6482,9 @@
       "text": "Database:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G22.51b58b0a",
@@ -6492,9 +6492,9 @@
       "text": "CLI:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G22.c58197cb",
@@ -6503,8 +6503,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): 30-file end-to-end journey: not in CI yet"
     },
     {
       "key": "G22.0d98ad45",
@@ -6512,9 +6512,9 @@
       "text": "Speed targets:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G22.5793b1f7",
@@ -6522,9 +6522,9 @@
       "text": "Failure tests: every row of G20, played on purpose in CI.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G22.06662dd7",
@@ -6533,8 +6533,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "todo",
-      "test": "",
-      "evidence": ""
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "Open after the M5 build (2026-11-16): D22 agent eval coding jobs: not added"
     },
     {
       "key": "G23.41516eab",
@@ -6542,9 +6542,9 @@
       "text": "Behind a workspace flag (changesets): on first for the user's own workspaces, then for everyone once the measures in G19 look healthy for a week.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G23.266f6d0d",
@@ -6552,9 +6552,9 @@
       "text": "Turning the flag off hides the Changes view and refuses new change sets. Applied work stays, because it's ordinary file versions. Open drafts stay readable and ",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G23.d8f17447",
@@ -6562,9 +6562,9 @@
       "text": "The agent instructions and tool pack switch to change sets only where the flag is on. Elsewhere agents keep using filepush.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24.34c7a515",
@@ -6572,9 +6572,9 @@
       "text": "G-1. Core · tables, content upload and dedupe, the domain module, routes 1–7, 9, 12, 13, apply and undo, local capture in nb mcp, the nb change commands, agent ",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24.295f2326",
@@ -6582,9 +6582,9 @@
       "text": "G-2. Review · the Changes view, route 8, apply only some files, ask for changes · none · site",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24.f67bf05f",
@@ -6592,29 +6592,29 @@
       "text": "G-3. Conflicts · merge3, prepare, routes 10–11, the merge editor, nb change update and resolve · none · site + CLI 2.2.x",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24.cd0158e6",
       "section": "G24",
       "text": "G-4. Cloud agents · routes 14–18, fs tools, the text index and its jobs · 0091: filetextindex · site",
       "kind": "build",
-      "milestone": "M5",
+      "milestone": "M6",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "G-4/G-5 work, moved to M6 with the text index and git (2026-11-16)"
     },
     {
       "key": "G24.6cd9cd1b",
       "section": "G24",
       "text": "G-5. Git · --from-git, the GitHub push job · none · site + CLI 2.2.x",
       "kind": "build",
-      "milestone": "M5",
+      "milestone": "M6",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "G-4/G-5 work, moved to M6 with the text index and git (2026-11-16)"
     },
     {
       "key": "G24.b6da9a71",
@@ -6622,9 +6622,9 @@
       "text": "its tests in G22 pass",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24.44a11511",
@@ -6632,9 +6632,9 @@
       "text": "its parts of G20 are played",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24.1824de4c",
@@ -6642,9 +6642,9 @@
       "text": "the speed targets hold",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24.392d38c4",
@@ -6652,9 +6652,9 @@
       "text": "it's checked live on the user's workspace",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24b.ff8ac976",
@@ -6662,9 +6662,9 @@
       "text": "Normal user (\"vibe coding\"):",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24b.8d002579",
@@ -6672,19 +6672,19 @@
       "text": "Heavy user:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G24b.d030a054",
       "section": "G24b",
       "text": "Cloud agent only: works through fs tools on a draft; the person reviews and applies; to run the site, the person pulls it locally.",
       "kind": "build",
-      "milestone": "M5",
+      "milestone": "M6",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "G-4/G-5 work, moved to M6 with the text index and git (2026-11-16)"
     },
     {
       "key": "G25.7b4c5a8c",
@@ -6692,9 +6692,9 @@
       "text": "One domain module, and one merge module shared by the CLI and the server, rather than two implementations.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G25.53d33b0e",
@@ -6702,9 +6702,9 @@
       "text": "Capture inside nb mcp: no background service.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G25.1b7cd684",
@@ -6712,9 +6712,9 @@
       "text": "The first save auto-opens a change set, so agents don't need to remember to start one.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G25.a456c5ad",
@@ -6722,9 +6722,9 @@
       "text": "\"Small\" means up to 20 files with no deletes, finals or docs. Everything else is one yes.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G25.32d77bbf",
@@ -6732,9 +6732,9 @@
       "text": "nb push stays as it is for small pushes. Only oversized pushes use change sets.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G25.11039b97",
@@ -6742,9 +6742,9 @@
       "text": "Undo in the app has no time limit while the files are unchanged. Agent undo tokens keep 24 hours.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G25.ebdf97fc",
@@ -6752,9 +6752,9 @@
       "text": "Search uses pgtrgm, which is already installed. No new search service.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G25.11305e05",
@@ -6762,9 +6762,9 @@
       "text": "Drafts count toward storage, with a 1 GB cap per person per workspace.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G25.e59bcdbf",
@@ -6772,9 +6772,9 @@
       "text": "Rollout is behind a workspace flag.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G26.b722faee",
@@ -6782,9 +6782,9 @@
       "text": "Automatic merges that are technically clean but wrong · Merged files are always marked in the review and diffed against both sides; big change sets are reviewed",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G26.53f9f6db",
@@ -6792,9 +6792,9 @@
       "text": "File watching misses events (network drives, some Linux setups) · Polling fallback, plus a full rescan at finish",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G26.bf5e6134",
@@ -6802,9 +6802,9 @@
       "text": "Very large applies slow the database · Item and size limits, node-id lock order, a 30-second timeout, measured in G22",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G26.049fe6ae",
@@ -6812,9 +6812,9 @@
       "text": "Drafts filling storage · Counted toward the limit, a 1 GB cap, 30-day cleanup",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G26.1ec8534b",
@@ -6822,19 +6822,19 @@
       "text": "An agent applying something harmful · Yes rules, the secret scan, organization rules, Pause agents, and one-click undo",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts",
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
     },
     {
       "key": "G26.8dd060ee",
       "section": "G26",
       "text": "Inngest usage (free plan) · Index and GitHub jobs measured before rollout; batching per change set",
       "kind": "build",
-      "milestone": "M5",
+      "milestone": "M6",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "G-4/G-5 work, moved to M6 with the text index and git (2026-11-16)"
     },
     {
       "key": "H.177474de",

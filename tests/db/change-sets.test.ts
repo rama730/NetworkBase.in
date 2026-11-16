@@ -551,3 +551,14 @@ test("applying a change set on a task tells its assignee once, not once per file
   assert.equal(rows.length, 1);
   assert.match(rows[0]!.body, /Redesign: 3 files/);
 });
+
+test("drafts untouched for 30 days are discarded by the daily cleanup; newer ones and applied ones stay (G19)", async () => {
+  const { owner, workspace } = await setup([]);
+  const [old] = await sql`INSERT INTO change_sets (workspace_id, author_id, title, updated_at) VALUES (${workspace}, ${owner}, 'old', now() - interval '31 days') RETURNING id`;
+  const [recent] = await sql`INSERT INTO change_sets (workspace_id, author_id, title, updated_at) VALUES (${workspace}, ${owner}, 'recent', now() - interval '29 days') RETURNING id`;
+  const [applied] = await sql`INSERT INTO change_sets (workspace_id, author_id, title, status, updated_at) VALUES (${workspace}, ${owner}, 'applied', 'applied', now() - interval '90 days') RETURNING id`;
+  const domain = await loadAppModule(() => import("../../src/lib/domain/change-sets"));
+  assert.ok((await domain.discardStaleChangeSets()) >= 1);
+  const rows = Object.fromEntries((await sql`SELECT id, status FROM change_sets WHERE id IN (${old!.id}, ${recent!.id}, ${applied!.id})`).map((r) => [r.id, r.status]));
+  assert.deepEqual([rows[old!.id], rows[recent!.id], rows[applied!.id]], ["discarded", "open", "applied"]);
+});
