@@ -35,6 +35,9 @@ describe("nb message (C4)", () => {
     assert.match(ambiguous.stderr, /--answer conversation=<design-lab\|ponytail>/, "choices by workspace, not ids");
     assert.equal((await nb(["message", "read", "design", "--answer", "conversation=ponytail", "--keep-unread"])).code, 0, "a channel name without #");
     assert.match((await nb(["message", "read"])).stderr, /'#design' in quotes/);
+    const typo = await nb(["message", "send", "design", "hi", "--answer", "conversation=desing-lab"]);
+    assert.notEqual(typo.code, 0, "a mistyped answer never sends to another conversation");
+    assert.ok(!api.requests.some((q) => q.method === "POST" && /chat\/conversations\/c[13]\/messages/.test(q.path) && q.body?.text === "hi"));
     const r = await nb(["message", "read", "#design", "--workspace", "design-lab"]);
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, /@sam[^\n]*\n\s+@me logo v2 is up\n\s+1 file: logo\.png\n\s+1 reply/);

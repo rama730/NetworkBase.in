@@ -39,7 +39,10 @@ async function pick(ctx, ref) {
   }
   // Choices by workspace (--answer conversation=deepscope-ai, or -w deepscope-ai), never raw ids.
   const ws2 = await ask(ctx, { key: "conversation", header: "Which", question: `${ref} is in ${hits.length} workspaces. Which one?`, options: hits.slice(0, 4).map((c) => ({ value: String(c.workspace ?? c.id), label: `${safe(c.label)} in ${safe(c.workspace ?? "no workspace")}` })) });
-  return hits.find((c) => String(c.workspace ?? c.id) === ws2) ?? hits[0];
+  // Exactly the one chosen, never a guess: a message must not go to the wrong conversation (security review).
+  const chosen = hits.find((c) => String(c.workspace ?? c.id) === ws2);
+  if (!chosen) throw new CliError("NOT_FOUND", `${ref} isn't in ${ws2}`, { hint: `Use a number from nb message list, or -w ${hits.map((c) => c.workspace).filter(Boolean).join(" or -w ")}` });
+  return chosen;
 }
 
 /** nb message list. @param {Context} ctx */
