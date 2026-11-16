@@ -88,6 +88,35 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("a file that looks like it holds a key isn't sent until the person confirms", async () => {
+    const api = await startFakeServer();
+    try {
+      const { cwd, nb } = await linked(api);
+      await nb(["change", "start", "Config"]);
+      fs.writeFileSync(path.join(cwd, "keys.txt"), "AKIAIOSFODNN7EXAMPLE\n");
+      const status = await nb(["change", "status"]);
+      assert.match(status.stdout, /Not sent, it looks like it holds a key: \/keys\.txt/);
+      const held = await nb(["change", "finish"]);
+      assert.equal(held.code, 5);
+      assert.match(held.stderr, /looks like it holds a password or key/);
+      const ok = await nb(["change", "finish", "--confirm-secrets", "--json"]);
+      assert.equal(ok.code, 0, ok.stderr);
+    } finally { await api.close(); }
+  });
+
+  it("an agent's big change set never applies without its person's yes", async () => {
+    const api = await startFakeServer();
+    try {
+      const { cwd, nb } = await linked(api);
+      await nb(["change", "start", "Cleanup"]);
+      fs.rmSync(path.join(cwd, "a.txt"));
+      await nb(["change", "finish"]);
+      const applies = () => api.requests.filter((r) => r.path.endsWith("/apply"));
+      await nb(["change", "apply", "--yes"]);
+      assert.ok(applies().every((r) => !r.body?.confirmToken), "the finish's confirm token is never sent by itself");
+    } finally { await api.close(); }
+  });
+
   it("nb watch --change needs an open change set; workspaces without change sets say so", async () => {
     const api = await startFakeServer();
     try {

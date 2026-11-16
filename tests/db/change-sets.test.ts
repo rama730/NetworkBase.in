@@ -248,14 +248,20 @@ test("at most 10 open change sets per person per workspace", async () => {
   assert.equal(res.json.errorCode, "CHANGE_SET_LIMIT");
 });
 
-test("a key in a file holds the set: agents can't confirm it, people can", async () => {
+test("a key in a file is never stored: agents can't confirm it, people can", async () => {
   const { owner, workspace, cli } = await setup([]);
   const secret = "aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY1\nAKIAIOSFODNN7EXAMPLE\n";
+  const b64 = Buffer.from(secret).toString("base64");
   const agent = await token(owner, "agent", workspace, ["file:read", "file:write"]);
   const a = await draft(agent, workspace, [{ op: "add", path: "/config.txt", text: secret }]);
-  const held = await finishIt(agent, a.cs, { confirmSecrets: true });
-  assert.equal(held.json.errorCode, "SECRET_DETECTED");
+  const sent = await call(content.POST, agent, "POST", `/api/v1/change-sets/${a.cs}/content`, { files: [{ hash: sha(secret), base64: b64 }], confirmSecrets: true }, csCtx(a.cs));
+  assert.equal(sent.json.data.held.length, 1, "agents can't confirm");
+  assert.ok(![...stored.keys()].some((k) => k.endsWith(sha(secret))), "the bytes were never stored");
+  assert.equal((await finishIt(agent, a.cs)).json.errorCode, "CONTENT_MISSING");
   const p = await draft(cli, workspace, [{ op: "add", path: "/config2.txt", text: secret }]);
+  assert.equal((await finishIt(cli, p.cs)).json.errorCode, "CONTENT_MISSING", "held for people too until they confirm");
+  const ok = await call(content.POST, cli, "POST", `/api/v1/change-sets/${p.cs}/content`, { files: [{ hash: sha(secret), base64: b64 }], confirmSecrets: true }, csCtx(p.cs));
+  assert.deepEqual(ok.json.data.stored, [sha(secret)]);
   assert.equal((await finishIt(cli, p.cs)).json.errorCode, "SECRET_DETECTED");
   assert.equal((await finishIt(cli, p.cs, { confirmSecrets: true })).status, 200);
 });

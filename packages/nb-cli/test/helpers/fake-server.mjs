@@ -365,13 +365,16 @@ const changeSetRoutes = [
   [/^\/api\/v1\/change-sets\/([^/]+)\/items$/, "DELETE", (/** @type {any} */ req, /** @type {any} */ state) => { sets(state).get(req.params[0])?.items.delete(req.query.get("path")); return { data: { ok: true } }; }],
   [/^\/api\/v1\/change-sets\/([^/]+)\/content$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
     const cs = sets(state).get(req.params[0]);
+    const held = [];
     for (const f of req.body.files ?? []) {
       const bytes = Buffer.from(f.base64, "base64");
       if (sha256(bytes) !== f.hash) return fail(400, "CONTENT_HASH_MISMATCH", "The bytes don't match");
+      // Like the server's secret scan: a key is held unless the person confirms.
+      if (/AKIA[0-9A-Z]{16}/.test(bytes.toString()) && !req.body.confirmSecrets) { held.push({ hash: f.hash, findings: [{ rule: "AWS access key" }] }); continue; }
       knownContent(state).set(f.hash, bytes);
       for (const i of cs.items.values()) if (i.contentHash === f.hash) i.state = "ready";
     }
-    return { data: { stored: (req.body.files ?? []).map((/** @type {any} */ f) => f.hash) } };
+    return { data: { stored: (req.body.files ?? []).map((/** @type {any} */ f) => f.hash).filter((/** @type {string} */ h) => !held.some((x) => x.hash === h)), held } };
   }],
   [/^\/api\/v1\/change-sets\/([^/]+)\/finish$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
     const cs = sets(state).get(req.params[0]);

@@ -591,6 +591,10 @@
         "no-send": {
           "type": "boolean",
           "describe": "Show it without sending new saves first"
+        },
+        "confirm-secrets": {
+          "type": "boolean",
+          "describe": "It's safe: send files even though one looks like it holds a key"
         }
       },
       "examples": [],

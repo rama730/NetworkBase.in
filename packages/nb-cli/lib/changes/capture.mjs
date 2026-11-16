@@ -17,7 +17,8 @@ const PARALLEL = process.platform === "win32" ? 4 : 8;
 
 /**
  * @typedef {{ op: "add" | "change" | "delete" | "rename", path: string, fromPath?: string, abs?: string, contentHash?: string, size?: number, mimeType?: string, baseVersion?: number, baseHash?: string }} DraftItem
- * @typedef {{ id: string, title: string, sent: Record<string, string>, missing: string[] }} Journal
+ * @typedef {{ id: string, title: string, sent: Record<string, string>, missing: string[], held?: Record<string, string> }} Journal
+ *   held: content the server didn't store because it looks like it holds a key, by hash → path
  */
 
 const dir = (/** @type {string} */ root) => path.join(root, DIR_NAME, "changes");
@@ -93,9 +94,10 @@ const wire = (i) => ({ op: i.op, path: i.path, ...(i.fromPath ? { fromPath: i.fr
 /**
  * Sends the draft's changes since the last sync, then the content the server doesn't have.
  * @param {import("../api.mjs").Api} api @param {string} root @param {string} id @param {DraftItem[]} items
- * @returns {Promise<{ sent: number, dropped: number, uploaded: number, pending: number }>}
+ * @param {{ confirmSecrets?: boolean }} [opts] the person says files that look like they hold a key are safe to send
+ * @returns {Promise<{ sent: number, dropped: number, uploaded: number, pending: number, held: string[] }>}
  */
-export async function syncDraft(api, root, id, items) {
+export async function syncDraft(api, root, id, items, { confirmSecrets = false } = {}) {
   const journal = readJournal(root, id);
   const now = new Map(items.map((i) => [i.path, i]));
   const renamedFrom = new Set(items.flatMap((i) => (i.fromPath ? [i.fromPath] : [])));
@@ -116,18 +118,23 @@ export async function syncDraft(api, root, id, items) {
     delete journal.sent[p];
     writeJournal(root, journal);
   }
-  const uploaded = await uploadMissing(api, root, journal, items);
-  return { sent: toSend.length, dropped, uploaded, pending: journal.missing.length };
+  const uploaded = await uploadMissing(api, root, journal, items, confirmSecrets);
+  const held = Object.values(journal.held ?? {});
+  return { sent: toSend.length, dropped, uploaded, pending: journal.missing.length, held };
 }
 
-/** @param {import("../api.mjs").Api} api @param {string} root @param {Journal} journal @param {DraftItem[]} items */
-async function uploadMissing(api, root, journal, items) {
+/** @param {import("../api.mjs").Api} api @param {string} root @param {Journal} journal @param {DraftItem[]} items @param {boolean} confirmSecrets */
+async function uploadMissing(api, root, journal, items, confirmSecrets) {
   /** @type {Map<string, DraftItem>} */
   const byHash = new Map();
   for (const i of items) if (i.contentHash && i.abs) byHash.set(i.contentHash, i);
   // Content that changed again since is no longer wanted: its newer hash is on the list instead.
   journal.missing = journal.missing.filter((h) => byHash.has(h));
+  journal.held = Object.fromEntries(Object.entries(journal.held ?? {}).filter(([h]) => byHash.has(h) && !confirmSecrets));
   const enc = encodeURIComponent(journal.id);
+  /** The server held these: not sent again until the person confirms. @param {any} res */
+  const noteHeld = (res) => { for (const h of res?.held ?? []) { journal.held = { ...journal.held, [h.hash]: byHash.get(h.hash)?.path ?? h.hash }; } };
+  const waiting = journal.missing.filter((h) => !journal.held?.[h]);
   /** Reads the file now; null when it changed since the scan. @param {string} hash */
   const read = (hash) => {
     const item = /** @type {DraftItem} */ (byHash.get(hash));
@@ -140,8 +147,8 @@ async function uploadMissing(api, root, journal, items) {
   };
   const done = (/** @type {string} */ hash) => { journal.missing = journal.missing.filter((h) => h !== hash); writeJournal(root, journal); };
   let uploaded = 0;
-  const small = journal.missing.filter((h) => (byHash.get(h)?.size ?? 0) <= INLINE_BYTES);
-  const large = journal.missing.filter((h) => (byHash.get(h)?.size ?? 0) > INLINE_BYTES);
+  const small = waiting.filter((h) => (byHash.get(h)?.size ?? 0) <= INLINE_BYTES);
+  const large = waiting.filter((h) => (byHash.get(h)?.size ?? 0) > INLINE_BYTES);
   /** @type {string[][]} */
   const batches = [];
   let batch = /** @type {string[]} */ ([]);
@@ -157,19 +164,25 @@ async function uploadMissing(api, root, journal, items) {
     await Promise.all(batches.slice(i, i + PARALLEL).map(async (hashes) => {
       const files = hashes.flatMap((hash) => { const b = read(hash); return b ? [{ hash, base64: b.toString("base64") }] : []; });
       if (!files.length) return;
-      await api.post(`/api/v1/change-sets/${enc}/content`, { files });
-      for (const f of files) { done(f.hash); uploaded += 1; }
+      const res = /** @type {any} */ (await api.post(`/api/v1/change-sets/${enc}/content`, { files, ...(confirmSecrets ? { confirmSecrets: true } : {}) }));
+      noteHeld(res);
+      for (const f of files) if (!journal.held?.[f.hash]) { done(f.hash); uploaded += 1; }
+      writeJournal(root, journal);
     }));
   }
   for (const hash of large) {
     const b = read(hash);
     if (!b) continue;
-    const first = /** @type {any} */ (await api.post(`/api/v1/change-sets/${enc}/content`, { hash }));
+    const extra = confirmSecrets ? { confirmSecrets: true } : {};
+    const first = /** @type {any} */ (await api.post(`/api/v1/change-sets/${enc}/content`, { hash, ...extra }));
+    let last = first;
     if (first.upload) {
-      const put = await fetch(first.upload.url, { method: "PUT", body: b, headers: { "content-type": first.upload.contentType ?? "application/octet-stream", "x-upsert": "true" } });
+      const put = await fetch(first.upload.url, { method: "PUT", body: b, headers: { "content-type": first.upload.contentType ?? "application/octet-stream" } });
       if (!put.ok) throw new Error(`Upload of a large file failed (${put.status})`);
-      await api.post(`/api/v1/change-sets/${enc}/content`, { hash });
+      last = await api.post(`/api/v1/change-sets/${enc}/content`, { hash, ...extra });
     }
+    noteHeld(last);
+    if (journal.held?.[hash]) { writeJournal(root, journal); continue; }
     done(hash);
     uploaded += 1;
   }

@@ -31,7 +31,7 @@ function pick(ctx) {
 export async function captureNow(ctx, id) {
   const { root, project } = ctx.requireRoot();
   const { items, skipped } = await draftItems(root, project);
-  const sync = await syncDraft(ctx.api, root, id, items);
+  const sync = await syncDraft(ctx.api, root, id, items, { confirmSecrets: Boolean(ctx.flags["confirm-secrets"]) });
   return { items, skipped, ...sync };
 }
 
@@ -68,10 +68,12 @@ export async function changeStatus(ctx) {
   const set = view.changeSet;
   const conflicts = view.items.filter((/** @type {any} */ i) => i.state === "conflict");
   const pending = readJournal(root, id).missing.length;
-  ctx.out.result("nb.change.status/1", { changeSet: set, items: view.items, uploadsPending: pending, conflicts, skipped: capture?.skipped ?? [] }, (d) => [
+  const held = Object.values(readJournal(root, id).held ?? {});
+  ctx.out.result("nb.change.status/1", { changeSet: set, items: view.items, uploadsPending: pending, held, conflicts, skipped: capture?.skipped ?? [] }, (d) => [
     `${ctx.out.c.bold(safe(d.changeSet.title))} ${ctx.out.c.muted(`${d.changeSet.id.slice(0, 8)} · ${d.changeSet.status}`)}`,
     `  ${counts(d.changeSet)}${d.changeSet.linesAdded || d.changeSet.linesRemoved ? ctx.out.c.muted(`, +${d.changeSet.linesAdded} −${d.changeSet.linesRemoved}`) : ""}`,
-    ...(d.uploadsPending ? [ctx.out.c.warning(`  ${plural(d.uploadsPending, "file")} still to upload: run nb change status again`)] : []),
+    ...(d.held.length ? [ctx.out.c.warning(`  Not sent, ${d.held.length === 1 ? "it looks" : "they look"} like ${d.held.length === 1 ? "it holds" : "they hold"} a key: ${d.held.map((/** @type {string} */ p) => safe(p)).join(", ")}`), ctx.out.c.muted("  Remove the key, or nb change finish --confirm-secrets if it's safe to share")] : []),
+    ...(d.uploadsPending > d.held.length ? [ctx.out.c.warning(`  ${plural(d.uploadsPending - d.held.length, "file")} still to upload: run nb change status again`)] : []),
     ...d.conflicts.map((/** @type {any} */ c) => ctx.out.c.warning(`  ${ctx.out.sym.warn} ${safe(c.path)} changed since you started (${c.conflict?.kind ?? "edit"})`)),
     ...d.skipped.map((/** @type {any} */ s) => ctx.out.c.muted(`  skipped ${safe(s.path)}: ${s.reason}`)),
     ctx.out.c.muted(d.changeSet.status === "ready" ? "  Ready: nb change apply" : "  nb change finish when you're done"),
@@ -109,6 +111,7 @@ async function finishSet(ctx, id) {
   const { root } = ctx.requireRoot();
   if (currentChange(root) === id) {
     const sent = await captureNow(ctx, id);
+    if (sent.held.length) throw new CliError("SECRET_DETECTED", `Not sent: ${sent.held.join(", ")} ${sent.held.length === 1 ? "looks" : "look"} like ${sent.held.length === 1 ? "it holds" : "they hold"} a password or key`, { hint: "Remove the key, or nb change finish --confirm-secrets if it's safe to share (agents can't)" });
     if (sent.pending) throw new CliError("CONTENT_MISSING", `${plural(sent.pending, "file")} couldn't be uploaded yet`, { hint: "Run nb change finish again" });
   }
   return /** @type {any} */ (await ctx.api.post(`/api/v1/change-sets/${enc(id)}/finish`, { ...(ctx.flags.message ? { message: ctx.flags.message } : {}), ...(ctx.flags["confirm-secrets"] ? { confirmSecrets: true } : {}) }));
@@ -142,7 +145,8 @@ export async function changeApply(ctx) {
     const ok = await confirm(ctx, { key: "apply", question: `Apply "${view.changeSet.title}" (${counts(view.changeSet)})?`, preview, heldByServer: true, defaultYes: true });
     if (!ok) throw new CliError("CANCELLED", "Not applied");
   }
-  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/change-sets/${enc(id)}/apply`, { ...(only ? { only } : {}), ...(finished?.confirmToken ? { confirmToken: finished.confirmToken } : {}) }));
+  // Never the finish's confirm token: an agent's big change set waits for its person's yes (the server answers 428).
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/change-sets/${enc(id)}/apply`, only ? { only } : {}));
   // The applied versions are now what this folder last synced (A1.2), so nb status shows it clean.
   if (res.changeSet.status === "applied") {
     const state = readState(root, project.workspaceId);

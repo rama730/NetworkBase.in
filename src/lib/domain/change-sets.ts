@@ -359,11 +359,21 @@ async function pendingMime(changeSetId: string, hash: string) {
  * POST content (route 6). Inline `{ files: [{ hash, base64 }] }` up to 4 MB a call; or `{ hash }` for one larger file:
  * the first call answers with a signed upload URL, and the same call after the upload checks and records the bytes.
  */
-export async function putContent(actor: Actor, changeSetId: string, body: { files?: Array<{ hash: string; base64: string }>; hash?: string }) {
+export async function putContent(actor: Actor, changeSetId: string, body: { files?: Array<{ hash: string; base64: string }>; hash?: string; confirmSecrets?: boolean }) {
   const userId = userOf(actor);
   const set = await loadForWrite(actor, changeSetId, "author");
   if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
   const storage = (await createAdminClient()).storage.from("project-files");
+  // Content that looks like it holds a password or key is never stored, so a draft can't spread it: people can
+  // confirm it's safe, agents can't (G13). The items stay waiting, and finish names them.
+  const held: Array<{ hash: string; findings: SecretFinding[] }> = [];
+  const secretsIn = async (hash: string, bytes: Buffer) => {
+    if (body.confirmSecrets && !isAgent(actor)) return false;
+    const paths = await db.select({ path: changeSetItems.path }).from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.contentHash, hash)));
+    const findings = paths.flatMap((p) => scanForSecrets(p.path, bytes));
+    if (findings.length) held.push({ hash, findings });
+    return findings.length > 0;
+  };
   if (Array.isArray(body.files)) {
     let total = 0;
     const stored: string[] = [];
@@ -373,6 +383,7 @@ export async function putContent(actor: Actor, changeSetId: string, body: { file
       total += bytes.byteLength;
       if (total > LIMITS.inlineBytes) fail("Inline content is limited to 4 MB a call; send the rest in another call", 413, "BAD_REQUEST");
       if (crypto.createHash("sha256").update(bytes).digest("hex") !== hash) fail(`The bytes don't match ${hash.slice(0, 12)}…`, 400, "CONTENT_HASH_MISMATCH");
+      if (await secretsIn(hash, bytes)) continue;
       const item = await pendingMime(set.id, hash);
       // The bytes match their hash, so writing them again over the same key changes nothing.
       const { error } = await storage.upload(contentKey(set.workspaceId, hash), bytes, { contentType: storableMime(item.mimeType), cacheControl: "31536000", upsert: true });
@@ -380,7 +391,7 @@ export async function putContent(actor: Actor, changeSetId: string, body: { file
       await storeContent(set, userId, hash, bytes, item.mimeType ?? "application/octet-stream");
       stored.push(hash);
     }
-    return { stored };
+    return { stored, held };
   }
   const hash = String(body.hash ?? "").toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(hash)) fail("Send files, or the hash of one large file", 400, "BAD_REQUEST");
@@ -405,8 +416,12 @@ export async function putContent(actor: Actor, changeSetId: string, body: { file
       await storage.remove([key]);
       fail(bytes.byteLength > LIMITS.fileBytes ? "That file is over the 25 MB per-file limit" : "The uploaded bytes don't match the hash; upload again", bytes.byteLength > LIMITS.fileBytes ? 413 : 400, bytes.byteLength > LIMITS.fileBytes ? "FILE_TOO_LARGE" : "CONTENT_HASH_MISMATCH");
     }
+    if (await secretsIn(hash, bytes)) {
+      await storage.remove([key]);
+      return { stored: [], held };
+    }
     await storeContent(set, userId, hash, bytes, item.mimeType ?? "application/octet-stream");
-    return { stored: [hash] };
+    return { stored: [hash], held };
   }
   const { data, error } = await storage.createSignedUploadUrl(key);
   if (error || !data) fail("Couldn't prepare the upload", 502, "INTERNAL_ERROR");
@@ -483,7 +498,7 @@ export async function finishChangeSet(actor: Actor, changeSetId: string, opts: {
   const realBytes = items.reduce((sum, i) => sum + Number(i.size ?? 0), 0);
   if (realBytes > LIMITS.bytes) fail("A change set holds at most 500 MB; split it into smaller change sets", 413, "CHANGE_SET_TOO_LARGE");
   const pending = items.filter((i) => i.state === "pending");
-  if (pending.length) fail(`${pending.length} file${pending.length === 1 ? "" : "s"} still uploading`, 409, "CONTENT_MISSING", { missing: pending.map((i) => ({ path: i.path, contentHash: i.contentHash })) });
+  if (pending.length) fail(`${pending.length} file${pending.length === 1 ? "" : "s"} not uploaded yet (or held because ${pending.length === 1 ? "it looks" : "they look"} like ${pending.length === 1 ? "it holds" : "they hold"} a key)`, 409, "CONTENT_MISSING", { missing: pending.map((i) => ({ path: i.path, contentHash: i.contentHash })) });
 
   const findings: SecretFinding[] = [];
   const lines = new Map<string, { added: number; removed: number }>();
@@ -849,4 +864,59 @@ export async function discardStaleChangeSets(now = new Date()) {
     .where(and(inArray(changeSets.status, ["open", "ready"]), lt(changeSets.updatedAt, cutoff), ne(changeSets.status, "applying")))
     .returning({ id: changeSets.id });
   return rows.length;
+}
+
+// ── Review ────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+export type ItemDiff =
+  | { kind: "text"; lines: Array<{ kind: " " | "-" | "+" | "@"; text: string }>; added: number; removed: number }
+  | { kind: "too_large"; beforeSize: number | null; afterSize: number | null }
+  | { kind: "image"; before: string | null; after: string | null }
+  | { kind: "binary"; beforeSize: number | null; afterSize: number | null };
+
+/**
+ * One file's diff in review (route 8, G12): text side by side up to 1 MB and 4,000 lines, images before and after
+ * (signed links for 10 minutes), other files by size.
+ */
+export async function diffItem(actor: Actor, changeSetId: string, rawPath: string): Promise<ItemDiff> {
+  const set = await findChangeSet(changeSetId);
+  const { canWrite } = await workspaceAccess(actor, set.workspaceId);
+  if (!canWrite && !["applied", "undone"].includes(set.status)) fail("Change set not found", 404, "NOT_FOUND");
+  const path = normalizeChangePath(rawPath);
+  const [item] = await db.select().from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.path, path))).limit(1);
+  if (!item) fail("That file isn't in this change set", 404, "NOT_FOUND");
+  const beforeAsset = item!.op === "add" ? null : await baseAssetOf(item!);
+  const afterAsset = item!.op === "delete" ? null : item!.mergedAssetId ?? item!.assetId;
+  const sizes = async () => {
+    const ids = [beforeAsset, afterAsset].filter(Boolean) as string[];
+    const rows = ids.length ? await db.select({ id: storageAssets.id, size: storageAssets.verifiedSize }).from(storageAssets).where(inArray(storageAssets.id, ids)) : [];
+    const sizeOf = (id: string | null) => (id ? Number(rows.find((r) => r.id === id)?.size ?? 0) : null);
+    return { beforeSize: sizeOf(beforeAsset), afterSize: sizeOf(afterAsset) };
+  };
+  if ((item!.mimeType ?? "").startsWith("image/")) {
+    const storage = (await createAdminClient()).storage.from("project-files");
+    const link = async (id: string | null) => {
+      if (!id) return null;
+      const [a] = await db.select({ key: storageAssets.storageKey }).from(storageAssets).where(eq(storageAssets.id, id)).limit(1);
+      return a ? (await storage.createSignedUrl(a.key, 600)).data?.signedUrl ?? null : null;
+    };
+    return { kind: "image", before: await link(beforeAsset), after: await link(afterAsset) };
+  }
+  const size = await sizes();
+  if ((size.beforeSize ?? 0) > LIMITS.diffBytes || (size.afterSize ?? 0) > LIMITS.diffBytes) return { kind: "too_large", ...size };
+  const [before, after] = await Promise.all([beforeAsset ? readAsset(beforeAsset) : Buffer.alloc(0), afterAsset ? readAsset(afterAsset) : Buffer.alloc(0)]);
+  if (!before || !after || !isTextual(before) || !isTextual(after)) return { kind: "binary", ...size };
+  const diff = unifiedDiff(before.toString("utf8"), after.toString("utf8"));
+  return diff ? { kind: "text", ...diff } : { kind: "too_large", ...size };
+}
+
+/** Ask for changes (G12): a note on the change set's task that the agent reads at its next session (D16). */
+export async function askForChanges(actor: Actor, changeSetId: string, text: string) {
+  const set = await loadForWrite(actor, changeSetId, "author-or-admin");
+  const note = String(text ?? "").trim();
+  if (!note) fail("Say what to change", 400, "BAD_REQUEST");
+  if (!set.taskId) fail("This change set isn't on a task, so there's nowhere for the agent to read it; reply to the agent directly", 409, "CONFLICT");
+  const { addAgentNote } = await import("@/lib/domain/task-agent-notes");
+  await addAgentNote(userOf(actor), set.taskId!, { note: `Asked for changes on "${set.title}": ${note}`.slice(0, 2000), agentName: null, sessionId: null });
+  return { ok: true };
 }
