@@ -1030,6 +1030,37 @@ export async function linkWorkspaceDocAction(projectId: string, nodeId: string) 
     }
 }
 
+export async function unlinkWorkspaceDocAction(projectId: string, docSlug: string) {
+    try {
+        docSlug = normalizeWorkspaceDocSlug(docSlug);
+        const userId = await requireUserId();
+        const context = await getDocProjectContext(projectId, userId, docSlug);
+        if (!context.permission.canEdit) {
+            return { success: false as const, error: "Only workspace members can remove a document." };
+        }
+
+        await db.delete(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, docSlug)));
+
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("project_readme.unlink_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Internal server error." };
+    }
+}
+
+export async function listWorkspaceDocsAction(projectId: string) {
+    try {
+        const actorUserId = await getOptionalUserId();
+        const base = await loadDocProjectBase(projectId, actorUserId);
+        return { success: true as const, docs: visibleDocs(base, actorUserId) };
+    } catch (error) {
+        logger.error("project_readme.list_markdowns_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t list documents." };
+    }
+}
+
+// ponytail: single atomic doc draft init on project creation. ceiling: 500KB starter draft. upgrade: chunked version insert if drafts exceed 500KB.
 /**
  * 0.8 #15: a doc with no file yet (a new workspace's starter README) gets its file on Edit, as the CLI's first save
  * does: the new file is attached to that same doc, never a second one. Only for someone who may edit the doc.
@@ -1062,37 +1093,6 @@ export async function attachWorkspaceDocFileAction(projectId: string, docSlug: s
     }
 }
 
-export async function unlinkWorkspaceDocAction(projectId: string, docSlug: string) {
-    try {
-        docSlug = normalizeWorkspaceDocSlug(docSlug);
-        const userId = await requireUserId();
-        const context = await getDocProjectContext(projectId, userId, docSlug);
-        if (!context.permission.canEdit) {
-            return { success: false as const, error: "Only workspace members can remove a document." };
-        }
-
-        await db.delete(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, docSlug)));
-
-        revalidateProjectDoc(context.project);
-        return { success: true as const };
-    } catch (error) {
-        logger.error("project_readme.unlink_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
-        return { success: false as const, error: "Internal server error." };
-    }
-}
-
-export async function listWorkspaceDocsAction(projectId: string) {
-    try {
-        const actorUserId = await getOptionalUserId();
-        const base = await loadDocProjectBase(projectId, actorUserId);
-        return { success: true as const, docs: visibleDocs(base, actorUserId) };
-    } catch (error) {
-        logger.error("project_readme.list_markdowns_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
-        return { success: false as const, error: "Couldn’t list documents." };
-    }
-}
-
-// ponytail: single atomic doc draft init on project creation. ceiling: 500KB starter draft. upgrade: chunked version insert if drafts exceed 500KB.
 export async function applyCreationIntentAction(projectId: string, input: unknown) {
     try {
         const userId = await requireUserId();
