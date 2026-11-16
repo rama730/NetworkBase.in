@@ -119,7 +119,7 @@ function EmptyState({ title, body, command }: { title: string; body: string; com
   return (
     <div className="mx-auto max-w-md py-12 text-center">
       <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{body} <a href="/docs/files/changes" className="underline underline-offset-2 hover:text-foreground">What’s this?</a></p>
       {command ? (
         <button type="button" onClick={() => void copyWithToast(command, "Copied")}
           className="mt-3 inline-flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 font-mono text-xs text-foreground hover:bg-accent" aria-label={`Copy ${command}`}>
