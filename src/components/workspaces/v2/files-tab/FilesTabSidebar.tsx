@@ -598,6 +598,7 @@ export function FilesTabSidebar({
                 (item) =>
                   item.id !== "deliverables" &&
                   (canEdit || item.id !== "trash") &&
+                  (item.id !== "changes" || (canEdit && filesView.changeSets.enabled)) &&
                   (filesView.canReadTasks ||
                      !["tasks", "deliverables"].includes(item.id)) &&
                   (item.id !== "github" || filesView.canOpenGitHub) &&
@@ -634,6 +635,9 @@ export function FilesTabSidebar({
                       )}
                     />
                     <span className="truncate">{label}</span>
+                    {id === "changes" && filesView.changeSets.ready ? (
+                      <span className="ml-auto rounded-full bg-[#D14E24] px-1.5 text-[10px] font-semibold leading-4 text-white" aria-label={`${filesView.changeSets.ready} ready to review`}>{filesView.changeSets.ready}</span>
+                    ) : null}
                   </button>
                 );
               })}

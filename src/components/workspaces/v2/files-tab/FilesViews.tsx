@@ -20,7 +20,10 @@ import {
   CalendarRange,
   Inbox,
   Building2,
+  FileDiff,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { listChangeSetsAction } from "@/app/actions/files/change-sets";
 import type { OrgFilesInfo } from "@/components/organizations/OrgFilesPanel";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -42,6 +45,7 @@ export type FilesViewId =
   | "github"
   | "recent"
   | "starred"
+  | "changes"
   | "trash";
 export const fileCollectionViews = [
   { id: "project", label: "All files", Icon: Folder },
@@ -53,6 +57,7 @@ export const fileCollectionViews = [
   { id: "github", label: "Repository sync", Icon: Github },
   { id: "recent", label: "Recent", Icon: Clock3 },
   { id: "starred", label: "Starred", Icon: Star },
+  { id: "changes", label: "Changes", Icon: FileDiff },
   { id: "trash", label: "Trash", Icon: Trash2 },
 ] as const;
 
@@ -94,6 +99,8 @@ const FilesViewsContext = createContext<{
   returnToCollection: () => void;
   selectView: (view: FilesViewId) => void;
   selectTask: (id: string | null) => void;
+  /** Change sets (report G12): on for this workspace, and how many are ready to review. */
+  changeSets: { enabled: boolean; ready: number };
 } | null>(null);
 export const useFilesViews = () => useContext(FilesViewsContext);
 
@@ -120,6 +127,19 @@ export function FilesViews({
   );
   const scrollOffsets = useRef(new Map<string, number>());
   const { canEdit } = useFilesTabRole();
+  const changeSetsQuery = useQuery({
+    queryKey: ["change-sets", projectId, "open"],
+    enabled: canEdit,
+    queryFn: async () => {
+      const res = await listChangeSetsAction(projectId, "open,ready");
+      return res.success ? res.data : { enabled: false, changeSets: [], nextCursor: null };
+    },
+    staleTime: 30_000,
+  });
+  const changeSets = useMemo(() => ({
+    enabled: Boolean(changeSetsQuery.data?.enabled),
+    ready: (changeSetsQuery.data?.changeSets ?? []).filter((s) => s.status === "ready").length,
+  }), [changeSetsQuery.data]);
   const [inspector, setInspector] = useState<FilesInspector>(null);
   const [pendingChange, setPendingChange] = useState<{
     view: FilesViewId;
@@ -171,11 +191,12 @@ export function FilesViews({
   }, [projectId]);
   const restoreView = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
-    const value = params.get("filesView") as FilesViewId;
+    // ?changes=<id> opens one change set (G12).
+    const value = (params.get("changes") ? "changes" : params.get("filesView")) as FilesViewId;
     if (value === "github" && !githubAccessResolved) return;
     const nextView =
       fileCollectionViews.some((item) => item.id === value) &&
-      (canEdit || value !== "trash") &&
+      (canEdit || (value !== "trash" && value !== "changes")) &&
       (canReadTasks || !["tasks", "deliverables"].includes(value)) &&
       (value !== "github" || canOpenGitHub) &&
       orgViewAllowed(value, org, canReadTasks)
@@ -317,8 +338,10 @@ export function FilesViews({
       selectView,
       selectTask,
       returnToCollection: handleReturnToCollection,
+      changeSets,
     }),
     [
+      changeSets,
       scrollOffsets,
       view,
       inspector,
