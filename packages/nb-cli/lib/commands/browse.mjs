@@ -1,6 +1,9 @@
 // workspace view, activity, sprint list|view, update post, file history|move|rename|delete|attach|detach
 // (report §17.4, A2.5, A8.7, D25).
+import path from "node:path";
+
 import { CliError, EXIT, usage } from "../errors.mjs";
+import { toRemote } from "../sync/local.mjs";
 import { commentText, safe } from "../print/style.mjs";
 import { confirm } from "../tui/ask.mjs";
 import { formatDate, formatWhen, resolveTask, taskRef } from "./tasks.mjs";
@@ -86,13 +89,21 @@ export async function updatePost(ctx) {
   ctx.out.result("nb.update.post/1", { posted: true }, () => `${ctx.out.c.success(ctx.out.sym.done)} Posted the update`);
 }
 
-/** @param {string} p */
-const remote = (p) => `/${p.replace(/^\/+/, "")}`;
+/**
+ * A path argument as a workspace path. With a leading / it is one; otherwise it's relative to where you are in the
+ * linked folder, so in a folder linked to /design, nb file history logo.svg means /design/logo.svg (found in the
+ * 2.1.6 live check: these commands looked at the workspace root). @param {Context} ctx @param {string} p
+ */
+const remote = (ctx, p) => {
+  if (p.startsWith("/") || !ctx.project || !ctx.root) return `/${p.replace(/^\/+/, "")}`;
+  const rel = path.relative(ctx.root, path.resolve(ctx.cwd, p));
+  return rel.startsWith("..") || path.isAbsolute(rel) ? `/${p.replace(/^\/+/, "")}` : toRemote(ctx.project.remoteRoot ?? "/", rel);
+};
 
 /** @param {Context} ctx @param {string} p */
 export async function nodeOf(ctx, p) {
-  return /** @type {any} */ (await ctx.api.get("/api/v1/extension/file", { query: { projectId: ctx.requireWorkspace(), path: remote(p), transfer: "metadata" } }).catch((error) => {
-    if (error instanceof CliError && error.status === 404) throw new CliError("NOT_FOUND", `No file ${remote(p)} in this workspace`);
+  return /** @type {any} */ (await ctx.api.get("/api/v1/extension/file", { query: { projectId: ctx.requireWorkspace(), path: remote(ctx, p), transfer: "metadata" } }).catch((error) => {
+    if (error instanceof CliError && error.status === 404) throw new CliError("NOT_FOUND", `No file ${remote(ctx, p)} in this workspace`);
     throw error;
   }));
 }
@@ -105,7 +116,7 @@ export async function fileHistory(ctx) {
   const res = /** @type {any} */ (await ctx.api.get("/api/v1/extension/file-history", { query: { projectId: ctx.requireWorkspace(), nodeId: node.nodeId ?? node.id } }));
   const { c } = ctx.out;
   // Which version is active and what each was based on (C3), so "going back" reads plainly.
-  ctx.out.result("nb.file.history/1", { path: remote(p), activeVersion: res.activeVersion ?? null, versions: res.versions }, (d) => [
+  ctx.out.result("nb.file.history/1", { path: remote(ctx, p), activeVersion: res.activeVersion ?? null, versions: res.versions }, (d) => [
     ...d.versions.map((/** @type {any} */ v) => `${v.version === d.activeVersion ? c.brand(ctx.out.sym.cursor) : " "} v${v.version}  ${c.muted(String(v.uploadedAt).slice(0, 16).replace("T", " "))}  ${v.uploadedByUsername ? `@${safe(v.uploadedByUsername)}` : safe(v.uploadedByName ?? "someone")}${v.via ? c.muted(` via ${v.via === "agent" ? safe(v.agentName ?? "an agent") : "CLI"}`) : ""}${v.basedOnVersion && v.basedOnVersion !== v.version - 1 ? c.muted(`  based on v${v.basedOnVersion}`) : ""}${v.version === d.activeVersion ? `  ${c.success("active")}` : ""}${v.comment ? `  ${safe(v.comment)}` : ""}`),
     ...(d.versions.length > 1 ? ["", c.muted(`  Go back: nb file use ${safe(d.path.slice(1))} v<n>`)] : []),
   ]);
@@ -118,7 +129,7 @@ export async function fileUse(ctx) {
   if (!p || !Number.isInteger(version) || version < 1) throw usage("nb file use <path> v<n>", "See the versions: nb file history <path>");
   const node = await nodeOf(ctx, p);
   const res = /** @type {any} */ (await ctx.api.post("/api/v1/extension/file-history", { projectId: ctx.requireWorkspace(), nodeId: node.nodeId ?? node.id, version }));
-  ctx.out.result("nb.file.use/1", { path: remote(p), activeVersion: res.activeVersion, previousVersion: res.previousVersion }, (d) => [
+  ctx.out.result("nb.file.use/1", { path: remote(ctx, p), activeVersion: res.activeVersion, previousVersion: res.previousVersion }, (d) => [
     d.previousVersion === d.activeVersion ? `v${d.activeVersion} of ${safe(d.path)} was already active` : `${ctx.out.c.success(ctx.out.sym.done)} v${d.activeVersion} of ${safe(d.path)} is active (was v${d.previousVersion}); the next save is based on it`,
     ctx.out.c.muted(`  nb pull gets it here · nb undo puts v${d.previousVersion} back`),
   ]);
@@ -129,15 +140,15 @@ async function fileOperation(ctx, kind) {
   const [p, target] = ctx.positionals;
   if (!p || (kind !== "trash" && !target)) throw usage(kind === "move" ? "nb file move <path> <folder>" : kind === "rename" ? "nb file rename <path> <new name>" : "nb file delete <path>");
   const node = await nodeOf(ctx, p);
-  const question = kind === "trash" ? `Move ${remote(p)} to the workspace Trash?` : kind === "move" ? `Move ${remote(p)} to ${remote(String(target))}?` : `Rename ${remote(p)} to ${target}?`;
+  const question = kind === "trash" ? `Move ${remote(ctx, p)} to the workspace Trash?` : kind === "move" ? `Move ${remote(ctx, p)} to ${remote(ctx, String(target))}?` : `Rename ${remote(ctx, p)} to ${target}?`;
   if (!(await confirm(ctx, { key: kind, heldByServer: true, question, yesLabel: kind === "trash" ? "Move to Trash" : "Yes", defaultYes: kind !== "trash" }))) return EXIT.cancelled;
   let parentId = null;
-  if (kind === "move" && remote(String(target)) !== "/") parentId = (await nodeOf(ctx, String(target).replace(/\/+$/, ""))).nodeId ?? null;
+  if (kind === "move" && remote(ctx, String(target)) !== "/") parentId = (await nodeOf(ctx, String(target).replace(/\/+$/, ""))).nodeId ?? null;
   await ctx.api.post("/api/v1/extension/file-operation", {
     kind, projectId: ctx.requireWorkspace(), nodeId: node.nodeId ?? node.id, expectedUpdatedAt: new Date(node.updatedAt).toISOString(),
     ...(kind === "move" ? { parentId } : kind === "rename" ? { name: String(target) } : {}),
   });
-  ctx.out.result(`nb.file.${kind}/1`, { path: remote(p) }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${kind === "trash" ? "Moved to Trash" : kind === "move" ? "Moved" : "Renamed"} ${safe(d.path)}`);
+  ctx.out.result(`nb.file.${kind}/1`, { path: remote(ctx, p) }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${kind === "trash" ? "Moved to Trash" : kind === "move" ? "Moved" : "Renamed"} ${safe(d.path)}`);
 }
 /** @param {Context} ctx */
 export const fileMove = (ctx) => fileOperation(ctx, "move");
@@ -153,8 +164,8 @@ async function attach(ctx, detach) {
   const as = ctx.flags.as ?? "draft";
   if (!["reference", "draft", "final"].includes(as)) throw usage("--as must be reference, draft or final");
   const task = await resolveTask(ctx, taskRef(ctx, undefined));
-  await ctx.api.post(`/api/v1/tasks/${task.id}/files`, { projectId: ctx.requireWorkspace(), path: remote(p), as, ...(detach ? { detach: true } : {}) });
-  ctx.out.result(detach ? "nb.file.detach/1" : "nb.file.attach/1", { path: remote(p), number: task.taskNumber, as }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${detach ? `Took ${safe(d.path)} off #${d.number}` : `Attached ${safe(d.path)} to #${d.number} as ${d.as}`}`);
+  await ctx.api.post(`/api/v1/tasks/${task.id}/files`, { projectId: ctx.requireWorkspace(), path: remote(ctx, p), as, ...(detach ? { detach: true } : {}) });
+  ctx.out.result(detach ? "nb.file.detach/1" : "nb.file.attach/1", { path: remote(ctx, p), number: task.taskNumber, as }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${detach ? `Took ${safe(d.path)} off #${d.number}` : `Attached ${safe(d.path)} to #${d.number} as ${d.as}`}`);
 }
 /** @param {Context} ctx */
 export const fileAttach = (ctx) => attach(ctx, false);
@@ -191,7 +202,7 @@ export async function fileRestore(ctx) {
 export async function fileMkdir(ctx) {
   const p = ctx.positionals[0];
   if (!p) throw usage("nb file mkdir <folder>");
-  const clean = remote(p.replace(/\/+$/, ""));
+  const clean = remote(ctx, p.replace(/\/+$/, ""));
   const parentPath = clean.slice(0, clean.lastIndexOf("/")) || "/";
   const parentId = parentPath === "/" ? null : (await nodeOf(ctx, parentPath)).nodeId ?? null;
   const { folder } = /** @type {any} */ (await ctx.api.post("/api/v1/extension/file-operation", { kind: "mkdir", projectId: ctx.requireWorkspace(), parentId, name: clean.slice(clean.lastIndexOf("/") + 1) }));
@@ -203,8 +214,8 @@ export async function fileCopy(ctx) {
   const [from, to] = ctx.positionals;
   if (!from || !to) throw usage("nb file copy <file> <to>", "Like nb file copy report.md drafts/report-v2.md");
   const projectId = ctx.requireWorkspace();
-  const source = remote(from);
-  const target = to.endsWith("/") ? `${remote(to).replace(/\/+$/, "")}/${source.split("/").pop()}` : remote(to);
+  const source = remote(ctx, from);
+  const target = to.endsWith("/") ? `${remote(ctx, to).replace(/\/+$/, "")}/${source.split("/").pop()}` : remote(ctx, to);
   const res = await ctx.api.download("/api/v1/extension/file", { projectId, path: source, transfer: "raw" });
   const bytes = Buffer.from(await res.arrayBuffer());
   const crypto = await import("node:crypto");

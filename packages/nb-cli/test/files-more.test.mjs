@@ -86,3 +86,28 @@ describe("more file commands (C3)", () => {
     assert.ok(fs.existsSync(path.join(cwd, "docs", "b.md")));
   });
 });
+
+// Found in the 2.1.6 live check: in a folder linked to a remote folder, file commands looked at the workspace root.
+import { describe as describe2, it as it2 } from "node:test";
+describe2("a folder linked to a remote folder (--path)", () => {
+  it2("nb file history and nb diff --from take paths relative to the linked folder; a leading / is a workspace path", async () => {
+    const { startFakeServer: start, putFile: put } = await import("./helpers/fake-server.mjs");
+    const { runCli: run, tempDir: tmp } = await import("./helpers/run-cli.mjs");
+    const { default: assert2 } = await import("node:assert/strict");
+    const api = await start();
+    try {
+      put(api.state, "/design/n.md", Buffer.from("one\n"));
+      put(api.state, "/design/n.md", Buffer.from("one\ntwo\n"));
+      const cwd = await tmp("nb-sub-");
+      const home = await tmp("nb-sub-h-");
+      await run(["init", "design-lab", "--path", "/design"], { api: api.url, cwd, home });
+      const h = await run(["file", "history", "n.md"], { api: api.url, cwd, home });
+      assert2.equal(h.code, 0, h.stderr);
+      assert2.match(h.stdout, /v2/);
+      assert2.equal((await run(["file", "history", "/design/n.md"], { api: api.url, cwd, home })).code, 0, "a workspace path still works");
+      const d = await run(["diff", "n.md", "--from", "v1", "--to", "v2"], { api: api.url, cwd, home });
+      assert2.equal(d.code, 0, d.stderr);
+      assert2.match(d.stdout, /\+two/);
+    } finally { await api.close(); }
+  });
+});
