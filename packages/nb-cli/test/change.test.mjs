@@ -104,6 +104,19 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("a small change set finished earlier applies without asking (M5 live check)", async () => {
+    const api = await startFakeServer();
+    try {
+      const { cwd, nb } = await linked(api);
+      await nb(["change", "start", "Small"]);
+      fs.writeFileSync(path.join(cwd, "a.txt"), "a two\n");
+      assert.equal((await nb(["change", "finish"])).code, 0);
+      const r = await nb(["change", "apply"]);
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(api.state.files.get("/a.txt")?.content.toString(), "a two\n");
+    } finally { await api.close(); }
+  });
+
   it("an agent's big change set never applies without its person's yes", async () => {
     const api = await startFakeServer();
     try {

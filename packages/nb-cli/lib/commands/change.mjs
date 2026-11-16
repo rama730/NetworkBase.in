@@ -58,7 +58,7 @@ export async function changeStart(ctx) {
 /** @param {Context} ctx */
 export async function changeStatus(ctx) {
   const { root } = ctx.requireRoot();
-  const id = ctx.positionals[0] ?? currentChange(root);
+  const id = ctx.positionals[0] ? await fullId(ctx, ctx.positionals[0]) : currentChange(root);
   if (!id) {
     ctx.out.result("nb.change.status/1", { changeSet: null }, () => ["No open change set in this folder.", ctx.out.c.muted("  nb change start \"what you're doing\" opens one; nb change list shows the workspace's.")]);
     return EXIT.ok;
@@ -95,7 +95,7 @@ export async function changeList(ctx) {
 
 /** @param {Context} ctx */
 export async function changeView(ctx) {
-  const id = pick(ctx);
+  const id = await fullId(ctx, pick(ctx));
   const res = /** @type {any} */ (await ctx.api.get(`/api/v1/change-sets/${enc(id)}`));
   const sym = /** @type {Record<string, string>} */ ({ add: "+", change: "~", delete: "-", rename: ">" });
   ctx.out.result("nb.change.view/1", res, (d) => [
@@ -135,8 +135,13 @@ export async function changeApply(ctx) {
   let view = /** @type {any} */ (await ctx.api.get(`/api/v1/change-sets/${enc(id)}`));
   /** @type {any} */
   let finished = null;
-  if (view.changeSet.status === "open") {
-    finished = await finishSet(ctx, id);
+  // Finish (again) for the decision: small ones apply without asking. A set finished earlier is checked again, which
+  // is cheap; someone else's can't be (only its author finishes), so applying it asks (found in the M5 live check).
+  if (view.changeSet.status === "open" || view.changeSet.status === "ready") {
+    finished = await finishSet(ctx, id).catch((/** @type {unknown} */ error) => {
+      if (view.changeSet.status === "ready" && error instanceof CliError && error.code === "FORBIDDEN") return null;
+      throw error;
+    });
     view = /** @type {any} */ (await ctx.api.get(`/api/v1/change-sets/${enc(id)}`));
   }
   const only = ctx.flags.only ? String(ctx.flags.only).split(",").map((p) => p.trim()).filter(Boolean) : null;
@@ -176,7 +181,7 @@ export async function changeApply(ctx) {
 /** A short id (from nb change list) as the full one. @param {Context} ctx @param {string} id */
 async function fullId(ctx, id) {
   if (/^[0-9a-f-]{36}$/i.test(id)) return id;
-  const res = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${enc(ctx.requireWorkspace())}/change-sets`));
+  const res = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${enc(ctx.requireWorkspace())}/change-sets`, { query: { limit: 100 } }));
   const match = res.changeSets.filter((/** @type {any} */ s) => s.id.startsWith(id));
   if (match.length !== 1) throw new CliError("NOT_FOUND", `No single change set starts with ${id}`, { hint: "nb change list --all" });
   return match[0].id;
