@@ -6,7 +6,8 @@ import { listTopLevel } from "@/lib/messaging/queries";
 import { sendAs } from "@/lib/messaging/send";
 import { takeSendToken } from "@/lib/messaging/send-bucket";
 import { chatRows, chatValue, uuidArray } from "@/lib/messaging/server";
-import { encodeMentions, parseMentions, previewText, splitTokens } from "@/lib/messaging/tokens";
+import { encodeMentions, parseMentions, previewText, tokensToPlainText } from "@/lib/messaging/tokens";
+import { withBlockState } from "@/lib/messaging/shell-state";
 import type { ChatBootstrap, ChatChannelSummary } from "@/lib/messaging/types";
 
 /**
@@ -41,8 +42,8 @@ export async function listConversations(userId: string): Promise<Conversation[]>
   const blocks = await chatRows<{ blocker_id: string; blocked_id: string }>(sql`
     SELECT blocker_id, blocked_id FROM user_blocks WHERE blocker_id = ${userId}::uuid OR blocked_id = ${userId}::uuid
   `);
-  const blocked = new Set(blocks.flatMap((b) => [b.blocker_id, b.blocked_id]).filter((id) => id !== userId));
-  return data.channels
+  // Across a block (either way) a DM or two-person group takes no replies, as in the app (B44).
+  return withBlockState(data.channels, userId, blocks)
     // Application threads belong to the hiring screens; archived ones stay in the app.
     .filter((c) => !c.application_id && !c.archived_at && !c.channel_archived_at)
     .map((c) => ({
@@ -55,7 +56,7 @@ export async function listConversations(userId: string): Promise<Conversation[]>
       mentions: c.mention_count ?? 0,
       lastAt: c.last_message_at,
       lastPreview: c.last_preview ? previewText(c.last_preview).slice(0, 140) : null,
-      canReply: !(c.kind === "dm" && c.dm_user && blocked.has(c.dm_user.id)),
+      canReply: !c.reply_closed,
     }))
     .sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? ""));
 }
@@ -69,8 +70,6 @@ async function handles(ids: string[]) {
   return new Map(rows.map((r) => [r.id, r.handle]));
 }
 
-const plain = (body: string, names: Map<string, string>) =>
-  splitTokens(body).map((s) => (s.type === "text" ? s.value : s.type === "user" ? `@${names.get(s.id) ?? "someone"}` : s.type === "channel" ? "#channel" : `@${s.value}`)).join("");
 
 /** The latest messages in a conversation (or before a message), oldest first, as plain text. */
 export async function readConversation(userId: string, channelId: string, before?: number) {
@@ -88,7 +87,7 @@ export async function readConversation(userId: string, channelId: string, before
     seq: m.seq,
     at: m.created_at,
     author: m.author?.username ? `@${m.author.username}` : m.author?.full_name ?? (m.kind === "system" ? "NetworkBase" : "someone"),
-    text: m.author_id && folded.has(m.author_id) ? "(hidden: someone you blocked or muted)" : plain(m.body, names),
+    text: m.author_id && folded.has(m.author_id) ? "(hidden: someone you blocked or muted)" : tokensToPlainText(m.body, (id) => names.get(id)),
     replies: m.reply_count,
     edited: Boolean(m.edited_at),
     files: m.attachments.map((a) => a.name),

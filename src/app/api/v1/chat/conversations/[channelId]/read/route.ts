@@ -1,4 +1,5 @@
-import { chatError, channelIdOk, withChat } from "@/app/api/v1/chat/_shared";
+import { chatError, withChat } from "@/app/api/v1/chat/_shared";
+import { isUuid } from "@/lib/messaging/server";
 import { jsonError, jsonSuccess } from "@/app/api/v1/_shared";
 import { messageMarkReadSchema } from "@/lib/api/v1-schemas";
 import { markConversationRead } from "@/lib/messaging/api";
@@ -17,7 +18,7 @@ export async function POST(request: Request, context: Context) {
   if (csrf) return csrf;
   return withChat(request, "api/v1/chat/read", async (auth) => {
     const { channelId } = await context.params;
-    if (!channelIdOk(channelId)) return jsonError("Conversation not found", 404, "NOT_FOUND");
+    if (!isUuid(channelId)) return jsonError("Conversation not found", 404, "NOT_FOUND");
     const parsed = messageMarkReadSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return jsonError("seq is the last message read", 400, "BAD_REQUEST");
     try {

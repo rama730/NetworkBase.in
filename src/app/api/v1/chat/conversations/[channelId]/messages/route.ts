@@ -1,4 +1,5 @@
-import { chatError, channelIdOk, withChat } from "@/app/api/v1/chat/_shared";
+import { chatError, withChat } from "@/app/api/v1/chat/_shared";
+import { isUuid } from "@/lib/messaging/server";
 import { idempotentWrite, jsonError, jsonSuccess } from "@/app/api/v1/_shared";
 import { messageReadQuerySchema, messageSendSchema } from "@/lib/api/v1-schemas";
 import { readConversation, sendToConversation } from "@/lib/messaging/api";
@@ -13,7 +14,7 @@ type Context = { params: Promise<{ channelId: string }> };
 export async function GET(request: Request, context: Context) {
   return withChat(request, "api/v1/chat/messages", async (auth) => {
     const { channelId } = await context.params;
-    if (!channelIdOk(channelId)) return jsonError("Conversation not found", 404, "NOT_FOUND");
+    if (!isUuid(channelId)) return jsonError("Conversation not found", 404, "NOT_FOUND");
     const query = messageReadQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
     if (!query.success) return jsonError("before is a message number", 400, "BAD_REQUEST");
     try {
@@ -30,7 +31,7 @@ export async function POST(request: Request, context: Context) {
   if (csrf) return csrf;
   return idempotentWrite(request, "chat.send", (req) => withChat(req, "api/v1/chat/messages", async (auth) => {
     const { channelId } = await context.params;
-    if (!channelIdOk(channelId)) return jsonError("Conversation not found", 404, "NOT_FOUND");
+    if (!isUuid(channelId)) return jsonError("Conversation not found", 404, "NOT_FOUND");
     const parsed = messageSendSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return jsonError("Write the message: 1 to 4000 characters", 400, "BAD_REQUEST");
     try {

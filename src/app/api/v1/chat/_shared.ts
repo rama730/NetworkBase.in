@@ -1,6 +1,6 @@
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { getRequestId, jsonError, requireAuthenticatedUser } from "@/app/api/v1/_shared";
-import { chatFailure, isUuid } from "@/lib/messaging/server";
+import { chatFailure } from "@/lib/messaging/server";
 
 type Auth = Awaited<ReturnType<typeof requireAuthenticatedUser>> & { user: { id: string } };
 
@@ -32,5 +32,3 @@ export function chatError(error: unknown, action: string) {
   if (code === "chat_unavailable") return jsonError("Messages aren't available right now; try again", 503, "UNAVAILABLE");
   return jsonError("You can't send messages here", 403, "FORBIDDEN");
 }
-
-export const channelIdOk = (id: string) => isUuid(id);
