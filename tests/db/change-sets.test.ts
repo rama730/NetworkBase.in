@@ -354,3 +354,26 @@ test("sizes come from the uploaded bytes, not the declared size; only people spl
   const agent = await token(owner, "agent", workspace, ["file:read", "file:write"]);
   assert.equal((await applyIt(agent, cs, { only: ["/x.txt"] })).status, 403);
 });
+
+test("large uploads: wrong bytes are refused and removed; content already stored is never touched", async () => {
+  const { workspace, cli } = await setup(["a"]);
+  const started = await call(ws.POST, cli, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "large" }, { params: Promise.resolve({ id: workspace }) });
+  const cs = started.json.data.changeSet.id;
+  const text = "a big file\n";
+  await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${cs}/items`, { items: [{ op: "add", path: "/big.bin", contentHash: sha(text), size: text.length }] }, csCtx(cs));
+  const first = await call(content.POST, cli, "POST", `/api/v1/change-sets/${cs}/content`, { hash: sha(text) }, csCtx(cs));
+  assert.ok(first.json.data.upload.url, "a signed upload URL for the large file");
+  const key = `${workspace}/.changes/${sha(text)}`;
+  stored.set(key, Buffer.from("not the same bytes"));
+  const bad = await call(content.POST, cli, "POST", `/api/v1/change-sets/${cs}/content`, { hash: sha(text) }, csCtx(cs));
+  assert.equal(bad.json.errorCode, "CONTENT_HASH_MISMATCH");
+  assert.ok(!stored.has(key), "the wrong upload is gone");
+  stored.set(key, Buffer.from(text));
+  assert.equal((await call(content.POST, cli, "POST", `/api/v1/change-sets/${cs}/content`, { hash: sha(text) }, csCtx(cs))).status, 200);
+  // Verified now: a later wrong upload over the key isn't read, checked or removed.
+  stored.set(key, Buffer.from("tampered"));
+  await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${cs}/items`, { items: [{ op: "add", path: "/big2.bin", contentHash: sha(text), size: text.length }] }, csCtx(cs));
+  const again = await call(content.POST, cli, "POST", `/api/v1/change-sets/${cs}/content`, { hash: sha(text) }, csCtx(cs));
+  assert.equal(again.status, 200);
+  assert.ok(stored.has(key), "stored content is never removed by a later request");
+});

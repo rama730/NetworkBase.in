@@ -318,10 +318,7 @@ export async function dropItem(actor: Actor, changeSetId: string, rawPath: strin
 /** Stores verified bytes once per workspace and marks the items waiting for them ready (G6). */
 async function storeContent(set: ChangeSet, userId: string, hash: string, bytes: Buffer, mimeType: string) {
   const key = contentKey(set.workspaceId, hash);
-  if (bytes.byteLength > LIMITS.fileBytes) {
-    await (await createAdminClient()).storage.from("project-files").remove([key]);
-    fail("That file is over the 25 MB per-file limit", 413, "FILE_TOO_LARGE");
-  }
+  if (bytes.byteLength > LIMITS.fileBytes) fail("That file is over the 25 MB per-file limit", 413, "FILE_TOO_LARGE");
   const now = new Date();
   const [inserted] = await db.insert(storageAssets).values({
     ownerUserId: userId,
@@ -377,6 +374,7 @@ export async function putContent(actor: Actor, changeSetId: string, body: { file
       if (total > LIMITS.inlineBytes) fail("Inline content is limited to 4 MB a call; send the rest in another call", 413, "BAD_REQUEST");
       if (crypto.createHash("sha256").update(bytes).digest("hex") !== hash) fail(`The bytes don't match ${hash.slice(0, 12)}…`, 400, "CONTENT_HASH_MISMATCH");
       const item = await pendingMime(set.id, hash);
+      // The bytes match their hash, so writing them again over the same key changes nothing.
       const { error } = await storage.upload(contentKey(set.workspaceId, hash), bytes, { contentType: storableMime(item.mimeType), cacheControl: "31536000", upsert: true });
       if (error) fail(`Couldn't store ${hash.slice(0, 12)}…: ${error.message}`, 502, "INTERNAL_ERROR");
       await storeContent(set, userId, hash, bytes, item.mimeType ?? "application/octet-stream");
@@ -388,17 +386,29 @@ export async function putContent(actor: Actor, changeSetId: string, body: { file
   if (!/^[0-9a-f]{64}$/.test(hash)) fail("Send files, or the hash of one large file", 400, "BAD_REQUEST");
   const item = await pendingMime(set.id, hash);
   const key = contentKey(set.workspaceId, hash);
+  // Content already stored and verified is never uploaded over, checked again or removed: the items just use it.
+  const [verified] = await db.select({ id: storageAssets.id }).from(storageAssets)
+    .where(and(eq(storageAssets.bucket, "project-files"), eq(storageAssets.storageKey, key), eq(storageAssets.state, "verified"))).limit(1);
+  if (verified) {
+    await db.transaction(async (tx) => {
+      await tx.update(changeSetItems).set({ assetId: verified.id, state: "ready", updatedAt: new Date() })
+        .where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.contentHash, hash), eq(changeSetItems.state, "pending")));
+      await recount(tx, set.id);
+    });
+    return { stored: [hash] };
+  }
   const { data: existing } = await storage.download(key);
   if (existing) {
     const bytes = Buffer.from(await existing.arrayBuffer());
-    if (crypto.createHash("sha256").update(bytes).digest("hex") !== hash) {
+    if (crypto.createHash("sha256").update(bytes).digest("hex") !== hash || bytes.byteLength > LIMITS.fileBytes) {
+      // Nothing refers to an unverified upload, so a wrong or oversized one goes.
       await storage.remove([key]);
-      fail("The uploaded bytes don't match the hash; upload again", 400, "CONTENT_HASH_MISMATCH");
+      fail(bytes.byteLength > LIMITS.fileBytes ? "That file is over the 25 MB per-file limit" : "The uploaded bytes don't match the hash; upload again", bytes.byteLength > LIMITS.fileBytes ? 413 : 400, bytes.byteLength > LIMITS.fileBytes ? "FILE_TOO_LARGE" : "CONTENT_HASH_MISMATCH");
     }
     await storeContent(set, userId, hash, bytes, item.mimeType ?? "application/octet-stream");
     return { stored: [hash] };
   }
-  const { data, error } = await storage.createSignedUploadUrl(key, { upsert: true });
+  const { data, error } = await storage.createSignedUploadUrl(key);
   if (error || !data) fail("Couldn't prepare the upload", 502, "INTERNAL_ERROR");
   return { upload: { url: data!.signedUrl, token: data!.token, contentType: storableMime(item.mimeType) } };
 }
