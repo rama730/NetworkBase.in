@@ -121,7 +121,8 @@ export function createOutput(mode, io = {}) {
     table(allCols, rows) {
       if (format) {
         // Plain text without colour or truncation: a cell is what the column's value says.
-        const plainCell = (/** @type {string} */ s) => stripForJson(String(s ?? ""));
+        // The terminal's markers (the started task's ❯) mean nothing pasted into chat or a sheet (2.1.6 live check).
+        const plainCell = (/** @type {string} */ s) => stripForJson(String(s ?? "")).replace(new RegExp(`^\\s*[${sym.cursor}${sym.brand}]\\s+`), "").trim();
         const csv = (/** @type {string} */ s) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
         const md = (/** @type {string} */ s) => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
         const head = allCols.map((col) => col.title || " ");

@@ -52,7 +52,9 @@ describe("journeys (C14b)", () => {
     assert.match(prompt.stdout, new RegExp(`\\[#${a.taskNumber}`));
     const moved = await nb(["task", "move", String(a.taskNumber), String(b.taskNumber), "in_progress"]);
     assert.equal(moved.code, 0, moved.stderr);
-    assert.match((await nb(["task", "list", "--format", "md"])).stdout, /\| # \| Task \|/);
+    const md = (await nb(["task", "list", "--format", "md"])).stdout;
+    assert.match(md, /\| # \| Task \|/);
+    assert.doesNotMatch(md, /\| [❯>] /, "no terminal marker in a table pasted into chat");
     assert.equal((await nb(["undo", "--list"])).code, 0);
     const ui = await nb(["ui", "--plain"]);
     assert.equal(ui.code, 0, ui.stderr);
