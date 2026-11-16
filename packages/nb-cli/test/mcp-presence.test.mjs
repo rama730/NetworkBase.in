@@ -46,7 +46,8 @@ describe("presence per agent (D5, D17)", () => {
 
 // Claude Code stops nb mcp with SIGINT and kills it within a second (2.1.4 live check): the end still happens.
 describe("a session stopped with a signal", () => {
-  it("still sends its end and leaves its tasks, from a detached nb mcp finish", async () => {
+  // Windows has no catchable signals: kill() ends the process outright, so there's nothing to run there.
+  it("still sends its end and leaves its tasks, from a detached nb mcp finish", { skip: process.platform === "win32" && "no catchable signals on Windows" }, async () => {
     const api = await startFakeServer();
     try {
       const cwd = await tempDir("nb-sig-");
