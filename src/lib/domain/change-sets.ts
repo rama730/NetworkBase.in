@@ -18,6 +18,7 @@ import { viaColumns } from "@/lib/server/request-via";
 import { createAdminClient } from "@/lib/supabase/server";
 import { normalizeAndValidateMimeType } from "@/lib/upload/security";
 import { unifiedDiff } from "../../../packages/nb-cli/lib/sync/diff.mjs";
+import { isMergeableText, merge3 } from "../../../packages/nb-cli/lib/sync/merge3.mjs";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type ChangeSet = typeof changeSets.$inferSelect;
@@ -558,43 +559,184 @@ type Planned = { item: ChangeSetItem; nodeId: string | null; expectVersion: numb
  */
 async function prepare(set: ChangeSet) {
   const items = await db.select().from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id)).orderBy(asc(changeSetItems.path));
+  const { conflicts, nodes } = await rebase(set, items);
+  const addPaths = await liveFiles(set.workspaceId, items.filter((i) => i.op === "add").map((i) => i.path));
+  const fresh = await db.select().from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id)).orderBy(asc(changeSetItems.path));
+  const planned: Planned[] = fresh.filter((i) => i.state !== "conflict").map((item) => {
+    if (item.op === "add") { const taken = addPaths.get(item.path); return { item, nodeId: taken?.id ?? null, expectVersion: taken?.version ?? null }; }
+    const node = nodes.get(item.baseNodeId!);
+    return { item, nodeId: node?.id ?? item.baseNodeId, expectVersion: node?.version ?? item.baseVersion };
+  });
+  return { planned, conflicts };
+}
+
+type LiveNode = { id: string; path: string; version: number; deletedAt: Date | null; hash: string | null; assetId: string | null };
+
+/**
+ * Brings items whose file changed since their base up to date (G9): a clean three-way merge becomes the item's content
+ * with the current version as its new base ("merged automatically"); anything else is a conflict to resolve.
+ * Used by prepare (apply) and by "update the draft" (route 10).
+ */
+async function rebase(set: ChangeSet, items: ChangeSetItem[]) {
   const nodeIds = items.flatMap((i) => (i.baseNodeId ? [i.baseNodeId] : []));
-  const nodes = nodeIds.length
-    ? await db.select({ id: workspaceNodes.id, path: workspaceNodes.path, version: workspaceNodes.currentVersion, deletedAt: workspaceNodes.deletedAt, hash: fileVersions.contentHash })
+  const rows = nodeIds.length
+    ? await db.select({ id: workspaceNodes.id, path: workspaceNodes.path, version: workspaceNodes.currentVersion, deletedAt: workspaceNodes.deletedAt, hash: fileVersions.contentHash, assetId: workspaceNodes.assetId })
       .from(workspaceNodes)
       .leftJoin(fileVersions, and(eq(fileVersions.nodeId, workspaceNodes.id), eq(fileVersions.version, workspaceNodes.currentVersion)))
       .where(inArray(workspaceNodes.id, nodeIds))
     : [];
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const addPaths = await liveFiles(set.workspaceId, items.filter((i) => i.op === "add" || i.op === "rename").map((i) => i.path));
+  const nodes = new Map<string, LiveNode>(rows.map((n) => [n.id, { ...n, version: n.version ?? 1, hash: n.hash?.toLowerCase() ?? null }]));
+  const taken = await liveFiles(set.workspaceId, items.filter((i) => i.op === "add" || i.op === "rename").map((i) => i.path));
   const conflicts: Conflict[] = [];
-  const planned: Planned[] = [];
+  const merged: string[] = [];
+  const mark = async (item: ChangeSetItem, c: Conflict) => {
+    conflicts.push(c);
+    await db.update(changeSetItems).set({ state: "conflict", conflict: { kind: c.kind, currentVersion: c.currentVersion ?? null, nodeId: c.nodeId ?? null }, updatedAt: new Date() }).where(eq(changeSetItems.id, item.id));
+  };
   for (const item of items) {
-    // A conflict the person resolved as "mine" keeps its choice: apply over whatever is there now.
-    const resolvedMine = item.conflict && (item.conflict as { resolved?: string }).resolved === "mine";
+    if (item.state === "pending") continue;
     if (item.op === "add") {
-      const taken = addPaths.get(item.path);
-      if (taken && !resolvedMine) { conflicts.push({ path: item.path, kind: "exists", nodeId: taken.id, currentVersion: taken.version }); continue; }
-      planned.push({ item, nodeId: taken?.id ?? null, expectVersion: taken?.version ?? null });
+      const t = taken.get(item.path);
+      if (t) await mark(item, { path: item.path, kind: "exists", nodeId: t.id, currentVersion: t.version });
       continue;
     }
-    const node = item.baseNodeId ? byId.get(item.baseNodeId) : null;
-    if (!node || node.deletedAt) { conflicts.push({ path: item.fromPath ?? item.path, kind: "deleted", nodeId: item.baseNodeId }); continue; }
-    if (node.path !== (item.fromPath ?? item.path)) { conflicts.push({ path: item.fromPath ?? item.path, kind: "moved", nodeId: node.id, currentVersion: node.version }); continue; }
-    if (item.op === "rename" && addPaths.get(item.path)) { conflicts.push({ path: item.path, kind: "exists", nodeId: addPaths.get(item.path)!.id }); continue; }
-    const changedSince = node.version !== item.baseVersion && node.hash?.toLowerCase() !== item.baseHash;
-    if (changedSince && !resolvedMine) { conflicts.push({ path: item.path, kind: "edit", nodeId: node.id, currentVersion: node.version }); continue; }
-    planned.push({ item, nodeId: node.id, expectVersion: node.version });
+    const node = item.baseNodeId ? nodes.get(item.baseNodeId) : undefined;
+    if (!node || node.deletedAt) { await mark(item, { path: item.fromPath ?? item.path, kind: "deleted", nodeId: item.baseNodeId }); continue; }
+    if (node.path !== (item.fromPath ?? item.path)) { await mark(item, { path: item.fromPath ?? item.path, kind: "moved", nodeId: node.id, currentVersion: node.version }); continue; }
+    if (item.op === "rename" && taken.get(item.path)) { await mark(item, { path: item.path, kind: "exists", nodeId: taken.get(item.path)!.id }); continue; }
+    const changedSince = node.version !== item.baseVersion && node.hash !== item.baseHash;
+    if (!changedSince) {
+      if (item.state === "conflict") await db.update(changeSetItems).set({ state: "ready", conflict: null, updatedAt: new Date() }).where(eq(changeSetItems.id, item.id));
+      continue;
+    }
+    const result = item.op === "delete" || !item.contentHash ? null : await mergeItem(set, item, node);
+    if (!result) { await mark(item, { path: item.path, kind: "edit", nodeId: node.id, currentVersion: node.version }); continue; }
+    merged.push(item.path);
+    const lines = unifiedDiff(result.theirs, result.text);
+    await db.update(changeSetItems).set({
+      baseVersion: node.version, baseHash: node.hash, contentHash: result.hash, assetId: result.assetId, mergedAssetId: result.assetId, size: result.size,
+      state: "merged", conflict: { kind: "merged", from: item.baseVersion, onto: node.version }, linesAdded: lines?.added ?? null, linesRemoved: lines?.removed ?? null, updatedAt: new Date(),
+    }).where(eq(changeSetItems.id, item.id));
   }
-  if (conflicts.length) {
-    await db.transaction(async (tx) => {
-      for (const c of conflicts) {
-        await tx.update(changeSetItems).set({ state: "conflict", conflict: { kind: c.kind, currentVersion: c.currentVersion ?? null }, updatedAt: new Date() })
-          .where(and(eq(changeSetItems.changeSetId, set.id), or(eq(changeSetItems.path, c.path), eq(changeSetItems.fromPath, c.path))));
-      }
-    });
+  await db.transaction((tx) => recount(tx, set.id));
+  return { conflicts, merged, nodes };
+}
+
+/** base + theirs + mine → merged content stored as new content, or null when it can't merge cleanly. */
+async function mergeItem(set: ChangeSet, item: ChangeSetItem, node: LiveNode) {
+  const [base, theirs, mine] = await Promise.all([readAsset(await baseAssetOf(item)), readAsset(node.assetId), readAsset(item.assetId)]);
+  if (!base || !theirs || !mine || ![base, theirs, mine].every((b) => isMergeableText(b))) return null;
+  const result = merge3(base.toString("utf8"), theirs.toString("utf8"), mine.toString("utf8"));
+  if (!result.ok) return null;
+  const bytes = Buffer.from(result.text, "utf8");
+  const hash = crypto.createHash("sha256").update(bytes).digest("hex");
+  const assetId = await storeBytes(set, hash, bytes, item.mimeType);
+  return { text: result.text, theirs: theirs.toString("utf8"), hash, size: bytes.byteLength, assetId };
+}
+
+/** Content made on the server (a merge, a resolved result): stored once, verified. */
+async function storeBytes(set: ChangeSet, hash: string, bytes: Buffer, mimeType: string | null) {
+  const key = contentKey(set.workspaceId, hash);
+  const [have] = await db.select({ id: storageAssets.id }).from(storageAssets).where(and(eq(storageAssets.bucket, "project-files"), eq(storageAssets.storageKey, key), eq(storageAssets.state, "verified"))).limit(1);
+  if (have) return have.id;
+  const { error } = await (await createAdminClient()).storage.from("project-files").upload(key, bytes, { contentType: storableMime(mimeType), cacheControl: "31536000", upsert: true });
+  if (error) fail(`Couldn't store the merged file: ${error.message}`, 502, "INTERNAL_ERROR");
+  const now = new Date();
+  const [row] = await db.insert(storageAssets).values({
+    ownerUserId: set.authorId, projectId: set.workspaceId, bucket: "project-files", storageKey: key, purpose: "change_set_content", state: "verified",
+    declaredMimeType: mimeType ?? "text/plain", declaredSize: bytes.byteLength, verifiedMimeType: mimeType ?? "text/plain", verifiedSize: bytes.byteLength, contentHash: hash,
+    expiresAt: new Date(now.getTime() + 15 * 60_000), verifiedAt: now, idempotencyKey: `change-content:${set.workspaceId}:${hash}`,
+    requestFingerprint: crypto.createHash("sha256").update(`change-content:${set.workspaceId}:${hash}`).digest("hex"), metadata: { changeSetId: set.id, source: "change_set_merge" },
+  }).onConflictDoNothing().returning({ id: storageAssets.id });
+  return row?.id ?? (await db.select({ id: storageAssets.id }).from(storageAssets).where(and(eq(storageAssets.bucket, "project-files"), eq(storageAssets.storageKey, key))).limit(1))[0]!.id;
+}
+
+/** "Update the draft" (route 10): merges the workspace's newer versions into the items now, before apply. */
+export async function updateDraft(actor: Actor, changeSetId: string) {
+  const set = await loadForWrite(actor, changeSetId, "author");
+  if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
+  const items = await db.select().from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));
+  const { merged, conflicts } = await rebase(set, items);
+  const rows = merged.length ? await db.select().from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), inArray(changeSetItems.path, merged))) : [];
+  return { merged: rows.map((r) => ({ path: r.path, contentHash: r.contentHash, baseVersion: r.baseVersion, baseHash: r.baseHash })), conflicts };
+}
+
+/**
+ * Resolve one conflicted file (route 11, G9): `mine` applies the item over what's there now, `theirs` drops it,
+ * `content` makes the given text (or an uploaded hash) the item's content on top of the current version.
+ */
+export async function resolveItem(actor: Actor, changeSetId: string, input: { path: string; choice: "mine" | "theirs" | "content"; contentHash?: string | null; text?: string | null }) {
+  const set = await loadForWrite(actor, changeSetId, "author-or-admin");
+  if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
+  const path = normalizeChangePath(input.path);
+  const [item] = await db.select().from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), or(eq(changeSetItems.path, path), eq(changeSetItems.fromPath, path)))).limit(1);
+  if (!item) fail("That file isn't in this change set", 404, "NOT_FOUND");
+  if (input.choice === "theirs") {
+    await db.transaction(async (tx) => { await tx.delete(changeSetItems).where(eq(changeSetItems.id, item!.id)); await recount(tx, set.id); });
+    return { item: null };
   }
-  return { planned, conflicts };
+  const kind = (item!.conflict as { kind?: string } | null)?.kind;
+  // The file as it is now becomes the base, so apply sees no change since.
+  const [live] = await liveFiles(set.workspaceId, [item!.path]).then((m) => [...m.values()]);
+  const baseNode = kind === "deleted" ? null : live ?? (item!.baseNodeId ? (await db.select({ id: workspaceNodes.id, version: workspaceNodes.currentVersion, deletedAt: workspaceNodes.deletedAt }).from(workspaceNodes).where(eq(workspaceNodes.id, item!.baseNodeId)).limit(1))[0] : null);
+  const [baseVersionRow] = baseNode && !baseNode.deletedAt ? await db.select({ hash: fileVersions.contentHash }).from(fileVersions).where(and(eq(fileVersions.nodeId, baseNode.id), eq(fileVersions.version, (baseNode as { version: number }).version))).limit(1) : [];
+  const rebased = baseNode && !baseNode.deletedAt
+    ? { op: (item!.op === "add" ? "change" : item!.op === "rename" && kind === "exists" ? "change" : item!.op) as ChangeSetItem["op"], baseNodeId: baseNode.id, baseVersion: (baseNode as { version: number }).version, baseHash: baseVersionRow?.hash?.toLowerCase() ?? null }
+    : { op: (item!.op === "delete" ? "delete" : "add") as ChangeSetItem["op"], baseNodeId: null, baseVersion: null, baseHash: null };
+  if (rebased.op === "delete" && !rebased.baseNodeId) {
+    // Deleting a file that's already gone: nothing to do.
+    await db.transaction(async (tx) => { await tx.delete(changeSetItems).where(eq(changeSetItems.id, item!.id)); await recount(tx, set.id); });
+    return { item: null };
+  }
+  let content: { contentHash: string | null; assetId: string | null; size: number | null; state: ChangeSetItem["state"] } = { contentHash: item!.contentHash, assetId: item!.assetId, size: item!.size, state: "ready" };
+  if (input.choice === "content") {
+    if (input.text != null) {
+      const bytes = Buffer.from(String(input.text), "utf8");
+      if (bytes.byteLength > LIMITS.fileBytes) fail("That file is over the 25 MB per-file limit", 413, "FILE_TOO_LARGE");
+      const findings = scanForSecrets(item!.path, bytes);
+      if (findings.length && isAgent(actor)) fail("That text looks like it holds a password or key", 422, "SECRET_DETECTED", { findings });
+      const hash = crypto.createHash("sha256").update(bytes).digest("hex");
+      content = { contentHash: hash, assetId: await storeBytes(set, hash, bytes, item!.mimeType), size: bytes.byteLength, state: "ready" };
+    } else {
+      const hash = String(input.contentHash ?? "").toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(hash)) fail("Send the resolved text, or the hash of uploaded content", 400, "BAD_REQUEST");
+      const known = (await knownContent(set.workspaceId, [hash])).get(hash);
+      content = { contentHash: hash, assetId: known?.id ?? null, size: known?.size ?? null, state: known ? "ready" : "pending" };
+    }
+  }
+  // Moved since: the edit goes to the file at its new path (G9 "apply the edit at the new path").
+  const movedTo = kind === "moved" && item!.baseNodeId
+    ? (await db.select({ path: workspaceNodes.path }).from(workspaceNodes).where(and(eq(workspaceNodes.id, item!.baseNodeId), isNull(workspaceNodes.deletedAt))).limit(1))[0]?.path ?? null
+    : null;
+  if (movedTo) {
+    const [moved] = await db.select({ version: workspaceNodes.currentVersion, hash: fileVersions.contentHash }).from(workspaceNodes)
+      .leftJoin(fileVersions, and(eq(fileVersions.nodeId, workspaceNodes.id), eq(fileVersions.version, workspaceNodes.currentVersion))).where(eq(workspaceNodes.id, item!.baseNodeId!)).limit(1);
+    Object.assign(rebased, { op: item!.op === "rename" ? "change" : item!.op, baseNodeId: item!.baseNodeId, baseVersion: moved?.version ?? null, baseHash: moved?.hash?.toLowerCase() ?? null });
+  }
+  const [row] = await db.transaction(async (tx) => {
+    const updated = await tx.update(changeSetItems).set({
+      ...rebased, ...content, ...(movedTo ? { path: movedTo } : {}), fromPath: rebased.op === "rename" && !movedTo ? item!.fromPath : null, mergedAssetId: null, conflict: { kind: "resolved", choice: input.choice, was: kind ?? null }, updatedAt: new Date(),
+    }).where(eq(changeSetItems.id, item!.id)).returning();
+    await recount(tx, set.id);
+    return updated;
+  });
+  return { item: row, ...(row?.state === "pending" ? { missingContent: [row.contentHash] } : {}) };
+}
+
+/** The three sides of a conflicted or merged text file, for the merge editor (G12): base, theirs, mine. */
+export async function conflictSides(actor: Actor, changeSetId: string, rawPath: string) {
+  const set = await loadForWrite(actor, changeSetId, "author-or-admin");
+  const path = normalizeChangePath(rawPath);
+  const [item] = await db.select().from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.path, path))).limit(1);
+  if (!item) fail("That file isn't in this change set", 404, "NOT_FOUND");
+  const nodeId = (item!.conflict as { nodeId?: string } | null)?.nodeId ?? item!.baseNodeId;
+  const [node] = nodeId ? await db.select({ assetId: workspaceNodes.assetId, deletedAt: workspaceNodes.deletedAt }).from(workspaceNodes).where(eq(workspaceNodes.id, nodeId)).limit(1) : [];
+  const text = async (id: string | null | undefined) => {
+    const b = id ? await readAsset(id) : null;
+    return b && isMergeableText(b) ? b.toString("utf8") : null;
+  };
+  const [base, theirs, mine] = await Promise.all([text(await baseAssetOf(item!)), text(node && !node.deletedAt ? node.assetId : null), text(item!.assetId)]);
+  return { path, kind: (item!.conflict as { kind?: string } | null)?.kind ?? null, base, theirs, mine };
 }
 
 class Raced extends Error {}

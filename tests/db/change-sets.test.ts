@@ -32,6 +32,8 @@ let discard: { POST: Route };
 let undo: { POST: Route };
 let copy: { POST: Route };
 let undoToken: { POST: Route };
+let update: { POST: Route };
+let resolve: { POST: Route };
 before(async () => {
   ws = await loadAppModule(() => import("../../src/app/api/v1/workspaces/[id]/change-sets/route"));
   one = await loadAppModule(() => import("../../src/app/api/v1/change-sets/[cs]/route"));
@@ -43,6 +45,8 @@ before(async () => {
   undo = await loadAppModule(() => import("../../src/app/api/v1/change-sets/[cs]/undo/route"));
   copy = await loadAppModule(() => import("../../src/app/api/v1/change-sets/[cs]/copy/route"));
   undoToken = await loadAppModule(() => import("../../src/app/api/v1/undo/[id]/route"));
+  update = await loadAppModule(() => import("../../src/app/api/v1/change-sets/[cs]/update/route"));
+  resolve = await loadAppModule(() => import("../../src/app/api/v1/change-sets/[cs]/resolve/route"));
 });
 after(async () => { await sql.end(); await closeAppDb(); });
 
@@ -176,7 +180,7 @@ test("a teammate's save since the base is a conflict, never an overwrite; nothin
   const { owner, workspace, cli } = await setup();
   const { cs } = await draft(cli, workspace, [{ op: "change", path: "/a.txt", text: "mine\n" }, { op: "change", path: "/b.txt", text: "mine too\n" }]);
   assert.equal((await finishIt(cli, cs)).status, 200);
-  await addVersion(workspace, owner, "/b.txt", "theirs\n");
+  await addVersion(workspace, owner, "/b.txt", "theirs\n"); // the same line as "mine too": can't merge
   const res = await applyIt(cli, cs);
   assert.equal(res.status, 409);
   assert.equal(res.json.errorCode, "CHANGE_SET_CONFLICT");
@@ -382,4 +386,87 @@ test("large uploads: wrong bytes are refused and removed; content already stored
   const again = await call(content.POST, cli, "POST", `/api/v1/change-sets/${cs}/content`, { hash: sha(text) }, csCtx(cs));
   assert.equal(again.status, 200);
   assert.ok(stored.has(key), "stored content is never removed by a later request");
+});
+
+const TEN = Array.from({ length: 10 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+
+test("a teammate's edit elsewhere in the file merges automatically, and both changes land", async () => {
+  const { owner, workspace, cli } = await setup([]);
+  await addVersion(workspace, owner, "/page.txt", TEN);
+  const { cs } = await draft(cli, workspace, [{ op: "change", path: "/page.txt", text: TEN.replace("line 9", "mine 9") }]);
+  await finishIt(cli, cs);
+  await addVersion(workspace, owner, "/page.txt", TEN.replace("line 2", "theirs 2"));
+  const res = await applyIt(cli, cs);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  assert.equal(await textOf(workspace, "/page.txt"), TEN.replace("line 2", "theirs 2").replace("line 9", "mine 9"));
+  const [item] = await sql`SELECT state, conflict FROM change_set_items WHERE change_set_id = ${cs}`;
+  assert.equal(item!.conflict.kind, "merged", "marked as merged automatically for review");
+});
+
+test("update the draft merges now; resolve mine, theirs and new content", async () => {
+  const { owner, workspace, cli } = await setup([]);
+  await addVersion(workspace, owner, "/x.txt", TEN);
+  await addVersion(workspace, owner, "/y.txt", TEN);
+  await addVersion(workspace, owner, "/z.txt", TEN);
+  const { cs } = await draft(cli, workspace, [
+    { op: "change", path: "/x.txt", text: TEN.replace("line 5", "mine 5") },
+    { op: "change", path: "/y.txt", text: TEN.replace("line 5", "mine 5") },
+    { op: "change", path: "/z.txt", text: TEN.replace("line 8", "mine 8") },
+  ]);
+  for (const f of ["/x.txt", "/y.txt"]) await addVersion(workspace, owner, f, TEN.replace("line 5", "theirs 5"));
+  await addVersion(workspace, owner, "/z.txt", TEN.replace("line 1", "theirs 1"));
+  const up = await call(update.POST, cli, "POST", `/api/v1/change-sets/${cs}/update`, {}, csCtx(cs));
+  assert.equal(up.status, 200, JSON.stringify(up.json));
+  assert.deepEqual(up.json.data.merged.map((m: { path: string }) => m.path), ["/z.txt"]);
+  assert.deepEqual(up.json.data.conflicts.map((c: { path: string }) => c.path).sort(), ["/x.txt", "/y.txt"]);
+  const r = (path: string, choice: string, extra = {}) => call(resolve.POST, cli, "POST", `/api/v1/change-sets/${cs}/resolve`, { path, choice, ...extra }, csCtx(cs));
+  assert.equal((await r("/x.txt", "mine")).status, 200);
+  assert.equal((await r("/y.txt", "content", { text: TEN.replace("line 5", "both 5") })).status, 200);
+  assert.equal((await finishIt(cli, cs)).status, 200);
+  assert.equal((await applyIt(cli, cs)).status, 200);
+  assert.equal(await textOf(workspace, "/x.txt"), TEN.replace("line 5", "mine 5"));
+  assert.equal(await textOf(workspace, "/y.txt"), TEN.replace("line 5", "both 5"));
+  assert.equal(await textOf(workspace, "/z.txt"), TEN.replace("line 1", "theirs 1").replace("line 8", "mine 8"));
+  const { cs: other } = await draft(cli, workspace, [{ op: "change", path: "/x.txt", text: "dropped\n" }], "Other");
+  await addVersion(workspace, owner, "/x.txt", "newer\n");
+  await call(update.POST, cli, "POST", `/api/v1/change-sets/${other}/update`, {}, csCtx(other));
+  assert.equal((await call(resolve.POST, cli, "POST", `/api/v1/change-sets/${other}/resolve`, { path: "/x.txt", choice: "theirs" }, csCtx(other))).status, 200);
+  const view = await call(one.GET, cli, "GET", `/api/v1/change-sets/${other}`, undefined, csCtx(other));
+  assert.deepEqual(view.json.data.items, [], "theirs drops the item");
+});
+
+test("other conflicts: deleted since (recreate), exists (make it a change), moved (follow it)", async () => {
+  const { owner, workspace, cli } = await setup(["a", "b"]);
+  const { cs } = await draft(cli, workspace, [
+    { op: "change", path: "/a.txt", text: "edited a\n" },
+    { op: "add", path: "/new.txt", text: "new one\n" },
+    { op: "change", path: "/b.txt", text: "edited b\n" },
+  ]);
+  await finishIt(cli, cs);
+  await sql`UPDATE workspace_nodes SET deleted_at = now() WHERE workspace_id = ${workspace} AND path = '/a.txt'`;
+  await addVersion(workspace, owner, "/new.txt", "someone else's\n");
+  await sql`UPDATE workspace_nodes SET path = '/docs/b.txt' WHERE workspace_id = ${workspace} AND path = '/b.txt'`;
+  const res = await applyIt(cli, cs);
+  assert.equal(res.status, 409);
+  assert.deepEqual(res.json.details.conflicts.map((c: { path: string; kind: string }) => `${c.path}:${c.kind}`).sort(), ["/a.txt:deleted", "/b.txt:moved", "/new.txt:exists"]);
+  for (const path of ["/a.txt", "/new.txt", "/b.txt"]) assert.equal((await call(resolve.POST, cli, "POST", `/api/v1/change-sets/${cs}/resolve`, { path, choice: "mine" }, csCtx(cs))).status, 200, path);
+  const ok = await applyIt(cli, cs);
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  assert.equal(await textOf(workspace, "/a.txt"), "edited a\n", "recreated");
+  assert.equal(await textOf(workspace, "/new.txt"), "new one\n", "a new version of the file that appeared");
+  assert.equal(await textOf(workspace, "/docs/b.txt"), "edited b\n", "the edit followed the move");
+});
+
+test("two change sets on the same file in either order: the second merges onto the first", async () => {
+  for (const order of [[0, 1], [1, 0]]) {
+    const { owner, workspace, cli } = await setup([]);
+    await addVersion(workspace, owner, "/s.txt", TEN);
+    const sets = [
+      await draft(cli, workspace, [{ op: "change", path: "/s.txt", text: TEN.replace("line 2", "first 2") }], "One"),
+      await draft(cli, workspace, [{ op: "change", path: "/s.txt", text: TEN.replace("line 9", "second 9") }], "Two"),
+    ];
+    for (const s of sets) await finishIt(cli, s.cs);
+    for (const i of order) assert.equal((await applyIt(cli, sets[i]!.cs)).status, 200);
+    assert.equal(await textOf(workspace, "/s.txt"), TEN.replace("line 2", "first 2").replace("line 9", "second 9"));
+  }
 });
