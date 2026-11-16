@@ -450,6 +450,7 @@ test("other conflicts: deleted since (recreate), exists (make it a change), move
   assert.equal(res.status, 409);
   assert.deepEqual(res.json.details.conflicts.map((c: { path: string; kind: string }) => `${c.path}:${c.kind}`).sort(), ["/a.txt:deleted", "/b.txt:moved", "/new.txt:exists"]);
   for (const path of ["/a.txt", "/new.txt", "/b.txt"]) assert.equal((await call(resolve.POST, cli, "POST", `/api/v1/change-sets/${cs}/resolve`, { path, choice: "mine" }, csCtx(cs))).status, 200, path);
+  assert.equal((await finishIt(cli, cs)).status, 200);
   const ok = await applyIt(cli, cs);
   assert.equal(ok.status, 200, JSON.stringify(ok.json));
   assert.equal(await textOf(workspace, "/a.txt"), "edited a\n", "recreated");
@@ -469,4 +470,18 @@ test("two change sets on the same file in either order: the second merges onto t
     for (const i of order) assert.equal((await applyIt(cli, sets[i]!.cs)).status, 200);
     assert.equal(await textOf(workspace, "/s.txt"), TEN.replace("line 2", "first 2").replace("line 9", "second 9"));
   }
+});
+
+test("resolve only settles conflicts, and a resolved set must be finished again before it applies", async () => {
+  const { owner, workspace, cli } = await setup([]);
+  await addVersion(workspace, owner, "/k.txt", TEN);
+  const { cs } = await draft(cli, workspace, [{ op: "change", path: "/k.txt", text: TEN.replace("line 4", "mine 4") }, { op: "add", path: "/n.txt", text: "n\n" }]);
+  await finishIt(cli, cs);
+  const notConflicted = await call(resolve.POST, cli, "POST", `/api/v1/change-sets/${cs}/resolve`, { path: "/n.txt", choice: "content", text: "sneaky\n" }, csCtx(cs));
+  assert.equal(notConflicted.json.errorCode, "CONFLICT");
+  await addVersion(workspace, owner, "/k.txt", TEN.replace("line 4", "theirs 4"));
+  assert.equal((await applyIt(cli, cs)).json.errorCode, "CHANGE_SET_CONFLICT");
+  await call(resolve.POST, cli, "POST", `/api/v1/change-sets/${cs}/resolve`, { path: "/k.txt", choice: "content", text: "AKIAIOSFODNN7EXAMPLE\n" }, csCtx(cs));
+  assert.equal((await applyIt(cli, cs)).json.errorCode, "CHANGE_SET_NOT_READY", "back to a draft");
+  assert.equal((await finishIt(cli, cs)).json.errorCode, "SECRET_DETECTED", "finish checks the resolved text");
 });

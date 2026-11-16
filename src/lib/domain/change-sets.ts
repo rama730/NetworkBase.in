@@ -657,6 +657,8 @@ export async function updateDraft(actor: Actor, changeSetId: string) {
   if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
   const items = await db.select().from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));
   const { merged, conflicts } = await rebase(set, items);
+  // New content (merges) or files to resolve: finish has to check it again before it can apply.
+  if (merged.length || conflicts.length) await db.update(changeSets).set({ status: "open", readyAt: null, updatedAt: new Date() }).where(and(eq(changeSets.id, set.id), eq(changeSets.status, "ready")));
   const rows = merged.length ? await db.select().from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), inArray(changeSetItems.path, merged))) : [];
   return { merged: rows.map((r) => ({ path: r.path, contentHash: r.contentHash, baseVersion: r.baseVersion, baseHash: r.baseHash })), conflicts };
 }
@@ -671,6 +673,9 @@ export async function resolveItem(actor: Actor, changeSetId: string, input: { pa
   const path = normalizeChangePath(input.path);
   const [item] = await db.select().from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), or(eq(changeSetItems.path, path), eq(changeSetItems.fromPath, path)))).limit(1);
   if (!item) fail("That file isn't in this change set", 404, "NOT_FOUND");
+  if (item!.state !== "conflict") fail(`${path} has no conflict to resolve`, 409, "CONFLICT");
+  // Whatever is chosen, the set is a draft again: finish checks it (secrets, line counts) before it can apply.
+  await db.update(changeSets).set({ status: "open", readyAt: null, updatedAt: new Date() }).where(and(eq(changeSets.id, set.id), eq(changeSets.status, "ready")));
   if (input.choice === "theirs") {
     await db.transaction(async (tx) => { await tx.delete(changeSetItems).where(eq(changeSetItems.id, item!.id)); await recount(tx, set.id); });
     return { item: null };

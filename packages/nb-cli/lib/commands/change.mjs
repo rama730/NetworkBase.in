@@ -213,3 +213,104 @@ export async function changeCopy(ctx) {
   ctx.out.result("nb.change.start/1", res, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Copied as a new draft: ${safe(d.changeSet.title)} ${ctx.out.c.muted(d.changeSet.id.slice(0, 8))}`);
   return EXIT.ok;
 }
+
+/**
+ * nb change update (report G8 "update the draft"): newer versions from the workspace are merged into your files here
+ * with merge3, and become their base; files that can't merge get a conflict copy (nb change resolve). Files only
+ * changed on the server are pulled. Your draft then carries the merged files.
+ * @param {Context} ctx
+ */
+export async function changeUpdate(ctx) {
+  const { root } = ctx.requireRoot();
+  const id = currentChange(root);
+  const { buildPlan, recordBase, pull } = await import("./files.mjs");
+  const { merge3, isMergeableText } = await import("../sync/merge3.mjs");
+  const { readBaseCopy, saveBaseCopy, acquireLock } = await import("../sync/state.mjs");
+  const { downloadTo, conflictCopyPath } = await import("../sync/transfer.mjs");
+  const plan = await buildPlan(ctx);
+  const both = plan.items.filter((i) => i.state === "conflict" && i.local && i.remote);
+  /** @type {string[]} */ const merged = [];
+  /** @type {Array<{ path: string, copy: string }>} */ const conflicts = [];
+  const release = await acquireLock(root, "nb change update");
+  try {
+    for (const item of both) {
+      const local = /** @type {NonNullable<typeof item.local>} */ (item.local);
+      const remote = /** @type {NonNullable<typeof item.remote>} */ (item.remote);
+      const theirsFile = `${local.abs}.nbtmp-theirs`;
+      const got = await downloadTo(ctx.api, plan.project.workspaceId, item.path, theirsFile, remote.hash);
+      try {
+        const theirs = fs.readFileSync(theirsFile);
+        const mine = fs.readFileSync(local.abs);
+        const base = item.base ? readBaseCopy(root, item.base.baseHash) : null;
+        const result = base && [base, theirs, mine].every((b) => isMergeableText(b)) ? merge3(base.toString("utf8"), theirs.toString("utf8"), mine.toString("utf8")) : null;
+        if (result?.ok) {
+          fs.writeFileSync(local.abs, result.text);
+          saveBaseCopy(root, got.hash, theirs);
+          recordBase(plan.state, item.path, { nodeId: remote.nodeId, version: remote.version, hash: got.hash, abs: local.abs });
+          // The file now differs from its new base (the merge), so nb sees it as your change again.
+          plan.state.files[item.path] = { ...plan.state.files[item.path], mtimeMs: 0 };
+          merged.push(item.path);
+        } else {
+          const copy = conflictCopyPath(local.abs, remote.version);
+          fs.renameSync(theirsFile, copy);
+          plan.state.conflicts[item.path] = { remoteVersion: remote.version, copy: path.relative(root, copy).split(path.sep).join("/") };
+          conflicts.push({ path: item.path, copy: path.relative(root, copy) });
+        }
+      } finally {
+        fs.rmSync(theirsFile, { force: true });
+      }
+    }
+    writeState(root, plan.state);
+  } finally {
+    release();
+  }
+  // Files only changed on the server come down as usual (pull never overwrites your edits).
+  if (plan.items.some((i) => i.action === "pull")) await pull(/** @type {Context} */ ({ ...ctx, flags: { ...ctx.flags, json: false, quiet: true } }));
+  if (id) await captureNow(ctx, id);
+  ctx.out.result("nb.change.update/1", { merged, conflicts }, (d) => [
+    d.merged.length ? `${ctx.out.c.success(ctx.out.sym.done)} Merged teammates' changes into ${plural(d.merged.length, "file")}: ${d.merged.map((/** @type {string} */ p) => safe(p)).join(", ")}` : `${ctx.out.c.success(ctx.out.sym.done)} Up to date`,
+    ...d.conflicts.map((/** @type {any} */ c) => ctx.out.c.warning(`  ${ctx.out.sym.warn} ${safe(c.path)} changed in the same lines: theirs is in ${safe(c.copy)}; nb change resolve ${safe(c.path)} --mine|--theirs`)),
+  ]);
+  return conflicts.length ? EXIT.conflict : EXIT.ok;
+}
+
+/**
+ * nb change resolve <path> --mine|--theirs (report G9): settles a file that changed on both sides, here and in the
+ * change set on the server. Mine keeps your file over theirs; theirs takes the workspace's file and drops the item.
+ * @param {Context} ctx
+ */
+export async function changeResolve(ctx) {
+  const { root, project } = ctx.requireRoot();
+  const id = currentChange(root);
+  const raw = ctx.positionals[0];
+  if (!raw) throw new CliError("USAGE", "nb change resolve <path> --mine|--theirs");
+  const choice = ctx.flags.mine ? "mine" : ctx.flags.theirs ? "theirs" : null;
+  if (!choice) throw new CliError("USAGE", "Say which to keep: --mine or --theirs", { hint: "nb change view shows what changed" });
+  const remote = raw.startsWith("/") ? raw : `/${path.relative(root, path.resolve(ctx.cwd, raw)).split(path.sep).join("/")}`;
+  const state = readState(root, project.workspaceId);
+  const meta = /** @type {any} */ (await ctx.api.get("/api/v1/extension/file", { query: { projectId: project.workspaceId, path: remote, transfer: "metadata" } }).catch(() => null));
+  const rel = toRelative(project.remoteRoot, remote);
+  const abs = rel ? path.join(root, rel) : null;
+  if (choice === "theirs" && meta && abs) {
+    const { downloadTo } = await import("../sync/transfer.mjs");
+    const got = await downloadTo(ctx.api, project.workspaceId, remote, abs, meta.contentHash ?? null);
+    const st = fs.statSync(abs);
+    state.files[remote] = { nodeId: meta.nodeId ?? meta.id, baseVersion: meta.currentVersion ?? meta.version, baseHash: got.hash, size: st.size, mtimeMs: st.mtimeMs };
+  } else if (choice === "mine" && meta) {
+    // Yours goes over theirs: their version becomes your base, so the draft sends your file as a change of it.
+    state.files[remote] = { ...(state.files[remote] ?? { size: 0 }), nodeId: meta.nodeId ?? meta.id, baseVersion: meta.currentVersion ?? meta.version, baseHash: String(meta.contentHash ?? ""), mtimeMs: 0 };
+  }
+  const copy = state.conflicts[remote]?.copy;
+  if (copy) fs.rmSync(path.join(root, copy), { force: true });
+  delete state.conflicts[remote];
+  writeState(root, state);
+  if (id) {
+    await ctx.api.post(`/api/v1/change-sets/${enc(id)}/resolve`, { path: remote, choice }).catch((/** @type {unknown} */ error) => {
+      // Not conflicted on the server (only here): nothing to settle there.
+      if (!(error instanceof CliError && error.status === 404)) throw error;
+    });
+    await captureNow(ctx, id);
+  }
+  ctx.out.result("nb.change.resolve/1", { path: remote, choice }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${safe(d.path)}: kept ${d.choice === "mine" ? "yours" : "theirs"}`);
+  return EXIT.ok;
+}

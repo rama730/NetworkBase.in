@@ -24,10 +24,10 @@ More
   Files
     undo, diff, queue, queue retry, queue drop, sync, resolve, change start,
     change status, change list, change view, change finish, change apply,
-    change undo, change discard, change copy, watch, file list, file trash,
-    file restore, file mkdir, file copy, file lock, edit, commit, file recent,
-    file star, file history, file use, file move, file rename, file delete,
-    file attach, file detach, file view
+    change undo, change discard, change update, change resolve, change copy,
+    watch, file list, file trash, file restore, file mkdir, file copy,
+    file lock, edit, commit, file recent, file star, file history, file use,
+    file move, file rename, file delete, file attach, file detach, file view
   Tasks
     task count, task view, task stop, task move, task review, task resubmit,
     task edit, task note, task remind, task watch, task star, task assign,

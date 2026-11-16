@@ -87,7 +87,7 @@ export async function draftItems(root, project) {
 }
 
 /** What the server has for an item; a different key means it needs sending again. @param {DraftItem} i */
-const keyOf = (i) => `${i.op}:${i.fromPath ?? ""}:${i.contentHash ?? ""}`;
+const keyOf = (i) => `${i.op}:${i.fromPath ?? ""}:${i.contentHash ?? ""}:${i.baseVersion ?? ""}`;
 /** @param {DraftItem} i */
 const wire = (i) => ({ op: i.op, path: i.path, ...(i.fromPath ? { fromPath: i.fromPath } : {}), ...(i.contentHash ? { contentHash: i.contentHash, size: i.size, mimeType: i.mimeType } : {}), ...(i.baseVersion != null ? { baseVersion: i.baseVersion, baseHash: i.baseHash } : {}) });
 

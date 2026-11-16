@@ -704,6 +704,37 @@
       ]
     },
     {
+      "name": "change update",
+      "summary": "Merge teammates' newer versions into your change set's files",
+      "usage": "nb change update",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        4
+      ]
+    },
+    {
+      "name": "change resolve",
+      "summary": "Keep yours or theirs for a file that changed on both sides",
+      "usage": "nb change resolve <path> --mine|--theirs",
+      "flags": {
+        "mine": {
+          "type": "boolean",
+          "describe": "Your file goes over theirs"
+        },
+        "theirs": {
+          "type": "boolean",
+          "describe": "Take the workspace's file; drop yours from the change set"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "change copy",
       "summary": "Copy an undone or discarded change set as a new draft",
       "usage": "nb change copy <id>",

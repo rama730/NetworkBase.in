@@ -117,6 +117,34 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("nb change update merges a teammate's edit into your file; the same lines get a conflict copy and resolve", async () => {
+    const api = await startFakeServer();
+    try {
+      const ten = Array.from({ length: 10 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+      putFile(api.state, "/m.txt", Buffer.from(ten));
+      putFile(api.state, "/c.txt", Buffer.from(ten));
+      const { cwd, nb } = await linked(api);
+      await nb(["change", "start", "Merge"]);
+      fs.writeFileSync(path.join(cwd, "m.txt"), ten.replace("line 9", "mine 9"));
+      fs.writeFileSync(path.join(cwd, "c.txt"), ten.replace("line 3", "mine 3"));
+      putFile(api.state, "/m.txt", Buffer.from(ten.replace("line 2", "theirs 2")));
+      putFile(api.state, "/c.txt", Buffer.from(ten.replace("line 3", "theirs 3")));
+      const up = await nb(["change", "update", "--json"]);
+      assert.equal(up.code, 4, up.stderr);
+      const data = JSON.parse(up.stdout).data;
+      assert.deepEqual(data.merged, ["/m.txt"]);
+      assert.equal(fs.readFileSync(path.join(cwd, "m.txt"), "utf8"), ten.replace("line 2", "theirs 2").replace("line 9", "mine 9"));
+      assert.equal(data.conflicts[0].path, "/c.txt");
+      assert.ok(fs.existsSync(path.join(cwd, data.conflicts[0].copy)), "theirs is next to yours");
+      const res = await nb(["change", "resolve", "c.txt", "--mine"]);
+      assert.equal(res.code, 0, res.stderr);
+      assert.ok(!fs.existsSync(path.join(cwd, data.conflicts[0].copy)));
+      const status = JSON.parse((await nb(["change", "status", "--json"])).stdout).data;
+      const c = status.items.find((/** @type {any} */ i) => i.path === "/c.txt");
+      assert.equal(c.baseVersion, api.state.files.get("/c.txt")?.version, "yours now goes over their version");
+    } finally { await api.close(); }
+  });
+
   it("nb watch --change needs an open change set; workspaces without change sets say so", async () => {
     const api = await startFakeServer();
     try {
