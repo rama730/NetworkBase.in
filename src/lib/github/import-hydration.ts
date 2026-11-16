@@ -31,6 +31,8 @@ const UPLOAD_CONCURRENCY = 5;
 /** 1,000 × 100 = 100,000 files a run; a bigger repository resumes on the next run. */
 const MAX_BATCHES = 100;
 const FAILED_SAMPLE = 20;
+/** The most any archive may unpack to, whatever the listing says (a workspace holds at most 10 GB). */
+const MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 
 /**
  * Types the project-files bucket stores (drizzle/0003_storage.sql). The import labels files by extension
@@ -146,12 +148,17 @@ export async function hydrateBatch(input: { projectId: string; userId: string; e
     sealedImportToken: source.metadata?.importAuth as string | undefined,
   });
   const wanted = new Map(nodes.map((n) => [n.path.replace(/^\/+/, ""), n]));
+  // The archive may unpack to what the import listed (every file's size) plus a margin, never more: the import's own
+  // 100 MB guard stays for archives nobody has listed yet.
+  const [listed] = await db.select({ bytes: sql<string>`coalesce(sum(${workspaceNodes.size}), 0)` }).from(workspaceNodes)
+    .where(and(eq(workspaceNodes.projectId, input.projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt)));
+  const maxBytes = Math.min(MAX_ARCHIVE_BYTES, Math.max(100 * 1024 * 1024, Math.ceil(Number(listed?.bytes ?? 0) * 1.25) + 50 * 1024 * 1024));
   let stored = 0;
   const failedPaths: string[] = [];
   let inFlight: Promise<void>[] = [];
   /** Why files failed, counted: one log line a batch, not one a file (Railway drops a flood). */
   const reasons = new Map<string, number>();
-  for await (const file of fetchAndParseTarball(source.repoUrl, input.ref, access.token ?? undefined)) {
+  for await (const file of fetchAndParseTarball(source.repoUrl, input.ref, access.token ?? undefined, maxBytes)) {
     const node = wanted.get(file.path);
     if (!node) continue;
     wanted.delete(file.path);

@@ -12,9 +12,11 @@ const gitSha = (content: Buffer) => createHash("sha1").update(`blob ${content.by
 /** What the fake repository archive holds, path → bytes (paths without a leading slash, as in a tarball). */
 let archive = new Map<string, Buffer>();
 let tarballReads = 0;
+let lastMaxBytes = 0;
 moduleStubs.set("@/lib/github/tarball-stream", {
-  fetchAndParseTarball: async function* () {
+  fetchAndParseTarball: async function* (_repo: string, _ref: string, _token: string | undefined, maxBytes: number) {
     tarballReads += 1;
+    lastMaxBytes = maxBytes;
     for (const [path, content] of archive) yield { path, content };
   },
 });
@@ -118,4 +120,14 @@ test("a type the storage bucket refuses (TypeScript, Python) is stored as text; 
   assert.deepEqual(rows.map((r) => [r.path, r.node_type, r.stored_type]), [["/app.ts", "text/typescript", "text/plain"], ["/tool.py", "text/x-python", "text/plain"]]);
   assert.equal(hydration.storableType("image/svg+xml"), "image/svg+xml");
   assert.equal(hydration.storableType("application/x-weird"), "application/octet-stream");
+});
+
+test("the archive may unpack to the listed files' size plus a margin, at least the usual 100 MB", async () => {
+  const { owner, ws } = await importedWorkspace([["big.bin", "x"]]);
+  await sql`UPDATE workspace_nodes SET size = ${400 * 1024 * 1024} WHERE workspace_id = ${ws}`;
+  await hydration.hydrateWorkspace({ projectId: ws, userId: owner, eventId: "e6", ref: "abc", step: (_name, fn) => fn() });
+  assert.equal(lastMaxBytes, Math.ceil(400 * 1024 * 1024 * 1.25) + 50 * 1024 * 1024);
+  const small = await importedWorkspace([["s.txt", "s"]]);
+  await hydration.hydrateWorkspace({ projectId: small.ws, userId: small.owner, eventId: "e7", ref: "abc", step: (_name, fn) => fn() });
+  assert.equal(lastMaxBytes, 100 * 1024 * 1024);
 });

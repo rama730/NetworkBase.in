@@ -25,7 +25,10 @@ const TARBALL_DEADLINE_MS = 5 * 60 * 1000;
 export async function* fetchAndParseTarball(
     repoUrl: string,
     ref: string, // a commit SHA for reproducible reads; a branch name reads whatever it points to now
-    token?: string
+    token?: string,
+    // How much may be unpacked: 100 MB for an unknown archive; hydration, which knows the listed files' total, allows
+    // that total with a margin (report 2026-11-16: a 250 MB repository stopped at 100 MB).
+    maxBytes: number = MAX_CUMULATIVE_TARBALL_BYTES,
 ): AsyncGenerator<TarballFile, void, unknown> {
     const urlParts = repoUrl.replace(/\/$/, '').split('/');
     const repoName = urlParts.pop();
@@ -66,7 +69,7 @@ export async function* fetchAndParseTarball(
         };
         const account = (bytes: number) => {
             totalBytes += bytes;
-            if (totalBytes > MAX_CUMULATIVE_TARBALL_BYTES) fail(new Error('Archive exceeds maximum decompressed size limit'));
+            if (totalBytes > maxBytes) fail(new Error('Archive exceeds maximum decompressed size limit'));
         };
 
         extract.on('entry', (header, stream, next) => {
