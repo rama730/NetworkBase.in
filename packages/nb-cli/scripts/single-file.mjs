@@ -22,7 +22,7 @@ const npx = (/** @type {string[]} */ args) => execFileSync(win ? "npx.cmd" : "np
 
 // bin/nb.mjs awaits at its top level, which a CommonJS bundle can't: the same code, inside an async function.
 const entry = path.resolve("bin", ".single-file-entry.mjs");
-const body = fs.readFileSync("bin/nb.mjs", "utf8").replace(/^#!.*\n/, "");
+const body = fs.readFileSync("bin/nb.mjs", "utf8").replace(/^#!.*\r?\n/, "");
 fs.writeFileSync(entry, `globalThis.__NB_SINGLE_FILE__ = true;\nglobalThis.__NB_VERSION__ = ${JSON.stringify(version)};\n(async () => {\n${body}\n})();\n`);
 const bundle = path.join(out, "nb.cjs");
 try {
