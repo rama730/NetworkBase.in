@@ -10,17 +10,22 @@ test("gitBlobSha matches Git's own object ids", () => {
   assert.equal(gitBlobSha(new Uint8Array(0)), "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
 });
 
-test("hydration reads the imported commit, verifies each blob, and does not finish partial work as ready", () => {
-  const hydrate = readFileSync("src/inngest/functions/workspace-import-hydrate.ts", "utf8");
-  assert.match(hydrate, /const ref = commitSha \?\? branch/);
-  assert.match(hydrate, /gitBlobSha\(file\.content\) !== node\.gitHash/);
-  // COR-008: failures retry the step; only a fully hydrated project becomes ready.
-  assert.match(hydrate, /if \(failed > 0\) \{[\s\S]*throw new Error\(`Hydration incomplete/);
-  assert.ok(hydrate.indexOf("throw new Error(`Hydration incomplete") < hydrate.lastIndexOf('syncStatus: "ready"'));
-  assert.match(hydrate, /onFailure: async/);
-  assert.match(hydrate, /syncStatus: "failed"/);
+test("hydration reads the imported commit, verifies each blob, and never calls partial work done", () => {
+  const job = readFileSync("src/inngest/functions/workspace-import-hydrate.ts", "utf8");
+  const lib = readFileSync("src/lib/github/import-hydration.ts", "utf8");
+  // COR-007: the exact imported commit, and bytes that match the recorded blob.
+  assert.match(job, /const ref = \(event\.data\.commitSha as string \| undefined\) \|\| /);
+  assert.match(lib, /gitBlobSha\(content\) !== node\.gitHash/);
+  // COR-008 (and the 2026-11-16 report): done only when nothing is left without content; a failing run says so.
+  assert.match(lib, /status: remaining === 0 \? "done" : "incomplete"/);
+  assert.match(job, /onFailure: async/);
+  assert.match(job, /syncStatus: "failed"/);
+  // The status is a targeted update, so a write of the rest of the import record can't erase it.
+  assert.match(lib, /jsonb_set\(/);
 
   const runner = readFileSync("src/lib/github/workspace-import-runner.ts", "utf8");
   assert.match(runner, /name: "workspace\/import\.hydrate",\s*\/\/[^\n]*\n\s*data: \{ projectId, userId, commitSha: latestSha/);
-  assert.match(runner, /hydrationDispatchError \? "failed" : "ready"/);
+  // The runner writes its record before queuing hydration, and a failed send marks the import failed.
+  assert.ok(runner.indexOf('hydration: { status: "queued"') < runner.indexOf('name: "workspace/import.hydrate"'));
+  assert.match(runner, /setHydrationStatus\(projectId, \{ status: "failed"/);
 });

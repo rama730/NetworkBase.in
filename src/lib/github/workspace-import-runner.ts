@@ -419,36 +419,20 @@ export async function runGithubWorkspaceImport(input: {
         
         // --- END RECONCILIATION ---
 
-        // Schedule background hydration
-        // We trigger an Inngest event for Phase 2 Tarball Stream
-        const { inngest } = await import("@/inngest/client");
-        let hydrationDispatchError: string | null = null;
-        await inngest.send({
-            name: "workspace/import.hydrate",
-            // Events never carry credentials; the worker resolves access itself (COR-006).
-            data: { projectId, userId, commitSha: latestSha, importSource: clearSealedGithubTokenFromImportSource(project.importSource) as any }
-        }).catch(err => {
-            if (process.env.NODE_ENV !== "production" && (err?.message?.includes('401') || err?.message?.includes('Event key not found'))) {
-                // Ignore in development if Inngest is not configured
-                console.warn("[Hydration] Skipped Inngest hydration: Inngest event key not configured. Virtual FS is ready.");
-            } else {
-                // Without a queued hydration the files would stay virtual forever behind a "ready" status (COR-008).
-                console.error("Failed to enqueue hydration", err);
-                hydrationDispatchError = "Repository files could not be scheduled for download. Try the import again.";
-            }
-        });
-
         const importedNodeIds = new Set<string>(folderMap.values());
         // Since we are doing bulk insert with onConflictDoNothing, getting touchedNodeIds is complex.
         // We'll skip stale node deletion for virtual imports for now, or just let them stay.
 
+        // The listing is done: write the import record first, then queue hydration. Queued first, hydration could
+        // write its progress before this write replaced the whole record with an older copy, which hid a hydration
+        // that never stored anything behind "ready" (report 2026-11-16, imported files without stored content).
         leaseLost.throwIfAborted();
         await db.transaction(async (tx) => {
           await assertWorkLeaseHeld(tx, projectLease);
           await tx
             .update(workspaces)
             .set({
-              syncStatus: hydrationDispatchError ? "failed" : "ready",
+              syncStatus: "ready",
               githubLastSyncAt: new Date(),
               githubLastCommitSha: latestSha,
               updatedAt: new Date(),
@@ -456,14 +440,34 @@ export async function runGithubWorkspaceImport(input: {
                 ...existingSource,
                 metadata: {
                   ...sourceMetadata,
-                  syncPhase: hydrationDispatchError ? "failed" : "ready",
+                  syncPhase: "ready",
                   syncProgress: null,
-                  lastError: hydrationDispatchError,
+                  lastError: null,
                   treeTruncated,
+                  hydration: { status: "queued", queuedAt: new Date().toISOString() },
                 },
               } as any,
             })
             .where(eq(workspaces.id, projectId));
+        });
+
+        // Phase 2: the files' content, in resumable batches (src/lib/github/import-hydration.ts).
+        const { inngest } = await import("@/inngest/client");
+        await inngest.send({
+            name: "workspace/import.hydrate",
+            // Events never carry credentials; the worker resolves access itself (COR-006).
+            data: { projectId, userId, commitSha: latestSha, importSource: clearSealedGithubTokenFromImportSource(project.importSource) as any }
+        }).catch(async (err) => {
+            if (process.env.NODE_ENV !== "production" && (err?.message?.includes('401') || err?.message?.includes('Event key not found'))) {
+                // Ignore in development if Inngest is not configured
+                console.warn("[Hydration] Skipped Inngest hydration: Inngest event key not configured. Virtual FS is ready.");
+                return;
+            }
+            // Without a queued hydration the files would stay without content behind a "ready" status (COR-008).
+            console.error("Failed to enqueue hydration", err);
+            const { setHydrationStatus } = await import("@/lib/github/import-hydration");
+            await setHydrationStatus(projectId, { status: "failed", error: "Repository files could not be scheduled for download. Try the import again." });
+            await db.update(workspaces).set({ syncStatus: "failed", updatedAt: new Date() }).where(eq(workspaces.id, projectId));
         });
 
         logger.metric("github.import.worker.complete", {
