@@ -40,6 +40,7 @@ export const projectImportHydrate = inngest.createFunction(
       eventId: event.id || projectId,
       ref,
       step: (name, fn) => step.run(name, fn) as never,
+      sleep: (name, duration) => step.sleep(name, duration),
     });
   },
 );

@@ -31,6 +31,10 @@ const UPLOAD_CONCURRENCY = 5;
 /** 1,000 × 100 = 100,000 files a run; a bigger repository resumes on the next run. */
 const MAX_BATCHES = 100;
 const FAILED_SAMPLE = 20;
+/** createUploadIntent's refusal when the person has 64 uploads open (src/lib/storage/storage-quota.ts). */
+const OPEN_UPLOADS_FULL = /Too many outstanding uploads/;
+/** Open uploads free up when the storage cleanup runs (every 2 hours): wait up to 6 × 30 minutes. */
+const SLOT_WAITS = 6;
 /** The most any archive may unpack to, whatever the listing says (a workspace holds at most 10 GB). */
 const MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 
@@ -137,7 +141,7 @@ export async function hydrateBatch(input: { projectId: string; userId: string; e
     .where(and(eq(workspaceNodes.projectId, input.projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.s3Key), isNotNull(workspaceNodes.gitHash), gt(workspaceNodes.path, input.after)))
     .orderBy(asc(workspaceNodes.path))
     .limit(limit);
-  if (!nodes.length) return { stored: 0, failed: 0, failedPaths: [] as string[], lastPath: null as string | null };
+  if (!nodes.length) return { stored: 0, failed: 0, failedPaths: [] as string[], lastPath: null as string | null, blocked: false as const };
   const [project] = await db.select({ importSource: workspaces.importSource }).from(workspaces).where(eq(workspaces.id, input.projectId)).limit(1);
   const source = (project?.importSource ?? {}) as { repoUrl?: string; metadata?: Record<string, unknown> };
   if (!source.repoUrl) throw new Error("This workspace has no repository to download from");
@@ -158,6 +162,8 @@ export async function hydrateBatch(input: { projectId: string; userId: string; e
   let inFlight: Promise<void>[] = [];
   /** Why files failed, counted: one log line a batch, not one a file (Railway drops a flood). */
   const reasons = new Map<string, number>();
+  // The owner's open uploads are full (64): stop and let the run wait, rather than marking every later file failed.
+  let blocked = false;
   for await (const file of fetchAndParseTarball(source.repoUrl, input.ref, access.token ?? undefined, maxBytes)) {
     const node = wanted.get(file.path);
     if (!node) continue;
@@ -165,21 +171,26 @@ export async function hydrateBatch(input: { projectId: string; userId: string; e
     inFlight.push(publish({ ...input, node, content: Buffer.from(file.content) }).then(
       (ok) => { if (ok) stored += 1; },
       (error: unknown) => {
-        failedPaths.push(node.path);
         const reason = (error instanceof Error ? error.message : String(error)).slice(0, 120);
+        if (OPEN_UPLOADS_FULL.test(reason)) { blocked = true; return; }
+        failedPaths.push(node.path);
         reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
       },
     ));
     if (inFlight.length >= UPLOAD_CONCURRENCY) { await Promise.all(inFlight); inFlight = []; }
-    if (wanted.size === 0) break;
+    if (blocked || wanted.size === 0) break;
   }
   await Promise.all(inFlight);
+  if (blocked) {
+    logger.warn("github.hydrate.waiting_for_upload_slots", { module: "github", projectId: input.projectId, count: stored, failed: failedPaths.length });
+    return { stored, failed: failedPaths.length, failedPaths, lastPath: nodes.at(-1)!.path, blocked: true as const };
+  }
   // Not in the repository at this commit (renamed or deleted since the listing).
   for (const node of wanted.values()) failedPaths.push(node.path);
   if (wanted.size) reasons.set("not in the repository at this commit", wanted.size);
   // Strings, not objects: the logger keeps only flat values (found in the 2026-11-16 backfill).
-  if (failedPaths.length) logger.warn("github.hydrate.batch_failures", { module: "github", projectId: input.projectId, failed: failedPaths.length, count: stored, reason: [...reasons].map(([r, n]) => `${n}× ${r}`).join(" | ").slice(0, 600), path: failedPaths.slice(0, 5).join(", ") });
-  return { stored, failed: failedPaths.length, failedPaths, lastPath: nodes.at(-1)!.path };
+  if (failedPaths.length) logger.warn("github.hydrate.batch_failures", { module: "github", projectId: input.projectId, failed: failedPaths.length, count: stored, reason: [...reasons].map(([r, n]) => `${n}× ${r}`).join(" | ").slice(0, 600) });
+  return { stored, failed: failedPaths.length, failedPaths, lastPath: nodes.at(-1)!.path, blocked: false as const };
 }
 
 /**
@@ -189,8 +200,11 @@ export async function hydrateBatch(input: { projectId: string; userId: string; e
 export async function hydrateWorkspace(input: {
   projectId: string; userId: string; eventId: string; ref: string; batchSize?: number;
   step: <T>(name: string, fn: () => Promise<T>) => Promise<T>;
+  /** Inngest's step.sleep: waiting for open uploads to free up costs nothing while it waits. */
+  sleep?: (name: string, duration: string) => Promise<unknown>;
 }) {
   const { projectId, step } = input;
+  let waits = 0;
   const total = await step("count", () => missingContent(projectId));
   await step("start", () => setHydrationStatus(projectId, { status: "in_progress", total, stored: 0, failed: 0, startedAt: new Date().toISOString() }));
   let after = "";
@@ -206,6 +220,16 @@ export async function hydrateWorkspace(input: {
       return done;
     });
     if (!batch.lastPath) break;
+    if (batch.blocked) {
+      // Files it stored count; the rest of this window is tried again after the wait (the same `after`).
+      stored += batch.stored;
+      failed += batch.failed;
+      if (!input.sleep || waits >= SLOT_WAITS) break;
+      await step(`waiting-${waits}`, () => setHydrationStatus(projectId, { status: "waiting", stored, failed, waitingFor: "open uploads to free up (they clear every 2 hours)" }));
+      await input.sleep(`wait-for-upload-slots-${waits}`, "30m");
+      waits += 1;
+      continue;
+    }
     batches += 1;
     stored += batch.stored;
     failed += batch.failed;

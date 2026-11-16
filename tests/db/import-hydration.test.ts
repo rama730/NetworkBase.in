@@ -13,6 +13,8 @@ const gitSha = (content: Buffer) => createHash("sha1").update(`blob ${content.by
 let archive = new Map<string, Buffer>();
 let tarballReads = 0;
 let lastMaxBytes = 0;
+/** Open-upload slots the fake quota has left; null = unlimited. */
+let slotsLeft: number | null = null;
 moduleStubs.set("@/lib/github/tarball-stream", {
   fetchAndParseTarball: async function* (_repo: string, _ref: string, _token: string | undefined, maxBytes: number) {
     tarballReads += 1;
@@ -26,7 +28,10 @@ moduleStubs.set("@/lib/supabase/server", {
 });
 /** The upload helpers, standing in for storage: a verified asset with the bytes' hash. */
 moduleStubs.set("@/lib/upload/upload-intents", {
-  createUploadIntent: async (p: { storageKey: string; bucket: string }) => ({ id: randomUUID(), status: "pending", storageKey: p.storageKey, bucket: p.bucket }),
+  createUploadIntent: async (p: { storageKey: string; bucket: string }) => {
+    if (slotsLeft !== null) { if (slotsLeft <= 0) throw new Error("Too many outstanding uploads. Maximum 64."); slotsLeft -= 1; }
+    return { id: randomUUID(), status: "pending", storageKey: p.storageKey, bucket: p.bucket };
+  },
   finalizeUploadIntent: async (p: { storageKey: string; projectId: string; userId: string }) => {
     // The hydrate code names the object after the bytes' sha256, so the "verified" asset carries it.
     const hash = /\/imports\/([0-9a-f]{64})-/.exec(p.storageKey)?.[1] ?? null;
@@ -130,4 +135,18 @@ test("the archive may unpack to the listed files' size plus a margin, at least t
   const small = await importedWorkspace([["s.txt", "s"]]);
   await hydration.hydrateWorkspace({ projectId: small.ws, userId: small.owner, eventId: "e7", ref: "abc", step: (_name, fn) => fn() });
   assert.equal(lastMaxBytes, 100 * 1024 * 1024);
+});
+
+test("when the owner's open uploads are full, the run waits and carries on; no file is marked failed for it", async () => {
+  const files = Array.from({ length: 8 }, (_, i) => [`w${i}.txt`, `w${i}`] as [string, string]);
+  const { owner, ws } = await importedWorkspace(files);
+  slotsLeft = 3;
+  const sleeps: string[] = [];
+  const run = await hydration.hydrateWorkspace({ projectId: ws, userId: owner, eventId: "e8", ref: "abc", batchSize: 8, step: (_name, fn) => fn(),
+    sleep: async (name) => { sleeps.push(name); slotsLeft = 100; } });
+  slotsLeft = null;
+  assert.equal(run.failed, 0, "full slots aren't failures");
+  assert.equal(run.stored, 8);
+  assert.equal(run.remaining, 0);
+  assert.deepEqual(sleeps, ["wait-for-upload-slots-0"]);
 });
