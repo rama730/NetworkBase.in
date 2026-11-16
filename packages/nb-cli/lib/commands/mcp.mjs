@@ -18,6 +18,7 @@ const INSTRUCTIONS = [
   "More tools are in packs (networkbase_more_tools loads one, networkbase_run calls one): classes has assignments and reviews; files attaching, the Trash and history; people the inbox and updates.",
   "\"#4\" is a NetworkBase task; when the user starts or finishes one, update it. Do what they ask without asking first: small changes run at once and networkbase_undo reverses them. Push drafts unless they say final.",
   "Finishing tasks, final files, doc edits, deleting and messages to others answer needs_confirmation: show the summary and end your turn; only after the user replies yes, call again with confirmToken. Never use a confirmToken in the turn it came. Two or more such changes: networkbase_plan, one yes.",
+  "Multi-file coding jobs: if a change set opened from your saves (nb mcp logs it), load the changes pack; finish and apply it when done instead of pushing file by file.",
   "needs_input: ask, then call again with answers. A change that fails halfway: say what's done and retry with its retryKey. When you finish, show networkbase_what_i_did.",
 ].join("\n");
 
@@ -176,6 +177,20 @@ export async function serve(ctx, io = {}) {
   /** Heartbeats sent per task (report D5): the task shows this agent for 90 seconds after each, or until it leaves. */
   const pinged = new Map();
   const handle = createMcpHandler({ where, send, version: ctx.version, pinged });
+  // Change sets (report G8): in a linked folder, the agent's saved files go into one change set as it works; the first
+  // save opens it, named after the started task. Workspaces without change sets turn this off on the first save.
+  let capture = null;
+  if (!io.input && ctx.root && ctx.project && ctx.profile?.token) {
+    const { startCapture } = await import("../changes/watch.mjs");
+    const task = ctx.project.startedTask;
+    capture = startCapture({
+      api: ctx.api,
+      root: ctx.root,
+      project: ctx.project,
+      autoTitle: () => (task?.number ? `Work on #${task.number}${task.title ? `: ${task.title}` : ""}` : `Changes by ${/** @type {NodeJS.ProcessEnv} */ (where.env).NB_AGENT_NAME ?? "an agent"}`),
+      log: (line) => process.stderr.write(`nb mcp: ${line}\n`),
+    });
+  }
   // Claude Code stops its servers with SIGINT and kills them within a second, too soon for the end of the session
   // (found in the 2.1.4 live check): a detached nb mcp finish sends it instead.
   if (!io.input) {
@@ -212,6 +227,8 @@ export async function serve(ctx, io = {}) {
     running.add(job);
   }
   await Promise.all(running);
+  // The last saves reach the change set before the session ends; it stays open for the next session (G20).
+  if (capture) { capture.stop(); await capture.flush(); }
   await endSession(ctx, where, [...pinged.keys()]);
 }
 

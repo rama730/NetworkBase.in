@@ -325,7 +325,81 @@ const exact = {
 };
 
 /** Routes with ids in the path. @type {Array<[RegExp, string, Handler]>} */
+/** Change sets (report G7), kept simple: items by path, content by hash, apply writes the files. */
+const sets = (/** @type {any} */ state) => (state.changeSets ??= new Map());
+const knownContent = (/** @type {any} */ state) => (state.changeContent ??= new Map());
+const setOut = (/** @type {any} */ cs) => {
+  const items = [...cs.items.values()];
+  const n = (/** @type {string} */ op) => items.filter((i) => i.op === op).length;
+  return { id: cs.id, title: cs.title, status: cs.status, message: cs.message ?? null, filesAdded: n("add"), filesChanged: n("change"), filesDeleted: n("delete"), filesRenamed: n("rename"), linesAdded: 0, linesRemoved: 0, updatedAt: cs.updatedAt };
+};
+const changeSetRoutes = [
+  [/^\/api\/v1\/workspaces\/([^/]+)\/change-sets$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    if (state.changeSetsOff) return fail(403, "CHANGE_SETS_OFF", "Change sets aren't turned on for this workspace yet");
+    const cs = { id: crypto.randomUUID(), title: req.body.title, status: "open", items: new Map(), updatedAt: now() };
+    sets(state).set(cs.id, cs);
+    return { status: 201, data: { changeSet: setOut(cs) } };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/change-sets$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const want = req.query.get("status")?.split(",");
+    return { data: { changeSets: [...sets(state).values()].filter((cs) => !want || want.includes(cs.status)).map(setOut), nextCursor: null } };
+  }],
+  [/^\/api\/v1\/change-sets\/([^/]+)$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const cs = sets(state).get(req.params[0]);
+    return cs ? { data: { changeSet: setOut(cs), items: [...cs.items.values()], nextCursor: null } } : fail(404, "NOT_FOUND", "Change set not found");
+  }],
+  [/^\/api\/v1\/change-sets\/([^/]+)\/items$/, "PUT", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const cs = sets(state).get(req.params[0]);
+    if (!cs || !["open", "ready"].includes(cs.status)) return fail(409, "CHANGE_SET_CLOSED", "This change set is closed");
+    const missing = new Set();
+    for (const i of req.body.items) {
+      if (i.fromPath) cs.items.delete(i.fromPath);
+      const have = !i.contentHash || knownContent(state).has(i.contentHash) || [...state.files.values()].some((f) => sha256(f.content) === i.contentHash);
+      if (!have) missing.add(i.contentHash);
+      cs.items.set(i.path, { ...i, state: have ? "ready" : "pending" });
+    }
+    cs.status = "open";
+    state.itemCalls = (state.itemCalls ?? 0) + 1;
+    return { data: { items: req.body.items, missingContent: [...missing] } };
+  }],
+  [/^\/api\/v1\/change-sets\/([^/]+)\/items$/, "DELETE", (/** @type {any} */ req, /** @type {any} */ state) => { sets(state).get(req.params[0])?.items.delete(req.query.get("path")); return { data: { ok: true } }; }],
+  [/^\/api\/v1\/change-sets\/([^/]+)\/content$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const cs = sets(state).get(req.params[0]);
+    for (const f of req.body.files ?? []) {
+      const bytes = Buffer.from(f.base64, "base64");
+      if (sha256(bytes) !== f.hash) return fail(400, "CONTENT_HASH_MISMATCH", "The bytes don't match");
+      knownContent(state).set(f.hash, bytes);
+      for (const i of cs.items.values()) if (i.contentHash === f.hash) i.state = "ready";
+    }
+    return { data: { stored: (req.body.files ?? []).map((/** @type {any} */ f) => f.hash) } };
+  }],
+  [/^\/api\/v1\/change-sets\/([^/]+)\/finish$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const cs = sets(state).get(req.params[0]);
+    const pending = [...cs.items.values()].filter((i) => i.state === "pending");
+    if (pending.length) return fail(409, "CONTENT_MISSING", "Still uploading", { missing: pending.map((i) => ({ path: i.path })) });
+    cs.status = "ready";
+    const big = cs.items.size > 20 || [...cs.items.values()].some((i) => i.op === "delete");
+    return { data: { changeSet: setOut(cs), summary: `${cs.title}: ${cs.items.size} files`, decision: big ? "needs_confirmation" : "apply_now" } };
+  }],
+  [/^\/api\/v1\/change-sets\/([^/]+)\/apply$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const cs = sets(state).get(req.params[0]);
+    if (cs.status !== "ready") return fail(409, "CHANGE_SET_NOT_READY", "Finish the change set first");
+    const applied = [];
+    const undo = [];
+    for (const i of cs.items.values()) {
+      if (i.op === "delete") { const f = state.files.get(i.path); state.files.delete(i.path); applied.push({ path: i.path, nodeId: f?.nodeId, version: null, op: i.op }); continue; }
+      if (i.op === "rename") { const f = state.files.get(i.fromPath); state.files.delete(i.fromPath); if (f) state.files.set(i.path, { ...f, path: i.path }); undo.push({ path: i.path, fromPath: i.fromPath }); }
+      const bytes = knownContent(state).get(i.contentHash) ?? [...state.files.values()].find((f) => sha256(f.content) === i.contentHash)?.content;
+      const { file } = putFile(state, i.path, /** @type {Buffer} */ (bytes));
+      applied.push({ path: i.path, nodeId: file.nodeId, version: file.version, op: i.op });
+    }
+    cs.status = "applied";
+    return { data: { changeSet: setOut(cs), applied, undo, undoToken: null } };
+  }],
+  [/^\/api\/v1\/change-sets\/([^/]+)\/discard$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => { sets(state).get(req.params[0]).status = "discarded"; return { data: { ok: true } }; }],
+];
 const patterns = [
+  ...changeSetRoutes,
   [/^\/api\/v1\/workspaces\/([^/]+)$/, "GET", (_req, /** @type {FakeState} */ state) => ({ data: { id: WORKSPACE_ID, title: state.workspace.title, slug: state.workspace.slug, description: null, role: "owner", canWrite: true, openTasks: state.tasks.filter((t) => t.status !== "done").length, files: state.files.size, currentSprint: null, words: { main: "Sprint", inner: "Sprint", plan: "Plan", isClass: false }, organization: null, agents: { policy: "ask_important", paused: false } } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/activity$/, "GET", (_req, /** @type {FakeState} */ state) => ({ data: { items: state.tasks.map((t) => ({ at: t.updatedAt, kind: "task", type: "status_changed", by: "tester", via: "agent", agentName: "Claude Code", task: { id: t.id, number: t.taskNumber, title: t.title }, detail: `→ ${t.status}` })), nextBefore: null } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/sprints$/, "GET", (req, /** @type {FakeState} */ state) => ({ data: { words: { main: "Unit", inner: "Week", plan: "Term", isClass: true }, sprints: [{ id: "s1111111-1111-4111-8111-111111111111", number: 1, name: "Unit 1", goal: "Basics", status: "active", startDate: now(), endDate: now(), open: state.tasks.length, done: 0 }], unplanned: 0, ...(req.query.get("sprint") ? { tasks: state.tasks.map((t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status })) } : {}) } })],

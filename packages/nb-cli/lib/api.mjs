@@ -157,6 +157,8 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, 
     patch: (path, body, o) => request("PATCH", path, { ...o, body }),
     /** @param {string} path @param {unknown} body @param {Parameters<typeof request>[2]} [o] */
     put: (path, body, o) => request("PUT", path, { ...o, body }),
+    /** @param {string} path @param {Parameters<typeof request>[2]} [o] */
+    delete: (path, o) => request("DELETE", path, o),
   };
 }
 

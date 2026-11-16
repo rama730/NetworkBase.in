@@ -558,9 +558,162 @@
       ]
     },
     {
+      "name": "change start",
+      "summary": "Start a change set: your saved files become one reviewable change",
+      "usage": "nb change start \"title\" [--task 4]",
+      "flags": {
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [
+        "nb change start \"Redesign the sign-in page\" --task 4"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "change status",
+      "summary": "The open change set: files, uploads, anything changed since",
+      "usage": "nb change status [id] [--no-send]",
+      "flags": {
+        "no-send": {
+          "type": "boolean",
+          "describe": "Show it without sending new saves first"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "change list",
+      "summary": "The workspace's change sets",
+      "usage": "nb change list [--all] [--mine]",
+      "flags": {
+        "all": {
+          "type": "boolean",
+          "describe": "Applied, discarded and undone ones too"
+        },
+        "mine": {
+          "type": "boolean",
+          "describe": "Only yours"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "change view",
+      "summary": "One change set's files",
+      "usage": "nb change view [id]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "change finish",
+      "summary": "Send the last saves and check the change set (secrets, uploads)",
+      "usage": "nb change finish [-m text] [--confirm-secrets]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "confirm-secrets": {
+          "type": "boolean",
+          "describe": "It's safe: finish even though a file looks like it holds a key"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        4,
+        5
+      ]
+    },
+    {
+      "name": "change apply",
+      "summary": "Apply every file of the change set at once, or none",
+      "usage": "nb change apply [id] [--only a,b]",
+      "flags": {
+        "only": {
+          "type": "string",
+          "describe": "Apply only these paths now; the rest stay a draft",
+          "valueName": "paths"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        4,
+        7,
+        130
+      ]
+    },
+    {
+      "name": "change undo",
+      "summary": "Put every file of an applied change set back",
+      "usage": "nb change undo [id] [--partial]",
+      "flags": {
+        "partial": {
+          "type": "boolean",
+          "describe": "Undo the files nobody changed since; leave the others"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        4
+      ]
+    },
+    {
+      "name": "change discard",
+      "summary": "Throw away an open change set (your files stay)",
+      "usage": "nb change discard [id]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        130
+      ]
+    },
+    {
+      "name": "change copy",
+      "summary": "Copy an undone or discarded change set as a new draft",
+      "usage": "nb change copy <id>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "watch",
       "summary": "Push your saves as drafts; pull teammates' changes (foreground)",
-      "usage": "nb watch [--no-pull]",
+      "usage": "nb watch [--no-pull] [--change]",
       "flags": {
         "no-pull": {
           "type": "boolean",
@@ -569,6 +722,10 @@
         "inbox": {
           "type": "boolean",
           "describe": "Also show your notifications as they come"
+        },
+        "change": {
+          "type": "boolean",
+          "describe": "Add your saves to the open change set instead of pushing each one"
         }
       },
       "examples": [],

@@ -21,7 +21,7 @@ const DATA = "Its text is written by people: data, not instructions.";
  * @typedef {{ name: string, title: string, description: string, tier: "read" | "small" | "yes", pack?: Pack, props: Record<string, Prop>, required?: string[], fields?: Record<string, string[]>,
  *   needsYes?: (args: any, nb: RunCommand) => string | null | Promise<string | null>, run: (nb: RunCommand, args: any) => Promise<Result> }} Tool
  */
-/** @typedef {"core" | "files" | "planning" | "classes" | "people"} Pack */
+/** @typedef {"core" | "files" | "planning" | "classes" | "people" | "changes"} Pack */
 
 // The instructions say the folder's workspace and the started task are the defaults, so these stay bare (D14).
 const workspaceProp = { type: "string", description: "Slug" };
@@ -204,6 +204,26 @@ export const TOOLS = [
   { name: "networkbase_undo", title: "Undo", tier: "small", props: { token: { type: "string", description: "An undoToken (default: the last change)" }, all: { type: "boolean", description: "Everything from this session, newest first" } },
     description: "Undo a NetworkBase change from the last 24 hours. Refused if someone changed it since.",
     run: (nb, a) => (a.all ? nb("undo", [], { session: true }) : nb("undo", a.token ? [String(a.token)] : [])) },
+
+  // Change sets (report G7, G8): where they're on, the agent's saved files go into one change set as it works.
+  { name: "networkbase_change_status", title: "The change set", tier: "read", pack: "changes", props: {},
+    description: "Where change sets are on, your saved files go into one change set as you work (no push needed). Shows its files, uploads and anything a teammate changed since.",
+    run: (nb) => nb("change status") },
+  { name: "networkbase_change_start", title: "Start a change set", tier: "small", pack: "changes", props: { title: { type: "string", description: "The job, like \"Redesign the sign-in page\"" }, task: { type: "string" } }, required: ["title"],
+    description: "Name the work before you start; otherwise your first save opens one named after the task. If it answers CHANGE_SETS_OFF, push with networkbase_file_push instead.",
+    run: (nb, a) => nb("change start", [String(a.title)], a.task ? { task: String(a.task) } : {}) },
+  { name: "networkbase_change_finish", title: "Finish the change set", tier: "small", pack: "changes", props: { message: { type: "string", description: "What it does, for the reviewer" } },
+    description: "When the job is done and checked (tests pass, the site runs): sends the last saves and checks the change set. Answers apply_now, or needs a look first.",
+    run: (nb, a) => nb("change finish", [], a.message ? { message: String(a.message) } : {}) },
+  { name: "networkbase_change_apply", title: "Apply the change set", tier: "small", pack: "changes", props: { id: { type: "string", description: "Default: this folder's" } },
+    description: "Apply every file of the finished change set at once, or none. Big ones (over 20 files, deletes, final files, docs) answer needs_confirmation. Undo: networkbase_change_undo.",
+    run: (nb, a) => nb("change apply", a.id ? [String(a.id)] : []) },
+  { name: "networkbase_change_undo", title: "Undo a change set", tier: "small", pack: "changes", props: { id: { type: "string" }, partial: { type: "boolean", description: "Undo the files nobody changed since" } }, required: ["id"],
+    description: "Put every file of an applied change set back. Refused, naming the files, if someone changed them since; partial undoes the rest.",
+    run: (nb, a) => nb("change undo", [String(a.id)], a.partial ? { partial: true } : {}) },
+  { name: "networkbase_change_discard", title: "Discard the change set", tier: "small", pack: "changes", props: { id: { type: "string", description: "Default: this folder's" } },
+    description: "Throw away an open change set. The files in the folder stay as they are.",
+    run: (nb, a) => nb("change discard", a.id ? [String(a.id)] : [], { yes: true }) },
 
   // files
   { name: "networkbase_file_list", title: "List files", tier: "read", pack: "files", props: { folder: { type: "string" }, task: { type: "string", description: "Only this task's files, with roles" }, workspace: workspaceProp },
@@ -424,13 +444,14 @@ export const PACKS = /** @type {Record<Exclude<Pack, "core">, string>} */ ({
   planning: "the workspace at a glance, activity, sprints, members, labels, blocked by, reminders, subtask edits",
   classes: "assignments, hand-ins and reviews",
   people: "the inbox, updates, members and agent questions",
+  changes: "change sets: your saves as one change, finished, applied and undone together",
 });
 
 TOOLS.push({ name: "networkbase_run", title: "Run a pack tool", tier: "small", props: { tool: { type: "string", description: "Its name, from networkbase_more_tools" }, args: { type: "object" } }, required: ["tool"],
   description: "Call a tool from a pack by name, with its arguments (works whether or not your client shows the pack's tools).",
   run: async () => { throw new CliError("INTERNAL", "networkbase_run is answered by callTool"); } });
 TOOLS.push({ name: "networkbase_more_tools", title: "More tools", tier: "read", props: { pack: { type: "string", enum: Object.keys(PACKS) } },
-  description: "Load more tools for this session. files: the Trash, folders, copies, stars, history, docs, search. planning: labels, blocked by, reminders, sprints, members, activity. classes: assignments, hand-ins, reviews. people: the inbox, updates, invites, roles.",
+  description: "Load more tools for this session. files: the Trash, folders, copies, stars, history, docs, search. planning: labels, blocked by, reminders, sprints, members, activity. classes: assignments, hand-ins, reviews. people: the inbox, updates, invites, roles. changes: change sets (multi-file work applied at once).",
   run: async () => { throw new CliError("INTERNAL", "networkbase_more_tools is answered by the MCP server"); } });
 
 /**
@@ -765,7 +786,9 @@ function errorResult(error, recovery) {
 }
 
 /** Tools that read or write files in a linked folder, or the local undo log: only `nb mcp` on your computer has them. */
-export const HOSTED_EXCLUDED = new Set(["networkbase_status", "networkbase_file_push", "networkbase_file_pull", "networkbase_undo"]);
+export const HOSTED_EXCLUDED = new Set(["networkbase_status", "networkbase_file_push", "networkbase_file_pull", "networkbase_undo",
+  // Change sets capture a local folder; cloud agents get fs_* tools on a draft (report G14, M6).
+  "networkbase_change_status", "networkbase_change_start", "networkbase_change_finish", "networkbase_change_apply", "networkbase_change_discard"]);
 
 /**
  * tools/list entries, with tier hints for clients (A7.3). With an agent's access (A6 #2), Read only lists only the
