@@ -108,3 +108,14 @@ test("the status is a targeted update: a stale copy of the import record written
   assert.equal(await hydration.missingContent(ws), 0, "the files themselves are what count");
   assert.ok(tarballReads > 0);
 });
+
+test("a type the storage bucket refuses (TypeScript, Python) is stored as text; the file keeps its own type", async () => {
+  const { owner, ws } = await importedWorkspace([["app.ts", "export const x = 1;\n"], ["tool.py", "print(1)\n"]]);
+  await sql`UPDATE workspace_nodes SET mime_type = CASE WHEN path = '/app.ts' THEN 'text/typescript' ELSE 'text/x-python' END WHERE workspace_id = ${ws}`;
+  const run = await hydration.hydrateWorkspace({ projectId: ws, userId: owner, eventId: "e5", ref: "abc", step: (_name, fn) => fn() });
+  assert.equal(run.stored, 2);
+  const rows = await sql`SELECT n.path, n.mime_type AS node_type, v.mime_type AS stored_type FROM workspace_nodes n JOIN file_versions v ON v.node_id = n.id WHERE n.workspace_id = ${ws} ORDER BY n.path`;
+  assert.deepEqual(rows.map((r) => [r.path, r.node_type, r.stored_type]), [["/app.ts", "text/typescript", "text/plain"], ["/tool.py", "text/x-python", "text/plain"]]);
+  assert.equal(hydration.storableType("image/svg+xml"), "image/svg+xml");
+  assert.equal(hydration.storableType("application/x-weird"), "application/octet-stream");
+});

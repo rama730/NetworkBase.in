@@ -32,6 +32,17 @@ const UPLOAD_CONCURRENCY = 5;
 const MAX_BATCHES = 100;
 const FAILED_SAMPLE = 20;
 
+/**
+ * Types the project-files bucket stores (drizzle/0003_storage.sql). The import labels files by extension
+ * ("text/typescript", "text/x-python"), which the bucket refuses: those are stored as text/plain, anything else
+ * unknown as application/octet-stream. The file keeps its own type for previews (found in the 2026-11-16 backfill).
+ */
+const STORABLE = new Set(["text/plain", "text/markdown", "text/csv", "text/html", "text/css", "text/javascript", "text/xml", "application/json", "application/xml", "application/octet-stream", "application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml", "image/bmp", "image/tiff", "image/avif", "image/x-icon", "image/vnd.microsoft.icon", "video/mp4", "video/quicktime", "video/webm", "video/x-msvideo", "video/mpeg", "video/ogg", "video/3gpp", "audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/aac", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/flac", "application/zip", "application/gzip", "application/x-tar"]);
+export const storableType = (mime: string | null | undefined) => {
+  const m = (mime ?? "").toLowerCase();
+  return STORABLE.has(m) ? m : m.startsWith("text/") ? "text/plain" : "application/octet-stream";
+};
+
 type Node = { id: string; path: string; mimeType: string | null; gitHash: string | null; currentVersion: number | null };
 
 /** Imported files with no content yet (they have a Git blob hash to fetch them by). */
@@ -66,7 +77,7 @@ async function publish(input: { projectId: string; userId: string; eventId: stri
   const { projectId, userId, eventId, node, content } = input;
   if (node.gitHash && gitBlobSha(content) !== node.gitHash) throw new Error("doesn't match the imported Git blob");
   if (content.byteLength > WORKSPACE_UPLOAD_MAX_FILE_BYTES) throw new Error(`over the ${WORKSPACE_UPLOAD_MAX_FILE_BYTES} byte limit`);
-  const mimeType = node.mimeType || "application/octet-stream";
+  const mimeType = storableType(node.mimeType);
   const contentHash = createHash("sha256").update(content).digest("hex");
   const operationIdentity = createHash("sha256").update(`${eventId}:${node.id}`).digest("hex").slice(0, 32);
   const extension = node.path.split(".").pop()?.toLowerCase();
@@ -104,7 +115,7 @@ async function publish(input: { projectId: string; userId: string; eventId: stri
       .returning({ id: fileVersions.id });
     if (!version) throw new Error("its first version already has other content");
     const updated = await tx.update(workspaceNodes)
-      .set({ s3Key: intent.storageKey, assetId: asset.id, size: content.byteLength, mimeType, syncStatus: "merged", updatedAt: new Date() })
+      .set({ s3Key: intent.storageKey, assetId: asset.id, size: content.byteLength, syncStatus: "merged", updatedAt: new Date() })
       .where(and(eq(workspaceNodes.id, node.id), isNull(workspaceNodes.s3Key)))
       .returning({ id: workspaceNodes.id });
     if (updated.length !== 1) throw new Error("another run stored it first");
@@ -138,6 +149,8 @@ export async function hydrateBatch(input: { projectId: string; userId: string; e
   let stored = 0;
   const failedPaths: string[] = [];
   let inFlight: Promise<void>[] = [];
+  /** Why files failed, counted: one log line a batch, not one a file (Railway drops a flood). */
+  const reasons = new Map<string, number>();
   for await (const file of fetchAndParseTarball(source.repoUrl, input.ref, access.token ?? undefined)) {
     const node = wanted.get(file.path);
     if (!node) continue;
@@ -146,7 +159,8 @@ export async function hydrateBatch(input: { projectId: string; userId: string; e
       (ok) => { if (ok) stored += 1; },
       (error: unknown) => {
         failedPaths.push(node.path);
-        logger.warn("github.hydrate.file_failed", { module: "github", projectId: input.projectId, path: node.path, error: error instanceof Error ? error.message : String(error) });
+        const reason = (error instanceof Error ? error.message : String(error)).slice(0, 120);
+        reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
       },
     ));
     if (inFlight.length >= UPLOAD_CONCURRENCY) { await Promise.all(inFlight); inFlight = []; }
@@ -155,6 +169,8 @@ export async function hydrateBatch(input: { projectId: string; userId: string; e
   await Promise.all(inFlight);
   // Not in the repository at this commit (renamed or deleted since the listing).
   for (const node of wanted.values()) failedPaths.push(node.path);
+  if (wanted.size) reasons.set("not in the repository at this commit", wanted.size);
+  if (failedPaths.length) logger.warn("github.hydrate.batch_failures", { module: "github", projectId: input.projectId, failed: failedPaths.length, stored, reasons: Object.fromEntries(reasons), sample: failedPaths.slice(0, 5) });
   return { stored, failed: failedPaths.length, failedPaths, lastPath: nodes.at(-1)!.path };
 }
 
