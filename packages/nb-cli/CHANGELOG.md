@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.2 (2026-11-17)
+
+### Fixed
+- `nb change status` shows the change set even when an upload fails, saying what's waiting; with nothing open, it lists the recently applied change sets and how to undo them.
+- `nb change finish` opens a change set for saves that weren't captured yet, instead of saying there's nothing to finish.
+- `nb change resolve` writes only inside the linked folder, never in `.git`.
+
+### Added
+- Agent tools `networkbase_change_update` (bring in teammates' changes) and `networkbase_change_resolve` (keep yours or theirs) in the changes pack.
+
 ## 2.2.1 (2026-11-16)
 
 ### Added
