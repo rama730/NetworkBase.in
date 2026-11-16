@@ -121,6 +121,10 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/members`), read: "workspace:read", write: null, agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/sync-diff`), read: "file:read" },
   { pattern: route("/api/v1/files/place"), write: "file:write", agent: "route" },
+  // Change sets (report G7): the workspace is in the path, or comes from the change set (the route checks it).
+  { pattern: route(`/api/v1/workspaces/${ID}/change-sets`), read: "file:read", write: "file:write", agent: "path" },
+  { pattern: route(`/api/v1/change-sets/${ID}`), read: "file:read", agent: "route" },
+  { pattern: route(`/api/v1/change-sets/${ID}/(items|content|finish|apply|discard|undo|copy)`), write: "file:write", agent: "route" },
   { pattern: route("/api/v1/me"), read: null, agent: "self" },
   // Your notification settings (report C4, nb inbox settings and mute): the person's own terminal, not agents.
   { pattern: route("/api/v1/me/notifications"), read: "workspace:read", write: "workspace:read" },

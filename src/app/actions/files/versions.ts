@@ -140,6 +140,7 @@ export async function listFileVersionsPage(
         via: fileVersions.via,
         agentName: fileVersions.agentName,
         basedOnVersion: fileVersions.basedOnVersion,
+        changeSetId: fileVersions.changeSetId,
         uploadedByName: profiles.fullName,
         uploadedByUsername: profiles.username,
       })

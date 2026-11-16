@@ -167,7 +167,9 @@ export type UndoInverse =
   | { kind: "task.assign"; taskId: string; projectId: string; assigneeId: string | null; expect: string | null }
   | { kind: "subtask.title"; subtaskId: string; taskId: string; projectId: string; title: string; expect: string }
   | { kind: "files.restore"; projectId: string; use?: boolean; files: Array<{ nodeId: string; created: boolean; version: number; previousVersion: number | null }> }
-  | { kind: "tasks.bulk"; projectId: string; numbers: number[]; steps: Array<Extract<UndoInverse, { kind: "task.status" | "task.field" | "task.assign" }>> };
+  | { kind: "tasks.bulk"; projectId: string; numbers: number[]; steps: Array<Extract<UndoInverse, { kind: "task.status" | "task.field" | "task.assign" }>> }
+  // The whole inverse lives on the change set's apply result (report G11).
+  | { kind: "changeset.undo"; projectId: string; changeSetId: string };
 
 /** Records how to undo a change made with a token (any token, so `nb undo` works too); returns the undo token. */
 export async function recordUndo(auth: Principal, input: { workspaceId: string; operation: string; summary: string; inverse: UndoInverse }) {

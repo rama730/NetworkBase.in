@@ -7,6 +7,7 @@ import { updateSubtaskAction } from "@/app/actions/subtask";
 import { assignTaskAction, updateTaskFieldAction } from "@/app/actions/task";
 import { findUndo, STATUS_WORDS, taskList, type UndoInverse } from "@/lib/agents/policy";
 import { db } from "@/lib/db";
+import { ChangeSetError, undoFromToken } from "@/lib/domain/change-sets";
 import { taskComments, taskSubtasks, tasks, undoOperations, workspaceNodes } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { ActiveVersionChangedError, activateFileVersion } from "@/lib/files/activate-file-version";
@@ -145,6 +146,8 @@ async function runInverse(user: { id: string; email?: string; user_metadata?: Re
       if (inverse.use) return `v${inverse.files[0]?.previousVersion} is active again`;
       return `Undid the push of ${inverse.files.length} file${inverse.files.length === 1 ? "" : "s"}`;
     }
+    case "changeset.undo":
+      throw new Error("Change set undos run through undoFromToken");
   }
 }
 
@@ -166,11 +169,13 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
     const [claimed] = await db.update(undoOperations).set({ usedAt: new Date() }).where(and(eq(undoOperations.id, op.id), isNull(undoOperations.usedAt))).returning({ id: undoOperations.id });
     if (!claimed) return jsonError("That was undone already", 410, "EXPIRED");
     try {
-      const done = await runInverse(auth.user, op.inverse as unknown as UndoInverse);
+      const inverse = op.inverse as unknown as UndoInverse;
+      const done = inverse.kind === "changeset.undo" ? await undoFromToken(auth, inverse.changeSetId) : await runInverse(auth.user, inverse);
       return jsonSuccess({ undone: op.summary, result: done, operation: op.operation });
     } catch (error) {
       await db.update(undoOperations).set({ usedAt: null }).where(eq(undoOperations.id, op.id));
       if (error instanceof Changed) return jsonError(error.message, 409, error.code);
+      if (error instanceof ChangeSetError) return jsonError(error.message, error.status, error.code as never, error.details);
       throw error;
     }
   } catch (error) {

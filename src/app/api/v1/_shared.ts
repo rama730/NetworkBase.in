@@ -153,7 +153,7 @@ export async function agentPolicyDenial(workspaceId: string) {
 }
 
 /** A workspace named in a request as an id or a slug, as an id (null when there's no such workspace). */
-async function workspaceIdFromRef(ref: string | null): Promise<string | null> {
+export async function workspaceIdFromRef(ref: string | null): Promise<string | null> {
   if (!ref) return null;
   if (UUID_RE.test(ref)) return ref;
   const [row] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.slug, ref)).limit(1);

@@ -5,6 +5,8 @@ import { and, asc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
+  changeSetItems,
+  changeSets,
   chatCanvases,
   chatAttachments,
   extensionRecoveryDrafts,
@@ -92,6 +94,14 @@ export function hasNoLiveReference() {
     sql`NOT EXISTS (
       SELECT 1 FROM ${githubSyncSnapshotAssets}
       WHERE ${githubSyncSnapshotAssets.assetId} = ${storageAssets.id}
+    )`,
+    // Change set content (report G6, G19): kept while its set is open or ready, and for 7 days after a discard or undo
+    // so Copy as new draft still works. Applied content is referenced by its file versions.
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${changeSetItems}
+      JOIN ${changeSets} ON ${changeSets.id} = ${changeSetItems.changeSetId}
+      WHERE (${changeSetItems.assetId} = ${storageAssets.id} OR ${changeSetItems.mergedAssetId} = ${storageAssets.id})
+        AND (${changeSets.status} IN ('open', 'ready', 'applying') OR ${changeSets.updatedAt} > now() - interval '7 days')
     )`,
     sql`NOT EXISTS (
       SELECT 1 FROM ${storageAssetPins}

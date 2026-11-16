@@ -809,6 +809,8 @@ export const workspaces = pgTable(
     agentsPausedAt: timestamp("agents_paused_at", { withTimezone: true }),
     /** 0090 (report C1): nb learn's practice workspace, deleted when the practice ends or after 24 hours. */
     sandboxExpiresAt: timestamp("sandbox_expires_at", { withTimezone: true }),
+    /** Change sets are on for this workspace (0091, report G23). */
+    changeSetsEnabled: boolean("change_sets_enabled").default(false).notNull(),
     /** Who sees "with Claude Code" on work here (0086, report Part B): everyone, only the person, or no one. */
     agentLabelVisibility: text("agent_label_visibility").$type<"everyone" | "person" | "none">().default("everyone").notNull(),
     termStart: date("term_start"),
@@ -3405,6 +3407,8 @@ export const fileVersions = pgTable(
     attribution: jsonb("attribution").$type<Record<string, unknown>>().default({}).notNull(),
     /** The version that was active when this one was saved, when that wasn't the newest (0081): "v4 based on v1". */
     basedOnVersion: integer("based_on_version"),
+    /** The change set that made this version (0091, report G4): "part of 'Redesign sign-in'". */
+    changeSetId: uuid("change_set_id").references((): AnyPgColumn => changeSets.id, { onDelete: "set null" }),
   },
   (t) => ({
     uniqueNodeVersion: uniqueIndex("file_versions_node_version_unique").on(
@@ -6265,3 +6269,61 @@ export const taskAgentNotes = pgTable("task_agent_notes", {
   note: text("note").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({ taskCreatedIdx: index("task_agent_notes_task_created_idx").on(t.taskId, t.createdAt.desc()), userIdx: index("task_agent_notes_user_idx").on(t.userId) }));
+
+/** Report Part G (0091): one named piece of multi-file work, applied all at once and undone in one step. */
+export const changeSets = pgTable("change_sets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  authorId: uuid("author_id").notNull().references(() => profiles.id),
+  via: text("via").$type<"cli" | "agent">(),
+  agentName: text("agent_name"),
+  agentSessionId: uuid("agent_session_id").references(() => extensionDeviceSessions.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  message: text("message"),
+  status: text("status").$type<"open" | "ready" | "applying" | "applied" | "discarded" | "undone">().default("open").notNull(),
+  filesAdded: integer("files_added").default(0).notNull(),
+  filesChanged: integer("files_changed").default(0).notNull(),
+  filesDeleted: integer("files_deleted").default(0).notNull(),
+  filesRenamed: integer("files_renamed").default(0).notNull(),
+  linesAdded: integer("lines_added").default(0).notNull(),
+  linesRemoved: integer("lines_removed").default(0).notNull(),
+  bytes: bigint("bytes", { mode: "number" }).default(0).notNull(),
+  applyResult: jsonb("apply_result").$type<Record<string, unknown>>(),
+  undoOperationId: uuid("undo_operation_id").references(() => undoOperations.id, { onDelete: "set null" }),
+  appliedBy: uuid("applied_by").references(() => profiles.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  readyAt: timestamp("ready_at", { withTimezone: true }),
+  appliedAt: timestamp("applied_at", { withTimezone: true }),
+  discardedAt: timestamp("discarded_at", { withTimezone: true }),
+  undoneAt: timestamp("undone_at", { withTimezone: true }),
+}, (t) => ({
+  workspaceStatusIdx: index("change_sets_workspace_status_idx").on(t.workspaceId, t.status, t.updatedAt.desc()),
+  authorOpenIdx: index("change_sets_author_open_idx").on(t.authorId, t.status).where(sql`status IN ('open', 'ready')`),
+  taskIdx: index("change_sets_task_idx").on(t.taskId).where(sql`task_id IS NOT NULL`),
+}));
+
+export const changeSetItems = pgTable("change_set_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  changeSetId: uuid("change_set_id").notNull().references(() => changeSets.id, { onDelete: "cascade" }),
+  op: text("op").$type<"add" | "change" | "delete" | "rename">().notNull(),
+  path: text("path").notNull(),
+  fromPath: text("from_path"),
+  baseNodeId: uuid("base_node_id").references(() => workspaceNodes.id, { onDelete: "set null" }),
+  baseVersion: integer("base_version"),
+  baseHash: text("base_hash"),
+  contentHash: text("content_hash"),
+  assetId: uuid("asset_id").references(() => storageAssets.id, { onDelete: "set null" }),
+  size: bigint("size", { mode: "number" }),
+  mimeType: text("mime_type"),
+  state: text("state").$type<"pending" | "ready" | "merged" | "conflict" | "applied">().default("pending").notNull(),
+  mergedAssetId: uuid("merged_asset_id").references(() => storageAssets.id, { onDelete: "set null" }),
+  conflict: jsonb("conflict").$type<Record<string, unknown>>(),
+  linesAdded: integer("lines_added"),
+  linesRemoved: integer("lines_removed"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pathUnique: uniqueIndex("change_set_items_path_unique").on(t.changeSetId, t.path),
+  stateIdx: index("change_set_items_state_idx").on(t.changeSetId, t.state),
+}));

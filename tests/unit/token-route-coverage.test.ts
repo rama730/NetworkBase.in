@@ -86,6 +86,8 @@ it("every route that checks a token's workspace itself calls denyOutsideTokenWor
     // Follow `export { POST } from "@/app/api/v1/…/route"` to the handler that does the work.
     const reexport = /export \{[^}]*\} from "@\/app\/api\/v1\/([^"]+)"/.exec(source);
     if (reexport) source = fs.readFileSync(path.join(ROOT, `${reexport[1]}.ts`), "utf8");
+    // The change set routes share one wrapper that makes the call (src/app/api/v1/change-sets/_route.ts).
+    if (source.includes("changeSetRoute(")) source = fs.readFileSync(path.join(ROOT, "change-sets/_route.ts"), "utf8");
     if (!source.includes("denyOutsideTokenWorkspace(")) missing.push(rel);
   }
   assert.deepEqual(missing, []);

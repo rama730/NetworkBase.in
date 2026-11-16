@@ -1,3 +1,4 @@
+import { ensureParentFoldersTx } from "@/lib/files/ensure-folders";
 import {normalizeAndValidateUploadRelativePath} from "@/lib/upload/security";
 import crypto from "crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
@@ -73,39 +74,7 @@ export async function resolveWritableExtensionFile(
     });
     if (recheck) return { node: recheck, created: false };
 
-    let parentId: string | null = null;
-    let currentFolderPath = "";
-    for (let i = 0; i < segments.length - 1; i++) {
-      const folderName = segments[i]!;
-      currentFolderPath += `/${folderName}`;
-      const existingFolder = await tx.query.workspaceNodes.findFirst({
-        where: and(
-          eq(workspaceNodes.projectId, projectId),
-          eq(workspaceNodes.path, currentFolderPath),
-          eq(workspaceNodes.type, "folder"),
-          isNull(workspaceNodes.deletedAt),
-          isNull(workspaceNodes.taskId),
-        ),
-      });
-      if (existingFolder) {
-        parentId = existingFolder.id;
-      } else {
-        const newFolderRows: Array<{ id: string }> = await tx
-          .insert(workspaceNodes)
-          .values({
-            projectId,
-            parentId,
-            path: currentFolderPath,
-            type: "folder",
-            name: folderName,
-            createdBy: userId,
-            currentVersion: 1,
-            syncStatus: "merged",
-          })
-          .returning({ id: workspaceNodes.id });
-        parentId = newFolderRows[0]!.id;
-      }
-    }
+    const parentId = await ensureParentFoldersTx(tx, projectId, path, userId);
 
     const fileName = segments[segments.length - 1]!;
     const [newFile] = await tx
