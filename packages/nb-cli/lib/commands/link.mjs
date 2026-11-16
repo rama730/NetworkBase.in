@@ -129,7 +129,8 @@ export async function start(ctx) {
   const answers = [ctx.flags.answer ?? []].flat().flatMap((a) => ["--answer", String(a)]);
   /** @param {string[]} args */
   const nb = (args) => {
-    const r = spawnSync(...self([...args, ...pass, ...answers]), { cwd: ctx.cwd, env: ctx.env, stdio: "inherit" });
+    // With --json the steps' output goes to stderr, so stdout stays one JSON result.
+    const r = spawnSync(...self([...args, ...pass, ...answers]), { cwd: ctx.cwd, env: ctx.env, stdio: ["inherit", ctx.flags.json ? 2 : "inherit", "inherit"] });
     if (r.status !== 0) process.exit(r.status ?? 1);
   };
   const steps = [];

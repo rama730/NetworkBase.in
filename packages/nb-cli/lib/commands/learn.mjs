@@ -13,7 +13,7 @@ import { safe } from "../print/style.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
-/** Waits for Enter; q (or Ctrl+C, Esc) stops. In scripts and with --yes it never waits. @param {Context} ctx */
+/** Waits for Enter; q stops (Ctrl+C too, cleaning up). In scripts and with --yes it never waits. @param {Context} ctx */
 async function next(ctx) {
   if (!ctx.out.interactive || ctx.flags.yes) return true;
   ctx.out.stderr.write(ctx.out.c.muted("  Enter to run it, q to stop "));
@@ -32,8 +32,10 @@ export async function learn(ctx) {
   const pass = /** @type {const} */ (["profile", "api-url"]).flatMap((f) => (ctx.flags[f] ? [`--${f}`, String(ctx.flags[f])] : []));
   /** @param {string[]} args @param {{ json?: boolean }} [o] */
   const nb = (args, o = {}) => {
-    const r = spawnSync(...self([...args, ...pass, ...(o.json ? ["--json"] : [])]), { cwd: dir, env: { ...ctx.env, NB_NO_UPDATE_CHECK: "1" }, encoding: "utf8", stdio: o.json ? ["ignore", "pipe", "pipe"] : ["ignore", "inherit", "inherit"] });
-    if (r.status !== 0 && !o.json) throw new CliError("LEARN_STEP_FAILED", `nb ${args.join(" ")} didn't work`, { hint: "Run nb learn again; it picks up the same practice workspace" });
+    // With --json the steps' own output goes to stderr, so stdout stays one JSON result.
+    const shown = ctx.flags.json ? 2 : "inherit";
+    const r = spawnSync(...self([...args, ...pass, ...(o.json ? ["--json"] : [])]), { cwd: dir, env: { ...ctx.env, NB_NO_UPDATE_CHECK: "1" }, encoding: "utf8", stdio: o.json ? ["ignore", "pipe", "pipe"] : ["ignore", shown, shown] });
+    if (r.status !== 0 && !o.json) throw new CliError("LEARN_STEP_FAILED", `nb ${args.join(" ")} didn't work`, { hint: "Run nb learn again to start over" });
     return o.json ? JSON.parse(r.stdout || "{}") : null;
   };
   let number = 0;
@@ -47,6 +49,18 @@ export async function learn(ctx) {
   ];
   ctx.out.note(`${c.bold("nb learn")}: ${steps.length} steps, about five minutes, in a practice workspace that's deleted at the end.`);
   let finished = false;
+  // Only the practice workspace this run made goes at the end: one kept with --keep, or another terminal's, stays.
+  const ours = Boolean(started.created) && !ctx.flags.keep;
+  let cleaned = false;
+  const cleanup = async () => {
+    if (cleaned) return;
+    cleaned = true;
+    if (ours) await ctx.api.request("DELETE", `/api/v1/sandbox/${encodeURIComponent(started.id)}`).catch(() => {});
+    fs.rmSync(dir, { recursive: true, force: true });
+  };
+  // Ctrl+C (or q) still cleans up: the CLI's own handler would exit before the finally below runs.
+  process.removeAllListeners("SIGINT");
+  process.once("SIGINT", () => { void cleanup().finally(() => process.exit(130)); });
   try {
     for (const [i, step] of steps.entries()) {
       ctx.out.stderr.write(`\n${c.accent(sym.active)} ${c.bold(`Step ${i + 1} of ${steps.length}: ${step.title}`)}\n  ${safe(step.say)}\n  ${c.brand("$")} ${step.show}\n`);
@@ -55,12 +69,11 @@ export async function learn(ctx) {
     }
     finished = true;
   } finally {
-    if (!ctx.flags.keep) await ctx.api.request("DELETE", `/api/v1/sandbox/${encodeURIComponent(started.id)}`).catch(() => {});
-    fs.rmSync(dir, { recursive: true, force: true });
+    await cleanup();
   }
-  ctx.out.result("nb.learn/1", { finished, steps: steps.length, kept: Boolean(ctx.flags.keep) }, () => [
+  ctx.out.result("nb.learn/1", { finished, steps: steps.length, kept: !ours }, () => [
     `\n${c.success(sym.done)} Done: link, status, push, task start, done. That's the everyday loop.`,
-    ctx.flags.keep ? c.muted(`  The practice workspace stays for 24 hours: ${started.slug}`) : c.muted("  The practice workspace is deleted."),
+    ours ? c.muted("  The practice workspace is deleted.") : c.muted(`  The practice workspace stays for 24 hours: ${started.slug}`),
     "  Next: nb init in a real project folder, or nb help for everything else.",
   ]);
 }

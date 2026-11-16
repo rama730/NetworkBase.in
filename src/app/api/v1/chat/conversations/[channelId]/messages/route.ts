@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { chatError, withChat } from "@/app/api/v1/chat/_shared";
 import { isUuid } from "@/lib/messaging/server";
 import { idempotentWrite, jsonError, jsonSuccess } from "@/app/api/v1/_shared";
@@ -9,6 +11,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ channelId: string }> };
+/** The retry key as the message's client id; a long one is hashed to what the chat functions take (160). */
+const clientIdOf = (key: string | null) => (!key ? null : key.length <= 160 ? key : createHash("sha256").update(key).digest("hex"));
 
 /** The latest messages (or those before ?before=seq), oldest first, as plain text (nb message read). */
 export async function GET(request: Request, context: Context) {
@@ -29,13 +33,14 @@ export async function GET(request: Request, context: Context) {
 export async function POST(request: Request, context: Context) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
-  return idempotentWrite(request, "chat.send", (req) => withChat(req, "api/v1/chat/messages", async (auth) => {
-    const { channelId } = await context.params;
+  // The same key sent to another conversation is another send, never the first one's answer.
+  const { channelId } = await context.params;
+  return idempotentWrite(request, `chat.send:${channelId}`, (req) => withChat(req, "api/v1/chat/messages", async (auth) => {
     if (!isUuid(channelId)) return jsonError("Conversation not found", 404, "NOT_FOUND");
     const parsed = messageSendSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return jsonError("Write the message: 1 to 4000 characters", 400, "BAD_REQUEST");
     try {
-      const sent = await sendToConversation(auth.user.id, { channelId, text: parsed.data.text, replyTo: parsed.data.replyTo ?? null, clientId: req.headers.get("idempotency-key") });
+      const sent = await sendToConversation(auth.user.id, { channelId, text: parsed.data.text, replyTo: parsed.data.replyTo ?? null, clientId: clientIdOf(req.headers.get("idempotency-key")) });
       if (!sent.success) return chatError(sent.error ?? "chat_forbidden", "api_send");
       return jsonSuccess({ seq: sent.message?.seq ?? null });
     } catch (error) {

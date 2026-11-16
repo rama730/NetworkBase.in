@@ -52,12 +52,20 @@ describe("nb message (C4)", () => {
     assert.deepEqual(api.requests.filter((q) => q.path === "/api/v1/chat/conversations/c1/messages" && q.method === "POST").at(-1)?.body, { text: "on it", replyTo: 4 });
   });
 
-  it("the agent tool reads freely but sending always waits for a yes", async () => {
+  it("agent tools: reading and sending each wait for a yes (other people's words), and reading leaves them unread", async () => {
     const mcp = await startMcp({ api: api.url, cwd, home });
     try {
       await mcp.request("initialize", { protocolVersion: "2025-06-18" });
-      const list = await mcp.call("networkbase_message_list", {});
+      const asked = await mcp.call("networkbase_message_list", {});
+      assert.equal(asked.structuredContent.status, "needs_confirmation");
+      const list = await mcp.call("networkbase_message_list", { confirmToken: asked.structuredContent.confirmToken });
       assert.equal(list.structuredContent.status, "ok", list.content[0].text);
+      const readAsk = await mcp.call("networkbase_message_read", { conversation: "@sam" });
+      assert.equal(readAsk.structuredContent.status, "needs_confirmation");
+      const reads = (api.state.chatReads ?? []).length;
+      const read = await mcp.call("networkbase_message_read", { conversation: "@sam", confirmToken: readAsk.structuredContent.confirmToken });
+      assert.equal(read.structuredContent.status, "ok", read.content[0].text);
+      assert.equal((api.state.chatReads ?? []).length, reads, "not marked read");
       const held = await mcp.call("networkbase_message_send", { conversation: "@sam", text: "hello" });
       assert.equal(held.structuredContent.status, "needs_confirmation");
       assert.match(held.structuredContent.summary, /Send to @sam as you: "hello"/);

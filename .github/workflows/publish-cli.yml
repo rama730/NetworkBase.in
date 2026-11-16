@@ -123,6 +123,8 @@ jobs:
     needs: [publish, single-file]
     runs-on: ubuntu-latest
     environment: tap-release
+    # A prerelease (2.x.y-next.n) stays on npm's next tag; Homebrew and Scoop get stable versions only.
+    if: ${{ !contains(github.ref_name, '-') }}
     steps:
       - id: ready
         env:

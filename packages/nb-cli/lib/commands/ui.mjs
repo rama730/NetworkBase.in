@@ -77,9 +77,10 @@ async function load(ctx) {
   }));
   const items = (inbox?.items ?? []).map((/** @type {any} */ i, /** @type {number} */ n) => /** @type {Row} */ ({
     label: `${i.readAt ? " " : "•"} ${safe(i.title)}`, hint: i.body ? safe(String(i.body)).replace(/\n/g, " ").slice(0, 40) : "",
-    open: ["inbox", "open", String(n + 1)], done: i.readAt ? undefined : ["inbox", "read", String(n + 1)],
+    // By id, not position: a notification arriving after the screen loaded doesn't shift which one a key acts on.
+    open: ["inbox", "open", String(i.id ?? n + 1)], done: i.readAt ? undefined : ["inbox", "read", String(i.id ?? n + 1)],
   }));
-  const files = (status?.files ?? []).map((/** @type {any} */ f) => /** @type {Row} */ ({ label: safe(f.path), hint: safe(f.state), open: ["diff", f.path] }));
+  const files = (status?.files ?? []).map((/** @type {any} */ f) => /** @type {Row} */ ({ label: safe(f.path), hint: safe(f.state), open: ["diff", "--", f.path] }));
   const ws = status?.workspace?.slug ?? "";
   const task = status?.startedTask ? ` · #${status.startedTask.number} ${safe(status.startedTask.title ?? "")}` : "";
   const unread = inbox?.unread ?? 0;
@@ -130,10 +131,13 @@ export async function ui(ctx) {
   const loaded = refresh();
   out.on("resize", draw);
   let busy = false;
+  /** @type {Row | null | undefined} the task row d was pressed on once */
+  let armed = null;
   await new Promise((resolve) => {
     /** @param {string} str @param {{ name?: string, ctrl?: boolean }} key */
     const onKey = async (str, key = {}) => {
       if (busy) return;
+      if (str !== "d") armed = null;
       if (key.ctrl && key.name === "c") { process.stdin.off("keypress", onKey); return resolve(null); }
       if (s.help) { s.help = false; return draw(); }
       if (s.typing) {
@@ -156,6 +160,9 @@ export async function ui(ctx) {
         const row = current();
         const args = str === "p" ? ["push"] : str === "d" ? row?.done : row?.open;
         if (!args) { s.note = str === "d" ? "Nothing to mark done here" : "Nothing to open"; return draw(); }
+        // Finishing a task is one key too easy to hit by mistake: d twice.
+        if (str === "d" && s.pane === 0 && armed !== row) { armed = row; s.note = `Press d again to finish ${row?.label ?? "it"}`; return draw(); }
+        armed = null;
         busy = true;
         try { await run(args); } finally { busy = false; }
         return;

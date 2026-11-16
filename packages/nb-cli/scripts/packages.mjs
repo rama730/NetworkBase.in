@@ -18,6 +18,9 @@ class Nb < Formula
   version "${version}"
   license "${LICENSE}"
 
+  # Apple silicon only for now: there's no Intel Mac build (macOS Intel runners are gone from CI).
+  depends_on arch: :arm64 if OS.mac?
+
   on_macos do
     on_arm do
       url "${url("nb-macos-arm64")}"

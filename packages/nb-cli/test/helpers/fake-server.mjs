@@ -76,7 +76,7 @@ const exact = {
   "GET /api/v1/reviews": (req, state) => (req.query.get("org") ? { data: { rows: state.assignments.filter((a) => a.state === "submitted").map((a) => ({ kind: "copy", mine: true, copyId: a.id, masterId: a.id, title: a.title, who: "Sam Lee", submittedBy: "u2", submittedAt: now(), late: false, href: "", projectId: WORKSPACE_ID, updatedAt: now(), version: 1, link: null, text: null, note: null, files: [], versions: a.versions ?? [] })), total: 1, nextCursor: null } } : fail(400, "BAD_REQUEST", "Which organization?")),
   // Messages (report C4, M4d): two #design channels in different workspaces and a DM.
   // nb learn (report C1): the practice workspace is the fake's design-lab, so every step works.
-  "POST /api/v1/sandbox": (_req, state) => { state.sandboxes = (state.sandboxes ?? 0) + 1; return { data: { sandbox: { id: WORKSPACE_ID, slug: "design-lab", title: "Practice (nb learn)", created: true } } }; },
+  "POST /api/v1/sandbox": (_req, state) => { state.sandboxes = (state.sandboxes ?? 0) + 1; return { data: { sandbox: { id: WORKSPACE_ID, slug: "design-lab", title: "Practice (nb learn)", created: !(/** @type {any} */ (state).sandboxExists) } } }; },
   "GET /api/v1/chat/conversations": (_req, state) => ({ data: { conversations: fakeChats(state).conversations } }),
   "GET /api/v1/inbox": (_req, state) => ({ data: { items: state.inbox, nextCursor: null, hasMore: false, unreadCount: state.inbox.filter((i) => !i.readAt).length, unreadImportantCount: 0 } }),
   "POST /api/v1/inbox/read": (req, state) => {

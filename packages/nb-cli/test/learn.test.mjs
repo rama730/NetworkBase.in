@@ -24,6 +24,17 @@ describe("nb learn (C1)", () => {
     assert.deepEqual(readdirSync(cwd), [], "nothing written where it was run");
   });
 
+  it("a practice workspace it didn't make (kept, or another terminal's) is left alone; --json stays one result", async () => {
+    api.state.sandboxExists = true;
+    const before = (api.state.sandboxesEnded ?? []).length;
+    const r = await runCli(["learn", "--json"], { api: api.url, cwd: await tempDir("nb-learn-x-"), home: await tempDir("nb-learn-xh-") });
+    api.state.sandboxExists = false;
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal((api.state.sandboxesEnded ?? []).length, before, "not deleted");
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.data.kept, true);
+  });
+
   it("--keep leaves the practice workspace for 24 hours", async () => {
     const before = (api.state.sandboxesEnded ?? []).length;
     const r = await runCli(["learn", "--keep"], { api: api.url, cwd: await tempDir("nb-learn-k-"), home: await tempDir("nb-learn-kh-") });

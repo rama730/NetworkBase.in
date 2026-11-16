@@ -3,14 +3,16 @@
 // Node's single executable application support. Runs in the release workflow (publish-cli.yml), from packages/nb-cli:
 //   node scripts/single-file.mjs            → build/nb (build/nb.exe on Windows), then checks it runs
 //   node scripts/single-file.mjs --bundle   → only build/nb.cjs (checked with plain node)
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const ESBUILD = "esbuild@0.24.2";
 const POSTJECT = "postject@1.0.0-alpha.6";
 const FUSE = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
 const version = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
+const VERSION_KEY = "nb.version/1";
 const win = process.platform === "win32";
 const out = path.resolve("build");
 const env = { ...process.env, NB_NO_UPDATE_CHECK: "1" };
@@ -35,6 +37,12 @@ function check(file, pre = []) {
   if (!said.includes(version)) throw new Error(`${path.basename(file)} --version said "${said}", expected ${version}`);
   const help = execFileSync(file, [...pre, "help"], { encoding: "utf8", env });
   if (!help.includes("learn")) throw new Error(`${path.basename(file)} help didn't list the commands`);
+  // Commands load their modules only when run: run some, so a module the bundle missed shows here, not at a user's.
+  const clean = { ...env, NETWORKBASE_TOKEN: "", NB_TOKEN: "", NB_CREDENTIAL_STORE: "file", NB_HOME: fs.mkdtempSync(path.join(os.tmpdir(), "nb-check-")) };
+  const versionJson = execFileSync(file, [...pre, "version", "--json"], { encoding: "utf8", env: clean });
+  if (!versionJson.includes(`"${VERSION_KEY}"`)) throw new Error(`${path.basename(file)} version --json said ${versionJson.slice(0, 200)}`);
+  const signedOut = spawnSync(file, [...pre, "whoami"], { encoding: "utf8", env: clean });
+  if (signedOut.status !== 3 || !/sign/i.test(signedOut.stderr + signedOut.stdout)) throw new Error(`${path.basename(file)} whoami (signed out) exited ${signedOut.status}: ${signedOut.stderr.slice(0, 300)}`);
 }
 
 if (process.argv.includes("--bundle")) {
