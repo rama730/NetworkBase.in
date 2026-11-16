@@ -35,6 +35,15 @@ export async function agentsOnTask(taskId: string, now = Date.now()): Promise<Ag
   return (await readAll(taskId)).filter((a) => now - a.at < AGENT_PRESENCE_TTL_MS).sort((a, b) => (a.since ?? a.at) - (b.since ?? b.at));
 }
 
+/** The session stopped: off the task now, not after 90 seconds. Only the person's own session can leave. */
+export async function markAgentLeft(taskId: string, sessionId: string, userId: string) {
+  const mine = (await readAll(taskId)).some((a) => a.sessionId === sessionId && a.userId === userId);
+  if (!mine) return;
+  const redis = getRedisClient();
+  if (redis) await redis.hdel(key(taskId), sessionId).catch(() => undefined);
+  else memory.get(taskId)?.delete(sessionId);
+}
+
 /**
  * Records one heartbeat; returns the other agents on the task, and tells the task's listeners when one arrives.
  * Stale sessions are dropped on every write, and a task holds at most AGENT_PRESENCE_MAX of them.

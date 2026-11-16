@@ -505,6 +505,9 @@ export async function presencePing(where, task, workspace) {
   }
 }
 
+/** The session ended: off the task now (best effort). @param {{ cwd: string, env: NodeJS.ProcessEnv }} where @param {string} task */
+export const presenceLeave = (where, task) => executor(where, { leave: true })("task presence", [task]).catch(() => null);
+
 /** Keeps only the listed keys of each item in the named lists (report D9: shorter answers). @param {any} data @param {Record<string, string[]> | undefined} fields */
 function shape(data, fields) {
   if (!fields || !data || typeof data !== "object") return data;

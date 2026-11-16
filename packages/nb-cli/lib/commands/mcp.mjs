@@ -4,7 +4,7 @@
 import crypto from "node:crypto";
 import readline from "node:readline";
 
-import { HOSTED_EXCLUDED, accessCard, callTool as runTool, morePacks, presencePing, readAccess, readSessionLog, toolList as listTools } from "../mcp/tools.mjs";
+import { HOSTED_EXCLUDED, accessCard, callTool as runTool, morePacks, presenceLeave, presencePing, readAccess, readSessionLog, toolList as listTools } from "../mcp/tools.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
@@ -56,7 +56,7 @@ export function agentNameFor(info) {
  * session, and `onPacks` is told when they change.
  * @param {{ where: { cwd: string, env: NodeJS.ProcessEnv }, send: (message: any) => void, version: string, hosted?: boolean, access?: () => Promise<any>, packs?: Set<string>, onPacks?: (packs: Set<string>) => void }} options
  */
-export function createMcpHandler({ where, send, version, hosted = false, access, packs = new Set(), onPacks }) {
+export function createMcpHandler({ where, send, version, hosted = false, access, packs = new Set(), onPacks, pinged = new Map() }) {
   const cancelled = new Set();
   const ctx = { version };
   /** @type {Promise<any> | null} */
@@ -66,8 +66,6 @@ export function createMcpHandler({ where, send, version, hosted = false, access,
   // gets every tool, and its deferral keeps the session start small (found in the D22 test, M4c).
   let everything = false;
   const toolList = async () => listTools(hosted, await getAccess(), packs, everything);
-  /** Heartbeats sent per task (report D5): the task shows this agent for 90 seconds after each. */
-  const pinged = new Map();
   const callTool = async (/** @type {string} */ name, /** @type {any} */ args, /** @type {any} */ w) => {
     if (hosted && HOSTED_EXCLUDED.has(name)) return { isError: true, content: [{ type: "text", text: `${name} needs NetworkBase on your computer (nb mcp); the hosted server can't use local files` }] };
     const task = typeof args?.task === "string" || typeof args?.task === "number" ? String(args.task) : null;
@@ -173,7 +171,9 @@ export async function serve(ctx, io = {}) {
   const send = (message) => output.write(`${JSON.stringify(message)}\n`);
   const running = new Set();
 
-  const handle = createMcpHandler({ where, send, version: ctx.version });
+  /** Heartbeats sent per task (report D5): the task shows this agent for 90 seconds after each, or until it leaves. */
+  const pinged = new Map();
+  const handle = createMcpHandler({ where, send, version: ctx.version, pinged });
 
   const lines = readline.createInterface({ input: io.input ?? process.stdin, crlfDelay: Infinity });
   for await (const line of lines) {
@@ -198,4 +198,6 @@ export async function serve(ctx, io = {}) {
   // list for its person (D19). Best effort.
   const did = readSessionLog(where.env).map((d) => d.text).slice(-20);
   await ctx.api.post("/api/v1/agent-sessions/end", did.length ? { did } : {}).catch(() => {});
+  // Off its tasks now, so a next session doesn't hear this one is "also working" (found in the 2.1.4 live check).
+  await Promise.all([...pinged.keys()].map((task) => presenceLeave(where, task)));
 }

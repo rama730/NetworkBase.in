@@ -61,3 +61,18 @@ test("only people who can change the task can say an agent is there; a person's 
   await presence.markAgentWorking(task!.id, { sessionId: "fresh", agentName: "Cursor", userId: owner! }, later);
   assert.deepEqual((await presence.agentsOnTask(task!.id, later)).map((a) => a.sessionId), ["fresh"], "stale sessions are dropped");
 });
+
+test("a session that ends leaves the task at once; someone else's session id can't make it leave", async () => {
+  const [owner, other] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const ws = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${other!}, 'member')`;
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, status, creator_id) VALUES (${ws}, 'Leave', 'in_progress', ${owner!}) RETURNING id`;
+  const claude = await token(owner!, "Claude Code", ws);
+  await call(claude, task!.id, "POST", { sessionId: "s-leave" });
+  const theirs = await token(other!, null);
+  assert.equal((await call(theirs, task!.id, "POST", { sessionId: "s-leave", leaving: true })).status, 200);
+  const names = async () => (await call(claude, task!.id, "GET")).body.data.agents.map((a: { agentName: string }) => a.agentName);
+  assert.deepEqual(await names(), ["Claude Code"], "another person's leave does nothing");
+  await call(claude, task!.id, "POST", { sessionId: "s-leave", leaving: true });
+  assert.deepEqual(await names(), [], "gone at once, not after 90 seconds");
+});

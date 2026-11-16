@@ -640,7 +640,7 @@ export async function taskNote(ctx) {
  */
 export async function taskPresence(ctx) {
   const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]));
-  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/tasks/${encodeURIComponent(task.id)}/presence`, { sessionId: String(ctx.env.NB_AGENT_SESSION ?? "cli").slice(0, 80), ...(ctx.env.NB_AGENT_NAME ? { agentName: ctx.env.NB_AGENT_NAME } : {}) }));
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/tasks/${encodeURIComponent(task.id)}/presence`, { sessionId: String(ctx.env.NB_AGENT_SESSION ?? "cli").slice(0, 80), ...(ctx.env.NB_AGENT_NAME ? { agentName: ctx.env.NB_AGENT_NAME } : {}), ...(ctx.flags.leave ? { leaving: true } : {}) }));
   ctx.out.result("nb.task.presence/1", { number: task.taskNumber, others: res.others ?? [] }, (d) => (d.others.length ? `${d.others.join(" and ")} ${d.others.length === 1 ? "is" : "are"} also working on #${d.number}` : `Working on #${d.number}`));
 }
 

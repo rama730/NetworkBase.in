@@ -18,7 +18,8 @@ describe("presence per agent (D5, D17)", () => {
     mcp = await startMcp({ api: api.url, cwd, home });
     await mcp.request("initialize", { protocolVersion: "2025-06-18", clientInfo: { name: "codex-mcp-client", version: "1" } });
   });
-  after(async () => { await mcp.close(); await api.close(); });
+  let closed = false;
+  after(async () => { if (!closed) await mcp.close(); await api.close(); });
 
   it("working on a task says so, with the agent's name and session; another agent there is mentioned", async () => {
     const t = addTask(api.state, { title: "Parse the logs", status: "in_progress" });
@@ -32,5 +33,13 @@ describe("presence per agent (D5, D17)", () => {
     const n = pings();
     await mcp.call("networkbase_subtask_list", { task: String(t.taskNumber) });
     assert.equal(pings(), n, "at most one heartbeat a minute per task");
+  });
+
+  it("when the session ends it leaves its tasks at once, so the next session isn't told it's still there", async () => {
+    const t = api.state.tasks[0];
+    await mcp.close();
+    closed = true;
+    const leave = api.requests.find((q) => q.method === "POST" && q.path === `/api/v1/tasks/${t.id}/presence` && q.body?.leaving === true);
+    assert.ok(leave, "a leaving message for the task it worked on");
   });
 });

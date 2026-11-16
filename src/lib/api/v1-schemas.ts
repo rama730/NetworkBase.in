@@ -89,7 +89,7 @@ export const taskMetaSchema = z.object({
 /** Report D16 (0089): where an agent stopped on a task. */
 export const agentNoteSchema = z.object({ note: z.string().trim().min(1).max(2000), agentName: z.string().trim().min(1).max(80).optional(), sessionId: z.string().trim().max(80).optional() }).strict();
 /** Report D5 (M4c): an agent's heartbeat on a task. */
-export const agentPresenceSchema = z.object({ sessionId: z.string().trim().min(1).max(80), agentName: z.string().trim().min(1).max(80).optional() }).strict();
+export const agentPresenceSchema = z.object({ sessionId: z.string().trim().min(1).max(80), agentName: z.string().trim().min(1).max(80).optional(), leaving: z.boolean().optional() }).strict();
 export const agentNoteDeleteSchema = z.object({ id: z.string().uuid() }).strict();
 
 /** Report D19: the agent's "What I did" lines, sent when its MCP session ends. */

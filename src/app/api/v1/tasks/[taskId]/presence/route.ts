@@ -1,6 +1,6 @@
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { denyOutsideTokenWorkspace, getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
-import { agentNameFrom, agentsOnTask, markAgentWorking } from "@/lib/agents/presence";
+import { agentNameFrom, agentsOnTask, markAgentLeft, markAgentWorking } from "@/lib/agents/presence";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { agentPresenceSchema } from "@/lib/api/v1-schemas";
 import { readableTask, TaskMetaError } from "@/lib/domain/task-meta";
@@ -46,6 +46,10 @@ export async function POST(request: Request, context: Context) {
   return withTask(request, context, async (auth, taskId) => {
     const parsed = agentPresenceSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return jsonError("Send the agent's session id", 400, "BAD_REQUEST");
+    if (parsed.data.leaving) {
+      await markAgentLeft(taskId, parsed.data.sessionId, auth.user.id);
+      return jsonSuccess({ others: [] });
+    }
     const tokenAgent = "tokenAgentName" in auth && typeof auth.tokenAgentName === "string" ? auth.tokenAgentName : null;
     // An agent sign-in names itself; a person's own sign-in may only pick a known agent's name.
     const agentName = auth.tokenKind === "agent" ? (tokenAgent ?? "An AI agent") : agentNameFrom(parsed.data.agentName);
