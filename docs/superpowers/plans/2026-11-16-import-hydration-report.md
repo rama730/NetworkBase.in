@@ -94,4 +94,7 @@ Deployed with the user's go-ahead. Inngest is re-synced after each deploy, and t
 **Results:**
 - **ponytail:** 143 of 143 stored. A fresh `nb pull` from the live site got all 143; the SVGs open as images.
 - **caveman:** 40 of 40 stored.
-- **gstack** (379) and **antigravity-awesome-skills** (11,672): owned by @ch_rama, whose 64 upload slots are held by uploads that expired at 12:30 UTC from the first failed run. The 14:00 UTC storage cleanup frees them; the runs then continue by themselves.
+- **gstack:** 376 of 379. `/connect-chrome` is a symlink (nothing to store). `browse/src/write-commands.ts` and `browse/test/commands.test.ts` at the imported commit get a 403 "Attention Required" page from the storage provider's Cloudflare firewall; their newer versions upload fine.
+- **antigravity-awesome-skills:** 11,655 of 11,672 (finished 14:35 UTC). 17 left: about 10 refused by the same firewall (security-topic skills such as api-fuzzing-bug-bounty and file-path-traversal) and 7 not in the archive (symlinks).
+- @ch_rama's slots were freed early by running the storage-asset-deletion steps once by hand (76 expired uploads removed).
+- **Follow-up, not built:** the failure reason for a firewall refusal reads "Unexpected token '<'"; it could say "refused by the storage provider's firewall". Normal uploads of these files would be refused the same way.
