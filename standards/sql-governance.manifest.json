@@ -92,7 +92,8 @@
     "drizzle/0086_agent_label_visibility.sql",
     "drizzle/0087_task_labels_links_stars.sql",
     "drizzle/0088_task_reminders.sql",
-    "drizzle/0089_task_agent_notes.sql"
+    "drizzle/0089_task_agent_notes.sql",
+    "drizzle/0090_workspace_sandbox.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

@@ -33,6 +33,7 @@ export const FIXES = /** @type {Record<string, string>} */ ({
   "NOT_SIGNED_IN": "nb login",
   "NOT_LINKED": "nb init <workspace>, or pass --workspace",
   "WORKSPACE_NOT_FOUND": "nb workspace list",
+  "LEARN_STEP_FAILED": "Run nb learn again; it picks up the same practice workspace",
   "TASK_NOT_FOUND": "nb task list --all",
   "DOC_NOT_FOUND": "nb doc list",
   "NOT_A_TASK": "nb inbox open <n>",

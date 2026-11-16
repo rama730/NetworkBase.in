@@ -4,14 +4,16 @@
 // (103 KB packed), so the ceiling was 400 KiB. M4a (2.1.0: home screen, filters, bulk, queue, file use, inbox reply,
 // the error catalog's next steps) took it to 421 KiB, so the ceiling was 480 KiB. M4b (2.1.2: labels, watch, star,
 // reminders, file trash/restore/copy/lock, members, updates, search, help topics, nb edit/commit/uninstall,
-// completions with real names) took it to 501 KiB (148 KB packed), so the ceiling is 560 KiB; M4c and M4d check it again.
+// completions with real names) took it to 501 KiB (148 KB packed), so the ceiling was 560 KiB. M4c (agents: packs,
+// briefing, notes, presence) took it to 550 KiB and M4d's messages, nb learn and nb start to 568 KiB (166 KB packed),
+// so the ceiling is 640 KiB for M4d's nb ui; M5 checks it again.
 // Startup stays within budget because command modules load only when used.
 import { putFile, startFakeServer } from "./helpers/fake-server.mjs";
 import { cliMs, medianMs, unpackedBytes } from "./helpers/measure.mjs";
 import { runCli, tempDir } from "./helpers/run-cli.mjs";
 
 // statusMs (C6): nb status in a linked folder of 50 files, the everyday command, against the local fake server.
-const BUDGET = { unpackedBytes: 560 * 1024, versionMs: 120, helpMs: 200, statusMs: 400 };
+const BUDGET = { unpackedBytes: 640 * 1024, versionMs: 120, helpMs: 200, statusMs: 400 };
 
 const api = await startFakeServer();
 const cwd = await tempDir("nb-budget-");

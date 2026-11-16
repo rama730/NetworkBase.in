@@ -75,6 +75,8 @@ const exact = {
   "GET /api/v1/assignments": (_req, state) => ({ data: { copies: state.assignments.map((a) => ({ id: a.id, number: a.number, title: a.title, org: "Physics 101", orgId: WORKSPACE_ID, workspaceId: WORKSPACE_ID, due: a.due, state: a.state, late: false, submissionType: a.submissionType, aiPolicy: a.aiPolicy, team: null })) } }),
   "GET /api/v1/reviews": (req, state) => (req.query.get("org") ? { data: { rows: state.assignments.filter((a) => a.state === "submitted").map((a) => ({ kind: "copy", mine: true, copyId: a.id, masterId: a.id, title: a.title, who: "Sam Lee", submittedBy: "u2", submittedAt: now(), late: false, href: "", projectId: WORKSPACE_ID, updatedAt: now(), version: 1, link: null, text: null, note: null, files: [], versions: a.versions ?? [] })), total: 1, nextCursor: null } } : fail(400, "BAD_REQUEST", "Which organization?")),
   // Messages (report C4, M4d): two #design channels in different workspaces and a DM.
+  // nb learn (report C1): the practice workspace is the fake's design-lab, so every step works.
+  "POST /api/v1/sandbox": (_req, state) => { state.sandboxes = (state.sandboxes ?? 0) + 1; return { data: { sandbox: { id: WORKSPACE_ID, slug: "design-lab", title: "Practice (nb learn)", created: true } } }; },
   "GET /api/v1/chat/conversations": (_req, state) => ({ data: { conversations: fakeChats(state).conversations } }),
   "GET /api/v1/inbox": (_req, state) => ({ data: { items: state.inbox, nextCursor: null, hasMore: false, unreadCount: state.inbox.filter((i) => !i.readAt).length, unreadImportantCount: 0 } }),
   "POST /api/v1/inbox/read": (req, state) => {
@@ -456,6 +458,7 @@ const patterns = [
     return { data: { kind: req.query.get("kind"), files: files.map((f) => ({ nodeId: f.nodeId, path: f.path, name: f.path.split("/").pop(), size: f.content.length, currentVersion: f.version, at: f.updatedAt })) } };
   }],
   // Who's working on a task (D5).
+  [/^\/api\/v1\/sandbox\/([^/]+)$/, "DELETE", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => { (state.sandboxesEnded ??= []).push(req.params[0]); return { data: { deleted: req.params[0] } }; }],
   [/^\/api\/v1\/chat\/conversations\/([^/]+)\/messages$/, "GET", (/** @type {FakeRequest} */ _req, /** @type {FakeState} */ state) => ({ data: { messages: fakeChats(state).messages[_req.params[0]] ?? [] } })],
   [/^\/api\/v1\/chat\/conversations\/([^/]+)\/messages$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
     const list = (fakeChats(state).messages[req.params[0]] ??= []);

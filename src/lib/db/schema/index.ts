@@ -807,6 +807,8 @@ export const workspaces = pgTable(
     agentPolicy: text("agent_policy").$type<"ask_important" | "ask_all" | "trust_drafts_docs">().default("ask_important").notNull(),
     /** Set while agents are paused in this workspace. */
     agentsPausedAt: timestamp("agents_paused_at", { withTimezone: true }),
+    /** 0090 (report C1): nb learn's practice workspace, deleted when the practice ends or after 24 hours. */
+    sandboxExpiresAt: timestamp("sandbox_expires_at", { withTimezone: true }),
     /** Who sees "with Claude Code" on work here (0086, report Part B): everyone, only the person, or no one. */
     agentLabelVisibility: text("agent_label_visibility").$type<"everyone" | "person" | "none">().default("everyone").notNull(),
     termStart: date("term_start"),

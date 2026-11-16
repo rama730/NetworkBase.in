@@ -149,6 +149,9 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/tasks/${ID}/agent-notes`), read: "task:read", write: "task:write", agent: "route" },
   // Who's working on a task (report D5): saying "I'm here" needs the right to change the task.
   { pattern: route(`/api/v1/tasks/${ID}/presence`), read: "task:read", write: "task:write", agent: "route" },
+  // nb learn's practice workspace (report C1): the routes refuse agents and touch only the person's own sandbox.
+  { pattern: route("/api/v1/sandbox"), write: null, agent: "self" },
+  { pattern: route(`/api/v1/sandbox/${ID}`), write: null, agent: "self" },
   // Messages (report C4): never for agents (the routes refuse them) and never in an agent preset; no agent rule, so
   // a workspace-bound token is refused here too.
   { pattern: route("/api/v1/chat/conversations"), read: "message:read" },

@@ -1,5 +1,6 @@
 import { deleteExpiredDownloadEvents } from "@/lib/files/download-history";
 import { purgeOrgVerificationDocuments } from "@/lib/organizations/verification-ways";
+import { sweepSandboxes } from "@/lib/workspaces/sandbox";
 import { inngest } from "../client";
 
 const MAX_BATCHES = 200;
@@ -17,6 +18,9 @@ export const downloadHistoryRetention = inngest.createFunction(
     }
     // D4 (org verification): team-review documents go 30 days after the decision. Here, not in a function of its own.
     const documents = await step.run("org-verification-documents", () => purgeOrgVerificationDocuments());
-    return { deleted: total, documents };
+    // nb learn's practice workspaces left behind (report C1): nb learn deletes its own at the end, so this daily step
+    // only catches abandoned ones. ponytail: daily, so one lives up to 48 hours; an hourly step if that ever matters.
+    const sandboxes = await step.run("practice-workspaces", () => sweepSandboxes());
+    return { deleted: total, documents, sandboxes };
   },
 );

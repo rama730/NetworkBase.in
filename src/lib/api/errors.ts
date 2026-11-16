@@ -15,6 +15,7 @@ const CLI_ONLY: Record<string, ErrorEntry> = {
   NOT_SIGNED_IN: { status: 0, exit: 3, meaning: "This computer has no sign-in for NetworkBase", fix: "nb login" },
   NOT_LINKED: { status: 0, exit: 3, meaning: "This folder isn't linked to a workspace", fix: "nb init <workspace>, or pass --workspace" },
   WORKSPACE_NOT_FOUND: { status: 0, exit: 1, meaning: "No workspace by that name in your list", fix: "nb workspace list" },
+  LEARN_STEP_FAILED: { status: 0, exit: 1, meaning: "A step of nb learn didn't work (the step's own error is above it)", fix: "Run nb learn again; it picks up the same practice workspace" },
   TASK_NOT_FOUND: { status: 0, exit: 1, meaning: "No task by that number or words in this workspace", fix: "nb task list --all" },
   DOC_NOT_FOUND: { status: 0, exit: 1, meaning: "No doc by that name in this workspace", fix: "nb doc list" },
   NOT_A_TASK: { status: 0, exit: 1, meaning: "That inbox item isn't about a task", fix: "nb inbox open <n>" },

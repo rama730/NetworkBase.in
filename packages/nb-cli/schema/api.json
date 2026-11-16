@@ -2420,6 +2420,12 @@
       "meaning": "No workspace by that name in your list",
       "fix": "nb workspace list"
     },
+    "LEARN_STEP_FAILED": {
+      "status": 0,
+      "exit": 1,
+      "meaning": "A step of nb learn didn't work (the step's own error is above it)",
+      "fix": "Run nb learn again; it picks up the same practice workspace"
+    },
     "TASK_NOT_FOUND": {
       "status": 0,
       "exit": 1,

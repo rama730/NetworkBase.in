@@ -115,3 +115,26 @@ export async function unlink(ctx) {
   if (ctx.flags["purge-local"]) fs.rmSync(path.join(root, ".tasks"), { recursive: true, force: true });
   ctx.out.result("nb.unlink/1", { root, purgedTasks: Boolean(ctx.flags["purge-local"]) }, () => `${ctx.out.c.success(ctx.out.sym.done)} Unlinked ${root}`);
 }
+
+/**
+ * nb start (report C7): from nothing to working in one command, `npx @networkbase/cli start`. Signs in if needed,
+ * links this folder (suggesting the workspace named like it) if needed, then pulls. It stops only to ask what it
+ * can't guess, through the same commands, so every question and answer flag works as they do.
+ * @param {Context} ctx
+ */
+export async function start(ctx) {
+  const { spawnSync } = await import("node:child_process");
+  const pass = /** @type {const} */ (["profile", "api-url", "yes"]).flatMap((f) => (ctx.flags[f] === true ? [`--${f}`] : ctx.flags[f] ? [`--${f}`, String(ctx.flags[f])] : []));
+  const answers = [ctx.flags.answer ?? []].flat().flatMap((a) => ["--answer", String(a)]);
+  /** @param {string[]} args */
+  const nb = (args) => {
+    const r = spawnSync(process.execPath, [process.argv[1] ?? "", ...args, ...pass, ...answers], { cwd: ctx.cwd, env: ctx.env, stdio: "inherit" });
+    if (r.status !== 0) process.exit(r.status ?? 1);
+  };
+  const steps = [];
+  if (!ctx.profile.token) { nb(["login"]); steps.push("signed in"); }
+  if (!findRoot(path.resolve(ctx.cwd))) { nb(["init", ...ctx.positionals.slice(0, 1)]); steps.push("linked this folder"); }
+  nb(["pull"]);
+  steps.push("pulled the files");
+  ctx.out.result("nb.start/1", { steps }, (d) => [`${ctx.out.c.success(ctx.out.sym.done)} Ready: ${d.steps.join(", ")}.`, "  Next: nb next for what to work on, nb status for what changed here."]);
+}

@@ -143,6 +143,22 @@
       ]
     },
     {
+      "name": "learn",
+      "summary": "Five minutes of guided practice in a workspace made for it",
+      "usage": "nb learn [--keep]",
+      "flags": {
+        "keep": {
+          "type": "boolean",
+          "describe": "Keep the practice workspace for 24 hours"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "status",
       "summary": "What changed here, the started task, conflicts",
       "usage": "nb status",
