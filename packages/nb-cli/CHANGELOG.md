@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.0 (2026-11-16)
+
+### Added
+- Change sets (where your workspace has them on): `nb change start`, `status`, `list`, `view`, `finish`, `apply`, `undo`, `discard`, `copy`. Your saved files become one change that lands all at once or not at all and undoes in one step.
+- `nb change update` merges teammates' newer versions into your files (three-way, line based); files changed in the same lines get a conflict copy, and `nb change resolve <path> --mine|--theirs` settles them.
+- `nb watch --change` adds your saves to the open change set as you work.
+- `nb mcp`: an agent's saved files go into one change set as it works, opened on its first save and named after the started task; agent tools in a `changes` pack.
+- A push over 50 files or 4 MB, with no task or role, goes up as one change set.
+- A file that looks like it holds a password or key isn't uploaded until you confirm it (`--confirm-secrets`); agents can't.
+
 ## 2.1.7 (2026-11-16)
 
 ### Fixed
