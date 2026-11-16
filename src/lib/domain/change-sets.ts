@@ -163,7 +163,7 @@ async function forViewer(viewerId: string, workspaceId: string, sets: ChangeSet[
   const scope = await labelScope(viewerId, workspaceId, null);
   return sets.map(({ via: _via, agentName: _agent, agentSessionId: _session, ...rest }) => {
     const shown = visibleVia(scope, { via: _via, agentName: _agent, authorId: rest.authorId });
-    return { ...rest, madeWith: shown.via === "agent" ? `with ${shown.agentName ?? "an agent"}` : shown.via === "cli" ? "from the terminal" : null };
+    return { ...rest, agent: shown.via === "agent" ? shown.agentName ?? "An agent" : null, madeWith: shown.via === "agent" ? `with ${shown.agentName ?? "an agent"}` : shown.via === "cli" ? "from the terminal" : null };
   });
 }
 
@@ -198,7 +198,44 @@ export async function getChangeSet(actor: Actor, changeSetId: string, opts: { cu
     .limit(501);
   const page = items.slice(0, 500);
   const [shown] = await forViewer(userOf(actor), set.workspaceId, [set]);
-  return { changeSet: shown!, items: page, nextCursor: items.length > 500 ? page.at(-1)!.path : null };
+  return { changeSet: shown!, items: page, nextCursor: items.length > 500 ? page.at(-1)!.path : null, overlaps: canWrite ? await overlapping(actor, set) : [] };
+}
+
+// ── Presence (G15) ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** Other open drafts that change some of the same files ("Codex also has a draft on 4 of these files"). */
+async function overlapping(actor: Actor, set: ChangeSet) {
+  if (!["open", "ready"].includes(set.status)) return [];
+  const rows = await db.execute<{ id: string; files: number }>(sql`
+    SELECT o.change_set_id AS id, count(*)::int AS files
+    FROM change_set_items mine
+    JOIN change_set_items o ON o.path = mine.path AND o.change_set_id <> mine.change_set_id
+    JOIN change_sets s ON s.id = o.change_set_id AND s.workspace_id = ${set.workspaceId} AND s.status IN ('open', 'ready')
+    WHERE mine.change_set_id = ${set.id}
+    GROUP BY o.change_set_id`);
+  const list = Array.from(rows);
+  if (!list.length) return [];
+  const others = await db.select().from(changeSets).where(inArray(changeSets.id, list.map((r) => r.id)));
+  const shown = await forViewer(userOf(actor), set.workspaceId, others);
+  return shown.map((o) => ({ id: o.id, title: o.title, agent: o.agent, madeWith: o.madeWith, files: list.find((r) => r.id === o.id)!.files }));
+}
+
+/**
+ * Open drafts on a task or a file (G15): "Claude Code is changing 23 files for #4". For people who can change the
+ * files; others see none, as with the Changes view.
+ */
+export async function openChangeSetsFor(actor: Actor, workspaceId: string, where: { taskId?: string | null; path?: string | null }) {
+  const { canWrite } = await workspaceAccess(actor, workspaceId);
+  if (!canWrite || (!where.taskId && !where.path)) return [];
+  const path = where.path ? normalizeChangePath(where.path) : null;
+  const sets = await db.select().from(changeSets).where(and(
+    eq(changeSets.workspaceId, workspaceId),
+    inArray(changeSets.status, ["open", "ready"]),
+    where.taskId ? eq(changeSets.taskId, where.taskId) : undefined,
+    path ? sql`EXISTS (SELECT 1 FROM change_set_items i WHERE i.change_set_id = ${changeSets.id} AND (i.path = ${path} OR i.from_path = ${path}))` : undefined,
+  )).orderBy(desc(changeSets.updatedAt)).limit(10);
+  const shown = await forViewer(userOf(actor), workspaceId, sets);
+  return shown.map((s) => ({ id: s.id, title: s.title, status: s.status, agent: s.agent, files: s.filesAdded + s.filesChanged + s.filesDeleted + s.filesRenamed }));
 }
 
 // ── Items and content ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -504,8 +541,10 @@ async function itemsHash(changeSetId: string, executor: Pick<typeof db, "select"
 }
 
 /** True when the set changes final files or a doc: the app asks "Verify it's you" before applying it (G12). */
-export async function touchesFinalsOrDocs(changeSetId: string) {
-  const { finals, docs } = await changeKinds(await findChangeSet(changeSetId));
+export async function touchesFinalsOrDocs(actor: Actor, changeSetId: string) {
+  const set = await findChangeSet(changeSetId);
+  await workspaceAccess(actor, set.workspaceId);
+  const { finals, docs } = await changeKinds(set);
   return finals || docs;
 }
 

@@ -4,6 +4,7 @@ import { FilesTabRoleContext } from '@/components/workspaces/v2/files-tab/FilesT
 import { FilesViews } from '@/components/workspaces/v2/files-tab/FilesViews';
 import { ChangesCollection } from '@/components/workspaces/v2/files-tab/ChangesCollection';
 import { ChangeSetsReadyLink } from '@/components/workspaces/ChangeSetsReadyLink';
+import { ChangeSetPresence } from '@/components/workspaces/v2/files-tab/ChangeSetPresence';
 
 // Report G12 (M5): the Changes view in the Files tab. Server actions answer from window.__actions (app-bundle.ts).
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -12,6 +13,7 @@ createRoot(document.getElementById('root')!).render(
     <FilesTabRoleContext.Provider value={{ role: 'Role_Owner', canEdit: true, canManageFiles: true, canReadTasks: true }}>
       <FilesViews projectId="p1" canReadTasks canOpenGitHub={false} githubAccessResolved>
         <header aria-label="Workspace header" style={{ padding: 8 }}><ChangeSetsReadyLink projectId="p1" slug="ponytail" /></header>
+        <section aria-label="Task presence" style={{ padding: 8 }}><ChangeSetPresence projectId="p1" slug="ponytail" taskId="t1" /></section>
         <main style={{ height: '100vh' }}><ChangesCollection projectId="p1" /></main>
       </FilesViews>
     </FilesTabRoleContext.Provider>

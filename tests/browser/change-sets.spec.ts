@@ -19,7 +19,8 @@ async function open(page: Page, { sets = [SET], enabled = true, width = 1440, th
     let status = 'ready';
     (window as any).__actions = {
       listChangeSetsAction: async () => ({ success: true, data: { enabled, changeSets: sets.map((s: any) => ({ ...s, status })), nextCursor: null } }),
-      getChangeSetAction: async () => ({ success: true, data: { changeSet: { ...(sets[0] as any), status }, items } }),
+      getChangeSetAction: async () => ({ success: true, data: { changeSet: { ...(sets[0] as any), status }, items, overlaps: [{ id: 'cs2', title: 'Codex cleanup', agent: 'Codex', files: 2 }] } }),
+      openChangeSetsForAction: async () => ({ success: true, data: [{ id: 'cs1', title: 'Redesign sign-in', status: 'ready', agent: 'Claude Code', files: 4 }] }),
       changeSetDiffAction: async (_id: string, path: string) => ({ success: true, data: path.endsWith('.css')
         ? { kind: 'text', added: 2, removed: 1, lines: [{ kind: '@', text: '@@ -1 +1 @@' }, { kind: '-', text: 'body { color: red }' }, { kind: '+', text: 'body { color: #141A1E }' }, { kind: '+', text: 'main { gap: 8px }' }] }
         : { kind: 'text', added: 1, removed: 0, lines: [{ kind: '@', text: '@@ -0 +1 @@' }, { kind: '+', text: `// ${path}` }] } }),
@@ -156,4 +157,12 @@ test('the workspace header links to change sets ready for review', async ({ page
   await open(page);
   const link = page.getByRole('banner', { name: 'Workspace header' }).getByRole('link', { name: '1 change set ready' });
   await expect(link).toHaveAttribute('href', '/workspaces/ponytail?tab=files&filesView=changes');
+});
+
+test('presence: the task says an agent is changing files, and the set names drafts that share files', async ({ page }) => {
+  await open(page, { path: '/?changes=cs1' });
+  const task = page.getByRole('region', { name: 'Task presence' });
+  await expect(task).toContainText('Claude Code is changing 4 files for this task');
+  await expect(task.getByRole('link', { name: 'Review' })).toHaveAttribute('href', '/workspaces/ponytail?tab=files&filesView=changes&changes=cs1');
+  await expect(page.getByText('Codex also has a draft on 2 of these files')).toBeVisible();
 });

@@ -83,6 +83,7 @@ import UniversalPreviewEngine from "../../preview/UniversalPreviewEngine";
 import { FileVersionCompareView } from "./FileVersionCompareView";
 import { FileVersionHistoryPanel } from "./FileVersionHistoryPanel";
 import { LinkedTasksPanel } from "./LinkedTasksPanel";
+import { ChangeSetPresence } from "../ChangeSetPresence";
 import { MetadataStrip, type MetadataStripNode } from "./MetadataStrip";
 import { useFilePreviewMutations } from "./useFilePreviewMutations";
 import { FilesTabRoleContext } from "../FilesTabRoleContext";
@@ -628,6 +629,7 @@ export function FileView({
         actionsTriggerRef={actionsTriggerRef}
         organizationActions={{ rename: () => mutations.openRename(node), move: () => mutations.openMove([node]), trash: () => mutations.openDelete([node]) }}
       />
+      {canEdit && node.path ? <div className="px-3 pt-2"><ChangeSetPresence projectId={projectId} path={node.path} /></div> : null}
 
       <div className="flex min-h-0 flex-1 flex-col">
         {/* ComponentErrorBoundary satisfies Req 13.6: a render-time failure

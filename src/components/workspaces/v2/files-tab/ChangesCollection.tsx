@@ -144,7 +144,7 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
     queryFn: async () => {
       const res = await getChangeSetAction(id);
       if (!res.success) throw new Error(res.error);
-      return res.data as unknown as { changeSet: Set; items: Item[] };
+      return res.data as unknown as { changeSet: Set; items: Item[]; overlaps?: Array<{ id: string; title: string; agent: string | null; files: number }> };
     },
   });
   const [filter, setFilter] = useState("");
@@ -219,6 +219,11 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
               {s.readyAt && draft ? <> · based on files as of <When at={s.readyAt} /></> : null}
               {conflicts ? ` · ${conflicts} file${conflicts === 1 ? "" : "s"} changed since: choose for each before applying` : ""}
             </p>
+            {(view.data.overlaps ?? []).map((o) => (
+              <p key={o.id} className="mt-1 text-xs text-muted-foreground">
+                {o.agent ?? "Another draft"} also has a draft on {o.files} of these file{o.files === 1 ? "" : "s"}: <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => onOpen(o.id)}>{o.title}</button>
+              </p>
+            ))}
             {s.message ? <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{s.message}</p> : null}
           </div>
           {canEdit ? (

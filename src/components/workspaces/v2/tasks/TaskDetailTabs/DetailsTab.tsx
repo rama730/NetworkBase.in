@@ -27,6 +27,7 @@ import {
 import { addDays, format, formatDistanceToNow } from "@/lib/utils/date";
 import { AgentNotes } from "./AgentNotes";
 import { AgentPresence } from "./AgentPresence";
+import { ChangeSetPresence } from "../../files-tab/ChangeSetPresence";
 import ReactMarkdown from "react-markdown";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -331,6 +332,7 @@ export default function DetailsTab({
       className="min-w-0 space-y-6 p-6 max-md:p-4 data-[readonly]:[&_:disabled]:opacity-100 data-[readonly]:[&_:disabled]:cursor-default"
     >
       {task.projectId ? <AgentPresence projectId={task.projectId} taskId={task.id} /> : null}
+      {task.projectId ? <ChangeSetPresence projectId={task.projectId} taskId={task.id} /> : null}
       {mutationError ? (
         <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {mutationError}

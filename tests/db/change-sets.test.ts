@@ -629,3 +629,23 @@ test("the executable bit is kept on apply and listed in the manifest (G16)", asy
   const res = await call(manifest.GET, cli, "GET", `/api/v1/workspaces/${workspace}/manifest`, undefined, { params: Promise.resolve({ id: workspace }) });
   assert.equal(res.json.data.files.find((f: { path: string }) => f.path === "/bin/run.sh").executable, true);
 });
+
+test("presence (G15): open drafts show on their task and their files, and on each other when they share files", async () => {
+  const { owner, workspace, cli } = await setup(["a", "b", "c"]);
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, status, assignee_id) VALUES (${workspace}, 'Login', 'in_progress', ${owner}) RETURNING id`;
+  const agent = await token(owner, "agent", workspace, ["file:read", "file:write"]);
+  const started = await call(ws.POST, agent, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "Agent work", taskId: task!.id }, { params: Promise.resolve({ id: workspace }) });
+  const agentSet = started.json.data.changeSet.id;
+  await call(items.PUT, agent, "PUT", `/api/v1/change-sets/${agentSet}/items`, { items: ["a", "b"].map((f) => ({ op: "change", path: `/${f}.txt`, contentHash: sha(`${f}!`), size: 2 })) }, csCtx(agentSet));
+  const { cs: mine } = await draft(cli, workspace, [{ op: "change", path: "/b.txt", text: "b mine\n" }, { op: "change", path: "/c.txt", text: "c mine\n" }], "Mine");
+  const domain = await loadAppModule(() => import("../../src/lib/domain/change-sets"));
+  const actor = { user: { id: owner }, tokenKind: null, tokenScopes: null };
+  const onTask = await domain.openChangeSetsFor(actor, workspace, { taskId: task!.id });
+  assert.deepEqual(onTask.map((s: { agent: string | null; files: number }) => [s.agent, s.files]), [["Claude Code", 2]]);
+  const onFile = await domain.openChangeSetsFor(actor, workspace, { path: "/b.txt" });
+  assert.equal(onFile.length, 2, "both drafts touch b.txt");
+  const view = await call(one.GET, cli, "GET", `/api/v1/change-sets/${mine}`, undefined, csCtx(mine));
+  assert.deepEqual(view.json.data.overlaps.map((o: { agent: string; files: number }) => [o.agent, o.files]), [["Claude Code", 1]]);
+  const viewer = await sql.begin((tx) => createUser(tx));
+  assert.deepEqual(await domain.openChangeSetsFor({ user: { id: viewer }, tokenKind: null, tokenScopes: null }, workspace, { taskId: task!.id }), [], "people who can't change files see none");
+});
