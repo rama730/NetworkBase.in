@@ -778,3 +778,17 @@ test("journey (G22, G24b): an agent redesigns sign-in across 30 files; the perso
   }
   assert.equal(await textOf(workspace, "/components/auth/Card.tsx"), undefined, "added files went to Trash");
 });
+
+test("files already gone from the workspace: a delete is dropped, a rename becomes an add, the set still works (live check)", async () => {
+  const { workspace, cli } = await setup(["a", "b"]);
+  await sql`UPDATE workspace_nodes SET deleted_at = now() WHERE workspace_id = ${workspace} AND path IN ('/a.txt', '/b.txt')`;
+  const started = await call(ws.POST, cli, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "stale" }, { params: Promise.resolve({ id: workspace }) });
+  const cs = started.json.data.changeSet.id;
+  const put = await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${cs}/items`, { items: [
+    { op: "delete", path: "/a.txt" },
+    { op: "rename", path: "/moved.txt", fromPath: "/b.txt", contentHash: sha("b one\n"), size: 6, mimeType: "text/plain" },
+    { op: "add", path: "/new.txt", contentHash: sha("new\n"), size: 4, mimeType: "text/plain" },
+  ] }, csCtx(cs));
+  assert.equal(put.status, 200, JSON.stringify(put.json));
+  assert.deepEqual(put.json.data.items.map((i: { op: string; path: string }) => [i.op, i.path]).sort(), [["add", "/moved.txt"], ["add", "/new.txt"]]);
+});

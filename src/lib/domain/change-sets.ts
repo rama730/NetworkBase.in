@@ -378,9 +378,15 @@ export async function upsertItems(actor: Actor, changeSetId: string, raw: ItemIn
       let op = item.op;
       // An add over a file that exists is a change of it; a change or delete of a file that doesn't is refused.
       if (op === "add" && target) op = "change";
+      // Gone from the workspace already (a teammate deleted it, found in the M5 live check): deleting it again is
+      // nothing to do, a change or a rename of it adds the file instead. Never a failure of the whole set.
       if ((op === "change" || op === "delete" || op === "rename") && !target) {
-        if (op === "change") op = "add";
-        else fail(`${item.fromPath ?? item.path} isn't in the workspace`, 404, "NOT_FOUND");
+        if (op === "delete") {
+          await tx.delete(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.path, item.path)));
+          continue;
+        }
+        if (op === "rename" && !item.contentHash) fail(`${item.fromPath} isn't in the workspace any more`, 404, "NOT_FOUND");
+        op = "add";
       }
       const base = op === "add" ? null : { nodeId: target!.id, version: item.baseVersion ?? target!.version, hash: item.baseHash ?? target!.hash };
       // Back to the base content: nothing to apply, so the item goes (G8 step 5).
