@@ -147,3 +147,20 @@ Commits 13392d904..03a00de0d on local main, not pushed. Ledger: 244 M5 rows test
 **Open in M5 (after this deploy):** line comments on change sets; a workspace-header link (Files sidebar shows the ready count instead); "Verify it's you" for finals and docs in the app's apply; presence of open change sets on tasks and files; file locks at capture; Sentry spans; the 30-file end-to-end journey in CI; D22 agent coding jobs; offering to split by folder; executable bit and encoding metadata; a case-only rename test on a case-insensitive disk; a starter README through a change set; "how much space is needed" on the storage limit; a sign-in-expiry capture test.
 
 **Deploy needs:** 0091 in production; push and Railway deploy; Inngest re-sync (the daily job gained a step); turning `change_sets_enabled` on for the user's own workspaces; npm 2.2.0.
+
+## Live (2026-11-16)
+
+- **Deployed:**
+  - 0091 is applied in production. An event trigger added the `nb_app` policies itself.
+  - Pushed 162139ed0; web and worker deployed at 21:29 IST; Inngest re-synced (`modified: true`).
+  - Change sets are on for gstack, antigravity-awesome-skills, caveman, ponytail, network-for-builders and deepscope-ai. The class organization and its team workspace stay off.
+- **Live check on Ponytail** (CLI 2.2.0 from the repo, in a throwaway folder `/nb-live-check/`):
+  - 3 added files: finish 1.4 s, apply 0.8 s.
+  - A second set edited f1 and f2 and renamed f3, while a second folder pushed a teammate edit to f2's first line. The apply merged it automatically: f2 has both lines.
+  - Undo of the second set was full. Undo of the first was refused for f2 (changed since, v2) and `--partial` undid the rest. The leftovers went to Trash.
+- **Fixed from the live check (3384f4bb6):**
+  - `nb change apply` asked for a yes on a small set finished earlier.
+  - `nb change view` and `status` didn't take a short id.
+- **Not done:**
+  - **npm 2.2.0:** GitHub Actions won't start any job ("recent account payments have failed or your spending limit needs to be increased"). The `cli-v2.2.0` tag waits locally on 3384f4bb6.
+  - **The Changes view signed in:** needs the user's sign-in. As a visitor, the entry is correctly hidden.
