@@ -28,6 +28,8 @@ export interface LockConflictInfo {
 export type FileVersionWithProfile = FileVersion & {
   uploadedByName?: string | null;
   uploadedByUsername?: string | null;
+  /** The change set that made it (report G17). */
+  changeSetTitle?: string | null;
 };
 
 export interface UseFileVersionsReturn {

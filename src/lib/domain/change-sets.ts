@@ -17,6 +17,9 @@ import { scanForSecrets, type SecretFinding } from "@/lib/security/secret-scan";
 import { viaColumns } from "@/lib/server/request-via";
 import { createAdminClient } from "@/lib/supabase/server";
 import { normalizeAndValidateMimeType } from "@/lib/upload/security";
+import { logger } from "@/lib/logger";
+import { labelScope } from "@/lib/agents/via-scope";
+import { visibleVia } from "@/lib/agents/via-visibility";
 import { unifiedDiff } from "../../../packages/nb-cli/lib/sync/diff.mjs";
 import { isMergeableText, merge3 } from "../../../packages/nb-cli/lib/sync/merge3.mjs";
 
@@ -149,6 +152,18 @@ export async function startChangeSet(actor: Actor, input: { workspaceId: string;
   return set!;
 }
 
+/**
+ * A change set as a viewer sees it (report Part B): "with Claude Code" only where the workspace owner's setting shows
+ * it to them, and the raw agent fields never leave the server.
+ */
+async function forViewer(viewerId: string, workspaceId: string, sets: ChangeSet[]) {
+  const scope = await labelScope(viewerId, workspaceId, null);
+  return sets.map(({ via: _via, agentName: _agent, agentSessionId: _session, ...rest }) => {
+    const shown = visibleVia(scope, { via: _via, agentName: _agent, authorId: rest.authorId });
+    return { ...rest, madeWith: shown.via === "agent" ? `with ${shown.agentName ?? "an agent"}` : shown.via === "cli" ? "from the terminal" : null };
+  });
+}
+
 export async function listChangeSets(actor: Actor, workspaceId: string, opts: { status?: string | null; mine?: boolean; cursor?: string | null; limit?: number } = {}) {
   const userId = userOf(actor);
   const { canWrite } = await workspaceAccess(actor, workspaceId);
@@ -167,7 +182,7 @@ export async function listChangeSets(actor: Actor, workspaceId: string, opts: { 
     .orderBy(desc(changeSets.updatedAt))
     .limit(limit + 1);
   const page = rows.slice(0, limit);
-  return { changeSets: page, nextCursor: rows.length > limit ? page.at(-1)!.updatedAt.toISOString() : null };
+  return { changeSets: await forViewer(userId, workspaceId, page), nextCursor: rows.length > limit ? page.at(-1)!.updatedAt.toISOString() : null };
 }
 
 export async function getChangeSet(actor: Actor, changeSetId: string, opts: { cursor?: string | null } = {}) {
@@ -179,7 +194,8 @@ export async function getChangeSet(actor: Actor, changeSetId: string, opts: { cu
     .orderBy(asc(changeSetItems.path))
     .limit(501);
   const page = items.slice(0, 500);
-  return { changeSet: set, items: page, nextCursor: items.length > 500 ? page.at(-1)!.path : null };
+  const [shown] = await forViewer(userOf(actor), set.workspaceId, [set]);
+  return { changeSet: shown!, items: page, nextCursor: items.length > 500 ? page.at(-1)!.path : null };
 }
 
 // ── Items and content ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -790,11 +806,17 @@ export async function applyChangeSet(actor: Actor, request: Request, changeSetId
     }
   }
 
+  const started = Date.now();
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const { planned, conflicts } = await prepare(set);
-    if (conflicts.length) fail(`${conflicts.length} file${conflicts.length === 1 ? "" : "s"} changed since this change set started`, 409, "CHANGE_SET_CONFLICT", { conflicts });
+    if (conflicts.length) {
+      logger.metric("change_set.conflicts", { module: "files", action: "apply", outcome: "conflict", count: conflicts.length });
+      fail(`${conflicts.length} file${conflicts.length === 1 ? "" : "s"} changed since this change set started`, 409, "CHANGE_SET_CONFLICT", { conflicts });
+    }
     try {
       const result = await applyPlanned(set, planned, userId);
+      // G19 measures: size, time from finish to apply, apply time, automatic merges.
+      logger.metric("change_set.applied", { module: "files", action: "apply", outcome: "success", count: planned.length, value: planned.filter((p) => p.item.state === "merged").length, durationMs: Date.now() - started, oldestAgeMs: set.readyAt ? started - new Date(set.readyAt).getTime() : null, source: set.via ?? "app" });
       return finishApply(actor, set, result);
     } catch (error) {
       if (!(error instanceof Raced) || attempt === 1) throw error;
@@ -978,6 +1000,7 @@ export async function undoChangeSet(actor: Actor, changeSetId: string, opts: { p
     if (set.undoOperationId) await tx.update(undoOperations).set({ usedAt: now }).where(and(eq(undoOperations.id, set.undoOperationId), isNull(undoOperations.usedAt)));
     return { undone: doable.map((u) => u.path), blocked };
   });
+  logger.metric("change_set.undone", { module: "files", action: "undo", outcome: outcome.blocked.length ? "partial" : "success", count: outcome.undone.length, failed: outcome.blocked.length });
   return { changeSet: await findChangeSet(set.id), ...outcome };
 }
 

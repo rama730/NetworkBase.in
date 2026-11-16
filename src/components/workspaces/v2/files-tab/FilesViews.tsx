@@ -23,7 +23,6 @@ import {
   FileDiff,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { listChangeSetsAction } from "@/app/actions/files/change-sets";
 import type { OrgFilesInfo } from "@/components/organizations/OrgFilesPanel";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -131,6 +130,8 @@ export function FilesViews({
     queryKey: ["change-sets", projectId, "open"],
     enabled: canEdit,
     queryFn: async () => {
+      // Loaded when asked, so the views (and their unit tests) don't pull in the server action module.
+      const { listChangeSetsAction } = await import("@/app/actions/files/change-sets");
       const res = await listChangeSetsAction(projectId, "open,ready");
       return res.success ? res.data : { enabled: false, changeSets: [], nextCursor: null };
     },

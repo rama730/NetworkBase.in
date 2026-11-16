@@ -3,7 +3,7 @@ import { openApp } from './app-bundle';
 import { axeViolations } from './axe';
 
 // Report G12 (M5): review a change set, apply it in one step, undo it; empty states say what to do next.
-const SET = { id: 'cs1', title: 'Redesign sign-in', message: 'New layout and copy', status: 'ready', taskId: 't1', filesAdded: 1, filesChanged: 2, filesDeleted: 1, filesRenamed: 0, linesAdded: 12, linesRemoved: 4, updatedAt: '2026-11-16T10:42:00Z', readyAt: '2026-11-16T10:42:00Z', createdAt: '2026-11-16T10:00:00Z', via: 'agent', agentName: 'Claude Code' };
+const SET = { id: 'cs1', title: 'Redesign sign-in', message: 'New layout and copy', status: 'ready', taskId: 't1', filesAdded: 1, filesChanged: 2, filesDeleted: 1, filesRenamed: 0, linesAdded: 12, linesRemoved: 4, updatedAt: '2026-11-16T10:42:00Z', readyAt: '2026-11-16T10:42:00Z', createdAt: '2026-11-16T10:00:00Z', madeWith: 'with Claude Code' };
 const ITEMS = [
   { id: 'i1', op: 'add', path: '/app/login/page.tsx', fromPath: null, state: 'ready', linesAdded: 10, linesRemoved: 0, conflict: null },
   { id: 'i2', op: 'change', path: '/app/globals.css', fromPath: null, state: 'ready', linesAdded: 2, linesRemoved: 1, conflict: null },

@@ -1,6 +1,7 @@
 import { deleteExpiredDownloadEvents } from "@/lib/files/download-history";
 import { purgeOrgVerificationDocuments } from "@/lib/organizations/verification-ways";
 import { sweepSandboxes } from "@/lib/workspaces/sandbox";
+import { discardStaleChangeSets } from "@/lib/domain/change-sets";
 import { inngest } from "../client";
 
 const MAX_BATCHES = 200;
@@ -21,6 +22,9 @@ export const downloadHistoryRetention = inngest.createFunction(
     // nb learn's practice workspaces left behind (report C1): nb learn deletes its own at the end, so this daily step
     // only catches abandoned ones. ponytail: daily, so one lives up to 48 hours; an hourly step if that ever matters.
     const sandboxes = await step.run("practice-workspaces", () => sweepSandboxes());
-    return { deleted: total, documents, sandboxes };
+    // Change sets untouched for 30 days are discarded (report G19); their content goes 7 days later with the
+    // storage cleanup. ponytail: no day-23 reminder yet; add one when notifications get a change-set kind.
+    const changeSets = await step.run("stale-change-sets", () => discardStaleChangeSets());
+    return { deleted: total, documents, sandboxes, changeSets };
   },
 );

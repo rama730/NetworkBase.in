@@ -7,6 +7,7 @@ import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
 import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
+  changeSets,
   fileVersions,
   profiles,
   workspaceNodes,
@@ -141,11 +142,13 @@ export async function listFileVersionsPage(
         agentName: fileVersions.agentName,
         basedOnVersion: fileVersions.basedOnVersion,
         changeSetId: fileVersions.changeSetId,
+        changeSetTitle: changeSets.title,
         uploadedByName: profiles.fullName,
         uploadedByUsername: profiles.username,
       })
       .from(fileVersions)
       .leftJoin(profiles, eq(fileVersions.uploadedBy, profiles.id))
+      .leftJoin(changeSets, eq(changeSets.id, fileVersions.changeSetId))
       .where(and(
         eq(fileVersions.nodeId, nodeId),
         beforeVersion == null ? undefined : lt(fileVersions.version, beforeVersion),

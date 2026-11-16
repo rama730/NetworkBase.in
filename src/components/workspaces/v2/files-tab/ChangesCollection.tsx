@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/files/change-sets";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { copyWithToast } from "@/lib/clipboard";
 import { feedbackError, toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 import { FilesViewsMenu } from "./FilesHeader";
@@ -19,7 +20,7 @@ import { useFilesTabRole } from "./FilesTabRoleContext";
  * The Changes view (report G12): an agent's or a person's multi-file work, reviewed and applied at once. Open with
  * ?tab=files&filesView=changes, or one directly with &changes=<id>.
  */
-type Set = { id: string; title: string; message: string | null; status: string; taskId: string | null; filesAdded: number; filesChanged: number; filesDeleted: number; filesRenamed: number; linesAdded: number; linesRemoved: number; updatedAt: string | Date; readyAt: string | Date | null; createdAt: string | Date; via: string | null; agentName: string | null };
+type Set = { id: string; title: string; message: string | null; status: string; taskId: string | null; filesAdded: number; filesChanged: number; filesDeleted: number; filesRenamed: number; linesAdded: number; linesRemoved: number; updatedAt: string | Date; readyAt: string | Date | null; createdAt: string | Date; madeWith: string | null };
 type Item = { id: string; op: "add" | "change" | "delete" | "rename"; path: string; fromPath: string | null; state: string; linesAdded: number | null; linesRemoved: number | null; conflict: { kind?: string; onto?: number } | null };
 
 const GROUPS: Array<{ key: string; label: string; test: (i: Item) => boolean }> = [
@@ -40,7 +41,7 @@ function When({ at }: { at: string | Date | null }) {
 }
 
 const counts = (s: Set) => [s.filesAdded && `${s.filesAdded} added`, s.filesChanged && `${s.filesChanged} changed`, s.filesDeleted && `${s.filesDeleted} deleted`, s.filesRenamed && `${s.filesRenamed} renamed`].filter(Boolean).join(" · ") || "No files yet";
-const who = (s: Set) => (s.via === "agent" ? `with ${s.agentName ?? "an agent"}` : s.via === "cli" ? "from the terminal" : "in the app");
+const who = (s: Set) => s.madeWith ?? "in the app";
 
 function readParam() {
   if (typeof window === "undefined") return null;
@@ -120,7 +121,7 @@ function EmptyState({ title, body, command }: { title: string; body: string; com
       <p className="text-sm font-medium text-foreground">{title}</p>
       <p className="mt-1 text-sm text-muted-foreground">{body}</p>
       {command ? (
-        <button type="button" onClick={() => { void navigator.clipboard?.writeText(command); toast.success("Copied"); }}
+        <button type="button" onClick={() => void copyWithToast(command, "Copied")}
           className="mt-3 inline-flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 font-mono text-xs text-foreground hover:bg-accent" aria-label={`Copy ${command}`}>
           {command}<Copy className="size-3.5" aria-hidden />
         </button>
@@ -150,6 +151,7 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
   const [only, setOnly] = useState<globalThis.Set<string>>(new globalThis.Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | "discard" | "undo">(null);
+  const [partial, setPartial] = useState<string[] | null>(null);
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState("");
 
@@ -290,14 +292,22 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
           if (confirm === "discard") await act("discard", () => discardChangeSetAction(id), "Discarded");
           if (confirm === "undo") {
             const res = await undoChangeSetAction(id, false);
-            if (!res.success && res.code === "UNDO_BLOCKED") {
-              const blocked = (res.details?.blocked as Array<{ path: string }> | undefined)?.map((b) => b.path) ?? [];
-              if (window.confirm(`${blocked.join(", ")} changed since. Undo the other files and leave ${blocked.length === 1 ? "that one" : "those"}?`)) await act("undo", () => undoChangeSetAction(id, true), "Undid the rest");
-            } else if (!res.success) toast.error(res.error);
+            if (!res.success && res.code === "UNDO_BLOCKED") setPartial((res.details?.blocked as Array<{ path: string }> | undefined)?.map((b) => b.path) ?? []);
+            else if (!res.success) toast.error(res.error);
             else { toast.success("Undone"); refresh(); }
           }
           setConfirm(null);
         }}
+      />
+      <ConfirmDialog
+        open={partial !== null}
+        onOpenChange={(o) => { if (!o) setPartial(null); }}
+        title="Undo the other files?"
+        description={`${(partial ?? []).join(", ")} changed since the apply, so ${partial?.length === 1 ? "it stays" : "they stay"} as ${partial?.length === 1 ? "it is" : "they are"}. The other files go back.`}
+        confirmLabel="Undo the rest"
+        variant="destructive"
+        loading={Boolean(busy)}
+        onConfirm={async () => { await act("undo", () => undoChangeSetAction(id, true), "Undid the rest"); setPartial(null); }}
       />
     </div>
   );

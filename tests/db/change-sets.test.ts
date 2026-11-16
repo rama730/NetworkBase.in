@@ -486,3 +486,18 @@ test("resolve only settles conflicts, and a resolved set must be finished again 
   assert.equal((await finishIt(cli, cs)).json.errorCode, "SECRET_DETECTED", "finish checks the resolved text");
 });
 
+
+test("'with Claude Code' follows the workspace owner's label setting; raw agent fields never leave the server", async () => {
+  const { owner, workspace, cli } = await setup(["a"]);
+  const agent = await token(owner, "agent", workspace, ["file:read", "file:write"]);
+  await draft(agent, workspace, [{ op: "change", path: "/a.txt", text: "by the agent\n" }]);
+  const teammate = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${workspace}, ${teammate}, 'member')`;
+  const list = (t: string) => call(ws.GET, t, "GET", `/api/v1/workspaces/${workspace}/change-sets`, undefined, { params: Promise.resolve({ id: workspace }) });
+  const mine = (await list(cli)).json.data.changeSets[0];
+  assert.equal(mine.madeWith, "with Claude Code");
+  assert.ok(!("agentName" in mine) && !("agentSessionId" in mine));
+  await sql`UPDATE workspaces SET agent_label_visibility = 'person' WHERE id = ${workspace}`;
+  const theirs = (await list(await token(teammate, "device", null))).json.data.changeSets[0];
+  assert.equal(theirs.madeWith, null, "only the person sees their own agent's label");
+});

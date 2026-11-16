@@ -59,8 +59,10 @@ test("mutating API v1 routes require CSRF validation unless explicitly exempted"
       continue;
     }
 
+    // The change set routes share one wrapper that validates CSRF for every write (src/app/api/v1/change-sets/_route.ts).
+    const checked = source.includes("changeSetRoute(") ? fs.readFileSync(path.resolve(API_V1_ROOT, "change-sets/_route.ts"), "utf8") : source;
     assert.match(
-      source,
+      checked,
       /validateCsrf\(|csrf:\s*true/,
       `${path.relative(process.cwd(), filePath)} is missing validateCsrf()`,
     );

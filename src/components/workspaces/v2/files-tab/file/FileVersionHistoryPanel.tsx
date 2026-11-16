@@ -459,6 +459,9 @@ export function FileVersionHistoryPanel({
                   {basedOn ? (
                     <p className="mt-1 text-[11px] text-[#6B7880] dark:text-muted-foreground">Based on v{basedOn}</p>
                   ) : null}
+                  {version.changeSetTitle ? (
+                    <p className="mt-1 truncate text-[11px] text-[#6B7880] dark:text-muted-foreground">Part of “{version.changeSetTitle}”</p>
+                  ) : null}
 
                   {/* Comment/Note if present */}
                   {version.comment && (
