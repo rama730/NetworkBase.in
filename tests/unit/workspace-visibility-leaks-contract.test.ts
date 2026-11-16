@@ -135,8 +135,11 @@ test("COR-059: subtree rewrites match literal path prefixes within the task scop
 });
 
 test("COR-006: hydration resolves GitHub access itself and events carry no credential", () => {
-  const hydrate = read("src/inngest/functions/workspace-import-hydrate.ts");
+  // Hydration lives in src/lib/github/import-hydration.ts (report 2026-11-16); the job only calls it.
+  const hydrate = read("src/lib/github/import-hydration.ts");
   assert.match(hydrate, /resolveGithubRepoAccess\(\{/);
-  assert.doesNotMatch(hydrate, /importSource\.metadata\?\.importAuth/);
+  assert.match(hydrate, /sealedImportToken: source\.metadata\?\.importAuth/, "the credential comes from the stored workspace record");
+  assert.doesNotMatch(read("src/inngest/functions/workspace-import-hydrate.ts"), /importAuth|token/i);
+  assert.match(read("src/app/actions/files/import-download.ts"), /importSource: clearSealedGithubTokenFromImportSource\(source\)/);
   assert.match(read("src/lib/github/workspace-import-runner.ts"), /importSource: clearSealedGithubTokenFromImportSource\(project\.importSource\)/);
 });
