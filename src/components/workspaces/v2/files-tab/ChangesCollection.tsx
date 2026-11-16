@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { copyWithToast } from "@/lib/clipboard";
 import { feedbackError, toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
+import { useStepUp } from "@/components/trust/StepUp";
 import { FilesViewsMenu } from "./FilesHeader";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 
@@ -182,11 +183,14 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
     void client.invalidateQueries({ queryKey: ["files-directory", projectId] });
     window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
   };
-  async function act(name: string, run: () => Promise<{ success: boolean; error?: string; data?: any }>, done: string) {
+  // Final files and docs: "Verify it's you" first (G12), then the same apply again.
+  const { needs: needsStepUp, dialog: stepUpDialog } = useStepUp("These files include final files or a doc, so confirm it’s you before applying them.");
+  async function act(name: string, run: () => Promise<{ success: boolean; error?: string; data?: any; stepUp?: any }>, done: string): Promise<any> {
     if (busy) return;
     setBusy(name);
     try {
       const res = await run();
+      if (needsStepUp(res as never, () => void act(name, run, done))) return;
       if (!res.success) { toast.error(res.error ?? "That didn’t work"); return; }
       toast.success(done);
       refresh();
@@ -299,6 +303,7 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
           setConfirm(null);
         }}
       />
+      {stepUpDialog}
       <ConfirmDialog
         open={partial !== null}
         onOpenChange={(o) => { if (!o) setPartial(null); }}

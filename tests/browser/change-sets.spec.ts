@@ -11,9 +11,9 @@ const ITEMS = [
   { id: 'i4', op: 'delete', path: '/app/old-login.tsx', fromPath: null, state: 'ready', linesAdded: null, linesRemoved: null, conflict: null },
 ];
 
-async function open(page: Page, { sets = [SET], enabled = true, width = 1440, theme = 'light', path = '/', items = ITEMS }: { sets?: unknown[]; enabled?: boolean; width?: number; theme?: string; path?: string; items?: unknown[] } = {}) {
+async function open(page: Page, { sets = [SET], enabled = true, width = 1440, theme = 'light', path = '/', items = ITEMS, stepUp = false }: { sets?: unknown[]; enabled?: boolean; width?: number; theme?: string; path?: string; items?: unknown[]; stepUp?: boolean } = {}) {
   await page.setViewportSize({ width, height: 900 });
-  await page.addInitScript(({ sets, enabled, items }) => {
+  await page.addInitScript(({ sets, enabled, items, stepUp }) => {
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     let status = 'ready';
@@ -23,7 +23,11 @@ async function open(page: Page, { sets = [SET], enabled = true, width = 1440, th
       changeSetDiffAction: async (_id: string, path: string) => ({ success: true, data: path.endsWith('.css')
         ? { kind: 'text', added: 2, removed: 1, lines: [{ kind: '@', text: '@@ -1 +1 @@' }, { kind: '-', text: 'body { color: red }' }, { kind: '+', text: 'body { color: #141A1E }' }, { kind: '+', text: 'main { gap: 8px }' }] }
         : { kind: 'text', added: 1, removed: 0, lines: [{ kind: '@', text: '@@ -0 +1 @@' }, { kind: '+', text: `// ${path}` }] } }),
-      applyChangeSetAction: async (...a: unknown[]) => { calls.push(['apply', ...a]); status = 'applied'; return { success: true, data: { changeSet: { ...(sets[0] as any), status } } }; },
+      applyChangeSetAction: async (...a: unknown[]) => {
+        calls.push(['apply', ...a]);
+        if (stepUp && calls.filter((c: any) => c[0] === 'apply').length === 1) return { success: false, code: 'STEP_UP_REQUIRED', error: 'Verify it’s you first', stepUp: { methods: ['password'] } };
+        status = 'applied'; return { success: true, data: { changeSet: { ...(sets[0] as any), status } } };
+      },
       undoChangeSetAction: async (...a: unknown[]) => { calls.push(['undo', ...a]); status = 'undone'; return { success: true, data: {} }; },
       discardChangeSetAction: async (...a: unknown[]) => { calls.push(['discard', ...a]); status = 'discarded'; return { success: true, data: {} }; },
       askForChangesAction: async (...a: unknown[]) => { calls.push(['ask', ...a]); return { success: true, data: { ok: true } }; },
@@ -31,7 +35,7 @@ async function open(page: Page, { sets = [SET], enabled = true, width = 1440, th
       conflictSidesAction: async (_id: string, path: string) => ({ success: true, data: { path, kind: 'edit', base: 'a\nb\n', theirs: 'a\nTHEIRS\n', mine: 'a\nMINE\n' } }),
       resolveItemAction: async (...a: unknown[]) => { calls.push(['resolve', ...a]); return { success: true, data: { item: null } }; },
     };
-  }, { sets, enabled, items });
+  }, { sets, enabled, items, stepUp });
   await openApp(page, 'tests/browser/change-sets.fixture.tsx', { path, head: theme === 'dark' ? "document.documentElement.classList.add('dark')" : '' });
 }
 
@@ -138,4 +142,18 @@ test('the merge editor has no accessibility violations, dark, 390px', async ({ p
   await open(page, { path: '/?changes=cs1', items: CONFLICTED, theme: 'dark', width: 390 });
   await expect(page.getByRole('region', { name: 'Diff' }).getByText('MINE')).toBeVisible();
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('final files or a doc: Apply asks "Verify it’s you" first', async ({ page }) => {
+  await open(page, { path: '/?changes=cs1', stepUp: true });
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Verify it’s you');
+  await expect(dialog).toContainText('final files or a doc');
+});
+
+test('the workspace header links to change sets ready for review', async ({ page }) => {
+  await open(page);
+  const link = page.getByRole('banner', { name: 'Workspace header' }).getByRole('link', { name: '1 change set ready' });
+  await expect(link).toHaveAttribute('href', '/workspaces/ponytail?tab=files&filesView=changes');
 });

@@ -503,6 +503,12 @@ async function itemsHash(changeSetId: string, executor: Pick<typeof db, "select"
   return crypto.createHash("sha256").update(JSON.stringify(rows)).digest("base64url");
 }
 
+/** True when the set changes final files or a doc: the app asks "Verify it's you" before applying it (G12). */
+export async function touchesFinalsOrDocs(changeSetId: string) {
+  const { finals, docs } = await changeKinds(await findChangeSet(changeSetId));
+  return finals || docs;
+}
+
 /** What the set touches that needs the person's yes for agents: deletes, finals, docs, size (G13). */
 async function changeKinds(set: ChangeSet): Promise<{ kinds: ChangeKind[]; finals: boolean; docs: boolean }> {
   const items = await db.select({ op: changeSetItems.op, nodeId: changeSetItems.baseNodeId }).from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));

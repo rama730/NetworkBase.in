@@ -5,8 +5,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
 import {
-  ChangeSetError, applyChangeSet, askForChanges, copyChangeSet, diffItem, discardChangeSet, getChangeSet, listChangeSets, conflictSides, resolveItem, undoChangeSet, updateDraft, type Actor,
+  ChangeSetError, applyChangeSet, askForChanges, copyChangeSet, diffItem, discardChangeSet, getChangeSet, listChangeSets, conflictSides, resolveItem, touchesFinalsOrDocs, undoChangeSet, updateDraft, type Actor,
 } from "@/lib/domain/change-sets";
+import { resolveSecurityStepUp } from "@/lib/security/step-up";
+import { resolveStepUpCapabilities } from "@/lib/security/step-up-capabilities";
+import type { SecurityStepUpMethod } from "@/lib/security/step-up-methods";
 import { createClient } from "@/lib/supabase/server";
 
 /** The Changes view in the Files tab (report G12): the signed-in person, through the same rules as the API. */
@@ -17,7 +20,7 @@ async function actor(): Promise<Actor> {
   return { user: { id: user.id }, tokenKind: null, tokenScopes: null };
 }
 
-type Result<T> = { success: true; data: T } | { success: false; error: string; code: string; details?: Record<string, unknown> };
+type Result<T> = { success: true; data: T } | { success: false; error: string; code: string; details?: Record<string, unknown>; stepUp?: { methods: SecurityStepUpMethod[]; factorId?: string } };
 async function run<T>(fn: (a: Actor) => Promise<T>): Promise<Result<T>> {
   try {
     return { success: true, data: await fn(await actor()) };
@@ -38,8 +41,20 @@ export async function listChangeSetsAction(projectId: string, status?: string) {
 }
 export const getChangeSetAction = async (id: string, cursor?: string | null) => run((a) => getChangeSet(a, id, { cursor }));
 export const changeSetDiffAction = async (id: string, path: string) => run((a) => diffItem(a, id, path));
-export const applyChangeSetAction = async (id: string, only?: string[] | null) =>
-  run((a) => applyChangeSet(a, new Request("https://app.local/change-sets"), id, { only: only?.length ? only : null }));
+/** Apply (G12): one click, with "Verify it's you" first when the files include finals or docs. */
+export async function applyChangeSetAction(id: string, only?: string[] | null): Promise<Result<Awaited<ReturnType<typeof applyChangeSet>>>> {
+  if (await touchesFinalsOrDocs(id).catch(() => false)) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { availableMethods, primaryTotpFactorId } = await resolveStepUpCapabilities({ supabase: supabase as never, user: user as never });
+      if (availableMethods.length > 0 && !(await resolveSecurityStepUp(user.id)).ok) {
+        return { success: false, error: "These files include final files or a doc: verify it’s you first", code: "STEP_UP_REQUIRED", stepUp: { methods: availableMethods, factorId: primaryTotpFactorId } };
+      }
+    }
+  }
+  return run((a) => applyChangeSet(a, new Request("https://app.local/change-sets"), id, { only: only?.length ? only : null }));
+}
 export const discardChangeSetAction = async (id: string) => run((a) => discardChangeSet(a, id));
 export const undoChangeSetAction = async (id: string, partial = false) => run((a) => undoChangeSet(a, id, { partial }));
 export const copyChangeSetAction = async (id: string) => run((a) => copyChangeSet(a, id));

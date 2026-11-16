@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { Workspace } from "@/types/discover";
 import WorkspaceStatsBar from "@/components/workspaces/WorkspaceStatsBar";
+import { ChangeSetsReadyLink } from "@/components/workspaces/ChangeSetsReadyLink";
 import WorkspaceAvatar from "@/components/workspaces/WorkspaceAvatar";
 import { WorkspaceLastUpdate } from "@/components/workspaces/WorkspaceLastUpdate";
 import type { WorkspaceLastUpdate as WorkspaceLastUpdateEntry } from "@/lib/workspaces/last-update";
@@ -288,6 +289,7 @@ export default function WorkspaceLayout({
                                 <div className="mt-2 flex min-h-[34px] flex-wrap items-center gap-x-2 gap-y-1.5">
                                     <ProjectTeamAvatars project={project} members={members} loading={loadingMembers} />
                                     {metadataExtra}
+                                    {canSeeMemberTabs && !isOrganization ? <ChangeSetsReadyLink projectId={project.id} slug={project.slug ?? project.id} /> : null}
                                     {hasProjectLinks && (
                                         <>
                                             <div className="mx-0.5 h-4 w-px shrink-0 bg-border last:hidden" aria-hidden="true" />
