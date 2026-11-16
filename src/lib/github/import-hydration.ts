@@ -20,14 +20,15 @@ import { WORKSPACE_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
  * repository's files first (no content, each with its Git blob hash); this stores each file's bytes and first
  * version from the repository archive.
  *
- * In batches of files still without content, in path order, each batch carrying on after the last path: a file that
+ * In batches of files still without content (1,000 at a time), in path order, each batch carrying on after the last path: a file that
  * fails never blocks the rest, a stopped run resumes with what's still missing, and a 17,000-file repository fits in
  * many short steps instead of one long one. The status goes into import_source.metadata.hydration with a targeted
  * update, so nothing that writes the rest of the import record erases it.
  */
-export const HYDRATE_BATCH = 500;
+/** Each batch reads the archive once; 1,000 files keeps a big repository (17,000 files) to about 17 reads. */
+export const HYDRATE_BATCH = 1000;
 const UPLOAD_CONCURRENCY = 5;
-/** 500 × 100 = 50,000 files a run; a bigger repository resumes on the next run. */
+/** 1,000 × 100 = 100,000 files a run; a bigger repository resumes on the next run. */
 const MAX_BATCHES = 100;
 const FAILED_SAMPLE = 20;
 
@@ -174,14 +175,18 @@ export async function hydrateWorkspace(input: {
   let batches = 0;
   const failedSample: string[] = [];
   for (let i = 0; i < MAX_BATCHES; i++) {
-    const batch = await step(`batch-${i}`, () => hydrateBatch({ projectId, userId: input.userId, eventId: input.eventId, ref: input.ref, after, limit: input.batchSize }));
+    // The batch writes its progress itself: one step per batch.
+    const batch = await step(`batch-${i}`, async () => {
+      const done = await hydrateBatch({ projectId, userId: input.userId, eventId: input.eventId, ref: input.ref, after, limit: input.batchSize });
+      if (done.lastPath) await setHydrationStatus(projectId, { stored: stored + done.stored, failed: failed + done.failed });
+      return done;
+    });
     if (!batch.lastPath) break;
     batches += 1;
     stored += batch.stored;
     failed += batch.failed;
     failedSample.push(...batch.failedPaths.slice(0, FAILED_SAMPLE - failedSample.length));
     after = batch.lastPath;
-    await step(`progress-${i}`, () => setHydrationStatus(projectId, { stored, failed }));
   }
   const remaining = await step("remaining", () => missingContent(projectId));
   await step("finish", () => setHydrationStatus(projectId, {
