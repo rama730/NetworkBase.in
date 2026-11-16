@@ -196,3 +196,17 @@ Commits 0887eb929..: all 14 are built and tested, and M5 has no rows below teste
 - **Live check on Ponytail** (CLI 2.2.1 from the repo): an executable `run.sh` went through a change set, and `nb pull` in a fresh folder brought it back executable and runnable. Undone and moved to Trash afterwards.
 - **Fixed from the live check (ddc0ce88e):** a folder still listing files a teammate had deleted sent deletes the server refused, which blocked the whole set. Those deletes are now dropped, and a rename of a gone file becomes an add.
 - **Still open:** the signed-in checks in the app (Changes view, line comments, header link, presence, Verify it's you); the live D22 agent eval run.
+
+## Signed-in app check (2026-11-16, Chrome, @ramanayudu_ch)
+
+Checked on Ponytail with a throwaway task #1 and the change set "M5 app check: redesign" (made with the CLI):
+- **Header:** "1 change set ready"; the sidebar's Changes showed a count of 1; the list showed the set as Ready, "from the terminal".
+- **Review:** grouped files with line counts; a diff with line numbers; a comment on line 3 posted with the author, line and time, and the line marked; `nb change status` showed it in the terminal.
+- **Apply** on a set touching the README asked "Verify it's you" ("These files include final files or a doc"). It was cancelled, so nothing was applied.
+- **Update** after a teammate's same-line edit made the set a draft with "1 file changed since". The merge editor showed base, theirs and yours, with Keep yours, Keep theirs and Edit the result. The header link and the count were gone, as they should be for a draft.
+- **Presence:** "A draft is changing 3 files for this task" on the task, and "… here, including this one" on `shared.txt`, each with See draft.
+- **Cleanup:** the set was discarded, task #1 deleted and `/nb-app-check` moved to Trash. The README on the server was never changed.
+- **Seen in passing:**
+  - Diffs number a file's final newline as one more line. The file viewer does the same, so it's left as is.
+  - Opening `?tab=tasks&drawerType=task&drawerId=…` directly didn't open the task panel until the task was clicked. This is older behaviour, outside M5.
+- **Still open:** the live D22 agent eval run (G22.06662dd7).

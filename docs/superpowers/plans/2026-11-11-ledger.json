@@ -5582,9 +5582,9 @@
       "text": "A Changes list in the Files tab (open, ready, applied, discarded, undone), linked from the workspace header when something is ready.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.7eea8ee8",
@@ -5592,9 +5592,9 @@
       "text": "On the task each change set belongs to.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.e3ca25f5",
@@ -5602,9 +5602,9 @@
       "text": "The address ?tab=files&changes=<id> opens one directly.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.d1f3d76f",
@@ -5612,9 +5612,9 @@
       "text": "its title, message, task, who made it (with Part B labels) and when, its size, and its base time (\"based on files as of 10:42\")",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.99d95ccd",
@@ -5622,9 +5622,9 @@
       "text": "the file list: grouped added, changed, deleted, renamed, conflicted; +/− counts; a filter box; virtualised for 2,000 files",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.f9883f2d",
@@ -5632,9 +5632,9 @@
       "text": "diffs:",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.da374e11",
@@ -5642,9 +5642,9 @@
       "text": "merged files show \"merged automatically\" and can be opened as three columns: base, theirs, result",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.2717c0d6",
@@ -5652,9 +5652,9 @@
       "text": "line comments, like file comments today",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts; tests/browser/change-sets.spec.ts",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.1a3baa6d",
@@ -5662,9 +5662,9 @@
       "text": "a status line, for example \"Ready · 2 files changed since by Sam (merged automatically)\"",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.cb9d6101",
@@ -5672,9 +5672,9 @@
       "text": "Apply: one click. \"Verify it's you\" is asked only when the files include finals or docs.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.fbca90c6",
@@ -5682,9 +5682,9 @@
       "text": "Discard.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.7fe6f5ba",
@@ -5692,9 +5692,9 @@
       "text": "Apply only some files: the chosen files become their own change set and apply; the rest stay a draft.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.29adec8f",
@@ -5702,9 +5702,9 @@
       "text": "Ask for changes: a comment back to the agent, which it reads next session as an agent note (D16).",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.02596caa",
@@ -5712,9 +5712,9 @@
       "text": "Resolve conflicts: opens the merge editor per file.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.06c016fc",
@@ -5722,9 +5722,9 @@
       "text": "Undo (applied change sets).",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.8a73212f",
@@ -5732,9 +5732,9 @@
       "text": "Copy as new draft (undone or discarded ones).",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.1de5d355",
@@ -5742,9 +5742,9 @@
       "text": "Open and ready change sets: the author, workspace owners and admins, and members with write access.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.d1b37df7",
@@ -5752,9 +5752,9 @@
       "text": "Applied ones: everyone who can read the workspace's files, as part of the history.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G12.aaa9ed80",
@@ -5762,9 +5762,9 @@
       "text": "Files inside task-private folders follow the existing task access rules (canReadWorkspaceTab).",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16"
+      "evidence": "M5 built on local main (13392d904..03a00de0d), 2026-11-16; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G13.03ff3874",
@@ -6082,9 +6082,9 @@
       "text": "Presence:",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts; tests/browser/change-sets.spec.ts",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G15.b53b692c",
@@ -6092,9 +6092,9 @@
       "text": "Locks: optional per file (C3) for things that can't merge, such as design files. A locked file is refused at capture (FILELOCKED, saying who holds it).",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G15.0fe2d6c5",
@@ -6132,9 +6132,9 @@
       "text": "Limits are stated up front (G13). A bigger change is refused with \"split it into smaller change sets\", and the CLI offers to split by folder.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/change.test.mjs",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G16.b98d4ea7",
@@ -6142,9 +6142,9 @@
       "text": "Text details preserved: line endings, encoding and the executable bit (stored as item metadata). Symlinks are skipped with a note, as today.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts; packages/nb-cli/test/change.test.mjs",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G17.13422b9d",
@@ -6232,9 +6232,9 @@
       "text": "Sentry: spans for prepare, apply, merge and undo.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G19.f6d7074d",
@@ -6332,9 +6332,9 @@
       "text": "Sign-in expires mid-work · Edits stay local, capture pauses, and after nb login it continues from the journal",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/change.test.mjs",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G20.5c84f391",
@@ -6352,9 +6352,9 @@
       "text": "Storage limit reached · STORAGELIMIT on content upload; capture pauses and says how much space is needed",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G21.da143658",
@@ -6382,9 +6382,9 @@
       "text": "A case-only rename (Login.tsx → login.tsx): handled as a rename, including on case-insensitive disks.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts; packages/nb-cli/test/change.test.mjs",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G21.8cf40da6",
@@ -6412,9 +6412,9 @@
       "text": "README and linked docs: the doc-edit yes applies, and a starter README gets its file (the 2026-11-11 fix).",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G21.86dd9d90",
@@ -6502,9 +6502,9 @@
       "text": "End to end: an agent redesigns a sign-in page across 30 files in a seeded Next.js project. It runs the site, finishes, gets reviewed, applies, and is undone. Do",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts (journey)",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate; live 2026-11-16: signed-in check on Ponytail in Chrome (Changes view, line comment, Verify it’s you, Update to the merge editor, task and file presence, header link), CLI 2.2.1 from npm"
     },
     {
       "key": "G22.0d98ad45",
