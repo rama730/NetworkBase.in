@@ -387,11 +387,11 @@ export async function putContent(actor: Actor, changeSetId: string, body: { file
   const item = await pendingMime(set.id, hash);
   const key = contentKey(set.workspaceId, hash);
   // Content already stored and verified is never uploaded over, checked again or removed: the items just use it.
-  const [verified] = await db.select({ id: storageAssets.id }).from(storageAssets)
+  const [verified] = await db.select({ id: storageAssets.id, size: storageAssets.verifiedSize }).from(storageAssets)
     .where(and(eq(storageAssets.bucket, "project-files"), eq(storageAssets.storageKey, key), eq(storageAssets.state, "verified"))).limit(1);
   if (verified) {
     await db.transaction(async (tx) => {
-      await tx.update(changeSetItems).set({ assetId: verified.id, state: "ready", updatedAt: new Date() })
+      await tx.update(changeSetItems).set({ assetId: verified.id, state: "ready", ...(verified.size != null ? { size: Number(verified.size) } : {}), updatedAt: new Date() })
         .where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.contentHash, hash), eq(changeSetItems.state, "pending")));
       await recount(tx, set.id);
     });
