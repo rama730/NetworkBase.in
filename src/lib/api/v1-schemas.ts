@@ -92,6 +92,11 @@ export const agentNoteSchema = z.object({ note: z.string().trim().min(1).max(200
 export const agentPresenceSchema = z.object({ sessionId: z.string().trim().min(1).max(80), agentName: z.string().trim().min(1).max(80).optional(), leaving: z.boolean().optional() }).strict();
 export const agentNoteDeleteSchema = z.object({ id: z.string().uuid() }).strict();
 
+/** Report C4 (M4d): nb message read / send / mark read. */
+export const messageReadQuerySchema = z.object({ before: z.coerce.number().int().positive().optional() }).strict();
+export const messageSendSchema = z.object({ text: z.string().trim().min(1).max(4000), replyTo: z.number().int().positive().optional() }).strict();
+export const messageMarkReadSchema = z.object({ seq: z.number().int().positive() }).strict();
+
 /** Report D19: the agent's "What I did" lines, sent when its MCP session ends. */
 export const agentSessionEndSchema = z.object({ did: z.array(z.string().trim().max(300)).max(50).optional() }).strict();
 

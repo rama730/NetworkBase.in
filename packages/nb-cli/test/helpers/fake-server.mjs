@@ -74,6 +74,8 @@ const exact = {
   },
   "GET /api/v1/assignments": (_req, state) => ({ data: { copies: state.assignments.map((a) => ({ id: a.id, number: a.number, title: a.title, org: "Physics 101", orgId: WORKSPACE_ID, workspaceId: WORKSPACE_ID, due: a.due, state: a.state, late: false, submissionType: a.submissionType, aiPolicy: a.aiPolicy, team: null })) } }),
   "GET /api/v1/reviews": (req, state) => (req.query.get("org") ? { data: { rows: state.assignments.filter((a) => a.state === "submitted").map((a) => ({ kind: "copy", mine: true, copyId: a.id, masterId: a.id, title: a.title, who: "Sam Lee", submittedBy: "u2", submittedAt: now(), late: false, href: "", projectId: WORKSPACE_ID, updatedAt: now(), version: 1, link: null, text: null, note: null, files: [], versions: a.versions ?? [] })), total: 1, nextCursor: null } } : fail(400, "BAD_REQUEST", "Which organization?")),
+  // Messages (report C4, M4d): two #design channels in different workspaces and a DM.
+  "GET /api/v1/chat/conversations": (_req, state) => ({ data: { conversations: fakeChats(state).conversations } }),
   "GET /api/v1/inbox": (_req, state) => ({ data: { items: state.inbox, nextCursor: null, hasMore: false, unreadCount: state.inbox.filter((i) => !i.readAt).length, unreadImportantCount: 0 } }),
   "POST /api/v1/inbox/read": (req, state) => {
     const ids = req.body.all ? state.inbox.filter((i) => !i.readAt).map((i) => i.id) : req.body.ids;
@@ -454,6 +456,19 @@ const patterns = [
     return { data: { kind: req.query.get("kind"), files: files.map((f) => ({ nodeId: f.nodeId, path: f.path, name: f.path.split("/").pop(), size: f.content.length, currentVersion: f.version, at: f.updatedAt })) } };
   }],
   // Who's working on a task (D5).
+  [/^\/api\/v1\/chat\/conversations\/([^/]+)\/messages$/, "GET", (/** @type {FakeRequest} */ _req, /** @type {FakeState} */ state) => ({ data: { messages: fakeChats(state).messages[_req.params[0]] ?? [] } })],
+  [/^\/api\/v1\/chat\/conversations\/([^/]+)\/messages$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
+    const list = (fakeChats(state).messages[req.params[0]] ??= []);
+    const seq = (list.at(-1)?.seq ?? 0) + 1;
+    list.push({ seq, at: new Date().toISOString(), author: "@me", text: req.body.text, replies: 0, edited: false, files: [] });
+    return { data: { seq } };
+  }],
+  [/^\/api\/v1\/chat\/conversations\/([^/]+)\/read$/, "POST", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => {
+    const conv = fakeChats(state).conversations.find((/** @type {any} */ c) => c.id === req.params[0]);
+    if (conv) conv.unread = 0;
+    (state.chatReads ??= []).push({ id: req.params[0], seq: req.body.seq });
+    return { data: { moved: true } };
+  }],
   [/^\/api\/v1\/tasks\/([^/]+)\/presence$/, "POST", (/** @type {FakeRequest} */ _req, /** @type {FakeState} */ state) => ({ data: { others: state.presenceOthers ?? [] } })],
   // Agent notes (D16, 0089).
   [/^\/api\/v1\/tasks\/([^/]+)\/agent-notes$/, "GET", (/** @type {FakeRequest} */ req, /** @type {FakeState} */ state) => ({ data: { notes: (state.agentNotes ??= []).filter((n) => n.taskId === req.params[0]).slice().reverse() } })],
@@ -482,6 +497,18 @@ const patterns = [
 /**
  * @param {{ routes?: Record<string, Handler>, fault?: Record<string, Fault> }} [options]
  */
+/** @param {any} state */
+function fakeChats(state) {
+  return (state.chats ??= {
+    conversations: [
+      { id: "c1", kind: "channel", label: "#design", workspace: "design-lab", workspaceId: WORKSPACE_ID, unread: 2, mentions: 1, lastAt: new Date().toISOString(), lastPreview: "logo v2 is up", canReply: true },
+      { id: "c2", kind: "dm", label: "@sam", workspace: null, workspaceId: null, unread: 0, mentions: 0, lastAt: new Date(Date.now() - 3_600_000).toISOString(), lastPreview: "thanks!", canReply: true },
+      { id: "c3", kind: "channel", label: "#design", workspace: "ponytail", workspaceId: "w-ponytail", unread: 0, mentions: 0, lastAt: null, lastPreview: null, canReply: true },
+    ],
+    messages: { c1: [{ seq: 4, at: new Date(Date.now() - 600_000).toISOString(), author: "@sam", text: "@me logo v2 is up", replies: 1, edited: false, files: ["logo.png"] }, { seq: 5, at: new Date().toISOString(), author: "@ann", text: "looks good", replies: 0, edited: true, files: [] }] },
+  });
+}
+
 export async function startFakeServer({ routes = {}, fault = {} } = {}) {
   /** @type {FakeState} */
   const state = { workspace: { id: WORKSPACE_ID, title: "Design Lab", slug: "design-lab", role: "owner" }, files: new Map(), tasks: [], docs: [], reviewRequired: false, canWrite: true, revoked: new Set(), device: { answer: "approve", afterPolls: 3, polls: 0, lastBody: null, tokenType: "device" }, undos: new Map(), undone: [], questions: [], autoAnswer: /** @type {string | null} */ (null), sessionsEnded: 0, fileOps: [], fileComments: [], updates: [], assignments: [], inbox: [], events: [] };

@@ -22,6 +22,8 @@ export const SCOPE_WORDS: Array<{ scopes: string[]; label: string; hint: string;
   { scopes: ["ask:others"], label: "Ask other people", hint: "Questions to the assignee or reviewer" },
   { scopes: ["assignment:hand-in"], label: "Hand in assignments", hint: "Your own copies, with the app's late rules" },
   { scopes: ["task:review"], label: "Review hand-ins", hint: "Approve or return, for organization reviewers" },
+  { scopes: ["message:read"], label: "Read your messages", hint: "Channels and direct messages; never for agents" },
+  { scopes: ["message:write"], label: "Send messages as you", hint: "In conversations you're in; never for agents" },
 ];
 
 /** Old and new permission names → the words above, for the token list. */

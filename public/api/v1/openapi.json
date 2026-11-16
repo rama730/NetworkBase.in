@@ -1196,6 +1196,91 @@
         }
       }
     },
+    "/api/v1/chat/conversations/{channelId}/messages": {
+      "post": {
+        "summary": "Send a message as you (your own sign-in or message:write; never agents)",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "replyTo": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "`{ success: true, data }`"
+          },
+          "4XX": {
+            "description": "`{ success: false, errorCode, message, details? }`"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/conversations/{channelId}/read": {
+      "post": {
+        "summary": "Mark a conversation read up to a message",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "seq": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "seq"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "`{ success: true, data }`"
+          },
+          "4XX": {
+            "description": "`{ success: false, errorCode, message, details? }`"
+          }
+        }
+      }
+    },
     "/api/v1/agent-sessions/end": {
       "post": {
         "summary": "End an agent session: send its held notifications and its What I did list",

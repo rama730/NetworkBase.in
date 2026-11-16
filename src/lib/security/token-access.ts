@@ -25,6 +25,8 @@ export const TOKEN_SCOPES = [
   "doc:write",
   "assignment:hand-in",
   "ask:others",
+  "message:read",
+  "message:write",
 ] as const;
 
 export type TokenScope = (typeof TOKEN_SCOPES)[number];
@@ -147,6 +149,11 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/tasks/${ID}/agent-notes`), read: "task:read", write: "task:write", agent: "route" },
   // Who's working on a task (report D5): saying "I'm here" needs the right to change the task.
   { pattern: route(`/api/v1/tasks/${ID}/presence`), read: "task:read", write: "task:write", agent: "route" },
+  // Messages (report C4): never for agents (the routes refuse them) and never in an agent preset; no agent rule, so
+  // a workspace-bound token is refused here too.
+  { pattern: route("/api/v1/chat/conversations"), read: "message:read" },
+  { pattern: route(`/api/v1/chat/conversations/${ID}/messages`), read: "message:read", write: "message:write" },
+  { pattern: route(`/api/v1/chat/conversations/${ID}/read`), write: "message:read" },
   // Your starred and recent files (report C3, 0087): a star is your own shortcut, so reading is enough.
   { pattern: route(`/api/v1/workspaces/${ID}/files/${ID}/star`), write: "file:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/files/mine`), read: "file:read", agent: "path" },

@@ -2342,6 +2342,72 @@
       ]
     },
     {
+      "name": "message list",
+      "summary": "Your channels and direct messages, with what's new",
+      "usage": "nb message list [--unread]",
+      "flags": {
+        "unread": {
+          "type": "boolean",
+          "describe": "Only conversations with new messages"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "message read",
+      "summary": "Read a conversation (marks it read)",
+      "usage": "nb message read <#channel|@person|n> [--before <seq>]",
+      "flags": {
+        "before": {
+          "type": "string",
+          "describe": "Older messages, before this one",
+          "valueName": "seq"
+        },
+        "keep-unread": {
+          "type": "boolean",
+          "describe": "Don't mark it read"
+        }
+      },
+      "examples": [
+        "nb message read #design",
+        "nb message read @sam"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "message send",
+      "summary": "Send a message as you",
+      "usage": "nb message send <#channel|@person> \"text\" [--reply <seq>]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "reply": {
+          "type": "string",
+          "describe": "Reply in the thread of this message",
+          "valueName": "seq"
+        }
+      },
+      "examples": [
+        "nb message send #design \"logo is up\"",
+        "nb message send @sam \"thanks!\""
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "member list",
       "summary": "People in the workspace",
       "usage": "nb member list [name]",

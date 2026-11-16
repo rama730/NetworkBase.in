@@ -43,7 +43,8 @@ More
     doc list, doc view, doc edit, doc set, workspace list, workspace view,
     workspace open, activity, sprint list, sprint view, update post,
     member invite, member role, member remove, workspace leave, update list,
-    update view, update like, update comment, member list, search
+    update view, update like, update comment, message list, message read,
+    message send, member list, search
 
 nb help <command> explains one. Every command takes --json, --quiet, --plain and
 --help.
