@@ -84,9 +84,11 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --title "CLI $VERSION" --notes-file notes.md $([ "${{ steps.version.outputs.tag }}" = next ] && echo --prerelease)
 
   # Report C7: nb as one program, for people without Node. Built and checked on every release; kept as run
-  # artifacts. Published only when the public tap repository is set up (user step): repository variable NB_TAP_REPO
-  # (owner/homebrew-networkbase) and secret NB_TAP_TOKEN (contents: write on that repository). Then the downloads go
-  # to its release v<version>, with Formula/nb.rb (brew install <owner>/networkbase/nb) and bucket/nb.json (Scoop).
+  # artifacts. Published only when the public tap repository is set up (user steps): repository variable NB_TAP_REPO
+  # (owner/homebrew-networkbase), and an environment "tap-release" with required reviewers holding the secret
+  # NB_TAP_TOKEN (contents: write on that repository). Like npm, nothing goes out without the owner's approval, and
+  # only once npm has this version live. Then the downloads go to the tap's release v<version>, with Formula/nb.rb
+  # (brew install <owner>/networkbase/nb) and bucket/nb.json (Scoop).
   single-file:
     name: Single-file nb (${{ matrix.name }})
     needs: test
@@ -120,6 +122,7 @@ jobs:
     name: Downloads, Homebrew and Scoop
     needs: [publish, single-file]
     runs-on: ubuntu-latest
+    environment: tap-release
     steps:
       - id: ready
         env:
@@ -134,6 +137,12 @@ jobs:
           fi
       - if: steps.ready.outputs.ready == 'true'
         uses: actions/checkout@v4
+      - name: npm has this version live (approved by the owner)
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          version=$(node -p 'require("./packages/nb-cli/package.json").version')
+          live=$(npm view "@networkbase/cli@$version" version 2>/dev/null || true)
+          if [ "$live" != "$version" ]; then echo "::error::@networkbase/cli $version isn't live on npm yet: approve it there, then re-run this job"; exit 1; fi
       - if: steps.ready.outputs.ready == 'true'
         uses: actions/download-artifact@v4
         with:
