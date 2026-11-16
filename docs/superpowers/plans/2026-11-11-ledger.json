@@ -3452,9 +3452,9 @@
       "text": "\"What I did\" and session undo (19)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/mcp-check.test.mjs; tests/db/agent-questions.test.ts",
-      "evidence": "M4c, local main (73cf7fe1f..), 2026-11-16; live 2026-11-16: the summary never reached the person under Claude Code (it kills nb mcp on SIGINT); fixed locally 3a0d58972 and checked live with the local build, waits for the next CLI release"
+      "evidence": "M4c, local main (73cf7fe1f..), 2026-11-16; live 2026-11-16: the summary never reached the person under Claude Code (it kills nb mcp on SIGINT); fixed locally 3a0d58972 and checked live with the local build, waits for the next CLI release; live 2026-11-16 with npm 2.1.5: Claude Code session summary reached the owner inbox (\"Claude Code finished: 1 change\")"
     },
     {
       "key": "D22b.d6feec8c",
