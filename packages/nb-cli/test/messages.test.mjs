@@ -32,6 +32,9 @@ describe("nb message (C4)", () => {
     const ambiguous = await nb(["message", "read", "#design"]);
     assert.equal(ambiguous.code, 6, ambiguous.stderr);
     assert.match(ambiguous.stderr, /#design is in 2 workspaces/);
+    assert.match(ambiguous.stderr, /--answer conversation=<design-lab\|ponytail>/, "choices by workspace, not ids");
+    assert.equal((await nb(["message", "read", "design", "--answer", "conversation=ponytail", "--keep-unread"])).code, 0, "a channel name without #");
+    assert.match((await nb(["message", "read"])).stderr, /'#design' in quotes/);
     const r = await nb(["message", "read", "#design", "--workspace", "design-lab"]);
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, /@sam[^\n]*\n\s+@me logo v2 is up\n\s+1 file: logo\.png\n\s+1 reply/);

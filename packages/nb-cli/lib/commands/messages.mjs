@@ -7,6 +7,9 @@ import { formatWhen } from "./tasks.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
+/** Fits a column: long names end in … so the rows stay aligned. @param {string} s @param {number} n */
+const cut = (s, n) => ([...s].length > n ? `${[...s].slice(0, n - 1).join("")}…` : s);
+
 /** @param {Context} ctx @returns {Promise<any[]>} */
 async function conversations(ctx) {
   return /** @type {any} */ (await ctx.api.get("/api/v1/chat/conversations")).conversations ?? [];
@@ -17,7 +20,8 @@ async function conversations(ctx) {
  * which (--workspace picks; scripts get the choices). @param {Context} ctx @param {string | undefined} ref
  */
 async function pick(ctx, ref) {
-  if (!ref) throw usage("Which conversation?", "nb message read #design, @sam, or a number from nb message list");
+  // In bash and zsh an unquoted #design is a comment, so nb gets nothing: say so (found in the 2.1.6 live check).
+  if (!ref) throw usage("Which conversation?", "nb message read design (a channel without #, or '#design' in quotes), @sam, or a number from nb message list");
   const all = await conversations(ctx);
   if (/^\d+$/.test(ref)) {
     const hit = all[Number(ref) - 1];
@@ -33,8 +37,9 @@ async function pick(ctx, ref) {
     const near = all.filter((c) => c.label.toLowerCase().includes(want.replace(/^[#@]/, ""))).slice(0, 5).map((c) => (c.workspace ? `${c.label} (${c.workspace})` : c.label));
     throw new CliError("NOT_FOUND", `No conversation ${ref}`, { hint: near.length ? `Did you mean ${near.join(", ")}?` : "nb message list" });
   }
-  const id = await ask(ctx, { key: "conversation", header: "Which", question: `${ref} is in ${hits.length} workspaces. Which one?`, options: hits.slice(0, 4).map((c) => ({ value: c.id, label: `${safe(c.label)} in ${safe(c.workspace ?? "no workspace")}` })) });
-  return hits.find((c) => c.id === id) ?? hits[0];
+  // Choices by workspace (--answer conversation=deepscope-ai, or -w deepscope-ai), never raw ids.
+  const ws2 = await ask(ctx, { key: "conversation", header: "Which", question: `${ref} is in ${hits.length} workspaces. Which one?`, options: hits.slice(0, 4).map((c) => ({ value: String(c.workspace ?? c.id), label: `${safe(c.label)} in ${safe(c.workspace ?? "no workspace")}` })) });
+  return hits.find((c) => String(c.workspace ?? c.id) === ws2) ?? hits[0];
 }
 
 /** nb message list. @param {Context} ctx */
@@ -42,7 +47,7 @@ export async function list(ctx) {
   const all = (await conversations(ctx)).filter((c) => !ctx.flags.unread || c.unread > 0);
   const { c } = ctx.out;
   ctx.out.result("nb.message.list/1", { conversations: all }, (d) => d.conversations.length ? [
-    ...d.conversations.map((/** @type {any} */ m, /** @type {number} */ n) => `${String(n + 1).padStart(3)}  ${m.unread ? c.brand(ctx.out.sym.brand) : " "} ${safe(m.label).padEnd(22)} ${c.muted(safe(m.workspace ?? "").padEnd(16))} ${m.unread ? c.bold(`${m.unread} new`.padEnd(7)) : "".padEnd(7)} ${c.muted(m.lastAt ? formatWhen(m.lastAt) : "")}  ${safe(m.lastPreview ?? "").replace(/\n/g, " ").slice(0, 60)}`),
+    ...d.conversations.map((/** @type {any} */ m, /** @type {number} */ n) => `${String(n + 1).padStart(3)}  ${m.unread ? c.brand(ctx.out.sym.brand) : " "} ${cut(safe(m.label), 22).padEnd(22)} ${c.muted(cut(safe(m.workspace ?? ""), 18).padEnd(18))} ${m.unread ? c.bold(`${m.unread} new`.padEnd(7)) : "".padEnd(7)} ${c.muted(m.lastAt ? formatWhen(m.lastAt) : "")}  ${safe(m.lastPreview ?? "").replace(/\n/g, " ").slice(0, 60)}`),
     c.muted("  nb message read <#channel|@person|n> · nb message send <#channel|@person> \"text\""),
   ] : ctx.flags.unread ? "Nothing unread" : "No conversations yet. Start one in the app: Messages", { page: true });
 }
