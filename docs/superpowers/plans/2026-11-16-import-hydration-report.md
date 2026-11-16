@@ -78,3 +78,20 @@ Commits f2c1968a3, 671038b37, 30d72a44f, 12bd7fe72. Not pushed; production uncha
   2. Re-sync the Inngest app: the job's concurrency changed.
   3. The backfill: one `workspace/import.hydrate` per workspace, or Fetch now in each.
   4. A live check that Ponytail pulls all 143 files.
+
+## Live (2026-11-16)
+
+Deployed with the user's go-ahead. Inngest is re-synced after each deploy, and the backfill was approved. Fixes found during the backfill, each deployed:
+
+| Commit | Fix |
+|---|---|
+| bb69a4625 | Types the bucket refuses (`text/typescript`, `text/x-python`) are stored as text; one failure log per batch, not per file (Railway's log rate limit). |
+| ae9d2eb47 | The archive size limit follows the listed files: min(2 GB, max(100 MB, listed × 1.25 + 50 MB)). antigravity's archive was over 100 MB. |
+| 5a3882e97, 59ac2223c | Failure reasons go in the log under allowlisted keys (`reason`, `count`), with no paths. |
+| fd6d43a92 | When the owner has no upload slots left (64 open), a batch stops and the run sleeps 30 minutes (up to 6 times) instead of failing every file. |
+| c1b585df3 | SVGs are stored as bytes: the upload rule refuses `image/svg+xml`. |
+
+**Results:**
+- **ponytail:** 143 of 143 stored. A fresh `nb pull` from the live site got all 143; the SVGs open as images.
+- **caveman:** 40 of 40 stored.
+- **gstack** (379) and **antigravity-awesome-skills** (11,672): owned by @ch_rama, whose 64 upload slots are held by uploads that expired at 12:30 UTC from the first failed run. The 14:00 UTC storage cleanup frees them; the runs then continue by themselves.
