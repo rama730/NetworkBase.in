@@ -1030,6 +1030,38 @@ export async function linkWorkspaceDocAction(projectId: string, nodeId: string) 
     }
 }
 
+/**
+ * 0.8 #15: a doc with no file yet (a new workspace's starter README) gets its file on Edit, as the CLI's first save
+ * does: the new file is attached to that same doc, never a second one. Only for someone who may edit the doc.
+ */
+export async function attachWorkspaceDocFileAction(projectId: string, docSlug: string, nodeId: string) {
+    try {
+        const userId = await requireUserId();
+        const slug = normalizeWorkspaceDocSlug(docSlug);
+        const base = await loadDocProjectBase(projectId, userId);
+        const context = docContext(base, userId, slug);
+        if (!context.permission.canEdit) return { success: false as const, error: "Only people who can edit this document can start its file." };
+        const doc = base.docs.find((d) => d.slug === slug);
+        if (!doc) return { success: false as const, error: "That document isn’t here any more." };
+        if (doc.linkedNodeId) return { success: false as const, error: "This document already has a file; open it from Files." };
+        const node = await db.query.workspaceNodes.findFirst({
+            where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt)),
+            columns: { id: true, name: true },
+        });
+        if (!node) return { success: false as const, error: "The new file wasn’t found." };
+        const [attached] = await db.update(workspaceDocuments)
+            .set({ linkedNodeId: node.id, filename: node.name, updatedAt: new Date() })
+            .where(and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, slug), isNull(workspaceDocuments.linkedNodeId)))
+            .returning({ id: workspaceDocuments.id });
+        if (!attached) return { success: false as const, error: "Someone else started this document’s file just now; open it from Files." };
+        revalidateProjectDoc(context.project);
+        return { success: true as const, slug, id: attached.id };
+    } catch (error) {
+        logger.error("project_readme.attach_failed", { projectId, nodeId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Internal server error." };
+    }
+}
+
 export async function unlinkWorkspaceDocAction(projectId: string, docSlug: string) {
     try {
         docSlug = normalizeWorkspaceDocSlug(docSlug);

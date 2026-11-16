@@ -1,19 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { 
+import {
+    WORKSPACE_DOC_LIST_QUERY_KEY,
+    WORKSPACE_DOCS_QUERY_KEY,
     useWorkspaceDocSmartBlockPreviews,
 } from "@/hooks/workspaces/useWorkspaceDocData";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/feedback";
 import { normalizeWorkspaceDocSlug, type WorkspaceDocPublishedPayload } from "@/lib/workspaces/doc";
 import type { WorkspaceDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks";
 import { decodeReadmeHashTarget } from "@/lib/workspaces/doc-navigation";
 import { buildWorkspaceDocViewModel } from "@/lib/workspaces/doc-view-model";
 import { WorkspaceDocRail, WorkspaceDocMobileBar, useDocRail } from "@/components/workspaces/doc/WorkspaceDocRail";
-import { OrgDocHeader, useOrgDocs } from "@/components/organizations/OrgDocParts";
+import { OrgDocHeader, uploadWorkspaceFile, useOrgDocs } from "@/components/organizations/OrgDocParts";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
 import type { Workspace } from "@/types/discover";
 
@@ -21,6 +27,44 @@ const WorkspaceDocRenderer = dynamic(
     () => import("@/components/workspaces/doc/WorkspaceDocRenderer").then((mod) => mod.WorkspaceDocRenderer),
     { loading: () => null, ssr: false },
 );
+
+/**
+ * Edit for someone who may edit the doc (0.8 #15). A doc with a file opens it in Files; a starter README with no file
+ * yet gets one on the first Edit, as the CLI's first save does: /README.md with what it says now, attached to this
+ * doc, then opened in the editor.
+ */
+function DocEditButton({ projectId, docSlug, filename, content, fileHref }: { projectId: string; docSlug: string; filename: string; content: string; fileHref: string | null }) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const queryClient = useQueryClient();
+    const [busy, setBusy] = useState(false);
+    if (fileHref) return <Button asChild variant="outline" size="sm"><Link href={fileHref}>Edit</Link></Button>;
+    const start = async () => {
+        if (busy) return;
+        setBusy(true);
+        try {
+            const node = await uploadWorkspaceFile(projectId, null, filename, new Blob([content], { type: "text/markdown" }));
+            const { attachWorkspaceDocFileAction } = await import("@/app/actions/workspace/doc");
+            const attached = await attachWorkspaceDocFileAction(projectId, docSlug, node.id).catch(() => ({ success: false as const, error: "Couldn’t start the file." }));
+            if (!attached.success) {
+                // The new file isn't left behind when attaching it fails (as Add doc does).
+                const { bulkTrashNodes } = await import("@/app/actions/files/mutations");
+                await bulkTrashNodes([node.id], projectId).catch(() => undefined);
+                throw new Error(attached.error);
+            }
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: WORKSPACE_DOCS_QUERY_KEY(projectId) }),
+                queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),
+            ]);
+            router.push(`${pathname}?tab=files&fileId=${encodeURIComponent(node.id)}`, { scroll: false });
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Couldn’t start the file", { action: { label: "Retry", onClick: () => void start() } });
+        } finally {
+            setBusy(false);
+        }
+    };
+    return <Button variant="outline" size="sm" onClick={() => void start()} disabled={busy}>{busy ? "Starting…" : "Edit"}</Button>;
+}
 
 function shouldReduceMotion() {
     return document.documentElement.dataset.reduceMotion === "true"
@@ -321,6 +365,10 @@ export function WorkspaceDocViewer({
                     {orgDocs?.mode === "org" && orgDoc ? (
                         <OrgDocHeader data={orgDocs} doc={orgDoc} updatedBy={version?.createdByName ?? null} updatedAt={version?.createdAt ?? null}
                             editHref={payload.canEdit ? fileHref : null} onRemove={payload.canEdit && listed ? () => rail.askRemove(listed) : null} visibility={payload.settings.visibilityOverride} />
+                    ) : payload.canEdit ? (
+                        <div className="mb-3 flex justify-end">
+                            <DocEditButton projectId={project.id} docSlug={normalizedDocSlug} filename={listed?.filename ?? "README.md"} content={readmeContent} fileHref={fileHref} />
+                        </div>
                     ) : null}
                     {renderer}
                 </div>
