@@ -668,3 +668,32 @@ test("line comments (G12): on a file or a line, readable with the set, resolvabl
   assert.equal(refused.status, 404, "someone outside can't even see the draft");
   assert.ok(owner);
 });
+
+test("a starter README gets its file from a change set, and counts as a doc edit for agents (G21)", async () => {
+  const { owner, workspace } = await setup([]);
+  await sql`INSERT INTO workspace_documents (workspace_id) VALUES (${workspace})`; // README.md, no file yet
+  const agent = await token(owner, "agent", workspace, ["file:read", "file:write", "doc:write"]);
+  const { cs } = await draft(agent, workspace, [{ op: "add", path: "/README.md", text: "# Hello\n" }]);
+  const finished = await finishIt(agent, cs);
+  assert.equal(finished.json.data.decision, "needs_confirmation", "a doc edit waits for the person's yes");
+  const ok = await applyIt(agent, cs, { confirmToken: finished.json.data.confirmToken });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  const [doc] = await sql`SELECT d.linked_node_id, n.path FROM workspace_documents d JOIN workspace_nodes n ON n.id = d.linked_node_id WHERE d.workspace_id = ${workspace}`;
+  assert.equal(doc!.path, "/README.md");
+});
+
+test("resolving comments: the set's author can, their agent only its person's own, outsiders can't", async () => {
+  const { owner, workspace, cli } = await setup(["a"]);
+  const teammate = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${workspace}, ${teammate}, 'member')`;
+  const mate = await token(teammate, "device", null);
+  const { cs } = await draft(cli, workspace, [{ op: "change", path: "/a.txt", text: "a two\n" }]);
+  const comments = await loadAppModule(() => import("../../src/app/api/v1/change-sets/[cs]/comments/route"));
+  const post = (t: string, body: unknown) => call(comments.POST, t, "POST", `/api/v1/change-sets/${cs}/comments`, body, csCtx(cs));
+  const review = (await post(mate, { path: "/a.txt", body: "Please rename this" })).json.data.comment.id;
+  const agent = await token(owner, "agent", workspace, ["file:read", "file:write"]);
+  assert.equal((await post(agent, { id: review, resolved: true })).status, 404, "the agent can't hide a teammate's review");
+  assert.equal((await post(cli, { id: review, resolved: true })).status, 200, "the set's author can");
+  const outsider = await token(await sql.begin((tx) => createUser(tx)), "device", null);
+  assert.equal((await post(outsider, { id: review, resolved: false })).status, 404);
+});

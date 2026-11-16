@@ -234,11 +234,15 @@ export async function addComment(actor: Actor, changeSetId: string, input: { pat
 /** Marks a comment done (or not). Its author, or the set's author. */
 export async function resolveComment(actor: Actor, changeSetId: string, commentId: string, resolved = true) {
   const set = await findChangeSet(changeSetId);
-  await workspaceAccess(actor, set.workspaceId);
+  const { canWrite } = await workspaceAccess(actor, set.workspaceId);
+  if (!canWrite) fail("Change set not found", 404, "NOT_FOUND");
+  await requireAgentAllowed(actor, set.workspaceId, set.taskId);
   const userId = userOf(actor);
   if (!/^[0-9a-f-]{36}$/i.test(commentId)) fail("Comment not found", 404, "NOT_FOUND");
+  // The set's author may resolve reviewers' comments; their agent may not hide a teammate's review (only their own).
+  const mayResolve = isAgent(actor) || set.authorId !== userId ? eq(changeSetComments.authorId, userId) : undefined;
   const [row] = await db.update(changeSetComments).set({ resolvedAt: resolved ? new Date() : null })
-    .where(and(eq(changeSetComments.id, commentId), eq(changeSetComments.changeSetId, set.id), or(eq(changeSetComments.authorId, userId), sql`${set.authorId} = ${userId}`)))
+    .where(and(eq(changeSetComments.id, commentId), eq(changeSetComments.changeSetId, set.id), mayResolve))
     .returning();
   return row ? { comment: row } : fail("Comment not found, or not yours to resolve", 404, "NOT_FOUND");
 }
@@ -582,6 +586,14 @@ async function itemsHash(changeSetId: string, executor: Pick<typeof db, "select"
   return crypto.createHash("sha256").update(JSON.stringify(rows)).digest("base64url");
 }
 
+/** Starter docs (no file yet, like a new workspace's README) whose file one of these root paths would be. */
+async function starterDocsFor(workspaceId: string, paths: string[], executor: Pick<typeof db, "select"> = db) {
+  const roots = paths.filter((p) => p.lastIndexOf("/") === 0).map((p) => p.slice(1));
+  if (!roots.length) return [];
+  return executor.select({ id: workspaceDocuments.id, filename: workspaceDocuments.filename }).from(workspaceDocuments)
+    .where(and(eq(workspaceDocuments.projectId, workspaceId), isNull(workspaceDocuments.linkedNodeId), inArray(workspaceDocuments.filename, roots)));
+}
+
 /** True when the set changes final files or a doc: the app asks "Verify it's you" before applying it (G12). */
 export async function touchesFinalsOrDocs(actor: Actor, changeSetId: string) {
   const set = await findChangeSet(changeSetId);
@@ -592,7 +604,7 @@ export async function touchesFinalsOrDocs(actor: Actor, changeSetId: string) {
 
 /** What the set touches that needs the person's yes for agents: deletes, finals, docs, size (G13). */
 async function changeKinds(set: ChangeSet): Promise<{ kinds: ChangeKind[]; finals: boolean; docs: boolean }> {
-  const items = await db.select({ op: changeSetItems.op, nodeId: changeSetItems.baseNodeId }).from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));
+  const items = await db.select({ op: changeSetItems.op, nodeId: changeSetItems.baseNodeId, path: changeSetItems.path }).from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));
   const nodeIds = items.flatMap((i) => (i.nodeId ? [i.nodeId] : []));
   const [finals, docs] = nodeIds.length
     ? await Promise.all([
@@ -600,6 +612,8 @@ async function changeKinds(set: ChangeSet): Promise<{ kinds: ChangeKind[]; final
       db.select({ id: workspaceDocuments.id }).from(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, set.workspaceId), inArray(workspaceDocuments.linkedNodeId, nodeIds))).limit(1),
     ])
     : [[], []];
+  // A starter doc (a README with no file yet) gets its file from an add at its name: that's a doc edit too (G21).
+  if (!docs.length && (await starterDocsFor(set.workspaceId, items.filter((i) => i.op === "add").map((i) => i.path))).length) docs.push({ id: "starter" });
   const kinds: ChangeKind[] = [
     items.length > LIMITS.smallFiles ? "batch" : "small",
     items.some((i) => i.op === "delete") ? "file-move" : "small",
@@ -992,6 +1006,10 @@ async function applyPlannedInner(set: ChangeSet, planned: Planned[], userId: str
           projectId: set.workspaceId, parentId, path: item.path, type: "file", name: item.path.split("/").pop()!, size: 0, currentVersion: 1, createdBy: userId, syncStatus: "merged",
         }).returning();
         const version = await writeVersion(made!, true);
+        // A starter doc at this name (a new workspace's README) gets this file, as the CLI's first doc edit does (G21).
+        for (const doc of await starterDocsFor(set.workspaceId, [item.path], tx)) {
+          await tx.update(workspaceDocuments).set({ linkedNodeId: made!.id, updatedAt: now }).where(and(eq(workspaceDocuments.id, doc.id), isNull(workspaceDocuments.linkedNodeId)));
+        }
         applied.push({ path: item.path, nodeId: made!.id, version, op: "add" });
         undo.push({ nodeId: made!.id, op: "add", version, previousVersion: null, fromPath: null, path: item.path });
       } else if (item.op === "delete") {
