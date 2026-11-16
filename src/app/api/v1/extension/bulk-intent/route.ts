@@ -9,6 +9,7 @@ import {
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createUploadIntents } from "@/lib/upload/upload-intents";
+import { discardUnsavedFileNodes } from "@/lib/files/discard-unsaved";
 import { validateCsrf } from "@/lib/security/csrf";
 import { bulkIntentSchema } from "@/lib/api/v1-schemas";
 import { agentGate, BATCH_LIMIT } from "@/lib/agents/policy";
@@ -19,6 +20,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
+  // New file entries made before a later file failed go again (0.8 #14).
+  const created: string[] = [];
+  const since = new Date();
 
   try {
     const auth = await requireAuthenticatedUser();
@@ -60,6 +64,7 @@ export async function POST(request: Request) {
           throw new Error(`Couldn’t resolve file: ${file.path}`);
         }
         const node = resolved.node;
+        if (resolved.created) created.push(node.id);
         const operationIdentity = operationId ?? uploadSessionId;
         const storageKey = buildExtensionRevisionStorageKey(projectId, node.id, file.path, file.contentHash, operationIdentity);
         return { file, node, storageKey };
@@ -123,6 +128,7 @@ export async function POST(request: Request) {
       files: results,
     });
   } catch (error) {
+    if (created.length) await discardUnsavedFileNodes(created, since);
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/bulk-intent", fallback: "Couldn’t create bulk upload intents" });
   }
 }

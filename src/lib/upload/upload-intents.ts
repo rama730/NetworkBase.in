@@ -1081,6 +1081,9 @@ export async function cleanupExpiredUploadIntents() {
   if (expired.length === 0) {
     return { removedObjects: 0, expiredIntents: 0, retryableIntents: 0 };
   }
+  // An upload that never finished takes back the empty file entry it made (0.8 #14).
+  const { discardIntentNode } = await import("@/lib/files/discard-unsaved");
+  for (const intent of expired) await discardIntentNode(intent.id);
 
   const legacyExpired = expired.filter((intent) => !intent.assetId);
   const admin = legacyExpired.length > 0 ? await createAdminClient() : null;

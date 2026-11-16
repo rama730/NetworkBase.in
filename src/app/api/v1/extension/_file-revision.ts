@@ -71,7 +71,7 @@ export async function resolveWritableExtensionFile(
         isNull(workspaceNodes.deletedAt),
       ),
     });
-    if (recheck) return recheck;
+    if (recheck) return { node: recheck, created: false };
 
     let parentId: string | null = null;
     let currentFolderPath = "";
@@ -122,10 +122,10 @@ export async function resolveWritableExtensionFile(
         syncStatus: "merged",
       })
       .returning();
-    return newFile!;
+    return { node: newFile!, created: true };
   });
 
-  return { response: null, node: createdNode };
+  return { response: null, node: createdNode.node, created: createdNode.created };
 }
 
 export async function assertNoExtensionWriteConflict(params: {

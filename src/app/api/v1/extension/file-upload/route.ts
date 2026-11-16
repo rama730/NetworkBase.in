@@ -21,6 +21,7 @@ import { FILE_REVISION_MODES, normalizeRevisionComment, parseFileRevisionMode } 
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
+import { discardIntentNode, discardUnsavedFileNodes } from "@/lib/files/discard-unsaved";
 import { validateCsrf } from "@/lib/security/csrf";
 
 export const runtime = "nodejs";
@@ -97,12 +98,25 @@ async function markIntentFailed(uploadIntentId: string, failureReason: string) {
       updatedAt: new Date(),
     })
     .where(eq(uploadIntents.id, uploadIntentId));
+  // A failed upload takes back the empty file entry it made (0.8 #14).
+  await discardIntentNode(uploadIntentId);
 }
 
+/** An intent that fails after making a new file entry takes it back (0.8 #14). */
 async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) {
-  const startedAt = Date.now();
+  const since = new Date();
   const resolved = await resolveWritableExtensionFile(body.projectId, body.path, userId, { createIfMissing: true });
   if (resolved.response) return resolved.response;
+  const response = await makeIntent(userId, body, resolved).catch(async (error: unknown) => {
+    if (resolved.created) await discardUnsavedFileNodes([resolved.node?.id], since);
+    throw error;
+  });
+  if (!response.ok && resolved.created) await discardUnsavedFileNodes([resolved.node?.id], since);
+  return response;
+}
+
+async function makeIntent(userId: string, body: z.infer<typeof intentSchema>, resolved: Awaited<ReturnType<typeof resolveWritableExtensionFile>>) {
+  const startedAt = Date.now();
   const node = resolved.node!;
 
   if (body.operationId) {

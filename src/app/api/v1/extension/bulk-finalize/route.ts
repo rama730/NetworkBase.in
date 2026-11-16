@@ -16,6 +16,7 @@ import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import { withTransientFileLease } from "@/lib/files/file-lock-service";
 import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { FILE_REVISION_MODES, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
+import { discardIntentNode } from "@/lib/files/discard-unsaved";
 import { validateCsrf } from "@/lib/security/csrf";
 import { recordExtensionMetric } from "@/lib/extension/observability";
 import { bulkFinalizeItemSchema, bulkFinalizeSchema } from "@/lib/api/v1-schemas";
@@ -38,6 +39,8 @@ async function markIntentFailed(uploadIntentId: string, failureReason: string) {
       updatedAt: new Date(),
     })
     .where(eq(uploadIntents.id, uploadIntentId));
+  // A failed upload takes back the empty file entry it made (0.8 #14).
+  await discardIntentNode(uploadIntentId);
 }
 
 export async function POST(request: Request) {

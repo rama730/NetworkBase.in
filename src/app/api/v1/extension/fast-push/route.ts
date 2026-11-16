@@ -10,6 +10,7 @@ import {getRequestId,
   idempotentWrite, denyOutsideTokenWorkspace
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
+import { discardUnsavedFileNodes } from "@/lib/files/discard-unsaved";
 import { validateCsrf } from "@/lib/security/csrf";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import {
@@ -102,7 +103,16 @@ function annotationForRole(role: TaskFileRole) {
   return "#editor_working";
 }
 
+/** A push that fails takes back the new file entries it made (0.8 #14). */
 async function handlePost(request: Request) {
+  const created: string[] = [];
+  const since = new Date();
+  const response = await pushFiles(request, created);
+  if (!response.ok && created.length) await discardUnsavedFileNodes(created, since);
+  return response;
+}
+
+async function pushFiles(request: Request, created: string[]) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
 
@@ -457,6 +467,7 @@ async function handlePost(request: Request) {
           );
         }
         nodeId = resolved.node.id;
+        if (resolved.created) created.push(nodeId);
         nodeName = resolved.node.name;
         currentVersion = 0;
       }
