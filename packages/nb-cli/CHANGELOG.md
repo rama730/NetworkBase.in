@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.7 (2026-11-16)
+
+### Fixed
+- `nb pull` skips a file whose content isn't on the server yet (a GitHub import still downloading it) with a note, instead of stopping, and files it already fetched no longer read as conflicts.
+- In a folder linked to a remote folder (`nb init --path`), `nb file history`, `nb diff --from`, `nb file use|move|rename` and `nb edit` take paths relative to that folder.
+- `nb message read general` works without the `#` (in most shells an unquoted `#general` is a comment); a channel name in several workspaces asks by workspace, and a message never goes to a guessed conversation.
+- `--format md` and `csv` lists have no terminal markers.
+
 ## 2.1.6 (2026-11-16)
 
 ### Added
