@@ -22,6 +22,7 @@ export const FIXES = /** @type {Record<string, string>} */ ({
   "NEEDS_CONFIRMATION": "Show the summary; on a yes, send the same request with the confirm token (--confirm)",
   "SECRET_DETECTED": "Remove it, or push with --confirm-secrets if it's safe (agents can't)",
   "CONTENT_MISMATCH": "Run the command again",
+  "CONTENT_NOT_READY": "Pull again later; nb pull skips it meanwhile",
   "CONTENT_HASH_MISMATCH": "Run the command again",
   "RATE_LIMITED": "Wait for the time in Retry-After",
   "NOT_SUPPORTED": "Use the app for now",

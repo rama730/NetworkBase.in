@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { FileContentUnavailableError } from "@/lib/files/content-reader";
 import mime from "mime-types";
 
 import { enforceFileReadLimit, requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
@@ -248,6 +249,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof FileContentUnavailableError) return jsonError(error.message, 409, "CONTENT_NOT_READY");
     logger.error("[api/v1/extension/file] Failed to get file content", {
       error: error instanceof Error ? error.message : String(error)
     });

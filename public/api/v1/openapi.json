@@ -140,6 +140,12 @@
       "meaning": "The bytes that arrived don't match their hash",
       "fix": "Run the command again"
     },
+    "CONTENT_NOT_READY": {
+      "status": 409,
+      "exit": 1,
+      "meaning": "The file is listed but its content isn't stored yet (an import still fetching it)",
+      "fix": "Pull again later; nb pull skips it meanwhile"
+    },
     "CONTENT_HASH_MISMATCH": {
       "status": 422,
       "exit": 1,

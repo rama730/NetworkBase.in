@@ -2417,7 +2417,8 @@
         }
       },
       "examples": [
-        "nb message read #design",
+        "nb message read design",
+        "nb message read '#design' -w design-lab",
         "nb message read @sam"
       ],
       "exitCodes": [
@@ -2443,7 +2444,7 @@
         }
       },
       "examples": [
-        "nb message send #design \"logo is up\"",
+        "nb message send design \"logo is up\"",
         "nb message send @sam \"thanks!\""
       ],
       "exitCodes": [

@@ -236,6 +236,8 @@ const exact = {
     const folder = (state.folders ?? new Map()).get(req.query.get("path") ?? "");
     if (!f && folder && req.query.get("transfer") === "metadata") return { data: folder };
     if (!f) return fail(404, "NOT_FOUND", "File not found");
+    // A file an unfinished import hasn't fetched (2.1.6 live check): listed, but no content yet.
+    if (/** @type {any} */ (state).notReady?.has(f.path) && req.query.get("transfer") !== "metadata") return fail(409, "CONTENT_NOT_READY", "This file's content isn't on the server yet");
     if (req.query.get("transfer") === "raw") return { raw: f.content };
     if (req.query.get("transfer") === "metadata") return { data: { ...meta(f), id: f.nodeId, currentVersion: f.version } };
     return { data: { ...meta(f), currentVersion: f.version, encoding: "base64", content: f.content.toString("base64") } };

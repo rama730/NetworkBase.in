@@ -6,6 +6,7 @@ export type ApiErrorCode =
   | "RATE_LIMITED"
   | "BAD_REQUEST"
   | "CONFLICT"
+  | "CONTENT_NOT_READY"
   | "NOT_FOUND"
   | "NOT_SUPPORTED"
   | "INTERNAL_ERROR"

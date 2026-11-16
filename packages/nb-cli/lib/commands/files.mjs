@@ -200,7 +200,12 @@ export async function pull(ctx, options = {}) {
         results.push({ path: item.path, did: "conflict", version: r.version, copy: path.relative(root, copy) });
         return;
       }
-      const got = await downloadTo(ctx.api, project.workspaceId, item.path, abs, r.hash);
+      const got = await downloadTo(ctx.api, project.workspaceId, item.path, abs, r.hash).catch((error) => {
+        // A file whose content isn't on the server yet (an unfinished import) is skipped, not the end of the pull.
+        if (error instanceof CliError && error.code === "CONTENT_NOT_READY") { skipped.push({ path: item.path, reason: "its content isn't on the server yet" }); return null; }
+        throw error;
+      });
+      if (!got) return;
       if (got.content) saveBaseCopy(root, got.hash, got.content);
       recordBase(state, item.path, { nodeId: r.nodeId, version: r.version, hash: got.hash, abs });
       results.push({ path: item.path, did: item.action === "restore" ? "restored" : item.base ? "updated" : "new", version: r.version });
@@ -210,7 +215,8 @@ export async function pull(ctx, options = {}) {
     // 8 downloads at a time, 4 on Windows (A12.6).
     let next = 0;
     const worker = async () => { while (next < todo.length) await apply(/** @type {PlanItem} */ (todo[next++])); };
-    await Promise.all(Array.from({ length: Math.min(process.platform === "win32" ? 4 : 8, todo.length) }, worker));
+    // What did arrive is recorded even when a later file stops the pull, so it isn't a conflict next time.
+    await Promise.all(Array.from({ length: Math.min(process.platform === "win32" ? 4 : 8, todo.length) }, worker)).catch((error) => { writeState(root, state); throw error; });
     results.sort((a, b) => a.path.localeCompare(b.path));
     writeState(root, state);
     pruneBaseCopies(root, state, Number(readUserConfig(ctx.env)["base-cache-mb"] ?? 200) * 1024 * 1024);

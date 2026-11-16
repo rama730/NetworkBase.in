@@ -70,7 +70,8 @@ export async function readWorkspaceFileText(
     }
 
     if (!node.s3Key) {
-        throw new Error("File content not available yet");
+        // An import that hasn't fetched this file yet: a known state, not a server failure (found in the 2.1.6 live check).
+        throw new FileContentUnavailableError("This file's content isn't on the server yet (its import hasn't fetched it)");
     }
     if (!asset) {
         const recoveredText = node.gitHash

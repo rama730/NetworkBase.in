@@ -66,6 +66,7 @@ export const ERROR_CATALOG: Record<string, ErrorEntry> = {
   NEEDS_CONFIRMATION: { status: 428, exit: 7, meaning: "An agent's big change waits for the person's yes", fix: "Show the summary; on a yes, send the same request with the confirm token (--confirm)" },
   SECRET_DETECTED: { status: 422, exit: 5, meaning: "A file looks like it holds a password or key", fix: "Remove it, or push with --confirm-secrets if it's safe (agents can't)" },
   CONTENT_MISMATCH: { status: 422, exit: 1, meaning: "The bytes that arrived don't match their hash", fix: "Run the command again" },
+  CONTENT_NOT_READY: { status: 409, exit: 1, meaning: "The file is listed but its content isn't stored yet (an import still fetching it)", fix: "Pull again later; nb pull skips it meanwhile" },
   CONTENT_HASH_MISMATCH: { status: 422, exit: 1, meaning: "The bytes that arrived don't match their hash", fix: "Run the command again" },
   RATE_LIMITED: { status: 429, exit: 1, meaning: "Too many requests from this token", fix: "Wait for the time in Retry-After" },
   NOT_SUPPORTED: { status: 501, exit: 1, meaning: "The server doesn't do this yet", fix: "Use the app for now" },
