@@ -34,8 +34,8 @@ export async function POST(request: Request) {
     // Moving, renaming and deleting files changes what everyone sees: an agent's person agrees first (report §26.6).
     // The file by its path and where it goes, so the yes names them (report D4).
     const agent = auth.tokenKind === "agent";
-    const path = agent && i.kind !== "mkdir" ? await nodeLabel(i.nodeId) : "a file";
-    const to = agent && i.kind === "move" ? (i.parentId ? `${await nodeLabel(i.parentId)}/` : "the top folder") : "";
+    const path = agent && i.kind !== "mkdir" ? await nodeLabel(i.nodeId, i.projectId) : "a file";
+    const to = agent && i.kind === "move" ? (i.parentId ? `${await nodeLabel(i.parentId, i.projectId)}/` : "the top folder") : "";
     const held = await agentGate(auth, request, i, {
       workspaceId: i.projectId,
       kinds: [i.kind === "mkdir" ? "small" : "file-move"],

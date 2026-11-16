@@ -105,5 +105,10 @@ test("an agent's comment that mentions someone waits for the person's yes (repor
   const agent = await token(easy.student, "agent", easy.org);
   const held = await call(comments.POST, agent, "POST", "/api/v1/extension/comments", { kind: "task", projectId: easy.org, taskId: easy.copy, text: `@{${easy.owner}|Ms Rao} please look` });
   assert.equal(held.status, 428, JSON.stringify(held.json));
-  assert.match(held.json.message, /tells Ms Rao/);
+  // The name comes from the profile, not from the comment's text.
+  const [p] = await sql`SELECT username, full_name FROM profiles WHERE id = ${easy.owner}`;
+  assert.ok(held.json.message.includes(`tells ${p!.username ? `@${p!.username}` : (p!.full_name ?? "someone")}`), held.json.message);
+  // A long display name (81–120 characters) is still a mention the comment would notify, so it still waits (security review).
+  const long = await call(comments.POST, agent, "POST", "/api/v1/extension/comments", { kind: "task", projectId: easy.org, taskId: easy.copy, text: `@{${easy.owner}|${"R".repeat(110)}} please look` });
+  assert.equal(long.status, 428, JSON.stringify(long.json));
 });

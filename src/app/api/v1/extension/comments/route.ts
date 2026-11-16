@@ -27,6 +27,8 @@ import {
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { commentEditSchema, commentRefSchema, fileCommentSchema, taskCommentSchema } from "@/lib/api/v1-schemas";
 import { agentGate, recordUndo } from "@/lib/agents/policy";
+import { personLabel } from "@/lib/agents/change-labels";
+import { parseMentions } from "@/lib/workspaces/mention-tokens";
 export const runtime = "nodejs";
 async function readable(projectId: string, nodeId: string, userId: string) {
   const access = await assertWorkspaceFileReadAccess(projectId, userId);
@@ -109,9 +111,11 @@ async function postTaskComment(
     (await db.query.tasks.findFirst({ where: and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)), columns: { projectId: true } }))?.projectId;
   if (!projectId) return jsonError("Task not found", 404, "NOT_FOUND");
   // A mention tells someone, so an agent's comment that mentions people waits for the person's yes (report D12).
-  const told = [...input.text.matchAll(/@\{[0-9a-f-]{36}\|([^}]{1,80})\}/gi)].map((m) => m[1]!);
+  // The same parser the comment's notifications use, and names from the profiles, not from the comment's text.
+  const told = parseMentions(input.text).mentionIds;
+  const names = told.length ? await Promise.all(told.slice(0, 5).map((id) => personLabel(id))) : [];
   const held = await agentGate(auth, request, input, told.length
-    ? { workspaceId: projectId, kinds: ["message"], summary: `Comment on the task that tells ${[...new Set(told)].join(", ")}`, preview: input.text, taskId: input.taskId }
+    ? { workspaceId: projectId, kinds: ["message"], summary: `Comment on the task that tells ${names.join(", ")}${told.length > 5 ? ` and ${told.length - 5} more` : ""}`, preview: input.text, taskId: input.taskId }
     : { workspaceId: projectId, kinds: ["small"], summary: "Comment on the task", taskId: input.taskId });
   if (held) return held;
   // Name and avatar come from the profile row, never from session metadata the person can edit.

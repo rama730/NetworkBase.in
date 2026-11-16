@@ -16,6 +16,7 @@ let createTask: typeof import("../../src/app/api/v1/extension/create-task/route"
 let taskUpdate: typeof import("../../src/app/api/v1/extension/task-update/route");
 let place: typeof import("../../src/app/api/v1/files/place/route");
 let undo: typeof import("../../src/app/api/v1/undo/[id]/route");
+let fileOp: typeof import("../../src/app/api/v1/extension/file-operation/route");
 before(async () => {
   const server = await loadAppModule(() => import("../../src/lib/supabase/server"));
   // Storage in memory: uploads are kept, and a signed URL is a data: URL of them, so reading old text works (D4).
@@ -28,6 +29,7 @@ before(async () => {
   taskUpdate = await loadAppModule(() => import("../../src/app/api/v1/extension/task-update/route"));
   place = await loadAppModule(() => import("../../src/app/api/v1/files/place/route"));
   undo = await loadAppModule(() => import("../../src/app/api/v1/undo/[id]/route"));
+  fileOp = await loadAppModule(() => import("../../src/app/api/v1/extension/file-operation/route"));
 });
 after(async () => { await sql.end(); await closeAppDb(); });
 
@@ -167,4 +169,18 @@ test("finishing names the task by number and title (report D4)", async () => {
   const held = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", { kind: "status", projectId, taskId: task!.id, status: "done", expectedUpdatedAt: new Date(task!.updated_at).toISOString() });
   assert.equal(held.status, 428, JSON.stringify(held.json));
   assert.match(held.json.message, /Finish #4 "Logo"/);
+});
+
+test("the yes names a file by its path only when it's in the token's workspace (security review)", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const other = await sql.begin((tx) => createProject(tx, userId));
+  const token = await agentToken(userId, projectId, ["workspace:read", "file:read", "file:write"]);
+  const [mine] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by) VALUES (${projectId}, 'file', 'a.md', '/a.md', ${userId}) RETURNING id`;
+  const [theirs] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by) VALUES (${other}, 'file', 'secret-plan.md', '/secret-plan.md', ${userId}) RETURNING id`;
+  const own = await call(fileOp.POST, token, "POST", "/api/v1/extension/file-operation", { kind: "trash", projectId, nodeId: mine!.id, expectedUpdatedAt: new Date().toISOString() });
+  assert.equal(own.status, 428, JSON.stringify(own.json));
+  assert.match(own.json.message, /Move \/a\.md to the Trash/);
+  const foreign = await call(fileOp.POST, token, "POST", "/api/v1/extension/file-operation", { kind: "trash", projectId, nodeId: theirs!.id, expectedUpdatedAt: new Date().toISOString() });
+  assert.doesNotMatch(JSON.stringify(foreign.json), /secret-plan/);
 });

@@ -66,7 +66,7 @@ async function handlePatch(request: Request) {
       others || (input.kind === "assign" && input.assigneeId && input.assigneeId !== user.id) ? "others-task" : "small",
     ];
     // The task by number and title, so the yes names it (report D4).
-    const label = auth.tokenKind === "agent" ? await taskLabel(input.taskId) : "the task";
+    const label = auth.tokenKind === "agent" ? await taskLabel(input.taskId, input.projectId) : "the task";
     const what =
       input.kind === "status" ? (input.status === "done" ? `Finish ${label}` : `Move ${label} to ${input.status.replace("_", " ")}`)
       : input.kind === "subtask" ? `${input.completed ? "Tick" : "Untick"} a subtask`
