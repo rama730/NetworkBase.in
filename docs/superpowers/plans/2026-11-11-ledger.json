@@ -442,9 +442,9 @@
       "text": "14 · A failed upload never leaves an empty file entry: the node is made only after the content is stored, or removed on failure · M4",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "n/a-live",
       "test": "tests/db/discard-unsaved.test.ts",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; no safe way to make a production upload fail; covered by tests/db/discard-unsaved.test.ts"
     },
     {
       "key": "0.8.a2d209d1",
@@ -454,7 +454,7 @@
       "milestone": "M4",
       "status": "tested",
       "test": "tests/db/doc-starter-edit.test.ts",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live check needs a signed-in browser (the in-app browser is signed out), and the only README without a file is unpublished (Team Falcon), so it needs a published starter README"
     },
     {
       "key": "0.8.0afea991",
@@ -1922,9 +1922,9 @@
       "text": "Advice in the right order: every command checks sign-in first, then the folder link, then its own error. A signed-out nb push says \"Sign in first: nb login\", no",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/home.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "M4a, local main (e839d4584..), 2026-11-12; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): signed out, nb push says 'Sign in first: nb login'"
     },
     {
       "key": "C1.eb2c8a65",
@@ -1952,9 +1952,9 @@
       "text": "nb learn: a five-minute guided practice in a sandbox workspace made for it. Nothing touches real workspaces, and the sandbox is deleted at the end.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/learn.test.mjs; tests/db/sandbox.test.ts",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: nb learn ran its 5 steps against production; the practice workspace was deleted (0 left in the database)"
     },
     {
       "key": "C1.8e238874",
@@ -1972,9 +1972,9 @@
       "text": "\"Did you mean\" for flags and task names too, not only for command names (today).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs (task names); packages/nb-cli/lib/args.mjs parseFlags (flags)",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "M4a, local main (e839d4584..), 2026-11-12; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): nb task list --stauts → 'Did you mean --status?'"
     },
     {
       "key": "C2.620a278f",
@@ -2154,7 +2154,7 @@
       "milestone": "M4",
       "status": "tested",
       "test": "packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12; live 2026-11-16: in a folder linked to a remote folder the path missed the link, fixed in fb5a184fb (local, not deployed); check again after it ships"
     },
     {
       "key": "C3.cc4a4a81",
@@ -2292,9 +2292,9 @@
       "text": "Messages: reading direct messages and channels, and replying: nb message list, nb message read #design, nb message send #design \"…\". (new routes) The app's mess",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/messages.test.mjs; tests/db/chat-api.test.ts",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: nb message list/read/send against production; a labelled test message to @ch_rama read back (seq 12)"
     },
     {
       "key": "C4.b244c9e4",
@@ -2432,9 +2432,9 @@
       "text": "One command to start from nothing: npx @networkbase/cli start signs in, links this folder (with the C1 suggestions) and pulls the files, stopping only to ask wh",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/start.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: nb start in a folder named ponytail linked Ponytail and pulled; the pull stopped on files an old import never fetched, fixed in 4205edd62 (not deployed)"
     },
     {
       "key": "C7.99385e46",
@@ -2482,9 +2482,9 @@
       "text": "nb ui: a full-screen, keyboard-driven view with three panes: tasks, inbox and changed files.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/ui.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: nb ui --plain live; the full screen checked in a pseudo-terminal in CI"
     },
     {
       "key": "C10.0078e376",
@@ -2562,9 +2562,9 @@
       "text": "nb commit: commits with a NetworkBase-Task: #4 line added (the current task from C8). Plain git commit keeps working.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): nb commit added 'NetworkBase-Task: #32'"
     },
     {
       "key": "C12.078cefda",
@@ -2692,9 +2692,9 @@
       "text": "Normal user's day:",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/journeys.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: the normal day ran live in parts (status, push, task start and done inside nb learn)"
     },
     {
       "key": "C14b.0f4c0c9c",
@@ -2702,9 +2702,9 @@
       "text": "Heavy user's day:",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/journeys.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): the prompt [#32], nb task move 31 32 in_progress, --format md (marker fix d1d36014d local), nb undo --list"
     },
     {
       "key": "C14b.2bb19280",
@@ -2762,9 +2762,9 @@
       "text": "Advice order · CLI only (checks sign-in, then link, then the command)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/home.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "M4a, local main (e839d4584..), 2026-11-12; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): as C1.87023095"
     },
     {
       "key": "C15.d5b63138",
@@ -2772,9 +2772,9 @@
       "text": "task create everything at once · extend the create route with dueDate, assigneeId, sprintId",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/cli-create-task.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "M4a, local main (e839d4584..), 2026-11-12; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): nb task create --due friday --to @ch_rama made #31 due 2026-11-20"
     },
     {
       "key": "C15.e8701820",
@@ -2792,9 +2792,9 @@
       "text": "Tasks by words, people, dates · new GET /api/v1/resolve?task=&person=&date=: one match, or candidates (shared with D2)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/work.test.mjs; packages/nb-cli/test/dates.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16; changed: words, people and dates resolve in the CLI from the list routes (one match, or the choices), no /api/v1/resolve route"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; changed: words, people and dates resolve in the CLI from the list routes (one match, or the choices), no /api/v1/resolve route; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): nb task start \"close check B\" started #32 by words"
     },
     {
       "key": "C15.2f6b5e91",
@@ -2844,7 +2844,7 @@
       "milestone": "M4",
       "status": "tested",
       "test": "packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12; live 2026-11-16: in a folder linked to a remote folder the path missed the link, fixed in fb5a184fb (local, not deployed); check again after it ships"
     },
     {
       "key": "C15.a8c68744",
@@ -2902,9 +2902,9 @@
       "text": "Messages · new chat routes (see C4)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/chat-api.test.ts",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: the chat routes answered live; 401 without a sign-in"
     },
     {
       "key": "C15.5ffbf701",
@@ -2912,9 +2912,9 @@
       "text": "nb learn · new POST /api/v1/sandbox: a temporary workspace flagged as a sandbox, deleted after 24 hours",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/sandbox.test.ts",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: 0090 applied; the sandbox made and deleted live by nb learn"
     },
     {
       "key": "C15.acf19a67",
@@ -2942,9 +2942,9 @@
       "text": "Each new command gets the usual pieces:",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/tty.test.mjs (help snapshot); src/lib/cli/commands.json; packages/nb-cli/test/errors-audit.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: help, commands.json and the docs page live"
     },
     {
       "key": "C15.887469c1",
@@ -2952,9 +2952,9 @@
       "text": "nb ui, completions and the prompt are CLI-only.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/ui.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: as C9"
     },
     {
       "key": "C15.8a89f92d",
@@ -2982,9 +2982,9 @@
       "text": "2.1.x: nb ui, messages, nb learn, single-file builds and package managers.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "the M4d suites",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: 2.1.6 is npm latest"
     },
     {
       "key": "C15.ba38e611",
@@ -2992,9 +2992,9 @@
       "text": "every new command passes the CLI suite on Ubuntu, macOS and Windows (Node 20 and 22)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": ".github/workflows/publish-cli.yml (Ubuntu, macOS, Windows, Node 20 and 22)",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: cli-v2.1.6 release: Ubuntu, macOS, Windows on Node 20 and 22, plus the single-file builds"
     },
     {
       "key": "C15.3c07871c",
@@ -3042,9 +3042,9 @@
       "text": "Messages through tokens raise privacy questions. Handled with their own scopes, which are off for agents.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/chat-api.test.ts; packages/nb-cli/test/messages.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live 2026-11-16: CLI 2.1.6 (npm) on site ccb29c884: agents refused in the routes (DB test); live list and send with the person's own sign-in"
     },
     {
       "key": "C16.7445226a",
@@ -3062,9 +3062,9 @@
       "text": "A file named on the command line that's skipped is an error, with the reason and the limit (\"big.bin is 26 MB; files can be up to 25 MB\"), never \"Nothing change",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "M4a, local main (e839d4584..), 2026-11-12; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): a 26 MB file: 'big.bin is 26 MB; files can be up to 25 MB'"
     },
     {
       "key": "C16.449e6b8d",
@@ -3142,9 +3142,9 @@
       "text": "nb class list and nb class work as aliases of the Classes group.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/walkthrough-fixes.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "M4a, local main (e839d4584..), 2026-11-12; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): nb class list answers as nb assignment list"
     },
     {
       "key": "D.6259eb09",
@@ -3732,9 +3732,9 @@
       "text": "A yes given to a headless agent works across turns. Local confirmation tokens (the person's own sign-in) are signed like the server's (HMAC with a per-profile k",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/mcp.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "M4a, local main (e839d4584..), 2026-11-12; live 2026-11-16 (M4 close walk, CLI 2.1.6 from npm, DeepScope AI /m4-close, test tasks deleted after): M4c live check: Claude Code held a mention comment, ended its turn, and posted it with the token after 'yes' in the resumed session"
     },
     {
       "key": "D24.c5d5aad1",
