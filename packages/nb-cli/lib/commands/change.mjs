@@ -60,7 +60,14 @@ export async function changeStatus(ctx) {
   const { root } = ctx.requireRoot();
   const id = ctx.positionals[0] ? await fullId(ctx, ctx.positionals[0]) : currentChange(root);
   if (!id) {
-    ctx.out.result("nb.change.status/1", { changeSet: null }, () => ["No open change set in this folder.", ctx.out.c.muted("  nb change start \"what you're doing\" opens one; nb change list shows the workspace's.")]);
+    // Nothing open: the last applied ones, so "undo what you applied" is one step (found in the D22 agent run).
+    const recent = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${enc(ctx.requireWorkspace())}/change-sets`, { query: { status: "applied", limit: 3 } }).catch(() => ({ changeSets: [] })));
+    const applied = (recent.changeSets ?? []).slice(0, 3).map((/** @type {any} */ s) => ({ id: s.id, title: s.title, appliedAt: s.appliedAt ?? s.updatedAt, files: s.filesAdded + s.filesChanged + s.filesDeleted + s.filesRenamed }));
+    ctx.out.result("nb.change.status/1", { changeSet: null, recentlyApplied: applied }, (d) => [
+      "No open change set in this folder.",
+      ...d.recentlyApplied.map((/** @type {any} */ a) => `  applied ${ctx.out.c.muted(a.id.slice(0, 8))} ${safe(a.title)} ${ctx.out.c.muted(`· ${plural(a.files, "file")} · undo: nb change undo ${a.id.slice(0, 8)}`)}`),
+      ctx.out.c.muted("  nb change start \"what you're doing\" opens one; nb change list shows the workspace's."),
+    ]);
     return EXIT.ok;
   }
   // Sending the latest saves is best effort: a failed upload (storage down, signed out) still shows the set, with

@@ -292,6 +292,19 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("with nothing open, status names the recently applied change sets to undo (D22 run)", async () => {
+    const api = await startFakeServer();
+    try {
+      const { cwd, nb } = await linked(api);
+      await nb(["change", "start", "Applied one"]);
+      fs.writeFileSync(path.join(cwd, "a.txt"), "a applied\n");
+      assert.equal((await nb(["change", "apply", "--yes"])).code, 0);
+      const s = JSON.parse((await nb(["change", "status", "--json"])).stdout).data;
+      assert.equal(s.changeSet, null);
+      assert.deepEqual(s.recentlyApplied.map((/** @type {any} */ a) => a.title), ["Applied one"]);
+    } finally { await api.close(); }
+  });
+
   it("nb watch --change needs an open change set; workspaces without change sets say so", async () => {
     const api = await startFakeServer();
     try {
