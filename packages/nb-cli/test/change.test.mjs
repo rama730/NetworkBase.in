@@ -78,8 +78,9 @@ describe("nb change (G7, G8)", () => {
       const started = JSON.parse((await nb(["change", "start", "Flaky", "--json"])).stdout).data.changeSet.id;
       fs.writeFileSync(path.join(cwd, "a.txt"), "a changed\n");
       api.setFault(`/api/v1/change-sets/${started}/content`, "503");
-      const failed = await nb(["change", "status"]);
-      assert.notEqual(failed.code, 0);
+      const failed = await nb(["change", "status", "--json"]);
+      assert.equal(failed.code, 0, "status still shows the set");
+      assert.ok(JSON.parse(failed.stdout).data.sendError);
       assert.equal(readJournal(cwd, started).missing.length, 1, "the journal remembers what's still to upload");
       api.setFault(`/api/v1/change-sets/${started}/content`, null);
       const finished = await nb(["change", "finish", "--json"]);
@@ -258,6 +259,23 @@ describe("nb change (G7, G8)", () => {
       const again = await nb(["pull"]);
       assert.equal(again.code, 0, again.stderr);
       assert.match(again.stdout + again.stderr, /inside a \.git or \.networkbase folder/);
+    } finally { await api.close(); }
+  });
+
+  it("status still shows the set when an upload fails; finish opens a set for saves not captured yet (D22 run)", async () => {
+    const api = await startFakeServer();
+    try {
+      const { cwd, nb } = await linked(api);
+      fs.writeFileSync(path.join(cwd, "a.txt"), "a, never captured\n");
+      const finished = await nb(["change", "finish", "--json"]);
+      assert.equal(finished.code, 0, finished.stderr);
+      const id = currentChange(cwd);
+      assert.ok(id, "finish opened a change set");
+      fs.writeFileSync(path.join(cwd, "b.txt"), "b changed\n");
+      api.setFault(`/api/v1/change-sets/${id}/content`, "503");
+      const status = await nb(["change", "status", "--json"]);
+      assert.equal(status.code, 0, status.stderr);
+      assert.ok(JSON.parse(status.stdout).data.sendError, "the failure is reported, not fatal");
     } finally { await api.close(); }
   });
 

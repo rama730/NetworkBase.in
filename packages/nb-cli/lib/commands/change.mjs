@@ -63,17 +63,25 @@ export async function changeStatus(ctx) {
     ctx.out.result("nb.change.status/1", { changeSet: null }, () => ["No open change set in this folder.", ctx.out.c.muted("  nb change start \"what you're doing\" opens one; nb change list shows the workspace's.")]);
     return EXIT.ok;
   }
-  const capture = ctx.flags["no-send"] ? null : await captureNow(ctx, id);
+  // Sending the latest saves is best effort: a failed upload (storage down, signed out) still shows the set, with
+  // what's waiting (found in the D22 agent run, where a storage error made status itself fail).
+  /** @type {Awaited<ReturnType<typeof captureNow>> | null} */
+  let capture = null;
+  let sendError = null;
+  if (!ctx.flags["no-send"]) {
+    try { capture = await captureNow(ctx, id); } catch (error) { sendError = error instanceof Error ? error.message : String(error); }
+  }
   const view = /** @type {any} */ (await ctx.api.get(`/api/v1/change-sets/${enc(id)}`));
   const set = view.changeSet;
   const conflicts = view.items.filter((/** @type {any} */ i) => i.state === "conflict");
   const pending = readJournal(root, id).missing.length;
   const held = Object.values(readJournal(root, id).held ?? {});
   const comments = (view.comments ?? []).filter((/** @type {any} */ c) => !c.resolvedAt);
-  ctx.out.result("nb.change.status/1", { changeSet: set, items: view.items, uploadsPending: pending, held, conflicts, comments, skipped: capture?.skipped ?? [] }, (d) => [
+  ctx.out.result("nb.change.status/1", { changeSet: set, items: view.items, uploadsPending: pending, held, conflicts, comments, skipped: capture?.skipped ?? [], ...(sendError ? { sendError } : {}) }, (d) => [
     `${ctx.out.c.bold(safe(d.changeSet.title))} ${ctx.out.c.muted(`${d.changeSet.id.slice(0, 8)} · ${d.changeSet.status}`)}`,
     `  ${counts(d.changeSet)}${d.changeSet.linesAdded || d.changeSet.linesRemoved ? ctx.out.c.muted(`, +${d.changeSet.linesAdded} −${d.changeSet.linesRemoved}`) : ""}`,
     ...(d.held.length ? [ctx.out.c.warning(`  Not sent, ${d.held.length === 1 ? "it looks" : "they look"} like ${d.held.length === 1 ? "it holds" : "they hold"} a key: ${d.held.map((/** @type {string} */ p) => safe(p)).join(", ")}`), ctx.out.c.muted("  Remove the key, or nb change finish --confirm-secrets if it's safe to share")] : []),
+    ...(d.sendError ? [ctx.out.c.warning(`  Your latest saves weren't sent: ${safe(d.sendError)}. They stay here; nb change status tries again`)] : []),
     ...(d.uploadsPending > d.held.length ? [ctx.out.c.warning(`  ${plural(d.uploadsPending - d.held.length, "file")} still to upload: run nb change status again`)] : []),
     ...d.conflicts.map((/** @type {any} */ c) => ctx.out.c.warning(`  ${ctx.out.sym.warn} ${safe(c.path)} changed since you started (${c.conflict?.kind ?? "edit"})`)),
     ...d.skipped.map((/** @type {any} */ s) => ctx.out.c.muted(`  skipped ${safe(s.path)}: ${s.reason}`)),
@@ -122,6 +130,18 @@ async function finishSet(ctx, id) {
 
 /** @param {Context} ctx */
 export async function changeFinish(ctx) {
+  // Saves not captured into a change set yet (an agent finishing before its first save was picked up): one opens now,
+  // named like the one nb mcp opens, then finishes (found in the D22 agent run).
+  const { root, project } = ctx.requireRoot();
+  if (!ctx.positionals[0] && !currentChange(root)) {
+    const { items } = await draftItems(root, project);
+    if (!items.length) throw new CliError("NOT_FOUND", "Nothing to finish: no saved changes and no open change set here", { hint: "nb change status" });
+    const task = project.startedTask;
+    const title = String(ctx.flags.message ?? "").split("\n")[0]?.trim() || (task?.number ? `Work on #${task.number}${task.title ? `: ${task.title}` : ""}` : `Changes by ${ctx.env.NB_AGENT_NAME ?? "the terminal"}`);
+    const started = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title: title.slice(0, 120) }));
+    setCurrentChange(root, started.changeSet.id);
+    writeJournal(root, { id: started.changeSet.id, title: started.changeSet.title, sent: {}, missing: [] });
+  }
   const id = pick(ctx);
   const res = await finishSet(ctx, id);
   ctx.out.result("nb.change.finish/1", res, (d) => [

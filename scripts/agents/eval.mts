@@ -17,7 +17,11 @@ import path from "node:path";
 import { parse } from "yaml";
 
 /** An expect entry is a tool, or a list of tools any one of which is right ("the brief or the file list"). */
-type Request = { id: string; say: string; persona?: string; expect?: Array<string | string[]>; forbid?: string[]; note?: string };
+/**
+ * setup: shell commands run in the folder first, with $NB as the CLI (a coding job's starting state: yesterday's
+ * open change set, an applied redesign). edits: the agent may change files (coding jobs). turns: more than 8.
+ */
+type Request = { id: string; say: string; persona?: string; expect?: Array<string | string[]>; forbid?: string[]; note?: string; setup?: string; edits?: boolean; turns?: number };
 type Call = { name: string; held: boolean };
 const args = new Map(process.argv.slice(2).flatMap((a, i, all) => (a.startsWith("--") ? [[a.slice(2), all[i + 1] ?? ""]] : [])));
 const agent = args.get("agent") ?? "claude";
@@ -93,12 +97,14 @@ function prepareFolder(dir: string) {
 }
 
 const mcpServer = { command: cli[0], args: [...cli.slice(1), "mcp"] };
-function run(say: string) {
-  const opts = { cwd: folder, encoding: "utf8" as const, timeout: 300_000, maxBuffer: 64 * 1024 * 1024 };
+function run(say: string, r: Request) {
+  const opts = { cwd: folder, encoding: "utf8" as const, timeout: 600_000, maxBuffer: 64 * 1024 * 1024 };
   if (agent === "claude") {
     const config = path.join(os.tmpdir(), "nb-eval-mcp.json");
     fs.writeFileSync(config, JSON.stringify({ mcpServers: { networkbase: mcpServer } }));
-    return execFileSync("claude", ["-p", say, "--output-format", "stream-json", "--verbose", "--mcp-config", config, "--allowedTools", "mcp__networkbase__*", "--max-turns", "8",
+    // Coding jobs edit files with the agent's own tools, as on a person's computer; no shell.
+    const tools = r.edits ? "mcp__networkbase__*,Read,Write,Edit,MultiEdit,Glob,Grep" : "mcp__networkbase__*";
+    return execFileSync("claude", ["-p", say, "--output-format", "stream-json", "--verbose", "--mcp-config", config, "--allowedTools", tools, "--max-turns", String(r.turns ?? 8),
       // The person's own hooks, plugins and MCP servers would change the answers: project settings only.
       "--setting-sources", "project,local", "--strict-mcp-config"], opts);
   }
@@ -121,7 +127,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     // A run that ends in an error (often the turn limit) still made tool calls: score what it printed.
     let out = "";
     const started = Date.now();
-    try { out = run(r.say); calls = toolCalls(out); } catch (e) {
+    if (r.setup) execFileSync("sh", ["-c", r.setup], { cwd: folder, stdio: "ignore", env: { ...process.env, NB: cli.join(" "), NB_EVAL_SETUP: path.resolve("scripts/agents/eval-setup.mjs") }, timeout: 180_000 });
+    try { out = run(r.say, r); calls = toolCalls(out); } catch (e) {
       out = (e as { stdout?: string }).stdout ?? "";
       calls = toolCalls(out);
       if (!calls.length) error = e instanceof Error ? e.message.split("\n")[0]! : String(e);
