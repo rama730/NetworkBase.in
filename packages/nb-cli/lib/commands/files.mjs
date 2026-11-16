@@ -336,6 +336,26 @@ export async function push(ctx) {
     // The current task (C8): --task, the started one, or the nb/<n>- git branch; --no-task opts out.
     const taskRef = ctx.flags.task ?? (ctx.flags["no-task"] ? null : ctx.project?.startedTask?.id ?? branchTask(root));
     const task = taskRef ? await resolveTask(ctx, String(taskRef)) : null;
+    // Bigger than one upload call (50 files, 4 MB): a plain push goes up as one change set, so all of it lands or
+    // none (report G17). With a task, a role, a folder or keep-both it goes up as before.
+    const bytes = items.reduce((n, i) => n + Number(i.local?.size ?? 0), 0);
+    // Agents' saves go into change sets as they work (nb mcp); their pushes keep the yes flow they have.
+    const agentToken = String(ctx.profile?.token ?? "").startsWith("nb_agt_");
+    if ((items.length > 50 || bytes > 4 * 1024 * 1024) && !task && !agentToken && (!as || as === "draft") && !ctx.flags.folder && !ctx.flags["keep-both"] && !ctx.flags.force) {
+      const { pushAsChangeSet } = await import("./change.mjs");
+      const done = await pushAsChangeSet(ctx, root, project, items);
+      if (done) {
+        for (const a of done.applied) {
+          const item = items.find((i) => i.path === a.path);
+          if (item?.local && a.version != null) recordBase(state, a.path, { nodeId: a.nodeId, version: a.version, hash: item.local.hash, abs: item.local.abs });
+        }
+        writeState(root, state);
+        return ctx.out.result("nb.push/1", { files: done.applied, changeSet: { id: done.changeSet.id, title: done.changeSet.title } }, (d) => [
+          `${ctx.out.c.success(ctx.out.sym.done)} Pushed ${d.files.length} files as one change set: ${safe(d.changeSet.title)}`,
+          ctx.out.c.muted(`  Undo all of it: nb change undo ${d.changeSet.id.slice(0, 8)}`),
+        ]);
+      }
+    }
     const uploaded = items.length
       ? await uploadFiles(ctx.api, {
           workspaceId: project.workspaceId,

@@ -314,3 +314,34 @@ export async function changeResolve(ctx) {
   ctx.out.result("nb.change.resolve/1", { path: remote, choice }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${safe(d.path)}: kept ${d.choice === "mine" ? "yours" : "theirs"}`);
   return EXIT.ok;
 }
+
+/**
+ * An oversized nb push as one change set (report G17): all files land or none. Null when change sets are off here,
+ * so the push goes up as before.
+ * @param {Context} ctx @param {string} root @param {any} project @param {any[]} items plan items with .local
+ * @returns {Promise<{ changeSet: any, applied: any[] } | null>}
+ */
+export async function pushAsChangeSet(ctx, root, project, items) {
+  const { mimeFor } = await import("../sync/transfer.mjs");
+  const title = String(ctx.flags.message ?? `Push of ${items.length} files`).slice(0, 120);
+  /** @type {any} */
+  let started;
+  try {
+    started = await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title });
+  } catch (error) {
+    if (error instanceof CliError && error.code === "CHANGE_SETS_OFF") return null;
+    throw error;
+  }
+  const id = started.changeSet.id;
+  writeJournal(root, { id, title, sent: {}, missing: [] });
+  const draft = items.map((i) => ({
+    op: /** @type {"add" | "change"} */ (i.base ? "change" : "add"), path: i.path, abs: i.local.abs, contentHash: i.local.hash, size: i.local.size, mimeType: mimeFor(i.path),
+    ...(i.base ? { baseVersion: i.base.baseVersion, baseHash: i.base.baseHash } : {}),
+  }));
+  const sync = await syncDraft(ctx.api, root, id, draft, { confirmSecrets: Boolean(ctx.flags["confirm-secrets"]) });
+  if (sync.held.length) throw new CliError("SECRET_DETECTED", `Not pushed: ${sync.held.join(", ")} ${sync.held.length === 1 ? "looks" : "look"} like ${sync.held.length === 1 ? "it holds" : "they hold"} a password or key`, { hint: "Remove the key, or push with --confirm-secrets if it's safe to share" });
+  if (sync.pending) throw new CliError("CONTENT_MISSING", `${plural(sync.pending, "file")} couldn't be uploaded`, { hint: `Run nb push again; nb change status ${id.slice(0, 8)} shows what's left` });
+  await ctx.api.post(`/api/v1/change-sets/${enc(id)}/finish`, { ...(ctx.flags.message ? { message: ctx.flags.message } : {}), ...(ctx.flags["confirm-secrets"] ? { confirmSecrets: true } : {}) });
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/change-sets/${enc(id)}/apply`, {}));
+  return { changeSet: res.changeSet, applied: res.applied ?? [] };
+}

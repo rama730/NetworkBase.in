@@ -145,6 +145,25 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("a push bigger than one upload call goes up as one change set (G17); small pushes don't change", async () => {
+    const api = await startFakeServer();
+    try {
+      for (let i = 0; i < 60; i += 1) putFile(api.state, `/p${i}.txt`, Buffer.from(`one ${i}\n`));
+      const { cwd, nb } = await linked(api);
+      for (let i = 0; i < 60; i += 1) fs.writeFileSync(path.join(cwd, `p${i}.txt`), `two ${i}\n`);
+      const r = await nb(["push", "--all", "--no-task", "--yes", "--json"]);
+      assert.equal(r.code, 0, r.stderr);
+      const data = JSON.parse(r.stdout).data;
+      assert.equal(data.files.length, 60);
+      assert.ok(data.changeSet?.id, "one change set");
+      assert.equal(api.requests.filter((q) => q.path === "/api/v1/files/place").length, 0, "no batch-by-batch upload");
+      fs.writeFileSync(path.join(cwd, "small.txt"), "small\n");
+      const small = await nb(["push", "small.txt", "--no-task", "--json"]);
+      assert.equal(small.code, 0, small.stderr);
+      assert.equal(api.requests.filter((q) => q.path === "/api/v1/files/place").length, 1, "a small push is unchanged");
+    } finally { await api.close(); }
+  });
+
   it("nb watch --change needs an open change set; workspaces without change sets say so", async () => {
     const api = await startFakeServer();
     try {
