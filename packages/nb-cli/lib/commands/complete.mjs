@@ -2,6 +2,7 @@
 // small cache per workspace that a background `nb complete --refresh` keeps no older than 10 minutes. Completing
 // never waits on the network: it answers from the cache, even an old one, and refreshes behind.
 import { spawn } from "node:child_process";
+import { self } from "../self.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -59,7 +60,7 @@ export async function complete(ctx) {
   try { cache = readJson(cacheFile(ctx, workspaceId)); } catch { cache = null; }
   if (!cache || Date.now() - cache.at > FRESH_MS) {
     // Behind the shell's back, so the Tab press doesn't wait.
-    spawn(process.execPath, [process.argv[1] ?? "", "complete", "--refresh"], { cwd: ctx.cwd, detached: true, stdio: "ignore", env: ctx.env }).unref();
+    spawn(...self(["complete", "--refresh"]), { cwd: ctx.cwd, detached: true, stdio: "ignore", env: ctx.env }).unref();
   }
   if (!cache) return 0;
   const [kind, prefix = ""] = ctx.positionals;

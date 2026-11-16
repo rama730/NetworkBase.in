@@ -2,6 +2,7 @@
 // JSON-RPC messages, one per line (finding 5); everything else goes to stderr. Answers ping and unknown methods
 // (finding 6), negotiates the protocol version (finding 122), and reports tool failures as results (finding 123).
 import { spawn } from "node:child_process";
+import { self } from "../self.mjs";
 import crypto from "node:crypto";
 import readline from "node:readline";
 
@@ -185,7 +186,7 @@ export async function serve(ctx, io = {}) {
         if (!finishing) {
           finishing = true;
           const pass = /** @type {const} */ (["profile", "api-url"]).flatMap((f) => (ctx.flags[f] ? [`--${f}`, String(ctx.flags[f])] : []));
-          spawn(process.execPath, [process.argv[1] ?? "", "mcp", "finish", ...pass, ...(pinged.size ? ["--tasks", [...pinged.keys()].join(",")] : [])], { cwd: where.cwd, env: where.env, detached: true, stdio: "ignore" }).unref();
+          spawn(...self(["mcp", "finish", ...pass, ...(pinged.size ? ["--tasks", [...pinged.keys()].join(",")] : [])]), { cwd: where.cwd, env: where.env, detached: true, stdio: "ignore" }).unref();
         }
         process.exit(0);
       });

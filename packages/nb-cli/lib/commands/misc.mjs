@@ -95,6 +95,12 @@ export function installMethod(script) {
 
 /** `nb upgrade` (C5): updates the CLI the way it was installed; npx needs nothing. Asks first. @param {Context} ctx */
 export async function upgrade(ctx) {
+  // The single-file nb (C7) updates through the package manager it came from.
+  const { SINGLE_FILE } = await import("../self.mjs");
+  if (SINGLE_FILE) {
+    const command = process.platform === "win32" ? "scoop update nb" : "brew upgrade nb";
+    return ctx.out.result("nb.upgrade/1", { how: "single-file", command }, (d) => [`This is the single-file nb. Update it with: ${d.command}`, "  Or download the latest from https://networkbase.in/docs/cli#install"]);
+  }
   const how = installMethod(fs.realpathSync(process.argv[1] ?? ""));
   const command = "npm i -g @networkbase/cli@latest";
   if (how === "npx") return ctx.out.result("nb.upgrade/1", { how, command: null }, () => "npx runs the latest nb each time: nothing to update");

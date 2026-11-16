@@ -22,7 +22,8 @@ const argv = process.argv.slice(2);
   const add = networkEnv(userConfig, process.env, process.versions.node);
   if (add) {
     const { spawnSync } = await import("node:child_process");
-    const again = spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit", env: { ...process.env, ...add } });
+    const { self } = await import("../lib/self.mjs");
+    const again = spawnSync(...self(argv), { stdio: "inherit", env: { ...process.env, ...add } });
     process.exit(again.status ?? 1);
   }
 }

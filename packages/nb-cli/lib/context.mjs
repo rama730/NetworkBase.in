@@ -10,9 +10,8 @@ import { createOutput } from "./print/out.mjs";
 import { appendUndo } from "./undo-log.mjs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PACKAGE_JSON = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
-/** The version comes from package.json only, so it can't drift (finding 92). */
-export const VERSION = JSON.parse(fs.readFileSync(PACKAGE_JSON, "utf8")).version;
+/** The version comes from package.json only, so it can't drift (finding 92); the single-file build bakes it in (C7). */
+export const VERSION = /** @type {any} */ (globalThis).__NB_VERSION__ ?? JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8")).version;
 
 /**
  * @param {{ flags: Record<string, any>, positionals: string[], cwd?: string, env?: NodeJS.ProcessEnv, fetchImpl?: typeof fetch, io?: Parameters<typeof createOutput>[1] & { onUndo?: (u: { token: string }) => void } }} input

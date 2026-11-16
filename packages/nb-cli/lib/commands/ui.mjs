@@ -3,6 +3,7 @@
 // pipe get nb status instead. Data comes from the same commands' --json; actions run the real command in the normal
 // screen, so their questions and yes prompts work as usual.
 import { spawn, spawnSync } from "node:child_process";
+import { self } from "../self.mjs";
 import readline from "node:readline";
 
 import { safe } from "../print/style.mjs";
@@ -58,7 +59,7 @@ export function render(s, cols, rows, c) {
 /** One command's --json, as the same nb with the same sign-in. @param {Context} ctx @param {string[]} args */
 function json(ctx, args) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [process.argv[1] ?? "", ...args, "--json", ...pass(ctx)], { cwd: ctx.cwd, env: { ...ctx.env, NB_NO_UPDATE_CHECK: "1" }, stdio: ["ignore", "pipe", "ignore"] });
+    const child = spawn(...self([...args, "--json", ...pass(ctx)]), { cwd: ctx.cwd, env: { ...ctx.env, NB_NO_UPDATE_CHECK: "1" }, stdio: ["ignore", "pipe", "ignore"] });
     let out = "";
     child.stdout.on("data", (d) => { out += d; });
     child.on("close", () => { try { resolve(JSON.parse(out).data ?? null); } catch { resolve(null); } });
@@ -112,7 +113,7 @@ export async function ui(ctx) {
     leave();
     out.write(`\n$ nb ${args.join(" ")}\n`);
     process.stdin.pause();
-    spawnSync(process.execPath, [process.argv[1] ?? "", ...args, ...pass(ctx)], { cwd: ctx.cwd, env: ctx.env, stdio: "inherit" });
+    spawnSync(...self([...args, ...pass(ctx)]), { cwd: ctx.cwd, env: ctx.env, stdio: "inherit" });
     out.write("\nPress Enter to go back to nb ui ");
     await new Promise((resolve) => { process.stdin.resume(); process.stdin.once("data", resolve); });
     enter();

@@ -1,5 +1,6 @@
 // Linking a folder to a workspace, and unlinking it (report A1.1, A1.20).
 import { execFileSync } from "node:child_process";
+import { self } from "../self.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -128,7 +129,7 @@ export async function start(ctx) {
   const answers = [ctx.flags.answer ?? []].flat().flatMap((a) => ["--answer", String(a)]);
   /** @param {string[]} args */
   const nb = (args) => {
-    const r = spawnSync(process.execPath, [process.argv[1] ?? "", ...args, ...pass, ...answers], { cwd: ctx.cwd, env: ctx.env, stdio: "inherit" });
+    const r = spawnSync(...self([...args, ...pass, ...answers]), { cwd: ctx.cwd, env: ctx.env, stdio: "inherit" });
     if (r.status !== 0) process.exit(r.status ?? 1);
   };
   const steps = [];

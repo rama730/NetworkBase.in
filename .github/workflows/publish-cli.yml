@@ -82,3 +82,80 @@ jobs:
         run: |
           awk -v v="## $VERSION" 'index($0, v) == 1 {on=1; next} /^## / && on {exit} on' CHANGELOG.md > notes.md
           gh release create "$GITHUB_REF_NAME" --title "CLI $VERSION" --notes-file notes.md $([ "${{ steps.version.outputs.tag }}" = next ] && echo --prerelease)
+
+  # Report C7: nb as one program, for people without Node. Built and checked on every release; kept as run
+  # artifacts. Published only when the public tap repository is set up (user step): repository variable NB_TAP_REPO
+  # (owner/homebrew-networkbase) and secret NB_TAP_TOKEN (contents: write on that repository). Then the downloads go
+  # to its release v<version>, with Formula/nb.rb (brew install <owner>/networkbase/nb) and bucket/nb.json (Scoop).
+  single-file:
+    name: Single-file nb (${{ matrix.name }})
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - { os: macos-latest, name: macos-arm64 }
+          - { os: ubuntu-latest, name: linux-x64 }
+          - { os: windows-latest, name: windows-x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and check
+        working-directory: packages/nb-cli
+        run: node scripts/single-file.mjs
+      - name: Name it for the platform, with its checksum
+        working-directory: packages/nb-cli/build
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then f=nb-${{ matrix.name }}.exe; mv nb.exe "$f"; else f=nb-${{ matrix.name }}; mv nb "$f"; fi
+          if command -v sha256sum >/dev/null; then sha256sum "$f" > "$f.sha256"; else shasum -a 256 "$f" > "$f.sha256"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nb-${{ matrix.name }}
+          path: packages/nb-cli/build/nb-${{ matrix.name }}*
+
+  installers:
+    name: Downloads, Homebrew and Scoop
+    needs: [publish, single-file]
+    runs-on: ubuntu-latest
+    steps:
+      - id: ready
+        env:
+          TAP_REPO: ${{ vars.NB_TAP_REPO }}
+          TAP_TOKEN: ${{ secrets.NB_TAP_TOKEN }}
+        run: |
+          if [ -z "$TAP_REPO" ] || [ -z "$TAP_TOKEN" ]; then
+            echo "::warning::Single-file nb built (run artifacts) but not published: set variable NB_TAP_REPO and secret NB_TAP_TOKEN"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.ready.outputs.ready == 'true'
+        uses: actions/checkout@v4
+      - if: steps.ready.outputs.ready == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - if: steps.ready.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.NB_TAP_REPO }}
+          token: ${{ secrets.NB_TAP_TOKEN }}
+          path: tap
+      - name: Release the downloads and update the formula and manifest
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.NB_TAP_TOKEN }}
+          TAP_REPO: ${{ vars.NB_TAP_REPO }}
+        run: |
+          version=$(node -p 'require("./packages/nb-cli/package.json").version')
+          gh release create "v$version" --repo "$TAP_REPO" --title "nb $version" --notes "nb $version for macOS (Apple silicon), Linux (x64) and Windows (x64). Install: https://networkbase.in/docs/cli#install" dist/nb-* || gh release upload "v$version" --repo "$TAP_REPO" --clobber dist/nb-*
+          cd tap
+          node ../packages/nb-cli/scripts/packages.mjs "$version" "$TAP_REPO" ../dist
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/nb.rb bucket/nb.json
+          git commit -m "nb $version" && git push

@@ -33,9 +33,21 @@ export default function CliDocsPage() {
           title: "1. Get started",
           content: (
             <>
-              <p>Needs Node.js 20 or newer. Sign in once, then link a folder to a workspace.</p>
+              <p>Needs Node.js 20 or newer. In your project folder, one command signs you in, links the folder (the workspace named like it comes first) and pulls its files:</p>
+              <TerminalBlock variant="command" label="Terminal">{"$ cd my-project\n$ npx @networkbase/cli start"}</TerminalBlock>
+              <p>Or step by step, and <code>nb learn</code> for five minutes of practice in a workspace made for it (deleted at the end):</p>
               <TerminalBlock variant="command" label="Terminal">{"$ npx @networkbase/cli login\n$ cd my-project\n$ nb init design-lab\n$ nb push notes.md -m \"First notes\""}</TerminalBlock>
               <p>No browser on this computer (SSH, a container)? <code>nb login --device</code> shows a code to approve on any device. For scripts and CI, set <code>NETWORKBASE_TOKEN</code> or pipe a token into <code>nb login --with-token</code>; never put a token in a command.</p>
+            </>
+          ),
+        },
+        {
+          id: "install",
+          title: "Install",
+          content: (
+            <>
+              <p><code>npm i -g @networkbase/cli</code> installs <code>nb</code>; <code>nb upgrade</code> updates it the same way. <code>npx @networkbase/cli …</code> runs the latest without installing.</p>
+              <p>Without Node: a single-file <code>nb</code> for macOS (Apple silicon), Linux and Windows, with Homebrew and Scoop, is on its way. Until it’s published, install Node 22 LTS from nodejs.org.</p>
             </>
           ),
         },

@@ -2,6 +2,7 @@
 // command, waits for Enter in a terminal, then runs it in a practice folder. Nothing touches real workspaces, and the
 // practice workspace is deleted at the end (--keep leaves it for 24 hours).
 import { spawnSync } from "node:child_process";
+import { self } from "../self.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -31,7 +32,7 @@ export async function learn(ctx) {
   const pass = /** @type {const} */ (["profile", "api-url"]).flatMap((f) => (ctx.flags[f] ? [`--${f}`, String(ctx.flags[f])] : []));
   /** @param {string[]} args @param {{ json?: boolean }} [o] */
   const nb = (args, o = {}) => {
-    const r = spawnSync(process.execPath, [process.argv[1] ?? "", ...args, ...pass, ...(o.json ? ["--json"] : [])], { cwd: dir, env: { ...ctx.env, NB_NO_UPDATE_CHECK: "1" }, encoding: "utf8", stdio: o.json ? ["ignore", "pipe", "pipe"] : ["ignore", "inherit", "inherit"] });
+    const r = spawnSync(...self([...args, ...pass, ...(o.json ? ["--json"] : [])]), { cwd: dir, env: { ...ctx.env, NB_NO_UPDATE_CHECK: "1" }, encoding: "utf8", stdio: o.json ? ["ignore", "pipe", "pipe"] : ["ignore", "inherit", "inherit"] });
     if (r.status !== 0 && !o.json) throw new CliError("LEARN_STEP_FAILED", `nb ${args.join(" ")} didn't work`, { hint: "Run nb learn again; it picks up the same practice workspace" });
     return o.json ? JSON.parse(r.stdout || "{}") : null;
   };
