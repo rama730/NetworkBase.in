@@ -44,6 +44,8 @@ export async function ask(ctx, q) {
 
 /** A yes/no that defaults to the safe answer (A4.11). @param {import("../context.mjs").Context} ctx @param {{ key: string, question: string, yesLabel?: string, noLabel?: string, preview?: string, defaultYes?: boolean, heldByServer?: boolean }} c heldByServer: the server holds it for an agent token */
 export async function confirm(ctx, c) {
+  // --dry-run stops at the first yes, local changes too (a config file, a deleted folder), even with --yes (C3).
+  if (ctx.flags["dry-run"] && !ctx.flags.ownDryRun) throw new CliError("DRY_RUN", `Dry run: would ask ${c.question}`, { details: { question: c.question, preview: c.preview ?? null } });
   // --yes means yes, even where the safe default is No (delete, unlink); --answer key=no still says no.
   if (ctx.flags.yes && answered(ctx, c.key) === null) return true;
   // An agent token's big changes are held by the server for the person's yes; asking here too asked them twice.

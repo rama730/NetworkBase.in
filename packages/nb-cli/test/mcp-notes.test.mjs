@@ -34,7 +34,7 @@ describe("agent notes (D16)", () => {
       const brief = await next.call("networkbase_task_context", { task: String(t.taskNumber) });
       assert.deepEqual(brief.structuredContent.data.untrusted.agentNotes.map((/** @type {any} */ n) => [n.by, n.note]), [["Claude Code", "parsed 3 of 5 files; next: tests"]]);
       const md = await runCli(["task", "view", String(t.taskNumber), "--context"], { api: api.url, cwd, home });
-      assert.match(md.stdout, /Where an agent stopped[^\n]*\n<untrusted source="networkbase agent notes">\n- Claude Code[^:]*: parsed 3 of 5 files; next: tests/);
+      assert.match(md.stdout, /Where the last session stopped[^\n]*\n<untrusted source="networkbase agent notes">\n- Claude Code[^:]*: parsed 3 of 5 files; next: tests/);
     } finally { await next.close(); }
   });
 

@@ -19,6 +19,11 @@ describe("nb agent setup (report A7.8, A7.9)", () => {
     fs.writeFileSync(path.join(cwd, "CLAUDE.md"), "# My project\n");
     fs.writeFileSync(path.join(cwd, ".mcp.json"), JSON.stringify({ mcpServers: { other: { command: "x" } } }));
     assert.equal((await nb(["agent", "setup", "claude", "--token", "mine"])).code, 7, "needs a yes");
+    // --dry-run shows the preview and changes nothing, even with --yes (found in the 2.1.4 live check).
+    const dry = await nb(["agent", "setup", "claude", "--token", "mine", "--dry-run", "--yes"]);
+    assert.equal(dry.code, 0, dry.stderr);
+    assert.match(dry.stdout, /Dry run, nothing changed\. Would ask: Connect Claude Code to NetworkBase\?\n.*\.mcp\.json/);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(cwd, ".mcp.json"), "utf8")).mcpServers.networkbase, undefined);
     assert.equal((await nb(["agent", "setup", "claude", "--token", "mine", "--yes"])).code, 0);
     const mcp = JSON.parse(fs.readFileSync(path.join(cwd, ".mcp.json"), "utf8"));
     assert.deepEqual(mcp.mcpServers.networkbase, { command: "npx", args: ["-y", "@networkbase/cli@2", "mcp"] });

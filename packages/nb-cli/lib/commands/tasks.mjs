@@ -279,7 +279,7 @@ function printContext(ctx, task, notes = /** @type {any[]} */ ([])) {
     "</untrusted>",
     ...(brief.subtasks.length ? ["", "Subtasks:", ...brief.subtasks.map((/** @type {any} */ s) => `- [${s.done ? "x" : " "}] ${s.n}. ${safe(s.title)}`)] : []),
     ...(brief.files.length ? ["", "Files:", ...brief.files.map((/** @type {any} */ f) => `- ${safe(f.path)} (${f.as}${f.version ? `, v${f.version}` : ""})`)] : []),
-    ...(brief.untrusted.agentNotes.length ? ["", "Where an agent stopped last time (newest first):", "<untrusted source=\"networkbase agent notes\">", ...brief.untrusted.agentNotes.map((/** @type {any} */ n) => `- ${safe(n.by ?? "An agent")} (${formatWhen(n.at)}): ${safe(n.note).replace(/\n/g, " ")}`), "</untrusted>"] : []),
+    ...(brief.untrusted.agentNotes.length ? ["", "Where the last session stopped (newest first):", "<untrusted source=\"networkbase agent notes\">", ...brief.untrusted.agentNotes.map((/** @type {any} */ n) => `- ${n.by ? `${safe(n.by)} (${formatWhen(n.at)})` : formatWhen(n.at)}: ${safe(n.note).replace(/\n/g, " ")}`), "</untrusted>"] : []),
     "",
     "When done: `nb push <files> --task " + task.taskNumber + "`, then `nb task done " + task.taskNumber + " -m \"what you did\"`.",
   ];

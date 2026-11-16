@@ -89,7 +89,9 @@ try {
   // A dry run ends at the first change: that's its answer, not an error (C3).
   if (cliError.code === "DRY_RUN") {
     const d = /** @type {any} */ (cliError.details);
-    if (argv.includes("--json") || process.env.NB_JSON === "1") process.stdout.write(`${JSON.stringify({ ok: true, schema: "nb.dry-run/1", data: { wouldSend: d } })}\n`);
+    const { safe } = await import("../lib/print/style.mjs");
+    if (argv.includes("--json") || process.env.NB_JSON === "1") process.stdout.write(`${JSON.stringify({ ok: true, schema: "nb.dry-run/1", data: d.question ? { wouldAsk: d } : { wouldSend: d } })}\n`);
+    else if (d.question) process.stdout.write(`Dry run, nothing changed. Would ask: ${safe(d.question)}${d.preview ? `\n${safe(d.preview).split("\n").map((l) => `  ${l}`).join("\n")}` : ""}\n`);
     else process.stdout.write(`Dry run, nothing changed. Would ${d.method} ${d.path}${d.body ? `\n  ${JSON.stringify(d.body).slice(0, 400)}` : ""}\n`);
     process.exit(EXIT.ok);
   }
