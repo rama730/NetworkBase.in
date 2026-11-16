@@ -213,6 +213,22 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("the executable bit travels with the file: captured here, set again by nb pull (G16)", { skip: process.platform === "win32" }, async () => {
+    const api = await startFakeServer();
+    try {
+      const { cwd, nb } = await linked(api);
+      await nb(["change", "start", "Script"]);
+      fs.writeFileSync(path.join(cwd, "run.sh"), "#!/bin/sh\necho hi\n");
+      fs.chmodSync(path.join(cwd, "run.sh"), 0o755);
+      const items = JSON.parse((await nb(["change", "status", "--json"])).stdout).data.items;
+      assert.equal(items.find((/** @type {any} */ i) => i.path === "/run.sh").executable, true);
+      putFile(api.state, "/tool.sh", Buffer.from("#!/bin/sh\n"));
+      /** @type {any} */ (api.state.files.get("/tool.sh")).executable = true;
+      assert.equal((await nb(["pull"])).code, 0);
+      assert.ok((fs.statSync(path.join(cwd, "tool.sh")).mode & 0o111) !== 0, "pulled executable");
+    } finally { await api.close(); }
+  });
+
   it("nb watch --change needs an open change set; workspaces without change sets say so", async () => {
     const api = await startFakeServer();
     try {

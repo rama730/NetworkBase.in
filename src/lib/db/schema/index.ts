@@ -6322,6 +6322,8 @@ export const changeSetItems = pgTable("change_set_items", {
   conflict: jsonb("conflict").$type<Record<string, unknown>>(),
   linesAdded: integer("lines_added"),
   linesRemoved: integer("lines_removed"),
+  /** The file's executable bit (0092, report G16); null leaves it as it is. */
+  executable: boolean("executable"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   pathUnique: uniqueIndex("change_set_items_path_unique").on(t.changeSetId, t.path),

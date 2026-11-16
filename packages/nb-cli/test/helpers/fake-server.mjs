@@ -47,7 +47,7 @@ const metaOf = (state, t) => {
 };
 
 /** @param {FakeFile} f */
-const meta = (f) => ({ nodeId: f.nodeId, path: f.path, version: f.version, contentHash: sha256(f.content), size: f.content.length, updatedAt: f.updatedAt });
+const meta = (f) => ({ nodeId: f.nodeId, path: f.path, version: f.version, contentHash: sha256(f.content), size: f.content.length, updatedAt: f.updatedAt, ...(/** @type {any} */ (f).executable ? { executable: true } : {}) });
 const fail = (/** @type {number} */ status, /** @type {string} */ errorCode, /** @type {string} */ message, /** @type {any} */ details = undefined) => ({ status, body: { success: false, errorCode, message, ...(details ? { details } : {}) } });
 
 /** @param {FakeState} state @param {string} ref */

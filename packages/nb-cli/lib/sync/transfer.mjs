@@ -23,7 +23,7 @@ export async function fetchManifest(api, workspaceId) {
   let page;
   do {
     page = await api.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/manifest`, { query: { cursor } });
-    for (const f of page.files) files.set(f.path, { path: f.path, nodeId: f.nodeId, version: f.version, hash: f.contentHash ? String(f.contentHash).toLowerCase() : null, size: f.size ?? 0, updatedAt: f.updatedAt ?? null });
+    for (const f of page.files) files.set(f.path, { path: f.path, nodeId: f.nodeId, version: f.version, hash: f.contentHash ? String(f.contentHash).toLowerCase() : null, size: f.size ?? 0, updatedAt: f.updatedAt ?? null, ...(f.executable ? { executable: true } : {}) });
     cursor = page.nextCursor;
   } while (cursor);
   return { files, canWrite: Boolean(page.canWrite), largestFileBytes: page.limits?.largestFileBytes ?? 25 * 1024 * 1024 };

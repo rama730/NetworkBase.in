@@ -206,6 +206,8 @@ export async function pull(ctx, options = {}) {
         throw error;
       });
       if (!got) return;
+      // Executable files (scripts, bin/) come back executable (report G16). Windows has no such bit.
+      if (/** @type {any} */ (r).executable && process.platform !== "win32") fs.chmodSync(abs, fs.statSync(abs).mode | 0o111);
       if (got.content) saveBaseCopy(root, got.hash, got.content);
       recordBase(state, item.path, { nodeId: r.nodeId, version: r.version, hash: got.hash, abs });
       results.push({ path: item.path, did: item.action === "restore" ? "restored" : item.base ? "updated" : "new", version: r.version });

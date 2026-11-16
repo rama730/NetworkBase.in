@@ -202,7 +202,7 @@ export async function getChangeSet(actor: Actor, changeSetId: string, opts: { cu
 
 // ── Items and content ─────────────────────────────────────────────────────────────────────────────────────────────
 
-export type ItemInput = { op: "add" | "change" | "delete" | "rename"; path: string; fromPath?: string | null; baseVersion?: number | null; baseHash?: string | null; contentHash?: string | null; size?: number | null; mimeType?: string | null };
+export type ItemInput = { op: "add" | "change" | "delete" | "rename"; path: string; fromPath?: string | null; baseVersion?: number | null; baseHash?: string | null; contentHash?: string | null; size?: number | null; mimeType?: string | null; executable?: boolean | null };
 
 /** A new item makes a ready set open again (G5): the agent kept working. */
 async function reopenIfReady(tx: DbTransaction, set: ChangeSet) {
@@ -279,7 +279,8 @@ export async function upsertItems(actor: Actor, changeSetId: string, raw: ItemIn
     if (size != null && (!Number.isFinite(size) || size < 0)) fail(`Bad size for ${path}`, 400, "BAD_REQUEST");
     if (size != null && size > LIMITS.fileBytes) fail(`${path} is over the 25 MB per-file limit`, 413, "FILE_TOO_LARGE");
     const mimeType = contentHash ? normalizeAndValidateMimeType(i.mimeType || "application/octet-stream") : null;
-    return { op: i.op, path, fromPath, contentHash, size, mimeType, baseVersion: i.baseVersion ?? null, baseHash: i.baseHash ? String(i.baseHash).toLowerCase() : null };
+    const executable = typeof i.executable === "boolean" && i.op !== "delete" ? i.executable : null;
+    return { op: i.op, path, fromPath, contentHash, size, mimeType, executable, baseVersion: i.baseVersion ?? null, baseHash: i.baseHash ? String(i.baseHash).toLowerCase() : null };
   });
   const live = await liveFiles(set.workspaceId, [...new Set(items.flatMap((i) => [i.path, ...(i.fromPath ? [i.fromPath] : [])]))]);
   const known = await knownContent(set.workspaceId, [...new Set(items.flatMap((i) => (i.contentHash ? [i.contentHash] : [])))]);
@@ -311,7 +312,7 @@ export async function upsertItems(actor: Actor, changeSetId: string, raw: ItemIn
       const values = {
         op, path: item.path, fromPath: op === "rename" ? item.fromPath : null,
         baseNodeId: base?.nodeId ?? null, baseVersion: base?.version ?? null, baseHash: base?.hash ?? null,
-        contentHash: item.contentHash, assetId, size: knownAsset?.size ?? item.size, mimeType: item.mimeType,
+        contentHash: item.contentHash, assetId, size: knownAsset?.size ?? item.size, mimeType: item.mimeType, executable: item.executable,
         state: (item.contentHash && !assetId ? "pending" : "ready") as ChangeSetItem["state"],
         conflict: null, mergedAssetId: null, linesAdded: null, linesRemoved: null, updatedAt: new Date(),
       };
@@ -923,6 +924,12 @@ async function applyPlannedInner(set: ChangeSet, planned: Planned[], userId: str
         applied.push({ path: item.path, nodeId: node!.id, version, op: item.op });
         undo.push({ nodeId: node!.id, op: "change", version, previousVersion: expectVersion, fromPath: null, path: item.path });
       }
+    }
+    // The executable bit rides on the node (G16); the manifest hands it to nb pull.
+    for (const { item } of planned) {
+      const target = applied.find((a) => a.path === item.path && a.op !== "delete");
+      if (item.executable == null || !target) continue;
+      await tx.execute(sql`UPDATE workspace_nodes SET metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{executable}', to_jsonb(${item.executable}::boolean)) WHERE id = ${target.nodeId}`);
     }
     if (applied.length) await recordNodeEventsBatch(set.workspaceId, userId, applied.map((a) => a.nodeId), "change_set_applied", { changeSetId: set.id, title: set.title, filesCount: applied.length, ...(via.via ? via : {}) }, tx);
     await tx.update(changeSetItems).set({ state: "applied", updatedAt: now }).where(eq(changeSetItems.changeSetId, set.id));

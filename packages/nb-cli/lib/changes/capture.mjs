@@ -16,7 +16,7 @@ const ITEMS_PER_CALL = 200;
 const PARALLEL = process.platform === "win32" ? 4 : 8;
 
 /**
- * @typedef {{ op: "add" | "change" | "delete" | "rename", path: string, fromPath?: string, abs?: string, contentHash?: string, size?: number, mimeType?: string, baseVersion?: number, baseHash?: string }} DraftItem
+ * @typedef {{ op: "add" | "change" | "delete" | "rename", path: string, fromPath?: string, abs?: string, contentHash?: string, size?: number, mimeType?: string, baseVersion?: number, baseHash?: string, executable?: boolean }} DraftItem
  * @typedef {{ id: string, title: string, sent: Record<string, string>, missing: string[], held?: Record<string, string> }} Journal
  *   held: content the server didn't store because it looks like it holds a key, by hash → path
  */
@@ -83,13 +83,16 @@ export async function draftItems(root, project) {
     drop.add(/** @type {DraftItem} */ (from));
     Object.assign(/** @type {DraftItem} */ (to), { op: "rename", fromPath: from?.path, baseVersion: from?.baseVersion, baseHash: from?.baseHash });
   }
-  return { items: items.filter((i) => !drop.has(i)).sort((a, b) => a.path.localeCompare(b.path)), skipped };
+  const kept = items.filter((i) => !drop.has(i)).sort((a, b) => a.path.localeCompare(b.path));
+  // The executable bit travels with the file (G16); Windows has none, so it's left as it is there.
+  if (process.platform !== "win32") for (const i of kept) if (i.abs) { try { i.executable = (fs.statSync(i.abs).mode & 0o100) !== 0; } catch { /* gone since the scan */ } }
+  return { items: kept, skipped };
 }
 
 /** What the server has for an item; a different key means it needs sending again. @param {DraftItem} i */
-const keyOf = (i) => `${i.op}:${i.fromPath ?? ""}:${i.contentHash ?? ""}:${i.baseVersion ?? ""}`;
+const keyOf = (i) => `${i.op}:${i.fromPath ?? ""}:${i.contentHash ?? ""}:${i.baseVersion ?? ""}:${i.executable ? "x" : ""}`;
 /** @param {DraftItem} i */
-const wire = (i) => ({ op: i.op, path: i.path, ...(i.fromPath ? { fromPath: i.fromPath } : {}), ...(i.contentHash ? { contentHash: i.contentHash, size: i.size, mimeType: i.mimeType } : {}), ...(i.baseVersion != null ? { baseVersion: i.baseVersion, baseHash: i.baseHash } : {}) });
+const wire = (i) => ({ op: i.op, path: i.path, ...(i.fromPath ? { fromPath: i.fromPath } : {}), ...(i.contentHash ? { contentHash: i.contentHash, size: i.size, mimeType: i.mimeType } : {}), ...(typeof i.executable === "boolean" ? { executable: i.executable } : {}), ...(i.baseVersion != null ? { baseVersion: i.baseVersion, baseHash: i.baseHash } : {}) });
 
 /**
  * Sends the draft's changes since the last sync, then the content the server doesn't have.

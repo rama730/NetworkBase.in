@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull, notLike } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, notLike, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
@@ -40,6 +40,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         contentHash: fileVersions.contentHash,
         size: workspaceNodes.size,
         updatedAt: workspaceNodes.updatedAt,
+        // The executable bit (report G16): only sent when set, so the manifest stays the same size.
+        executable: sql<boolean | null>`nullif((${workspaceNodes.metadata}->>'executable')::boolean, false)`,
       })
       .from(workspaceNodes)
       .leftJoin(fileVersions, and(eq(fileVersions.nodeId, workspaceNodes.id), eq(fileVersions.version, workspaceNodes.currentVersion)))
@@ -56,7 +58,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       .orderBy(asc(workspaceNodes.id))
       .limit(PAGE + 1);
 
-    const files = rows.slice(0, PAGE);
+    const files = rows.slice(0, PAGE).map(({ executable, ...f }) => (executable ? { ...f, executable } : f));
     return jsonSuccess(
       {
         files,

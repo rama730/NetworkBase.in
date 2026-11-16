@@ -613,3 +613,19 @@ test("a file a teammate locked is refused at capture and at apply, naming who ho
   const res = await applyIt(cli, other);
   assert.equal(res.json.errorCode, "FILE_LOCKED");
 });
+
+test("the executable bit is kept on apply and listed in the manifest (G16)", async () => {
+  const { workspace, cli } = await setup([]);
+  const started = await call(ws.POST, cli, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "x" }, { params: Promise.resolve({ id: workspace }) });
+  const cs = started.json.data.changeSet.id;
+  const text = "#!/bin/sh\necho hi\n";
+  await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${cs}/items`, { items: [{ op: "add", path: "/bin/run.sh", contentHash: sha(text), size: text.length, mimeType: "text/plain", executable: true }] }, csCtx(cs));
+  await call(content.POST, cli, "POST", `/api/v1/change-sets/${cs}/content`, { files: [{ hash: sha(text), base64: Buffer.from(text).toString("base64") }] }, csCtx(cs));
+  await finishIt(cli, cs);
+  assert.equal((await applyIt(cli, cs)).status, 200);
+  const [n] = await sql`SELECT metadata->>'executable' AS x FROM workspace_nodes WHERE workspace_id = ${workspace} AND path = '/bin/run.sh'`;
+  assert.equal(n!.x, "true");
+  const manifest = await loadAppModule(() => import("../../src/app/api/v1/workspaces/[id]/manifest/route"));
+  const res = await call(manifest.GET, cli, "GET", `/api/v1/workspaces/${workspace}/manifest`, undefined, { params: Promise.resolve({ id: workspace }) });
+  assert.equal(res.json.data.files.find((f: { path: string }) => f.path === "/bin/run.sh").executable, true);
+});
