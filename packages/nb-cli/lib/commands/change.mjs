@@ -318,7 +318,9 @@ export async function changeResolve(ctx) {
   const state = readState(root, project.workspaceId);
   const meta = /** @type {any} */ (await ctx.api.get("/api/v1/extension/file", { query: { projectId: project.workspaceId, path: remote, transfer: "metadata" } }).catch(() => null));
   const rel = toRelative(project.remoteRoot, remote);
-  const abs = rel ? path.join(root, rel) : null;
+  // Inside this folder and never in .git (the same guard as nb pull): an agent's path can't write elsewhere.
+  const { safeJoin } = await import("../sync/transfer.mjs");
+  const abs = rel ? safeJoin(root, rel) : null;
   if (choice === "theirs" && meta && abs) {
     const { downloadTo } = await import("../sync/transfer.mjs");
     const got = await downloadTo(ctx.api, project.workspaceId, remote, abs, meta.contentHash ?? null);
@@ -329,7 +331,7 @@ export async function changeResolve(ctx) {
     state.files[remote] = { ...(state.files[remote] ?? { size: 0 }), nodeId: meta.nodeId ?? meta.id, baseVersion: meta.currentVersion ?? meta.version, baseHash: String(meta.contentHash ?? ""), mtimeMs: 0 };
   }
   const copy = state.conflicts[remote]?.copy;
-  if (copy) fs.rmSync(path.join(root, copy), { force: true });
+  if (copy) fs.rmSync((await import("../sync/transfer.mjs")).safeJoin(root, copy.split(path.sep).join("/")), { force: true });
   delete state.conflicts[remote];
   writeState(root, state);
   if (id) {

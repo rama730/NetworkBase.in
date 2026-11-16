@@ -279,6 +279,19 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("nb change resolve never writes outside the folder", async () => {
+    const api = await startFakeServer();
+    try {
+      const { nb } = await linked(api);
+      await nb(["change", "start", "x"]);
+      for (const bad of ["../../outside.txt", "/../../outside.txt", "/.git/config"]) {
+        const r = await nb(["change", "resolve", bad, "--theirs"]);
+        assert.notEqual(r.code, 0, bad);
+        assert.match(r.stderr, /Refusing/, bad);
+      }
+    } finally { await api.close(); }
+  });
+
   it("nb watch --change needs an open change set; workspaces without change sets say so", async () => {
     const api = await startFakeServer();
     try {
