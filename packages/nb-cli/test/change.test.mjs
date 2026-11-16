@@ -246,6 +246,21 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("nb pull never writes inside a .git or .networkbase folder, at any depth or case", async () => {
+    const api = await startFakeServer();
+    try {
+      putFile(api.state, "/sub/.git/hooks/pre-commit", Buffer.from("#!/bin/sh\necho pwned\n"));
+      /** @type {any} */ (api.state.files.get("/sub/.git/hooks/pre-commit")).executable = true;
+      putFile(api.state, "/x/.GIT/config", Buffer.from("[core]\n"));
+      const { cwd, nb } = await linked(api);
+      assert.ok(!fs.existsSync(path.join(cwd, "sub", ".git")), "no .git written");
+      assert.ok(!fs.existsSync(path.join(cwd, "x", ".GIT", "config")));
+      const again = await nb(["pull"]);
+      assert.equal(again.code, 0, again.stderr);
+      assert.match(again.stdout + again.stderr, /inside a \.git or \.networkbase folder/);
+    } finally { await api.close(); }
+  });
+
   it("nb watch --change needs an open change set; workspaces without change sets say so", async () => {
     const api = await startFakeServer();
     try {

@@ -178,6 +178,10 @@ export async function pull(ctx, options = {}) {
       try {
         abs = localPathOf(root, project.remoteRoot, item.path);
       } catch (error) {
+        if (error instanceof CliError && error.code === "UNSAFE_PATH" && /** @type {any} */ (error.details)?.protected) {
+          skipped.push({ path: item.path, reason: "it's inside a .git or .networkbase folder, which nb never writes" });
+          return;
+        }
         if (!(error instanceof CliError) || error.code !== "RESERVED_NAME") throw error;
         skipped.push({ path: item.path, reason: "Windows can't hold a file with this name" });
         return;

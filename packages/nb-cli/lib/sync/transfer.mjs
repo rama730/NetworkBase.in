@@ -32,6 +32,11 @@ export async function fetchManifest(api, workspaceId) {
 /** Rejects paths that would land outside the folder (report A3.12, finding 34). @param {string} root @param {string} rel */
 export function safeJoin(root, rel) {
   if (!rel || rel.includes("\0") || path.isAbsolute(rel) || /^[a-zA-Z]:/.test(rel)) throw new CliError("UNSAFE_PATH", `Refusing an unsafe path from the server: ${JSON.stringify(rel)}`);
+  // Never inside a .git or .networkbase folder, at any depth or letter case: a file there (a hook, a config) would
+  // run commands or replace nb's own state (found in the M5 security review of the executable bit).
+  if (rel.split("/").some((part) => /^\.(git|networkbase)$/i.test(part))) {
+    throw new CliError("UNSAFE_PATH", `Refusing a file inside a .git or .networkbase folder: ${JSON.stringify(rel)}`, { details: { protected: true } });
+  }
   const target = path.resolve(root, ...rel.split("/"));
   const inside = path.relative(root, target);
   if (!inside || inside.startsWith("..") || path.isAbsolute(inside)) throw new CliError("UNSAFE_PATH", `Refusing a path outside this folder: ${JSON.stringify(rel)}`);

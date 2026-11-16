@@ -238,7 +238,7 @@ test("paths: .., Windows-reserved names and never-synced folders are refused", a
   const { workspace, cli } = await setup([]);
   const started = await call(ws.POST, cli, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "t" }, { params: Promise.resolve({ id: workspace }) });
   const cs = started.json.data.changeSet.id;
-  for (const path of ["/../etc/passwd", "/CON.txt", "/.git/config", "/a/aux"]) {
+  for (const path of ["/../etc/passwd", "/CON.txt", "/.git/config", "/a/aux", "/sub/.git/hooks/pre-commit", "/x/.GIT/config", "/y/.networkbase/state.json"]) {
     const res = await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${cs}/items`, { items: [{ op: "add", path, contentHash: sha("x"), size: 1 }] }, csCtx(cs));
     assert.equal(res.json.errorCode, "BAD_PATH", path);
   }

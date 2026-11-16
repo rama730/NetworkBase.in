@@ -72,7 +72,8 @@ export function normalizeChangePath(raw: string): string {
   for (const part of parts) {
     if (part === "." || part === ".." || RESERVED.test(part) || /[\u0000-\u001f<>:"|?*]/.test(part) || /[. ]$/.test(part)) fail(`Not a usable path: ${raw}`, 400, "BAD_PATH");
   }
-  if (parts[0] === ".networkbase" || parts[0] === ".system" || parts[0] === ".git") fail(`${path} is never synced`, 400, "BAD_PATH");
+  // At any depth and in any letter case: a .git folder's hooks or config would run commands on whoever pulls it.
+  if (parts.some((part) => /^\.(git|networkbase)$/i.test(part)) || /^\.system$/i.test(parts[0]!)) fail(`${path} is never synced`, 400, "BAD_PATH");
   return path;
 }
 
