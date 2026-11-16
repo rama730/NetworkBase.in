@@ -19,7 +19,9 @@ export async function DELETE(request: Request, context: Context) {
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     if (auth.tokenKind === "agent") return jsonError("Practice is for people; sign in with nb login", 403, "AGENT_NOT_ALLOWED");
     const { workspaceId } = await context.params;
-    if (!UUID.test(workspaceId) || !(await endSandbox(auth.user.id, workspaceId))) return jsonError("No practice workspace of yours with that id", 404, "NOT_FOUND");
+    const result = UUID.test(workspaceId) ? await endSandbox(auth.user.id, workspaceId) : "missing";
+    if (result === "missing") return jsonError("No practice workspace of yours with that id", 404, "NOT_FOUND");
+    if (result === "kept") return jsonError("Other people are in it now, so it's kept as a normal workspace", 409, "CONFLICT");
     return jsonSuccess({ deleted: workspaceId });
   } catch (error) {
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/sandbox", fallback: "Couldn’t delete the practice workspace" });

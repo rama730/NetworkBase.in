@@ -27,11 +27,11 @@ test("one private practice workspace per person, owned by them, ending in 24 hou
 test("only its owner ends it, and a real workspace is never deleted this way", async () => {
   const [me, other] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
   const mine = await sandbox.startSandbox(me!);
-  assert.equal(await sandbox.endSandbox(other!, mine.id), false, "someone else's");
+  assert.equal(await sandbox.endSandbox(other!, mine.id), "missing", "someone else's");
   const real = await sql.begin((tx) => createProject(tx, me!));
-  assert.equal(await sandbox.endSandbox(me!, real), false, "a real workspace");
+  assert.equal(await sandbox.endSandbox(me!, real), "missing", "a real workspace");
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspaces WHERE id = ${real}`)[0]!.n, 1);
-  assert.equal(await sandbox.endSandbox(me!, mine.id), true);
+  assert.equal(await sandbox.endSandbox(me!, mine.id), "deleted");
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspaces WHERE id = ${mine.id}`)[0]!.n, 0);
 });
 
@@ -48,4 +48,16 @@ test("the sweep deletes practice workspaces past their time, and an expired one 
   assert.ok(swept.deleted >= 1);
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspaces WHERE id = ${left.id}`)[0]!.n, 0);
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspaces WHERE id = ${fresh.id}`)[0]!.n, 1, "a live one stays");
+});
+
+test("a practice workspace someone else joined has become real: it's kept, never swept (security review)", async () => {
+  const [me, friend] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const mine = await sandbox.startSandbox(me!);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${mine.id}, ${friend!}, 'member')`;
+  await sql`UPDATE workspaces SET sandbox_expires_at = now() - interval '1 minute' WHERE id = ${mine.id}`;
+  await sandbox.sweepSandboxes();
+  const [row] = await sql`SELECT sandbox_expires_at FROM workspaces WHERE id = ${mine.id}`;
+  assert.ok(row, "still there");
+  assert.equal(row!.sandbox_expires_at, null, "no longer a sandbox");
+  assert.equal(await sandbox.endSandbox(me!, mine.id), "missing", "and nb learn can't delete it either");
 });

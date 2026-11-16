@@ -35,16 +35,32 @@ export async function startSandbox(userId: string) {
   return { ...made, created: true };
 }
 
-/** Deletes a practice workspace, as deleting a workspace does (its stored files go too). Never a real workspace. */
-export async function endSandbox(userId: string | null, workspaceId: string) {
+/**
+ * Deletes a practice workspace, as deleting a workspace does (its stored files go too). Only while it's still just
+ * practice: once anyone else is in it, invited or applying, or it's inside an organization, it has become a real
+ * workspace, so it's kept and stops being a sandbox (security review). Never a real workspace.
+ * @returns "deleted", "kept" (it became real) or "missing"
+ */
+export async function endSandbox(userId: string | null, workspaceId: string): Promise<"deleted" | "kept" | "missing"> {
   return db.transaction(async (tx) => {
-    const [row] = await tx.select({ id: workspaces.id }).from(workspaces)
-      .where(and(eq(workspaces.id, workspaceId), isNotNull(workspaces.sandboxExpiresAt), ...(userId ? [eq(workspaces.ownerId, userId)] : [])))
-      .for("update").limit(1);
-    if (!row) return false;
+    const [row] = await tx.execute<{ id: string; alone: boolean }>(sql`
+      SELECT w.id,
+             (w.parent_id IS NULL AND w.kind = 'workspace'
+              AND NOT EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id <> w.owner_id)
+              AND NOT EXISTS (SELECT 1 FROM workspace_invitations i WHERE i.workspace_id = w.id)
+              AND NOT EXISTS (SELECT 1 FROM role_applications a WHERE a.workspace_id = w.id)) AS alone
+      FROM workspaces w
+      WHERE w.id = ${workspaceId}::uuid AND w.sandbox_expires_at IS NOT NULL ${userId ? sql`AND w.owner_id = ${userId}::uuid` : sql``}
+      FOR UPDATE OF w
+    `);
+    if (!row) return "missing";
+    if (!row.alone) {
+      await tx.update(workspaces).set({ sandboxExpiresAt: null }).where(eq(workspaces.id, workspaceId));
+      return "kept";
+    }
     await scheduleWorkspaceStorageDeletion(tx, workspaceId);
     await tx.delete(workspaces).where(eq(workspaces.id, workspaceId));
-    return true;
+    return "deleted";
   });
 }
 
@@ -53,6 +69,11 @@ export async function sweepSandboxes(limit = 50) {
   const due = await db.select({ id: workspaces.id }).from(workspaces)
     .where(and(isNotNull(workspaces.sandboxExpiresAt), lte(workspaces.sandboxExpiresAt, sql`now()`))).limit(limit);
   let deleted = 0;
-  for (const w of due) if (await endSandbox(null, w.id)) deleted += 1;
-  return { deleted };
+  let kept = 0;
+  for (const w of due) {
+    const r = await endSandbox(null, w.id);
+    if (r === "deleted") deleted += 1;
+    if (r === "kept") kept += 1;
+  }
+  return { deleted, kept };
 }
