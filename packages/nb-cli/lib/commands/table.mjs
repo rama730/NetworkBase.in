@@ -77,6 +77,8 @@ export const COMMANDS = [
     examples: ["npx @networkbase/cli start", "nb start design-lab"] },
   { group: "Account and setup", name: "learn", summary: "Five minutes of guided practice in a workspace made for it", usage: "nb learn [--keep]", module: "learn", fn: "learn",
     flags: { keep: { type: "boolean", describe: "Keep the practice workspace for 24 hours" } } },
+  { group: "Account and setup", name: "ui", summary: "A full-screen view: tasks, inbox and changed files", usage: "nb ui", module: "ui", fn: "ui",
+    examples: ["nb ui", "nb ui --plain   (the same as nb status)"] },
   { group: "Account and setup", name: "status", summary: "What changed here, the started task, conflicts", usage: "nb status", module: "files", fn: "status", exit: [0, 3, 4, 8] },
   { group: "Account and setup", name: "doctor", summary: "Check sign-in, server, link, Node and this folder", usage: "nb doctor [--repair]", module: "misc", fn: "doctor",
     flags: { repair: { type: "boolean", describe: "Fix what can be fixed (lock, temp files)" } } },

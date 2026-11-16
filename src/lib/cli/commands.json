@@ -143,6 +143,20 @@
       ]
     },
     {
+      "name": "start",
+      "summary": "Start from nothing: sign in, link this folder, pull",
+      "usage": "nb start [workspace]",
+      "flags": {},
+      "examples": [
+        "npx @networkbase/cli start",
+        "nb start design-lab"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "learn",
       "summary": "Five minutes of guided practice in a workspace made for it",
       "usage": "nb learn [--keep]",
@@ -153,6 +167,20 @@
         }
       },
       "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ui",
+      "summary": "A full-screen view: tasks, inbox and changed files",
+      "usage": "nb ui",
+      "flags": {},
+      "examples": [
+        "nb ui",
+        "nb ui --plain   (the same as nb status)"
+      ],
       "exitCodes": [
         0,
         1

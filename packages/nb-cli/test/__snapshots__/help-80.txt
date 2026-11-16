@@ -17,7 +17,7 @@ Most used
 
 More
   Account and setup
-    login, logout, token list, token revoke, whoami, unlink, start, learn,
+    login, logout, token list, token revoke, whoami, unlink, start, learn, ui,
     doctor, open, uninstall, version, help, upgrade, completion, setup shell,
     feedback, config, inbox read, inbox reply, inbox approve, inbox settings,
     inbox mute, inbox open
