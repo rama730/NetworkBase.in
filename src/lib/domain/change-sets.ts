@@ -461,8 +461,8 @@ async function inBatches<T>(list: T[], n: number, fn: (x: T) => Promise<void>) {
 }
 
 /** The item list's fingerprint: a yes covers exactly these items (G13). */
-async function itemsHash(changeSetId: string) {
-  const rows = await db.select({ op: changeSetItems.op, path: changeSetItems.path, from: changeSetItems.fromPath, hash: changeSetItems.contentHash })
+async function itemsHash(changeSetId: string, executor: Pick<typeof db, "select"> = db) {
+  const rows = await executor.select({ op: changeSetItems.op, path: changeSetItems.path, from: changeSetItems.fromPath, hash: changeSetItems.contentHash })
     .from(changeSetItems).where(eq(changeSetItems.changeSetId, changeSetId)).orderBy(asc(changeSetItems.path));
   return crypto.createHash("sha256").update(JSON.stringify(rows)).digest("base64url");
 }
@@ -494,6 +494,8 @@ export async function finishChangeSet(actor: Actor, changeSetId: string, opts: {
   const userId = userOf(actor);
   const set = await loadForWrite(actor, changeSetId, "author");
   if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
+  // What gets checked below is exactly what becomes ready: a change in between (an item, a resolve) is caught under the lock.
+  const checked = await itemsHash(set.id);
   const items = await db.select().from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));
   if (!items.length) fail("This change set has no files yet", 409, "CHANGE_SET_NOT_READY");
   const realBytes = items.reduce((sum, i) => sum + Number(i.size ?? 0), 0);
@@ -519,6 +521,7 @@ export async function finishChangeSet(actor: Actor, changeSetId: string, opts: {
 
   await db.transaction(async (tx) => {
     await lockOpenSet(tx, set.id);
+    if ((await itemsHash(set.id, tx)) !== checked) fail("Files changed while it was being checked; finish again", 409, "CONFLICT");
     for (const [id, l] of lines) await tx.update(changeSetItems).set({ linesAdded: l.added, linesRemoved: l.removed }).where(eq(changeSetItems.id, id));
     await recount(tx, set.id);
     await tx.update(changeSets).set({ status: "ready", readyAt: new Date(), ...(opts.message != null ? { message: opts.message.trim().slice(0, 2000) || null } : {}) }).where(eq(changeSets.id, set.id));
@@ -655,10 +658,10 @@ async function storeBytes(set: ChangeSet, hash: string, bytes: Buffer, mimeType:
 export async function updateDraft(actor: Actor, changeSetId: string) {
   const set = await loadForWrite(actor, changeSetId, "author");
   if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
+  // A draft again before anything changes: finish checks the merged files before the set can apply.
+  await db.transaction(async (tx) => reopenIfReady(tx, await lockOpenSet(tx, set.id)));
   const items = await db.select().from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));
   const { merged, conflicts } = await rebase(set, items);
-  // New content (merges) or files to resolve: finish has to check it again before it can apply.
-  if (merged.length || conflicts.length) await db.update(changeSets).set({ status: "open", readyAt: null, updatedAt: new Date() }).where(and(eq(changeSets.id, set.id), eq(changeSets.status, "ready")));
   const rows = merged.length ? await db.select().from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), inArray(changeSetItems.path, merged))) : [];
   return { merged: rows.map((r) => ({ path: r.path, contentHash: r.contentHash, baseVersion: r.baseVersion, baseHash: r.baseHash })), conflicts };
 }
@@ -674,10 +677,9 @@ export async function resolveItem(actor: Actor, changeSetId: string, input: { pa
   const [item] = await db.select().from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), or(eq(changeSetItems.path, path), eq(changeSetItems.fromPath, path)))).limit(1);
   if (!item) fail("That file isn't in this change set", 404, "NOT_FOUND");
   if (item!.state !== "conflict") fail(`${path} has no conflict to resolve`, 409, "CONFLICT");
-  // Whatever is chosen, the set is a draft again: finish checks it (secrets, line counts) before it can apply.
-  await db.update(changeSets).set({ status: "open", readyAt: null, updatedAt: new Date() }).where(and(eq(changeSets.id, set.id), eq(changeSets.status, "ready")));
+  // Whatever is chosen, the set is a draft again (in the same locked transaction as the change): finish checks it.
   if (input.choice === "theirs") {
-    await db.transaction(async (tx) => { await tx.delete(changeSetItems).where(eq(changeSetItems.id, item!.id)); await recount(tx, set.id); });
+    await db.transaction(async (tx) => { await reopenIfReady(tx, await lockOpenSet(tx, set.id)); await tx.delete(changeSetItems).where(eq(changeSetItems.id, item!.id)); await recount(tx, set.id); });
     return { item: null };
   }
   const kind = (item!.conflict as { kind?: string } | null)?.kind;
@@ -690,7 +692,7 @@ export async function resolveItem(actor: Actor, changeSetId: string, input: { pa
     : { op: (item!.op === "delete" ? "delete" : "add") as ChangeSetItem["op"], baseNodeId: null, baseVersion: null, baseHash: null };
   if (rebased.op === "delete" && !rebased.baseNodeId) {
     // Deleting a file that's already gone: nothing to do.
-    await db.transaction(async (tx) => { await tx.delete(changeSetItems).where(eq(changeSetItems.id, item!.id)); await recount(tx, set.id); });
+    await db.transaction(async (tx) => { await reopenIfReady(tx, await lockOpenSet(tx, set.id)); await tx.delete(changeSetItems).where(eq(changeSetItems.id, item!.id)); await recount(tx, set.id); });
     return { item: null };
   }
   let content: { contentHash: string | null; assetId: string | null; size: number | null; state: ChangeSetItem["state"] } = { contentHash: item!.contentHash, assetId: item!.assetId, size: item!.size, state: "ready" };
@@ -706,6 +708,8 @@ export async function resolveItem(actor: Actor, changeSetId: string, input: { pa
       const hash = String(input.contentHash ?? "").toLowerCase();
       if (!/^[0-9a-f]{64}$/.test(hash)) fail("Send the resolved text, or the hash of uploaded content", 400, "BAD_REQUEST");
       const known = (await knownContent(set.workspaceId, [hash])).get(hash);
+      const bytes = known ? await readAsset(known.id) : null;
+      if (bytes && isAgent(actor) && scanForSecrets(item!.path, bytes).length) fail("That content looks like it holds a password or key", 422, "SECRET_DETECTED");
       content = { contentHash: hash, assetId: known?.id ?? null, size: known?.size ?? null, state: known ? "ready" : "pending" };
     }
   }
@@ -719,6 +723,7 @@ export async function resolveItem(actor: Actor, changeSetId: string, input: { pa
     Object.assign(rebased, { op: item!.op === "rename" ? "change" : item!.op, baseNodeId: item!.baseNodeId, baseVersion: moved?.version ?? null, baseHash: moved?.hash?.toLowerCase() ?? null });
   }
   const [row] = await db.transaction(async (tx) => {
+    await reopenIfReady(tx, await lockOpenSet(tx, set.id));
     const updated = await tx.update(changeSetItems).set({
       ...rebased, ...content, ...(movedTo ? { path: movedTo } : {}), fromPath: rebased.op === "rename" && !movedTo ? item!.fromPath : null, mergedAssetId: null, conflict: { kind: "resolved", choice: input.choice, was: kind ?? null }, updatedAt: new Date(),
     }).where(eq(changeSetItems.id, item!.id)).returning();
@@ -1067,3 +1072,4 @@ export async function askForChanges(actor: Actor, changeSetId: string, text: str
   await addAgentNote(userOf(actor), set.taskId!, { note: `Asked for changes on "${set.title}": ${note}`.slice(0, 2000), agentName: null, sessionId: null });
   return { ok: true };
 }
+

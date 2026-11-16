@@ -485,3 +485,4 @@ test("resolve only settles conflicts, and a resolved set must be finished again 
   assert.equal((await applyIt(cli, cs)).json.errorCode, "CHANGE_SET_NOT_READY", "back to a draft");
   assert.equal((await finishIt(cli, cs)).json.errorCode, "SECRET_DETECTED", "finish checks the resolved text");
 });
+
