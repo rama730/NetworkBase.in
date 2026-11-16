@@ -337,3 +337,20 @@ test("discard, then Copy as new draft brings the same files back as a new open s
   const list = await call(ws.GET, cli, "GET", `/api/v1/workspaces/${workspace}/change-sets?status=open`, undefined, { params: Promise.resolve({ id: workspace }) });
   assert.equal(list.json.data.changeSets.length, 1);
 });
+
+test("sizes come from the uploaded bytes, not the declared size; only people split a finished set", async () => {
+  const { owner, workspace, cli } = await setup([]);
+  const started = await call(ws.POST, cli, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "sizes" }, { params: Promise.resolve({ id: workspace }) });
+  const cs = started.json.data.changeSet.id;
+  const text = "twelve bytes";
+  await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${cs}/items`, { items: [{ op: "add", path: "/x.txt", contentHash: sha(text), size: 1, mimeType: "text/plain" }] }, csCtx(cs));
+  await call(content.POST, cli, "POST", `/api/v1/change-sets/${cs}/content`, { files: [{ hash: sha(text), base64: Buffer.from(text).toString("base64") }] }, csCtx(cs));
+  const [row] = await sql`SELECT i.size, s.bytes FROM change_set_items i JOIN change_sets s ON s.id = i.change_set_id WHERE i.change_set_id = ${cs}`;
+  assert.equal(Number(row!.size), 12);
+  assert.equal(Number(row!.bytes), 12);
+  const open = await applyIt(cli, cs, { only: ["/x.txt"] });
+  assert.equal(open.json.errorCode, "CHANGE_SET_NOT_READY", "an unfinished set can't be split into a ready one");
+  await finishIt(cli, cs);
+  const agent = await token(owner, "agent", workspace, ["file:read", "file:write"]);
+  assert.equal((await applyIt(agent, cs, { only: ["/x.txt"] })).status, 403);
+});

@@ -223,12 +223,12 @@ async function liveFiles(workspaceId: string, paths: string[]) {
 
 /** Verified content this workspace already has, by hash (G6: never uploaded twice). */
 async function knownContent(workspaceId: string, hashes: string[]) {
-  if (!hashes.length) return new Map<string, string>();
-  const rows = await db.selectDistinctOn([storageAssets.contentHash], { hash: storageAssets.contentHash, id: storageAssets.id })
+  if (!hashes.length) return new Map<string, { id: string; size: number | null }>();
+  const rows = await db.selectDistinctOn([storageAssets.contentHash], { hash: storageAssets.contentHash, id: storageAssets.id, size: storageAssets.verifiedSize })
     .from(storageAssets)
     .where(and(eq(storageAssets.projectId, workspaceId), eq(storageAssets.state, "verified"), inArray(storageAssets.contentHash, hashes)))
     .orderBy(storageAssets.contentHash, desc(storageAssets.createdAt));
-  return new Map(rows.map((r) => [r.hash!, r.id]));
+  return new Map(rows.map((r) => [r.hash!, { id: r.id, size: r.size == null ? null : Number(r.size) }]));
 }
 
 /** PUT items (route 4): up to 200 at a time; answers with the content hashes still missing on the server. */
@@ -273,12 +273,13 @@ export async function upsertItems(actor: Actor, changeSetId: string, raw: ItemIn
       }
       // A rename replaces any earlier item at its old path, keeping that item's base.
       if (item.fromPath) await tx.delete(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.path, item.fromPath)));
-      const assetId = item.contentHash ? known.get(item.contentHash) ?? null : null;
+      const knownAsset = item.contentHash ? known.get(item.contentHash) ?? null : null;
+      const assetId = knownAsset?.id ?? null;
       if (item.contentHash && !assetId) missing.add(item.contentHash);
       const values = {
         op, path: item.path, fromPath: op === "rename" ? item.fromPath : null,
         baseNodeId: base?.nodeId ?? null, baseVersion: base?.version ?? null, baseHash: base?.hash ?? null,
-        contentHash: item.contentHash, assetId, size: item.size, mimeType: item.mimeType,
+        contentHash: item.contentHash, assetId, size: knownAsset?.size ?? item.size, mimeType: item.mimeType,
         state: (item.contentHash && !assetId ? "pending" : "ready") as ChangeSetItem["state"],
         conflict: null, mergedAssetId: null, linesAdded: null, linesRemoved: null, updatedAt: new Date(),
       };
@@ -317,6 +318,10 @@ export async function dropItem(actor: Actor, changeSetId: string, rawPath: strin
 /** Stores verified bytes once per workspace and marks the items waiting for them ready (G6). */
 async function storeContent(set: ChangeSet, userId: string, hash: string, bytes: Buffer, mimeType: string) {
   const key = contentKey(set.workspaceId, hash);
+  if (bytes.byteLength > LIMITS.fileBytes) {
+    await (await createAdminClient()).storage.from("project-files").remove([key]);
+    fail("That file is over the 25 MB per-file limit", 413, "FILE_TOO_LARGE");
+  }
   const now = new Date();
   const [inserted] = await db.insert(storageAssets).values({
     ownerUserId: userId,
@@ -338,8 +343,12 @@ async function storeContent(set: ChangeSet, userId: string, hash: string, bytes:
   }).onConflictDoNothing().returning({ id: storageAssets.id });
   const assetId = inserted?.id ?? (await db.select({ id: storageAssets.id }).from(storageAssets).where(and(eq(storageAssets.bucket, "project-files"), eq(storageAssets.storageKey, key))).limit(1))[0]?.id;
   if (!assetId) fail("The stored content couldn't be recorded", 500, "INTERNAL_ERROR");
-  await db.update(changeSetItems).set({ assetId, state: "ready", updatedAt: now })
-    .where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.contentHash, hash), eq(changeSetItems.state, "pending")));
+  // The size that counts is the stored bytes', not the one the client declared (limits, storage, apply).
+  await db.transaction(async (tx) => {
+    await tx.update(changeSetItems).set({ assetId, state: "ready", size: bytes.byteLength, updatedAt: now })
+      .where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.contentHash, hash), eq(changeSetItems.state, "pending")));
+    await recount(tx, set.id);
+  });
   return assetId;
 }
 
@@ -461,6 +470,8 @@ export async function finishChangeSet(actor: Actor, changeSetId: string, opts: {
   if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
   const items = await db.select().from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));
   if (!items.length) fail("This change set has no files yet", 409, "CHANGE_SET_NOT_READY");
+  const realBytes = items.reduce((sum, i) => sum + Number(i.size ?? 0), 0);
+  if (realBytes > LIMITS.bytes) fail("A change set holds at most 500 MB; split it into smaller change sets", 413, "CHANGE_SET_TOO_LARGE");
   const pending = items.filter((i) => i.state === "pending");
   if (pending.length) fail(`${pending.length} file${pending.length === 1 ? "" : "s"} still uploading`, 409, "CONTENT_MISSING", { missing: pending.map((i) => ({ path: i.path, contentHash: i.contentHash })) });
 
@@ -574,7 +585,12 @@ export async function applyChangeSet(actor: Actor, request: Request, changeSetId
   const userId = userOf(actor);
   let set = await loadForWrite(actor, changeSetId, "author-or-admin");
   if (set.status === "applied" && set.applyResult) return { changeSet: set, ...(set.applyResult as unknown as ApplyResult) };
-  if (opts.only?.length) set = await splitOff(actor, set, opts.only);
+  if (opts.only?.length) {
+    // Apply only some files is the person's choice in review (G12), from a finished set (secrets checked, content complete).
+    if (isAgent(actor)) fail("Agents apply whole change sets; the person can apply only some files in the app", 403, "FORBIDDEN");
+    if (set.status !== "ready") fail("Finish the change set first", 409, "CHANGE_SET_NOT_READY");
+    set = await splitOff(actor, set, opts.only);
+  }
   if (set.status !== "ready") fail(set.status === "open" ? "Finish the change set first" : `This change set is ${set.status}`, 409, "CHANGE_SET_NOT_READY");
 
   const { kinds, finals, docs } = await changeKinds(set);
@@ -709,9 +725,10 @@ async function finishApply(actor: Actor, set: ChangeSet, outcome: { already?: Ap
 /** Apply only some files (G12): the chosen items become their own ready set; the rest stay a draft. */
 async function splitOff(actor: Actor, set: ChangeSet, rawPaths: string[]) {
   const paths = rawPaths.map(normalizeChangePath);
-  if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
+  if (set.status !== "ready") fail("Finish the change set first", 409, "CHANGE_SET_NOT_READY");
   return db.transaction(async (tx) => {
-    await lockOpenSet(tx, set.id);
+    const locked = await lockOpenSet(tx, set.id);
+    if (locked.status !== "ready") fail("Finish the change set first", 409, "CHANGE_SET_NOT_READY");
     const chosen = await tx.select({ id: changeSetItems.id, state: changeSetItems.state }).from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), inArray(changeSetItems.path, paths)));
     if (chosen.length !== paths.length) fail("Some of those files aren't in this change set", 404, "NOT_FOUND");
     if (chosen.some((c) => c.state === "pending")) fail("Some of those files are still uploading", 409, "CONTENT_MISSING");
