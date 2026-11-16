@@ -188,3 +188,11 @@ Commits 0887eb929..: all 14 are built and tested, and M5 has no rows below teste
   - Resolving comments is gated: write access, paused agents, and an agent can't resolve a teammate's review.
   - The finals and docs check runs after the access check.
 - **Deploy needs:** 0092 and 0093 in production, push, and npm 2.2.1. No Inngest change.
+
+## The 14 items, live (2026-11-16)
+
+- **Production:** 0092 and 0093 applied. Deployed 6d98852ef at 23:19, then the live-check fix ddc0ce88e.
+- **CLI 2.2.1:** the publish run passed on 3 systems and is staged on npm for approval. The size ceiling was raised to 720 KiB (d2f8474ec): M5 took the package to 640.3 KiB.
+- **Live check on Ponytail** (CLI 2.2.1 from the repo): an executable `run.sh` went through a change set, and `nb pull` in a fresh folder brought it back executable and runnable. Undone and moved to Trash afterwards.
+- **Fixed from the live check (ddc0ce88e):** a folder still listing files a teammate had deleted sent deletes the server refused, which blocked the whole set. Those deletes are now dropped, and a rename of a gone file becomes an add.
+- **Still open:** the signed-in checks in the app (Changes view, line comments, header link, presence, Verify it's you); the live D22 agent eval run.
