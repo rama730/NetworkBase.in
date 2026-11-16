@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.1 (2026-11-16)
+
+### Added
+- `nb change split` makes one finished change set per top-level folder when a change set is over the limits.
+- A file's executable bit travels with it: change sets keep it, and `nb pull` sets it again.
+- `nb change status` and `nb change view` show the review's open comments (line comments from the app).
+
+### Fixed
+- `nb pull` never writes inside a `.git` or `.networkbase` folder, at any depth, in any letter case (and Windows spellings of them); such a file is skipped with a note.
+- `nb change apply` on a small set finished earlier applies without asking; `nb change view` and `status` take a short id.
+
 ## 2.2.0 (2026-11-16)
 
 ### Added

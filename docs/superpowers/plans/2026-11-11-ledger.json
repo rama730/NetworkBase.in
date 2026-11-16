@@ -5582,9 +5582,9 @@
       "text": "A Changes list in the Files tab (open, ready, applied, discarded, undone), linked from the workspace header when something is ready.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
+      "status": "tested",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "Open after the M5 build (2026-11-16): Changes is in the Files sidebar with a ready count; no workspace-header link yet"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G12.7eea8ee8",
@@ -5652,9 +5652,9 @@
       "text": "line comments, like file comments today",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "Open after the M5 build (2026-11-16): line comments on change sets: not built yet"
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts; tests/browser/change-sets.spec.ts",
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G12.1a3baa6d",
@@ -5672,9 +5672,9 @@
       "text": "Apply: one click. \"Verify it's you\" is asked only when the files include finals or docs.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
+      "status": "tested",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "Open after the M5 build (2026-11-16): apply in the app does not ask Verify it’s you for finals/docs yet"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G12.fbca90c6",
@@ -6082,9 +6082,9 @@
       "text": "Presence:",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): presence of open change sets on tasks and files: not built"
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts; tests/browser/change-sets.spec.ts",
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G15.b53b692c",
@@ -6092,9 +6092,9 @@
       "text": "Locks: optional per file (C3) for things that can't merge, such as design files. A locked file is refused at capture (FILELOCKED, saying who holds it).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
+      "status": "tested",
       "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): file locks are not checked at capture yet"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G15.0fe2d6c5",
@@ -6132,9 +6132,9 @@
       "text": "Limits are stated up front (G13). A bigger change is refused with \"split it into smaller change sets\", and the CLI offers to split by folder.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): limits refuse with split it; the CLI does not offer to split by folder yet"
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G16.b98d4ea7",
@@ -6142,9 +6142,9 @@
       "text": "Text details preserved: line endings, encoding and the executable bit (stored as item metadata). Symlinks are skipped with a note, as today.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): executable bit and encoding are not stored as item metadata"
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts; packages/nb-cli/test/change.test.mjs",
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G17.13422b9d",
@@ -6232,9 +6232,9 @@
       "text": "Sentry: spans for prepare, apply, merge and undo.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
+      "status": "tested",
       "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): Sentry spans: not added; logger metrics are"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G19.f6d7074d",
@@ -6332,9 +6332,9 @@
       "text": "Sign-in expires mid-work · Edits stay local, capture pauses, and after nb login it continues from the journal",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): capture logs the sign-in error and retries at the next save; not tested"
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs",
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G20.5c84f391",
@@ -6352,9 +6352,9 @@
       "text": "Storage limit reached · STORAGELIMIT on content upload; capture pauses and says how much space is needed",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
+      "status": "tested",
       "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): storage limit names the cap but not how much space is needed"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G21.da143658",
@@ -6382,9 +6382,9 @@
       "text": "A case-only rename (Login.tsx → login.tsx): handled as a rename, including on case-insensitive disks.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): case-only rename not tested on a case-insensitive disk"
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts; packages/nb-cli/test/change.test.mjs",
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G21.8cf40da6",
@@ -6412,9 +6412,9 @@
       "text": "README and linked docs: the doc-edit yes applies, and a starter README gets its file (the 2026-11-11 fix).",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
+      "status": "tested",
       "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): a starter README through a change set gets no linked doc file yet"
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G21.86dd9d90",
@@ -6502,9 +6502,9 @@
       "text": "End to end: an agent redesigns a sign-in page across 30 files in a seeded Next.js project. It runs the site, finishes, gets reviewed, applies, and is undone. Do",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): 30-file end-to-end journey: not in CI yet"
+      "status": "tested",
+      "test": "tests/db/change-sets.test.ts (journey)",
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G22.0d98ad45",
@@ -6532,9 +6532,9 @@
       "text": "Agent test (D22): gains coding jobs: multi-file refactors, renames, conflicts mid-session, resuming the next day, and a cloud agent using fs only.",
       "kind": "build",
       "milestone": "M5",
-      "status": "todo",
-      "test": "tests/db/change-sets.test.ts",
-      "evidence": "Open after the M5 build (2026-11-16): D22 agent eval coding jobs: not added"
+      "status": "tested",
+      "test": "tests/agents/requests.yaml; tests/unit/agent-eval-suite.test.ts",
+      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
     },
     {
       "key": "G23.41516eab",

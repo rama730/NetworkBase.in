@@ -164,3 +164,27 @@ Commits 13392d904..03a00de0d on local main, not pushed. Ledger: 244 M5 rows test
 - **Not done:**
   - **npm 2.2.0:** GitHub Actions won't start any job ("recent account payments have failed or your spending limit needs to be increased"). The `cli-v2.2.0` tag waits locally on 3384f4bb6.
   - **The Changes view signed in:** needs the user's sign-in. As a visitor, the entry is correctly hidden.
+
+## The 14 open items (built 2026-11-16, local)
+
+Commits 0887eb929..: all 14 are built and tested, and M5 has no rows below tested.
+- **Line comments** in review (0093): on a file or a line; kept as unsent drafts in the browser; resolve and reopen. `nb change status` and `view` show the open ones.
+- **"N change sets ready"** in the workspace header.
+- **"Verify it's you"** before applying finals or docs, in the app and through the API for browser sessions.
+- **Presence:** "Claude Code is changing 23 files for this task" on the task and its files; overlapping drafts named on each other.
+- **Locks:** files locked by someone else are refused at capture and at apply.
+- **Sentry spans** for prepare, apply, merge and undo. They're no-ops until tracing is turned on.
+- **The executable bit** travels with files (0092): stored by change sets, listed in the manifest, set again by `nb pull`.
+- **`nb change split`** makes one finished set per folder.
+- **Tests:**
+  - a case-only rename, on both server and CLI
+  - a sign-in expiring mid-capture
+  - the space needed on the draft cap
+  - the 30-file sign-in journey (review, a teammate's merge, the yes, apply, undo)
+- **Starter README:** a change set adding it links the doc, and that counts as a doc edit for agents.
+- **The agent eval** gained 8 coding jobs (the live run is separate).
+- **Security review fixes:**
+  - `nb pull` never writes inside `.git` or `.networkbase` at any depth, case or Windows spelling; change sets refuse those paths anywhere.
+  - Resolving comments is gated: write access, paused agents, and an agent can't resolve a teammate's review.
+  - The finals and docs check runs after the access check.
+- **Deploy needs:** 0092 and 0093 in production, push, and npm 2.2.1. No Inngest change.
