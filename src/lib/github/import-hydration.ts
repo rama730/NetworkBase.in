@@ -41,9 +41,9 @@ const MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 /**
  * Types the project-files bucket stores (drizzle/0003_storage.sql). The import labels files by extension
  * ("text/typescript", "text/x-python"), which the bucket refuses: those are stored as text/plain, anything else
- * unknown as application/octet-stream. The file keeps its own type for previews (found in the 2026-11-16 backfill).
+ * unknown as application/octet-stream. SVG is refused by the upload rule (it can carry scripts), so it is stored as bytes too. The file keeps its own type for previews (found in the 2026-11-16 backfill).
  */
-const STORABLE = new Set(["text/plain", "text/markdown", "text/csv", "text/html", "text/css", "text/javascript", "text/xml", "application/json", "application/xml", "application/octet-stream", "application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml", "image/bmp", "image/tiff", "image/avif", "image/x-icon", "image/vnd.microsoft.icon", "video/mp4", "video/quicktime", "video/webm", "video/x-msvideo", "video/mpeg", "video/ogg", "video/3gpp", "audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/aac", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/flac", "application/zip", "application/gzip", "application/x-tar"]);
+const STORABLE = new Set(["text/plain", "text/markdown", "text/csv", "text/html", "text/css", "text/javascript", "text/xml", "application/json", "application/xml", "application/octet-stream", "application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff", "image/avif", "image/x-icon", "image/vnd.microsoft.icon", "video/mp4", "video/quicktime", "video/webm", "video/x-msvideo", "video/mpeg", "video/ogg", "video/3gpp", "audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/aac", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/flac", "application/zip", "application/gzip", "application/x-tar"]);
 export const storableType = (mime: string | null | undefined) => {
   const m = (mime ?? "").toLowerCase();
   return STORABLE.has(m) ? m : m.startsWith("text/") ? "text/plain" : "application/octet-stream";

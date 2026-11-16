@@ -123,7 +123,7 @@ test("a type the storage bucket refuses (TypeScript, Python) is stored as text; 
   assert.equal(run.stored, 2);
   const rows = await sql`SELECT n.path, n.mime_type AS node_type, v.mime_type AS stored_type FROM workspace_nodes n JOIN file_versions v ON v.node_id = n.id WHERE n.workspace_id = ${ws} ORDER BY n.path`;
   assert.deepEqual(rows.map((r) => [r.path, r.node_type, r.stored_type]), [["/app.ts", "text/typescript", "text/plain"], ["/tool.py", "text/x-python", "text/plain"]]);
-  assert.equal(hydration.storableType("image/svg+xml"), "image/svg+xml");
+  assert.equal(hydration.storableType("image/svg+xml"), "application/octet-stream");
   assert.equal(hydration.storableType("application/x-weird"), "application/octet-stream");
 });
 
