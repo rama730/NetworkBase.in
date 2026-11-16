@@ -591,3 +591,25 @@ test("a case-only rename applies as a rename and undoes back (G21)", async () =>
   assert.equal((await undoIt(cli, cs)).status, 200);
   assert.deepEqual(await fileState(workspace), { "/Login.tsx": "v1" });
 });
+
+test("a file a teammate locked is refused at capture and at apply, naming who holds it (G15)", async () => {
+  const { workspace, cli } = await setup(["a", "b"]);
+  const teammate = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${workspace}, ${teammate}, 'member')`;
+  await sql`UPDATE profiles SET full_name = 'Sam Lock' WHERE id = ${teammate}`;
+  const lock = async (path: string) => {
+    const [n] = await sql`SELECT id FROM workspace_nodes WHERE workspace_id = ${workspace} AND path = ${path}`;
+    await sql`INSERT INTO workspace_node_locks (node_id, workspace_id, locked_by, session_id, expires_at) VALUES (${n!.id}, ${workspace}, ${teammate}, ${randomUUID()}, now() + interval '10 minutes')`;
+  };
+  await lock("/a.txt");
+  const started = await call(ws.POST, cli, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "locks" }, { params: Promise.resolve({ id: workspace }) });
+  const cs = started.json.data.changeSet.id;
+  const refused = await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${cs}/items`, { items: [{ op: "change", path: "/a.txt", contentHash: sha("x\n"), size: 2 }] }, csCtx(cs));
+  assert.equal(refused.status, 423);
+  assert.match(refused.json.message, /\/a\.txt is locked by Sam Lock/);
+  const { cs: other } = await draft(cli, workspace, [{ op: "change", path: "/b.txt", text: "b new\n" }]);
+  await finishIt(cli, other);
+  await lock("/b.txt");
+  const res = await applyIt(cli, other);
+  assert.equal(res.json.errorCode, "FILE_LOCKED");
+});

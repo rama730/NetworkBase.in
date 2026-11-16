@@ -8,7 +8,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, max, ne, or, sql } from "drizz
 
 import { CONFIRM_HEADER, agentAssignmentBlock, agentGate, issueConfirmToken, needsYes, recordUndo, spendConfirmToken, workspaceAgentPolicy, type ChangeKind } from "@/lib/agents/policy";
 import { db } from "@/lib/db";
-import { changeSetItems, changeSets, fileVersions, storageAssets, taskNodeLinks, undoOperations, workspaceDocuments, workspaceNodes, workspaces } from "@/lib/db/schema";
+import { changeSetItems, changeSets, fileVersions, profiles, storageAssets, taskNodeLinks, undoOperations, workspaceDocuments, workspaceNodeLocks, workspaceNodes, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { ensureParentFoldersTx } from "@/lib/files/ensure-folders";
 import { assertWorkspaceWriteAccessTx, recordNodeEventsBatch } from "@/lib/files/internal-helpers";
@@ -250,6 +250,18 @@ async function knownContent(workspaceId: string, hashes: string[]) {
   return new Map(rows.map((r) => [r.hash!, { id: r.id, size: r.size == null ? null : Number(r.size) }]));
 }
 
+/**
+ * A file someone else locked (C3: things that can't merge, like design files) is refused, naming who holds it (G15).
+ * Checked when items arrive and again at apply. `files` maps node id → path.
+ */
+async function refuseLocked(files: Map<string, string>, userId: string) {
+  if (!files.size) return;
+  const [lock] = await db.select({ nodeId: workspaceNodeLocks.nodeId, by: profiles.fullName, username: profiles.username })
+    .from(workspaceNodeLocks).leftJoin(profiles, eq(profiles.id, workspaceNodeLocks.lockedBy))
+    .where(and(inArray(workspaceNodeLocks.nodeId, [...files.keys()]), ne(workspaceNodeLocks.lockedBy, userId), sql`${workspaceNodeLocks.expiresAt} > now()`)).limit(1);
+  if (lock) fail(`${files.get(lock.nodeId) ?? "A file"} is locked by ${lock.by || (lock.username ? `@${lock.username}` : "a teammate")}`, 423, "FILE_LOCKED", { path: files.get(lock.nodeId) ?? null });
+}
+
 /** PUT items (route 4): up to 200 at a time; answers with the content hashes still missing on the server. */
 export async function upsertItems(actor: Actor, changeSetId: string, raw: ItemInput[]) {
   const userId = userOf(actor);
@@ -271,6 +283,7 @@ export async function upsertItems(actor: Actor, changeSetId: string, raw: ItemIn
   });
   const live = await liveFiles(set.workspaceId, [...new Set(items.flatMap((i) => [i.path, ...(i.fromPath ? [i.fromPath] : [])]))]);
   const known = await knownContent(set.workspaceId, [...new Set(items.flatMap((i) => (i.contentHash ? [i.contentHash] : [])))]);
+  await refuseLocked(new Map([...live.entries()].map(([p, f]) => [f.id, p])), userId);
 
   const missing = new Set<string>();
   await db.transaction(async (tx) => {
@@ -820,6 +833,7 @@ export async function applyChangeSet(actor: Actor, request: Request, changeSetId
   const started = Date.now();
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const { planned, conflicts } = await prepare(set);
+    await refuseLocked(new Map(planned.flatMap((p) => (p.nodeId ? [[p.nodeId, p.item.path] as [string, string]] : []))), userId);
     if (conflicts.length) {
       logger.metric("change_set.conflicts", { module: "files", action: "apply", outcome: "conflict", count: conflicts.length });
       fail(`${conflicts.length} file${conflicts.length === 1 ? "" : "s"} changed since this change set started`, 409, "CHANGE_SET_CONFLICT", { conflicts });
