@@ -501,3 +501,36 @@ test("'with Claude Code' follows the workspace owner's label setting; raw agent 
   const theirs = (await list(await token(teammate, "device", null))).json.data.changeSets[0];
   assert.equal(theirs.madeWith, null, "only the person sees their own agent's label");
 });
+
+test("speed (G22): a 50-file set finishes and applies quickly; 2,000 files apply in one transaction", async () => {
+  const { workspace, cli } = await setup([]);
+  const many = (n: number, tag: string) => Array.from({ length: n }, (_, i) => ({ op: "add", path: `/${tag}/f${String(i).padStart(4, "0")}.ts`, text: `export const v${i} = "${tag}";\n` }));
+  const fifty = await draftMany(cli, workspace, many(50, "fifty"));
+  let t = Date.now();
+  assert.equal((await finishIt(cli, fifty)).status, 200);
+  const finishMs = Date.now() - t;
+  t = Date.now();
+  assert.equal((await applyIt(cli, fifty)).status, 200);
+  const applyMs = Date.now() - t;
+  const big = await draftMany(cli, workspace, many(2000, "big"));
+  assert.equal((await finishIt(cli, big)).status, 200);
+  t = Date.now();
+  const res = await applyIt(cli, big);
+  const bigMs = Date.now() - t;
+  assert.equal(res.status, 200, JSON.stringify(res.json).slice(0, 300));
+  console.log(`speed: 50-file finish ${finishMs} ms, apply ${applyMs} ms; 2,000-file apply ${bigMs} ms`);
+  assert.ok(finishMs < 10_000 && applyMs < 2_000 && bigMs < 30_000, `${finishMs} / ${applyMs} / ${bigMs}`);
+});
+
+/** A set with many files, sent 200 at a time with their content. */
+async function draftMany(t: string, workspace: string, list: Array<{ op: string; path: string; text: string }>) {
+  const started = await call(ws.POST, t, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: `Many ${list.length}` }, { params: Promise.resolve({ id: workspace }) });
+  const cs = started.json.data.changeSet.id as string;
+  for (let i = 0; i < list.length; i += 200) {
+    const chunk = list.slice(i, i + 200);
+    const put = await call(items.PUT, t, "PUT", `/api/v1/change-sets/${cs}/items`, { items: chunk.map((f) => ({ op: f.op, path: f.path, contentHash: sha(f.text), size: Buffer.byteLength(f.text), mimeType: "text/plain" })) }, csCtx(cs));
+    assert.equal(put.status, 200, JSON.stringify(put.json));
+    await call(content.POST, t, "POST", `/api/v1/change-sets/${cs}/content`, { files: chunk.map((f) => ({ hash: sha(f.text), base64: Buffer.from(f.text).toString("base64") })) }, csCtx(cs));
+  }
+  return cs;
+}
