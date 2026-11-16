@@ -178,7 +178,7 @@ export async function hydrateBatch(input: { projectId: string; userId: string; e
   for (const node of wanted.values()) failedPaths.push(node.path);
   if (wanted.size) reasons.set("not in the repository at this commit", wanted.size);
   // Strings, not objects: the logger keeps only flat values (found in the 2026-11-16 backfill).
-  if (failedPaths.length) logger.warn("github.hydrate.batch_failures", { module: "github", projectId: input.projectId, failed: failedPaths.length, stored, reasons: [...reasons].map(([r, n]) => `${n}× ${r}`).join(" | ").slice(0, 600), sample: failedPaths.slice(0, 5).join(", ") });
+  if (failedPaths.length) logger.warn("github.hydrate.batch_failures", { module: "github", projectId: input.projectId, failed: failedPaths.length, count: stored, reason: [...reasons].map(([r, n]) => `${n}× ${r}`).join(" | ").slice(0, 600), path: failedPaths.slice(0, 5).join(", ") });
   return { stored, failed: failedPaths.length, failedPaths, lastPath: nodes.at(-1)!.path };
 }
 
