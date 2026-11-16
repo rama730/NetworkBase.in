@@ -1,6 +1,7 @@
 // nb mcp: the local MCP server for Claude Code, Codex and Cursor (report A7.1, A7.2, A7.5). stdout carries only
 // JSON-RPC messages, one per line (finding 5); everything else goes to stderr. Answers ping and unknown methods
 // (finding 6), negotiates the protocol version (finding 122), and reports tool failures as results (finding 123).
+import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import readline from "node:readline";
 
@@ -174,6 +175,22 @@ export async function serve(ctx, io = {}) {
   /** Heartbeats sent per task (report D5): the task shows this agent for 90 seconds after each, or until it leaves. */
   const pinged = new Map();
   const handle = createMcpHandler({ where, send, version: ctx.version, pinged });
+  // Claude Code stops its servers with SIGINT and kills them within a second, too soon for the end of the session
+  // (found in the 2.1.4 live check): a detached nb mcp finish sends it instead.
+  if (!io.input) {
+    let finishing = false;
+    for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
+      process.removeAllListeners(signal);
+      process.on(signal, () => {
+        if (!finishing) {
+          finishing = true;
+          const pass = /** @type {const} */ (["profile", "api-url"]).flatMap((f) => (ctx.flags[f] ? [`--${f}`, String(ctx.flags[f])] : []));
+          spawn(process.execPath, [process.argv[1] ?? "", "mcp", "finish", ...pass, ...(pinged.size ? ["--tasks", [...pinged.keys()].join(",")] : [])], { cwd: where.cwd, env: where.env, detached: true, stdio: "ignore" }).unref();
+        }
+        process.exit(0);
+      });
+    }
+  }
 
   const lines = readline.createInterface({ input: io.input ?? process.stdin, crlfDelay: Infinity });
   for await (const line of lines) {
@@ -194,10 +211,21 @@ export async function serve(ctx, io = {}) {
     running.add(job);
   }
   await Promise.all(running);
-  // The agent disconnected: send its held notifications now as one summary (report A11.6), with its "What I did"
-  // list for its person (D19). Best effort.
+  await endSession(ctx, where, [...pinged.keys()]);
+}
+
+/**
+ * The agent disconnected: its held notifications go out as one summary (report A11.6), with its "What I did" list for
+ * its person (D19), and it leaves its tasks so a next session isn't told it's "also working". Best effort.
+ * @param {Context} ctx @param {{ cwd: string, env: NodeJS.ProcessEnv }} where @param {string[]} tasks
+ */
+async function endSession(ctx, where, tasks) {
   const did = readSessionLog(where.env).map((d) => d.text).slice(-20);
   await ctx.api.post("/api/v1/agent-sessions/end", did.length ? { did } : {}).catch(() => {});
-  // Off its tasks now, so a next session doesn't hear this one is "also working" (found in the 2.1.4 live check).
-  await Promise.all([...pinged.keys()].map((task) => presenceLeave(where, task)));
+  await Promise.all(tasks.map((task) => presenceLeave(where, task)));
+}
+
+/** nb mcp finish: the end of a session stopped by a signal, run detached (hidden). @param {Context} ctx */
+export async function finish(ctx) {
+  await endSession(ctx, { cwd: ctx.cwd, env: ctx.env }, String(ctx.flags.tasks ?? "").split(",").filter(Boolean).slice(0, 50));
 }

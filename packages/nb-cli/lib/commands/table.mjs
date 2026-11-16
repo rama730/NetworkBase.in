@@ -246,6 +246,8 @@ export const COMMANDS = [
   { group: "Agents", name: "agent remove", summary: "Disconnect an agent and remove its NetworkBase notes", usage: "nb agent remove claude|codex|cursor", module: "agent", fn: "remove" },
   { group: "Agents", name: "mcp", summary: "MCP server for Claude Code, Codex and Cursor (stdio)", usage: "nb mcp", module: "mcp", fn: "serve",
     examples: ["claude mcp add networkbase -- npx -y @networkbase/cli@2 mcp"] },
+  { group: "Agents", name: "mcp finish", summary: "End an agent session that was stopped (nb mcp runs it)", usage: "nb mcp finish [--tasks 4,5]", module: "mcp", fn: "finish", hidden: true,
+    flags: { tasks: { type: "string", describe: "Tasks the session worked on", valueName: "list" } } },
   { group: "Docs and workspaces", name: "doc list", summary: "Workspace docs", usage: "nb doc list", module: "docs", fn: "list" },
   { group: "Docs and workspaces", name: "doc view", summary: "Print a doc (default: the README)", usage: "nb doc view [slug] [--raw]", module: "docs", fn: "view", flags: { raw: { type: "boolean", describe: "Markdown only" } } },
   { group: "Docs and workspaces", name: "doc edit", summary: "Edit a doc in your editor, saved as a new version", usage: "nb doc edit [slug]", module: "docs", fn: "edit", flags: { ...MESSAGE } },

@@ -44,5 +44,7 @@ export async function startMcp({ api, cwd, home, token = "nb_pat_test" }) {
     /** @param {string} name @param {any} [args] */
     async call(name, args = {}) { return (await this.request("tools/call", { name, arguments: args })).result; },
     close() { child.stdin.end(); return new Promise((resolve) => child.on("close", resolve)); },
+    /** @param {NodeJS.Signals} signal */
+    kill(signal) { child.kill(signal); },
   };
 }

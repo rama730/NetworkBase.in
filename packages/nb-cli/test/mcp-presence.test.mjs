@@ -43,3 +43,25 @@ describe("presence per agent (D5, D17)", () => {
     assert.ok(leave, "a leaving message for the task it worked on");
   });
 });
+
+// Claude Code stops nb mcp with SIGINT and kills it within a second (2.1.4 live check): the end still happens.
+describe("a session stopped with a signal", () => {
+  it("still sends its end and leaves its tasks, from a detached nb mcp finish", async () => {
+    const api = await startFakeServer();
+    try {
+      const cwd = await tempDir("nb-sig-");
+      const home = await tempDir("nb-sig-home-");
+      await runCli(["init", "design-lab"], { api: api.url, cwd, home });
+      const t = addTask(api.state, { title: "Signal", status: "in_progress" });
+      const mcp = await startMcp({ api: api.url, cwd, home });
+      await mcp.request("initialize", { protocolVersion: "2025-06-18", clientInfo: { name: "claude-code", version: "2" } });
+      await mcp.call("networkbase_task_context", { task: String(t.taskNumber) });
+      mcp.kill("SIGINT");
+      const deadline = Date.now() + 10_000;
+      const left = () => api.requests.some((q) => q.path === `/api/v1/tasks/${t.id}/presence` && q.body?.leaving === true);
+      while ((!left() || api.state.sessionsEnded < 1) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
+      assert.ok(left(), "left the task");
+      assert.equal(api.state.sessionsEnded, 1, "sent the session's end");
+    } finally { await api.close(); }
+  });
+});
