@@ -56,3 +56,25 @@ The fallback, fetching a file from GitHub when it's opened (`tryRecoverFromGitHu
 4. **Optional: a server GitHub token (your step).** A read-only token for public repositories raises the per-file fallback from 60 to 5,000 calls an hour. It isn't needed once step 3 is done.
 
 **Order:** 1 and 2 in one change, with tests. Then deploy with your go-ahead and Inngest re-synced, then 3 with your OK, then a live check that Ponytail pulls all 143 files.
+
+## Built (local, 2026-11-16)
+
+Commits f2c1968a3, 671038b37, 30d72a44f, 12bd7fe72. Not pushed; production unchanged.
+
+- **Steps 1 and 2 built.**
+  - `src/lib/github/import-hydration.ts` stores files in batches of 1,000 still without content, in path order, picking up after the last path. Progress and the result (done, incomplete with a sample of failed paths, failed) go in with `jsonb_set`.
+  - The job (`workspace-import-hydrate.ts`) only calls it, one step per batch, at most one run per workspace at a time.
+  - The import runner writes its record first, then queues hydration.
+  - The Files tab shows "Not downloaded from GitHub yet", with Fetch now for people who can change the workspace (`src/app/actions/files/import-download.ts`, once per workspace every 10 minutes).
+- **Tests:**
+  - `tests/db/import-hydration.test.ts`: batches, skipping a mismatched or missing file, resuming after a stop, and the count.
+  - `tests/db/import-download-action.test.ts`: who can fetch, one event, no credential in it, the 10-minute limit.
+  - Contracts updated: `github-hydration-integrity`, COR-006.
+  - Gates: unit 3,538, DB 1,060, CLI 269, typecheck 0.
+- **Repositories now:** antigravity-awesome-skills was renamed `sickn33/agentic-awesome-skills` (GitHub redirects; 453 MB with history). gstack is 266 MB, caveman 22 MB, ponytail 13 MB, all public.
+- **Backfill estimate:** 12 batches for antigravity plus 1 each for the others, about 20 Inngest steps in all.
+- **Still to do, each needing your go-ahead:**
+  1. Deploy (no migration).
+  2. Re-sync the Inngest app: the job's concurrency changed.
+  3. The backfill: one `workspace/import.hydrate` per workspace, or Fetch now in each.
+  4. A live check that Ponytail pulls all 143 files.
