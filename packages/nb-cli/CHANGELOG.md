@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.6 (2026-11-16)
+
+### Added
+- `nb message list`, `nb message read #design|@sam` and `nb message send <#channel|@person> "text" [--reply <n>]`: your channels and direct messages from the terminal. Your own sign-in only; agent sign-ins can't read or send messages, and the agent tools ask before reading or sending.
+- `nb learn`: five minutes of guided practice (link, status, push, task start, done) in a practice workspace that's deleted at the end (`--keep` leaves it for 24 hours).
+- `npx @networkbase/cli start` (`nb start`): signs in, links this folder (the workspace named like it first) and pulls, asking only what it can't guess.
+- `nb ui`: tasks, inbox and changed files in one full-screen view. Enter opens, `d` done (twice for a task), `p` push, `/` filter, `?` keys. `--plain` or a pipe prints `nb status`.
+- A single-file `nb` (macOS Apple silicon, Linux x64, Windows x64) is built with every release; Homebrew and Scoop follow once the tap is set up.
+
+### Fixed
+- `--dry-run` stops at the first yes, local changes included (`nb agent setup --dry-run --yes` no longer writes `.mcp.json`).
+- An MCP session Claude Code stops still sends its "What I did" summary and leaves its tasks at once.
+
 ## 2.0.4 (2026-11-11)
 
 ### Added

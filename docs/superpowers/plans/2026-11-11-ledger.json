@@ -442,9 +442,9 @@
       "text": "14 · A failed upload never leaves an empty file entry: the node is made only after the content is stored, or removed on failure · M4",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/discard-unsaved.test.ts",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "0.8.a2d209d1",
@@ -452,9 +452,9 @@
       "text": "15 · A starter README (no file yet) gets Edit in the app, creating its file the same way the CLI does · M4",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/doc-starter-edit.test.ts",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "0.8.0afea991",
@@ -1952,9 +1952,9 @@
       "text": "nb learn: a five-minute guided practice in a sandbox workspace made for it. Nothing touches real workspaces, and the sandbox is deleted at the end.",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/learn.test.mjs; tests/db/sandbox.test.ts",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C1.8e238874",
@@ -2292,9 +2292,9 @@
       "text": "Messages: reading direct messages and channels, and replying: nb message list, nb message read #design, nb message send #design \"…\". (new routes) The app's mess",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/messages.test.mjs; tests/db/chat-api.test.ts",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C4.b244c9e4",
@@ -2404,7 +2404,7 @@
       "milestone": "M4",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "needs a real Windows computer (user step); the CLI suite passes on Windows in CI (Node 20 and 22)"
     },
     {
       "key": "C6.685ddb92",
@@ -2432,9 +2432,9 @@
       "text": "One command to start from nothing: npx @networkbase/cli start signs in, links this folder (with the C1 suggestions) and pulls the files, stopping only to ask wh",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/start.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C7.99385e46",
@@ -2442,9 +2442,9 @@
       "text": "Install without Node:",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "built",
+      "test": "packages/nb-cli/test/single-file.test.mjs; .github/workflows/cli-single-file.yml",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; built and checked in CI; publishing waits for the public tap repository (user step); winget not done (needs a pull request to microsoft/winget-pkgs)"
     },
     {
       "key": "C8.daa562ba",
@@ -2482,9 +2482,9 @@
       "text": "nb ui: a full-screen, keyboard-driven view with three panes: tasks, inbox and changed files.",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/ui.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C10.0078e376",
@@ -2692,9 +2692,9 @@
       "text": "Normal user's day:",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/journeys.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C14b.0f4c0c9c",
@@ -2702,9 +2702,9 @@
       "text": "Heavy user's day:",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/journeys.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C14b.2bb19280",
@@ -2712,39 +2712,39 @@
       "text": "Offline:",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/journeys.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C14b.4aaaeb4e",
       "section": "C14b",
       "text": "nb file history shows that branch's saves",
       "kind": "build",
-      "milestone": "M4",
+      "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved to M8: file commands on a branch come with branches (Part H)"
     },
     {
       "key": "C14b.c5fb135d",
       "section": "C14b",
       "text": "nb file use on a branch makes a save there",
       "kind": "build",
-      "milestone": "M4",
+      "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved to M8: file commands on a branch come with branches (Part H)"
     },
     {
       "key": "C14b.e85d8d25",
       "section": "C14b",
       "text": "nb diff compares with that branch",
       "kind": "build",
-      "milestone": "M4",
+      "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "moved to M8: file commands on a branch come with branches (Part H)"
     },
     {
       "key": "C15.3e811474",
@@ -2792,9 +2792,9 @@
       "text": "Tasks by words, people, dates · new GET /api/v1/resolve?task=&person=&date=: one match, or candidates (shared with D2)",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/work.test.mjs; packages/nb-cli/test/dates.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; changed: words, people and dates resolve in the CLI from the list routes (one match, or the choices), no /api/v1/resolve route"
     },
     {
       "key": "C15.2f6b5e91",
@@ -2902,9 +2902,9 @@
       "text": "Messages · new chat routes (see C4)",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/chat-api.test.ts",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C15.5ffbf701",
@@ -2912,9 +2912,9 @@
       "text": "nb learn · new POST /api/v1/sandbox: a temporary workspace flagged as a sandbox, deleted after 24 hours",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/sandbox.test.ts",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C15.acf19a67",
@@ -2942,9 +2942,9 @@
       "text": "Each new command gets the usual pieces:",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/tty.test.mjs (help snapshot); src/lib/cli/commands.json; packages/nb-cli/test/errors-audit.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C15.887469c1",
@@ -2952,9 +2952,9 @@
       "text": "nb ui, completions and the prompt are CLI-only.",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/ui.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C15.8a89f92d",
@@ -2962,9 +2962,9 @@
       "text": "The single-file builds, Homebrew, winget and Scoop are release-pipeline work (publish-cli.yml and package repositories). User steps: create the Homebrew tap rep",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "built",
+      "test": "packages/nb-cli/scripts/single-file.mjs; packages/nb-cli/scripts/packages.mjs; .github/workflows/publish-cli.yml",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; user steps: the public tap repository (variable NB_TAP_REPO), the tap-release environment with reviewers and its NB_TAP_TOKEN; winget pull request"
     },
     {
       "key": "C15.67e4737f",
@@ -2972,9 +2972,9 @@
       "text": "2.1.0: C1–C6, C8, C10–C14, and the server pieces above apart from messages, nb learn and nb ui.",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "the 2.1.0 release",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; 2.1.0 shipped in M4a"
     },
     {
       "key": "C15.583f44c9",
@@ -2982,9 +2982,9 @@
       "text": "2.1.x: nb ui, messages, nb learn, single-file builds and package managers.",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "the M4d suites",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C15.ba38e611",
@@ -2992,9 +2992,9 @@
       "text": "every new command passes the CLI suite on Ubuntu, macOS and Windows (Node 20 and 22)",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": ".github/workflows/publish-cli.yml (Ubuntu, macOS, Windows, Node 20 and 22)",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C15.3c07871c",
@@ -3022,9 +3022,9 @@
       "text": "the live walkthrough steps for the terminal journey (E1) pass on CLI 2.1.0",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/journeys.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; the live terminal journey runs at the M4 close"
     },
     {
       "key": "C15.446357a5",
@@ -3032,9 +3032,9 @@
       "text": "Scope creep makes 2.1.0 too big. Handled by the release split above.",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "n/a-live",
+      "test": "docs/superpowers/plans/2026-11-12-m4-parts-c-d.md",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; the release split held: 2.1.0 to 2.1.6"
     },
     {
       "key": "C15.a02e60b2",
@@ -3042,9 +3042,9 @@
       "text": "Messages through tokens raise privacy questions. Handled with their own scopes, which are off for agents.",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/chat-api.test.ts; packages/nb-cli/test/messages.test.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C16.7445226a",
@@ -10112,9 +10112,9 @@
       "text": "Someone with no Node installed: the single-file install (C7).",
       "kind": "build",
       "milestone": "M4",
-      "status": "todo",
-      "test": "",
-      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
+      "status": "built",
+      "test": "packages/nb-cli/scripts/single-file.mjs",
+      "evidence": "M4d, local main (a028e54af..), 2026-11-16; the same as C7: downloads go live with the tap repository"
     },
     {
       "key": "E2.a1925b02",
