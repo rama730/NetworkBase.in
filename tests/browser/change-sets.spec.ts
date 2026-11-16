@@ -11,7 +11,7 @@ const ITEMS = [
   { id: 'i4', op: 'delete', path: '/app/old-login.tsx', fromPath: null, state: 'ready', linesAdded: null, linesRemoved: null, conflict: null },
 ];
 
-async function open(page: Page, { sets = [SET], enabled = true, width = 1440, theme = 'light', path = '/' }: { sets?: unknown[]; enabled?: boolean; width?: number; theme?: string; path?: string } = {}) {
+async function open(page: Page, { sets = [SET], enabled = true, width = 1440, theme = 'light', path = '/', items = ITEMS }: { sets?: unknown[]; enabled?: boolean; width?: number; theme?: string; path?: string; items?: unknown[] } = {}) {
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript(({ sets, enabled, items }) => {
     const calls: unknown[] = [];
@@ -27,8 +27,11 @@ async function open(page: Page, { sets = [SET], enabled = true, width = 1440, th
       undoChangeSetAction: async (...a: unknown[]) => { calls.push(['undo', ...a]); status = 'undone'; return { success: true, data: {} }; },
       discardChangeSetAction: async (...a: unknown[]) => { calls.push(['discard', ...a]); status = 'discarded'; return { success: true, data: {} }; },
       askForChangesAction: async (...a: unknown[]) => { calls.push(['ask', ...a]); return { success: true, data: { ok: true } }; },
+      updateDraftAction: async (...a: unknown[]) => { calls.push(['update', ...a]); return { success: true, data: { merged: [], conflicts: [] } }; },
+      conflictSidesAction: async (_id: string, path: string) => ({ success: true, data: { path, kind: 'edit', base: 'a\nb\n', theirs: 'a\nTHEIRS\n', mine: 'a\nMINE\n' } }),
+      resolveItemAction: async (...a: unknown[]) => { calls.push(['resolve', ...a]); return { success: true, data: { item: null } }; },
     };
-  }, { sets, enabled, items: ITEMS });
+  }, { sets, enabled, items });
   await openApp(page, 'tests/browser/change-sets.fixture.tsx', { path, head: theme === 'dark' ? "document.documentElement.classList.add('dark')" : '' });
 }
 
@@ -108,3 +111,31 @@ for (const theme of ['light', 'dark'] as const) {
     });
   }
 }
+
+const CONFLICTED = [{ id: 'c1', op: 'change', path: '/app/page.tsx', fromPath: null, state: 'conflict', linesAdded: 1, linesRemoved: 1, conflict: { kind: 'edit' } }];
+
+test('a conflicted file opens the merge editor: base, theirs and yours; keep one or edit the result', async ({ page }) => {
+  await open(page, { path: '/?changes=cs1', items: CONFLICTED });
+  await expect(page.getByRole('status').filter({ hasText: 'changed since' })).toBeVisible();
+  const diff = page.getByRole('region', { name: 'Diff' });
+  await expect(diff.getByText('Someone changed the same lines')).toBeVisible();
+  await expect(diff.getByText('Theirs (now in the workspace)')).toBeVisible();
+  await expect(diff.getByText('MINE')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+  await diff.getByRole('button', { name: 'Edit the result' }).click();
+  await page.getByLabel('The result').fill('a\nBOTH\n');
+  await diff.getByRole('button', { name: 'Use this result' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toEqual([['resolve', 'cs1', '/app/page.tsx', 'content', 'a\nBOTH\n']]);
+});
+
+test('Update brings in the latest files', async ({ page }) => {
+  await open(page, { path: '/?changes=cs1' });
+  await page.getByRole('button', { name: 'Update' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toEqual([['update', 'cs1']]);
+});
+
+test('the merge editor has no accessibility violations, dark, 390px', async ({ page }) => {
+  await open(page, { path: '/?changes=cs1', items: CONFLICTED, theme: 'dark', width: 390 });
+  await expect(page.getByRole('region', { name: 'Diff' }).getByText('MINE')).toBeVisible();
+  expect(await axeViolations(page)).toEqual([]);
+});

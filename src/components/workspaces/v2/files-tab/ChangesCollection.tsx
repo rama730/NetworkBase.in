@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, FileDiff, GitMerge, MessageSquare, Search, Undo2, X } from "lucide-react";
+import { ArrowLeft, Copy, FileDiff, GitMerge, MessageSquare, RefreshCw, Search, Undo2, X } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
 
 import {
-  applyChangeSetAction, askForChangesAction, changeSetDiffAction, copyChangeSetAction, discardChangeSetAction, getChangeSetAction, listChangeSetsAction, undoChangeSetAction,
+  applyChangeSetAction, askForChangesAction, changeSetDiffAction, conflictSidesAction, copyChangeSetAction, discardChangeSetAction, getChangeSetAction, listChangeSetsAction, resolveItemAction, undoChangeSetAction, updateDraftAction,
 } from "@/app/actions/files/change-sets";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -20,7 +20,7 @@ import { useFilesTabRole } from "./FilesTabRoleContext";
  * ?tab=files&filesView=changes, or one directly with &changes=<id>.
  */
 type Set = { id: string; title: string; message: string | null; status: string; taskId: string | null; filesAdded: number; filesChanged: number; filesDeleted: number; filesRenamed: number; linesAdded: number; linesRemoved: number; updatedAt: string | Date; readyAt: string | Date | null; createdAt: string | Date; via: string | null; agentName: string | null };
-type Item = { id: string; op: "add" | "change" | "delete" | "rename"; path: string; fromPath: string | null; state: string; linesAdded: number | null; linesRemoved: number | null; conflict: { kind?: string } | null };
+type Item = { id: string; op: "add" | "change" | "delete" | "rename"; path: string; fromPath: string | null; state: string; linesAdded: number | null; linesRemoved: number | null; conflict: { kind?: string; onto?: number } | null };
 
 const GROUPS: Array<{ key: string; label: string; test: (i: Item) => boolean }> = [
   { key: "conflict", label: "Changed since", test: (i) => i.state === "conflict" },
@@ -222,6 +222,7 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
                   <GitMerge className="size-4" aria-hidden />{busy === "apply" ? "Applying…" : only.size ? `Apply ${only.size} selected` : "Apply"}
                 </Button>
               ) : null}
+              {draft ? <Button size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => void act("update", () => updateDraftAction(id), "Updated with the latest files")}><RefreshCw className="size-4" aria-hidden />Update</Button> : null}
               {draft ? <Button size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => setConfirm("discard")}>Discard</Button> : null}
               {draft && s.taskId ? <Button size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => setAsking(true)}><MessageSquare className="size-4" aria-hidden />Ask for changes</Button> : null}
               {s.status === "applied" ? <Button size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => setConfirm("undo")}><Undo2 className="size-4" aria-hidden />Undo</Button> : null}
@@ -273,7 +274,7 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
           />
         </nav>
         <section aria-label="Diff" className="min-h-0 min-w-0 flex-1 overflow-auto">
-          {current ? <ItemDiffView id={id} path={current} item={view.data.items.find((i) => i.path === current) ?? null} /> : <p className="p-4 text-sm text-muted-foreground">No files match.</p>}
+          {current ? <ItemDiffView id={id} path={current} item={view.data.items.find((i) => i.path === current) ?? null} canResolve={canEdit && draft} onResolved={refresh} /> : <p className="p-4 text-sm text-muted-foreground">No files match.</p>}
         </section>
       </div>
 
@@ -302,7 +303,85 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
   );
 }
 
-function ItemDiffView({ id, path, item }: { id: string; path: string; item: Item | null }) {
+function ItemDiffView({ id, path, item, canResolve, onResolved }: { id: string; path: string; item: Item | null; canResolve: boolean; onResolved: () => void }) {
+  if (item?.state === "conflict") return <MergeEditor id={id} path={path} item={item} canResolve={canResolve} onResolved={onResolved} />;
+  return <DiffBody id={id} path={path} item={item} />;
+}
+
+const CONFLICT_WORDS: Record<string, string> = {
+  edit: "Someone changed the same lines since this change set started.",
+  deleted: "This file was deleted since. Keep yours to bring it back.",
+  moved: "This file was moved since. Keep yours to apply the edit where it is now.",
+  exists: "A file with this name was added since. Keep yours to make yours its new version.",
+};
+
+/** The merge editor (G9, G12): base, theirs and yours side by side; keep one, or edit the result. */
+function MergeEditor({ id, path, item, canResolve, onResolved }: { id: string; path: string; item: Item; canResolve: boolean; onResolved: () => void }) {
+  const sides = useQuery({
+    queryKey: ["change-set-sides", id, path],
+    queryFn: async () => {
+      const res = await conflictSidesAction(id, path);
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+  });
+  const [editing, setEditing] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const choose = async (choice: "mine" | "theirs" | "content") => {
+    setBusy(true);
+    try {
+      const res = await resolveItemAction(id, path, choice, choice === "content" ? editing ?? "" : undefined);
+      if (!res.success) { toast.error(res.error); return; }
+      toast.success(choice === "theirs" ? "Kept theirs: this file leaves the change set" : "Resolved: finish the change set again to apply it");
+      setEditing(null);
+      onResolved();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const kind = item.conflict?.kind ?? "edit";
+  const column = (label: string, text: string | null | undefined) => (
+    <figure className="min-w-0 rounded-md border border-border">
+      <figcaption className="border-b border-border px-2 py-1 text-xs text-muted-foreground">{label}</figcaption>
+      <pre className="max-h-[50vh] overflow-auto whitespace-pre p-2 font-mono text-xs leading-5 text-foreground">{text ?? "(not a text file, or none)"}</pre>
+    </figure>
+  );
+  return (
+    <div className="p-3">
+      <p className="mb-2 truncate font-mono text-xs text-muted-foreground">{path}</p>
+      <p role="status" className="mb-3 text-sm text-foreground">{CONFLICT_WORDS[kind] ?? CONFLICT_WORDS.edit}</p>
+      {sides.isLoading ? <div className="h-40 animate-pulse rounded bg-muted" aria-busy="true" /> : sides.isError || !sides.data ? (
+        <p role="alert" className="text-sm text-destructive">{sides.error instanceof Error ? sides.error.message : "Couldn’t load the versions"}</p>
+      ) : editing !== null ? (
+        <div>
+          <label htmlFor="merge-result" className="mb-1 block text-xs text-muted-foreground">The result</label>
+          <textarea id="merge-result" value={editing} onChange={(e) => setEditing(e.target.value)} spellCheck={false} className="h-[50vh] w-full rounded-md border border-border bg-background p-2 font-mono text-xs" />
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" disabled={busy} onClick={() => void choose("content")}>Use this result</Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-2 lg:grid-cols-3">
+            {column("Base (where it started)", sides.data.base)}
+            {column("Theirs (now in the workspace)", sides.data.theirs)}
+            {column("Yours (this change set)", sides.data.mine)}
+          </div>
+          {canResolve ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" disabled={busy} onClick={() => void choose("mine")}>Keep yours</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void choose("theirs")}>Keep theirs</Button>
+              {sides.data.mine != null ? <Button size="sm" variant="outline" disabled={busy} onClick={() => setEditing(sides.data.mine ?? "")}>Edit the result</Button> : null}
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function DiffBody({ id, path, item }: { id: string; path: string; item: Item | null }) {
   const diff = useQuery({
     queryKey: ["change-set-diff", id, path],
     queryFn: async () => {
@@ -314,7 +393,7 @@ function ItemDiffView({ id, path, item }: { id: string; path: string; item: Item
   });
   return (
     <div className="p-3">
-      <p className="mb-2 truncate font-mono text-xs text-muted-foreground">{item?.fromPath ? `${item.fromPath} → ${path}` : path}{item?.state === "conflict" ? ` · changed since (${item.conflict?.kind ?? "edit"})` : ""}</p>
+      <p className="mb-2 truncate font-mono text-xs text-muted-foreground">{item?.fromPath ? `${item.fromPath} → ${path}` : path}{item?.conflict?.kind === "merged" ? ` · merged automatically with v${item.conflict.onto} (shown against it)` : ""}</p>
       {diff.isLoading ? <div className="h-40 animate-pulse rounded bg-muted" aria-busy="true" /> : diff.isError || !diff.data ? (
         <p role="alert" className="text-sm text-destructive">{diff.error instanceof Error ? diff.error.message : "Couldn’t load the diff"}</p>
       ) : diff.data.kind === "text" ? (
