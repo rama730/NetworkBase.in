@@ -904,9 +904,41 @@ async function applyPlanned(set: ChangeSet, planned: Planned[], userId: string) 
   });
 }
 
+/**
+ * After an apply (G10 step 3): one notification for the whole change set, never one per file (0.8 #10), to the
+ * task's assignee and creator. Best effort: the files are already applied.
+ */
+async function notifyApplied(set: ChangeSet, actorUserId: string, files: number) {
+  if (!set.taskId) return;
+  try {
+    const { enqueueWorkspaceNotificationEvents } = await import("@/lib/notifications/workspace-events");
+    const { profiles, tasks } = await import("@/lib/db/schema");
+    const [[task], [actor]] = await Promise.all([
+      db.select({ id: tasks.id, number: tasks.taskNumber, assigneeId: tasks.assigneeId, creatorId: tasks.creatorId, slug: workspaces.slug, key: workspaces.key }).from(tasks).innerJoin(workspaces, eq(workspaces.id, tasks.projectId)).where(eq(tasks.id, set.taskId)).limit(1),
+      db.select({ name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(eq(profiles.id, actorUserId)).limit(1),
+    ]);
+    const recipients = [...new Set([task?.assigneeId, task?.creatorId].filter((id): id is string => Boolean(id) && id !== actorUserId))];
+    if (!task || !recipients.length) return;
+    const actorName = actor?.name || actor?.username || null;
+    await enqueueWorkspaceNotificationEvents([{
+      projectId: set.workspaceId, actorUserId, actorName, actorAvatarUrl: actor?.avatarUrl ?? null,
+      eventKey: "files.version_added", taskParticipantIds: recipients, reviewerIds: null,
+      title: `${actorName || "Someone"} applied a change set`,
+      body: `${set.title}: ${files} file${files === 1 ? "" : "s"}`,
+      href: `/workspaces/${encodeURIComponent(task.slug || set.workspaceId)}?tab=files&filesView=changes&changes=${set.id}`,
+      entityRefs: { projectId: set.workspaceId, projectSlug: task.slug ?? null, taskId: task.id },
+      preview: { actorName, actorAvatarUrl: actor?.avatarUrl ?? null, contextLabel: task.key && task.number ? `${task.key}-${task.number}` : "Change set", contextKind: "file", secondaryText: set.title },
+      sourceEventId: `${set.id}:applied`,
+    }], { actorName, actorAvatarUrl: actor?.avatarUrl ?? null });
+  } catch (error) {
+    logger.warn("change_set.notify_failed", { module: "files", reason: error instanceof Error ? error.message : String(error) });
+  }
+}
+
 async function finishApply(actor: Actor, set: ChangeSet, outcome: { already?: ApplyResult; result?: ApplyResult }) {
   if (outcome.already) return { changeSet: (await findChangeSet(set.id)), ...outcome.already };
   const result = outcome.result!;
+  await notifyApplied(set, userOf(actor), result.applied.length);
   // Agents' and the CLI's 24-hour undo token (A2.9); the app undoes with the change set itself, without a time limit.
   const undoToken = await recordUndo(actor, {
     workspaceId: set.workspaceId,

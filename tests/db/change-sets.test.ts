@@ -534,3 +534,20 @@ async function draftMany(t: string, workspace: string, list: Array<{ op: string;
   }
   return cs;
 }
+
+test("applying a change set on a task tells its assignee once, not once per file", async () => {
+  const { workspace, cli } = await setup(["a", "b", "c"]);
+  const teammate = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${workspace}, ${teammate}, 'member')`;
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, status, assignee_id) VALUES (${workspace}, 'Sign-in page', 'in_progress', ${teammate}) RETURNING id`;
+  const started = await call(ws.POST, cli, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "Redesign", taskId: task!.id }, { params: Promise.resolve({ id: workspace }) });
+  const cs = started.json.data.changeSet.id;
+  const files = ["a", "b", "c"].map((f) => ({ path: `/${f}.txt`, text: `${f} new\n` }));
+  await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${cs}/items`, { items: files.map((f) => ({ op: "change", path: f.path, contentHash: sha(f.text), size: f.text.length, mimeType: "text/plain" })) }, csCtx(cs));
+  await call(content.POST, cli, "POST", `/api/v1/change-sets/${cs}/content`, { files: files.map((f) => ({ hash: sha(f.text), base64: Buffer.from(f.text).toString("base64") })) }, csCtx(cs));
+  await finishIt(cli, cs);
+  assert.equal((await applyIt(cli, cs)).status, 200);
+  const rows = await sql`SELECT title, body FROM user_notifications WHERE user_id = ${teammate} AND title LIKE '%applied a change set%'`;
+  assert.equal(rows.length, 1);
+  assert.match(rows[0]!.body, /Redesign: 3 files/);
+});
