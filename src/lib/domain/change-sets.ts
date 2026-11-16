@@ -18,6 +18,7 @@ import { viaColumns } from "@/lib/server/request-via";
 import { createAdminClient } from "@/lib/supabase/server";
 import { normalizeAndValidateMimeType } from "@/lib/upload/security";
 import { logger } from "@/lib/logger";
+import { startSpan } from "@sentry/nextjs";
 import { labelScope } from "@/lib/agents/via-scope";
 import { visibleVia } from "@/lib/agents/via-visibility";
 import { unifiedDiff } from "../../../packages/nb-cli/lib/sync/diff.mjs";
@@ -75,6 +76,7 @@ export function normalizeChangePath(raw: string): string {
   return path;
 }
 
+const mb = (bytes: number) => `${Math.max(1, Math.ceil(bytes / (1024 * 1024)))} MB`;
 const contentKey = (workspaceId: string, hash: string) => `${workspaceId}/.changes/${hash}`;
 const isAgent = (actor: Actor) => actor.tokenKind === "agent";
 const userOf = (actor: Actor) => actor.user?.id ?? fail("Sign in to continue", 401, "UNAUTHORIZED");
@@ -311,7 +313,10 @@ export async function upsertItems(actor: Actor, changeSetId: string, raw: ItemIn
     const [{ drafts } = { drafts: 0 }] = await tx.select({ drafts: sql<number>`coalesce(sum(${changeSetItems.size}), 0)::bigint` })
       .from(changeSetItems).innerJoin(changeSets, eq(changeSets.id, changeSetItems.changeSetId))
       .where(and(eq(changeSets.workspaceId, set.workspaceId), eq(changeSets.authorId, userId), inArray(changeSets.status, ["open", "ready"])));
-    if (Number(drafts) > LIMITS.draftBytesPerPerson) fail("Your drafts here are over 1 GB; apply or discard some first", 413, "STORAGE_LIMIT");
+    if (Number(drafts) > LIMITS.draftBytesPerPerson) {
+      const over = Number(drafts) - LIMITS.draftBytesPerPerson;
+      fail(`Your drafts here would be ${mb(over)} over the 1 GB limit; apply or discard at least ${mb(over)} of them first`, 413, "STORAGE_LIMIT", { neededBytes: over, limitBytes: LIMITS.draftBytesPerPerson });
+    }
     await reopenIfReady(tx, locked);
     await recount(tx, set.id);
   });
@@ -576,7 +581,10 @@ type Planned = { item: ChangeSetItem; nodeId: string | null; expectVersion: numb
  * Prepare (G10 step 1): reads each file now. A file changed since its base is a conflict until G-3 merges it; the
  * person chooses mine or theirs with resolve.
  */
-async function prepare(set: ChangeSet) {
+function prepare(set: ChangeSet) {
+  return startSpan({ name: "change_set.prepare", op: "change_set", attributes: { changeSetId: set.id } }, () => prepareInner(set));
+}
+async function prepareInner(set: ChangeSet) {
   const items = await db.select().from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id)).orderBy(asc(changeSetItems.path));
   const { conflicts, nodes } = await rebase(set, items);
   const addPaths = await liveFiles(set.workspaceId, items.filter((i) => i.op === "add").map((i) => i.path));
@@ -642,7 +650,10 @@ async function rebase(set: ChangeSet, items: ChangeSetItem[]) {
 }
 
 /** base + theirs + mine → merged content stored as new content, or null when it can't merge cleanly. */
-async function mergeItem(set: ChangeSet, item: ChangeSetItem, node: LiveNode) {
+function mergeItem(set: ChangeSet, item: ChangeSetItem, node: LiveNode) {
+  return startSpan({ name: "change_set.merge", op: "change_set", attributes: { changeSetId: set.id } }, () => mergeItemInner(set, item, node));
+}
+async function mergeItemInner(set: ChangeSet, item: ChangeSetItem, node: LiveNode) {
   const [base, theirs, mine] = await Promise.all([readAsset(await baseAssetOf(item)), readAsset(node.assetId), readAsset(item.assetId)]);
   if (!base || !theirs || !mine || ![base, theirs, mine].every((b) => isMergeableText(b))) return null;
   const result = merge3(base.toString("utf8"), theirs.toString("utf8"), mine.toString("utf8"));
@@ -832,6 +843,9 @@ export class HeldResponse extends Error {
 }
 
 async function applyPlanned(set: ChangeSet, planned: Planned[], userId: string) {
+  return startSpan({ name: "change_set.apply", op: "change_set", attributes: { changeSetId: set.id, items: planned.length } }, () => applyPlannedInner(set, planned, userId));
+}
+async function applyPlannedInner(set: ChangeSet, planned: Planned[], userId: string) {
   return db.transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL statement_timeout = '30s'`);
     const [locked] = await tx.select().from(changeSets).where(eq(changeSets.id, set.id)).for("update");
@@ -980,7 +994,10 @@ async function splitOff(actor: Actor, set: ChangeSet, rawPaths: string[]) {
  * Undo (route 13, G11): every file back to its version from before the apply, in one transaction. Refused when a
  * file moved on since (`UNDO_BLOCKED`, naming them); `partial` undoes the others and leaves those.
  */
-export async function undoChangeSet(actor: Actor, changeSetId: string, opts: { partial?: boolean } = {}) {
+export function undoChangeSet(actor: Actor, changeSetId: string, opts: { partial?: boolean } = {}) {
+  return startSpan({ name: "change_set.undo", op: "change_set", attributes: { changeSetId } }, () => undoChangeSetInner(actor, changeSetId, opts));
+}
+async function undoChangeSetInner(actor: Actor, changeSetId: string, opts: { partial?: boolean } = {}) {
   const userId = userOf(actor);
   const set = await loadForWrite(actor, changeSetId, "author-or-admin");
   if (set.status !== "applied" || !set.applyResult) fail(`Only an applied change set can be undone; this one is ${set.status}`, 409, "CHANGE_SET_CLOSED");

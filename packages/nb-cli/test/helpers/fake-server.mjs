@@ -624,6 +624,7 @@ export async function startFakeServer({ routes = {}, fault = {} } = {}) {
     const f = faults.get(url.pathname);
     if (f === "drop") { req.socket.destroy(); return; }
     if (f === "429") { res.writeHead(429, { "content-type": "application/json", "retry-after": "1" }); res.end(JSON.stringify({ success: false, message: "Too many requests", errorCode: "RATE_LIMITED" })); return; }
+    if (f === "401") { res.writeHead(401, { "content-type": "application/json" }); res.end(JSON.stringify({ success: false, message: "Your sign-in expired", errorCode: "UNAUTHORIZED" })); return; }
     if (f === "503") { res.writeHead(503, { "content-type": "text/plain" }); res.end("Service Unavailable"); return; }
     if (f === "corrupt") { res.writeHead(200, { "content-type": "application/json" }); res.end("{not json"); return; }
     if (f === "slow") await new Promise((r) => setTimeout(r, 2000));

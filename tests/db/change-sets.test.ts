@@ -562,3 +562,32 @@ test("drafts untouched for 30 days are discarded by the daily cleanup; newer one
   const rows = Object.fromEntries((await sql`SELECT id, status FROM change_sets WHERE id IN (${old!.id}, ${recent!.id}, ${applied!.id})`).map((r) => [r.id, r.status]));
   assert.deepEqual([rows[old!.id], rows[recent!.id], rows[applied!.id]], ["discarded", "open", "applied"]);
 });
+
+test("over the 1 GB draft cap, the refusal says how much space is needed (G20)", async () => {
+  const { workspace, cli } = await setup([]);
+  const MB25 = 25 * 1024 * 1024;
+  const bigItems = (tag: string, n: number) => Array.from({ length: n }, (_, i) => ({ op: "add", path: `/${tag}/f${i}.bin`, contentHash: sha(`${tag}${i}`), size: MB25, mimeType: "application/octet-stream" }));
+  for (const tag of ["one", "two"]) {
+    const s = await call(ws.POST, cli, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: tag }, { params: Promise.resolve({ id: workspace }) });
+    const id = s.json.data.changeSet.id;
+    assert.equal((await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${id}/items`, { items: bigItems(tag, 16) }, csCtx(id))).status, 200);
+  }
+  const s = await call(ws.POST, cli, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "three" }, { params: Promise.resolve({ id: workspace }) });
+  const id = s.json.data.changeSet.id;
+  const res = await call(items.PUT, cli, "PUT", `/api/v1/change-sets/${id}/items`, { items: bigItems("three", 10) }, csCtx(id));
+  assert.equal(res.json.errorCode, "STORAGE_LIMIT");
+  assert.match(res.json.message, /would be 26 MB over the 1 GB limit/);
+  assert.equal(res.json.details.neededBytes, 42 * MB25 - 1024 * 1024 * 1024);
+});
+
+test("a case-only rename applies as a rename and undoes back (G21)", async () => {
+  const { owner, workspace, cli } = await setup([]);
+  await addVersion(workspace, owner, "/Login.tsx", "export default 1\n");
+  const { cs } = await draft(cli, workspace, [{ op: "rename", path: "/login.tsx", fromPath: "/Login.tsx" }]);
+  assert.equal((await finishIt(cli, cs)).status, 200);
+  const res = await applyIt(cli, cs);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  assert.deepEqual(await fileState(workspace), { "/login.tsx": "v1" });
+  assert.equal((await undoIt(cli, cs)).status, 200);
+  assert.deepEqual(await fileState(workspace), { "/Login.tsx": "v1" });
+});

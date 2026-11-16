@@ -177,6 +177,42 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("sign-in expires mid-work: capture keeps the journal, and after signing in again it carries on (G20)", async () => {
+    const api = await startFakeServer();
+    try {
+      const { cwd, nb } = await linked(api);
+      const id = JSON.parse((await nb(["change", "start", "Expiring", "--json"])).stdout).data.changeSet.id;
+      /** @type {string[]} */ const lines = [];
+      const capture = startCapture({ api: createApi({ origin: api.url, token: TOKEN, version: "2.2.0" }), root: cwd, project: { workspaceId: WORKSPACE_ID, remoteRoot: "/" }, log: (l) => lines.push(l) });
+      try {
+        api.setFault(`/api/v1/change-sets/${id}/items`, "401");
+        fs.writeFileSync(path.join(cwd, "a.txt"), "edited while signed out\n");
+        await capture.flush();
+        assert.match(lines.join("\n"), /sign-in expired/i);
+        assert.equal(fs.readFileSync(path.join(cwd, "a.txt"), "utf8"), "edited while signed out\n", "the edit stays here");
+        api.setFault(`/api/v1/change-sets/${id}/items`, null);
+        await capture.flush();
+        const cs = /** @type {any} */ (api.state).changeSets.get(id);
+        assert.ok(cs.items.has("/a.txt"), "sent once signed in again");
+      } finally { capture.stop(); }
+    } finally { await api.close(); }
+  });
+
+  it("a case-only rename (Login.tsx → login.tsx) is one rename, not a delete and an add (G21)", async () => {
+    const api = await startFakeServer();
+    try {
+      putFile(api.state, "/Login.tsx", Buffer.from("export default 1\n"));
+      const { cwd, nb } = await linked(api);
+      await nb(["change", "start", "Case"]);
+      fs.renameSync(path.join(cwd, "Login.tsx"), path.join(cwd, "login-tmp.tsx"));
+      fs.renameSync(path.join(cwd, "login-tmp.tsx"), path.join(cwd, "login.tsx"));
+      const items = JSON.parse((await nb(["change", "status", "--json"])).stdout).data.items;
+      assert.deepEqual(items.map((/** @type {any} */ i) => [i.op, i.path, i.fromPath ?? null]), [["rename", "/login.tsx", "/Login.tsx"]]);
+      assert.equal((await nb(["change", "apply", "--yes"])).code, 0);
+      assert.ok(api.state.files.has("/login.tsx") && !api.state.files.has("/Login.tsx"));
+    } finally { await api.close(); }
+  });
+
   it("nb watch --change needs an open change set; workspaces without change sets say so", async () => {
     const api = await startFakeServer();
     try {
