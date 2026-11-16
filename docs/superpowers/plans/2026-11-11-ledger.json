@@ -6533,8 +6533,8 @@
       "kind": "build",
       "milestone": "M5",
       "status": "tested",
-      "test": "tests/agents/requests.yaml; tests/unit/agent-eval-suite.test.ts",
-      "evidence": "Built 2026-11-16 after the M5 deploy (0887eb929..), local main; D22 coding jobs added, the live agent run is separate"
+      "test": "tests/agents/requests.yaml (changes-1..8); scripts/agents/eval-setup.mjs",
+      "evidence": "2026-11-17 Claude Code run on an isolated local copy: 8/8 coding jobs (redesign+apply, status, undo, discard, resume, conflict update+finish, rename+apply, review comments); found and fixed 4 CLI issues (be70a4ac0, d486d02d6, 916200c76)"
     },
     {
       "key": "G23.41516eab",

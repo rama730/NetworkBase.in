@@ -210,3 +210,24 @@ Checked on Ponytail with a throwaway task #1 and the change set "M5 app check: r
   - Diffs number a file's final newline as one more line. The file viewer does the same, so it's left as is.
   - Opening `?tab=tasks&drawerType=task&drawerId=…` directly didn't open the task panel until the task was clicked. This is older behaviour, outside M5.
 - **Still open:** the live D22 agent eval run (G22.06662dd7).
+
+## D22 agent run: coding jobs (2026-11-17)
+
+- **Setup:**
+  - Claude Code ran headless against an isolated local copy: a fresh disposable database (seed-eval) and a `git archive` copy on port 3100, with nothing pointing at production. Storage was a folder on disk, rate limits were in memory without Redis, and Inngest was fake. Those patches live in the copy only.
+  - Each job starts from its own state (`scripts/agents/eval-setup.mjs`: fresh, open, comment, applied, conflict). The eval gained `setup`, `edits` and `turns` per request.
+- **First run: 3 of 8.**
+  - The eval gave Claude Code no file edits.
+  - The seed had none of the states the jobs assume.
+  - Two real CLI bugs:
+    - `nb change status` failed outright when an upload failed;
+    - finishing saves that weren't captured yet had no set to finish.
+- **Fixed:**
+  - status survives upload errors and says what's waiting;
+  - finish opens a set for uncaptured saves;
+  - new agent tools `networkbase_change_update` and `networkbase_change_resolve` (they were missing from the changes pack);
+  - with nothing open, status lists recently applied sets, so an undo takes 3 calls instead of about 14;
+  - `nb change resolve` writes only inside the folder (security review).
+- **Final run: 8 of 8** (normal 5/5, heavy 3/3), about 57 s and 330k tokens per job.
+  - In the rename job the agent couldn't delete the old file with its own tools (no shell in the eval), so it asked to move it to Trash, which waits for the person's yes.
+- **Not run:** the full 158-request suite. The baseline (97 %, 150 requests, CLI 2.1.4) stays until that run. It's about 2.5 hours and about 50M tokens.
