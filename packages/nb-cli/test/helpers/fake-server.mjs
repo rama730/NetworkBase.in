@@ -400,6 +400,29 @@ const changeSetRoutes = [
     return { data: { changeSet: setOut(cs), applied, undo, undoToken: null } };
   }],
   [/^\/api\/v1\/change-sets\/([^/]+)\/discard$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => { sets(state).get(req.params[0]).status = "discarded"; return { data: { ok: true } }; }],
+  // Files for cloud agents (G14): the draft is the workspace's files with the set's writes laid over.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/fs\/(list|read|search)$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const cs = req.query.get("changeSet") ? sets(state).get(req.query.get("changeSet")) : null;
+    /** @type {Map<string, string>} */
+    const view = new Map([...state.files.values()].map((f) => [f.path, f.content.toString()]));
+    for (const i of cs?.items.values() ?? []) i.op === "delete" ? view.delete(i.path) : view.set(i.path, knownContent(state).get(i.contentHash)?.toString() ?? "");
+    if (req.params[1] === "list") return { data: { files: [...view.keys()].sort().map((p) => ({ path: p })), total: view.size, truncated: false } };
+    if (req.params[1] === "read") return { data: { files: req.query.getAll("path").map((/** @type {string} */ p) => (view.has(p) ? { path: p, text: view.get(p) } : { path: p, error: "NOT_FOUND" })) } };
+    const q = String(req.query.get("query"));
+    return { data: { matches: [...view].flatMap(([p, t]) => t.split("\n").flatMap((line, n) => (line.includes(q) ? [{ path: p, line: n + 1, text: line }] : []))), truncated: false, notIndexed: 0 } };
+  }],
+  [/^\/api\/v1\/change-sets\/([^/]+)\/fs\/(write|edit|delete|move)$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const cs = sets(state).get(req.params[0]);
+    if (!cs) return fail(404, "NOT_FOUND", "Change set not found");
+    if (!["open", "ready"].includes(cs.status)) return fail(409, "CHANGE_SET_CLOSED", `This change set is ${cs.status}; start a new one`);
+    if (req.params[1] === "delete") { cs.items.set(req.body.path, { op: "delete", path: req.body.path, state: "ready" }); return { data: { path: req.body.path, deleted: true } }; }
+    const current = () => { const i = cs.items.get(req.body.path); return i ? knownContent(state).get(i.contentHash)?.toString() ?? "" : state.files.get(req.body.path)?.content.toString() ?? ""; };
+    const text = req.params[1] === "edit" ? req.body.edits.reduce((/** @type {string} */ t, /** @type {any} */ e) => t.replace(e.oldText, e.newText), current()) : String(req.body.text ?? "");
+    const bytes = Buffer.from(text);
+    knownContent(state).set(sha256(bytes), bytes);
+    cs.items.set(req.body.path, { op: state.files.has(req.body.path) ? "change" : "add", path: req.body.path, contentHash: sha256(bytes), state: "ready" });
+    return { data: { path: req.body.path, hash: sha256(bytes), size: bytes.byteLength, held: false } };
+  }],
 ];
 const patterns = [
   ...changeSetRoutes,

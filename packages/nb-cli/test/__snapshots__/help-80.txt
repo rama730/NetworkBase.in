@@ -41,7 +41,7 @@ More
     review approve, review diff, review return, review pull
   Agents
     ask, ask wait, ask list, ask answer, agent setup, agent status,
-    agent access, agent remove, mcp
+    agent access, agent activity, agent pause, agent resume, agent remove, mcp
   Docs and workspaces
     doc list, doc view, doc edit, doc set, workspace list, workspace view,
     workspace open, activity, sprint list, sprint view, update post,

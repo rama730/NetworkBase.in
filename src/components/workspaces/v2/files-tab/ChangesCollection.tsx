@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, FileDiff, GitMerge, MessageSquare, RefreshCw, Search, Undo2, X } from "lucide-react";
+import { ArrowLeft, Copy, FileDiff, GitMerge, Github, MessageSquare, RefreshCw, Search, Undo2, X } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
 
 import {
@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { copyWithToast } from "@/lib/clipboard";
 import { feedbackError, toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
+import { readHeaderGitHubSyncStatus } from "@/lib/files-tab-batch";
 import { useStepUp } from "@/components/trust/StepUp";
 import { FilesViewsMenu } from "./FilesHeader";
 import { useFilesTabRole } from "./FilesTabRoleContext";
@@ -21,7 +22,7 @@ import { useFilesTabRole } from "./FilesTabRoleContext";
  * The Changes view (report G12): an agent's or a person's multi-file work, reviewed and applied at once. Open with
  * ?tab=files&filesView=changes, or one directly with &changes=<id>.
  */
-type Set = { id: string; title: string; message: string | null; status: string; taskId: string | null; filesAdded: number; filesChanged: number; filesDeleted: number; filesRenamed: number; linesAdded: number; linesRemoved: number; updatedAt: string | Date; readyAt: string | Date | null; createdAt: string | Date; madeWith: string | null };
+type Set = { id: string; title: string; message: string | null; status: string; taskId: string | null; filesAdded: number; filesChanged: number; filesDeleted: number; filesRenamed: number; linesAdded: number; linesRemoved: number; updatedAt: string | Date; readyAt: string | Date | null; appliedAt?: string | Date | null; taskNumber?: number | null; createdAt: string | Date; madeWith: string | null };
 type Item = { id: string; op: "add" | "change" | "delete" | "rename"; path: string; fromPath: string | null; state: string; linesAdded: number | null; linesRemoved: number | null; conflict: { kind?: string; onto?: number } | null };
 
 type Comment = { id: string; path: string; line: number | null; body: string; createdAt: string | Date; resolvedAt: string | Date | null; author: string | null; username: string | null };
@@ -138,6 +139,23 @@ function StatusChip({ status }: { status: string }) {
   return <span className={cn("shrink-0 rounded-[5px] border px-1.5 py-0.5 text-xs", tone)}>{STATUS_WORDS[status] ?? status}</span>;
 }
 
+type GitHubStatus = { connected: boolean; authorized: boolean; repository: string | null; latestDirection: "push" | "pull" | null; latestRunStatus: string | null; latestSyncAt: string | null } | null | undefined;
+/** Applied after the last finished push to the synced repository. */
+function notPushed(s: Set, github: GitHubStatus) {
+  if (s.status !== "applied" || !github?.connected || !github.authorized || !s.appliedAt) return false;
+  const pushed = github.latestDirection === "push" && github.latestRunStatus === "completed" && github.latestSyncAt;
+  return !pushed || new Date(pushed) < new Date(s.appliedAt);
+}
+/** Opens the Repository sync review with this change set's title and message as the commit message. */
+function pushToGitHub(s: Set) {
+  const url = new URL(window.location.href);
+  for (const k of ["path", "fileId", "filesNav", "changes"]) url.searchParams.delete(k);
+  url.searchParams.set("tab", "files");
+  url.searchParams.set("filesView", "github");
+  url.searchParams.set("syncMessage", `${s.title}${s.message ? `\n\n${s.message}` : ""}\n\n${s.taskNumber ? `NetworkBase-Task: #${s.taskNumber}` : `NetworkBase-Change-Set: ${s.id.slice(0, 8)}`}`.slice(0, 2000));
+  window.location.href = url.toString();
+}
+
 function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; id: string; onBack: () => void; onOpen: (id: string | null) => void }) {
   const { canEdit } = useFilesTabRole();
   const client = useQueryClient();
@@ -148,6 +166,13 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
       if (!res.success) throw new Error(res.error);
       return res.data as unknown as { changeSet: Set; items: Item[]; overlaps?: Array<{ id: string; title: string; agent: string | null; files: number }>; comments?: Comment[] };
     },
+  });
+  // In a GitHub-synced workspace an applied change set waits to be pushed (report G18): the person pushes it through
+  // the Repository sync review, which keeps its checks; nothing is pushed silently.
+  const github = useQuery({
+    queryKey: ["github-sync-status", projectId],
+    enabled: view.data?.changeSet.status === "applied",
+    queryFn: async () => { const r = await readHeaderGitHubSyncStatus(projectId); return r.success ? r.data : null; },
   });
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -227,6 +252,11 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
               </p>
             ))}
             {s.message ? <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{s.message}</p> : null}
+            {notPushed(s, github.data) ? (
+              <p className="mt-1 text-xs text-muted-foreground" role="status">
+                Not pushed to GitHub yet. <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => pushToGitHub(s)}><Github className="mr-0.5 inline size-3" aria-hidden />Push to {github.data?.repository ?? "GitHub"}</button>
+              </p>
+            ) : null}
           </div>
           {canEdit ? (
             <div className="flex flex-wrap gap-2">

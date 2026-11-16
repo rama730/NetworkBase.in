@@ -244,3 +244,57 @@ export async function remove(ctx) {
   }
   ctx.out.result("nb.agent.remove/1", { agent: key, changed: changes.map((c) => c.file) }, () => `${ctx.out.c.success(ctx.out.sym.done)} Disconnected ${agent.name}`);
 }
+
+/**
+ * nb agent activity (report F4): what your agents did in this workspace in the last 24 hours, one group per agent
+ * session; --undo <session> undoes that session's changes, newest first (each refused if someone changed it since).
+ * @param {import("../context.mjs").Context} ctx
+ */
+export async function activity(ctx) {
+  const ws = ctx.requireWorkspace();
+  const res = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ws)}/agents`));
+  /** @type {any[]} */
+  const sessions = res.sessions;
+  const label = (/** @type {any} */ s) => (s.session ? s.session.slice(0, 8) : "no-session");
+  const want = ctx.flags.undo ? String(ctx.flags.undo) : null;
+  if (!want) {
+    ctx.out.result("nb.agent.activity/1", res, () => (sessions.length ? sessions.flatMap((s) => [
+      `${ctx.out.c.bold(safe(s.agent ?? "An agent"))} ${ctx.out.c.muted(`session ${label(s)} · ${s.changes.length} change${s.changes.length === 1 ? "" : "s"}`)}`,
+      ...s.changes.slice(0, 10).map((/** @type {any} */ c) => `  ${c.undone ? ctx.out.c.muted("undone") : c.undoable ? " " : ctx.out.c.muted("kept  ")} ${safe(c.summary)}`),
+      ...(s.changes.length > 10 ? [ctx.out.c.muted(`  …${s.changes.length - 10} more`)] : []),
+      ...(s.changes.some((/** @type {any} */ c) => c.undoable) ? [ctx.out.c.muted(`  Undo this session: nb agent activity --undo ${label(s)}`)] : []),
+    ]) : [ctx.out.c.muted("No agent changes here in the last 24 hours")]));
+    return EXIT.ok;
+  }
+  const matches = sessions.filter((s) => label(s).startsWith(want) || s.session === want);
+  if (matches.length !== 1) throw new CliError("NOT_FOUND", `No single agent session starts with ${want}`, { hint: "nb agent activity lists them" });
+  const session = matches[0];
+  const ids = session.changes.filter((/** @type {any} */ c) => c.undoable).map((/** @type {any} */ c) => c.id);
+  if (!ids.length) throw new CliError("NOT_FOUND", "Nothing left to undo in that session");
+  const ok = await confirm(ctx, { key: "undo", question: `Undo ${ids.length} change${ids.length === 1 ? "" : "s"} by ${session.agent ?? "the agent"}?`, preview: session.changes.filter((/** @type {any} */ c) => c.undoable).map((/** @type {any} */ c) => c.summary).join("\n") });
+  if (!ok) throw new CliError("CANCELLED", "Nothing undone");
+  /** @type {Array<{ id: string, ok: boolean, message: string }>} */
+  const results = [];
+  for (const id of ids) {
+    try {
+      const r = /** @type {any} */ (await ctx.api.post(`/api/v1/undo/${encodeURIComponent(id)}`, {}));
+      results.push({ id, ok: true, message: r.result ?? "Undone" });
+    } catch (error) {
+      results.push({ id, ok: false, message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  ctx.out.result("nb.agent.undo/1", { results }, (d) => d.results.map((/** @type {any} */ r) => `${r.ok ? ctx.out.c.success(ctx.out.sym.done) : ctx.out.c.warning(ctx.out.sym.warn)} ${safe(r.message)}`));
+  return results.every((r) => r.ok) ? EXIT.ok : EXIT.conflict;
+}
+
+/** nb agent pause / resume (report F4): the workspace's switch, for its owner and admins. @param {import("../context.mjs").Context} ctx */
+async function setPaused(ctx, paused) {
+  const ws = ctx.requireWorkspace();
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(ws)}/agents`, { paused }));
+  ctx.out.result("nb.agent.pause/1", res, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${d.paused ? "Agents are paused here: they can read, but nothing they do changes anything until you resume" : "Agents are back on here"}`);
+  return EXIT.ok;
+}
+/** @param {import("../context.mjs").Context} ctx */
+export const pause = (ctx) => setPaused(ctx, true);
+/** @param {import("../context.mjs").Context} ctx */
+export const resume = (ctx) => setPaused(ctx, false);

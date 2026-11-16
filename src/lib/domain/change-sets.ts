@@ -8,7 +8,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, max, ne, or, sql } from "drizz
 
 import { CONFIRM_HEADER, agentAssignmentBlock, agentGate, issueConfirmToken, needsYes, recordUndo, spendConfirmToken, workspaceAgentPolicy, type ChangeKind } from "@/lib/agents/policy";
 import { db } from "@/lib/db";
-import { changeSetComments, changeSetItems, changeSets, fileVersions, profiles, storageAssets, taskNodeLinks, undoOperations, workspaceDocuments, workspaceNodeLocks, workspaceNodes, workspaces } from "@/lib/db/schema";
+import { changeSetComments, changeSetItems, changeSets, fileVersions, profiles, storageAssets, taskNodeLinks, tasks, undoOperations, workspaceDocuments, workspaceNodeLocks, workspaceNodes, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { ensureParentFoldersTx } from "@/lib/files/ensure-folders";
 import { assertWorkspaceWriteAccessTx, recordNodeEventsBatch } from "@/lib/files/internal-helpers";
@@ -115,7 +115,7 @@ async function loadForWrite(actor: Actor, changeSetId: string, mode: "author" | 
   return set;
 }
 
-async function findChangeSet(changeSetId: string) {
+export async function findChangeSet(changeSetId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(changeSetId)) fail("Change set not found", 404, "NOT_FOUND");
   const [set] = await db.select().from(changeSets).where(eq(changeSets.id, changeSetId)).limit(1);
   return set ?? fail("Change set not found", 404, "NOT_FOUND");
@@ -198,7 +198,9 @@ export async function getChangeSet(actor: Actor, changeSetId: string, opts: { cu
     .limit(501);
   const page = items.slice(0, 500);
   const [shown] = await forViewer(userOf(actor), set.workspaceId, [set]);
-  return { changeSet: shown!, items: page, nextCursor: items.length > 500 ? page.at(-1)!.path : null, overlaps: canWrite ? await overlapping(actor, set) : [], comments: await listComments(actor, set.id) };
+  // The task's number, for the NetworkBase-Task line when the set is pushed to GitHub (G18).
+  const [task] = set.taskId ? await db.select({ number: tasks.taskNumber }).from(tasks).where(eq(tasks.id, set.taskId)).limit(1) : [];
+  return { changeSet: { ...shown!, taskNumber: task?.number ?? null }, items: page, nextCursor: items.length > 500 ? page.at(-1)!.path : null, overlaps: canWrite ? await overlapping(actor, set) : [], comments: await listComments(actor, set.id) };
 }
 
 // ── Line comments (G12) ────────────────────────────────────────────────────────────────────────────────────────────
@@ -563,9 +565,9 @@ function storableMime(mime: string | null) {
 
 // ── Finish ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const isTextual = (bytes: Buffer) => bytes.byteLength <= LIMITS.diffBytes && !bytes.subarray(0, 8192).includes(0);
+export const isTextual = (bytes: Buffer) => bytes.byteLength <= LIMITS.diffBytes && !bytes.subarray(0, 8192).includes(0);
 
-async function readAsset(assetId: string | null) {
+export async function readAsset(assetId: string | null) {
   if (!assetId) return null;
   const [asset] = await db.select({ key: storageAssets.storageKey }).from(storageAssets).where(eq(storageAssets.id, assetId)).limit(1);
   if (!asset) return null;

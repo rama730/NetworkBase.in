@@ -11,12 +11,12 @@ const ITEMS = [
   { id: 'i4', op: 'delete', path: '/app/old-login.tsx', fromPath: null, state: 'ready', linesAdded: null, linesRemoved: null, conflict: null },
 ];
 
-async function open(page: Page, { sets = [SET], enabled = true, width = 1440, theme = 'light', path = '/', items = ITEMS, stepUp = false }: { sets?: unknown[]; enabled?: boolean; width?: number; theme?: string; path?: string; items?: unknown[]; stepUp?: boolean } = {}) {
+async function open(page: Page, { sets = [SET], enabled = true, width = 1440, theme = 'light', path = '/', items = ITEMS, stepUp = false, github = null }: { sets?: unknown[]; enabled?: boolean; width?: number; theme?: string; path?: string; items?: unknown[]; stepUp?: boolean; github?: unknown } = {}) {
   await page.setViewportSize({ width, height: 900 });
-  await page.addInitScript(({ sets, enabled, items, stepUp }) => {
+  await page.addInitScript(({ sets, enabled, items, stepUp, github }) => {
     const calls: unknown[] = [];
     (window as any).__calls = calls;
-    let status = 'ready';
+    let status = (sets[0] as any)?.status ?? 'ready';
     (window as any).__actions = {
       listChangeSetsAction: async () => ({ success: true, data: { enabled, changeSets: sets.map((s: any) => ({ ...s, status })), nextCursor: null } }),
       getChangeSetAction: async () => ({ success: true, data: { changeSet: { ...(sets[0] as any), status }, items, overlaps: [{ id: 'cs2', title: 'Codex cleanup', agent: 'Codex', files: 2 }] } }),
@@ -36,8 +36,9 @@ async function open(page: Page, { sets = [SET], enabled = true, width = 1440, th
       updateDraftAction: async (...a: unknown[]) => { calls.push(['update', ...a]); return { success: true, data: { merged: [], conflicts: [] } }; },
       conflictSidesAction: async (_id: string, path: string) => ({ success: true, data: { path, kind: 'edit', base: 'a\nb\n', theirs: 'a\nTHEIRS\n', mine: 'a\nMINE\n' } }),
       resolveItemAction: async (...a: unknown[]) => { calls.push(['resolve', ...a]); return { success: true, data: { item: null } }; },
+      readHeaderGitHubSyncStatus: async () => ({ success: true, data: github }),
     };
-  }, { sets, enabled, items, stepUp });
+  }, { sets, enabled, items, stepUp, github });
   await openApp(page, 'tests/browser/change-sets.fixture.tsx', { path, head: theme === 'dark' ? "document.documentElement.classList.add('dark')" : '' });
 }
 
@@ -181,4 +182,35 @@ test('line comments: click a line number, write, send; an unsent comment survive
   await diff.getByRole('button', { name: 'Comment on line 1' }).click();
   await diff.getByRole('button', { name: 'Comment', exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).__calls)).toEqual([['comment', 'cs1', { path: '/app/globals.css', line: 1, body: 'Use the brand token here' }]]);
+});
+
+test('an applied change set in a GitHub-synced workspace offers the push, with its title and message as the commit message (G18)', async ({ page }) => {
+  const applied = { ...SET, status: 'applied', appliedAt: '2026-11-17T09:00:00Z' };
+  const github = { connected: true, authorized: true, repository: 'acme/site', latestDirection: 'push', latestRunStatus: 'completed', latestSyncAt: '2026-11-16T09:00:00Z' };
+  await open(page, { sets: [applied], path: '/?changes=cs1', github });
+  const note = page.getByText('Not pushed to GitHub yet.');
+  await expect(note).toBeVisible();
+  await page.getByRole('button', { name: 'Push to acme/site' }).click();
+  await page.waitForURL(/filesView=github/);
+  const url = new URL(page.url());
+  expect(url.searchParams.get('changes')).toBeNull();
+  expect(url.searchParams.get('syncMessage')).toBe('Redesign sign-in\n\nNew layout and copy\n\nNetworkBase-Change-Set: cs1');
+});
+
+test('on a task, the commit message carries the NetworkBase-Task line (G18)', async ({ page }) => {
+  const applied = { ...SET, status: 'applied', appliedAt: '2026-11-17T09:00:00Z', taskNumber: 4 };
+  await open(page, { sets: [applied], path: '/?changes=cs1', github: { connected: true, authorized: true, repository: 'acme/site', latestDirection: null, latestRunStatus: null, latestSyncAt: null } });
+  await page.getByRole('button', { name: 'Push to acme/site' }).click();
+  await page.waitForURL(/filesView=github/);
+  expect(new URL(page.url()).searchParams.get('syncMessage')).toBe('Redesign sign-in\n\nNew layout and copy\n\nNetworkBase-Task: #4');
+});
+
+test('no push note once a later push finished, or without a GitHub connection', async ({ page }) => {
+  const applied = { ...SET, status: 'applied', appliedAt: '2026-11-17T09:00:00Z' };
+  await open(page, { sets: [applied], path: '/?changes=cs1', github: { connected: true, authorized: true, repository: 'acme/site', latestDirection: 'push', latestRunStatus: 'completed', latestSyncAt: '2026-11-17T10:00:00Z' } });
+  await expect(page.getByRole('heading', { name: 'Redesign sign-in' })).toBeVisible();
+  await expect(page.getByText('Not pushed to GitHub yet.')).toHaveCount(0);
+  await open(page, { sets: [applied], path: '/?changes=cs1', github: { connected: false, authorized: true, repository: null, latestDirection: null, latestRunStatus: null, latestSyncAt: null } });
+  await expect(page.getByRole('heading', { name: 'Redesign sign-in' })).toBeVisible();
+  await expect(page.getByText('Not pushed to GitHub yet.')).toHaveCount(0);
 });

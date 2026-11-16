@@ -20,6 +20,6 @@ export async function POST(request: Request) {
   if ("error" in result) return json({ error: "invalid_redirect_uri", error_description: result.error }, 400);
   return json({
     client_id: result.clientId, client_name: result.clientName, redirect_uris: result.redirectUris,
-    token_endpoint_auth_method: "none", grant_types: ["authorization_code"], response_types: ["code"],
+    token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"],
   }, 201);
 }

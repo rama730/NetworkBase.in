@@ -6,7 +6,7 @@ import path from "node:path";
 import { currentChange, draftItems, readJournal, setCurrentChange, syncDraft, writeJournal } from "../changes/capture.mjs";
 import { CliError, EXIT } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
-import { toRelative } from "../sync/local.mjs";
+import { toRelative, toRemote } from "../sync/local.mjs";
 import { hashFile, readState, writeState } from "../sync/state.mjs";
 import { confirm } from "../tui/ask.mjs";
 
@@ -135,8 +135,80 @@ async function finishSet(ctx, id) {
   return /** @type {any} */ (await ctx.api.post(`/api/v1/change-sets/${enc(id)}/finish`, { ...(ctx.flags.message ? { message: ctx.flags.message } : {}), ...(ctx.flags["confirm-secrets"] ? { confirmSecrets: true } : {}) }));
 }
 
+/**
+ * The commits in `range` as change set items (report G18, --from-git): each file they changed, as at the range's end,
+ * written to a scratch folder for the upload; files outside the linked folder are left out.
+ * @param {string} root @param {any} project @param {string} range
+ */
+async function gitItems(root, project, range) {
+  const { execFileSync } = await import("node:child_process");
+  const crypto = await import("node:crypto");
+  const os = await import("node:os");
+  const { mimeFor } = await import("../sync/transfer.mjs");
+  const spec = range.includes("..") ? range : `${range}..HEAD`;
+  const end = spec.split(/\.\.\.?/)[1] || "HEAD";
+  // Never read as a git option (git show -x, git log --output=…).
+  if (spec.startsWith("-") || end.startsWith("-")) throw new CliError("USAGE", "Give a range of commits, like main..HEAD");
+  /** @param {string[]} args */
+  const git = (args) => {
+    try { return execFileSync("git", args, { cwd: root, maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }); }
+    catch (error) { throw new CliError("USAGE", `git ${args[0]} failed: ${String(/** @type {any} */ (error).stderr ?? error).trim().split("\n")[0]}`, { hint: "Run it in a git repository, with a range like main..HEAD" }); }
+  };
+  const top = git(["rev-parse", "--show-toplevel"]).toString().trim();
+  const subjects = git(["log", "--format=%s", spec, "--"]).toString().split("\n").filter(Boolean);
+  if (!subjects.length) throw new CliError("NOT_FOUND", `No commits in ${spec}`);
+  const fields = git(["diff", "--name-status", "-z", "-M", "--no-ext-diff", spec, "--"]).toString().split("\0").filter((x) => x !== "");
+  const state = readState(root, project.workspaceId);
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "nb-from-git-"));
+  const remoteOf = (/** @type {string} */ p) => { const rel = path.relative(root, path.join(top, p)); return rel.startsWith("..") || path.isAbsolute(rel) ? null : toRemote(project.remoteRoot, rel); };
+  /** @type {any[]} */
+  const items = [];
+  for (let i = 0; i < fields.length;) {
+    const status = /** @type {string} */ (fields[i++]);
+    const from = /** @type {string} */ (fields[i++]);
+    const to = /^[RC]/.test(status) ? /** @type {string} */ (fields[i++]) : from;
+    const remote = remoteOf(to);
+    if (!remote) continue;
+    const base = state.files[status[0] === "R" ? remoteOf(from) ?? "" : remote];
+    const baseFields = base ? { baseVersion: base.baseVersion, baseHash: base.baseHash } : {};
+    if (status[0] === "D") { items.push({ op: "delete", path: remote, ...baseFields }); continue; }
+    const bytes = git(["show", `${end}:${to}`]);
+    const hash = crypto.createHash("sha256").update(bytes).digest("hex");
+    const abs = path.join(scratch, hash);
+    fs.writeFileSync(abs, bytes);
+    const fromRemote = status[0] === "R" ? remoteOf(from) : null;
+    items.push({ op: fromRemote ? "rename" : base ? "change" : "add", path: remote, ...(fromRemote ? { fromPath: fromRemote } : {}), abs, contentHash: hash, size: bytes.byteLength, mimeType: mimeFor(remote), ...baseFields });
+  }
+  const title = subjects.length === 1 ? subjects[0] : `${subjects.at(-1)} (+${subjects.length - 1} more commits)`;
+  return { items, scratch, title: /** @type {string} */ (title).slice(0, 120), message: subjects.length > 1 ? subjects.reverse().map((x) => `- ${x}`).join("\n").slice(0, 2000) : null };
+}
+
+/** nb change finish --from-git: a change set made from commits, not from the folder's saves. @param {Context} ctx */
+async function finishFromGit(ctx) {
+  const { root, project } = ctx.requireRoot();
+  if (currentChange(root)) throw new CliError("CONFLICT", "This folder already has an open change set", { hint: "Finish or discard it first: nb change finish, or nb change discard" });
+  const { items, scratch, title, message } = await gitItems(root, project, String(ctx.flags["from-git"]));
+  try {
+    if (!items.length) throw new CliError("NOT_FOUND", "Those commits change no files in this linked folder");
+    const started = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title, ...(message ? { message } : {}) }));
+    const id = started.changeSet.id;
+    writeJournal(root, { id, title, sent: {}, missing: [] });
+    const sync = await syncDraft(ctx.api, root, id, items, { confirmSecrets: Boolean(ctx.flags["confirm-secrets"]) });
+    if (sync.held.length) throw new CliError("SECRET_DETECTED", `Not sent: ${sync.held.join(", ")} ${sync.held.length === 1 ? "looks" : "look"} like ${sync.held.length === 1 ? "it holds" : "they hold"} a password or key`, { hint: `Remove the key in a new commit, or add --confirm-secrets if it's safe to share; nb change discard ${id.slice(0, 8)} drops this one` });
+    const res = /** @type {any} */ (await ctx.api.post(`/api/v1/change-sets/${enc(id)}/finish`, { ...(ctx.flags.message ? { message: ctx.flags.message } : {}), ...(ctx.flags["confirm-secrets"] ? { confirmSecrets: true } : {}) }));
+    ctx.out.result("nb.change.finish/1", res, (d) => [
+      `${ctx.out.c.success(ctx.out.sym.done)} ${safe(d.summary)}`,
+      ctx.out.c.muted(`  From ${plural(items.length, "file")} in ${String(ctx.flags["from-git"])}. ${d.decision === "apply_now" ? "Ready: nb change apply" : "Ready, and big enough to look over first: nb change view, then nb change apply"} ${id.slice(0, 8)}`),
+    ]);
+    return EXIT.ok;
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
 /** @param {Context} ctx */
 export async function changeFinish(ctx) {
+  if (ctx.flags["from-git"]) return finishFromGit(ctx);
   // Saves not captured into a change set yet (an agent finishing before its first save was picked up): one opens now,
   // named like the one nb mcp opens, then finishes (found in the D22 agent run).
   const { root, project } = ctx.requireRoot();
@@ -160,7 +232,7 @@ export async function changeFinish(ctx) {
 
 /** @param {Context} ctx */
 export async function changeApply(ctx) {
-  const id = pick(ctx);
+  const id = await fullId(ctx, pick(ctx));
   const { root, project } = ctx.requireRoot();
   let view = /** @type {any} */ (await ctx.api.get(`/api/v1/change-sets/${enc(id)}`));
   /** @type {any} */

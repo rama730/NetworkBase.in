@@ -171,6 +171,15 @@ export function RepositorySync({
   const [message, setMessage] = useState(
     "Update workspace files from NetworkBase",
   );
+  // Push from an applied change set (report G18): its title and message become the commit message, once.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const given = url.searchParams.get("syncMessage");
+    if (!given) return;
+    setMessage(given.slice(0, 2000));
+    url.searchParams.delete("syncMessage");
+    window.history.replaceState(window.history.state, "", url.toString());
+  }, []);
   const [run, setRun] = useState<SyncRunView | null>(null);
   const [busy, setBusy] = useState(false);
   const [comparing, setComparing] = useState(false);

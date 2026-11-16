@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { deviceCodes, oauthClients } from "@/lib/db/schema";
+import { deviceCodes, extensionDeviceSessions, oauthClients, oauthRefreshTokens } from "@/lib/db/schema";
 import { createDeviceCode, issueApprovedToken, normalizeUserCode } from "@/lib/extension/device-codes";
 
 const sha256Hex = (value: string) => crypto.createHash("sha256").update(value).digest("hex");
@@ -93,7 +93,49 @@ export async function exchangeCode(input: { code: string; codeVerifier: string; 
     if (row.oauthClientId !== input.clientId || row.redirectUri !== input.redirectUri) return invalid;
     if (!row.codeChallenge || !/^[A-Za-z0-9._~-]{43,128}$/.test(input.codeVerifier) || s256(input.codeVerifier) !== row.codeChallenge) return invalid;
     const issued = await issueApprovedToken(tx, row, now, "oauth");
-    return { accessToken: issued.token, expiresAt: issued.expiresAt, scopes: issued.scopes };
+    // A sign-in the person chose to keep short (7 days) ends then: only 30 and 90 days renew (report F4).
+    const renews = issued.expiresAt.getTime() - now.getTime() >= RENEWABLE_MS;
+    const refreshToken = renews ? await issueRefreshToken(tx, { sessionId: issued.sessionId, clientId: input.clientId, familyId: crypto.randomUUID() }, now) : null;
+    return { accessToken: issued.token, expiresAt: issued.expiresAt, scopes: issued.scopes, refreshToken };
+  });
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+const RENEWABLE_MS = 29 * 86_400_000;
+const REFRESH_LIFE_MS = 90 * 86_400_000;
+/** A renewed access token lasts 30 days; its refresh token 90, so an editor used at least every 90 days never signs in again. */
+const ACCESS_LIFE_MS = 30 * 86_400_000;
+
+async function issueRefreshToken(tx: Tx, input: { sessionId: string; clientId: string; familyId: string }, now: Date) {
+  const raw = `nb_rft_${crypto.randomBytes(32).toString("hex")}`;
+  await tx.insert(oauthRefreshTokens).values({ ...input, tokenHash: sha256Hex(raw), expiresAt: new Date(now.getTime() + REFRESH_LIFE_MS), createdAt: now });
+  return raw;
+}
+
+/**
+ * grant_type=refresh_token (report F4): a new 30-day access token for the same sign-in, and the next refresh token. Each refresh token works once; a used one coming back means it was copied,
+ * so its family and the sign-in are revoked. A revoked sign-in never renews.
+ */
+export async function refreshAccessToken(input: { refreshToken: string; clientId: string }, now = new Date()) {
+  return db.transaction(async (tx) => {
+    const invalid = { error: "invalid_grant" as const, description: "The refresh token is wrong, used, expired or revoked; sign in again" };
+    if (!/^nb_rft_[0-9a-f]{64}$/.test(input.refreshToken)) return invalid;
+    const [row] = await tx.select().from(oauthRefreshTokens).where(eq(oauthRefreshTokens.tokenHash, sha256Hex(input.refreshToken))).limit(1).for("update");
+    if (!row || row.clientId !== input.clientId || row.revokedAt || row.expiresAt <= now) return invalid;
+    if (row.usedAt) {
+      await tx.update(oauthRefreshTokens).set({ revokedAt: now }).where(and(eq(oauthRefreshTokens.familyId, row.familyId), isNull(oauthRefreshTokens.revokedAt)));
+      await tx.update(extensionDeviceSessions).set({ revokedAt: now }).where(and(eq(extensionDeviceSessions.id, row.sessionId), isNull(extensionDeviceSessions.revokedAt)));
+      return invalid;
+    }
+    const [session] = await tx.select().from(extensionDeviceSessions).where(eq(extensionDeviceSessions.id, row.sessionId)).limit(1).for("update");
+    if (!session || session.revokedAt) return invalid;
+    const raw = `nb_agt_${crypto.randomBytes(24).toString("hex")}`;
+    const expiresAt = new Date(now.getTime() + ACCESS_LIFE_MS);
+    // The old access token stops working now: the editor uses the new one.
+    await tx.update(extensionDeviceSessions).set({ tokenHash: sha256Hex(raw), tokenPrefix: raw.slice(0, 11), expiresAt, lastSeenAt: now }).where(eq(extensionDeviceSessions.id, session.id));
+    await tx.update(oauthRefreshTokens).set({ usedAt: now }).where(eq(oauthRefreshTokens.id, row.id));
+    const refreshToken = await issueRefreshToken(tx, { sessionId: session.id, clientId: row.clientId, familyId: row.familyId }, now);
+    return { accessToken: raw, expiresAt, scopes: (session.scopes as string[] | null) ?? [], refreshToken };
   });
 }
 

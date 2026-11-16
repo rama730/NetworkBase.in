@@ -6341,3 +6341,24 @@ export const changeSetComments = pgTable("change_set_comments", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 }, (t) => ({ setIdx: index("change_set_comments_set_idx").on(t.changeSetId, t.path, t.createdAt) }));
+
+/** The text of text files by content hash (0094, report G14), for search across a workspace and its drafts. */
+export const fileTextIndex = pgTable("file_text_index", {
+  contentHash: text("content_hash").primaryKey(),
+  content: text("content"),
+  bytes: integer("bytes").notNull(),
+  indexedAt: timestamp("indexed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** OAuth refresh tokens for the hosted MCP server (0095, report F4): one use each, rotated, revoked as a family. */
+export const oauthRefreshTokens = pgTable("oauth_refresh_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => extensionDeviceSessions.id, { onDelete: "cascade" }),
+  clientId: uuid("client_id").notNull().references(() => oauthClients.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  familyId: uuid("family_id").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});

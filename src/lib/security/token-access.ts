@@ -126,6 +126,9 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/change-sets/${ID}(/diff)?`), read: "file:read", agent: "route" },
   { pattern: route(`/api/v1/change-sets/${ID}/comments`), read: "file:read", write: "file:write", agent: "route" },
   { pattern: route(`/api/v1/change-sets/${ID}/(items|content|finish|apply|discard|undo|copy|update|resolve)`), write: "file:write", agent: "route" },
+  // Files for cloud agents (report G14, routes 14–18).
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/fs/(list|read|search)`), read: "file:read", agent: "path" },
+  { pattern: route(`/api/v1/change-sets/${ID}/fs/(edit|write|delete|move)`), write: "file:write", agent: "route" },
   { pattern: route("/api/v1/me"), read: null, agent: "self" },
   // Your notification settings (report C4, nb inbox settings and mute): the person's own terminal, not agents.
   { pattern: route("/api/v1/me/notifications"), read: "workspace:read", write: "workspace:read" },
@@ -193,6 +196,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   // Your devices, agents and personal tokens (report A3.9). No agent mode: agent tokens can't see or revoke them.
   { pattern: route("/api/v1/tokens"), read: null },
   { pattern: route(`/api/v1/tokens/${ID}/revoke`), write: null },
+  // Your agents' activity, and pausing them (report F4). No agent mode: agents can't read or switch this.
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/agents`), read: "workspace:read", write: null },
   // Undo a change made with this person's token (report A2.9); the route checks the workspace.
   { pattern: route(`/api/v1/undo/${ID}`), read: null, write: null, agent: "route" },
 ];

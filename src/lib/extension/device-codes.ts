@@ -171,7 +171,7 @@ export async function issueApprovedToken(tx: Tx, row: typeof deviceCodes.$inferS
       metadata: { method, tokenType, agentName: row.agentName, workspaceId: row.workspaceId },
       createdAt: now,
     });
-    return { status: "approved", token: rawToken, tokenType, workspaceId: row.workspaceId, scopes: row.scopes ?? [], expiresAt } as const;
+    return { status: "approved", token: rawToken, tokenType, workspaceId: row.workspaceId, scopes: row.scopes ?? [], expiresAt, sessionId: session!.id } as const;
   }
 }
 

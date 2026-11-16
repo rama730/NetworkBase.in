@@ -37,7 +37,7 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, 
   /**
    * @param {"GET" | "POST" | "PUT" | "PATCH" | "DELETE"} method
    * @param {string} path
-   * @param {{ query?: Record<string, string | number | boolean | undefined | null>, body?: unknown, key?: string, timeoutMs?: number, auth?: boolean, headers?: Record<string, string> }} [options]
+   * @param {{ query?: Record<string, string | number | boolean | string[] | undefined | null>, body?: unknown, key?: string, timeoutMs?: number, auth?: boolean, headers?: Record<string, string> }} [options]
    */
   async function request(method, path, options = {}) {
     if (options.auth !== false && !token) {
@@ -48,7 +48,8 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, 
       throw new CliError("DRY_RUN", `Dry run: would ${method} ${path}`, { details: { method, path, body: options.body ?? null } });
     }
     const url = new URL(path, origin);
-    for (const [k, v] of Object.entries(options.query ?? {})) if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
+    // An array repeats the key (nb fs read a b: ?path=a&path=b).
+    for (const [k, v] of Object.entries(options.query ?? {})) for (const x of [v].flat()) if (x !== undefined && x !== null && x !== "") url.searchParams.append(k, String(x));
     const body = options.body === undefined ? undefined : JSON.stringify(options.body);
     const key = method === "GET" ? null : options.key ?? (keySeed ? `nbk_${crypto.createHash("sha256").update(`${keySeed}:${writes++}`).digest("hex").slice(0, 40)}` : crypto.randomUUID());
     const timeoutMs = options.timeoutMs ?? 20_000 + Math.ceil((body?.length ?? 0) / (256 * 1024)) * 1000;

@@ -2,6 +2,7 @@ import { deleteExpiredDownloadEvents } from "@/lib/files/download-history";
 import { purgeOrgVerificationDocuments } from "@/lib/organizations/verification-ways";
 import { sweepSandboxes } from "@/lib/workspaces/sandbox";
 import { discardStaleChangeSets } from "@/lib/domain/change-sets";
+import { pruneTextIndex } from "@/lib/domain/change-set-fs";
 import { inngest } from "../client";
 
 const MAX_BATCHES = 200;
@@ -25,6 +26,8 @@ export const downloadHistoryRetention = inngest.createFunction(
     // Change sets untouched for 30 days are discarded (report G19); their content goes 7 days later with the
     // storage cleanup. ponytail: no day-23 reminder yet; add one when notifications get a change-set kind.
     const changeSets = await step.run("stale-change-sets", () => discardStaleChangeSets());
-    return { deleted: total, documents, sandboxes, changeSets };
+    // The search index's text of content nothing refers to any more (report G14). A step here, not a job per save.
+    const textIndex = await step.run("text-index", () => pruneTextIndex());
+    return { deleted: total, documents, sandboxes, changeSets, textIndex };
   },
 );

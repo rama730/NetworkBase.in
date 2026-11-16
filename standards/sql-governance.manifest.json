@@ -96,7 +96,9 @@
     "drizzle/0090_workspace_sandbox.sql",
     "drizzle/0091_change_sets.sql",
     "drizzle/0092_change_set_item_executable.sql",
-    "drizzle/0093_change_set_comments.sql"
+    "drizzle/0093_change_set_comments.sql",
+    "drizzle/0094_file_text_index.sql",
+    "drizzle/0095_oauth_refresh_tokens.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

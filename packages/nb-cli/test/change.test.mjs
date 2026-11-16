@@ -336,4 +336,43 @@ describe("nb change (G7, G8)", () => {
       } finally { capture.stop(); }
     } finally { await api.close(); }
   });
+  it("--from-git: the commits' files as at the last one, renames kept, subjects as the title; the folder's own saves stay out", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const api = await startFakeServer();
+    try {
+      const { cwd, nb } = await linked(api);
+      const git = (/** @type {string[]} */ args) => execFileSync("git", args, { cwd, stdio: "pipe", env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" } }).toString();
+      git(["init", "-q", "-b", "main"]);
+      git(["add", "a.txt", "b.txt", "c.txt", "d.txt"]);
+      git(["commit", "-qm", "base"]);
+      git(["checkout", "-qb", "work"]);
+      fs.writeFileSync(path.join(cwd, "a.txt"), "a two\n");
+      fs.writeFileSync(path.join(cwd, "new.txt"), "new\n");
+      git(["add", "a.txt", "new.txt"]);
+      git(["commit", "-qm", "Change a, add new"]);
+      git(["mv", "d.txt", "e.txt"]);
+      git(["rm", "-q", "c.txt"]);
+      git(["commit", "-qm", "Move d, drop c"]);
+      // Not committed: never part of the change set.
+      fs.writeFileSync(path.join(cwd, "a.txt"), "a uncommitted\n");
+      const res = await nb(["change", "finish", "--from-git", "main..HEAD", "--json"]);
+      assert.equal(res.code, 0, res.stderr);
+      const cs = [...api.state.changeSets.values()].at(-1);
+      assert.equal(cs.title, "Change a, add new (+1 more commits)", "the first commit names the work");
+      const items = [...cs.items.values()].map((/** @type {any} */ i) => [i.op, i.path, i.fromPath ?? null]).sort();
+      assert.deepEqual(items, [["add", "/new.txt", null], ["change", "/a.txt", null], ["delete", "/c.txt", null], ["rename", "/e.txt", "/d.txt"]]);
+      assert.equal(api.state.changeContent.get(cs.items.get("/a.txt").contentHash)?.toString(), "a two\n");
+      assert.equal(currentChange(cwd), null, "the folder's saves aren't captured into it");
+      const applied = await nb(["change", "apply", cs.id.slice(0, 8), "--yes", "--json"]);
+      assert.equal(applied.code, 0, applied.stderr);
+      assert.equal(api.state.files.get("/a.txt")?.content.toString(), "a two\n");
+      const bad = await nb(["change", "finish", "--from-git", "nope..HEAD"]);
+      assert.notEqual(bad.code, 0);
+      for (const range of ["--output=/tmp/x", "main..--output=/tmp/x"]) {
+        const opt = await nb(["change", "finish", `--from-git=${range}`]);
+        assert.notEqual(opt.code, 0, range);
+        assert.ok(!fs.existsSync("/tmp/x") || fs.statSync("/tmp/x").mtimeMs < Date.now() - 60_000, "never run as a git option");
+      }
+    } finally { await api.close(); }
+  });
 });
