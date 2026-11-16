@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
 import {
-  ChangeSetError, applyChangeSet, askForChanges, copyChangeSet, diffItem, discardChangeSet, getChangeSet, listChangeSets, conflictSides, openChangeSetsFor, resolveItem, undoChangeSet, updateDraft, type Actor,
+  ChangeSetError, applyChangeSet, askForChanges, copyChangeSet, diffItem, discardChangeSet, getChangeSet, listChangeSets, conflictSides, openChangeSetsFor, resolveItem, addComment, resolveComment, undoChangeSet, updateDraft, type Actor,
 } from "@/lib/domain/change-sets";
 import { changeSetStepUp } from "@/lib/security/change-set-step-up";
 import type { SecurityStepUpMethod } from "@/lib/security/step-up-methods";
@@ -60,3 +60,5 @@ export const resolveItemAction = async (id: string, path: string, choice: "mine"
 export const conflictSidesAction = async (id: string, path: string) => run((a) => conflictSides(a, id, path));
 /** Open drafts on a task or a file, for the presence lines (G15). */
 export const openChangeSetsForAction = async (projectId: string, where: { taskId?: string | null; path?: string | null }) => run((a) => openChangeSetsFor(a, projectId, where));
+export const addChangeSetCommentAction = async (id: string, input: { path: string; line?: number | null; body: string }) => run((a) => addComment(a, id, input));
+export const resolveChangeSetCommentAction = async (id: string, commentId: string, resolved: boolean) => run((a) => resolveComment(a, id, commentId, resolved));

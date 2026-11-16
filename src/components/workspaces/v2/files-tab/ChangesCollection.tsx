@@ -6,7 +6,7 @@ import { ArrowLeft, Copy, FileDiff, GitMerge, MessageSquare, RefreshCw, Search, 
 import { Virtuoso } from "react-virtuoso";
 
 import {
-  applyChangeSetAction, askForChangesAction, changeSetDiffAction, conflictSidesAction, copyChangeSetAction, discardChangeSetAction, getChangeSetAction, listChangeSetsAction, resolveItemAction, undoChangeSetAction, updateDraftAction,
+  addChangeSetCommentAction, applyChangeSetAction, askForChangesAction, resolveChangeSetCommentAction, changeSetDiffAction, conflictSidesAction, copyChangeSetAction, discardChangeSetAction, getChangeSetAction, listChangeSetsAction, resolveItemAction, undoChangeSetAction, updateDraftAction,
 } from "@/app/actions/files/change-sets";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -23,6 +23,8 @@ import { useFilesTabRole } from "./FilesTabRoleContext";
  */
 type Set = { id: string; title: string; message: string | null; status: string; taskId: string | null; filesAdded: number; filesChanged: number; filesDeleted: number; filesRenamed: number; linesAdded: number; linesRemoved: number; updatedAt: string | Date; readyAt: string | Date | null; createdAt: string | Date; madeWith: string | null };
 type Item = { id: string; op: "add" | "change" | "delete" | "rename"; path: string; fromPath: string | null; state: string; linesAdded: number | null; linesRemoved: number | null; conflict: { kind?: string; onto?: number } | null };
+
+type Comment = { id: string; path: string; line: number | null; body: string; createdAt: string | Date; resolvedAt: string | Date | null; author: string | null; username: string | null };
 
 const GROUPS: Array<{ key: string; label: string; test: (i: Item) => boolean }> = [
   { key: "conflict", label: "Changed since", test: (i) => i.state === "conflict" },
@@ -144,7 +146,7 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
     queryFn: async () => {
       const res = await getChangeSetAction(id);
       if (!res.success) throw new Error(res.error);
-      return res.data as unknown as { changeSet: Set; items: Item[]; overlaps?: Array<{ id: string; title: string; agent: string | null; files: number }> };
+      return res.data as unknown as { changeSet: Set; items: Item[]; overlaps?: Array<{ id: string; title: string; agent: string | null; files: number }>; comments?: Comment[] };
     },
   });
   const [filter, setFilter] = useState("");
@@ -285,7 +287,7 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
           />
         </nav>
         <section aria-label="Diff" className="min-h-0 min-w-0 flex-1 overflow-auto">
-          {current ? <ItemDiffView id={id} path={current} item={view.data.items.find((i) => i.path === current) ?? null} canResolve={canEdit && draft} onResolved={refresh} /> : <p className="p-4 text-sm text-muted-foreground">No files match.</p>}
+          {current ? <ItemDiffView id={id} path={current} item={view.data.items.find((i) => i.path === current) ?? null} canResolve={canEdit && draft} onResolved={refresh} comments={(view.data.comments ?? []).filter((c) => c.path === current)} canComment={canEdit} /> : <p className="p-4 text-sm text-muted-foreground">No files match.</p>}
         </section>
       </div>
 
@@ -323,9 +325,55 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
   );
 }
 
-function ItemDiffView({ id, path, item, canResolve, onResolved }: { id: string; path: string; item: Item | null; canResolve: boolean; onResolved: () => void }) {
+function ItemDiffView({ id, path, item, canResolve, onResolved, comments, canComment }: { id: string; path: string; item: Item | null; canResolve: boolean; onResolved: () => void; comments: Comment[]; canComment: boolean }) {
   if (item?.state === "conflict") return <MergeEditor id={id} path={path} item={item} canResolve={canResolve} onResolved={onResolved} />;
-  return <DiffBody id={id} path={path} item={item} />;
+  return <DiffBody id={id} path={path} item={item} comments={comments} canComment={canComment} onCommented={onResolved} />;
+}
+
+/** An unsent comment stays in this browser until it's sent (0.8 #5). */
+function useDraft(key: string) {
+  const [text, setText] = useState(() => { try { return window.localStorage.getItem(key) ?? ""; } catch { return ""; } });
+  useEffect(() => { try { setText(window.localStorage.getItem(key) ?? ""); } catch { setText(""); } }, [key]);
+  const save = (value: string) => { setText(value); try { if (value) window.localStorage.setItem(key, value); else window.localStorage.removeItem(key); } catch { /* private mode */ } };
+  return [text, save] as const;
+}
+
+/** Review comments on one file (G12): on a line of the new content, or on the file. */
+function FileComments({ id, path, comments, canComment, line, setLine, onCommented }: { id: string; path: string; comments: Comment[]; canComment: boolean; line: number | null; setLine: (n: number | null) => void; onCommented: () => void }) {
+  const [draft, setDraft] = useDraft(`nb:change-set-comment:${id}:${path}`);
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    setBusy(true);
+    try {
+      const res = await addChangeSetCommentAction(id, { path, line, body: draft });
+      if (!res.success) { toast.error(res.error); return; }
+      setDraft("");
+      setLine(null);
+      onCommented();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section aria-label="Comments" className="mt-3 space-y-2">
+      {comments.map((c) => (
+        <article key={c.id} className={cn("rounded-md border border-border p-2 text-sm", c.resolvedAt && "opacity-60")}>
+          <p className="text-xs text-muted-foreground">{c.author || (c.username ? `@${c.username}` : "Someone")}{c.line ? ` · line ${c.line}` : ""} · <When at={c.createdAt} />{c.resolvedAt ? " · resolved" : ""}</p>
+          <p className="mt-1 whitespace-pre-wrap text-foreground">{c.body}</p>
+          {canComment ? (
+            <button type="button" className="mt-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" onClick={() => void resolveChangeSetCommentAction(id, c.id, !c.resolvedAt).then(onCommented)}>{c.resolvedAt ? "Reopen" : "Resolve"}</button>
+          ) : null}
+        </article>
+      ))}
+      {canComment ? (
+        <form className="space-y-1" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) void send(); }}>
+          <label htmlFor={`comment-${path}`} className="block text-xs text-muted-foreground">{line ? `Comment on line ${line}` : "Comment on this file"}{line ? <button type="button" className="ml-2 underline" onClick={() => setLine(null)}>on the file instead</button> : null}</label>
+          <textarea id={`comment-${path}`} value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} className="w-full rounded-md border border-border bg-background p-2 text-sm" />
+          <Button size="sm" type="submit" disabled={busy || !draft.trim()}>Comment</Button>
+        </form>
+      ) : null}
+    </section>
+  );
 }
 
 const CONFLICT_WORDS: Record<string, string> = {
@@ -401,7 +449,8 @@ function MergeEditor({ id, path, item, canResolve, onResolved }: { id: string; p
   );
 }
 
-function DiffBody({ id, path, item }: { id: string; path: string; item: Item | null }) {
+function DiffBody({ id, path, item, comments, canComment, onCommented }: { id: string; path: string; item: Item | null; comments: Comment[]; canComment: boolean; onCommented: () => void }) {
+  const [line, setLine] = useState<number | null>(null);
   const diff = useQuery({
     queryKey: ["change-set-diff", id, path],
     queryFn: async () => {
@@ -418,8 +467,11 @@ function DiffBody({ id, path, item }: { id: string; path: string; item: Item | n
         <p role="alert" className="text-sm text-destructive">{diff.error instanceof Error ? diff.error.message : "Couldn’t load the diff"}</p>
       ) : diff.data.kind === "text" ? (
         <pre className="overflow-x-auto rounded-md border border-border font-mono text-xs leading-5">
-          {diff.data.lines.length ? diff.data.lines.map((l, i) => (
-            <div key={i} className={cn("whitespace-pre px-3", l.kind === "+" && "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200", l.kind === "-" && "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200", l.kind === "@" && "bg-muted text-muted-foreground")}>
+          {diff.data.lines.length ? numbered(diff.data.lines).map((l, i) => (
+            <div key={i} className={cn("group flex whitespace-pre pr-3", l.kind === "+" && "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200", l.kind === "-" && "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200", l.kind === "@" && "bg-muted text-muted-foreground", line != null && l.n === line && "ring-1 ring-inset ring-[#D14E24]")}>
+              {canComment && l.n ? (
+                <button type="button" onClick={() => setLine(l.n)} aria-label={`Comment on line ${l.n}`} className="w-10 shrink-0 select-none pr-1 text-right text-muted-foreground/70 hover:text-foreground focus-visible:text-foreground">{comments.some((c) => c.line === l.n) ? "●" : l.n}</button>
+              ) : <span aria-hidden className="w-10 shrink-0 select-none pr-1 text-right text-muted-foreground/70">{l.n ?? ""}</span>}
               <span aria-hidden className="select-none pr-2">{l.kind === "@" ? "" : l.kind}</span>{l.text}
             </div>
           )) : <div className="px-3 py-2 text-muted-foreground">No line changes{item?.op === "rename" ? ": renamed only" : ""}.</div>}
@@ -439,6 +491,17 @@ function DiffBody({ id, path, item }: { id: string; path: string; item: Item | n
           Size {diff.data.beforeSize == null ? "—" : `${diff.data.beforeSize.toLocaleString()} bytes`} → {diff.data.afterSize == null ? "deleted" : `${diff.data.afterSize.toLocaleString()} bytes`}.
         </p>
       )}
+      <FileComments id={id} path={path} comments={comments} canComment={canComment} line={line} setLine={setLine} onCommented={onCommented} />
     </div>
   );
+}
+
+/** Line numbers of the new content for each diff line (none on removed lines), from the @@ headers. */
+function numbered(lines: Array<{ kind: " " | "-" | "+" | "@"; text: string }>) {
+  let n = 0;
+  return lines.map((l) => {
+    if (l.kind === "@") { n = Number(/\+(\d+)/.exec(l.text)?.[1] ?? 1); return { ...l, n: null as number | null }; }
+    if (l.kind === "-") return { ...l, n: null as number | null };
+    return { ...l, n: n++ };
+  });
 }

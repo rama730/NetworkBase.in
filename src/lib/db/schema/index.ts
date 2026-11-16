@@ -6329,3 +6329,15 @@ export const changeSetItems = pgTable("change_set_items", {
   pathUnique: uniqueIndex("change_set_items_path_unique").on(t.changeSetId, t.path),
   stateIdx: index("change_set_items_state_idx").on(t.changeSetId, t.state),
 }));
+
+/** Line comments in a change set's review (0093, report G12). */
+export const changeSetComments = pgTable("change_set_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  changeSetId: uuid("change_set_id").notNull().references(() => changeSets.id, { onDelete: "cascade" }),
+  path: text("path").notNull(),
+  line: integer("line"),
+  authorId: uuid("author_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+}, (t) => ({ setIdx: index("change_set_comments_set_idx").on(t.changeSetId, t.path, t.createdAt) }));

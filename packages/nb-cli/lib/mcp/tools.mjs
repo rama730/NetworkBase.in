@@ -207,7 +207,7 @@ export const TOOLS = [
 
   // Change sets (report G7, G8): where they're on, the agent's saved files go into one change set as it works.
   { name: "networkbase_change_status", title: "The change set", tier: "read", pack: "changes", props: {},
-    description: "Where change sets are on, your saved files go into one change set as you work (no push needed). Shows its files, uploads and anything a teammate changed since.",
+    description: "Where change sets are on, your saved files go into one change set as you work (no push needed). Shows its files, uploads, review comments to address, and anything a teammate changed since.",
     run: (nb) => nb("change status") },
   { name: "networkbase_change_start", title: "Start a change set", tier: "small", pack: "changes", props: { title: { type: "string", description: "The job, like \"Redesign the sign-in page\"" }, task: { type: "string" } }, required: ["title"],
     description: "Name the work before you start; otherwise your first save opens one named after the task. If it answers CHANGE_SETS_OFF, push with networkbase_file_push instead.",

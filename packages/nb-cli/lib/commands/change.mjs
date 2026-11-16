@@ -69,13 +69,15 @@ export async function changeStatus(ctx) {
   const conflicts = view.items.filter((/** @type {any} */ i) => i.state === "conflict");
   const pending = readJournal(root, id).missing.length;
   const held = Object.values(readJournal(root, id).held ?? {});
-  ctx.out.result("nb.change.status/1", { changeSet: set, items: view.items, uploadsPending: pending, held, conflicts, skipped: capture?.skipped ?? [] }, (d) => [
+  const comments = (view.comments ?? []).filter((/** @type {any} */ c) => !c.resolvedAt);
+  ctx.out.result("nb.change.status/1", { changeSet: set, items: view.items, uploadsPending: pending, held, conflicts, comments, skipped: capture?.skipped ?? [] }, (d) => [
     `${ctx.out.c.bold(safe(d.changeSet.title))} ${ctx.out.c.muted(`${d.changeSet.id.slice(0, 8)} · ${d.changeSet.status}`)}`,
     `  ${counts(d.changeSet)}${d.changeSet.linesAdded || d.changeSet.linesRemoved ? ctx.out.c.muted(`, +${d.changeSet.linesAdded} −${d.changeSet.linesRemoved}`) : ""}`,
     ...(d.held.length ? [ctx.out.c.warning(`  Not sent, ${d.held.length === 1 ? "it looks" : "they look"} like ${d.held.length === 1 ? "it holds" : "they hold"} a key: ${d.held.map((/** @type {string} */ p) => safe(p)).join(", ")}`), ctx.out.c.muted("  Remove the key, or nb change finish --confirm-secrets if it's safe to share")] : []),
     ...(d.uploadsPending > d.held.length ? [ctx.out.c.warning(`  ${plural(d.uploadsPending - d.held.length, "file")} still to upload: run nb change status again`)] : []),
     ...d.conflicts.map((/** @type {any} */ c) => ctx.out.c.warning(`  ${ctx.out.sym.warn} ${safe(c.path)} changed since you started (${c.conflict?.kind ?? "edit"})`)),
     ...d.skipped.map((/** @type {any} */ s) => ctx.out.c.muted(`  skipped ${safe(s.path)}: ${s.reason}`)),
+    ...d.comments.map((/** @type {any} */ c) => `  ${ctx.out.c.brand("»")} ${safe(c.path)}${c.line ? `:${c.line}` : ""} ${ctx.out.c.muted(`${safe(c.author || c.username || "someone")}:`)} ${safe(c.body).replace(/\s+/g, " ").slice(0, 160)}`),
     ctx.out.c.muted(d.changeSet.status === "ready" ? "  Ready: nb change apply" : "  nb change finish when you're done"),
   ]);
   return EXIT.ok;
@@ -101,6 +103,7 @@ export async function changeView(ctx) {
   ctx.out.result("nb.change.view/1", res, (d) => [
     `${ctx.out.c.bold(safe(d.changeSet.title))} ${ctx.out.c.muted(`${d.changeSet.id.slice(0, 8)} · ${d.changeSet.status} · ${counts(d.changeSet)}`)}`,
     ...(d.changeSet.message ? [`  ${safe(d.changeSet.message)}`] : []),
+    ...(d.comments ?? []).filter((/** @type {any} */ c) => !c.resolvedAt).map((/** @type {any} */ c) => `  ${ctx.out.c.brand("»")} ${safe(c.path)}${c.line ? `:${c.line}` : ""} ${ctx.out.c.muted(`${safe(c.author || c.username || "someone")}:`)} ${safe(c.body).replace(/\s+/g, " ").slice(0, 160)}`),
     ...d.items.map((/** @type {any} */ i) => `  ${sym[i.op] ?? "?"} ${safe(i.fromPath ? `${i.fromPath} → ${i.path}` : i.path)}${i.linesAdded != null ? ctx.out.c.muted(` +${i.linesAdded} −${i.linesRemoved}`) : ""}${i.state === "conflict" ? ctx.out.c.warning(` (changed since: ${i.conflict?.kind ?? "edit"})`) : i.state === "pending" ? ctx.out.c.muted(" (uploading)") : ""}`),
   ]);
   return EXIT.ok;

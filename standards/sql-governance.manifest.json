@@ -95,7 +95,8 @@
     "drizzle/0089_task_agent_notes.sql",
     "drizzle/0090_workspace_sandbox.sql",
     "drizzle/0091_change_sets.sql",
-    "drizzle/0092_change_set_item_executable.sql"
+    "drizzle/0092_change_set_item_executable.sql",
+    "drizzle/0093_change_set_comments.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

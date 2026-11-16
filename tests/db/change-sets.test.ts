@@ -649,3 +649,22 @@ test("presence (G15): open drafts show on their task and their files, and on eac
   const viewer = await sql.begin((tx) => createUser(tx));
   assert.deepEqual(await domain.openChangeSetsFor({ user: { id: viewer }, tokenKind: null, tokenScopes: null }, workspace, { taskId: task!.id }), [], "people who can't change files see none");
 });
+
+test("line comments (G12): on a file or a line, readable with the set, resolvable by their author", async () => {
+  const { owner, workspace, cli } = await setup(["a"]);
+  const { cs } = await draft(cli, workspace, [{ op: "change", path: "/a.txt", text: "a two\nmore\n" }]);
+  const comments = await loadAppModule(() => import("../../src/app/api/v1/change-sets/[cs]/comments/route"));
+  const post = (body: unknown) => call(comments.POST, cli, "POST", `/api/v1/change-sets/${cs}/comments`, body, csCtx(cs));
+  const c = await post({ path: "/a.txt", line: 2, body: "Why the extra line?" });
+  assert.equal(c.status, 200, JSON.stringify(c.json));
+  assert.equal((await post({ path: "/nope.txt", body: "x" })).json.errorCode, "NOT_FOUND");
+  assert.equal((await post({ path: "/a.txt", line: 0, body: "x" })).json.errorCode, "BAD_REQUEST");
+  const view = await call(one.GET, cli, "GET", `/api/v1/change-sets/${cs}`, undefined, csCtx(cs));
+  assert.deepEqual(view.json.data.comments.map((x: { line: number; body: string }) => [x.line, x.body]), [[2, "Why the extra line?"]]);
+  const resolved = await post({ id: c.json.data.comment.id, resolved: true });
+  assert.ok(resolved.json.data.comment.resolvedAt);
+  const stranger = await sql.begin((tx) => createUser(tx));
+  const refused = await call(comments.POST, await token(stranger, "device", null), "POST", `/api/v1/change-sets/${cs}/comments`, { path: "/a.txt", body: "hi" }, csCtx(cs));
+  assert.equal(refused.status, 404, "someone outside can't even see the draft");
+  assert.ok(owner);
+});

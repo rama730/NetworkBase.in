@@ -20,6 +20,7 @@ async function open(page: Page, { sets = [SET], enabled = true, width = 1440, th
     (window as any).__actions = {
       listChangeSetsAction: async () => ({ success: true, data: { enabled, changeSets: sets.map((s: any) => ({ ...s, status })), nextCursor: null } }),
       getChangeSetAction: async () => ({ success: true, data: { changeSet: { ...(sets[0] as any), status }, items, overlaps: [{ id: 'cs2', title: 'Codex cleanup', agent: 'Codex', files: 2 }] } }),
+      addChangeSetCommentAction: async (...a: unknown[]) => { calls.push(['comment', ...a]); return { success: true, data: {} }; },
       openChangeSetsForAction: async () => ({ success: true, data: [{ id: 'cs1', title: 'Redesign sign-in', status: 'ready', agent: 'Claude Code', files: 4 }] }),
       changeSetDiffAction: async (_id: string, path: string) => ({ success: true, data: path.endsWith('.css')
         ? { kind: 'text', added: 2, removed: 1, lines: [{ kind: '@', text: '@@ -1 +1 @@' }, { kind: '-', text: 'body { color: red }' }, { kind: '+', text: 'body { color: #141A1E }' }, { kind: '+', text: 'main { gap: 8px }' }] }
@@ -165,4 +166,19 @@ test('presence: the task says an agent is changing files, and the set names draf
   await expect(task).toContainText('Claude Code is changing 4 files for this task');
   await expect(task.getByRole('link', { name: 'Review' })).toHaveAttribute('href', '/workspaces/ponytail?tab=files&filesView=changes&changes=cs1');
   await expect(page.getByText('Codex also has a draft on 2 of these files')).toBeVisible();
+});
+
+test('line comments: click a line number, write, send; an unsent comment survives a reload', async ({ page }) => {
+  await open(page, { path: '/?changes=cs1' });
+  const diff = page.getByRole('region', { name: 'Diff' });
+  await page.getByRole('navigation', { name: 'Files in this change set' }).getByRole('button', { name: '/app/globals.css' }).click();
+  await diff.getByRole('button', { name: 'Comment on line 2' }).click();
+  await expect(diff.getByText('Comment on line 2')).toBeVisible();
+  await diff.getByRole('textbox').fill('Use the brand token here');
+  await page.reload();
+  await page.getByRole('navigation', { name: 'Files in this change set' }).getByRole('button', { name: '/app/globals.css' }).click();
+  await expect(diff.getByRole('textbox')).toHaveValue('Use the brand token here');
+  await diff.getByRole('button', { name: 'Comment on line 1' }).click();
+  await diff.getByRole('button', { name: 'Comment', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__calls)).toEqual([['comment', 'cs1', { path: '/app/globals.css', line: 1, body: 'Use the brand token here' }]]);
 });

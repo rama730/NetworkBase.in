@@ -8,7 +8,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, max, ne, or, sql } from "drizz
 
 import { CONFIRM_HEADER, agentAssignmentBlock, agentGate, issueConfirmToken, needsYes, recordUndo, spendConfirmToken, workspaceAgentPolicy, type ChangeKind } from "@/lib/agents/policy";
 import { db } from "@/lib/db";
-import { changeSetItems, changeSets, fileVersions, profiles, storageAssets, taskNodeLinks, undoOperations, workspaceDocuments, workspaceNodeLocks, workspaceNodes, workspaces } from "@/lib/db/schema";
+import { changeSetComments, changeSetItems, changeSets, fileVersions, profiles, storageAssets, taskNodeLinks, undoOperations, workspaceDocuments, workspaceNodeLocks, workspaceNodes, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { ensureParentFoldersTx } from "@/lib/files/ensure-folders";
 import { assertWorkspaceWriteAccessTx, recordNodeEventsBatch } from "@/lib/files/internal-helpers";
@@ -198,7 +198,49 @@ export async function getChangeSet(actor: Actor, changeSetId: string, opts: { cu
     .limit(501);
   const page = items.slice(0, 500);
   const [shown] = await forViewer(userOf(actor), set.workspaceId, [set]);
-  return { changeSet: shown!, items: page, nextCursor: items.length > 500 ? page.at(-1)!.path : null, overlaps: canWrite ? await overlapping(actor, set) : [] };
+  return { changeSet: shown!, items: page, nextCursor: items.length > 500 ? page.at(-1)!.path : null, overlaps: canWrite ? await overlapping(actor, set) : [], comments: await listComments(actor, set.id) };
+}
+
+// ── Line comments (G12) ────────────────────────────────────────────────────────────────────────────────────────────
+
+/** The review's comments, oldest first, with who wrote them. Readable wherever the set is. */
+export async function listComments(actor: Actor, changeSetId: string) {
+  const set = await findChangeSet(changeSetId);
+  const { canWrite } = await workspaceAccess(actor, set.workspaceId);
+  if (!canWrite && !["applied", "undone"].includes(set.status)) fail("Change set not found", 404, "NOT_FOUND");
+  return db.select({ id: changeSetComments.id, path: changeSetComments.path, line: changeSetComments.line, body: changeSetComments.body, createdAt: changeSetComments.createdAt, resolvedAt: changeSetComments.resolvedAt, authorId: changeSetComments.authorId, author: profiles.fullName, username: profiles.username })
+    .from(changeSetComments).leftJoin(profiles, eq(profiles.id, changeSetComments.authorId))
+    .where(eq(changeSetComments.changeSetId, set.id)).orderBy(asc(changeSetComments.createdAt)).limit(500);
+}
+
+/** A comment on a file in the set, optionally on a line of its new content. People who can change the files. */
+export async function addComment(actor: Actor, changeSetId: string, input: { path: string; line?: number | null; body: string }) {
+  const set = await findChangeSet(changeSetId);
+  const { canWrite } = await workspaceAccess(actor, set.workspaceId);
+  // Drafts are hidden from people who can't change the files, so they don't learn one exists.
+  if (!canWrite) fail("Change set not found", 404, "NOT_FOUND");
+  await requireAgentAllowed(actor, set.workspaceId, set.taskId);
+  const path = normalizeChangePath(input.path);
+  const body = String(input.body ?? "").trim();
+  if (!body || body.length > 4000) fail("A comment is 1 to 4,000 characters", 400, "BAD_REQUEST");
+  const line = input.line == null ? null : Number(input.line);
+  if (line != null && (!Number.isInteger(line) || line < 1)) fail("Bad line number", 400, "BAD_REQUEST");
+  const [item] = await db.select({ id: changeSetItems.id }).from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), eq(changeSetItems.path, path))).limit(1);
+  if (!item) fail("That file isn't in this change set", 404, "NOT_FOUND");
+  const [row] = await db.insert(changeSetComments).values({ changeSetId: set.id, path, line, authorId: userOf(actor), body }).returning();
+  return { comment: row! };
+}
+
+/** Marks a comment done (or not). Its author, or the set's author. */
+export async function resolveComment(actor: Actor, changeSetId: string, commentId: string, resolved = true) {
+  const set = await findChangeSet(changeSetId);
+  await workspaceAccess(actor, set.workspaceId);
+  const userId = userOf(actor);
+  if (!/^[0-9a-f-]{36}$/i.test(commentId)) fail("Comment not found", 404, "NOT_FOUND");
+  const [row] = await db.update(changeSetComments).set({ resolvedAt: resolved ? new Date() : null })
+    .where(and(eq(changeSetComments.id, commentId), eq(changeSetComments.changeSetId, set.id), or(eq(changeSetComments.authorId, userId), sql`${set.authorId} = ${userId}`)))
+    .returning();
+  return row ? { comment: row } : fail("Comment not found, or not yours to resolve", 404, "NOT_FOUND");
 }
 
 // ── Presence (G15) ─────────────────────────────────────────────────────────────────────────────────────────────────
