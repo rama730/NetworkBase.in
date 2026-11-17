@@ -137,7 +137,7 @@ export async function listSaves(actor: Actor, workspaceId: string, opts: { branc
   await memberAccess(actor, workspaceId);
   const main = await mainBranch(workspaceId);
   // A branch's own saves (H-2): by its id or name; main by default.
-  const branchId = opts.branch ? (await (await import("@/lib/domain/branches")).findBranch(workspaceId, opts.branch)).id : main.id;
+  const branchId = opts.branch ? (await (await import("@/lib/domain/branches")).findBranch(actor, workspaceId, opts.branch)).id : main.id;
   const limit = Math.min(Math.max(Number(opts.limit) || SAVE_LIMITS.page, 1), SAVE_LIMITS.page);
   const where = [eq(saves.branchId, branchId), sql`${saves.seq} IS NOT NULL`];
   const before = opts.cursor ? Number(opts.cursor) : null;

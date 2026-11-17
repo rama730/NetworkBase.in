@@ -37,8 +37,12 @@ type State = { hash: string | null; assetId: string | null; size: number | null;
 
 const seqOf = async (saveId: string | null) => (saveId ? (await db.select({ seq: saves.seq }).from(saves).where(eq(saves.id, saveId)).limit(1))[0]?.seq ?? 0 : 0);
 
-/** A branch by id or by name (any letter case) in a workspace; "main" is main. */
-export async function findBranch(workspaceId: string, ref: string) {
+/**
+ * A branch by id or by name (any letter case) in a workspace; "main" is main. The workspace's people only: anyone else
+ * gets the same "not found" whatever exists (no probing names or states).
+ */
+export async function findBranch(actor: Actor, workspaceId: string, ref: string) {
+  await memberAccess(actor, workspaceId);
   const main = await mainBranch(workspaceId);
   const value = String(ref ?? "").trim();
   if (!value || value.toLowerCase() === "main") return (await db.select().from(branches).where(eq(branches.id, main.id)))[0]!;
@@ -200,7 +204,7 @@ export async function createBranch(actor: Actor, workspaceId: string, input: { n
   const name = String(input.name ?? "").trim();
   const problem = branchNameProblem(name);
   if (problem) fail(problem, 400, "BAD_BRANCH_NAME");
-  const source = input.from && input.from.toLowerCase() !== "main" ? await findBranch(workspaceId, input.from) : null;
+  const source = input.from && input.from.toLowerCase() !== "main" ? await findBranch(actor, workspaceId, input.from) : null;
   if (source && source.status !== "active") fail(`${source.name} was ${source.status}; restore it first`, 409, "BRANCH_DELETED");
   if (input.taskId) {
     const [task] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, input.taskId), eq(tasks.projectId, workspaceId))).limit(1);

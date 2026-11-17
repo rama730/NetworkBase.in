@@ -136,7 +136,7 @@ export async function startChangeSet(actor: Actor, input: { workspaceId: string;
   let branchId: string | null = null;
   if (input.branchId) {
     const { findBranch } = await import("@/lib/domain/branches");
-    const branch = await findBranch(input.workspaceId, input.branchId);
+    const branch = await findBranch(actor, input.workspaceId, input.branchId);
     if (branch.status !== "active") fail(`${branch.name} was ${branch.status}; restore it first`, 409, "BRANCH_DELETED");
     branchId = branch.isDefault ? null : branch.id;
   }

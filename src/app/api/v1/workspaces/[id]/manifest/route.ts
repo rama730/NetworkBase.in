@@ -34,7 +34,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       const { ChangeSetError } = await import("@/lib/domain/change-sets");
       try {
         const actor = auth as unknown as import("@/lib/domain/change-sets").Actor;
-        const branch = await findBranch(id, branchRef);
+        const branch = await findBranch(actor, id, branchRef);
         if (branch.status !== "active") return jsonError(`The branch ${branch.name} was deleted`, 410, "BRANCH_DELETED" as never);
         const page = await listBranchFiles(actor, branch.id, { cursor: new URL(request.url).searchParams.get("cursor") });
         const access = await assertWorkspaceFileReadAccess(id, auth.user.id);

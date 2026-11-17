@@ -28,7 +28,7 @@ async function run<T>(fn: (a: Actor) => Promise<T>): Promise<Result<T>> {
 export const listBranchesAction = async (projectId: string, status?: string) => run((a) => listBranches(a, projectId, { status: status ?? "active" }));
 export const createBranchAction = async (projectId: string, name: string, from?: string | null) => run((a) => createBranch(a, projectId, { name, from: from ?? null }));
 /** A branch by its name (the address carries the name, H2). */
-export const branchByNameAction = async (projectId: string, name: string) => run(async (a) => getBranch(a, (await findBranch(projectId, name)).id));
+export const branchByNameAction = async (projectId: string, name: string) => run(async (a) => getBranch(a, (await findBranch(a, projectId, name)).id));
 export const renameBranchAction = async (branchId: string, name: string) => run((a) => renameBranch(a, branchId, name));
 export const deleteBranchAction = async (branchId: string) => run((a) => deleteBranch(a, branchId));
 export const restoreBranchAction = async (branchId: string) => run((a) => restoreBranch(a, branchId));

@@ -217,6 +217,9 @@ test("from another branch, rename, delete and restore; main can't be renamed; a 
   const outsider = await sql.begin((tx) => createUser(tx));
   await assert.rejects(branches.listBranches(actor(outsider), workspace), { code: "NOT_FOUND" });
   await assert.rejects(branches.listBranchFiles(actor(outsider), theirs.id), { code: "NOT_FOUND" });
+  // No probing: an outsider gets the same answer for a real branch, a deleted one and a name that doesn't exist.
+  await branches.deleteBranch(o, (await branches.createBranch(o, workspace, { name: "gone" })).branch.id);
+  for (const name of ["member-work", "gone", "never-was"]) await assert.rejects(branches.findBranch(actor(outsider), workspace, name), { code: "NOT_FOUND" });
 });
 
 test("speed (H25): a 5,000-file workspace; a branch's files resolve well under a second", async () => {
