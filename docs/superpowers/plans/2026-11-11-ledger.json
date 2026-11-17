@@ -6972,9 +6972,9 @@
       "text": "From the Files tab header: a branch picker (\"main ▾\") with New branch. You pick a name and a starting point (main, or another branch).",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): Files tab → Branches (and b): New branch with a starting point (main or a branch); decision 1: no header dropdown, the Branches view is the picker"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): Files tab → Branches (and b): New branch with a starting point (main or a branch); decision 1: no header dropdown, the Branches view is the picker"
     },
     {
       "key": "H2.20611392",
@@ -6992,9 +6992,9 @@
       "text": "From the CLI: nb branch create <name>, or automatically when your git folder is on a branch NetworkBase doesn't have yet (asks first, H6).",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): nb branch create; a git branch NetworkBase lacks asks first (NEEDS_INPUT for --json/agents)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): nb branch create; a git branch NetworkBase lacks asks first (NEEDS_INPUT for --json/agents)"
     },
     {
       "key": "H2.392c8204",
@@ -7022,9 +7022,9 @@
       "text": "The address carries the branch (?tab=files&branch=task/4-login-bug), so links open the right branch.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): ?tab=files&branch=<name> opens the branch"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): ?tab=files&branch=<name> opens the branch"
     },
     {
       "key": "H2.d180a77f",
@@ -7032,9 +7032,9 @@
       "text": "A coloured \"On branch task/4-login-bug\" bar shows whenever you're not on main, so nobody edits the wrong branch by mistake.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): coloured On branch bar (role=status) on the branch page"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): coloured On branch bar (role=status) on the branch page"
     },
     {
       "key": "H2.9e5d658b",
@@ -7042,9 +7042,9 @@
       "text": "Its own files: main as it was when the branch started, plus the branch's own saves.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): branchTree: main at the base save plus branch_files"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): branchTree: main at the base save plus branch_files"
     },
     {
       "key": "H2.01948800",
@@ -7052,9 +7052,9 @@
       "text": "It doesn't change when main changes, exactly like GitHub. Update from main brings main's newer work in, with the same merging as Part G (G9).",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): branches don't move with main; Update from main merges three ways, conflicts choose"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): branches don't move with main; Update from main merges three ways, conflicts choose"
     },
     {
       "key": "H2.9cafebc7",
@@ -7062,9 +7062,9 @@
       "text": "Status in the picker and the branch list: \"3 saves ahead, 5 behind main · updated 2 h ago by Claude Code\".",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): ahead, behind and the last save (with agent label) in the list and the bar"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): ahead, behind and the last save (with agent label) in the list and the bar"
     },
     {
       "key": "H2.37c911b9",
@@ -7072,9 +7072,9 @@
       "text": "every branch with its owner, linked task, ahead and behind counts, last save, and its open merge request",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): list: creator, task, ahead/behind, last save (merge requests come in H-3)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): list: creator, task, ahead/behind, last save (merge requests come in H-3)"
     },
     {
       "key": "H2.1f72c9a7",
@@ -7082,9 +7082,9 @@
       "text": "filters: mine, active, merged, stale (no saves for 30 days)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): filters active, stale, deleted (app); API status=merged and mine=1"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): filters active, stale, deleted (app); API status=merged and mine=1"
     },
     {
       "key": "H2.f1c45b8c",
@@ -7092,9 +7092,9 @@
       "text": "Rename and delete: by the branch's creator, workspace owners and admins. Main can't be renamed or deleted.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): rename/delete by creator, owners, admins; main refused (MAIN_BRANCH)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): rename/delete by creator, owners, admins; main refused (MAIN_BRANCH)"
     },
     {
       "key": "H2.fafe5320",
@@ -7112,9 +7112,9 @@
       "text": "Deleted branches can be restored for 30 days, like Trash.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): deleted branches restore for 30 days (BRANCH_GONE after)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): deleted branches restore for 30 days (BRANCH_GONE after)"
     },
     {
       "key": "H2.2e73aaf7",
@@ -7122,9 +7122,9 @@
       "text": "Everything in All files: folders, code, documents, images · Task working files and final files (/.system/tasks/…, nodes with taskid): they're task records, not ",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): a branch covers main's project files; task files and /.system stay main-only (resolver uses main's history, which leaves them out)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): a branch covers main's project files; task files and /.system stay main-only (resolver uses main's history, which leaves them out)"
     },
     {
       "key": "H2.3d40b894",
@@ -7142,9 +7142,9 @@
       "text": "Organization assignment copies: branches are off there, so hand-in locks and teacher reviews stay simple. Organizations' own team workspaces have branches",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/saves.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): organizations: History (and so branches) can't be turned on yet (BRANCHES_OFF)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): organizations: History (and so branches) can't be turned on yet (BRANCHES_OFF)"
     },
     {
       "key": "H3.025c3fea",
@@ -7652,9 +7652,9 @@
       "text": "nb branch switch <name> changes it, like git checkout:",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): nb branch switch: replaces differing files, keeps edits, stops on an edit that would mix (LOCAL_CHANGES) unless --carry"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): nb branch switch: replaces differing files, keeps edits, stops on an edit that would mix (LOCAL_CHANGES) unless --carry"
     },
     {
       "key": "H6.3c7f7dd2",
@@ -7662,9 +7662,9 @@
       "text": "Where you see the branch:",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): nb status shows 'on branch X' (prompt marker later)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): nb status shows 'on branch X' (prompt marker later)"
     },
     {
       "key": "H6.1de17287",
@@ -7672,9 +7672,9 @@
       "text": "NetworkBase follows the git branch automatically. Each command reads git's current branch (.git/HEAD, no git process needed). If it changed since last time, Net",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): follows .git/HEAD before every sync command; main/master follow main"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): follows .git/HEAD before every sync command; main/master follow main"
     },
     {
       "key": "H6.3dc57703",
@@ -7682,9 +7682,9 @@
       "text": "A git branch NetworkBase doesn't have yet: the CLI asks once, \"Create NetworkBase branch feature-x from main?\". With --json or agents it answers NEEDSINPUT, nev",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): unknown git branch: asks once; --json gets NEEDS_INPUT (exit 6); --yes creates"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): unknown git branch: asks once; --json gets NEEDS_INPUT (exit 6); --yes creates"
     },
     {
       "key": "H6.33fcaec7",
@@ -7692,9 +7692,9 @@
       "text": "nb push always goes to the branch the folder is on, and never into main by accident. Pushing to a protected main follows H5.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): nb push on a branch: one change set saved on that branch; main untouched"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): nb push on a branch: one change set saved on that branch; main untouched"
     },
     {
       "key": "H6.0b0fe0b3",
@@ -7702,9 +7702,9 @@
       "text": "Pushes from a detached git head (no branch) are refused with DETACHEDHEAD and how to fix it.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): detached HEAD refuses a push (DETACHED_HEAD)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): detached HEAD refuses a push (DETACHED_HEAD)"
     },
     {
       "key": "H6.435f1d8c",
@@ -7712,9 +7712,9 @@
       "text": "nb branch list, create, switch, rename, delete, update (from main)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): nb branch list, create, switch, rename, delete, update"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): nb branch list, create, switch, rename, delete, update"
     },
     {
       "key": "H6.4844f085",
@@ -7722,9 +7722,9 @@
       "text": "nb log: history of the current branch",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/history.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): nb log shows the folder's branch (--branch main for main)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): nb log shows the folder's branch (--branch main for main)"
     },
     {
       "key": "H6.b6f48e66",
@@ -7732,9 +7732,9 @@
       "text": "nb show <save>: one save",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/history.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): nb show <save> (H-1)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): nb show <save> (H-1)"
     },
     {
       "key": "H6.6fe17faa",
@@ -7742,9 +7742,9 @@
       "text": "nb revert <save>",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/history.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): nb revert <save>, on a branch too"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): nb revert <save>, on a branch too"
     },
     {
       "key": "H6.927579af",
@@ -7932,9 +7932,9 @@
       "text": "Trash · Deleting on main uses Trash as today; deleting on a branch is a save (undo by revert, or restore the branch)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): deleting on a branch is a save, undone by revert"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): deleting on a branch is a save, undone by revert"
     },
     {
       "key": "H8.e4d9e0e3",
@@ -7942,9 +7942,9 @@
       "text": "Locks · Per branch: locking a file on one branch doesn't block it on another",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): locks per branch"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): locks per branch"
     },
     {
       "key": "H8.284d3652",
@@ -7962,9 +7962,9 @@
       "text": "Downloads · Download a branch or any save as a zip",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): download a branch or a save as a zip"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): download a branch or a save as a zip"
     },
     {
       "key": "H8.79242259",
@@ -8002,9 +8002,9 @@
       "text": "Storage · Branches store only changed content once (by hash); it counts toward the workspace's storage",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): branch content stored once by hash; storage clean-up keeps branch and history content"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): branch content stored once by hash; storage clean-up keeps branch and history content"
     },
     {
       "key": "H8.15ec5e01",
@@ -8192,9 +8192,9 @@
       "text": "The files of branch B now: branchfiles of B over the checkpoint at B's base. Paths marked deleted are hidden, and renames are a delete plus an add.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): branch_files over main at the branch's base; deleted paths hidden"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): branch_files over main at the branch's base; deleted paths hidden"
     },
     {
       "key": "H11.c6a9c463",
@@ -8222,9 +8222,9 @@
       "text": "One function, resolveTree({ branch, save? }), returns a paged list (5,000 per page, like the manifest) and single-file lookups. It's used by the Files tab, GET ",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): branchTree / mainTreeCte: paged 5,000 by path, single paths; used by Files, manifest?branch, zip"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): branchTree / mainTreeCte: paged 5,000 by path, single paths; used by Files, manifest?branch, zip"
     },
     {
       "key": "H11.41da3157",
@@ -8372,9 +8372,9 @@
       "text": "GET /workspaces/:id/branches?status=&mine= · file:read · list with ahead and behind, last save, merge request",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): GET /workspaces/:id/branches?status=&mine="
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): GET /workspaces/:id/branches?status=&mine="
     },
     {
       "key": "H14.116e065b",
@@ -8382,9 +8382,9 @@
       "text": "POST /workspaces/:id/branches · file:write · { name, from?: branch \\ · save, taskId? } → 201 (members only, H26)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): POST /workspaces/:id/branches {name, from, taskId} → 201"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): POST /workspaces/:id/branches {name, from, taskId} → 201"
     },
     {
       "key": "H14.2f5a0d43",
@@ -8392,9 +8392,9 @@
       "text": "PATCH /branches/:b · file:write · rename",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): PATCH /branches/:b rename"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): PATCH /branches/:b rename"
     },
     {
       "key": "H14.e2e0bc8d",
@@ -8402,9 +8402,9 @@
       "text": "DELETE /branches/:b · POST /branches/:b/restore · file:write · delete (30-day restore) and restore",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): DELETE /branches/:b, POST /branches/:b/restore"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): DELETE /branches/:b, POST /branches/:b/restore"
     },
     {
       "key": "H14.3d958b39",
@@ -8412,9 +8412,9 @@
       "text": "POST /branches/:b/update · file:write · update from its target → { save? , conflicts[] }",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): POST /branches/:b/update → {save, conflicts}"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): POST /branches/:b/update → {save, conflicts}"
     },
     {
       "key": "H14.c67485b6",
@@ -8422,9 +8422,9 @@
       "text": "GET /branches/:b/files?path=&cursor= · file:read · the resolver (H11), also ?save=",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): GET /branches/:b/files?path=&cursor= (no ?save= yet)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): GET /branches/:b/files?path=&cursor= (no ?save= yet)"
     },
     {
       "key": "H14.2917f7e3",
@@ -8432,9 +8432,9 @@
       "text": "GET /workspaces/:id/saves?branch=&path=&author=&cursor= · file:read · history",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): GET /workspaces/:id/saves?branch="
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): GET /workspaces/:id/saves?branch="
     },
     {
       "key": "H14.28982d16",
@@ -8462,9 +8462,9 @@
       "text": "GET /saves/:s/zip · GET /branches/:b/zip · file:read · download as zip (reuses the live zip streaming)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): GET /saves/:s/zip and /branches/:b/zip"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): GET /saves/:s/zip and /branches/:b/zip"
     },
     {
       "key": "H14.484d5ddc",
@@ -8562,9 +8562,9 @@
       "text": "manifest",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): manifest?branch= with revisions as versions"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): manifest?branch= with revisions as versions"
     },
     {
       "key": "H14.4c4e59be",
@@ -8572,9 +8572,9 @@
       "text": "files/place",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): decision 2: on a branch the CLI pushes through a change set on the branch; files/place stays main"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): decision 2: on a branch the CLI pushes through a change set on the branch; files/place stays main"
     },
     {
       "key": "H14.889d658e",
@@ -8582,9 +8582,9 @@
       "text": "the file content routes",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): GET /branches/:b/raw for a branch file's bytes"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): GET /branches/:b/raw for a branch file's bytes"
     },
     {
       "key": "H14.c967be63",
@@ -8592,9 +8592,9 @@
       "text": "Part G's change sets (a change set targets a branch)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): change sets target a branch (change_sets.branch_id); apply saves on the branch"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): change sets target a branch (change_sets.branch_id); apply saves on the branch"
     },
     {
       "key": "H15.f174e887",
@@ -9632,9 +9632,9 @@
       "text": "Two saves on the same branch at the same moment · The second is checked against the head it started from and gets BRANCHMOVED (H26); the app and CLI retry by me",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): BRANCH_MOVED when the head moved since the change started"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): BRANCH_MOVED when the head moved since the change started"
     },
     {
       "key": "H24.ba41a7e8",
@@ -9662,9 +9662,9 @@
       "text": "Deleting a branch with saves not in main · Asks with the count (\"3 saves aren't in main\"); restorable for 30 days",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): delete asks with the count of saves not in main; restorable 30 days"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): delete asks with the count of saves not in main; restorable 30 days"
     },
     {
       "key": "H24.5d560d36",
@@ -9682,9 +9682,9 @@
       "text": "A file over 25 MB on a branch · Refused as on main (FILETOOLARGE)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): files over 25 MB refused on branches as on main (change set limits)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): files over 25 MB refused on branches as on main (change set limits)"
     },
     {
       "key": "H24.f850f8ba",
@@ -9692,9 +9692,9 @@
       "text": "A file locked on main · Not locked on branches (H8); merging into main waits until the lock is released or its holder agrees",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): locks are per branch: main's locks don't hold a branch's change set"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): locks are per branch: main's locks don't hold a branch's change set"
     },
     {
       "key": "H24.af6dd27b",
@@ -9732,9 +9732,9 @@
       "text": "The workspace is public · The public sees main only. Branches, saves on branches and merge requests are visible to members only, because drafts aren't for the p",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): branches and their saves are for members only; the public sees main"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): branches and their saves are for members only; the public sees main"
     },
     {
       "key": "H24.0f064ae7",
@@ -9742,9 +9742,9 @@
       "text": "Branches turned off with only main · History stays; branch screens hide",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/saves.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): History off with only main keeps history; branch screens hide"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): History off with only main keeps history; branch screens hide"
     },
     {
       "key": "H24.2b7f26f7",
@@ -9772,9 +9772,9 @@
       "text": "Active branches per workspace · 500 (raised from 100 for heavy users); merged branches don't count",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): 500 active branches per workspace (BRANCH_LIMIT)"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): 500 active branches per workspace (BRANCH_LIMIT)"
     },
     {
       "key": "H25.b87638c3",
@@ -9812,9 +9812,9 @@
       "text": "Switching branches · under 1 second for 5,000 files",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): a 5,000-file branch resolves in 17 ms"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): a 5,000-file branch resolves in 17 ms"
     },
     {
       "key": "H25.f827e7fc",
@@ -9852,9 +9852,9 @@
       "text": "Moving a branch's head safely:",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): writeBranch locks the branch row and checks expectedHead"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): writeBranch locks the branch row and checks expectedHead"
     },
     {
       "key": "H26.3e35b543",
@@ -9882,9 +9882,9 @@
       "text": "Visibility: branch, save and merge-request routes require workspace membership, not just read access. Public readers get main only (H24).",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts",
-      "evidence": "M8 H-2, local main, 2026-11-17 (not pushed): branch and save routes need membership, not read access"
+      "evidence": "2026-11-17 LIVE (a7c32d122+714c4bb70, 0097 in prod; fixes 5165046df): on ponytail a git folder followed git onto a new branch (asked, then created it), pushed a file there with main unchanged, followed git back to main, main moved, nb branch update merged it in (save 2) and nb pull brought it; the branch page in Chrome showed the On branch bar, changes and diff, files, saves, and an app edit saved on the branch (pulled by the CLI as v1000003); delete from the CLI, restore in the app, zip (200, 281 files, 1.6 MB); found and fixed: branch list/update did not follow git, nb file writes on a branch folder changed main, the Saves tab count; before that: M8 H-2, local main, 2026-11-17 (not pushed): branch and save routes need membership, not read access"
     },
     {
       "key": "H26.aee9425a",
