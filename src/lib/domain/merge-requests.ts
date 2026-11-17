@@ -298,7 +298,7 @@ export async function getMergeRequest(actor: Actor, workspaceId: string, ref: st
   const reviewState = reviews.some((r) => r.state === "changes_requested") ? "changes_requested" : reviews.some((r) => r.state === "approved") ? "approved" : null;
   // What main's protection still needs before this can merge (H5), and whether this viewer may merge past it.
   const rules = await protectionOf(main.id);
-  const gate = mergeGate(rules, { headSaveId: source.headSaveId, isAdmin, reviews, checks: checks.map((c) => ({ name: c.name, state: c.state, saveId: c.saveId })) });
+  const gate = mergeGate(rules, { headSaveId: source.headSaveId, isAdmin, reviews, checks: checks.map((c) => ({ name: c.name, state: c.state, saveId: c.saveId, updatedAt: c.updatedAt })) });
   return {
     mergeRequest: {
       id: mr.id, number: mr.number, title: mr.title, description: mr.description,
@@ -549,7 +549,7 @@ export async function mergeMergeRequest(actor: Actor, request: Request, workspac
   const gate = mergeGate(rules, {
     headSaveId: source.headSaveId, isAdmin,
     reviews: await db.select({ reviewerId: mergeRequestReviews.reviewerId, state: mergeRequestReviews.state, saveId: mergeRequestReviews.saveId }).from(mergeRequestReviews).where(eq(mergeRequestReviews.mergeRequestId, mr.id)),
-    checks: source.headSaveId ? await db.select({ name: mergeRequestChecks.name, state: mergeRequestChecks.state, saveId: mergeRequestChecks.saveId }).from(mergeRequestChecks).where(and(eq(mergeRequestChecks.mergeRequestId, mr.id), eq(mergeRequestChecks.saveId, source.headSaveId))) : [],
+    checks: source.headSaveId ? await db.select({ name: mergeRequestChecks.name, state: mergeRequestChecks.state, saveId: mergeRequestChecks.saveId, updatedAt: mergeRequestChecks.updatedAt }).from(mergeRequestChecks).where(and(eq(mergeRequestChecks.mergeRequestId, mr.id), eq(mergeRequestChecks.saveId, source.headSaveId))) : [],
   });
   const overriding = gate.needs.length > 0 && Boolean(input.override);
   if (gate.needs.length && !overriding) gateError(gate);

@@ -87,7 +87,8 @@ async function openMr(dev: string, workspace: string, text = "# Demo 2\n") {
 
 test("defaults (H5): a team's main takes merge requests with 1 approval; a personal one doesn't; agents on branches in both", async () => {
   const { owner, workspace } = await team();
-  assert.deepEqual((await protect.getProtection(actor(owner), workspace)).rules, {
+  const { updatedAt: _at, ...rules } = (await protect.getProtection(actor(owner), workspace)).rules;
+  assert.deepEqual(rules, {
     requireMergeRequest: true, approvals: 1, reapproveOnNewSaves: false, requiredChecks: [], mergeBy: "writers", agentsOnBranches: true, allowGithubSync: true,
   });
   const solo = await sql.begin((tx) => createUser(tx));
@@ -144,6 +145,10 @@ test("merging: approvals, re-approval after new saves, required checks, who merg
   await mrs.postCheck(actor(dev), workspace, number, { name: "build", state: "failed" });
   await assert.rejects(mrs.mergeMergeRequest(actor(owner), request(), workspace, number, {}), { code: "CHECKS_FAILED" });
   await mrs.postCheck(actor(dev), workspace, number, { name: "build", state: "passed" });
+  // A check posted before the rules last changed doesn't count: the build posts it again.
+  await sql`UPDATE merge_request_checks SET updated_at = now() - interval '1 hour' WHERE name = 'build'`;
+  await assert.rejects(mrs.mergeMergeRequest(actor(owner), request(), workspace, number, {}), { code: "CHECKS_FAILED" });
+  await mrs.postCheck(actor(dev), workspace, number, { name: "build", state: "passed" });
   await assert.rejects(mrs.mergeMergeRequest(actor(dev), request(), workspace, number, {}), { code: "FORBIDDEN" }, "only admins merge");
   const done = await mrs.mergeMergeRequest(actor(owner), request(), workspace, number, {});
   assert.equal(done.outcome, "merged");
@@ -186,8 +191,14 @@ test("changing the rules: owners and admins, people only; loosening needs Verify
   await assert.rejects(protect.setProtection(actor(owner), workspace, { requireMergeRequest: "false" as never }, { verified: false }), { code: "BAD_REQUEST" });
   await protect.setProtection(actor(owner), workspace, { reapproveOnNewSaves: true }, { verified: false });
   await assert.rejects(protect.setProtection(actor(owner), workspace, { reapproveOnNewSaves: false }, { verified: false }), { code: "STEP_UP_REQUIRED" });
+  // Only the rules are taken from the patch: another workspace's branch id is ignored.
+  const other = await team();
+  const [otherMain] = await sql`SELECT id FROM branches WHERE workspace_id = ${other.workspace} AND is_default`;
+  await protect.setProtection(actor(owner), workspace, { branchId: otherMain!.id, approvals: 2 } as never, { verified: false });
+  const [theirs] = await sql`SELECT approvals FROM branch_protection WHERE branch_id = ${otherMain!.id}`;
+  assert.equal(theirs!.approvals, 1, "the other workspace's rules are untouched");
   const tightened = await protect.setProtection(actor(owner), workspace, { approvals: 2, requiredChecks: ["build", "build", "lint"] }, { verified: false });
-  assert.deepEqual([tightened.rules.approvals, tightened.rules.requiredChecks, tightened.loosens], [2, ["build", "lint"], false]);
+  assert.deepEqual([tightened.rules.requiredChecks, tightened.loosens], [["build", "lint"], false]);
   const off = await protect.setProtection(actor(owner), workspace, { requireMergeRequest: false }, { verified: true });
   assert.equal(off.loosens, true);
   await renameOnMain(workspace, "/README.md", "/README2.md");

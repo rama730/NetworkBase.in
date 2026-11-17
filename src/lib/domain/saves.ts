@@ -74,7 +74,8 @@ export async function setBranchesEnabled(actor: Actor, workspaceId: string, on: 
     if (!main) [main] = await tx.insert(branches).values({ workspaceId, name: "main", isDefault: true, createdBy: userId }).returning();
     // Main's protection starts at the H5 defaults (a team's main takes merge requests only); kept when turned back on.
     const { defaultProtection } = await import("@/lib/domain/branch-protection");
-    await tx.insert(branchProtection).values({ branchId: main!.id, ...(await defaultProtection(workspaceId)), updatedBy: userId }).onConflictDoNothing();
+    const { updatedAt: _at, ...defaults } = await defaultProtection(workspaceId);
+    await tx.insert(branchProtection).values({ ...defaults, branchId: main!.id, updatedBy: userId }).onConflictDoNothing();
     const head = main!.headSaveId ? (await tx.select({ seq: saves.seq }).from(saves).where(eq(saves.id, main!.headSaveId)))[0] : undefined;
     const [start] = await tx.insert(saves).values({
       workspaceId, branchId: main!.id, seq: (head?.seq ?? 0) + 1, parentSaveId: main!.headSaveId, kind: "start",

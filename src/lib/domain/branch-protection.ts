@@ -22,6 +22,8 @@ const userOf = (actor: Actor) => actor.user?.id ?? fail("Sign in to continue", 4
 export type Protection = {
   requireMergeRequest: boolean; approvals: number; reapproveOnNewSaves: boolean; requiredChecks: string[];
   mergeBy: "writers" | "admins"; agentsOnBranches: boolean; allowGithubSync: boolean;
+  /** When the rules last changed: a required check counts only if posted after it (one an agent posted earlier doesn't). */
+  updatedAt?: Date | null;
 };
 export const NO_PROTECTION: Protection = {
   requireMergeRequest: false, approvals: 0, reapproveOnNewSaves: false, requiredChecks: [], mergeBy: "writers", agentsOnBranches: false, allowGithubSync: true,
@@ -47,7 +49,7 @@ export async function protectionOf(branchId: string): Promise<Protection> {
   if (!row) return NO_PROTECTION;
   return {
     requireMergeRequest: row.requireMergeRequest, approvals: row.approvals, reapproveOnNewSaves: row.reapproveOnNewSaves, requiredChecks: row.requiredChecks,
-    mergeBy: row.mergeBy, agentsOnBranches: row.agentsOnBranches, allowGithubSync: row.allowGithubSync,
+    mergeBy: row.mergeBy, agentsOnBranches: row.agentsOnBranches, allowGithubSync: row.allowGithubSync, updatedAt: row.updatedAt,
   };
 }
 
@@ -60,6 +62,7 @@ export async function getProtection(actor: Actor, workspaceId: string) {
 }
 
 const CHECK_NAME = /^[\w .:/-]{1,60}$/;
+const RULE_KEYS = ["requireMergeRequest", "approvals", "reapproveOnNewSaves", "requiredChecks", "mergeBy", "agentsOnBranches", "allowGithubSync"] as const;
 
 /**
  * Owners and admins change the rules (H15); agents never do. Loosening them (protection off, fewer approvals, fewer
@@ -74,7 +77,8 @@ export async function setProtection(actor: Actor, workspaceId: string, patch: Pa
   const main = await mainBranch(workspaceId);
   const before = await protectionOf(main.id);
   // Each field strictly its type: a string "false" must never pass as a tightening (it would skip Verify it's you).
-  const given = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
+  // Only the rules themselves: any other key (a branch id, a timestamp) is ignored, so the row is always this main's.
+  const given = Object.fromEntries(RULE_KEYS.filter((k) => (patch as Record<string, unknown>)[k] !== undefined).map((k) => [k, (patch as Record<string, unknown>)[k]])) as Record<string, unknown>;
   for (const key of ["requireMergeRequest", "reapproveOnNewSaves", "agentsOnBranches", "allowGithubSync"]) {
     if (key in given && typeof given[key] !== "boolean") fail(`${key} is true or false`, 400, "BAD_REQUEST");
   }
@@ -90,8 +94,11 @@ export async function setProtection(actor: Actor, workspaceId: string, patch: Pa
     || before.requiredChecks.some((c) => !next.requiredChecks.includes(c)) || (before.agentsOnBranches && !next.agentsOnBranches)
     || (!before.allowGithubSync && next.allowGithubSync) || (before.mergeBy === "admins" && next.mergeBy === "writers");
   if (loosens && !opts.verified) fail("Loosening main's protection needs you to verify it's you", 403, "STEP_UP_REQUIRED");
-  const values = { ...next, updatedBy: userId, updatedAt: new Date() };
-  await db.insert(branchProtection).values({ branchId: main.id, ...values }).onConflictDoUpdate({ target: branchProtection.branchId, set: values });
+  const values = {
+    requireMergeRequest: next.requireMergeRequest, approvals: next.approvals, reapproveOnNewSaves: next.reapproveOnNewSaves, requiredChecks: next.requiredChecks,
+    mergeBy: next.mergeBy, agentsOnBranches: next.agentsOnBranches, allowGithubSync: next.allowGithubSync, updatedBy: userId, updatedAt: new Date(),
+  };
+  await db.insert(branchProtection).values({ ...values, branchId: main.id }).onConflictDoUpdate({ target: branchProtection.branchId, set: values });
   if (opts.request) await recordSecurityEvent({ userId, eventType: "branch_protection_changed", request: opts.request, metadata: { workspaceId }, previousValue: before, nextValue: next }).catch(() => undefined);
   return { before, rules: next, loosens };
 }
@@ -105,14 +112,15 @@ export type MergeGate = { needs: string[]; approvals: { needed: number; have: nu
 export function mergeGate(rules: Protection, input: {
   headSaveId: string | null; isAdmin: boolean;
   reviews: Array<{ reviewerId: string; state: string; saveId: string | null }>;
-  checks: Array<{ name: string; state: string; saveId: string | null }>;
+  checks: Array<{ name: string; state: string; saveId: string | null; updatedAt?: Date | null }>;
 }): MergeGate {
   if (!rules.requireMergeRequest) return { needs: [], approvals: { needed: 0, have: 0 }, checks: [], mergeBy: "writers" };
   const needs: string[] = [];
   const have = input.reviews.filter((r) => r.state === "approved" && (!rules.reapproveOnNewSaves || r.saveId === input.headSaveId)).length;
   if (input.reviews.some((r) => r.state === "changes_requested")) needs.push("Changes were requested");
   if (have < rules.approvals) needs.push(`Needs ${rules.approvals - have} more approval${rules.approvals - have === 1 ? "" : "s"}`);
-  const checks = rules.requiredChecks.map((name) => ({ name, state: input.checks.find((c) => c.name === name && c.saveId === input.headSaveId)?.state ?? null }));
+  const since = rules.updatedAt?.getTime() ?? 0;
+  const checks = rules.requiredChecks.map((name) => ({ name, state: input.checks.find((c) => c.name === name && c.saveId === input.headSaveId && (!c.updatedAt || c.updatedAt.getTime() >= since))?.state ?? null }));
   for (const c of checks) if (c.state !== "passed") needs.push(c.state === "failed" ? `Check ${c.name} failed` : `Check ${c.name} hasn't passed`);
   if (rules.mergeBy === "admins" && !input.isAdmin) needs.push("Only owners and admins merge into main");
   return { needs, approvals: { needed: rules.approvals, have }, checks, mergeBy: rules.mergeBy };
