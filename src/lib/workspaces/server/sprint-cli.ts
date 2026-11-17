@@ -74,7 +74,8 @@ export async function sprintBurndown(projectId: string, sprintId: string) {
   const days: Array<{ date: string; left: number }> = [];
   for (let t = sprint.start.getTime(); t <= last && days.length < 120; t += DAY) {
     const endOfDay = t + DAY - 1;
-    days.push({ date: isoDay(new Date(t)), left: rows.filter((r) => !(r.status === "done" && r.completedAt && r.completedAt.getTime() <= endOfDay)).length });
+    // A task finished before completion times were kept (no completedAt) counts as done throughout.
+    days.push({ date: isoDay(new Date(t)), left: rows.filter((r) => !(r.status === "done" && (!r.completedAt || r.completedAt.getTime() <= endOfDay))).length });
   }
   return days;
 }

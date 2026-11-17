@@ -43,6 +43,9 @@ test("create, add by number, burndown, close: unfinished tasks go to the next pl
   const burndown = await cli.sprintBurndown(ws, sprint.id);
   assert.equal(burndown.length, 3, "from two days ago to today");
   assert.deepEqual(burndown.map((d) => d.left), [3, 2, 2]);
+  // Done before completion times were kept: done throughout, never "left".
+  await sql`UPDATE tasks SET completed_at = NULL WHERE id = ${t[1]!.id}`;
+  assert.deepEqual((await cli.sprintBurndown(ws, sprint.id)).map((d) => d.left), [2, 2, 2]);
   // A member can't close (owners and admins, as in the app); the owner can, with no next sprint: the backlog.
   viewerId = member;
   await assert.rejects(cli.closeSprintFromCli(ws, sprint.id), /owner and admins/);
