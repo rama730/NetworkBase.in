@@ -5984,7 +5984,7 @@
       "milestone": "M6",
       "status": "live",
       "test": "tests/db/change-set-fs.test.ts; packages/nb-cli/test/fs.test.mjs",
-      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): two edits in one call, replaced 2; before that: POST fs/edit with edits[]: in order, all or none; EDIT_NOT_FOUND, EDIT_NOT_UNIQUE with the count"
+      "evidence": "2026-11-17 hosted MCP live: fs_edit with 2 edits replaced 2; one matching twice refused EDIT_NOT_UNIQUE with the count. 2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): two edits in one call, replaced 2; before that: POST fs/edit with edits[]: in order, all or none; EDIT_NOT_FOUND, EDIT_NOT_UNIQUE with the count"
     },
     {
       "key": "G14.f1ca60ba",
@@ -6604,7 +6604,7 @@
       "milestone": "M6",
       "status": "live",
       "test": "tests/db/change-set-fs.test.ts; packages/nb-cli/test/fs.test.mjs",
-      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: Routes 14-18, fs_* tools (hosted only), 0094"
+      "evidence": "2026-11-17 hosted MCP live with an agent sign-in (Ponytail only): tools/list has all 8 fs_* tools; fs_list, fs_search, fs_write, fs_edit (2 edits; a non-unique edit refused with the count), fs_read, fs_move, fs_delete, fs_finish all answered on the draft; draft discarded, sign-in revoked. 2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: Routes 14-18, fs_* tools (hosted only), 0094"
     },
     {
       "key": "G24.6cd9cd1b",
@@ -6684,7 +6684,7 @@
       "milestone": "M6",
       "status": "live",
       "test": "packages/nb-cli/test/fs.test.mjs (hosted lists fs_*, nb mcp does not)",
-      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: fs_finish tells the agent it cannot run the site and to have the person check it"
+      "evidence": "2026-11-17 hosted MCP live: a cloud agent worked only through fs_* on a draft; nothing reached the workspace until apply (discarded). 2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: fs_finish tells the agent it cannot run the site and to have the person check it"
     },
     {
       "key": "G25.7b4c5a8c",
@@ -10534,7 +10534,7 @@
       "milestone": "M6",
       "status": "live",
       "test": "tests/db/oauth-hosted-mcp.test.ts",
-      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): metadata lists refresh_token; a bad refresh token gets invalid_grant; full rotation tested locally only (needs an approved OAuth sign-in); before that: 0095 oauth_refresh_tokens; grant_type=refresh_token rotates both tokens, binds the client, revokes family and sign-in on reuse, stops when the sign-in is revoked; 7-day sign-ins get none"
+      "evidence": "2026-11-17 LIVE end to end: OAuth client registered, approved in Chrome, code exchanged (refresh token issued, 30 days), refresh rotated both tokens (old access 401, new 200), another client_id refused, reuse of the first refresh token revoked the sign-in (newest access 401, newest refresh invalid_grant). 2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): metadata lists refresh_token; a bad refresh token gets invalid_grant; before that: 0095 oauth_refresh_tokens; grant_type=refresh_token rotates both tokens, binds the client, revokes family and sign-in on reuse, stops when the sign-in is revoked; 7-day sign-ins get none"
     },
     {
       "key": "F5.14ddaf1a",
