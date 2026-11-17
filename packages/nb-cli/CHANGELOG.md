@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.4.0 (2026-11-17)
+
+### Added
+- History: `nb log` lists the saves on this folder's branch (or a file's with `nb log <path>`), `nb show <save>` shows one with its files and diffs, and `nb revert <save>` undoes one as a new save.
+- Branches: `nb branch list|create|switch|rename|delete|update`. A folder is on one branch at a time; `nb push` and `nb pull` use it, never main by accident. In a git folder NetworkBase follows git's branch and asks before making a NetworkBase one; a detached HEAD is refused with how to fix it.
+- Merge requests: `nb merge-request` (alias `nb mr`) `create|list|view|review|comment|apply|merge|close|reopen|ready`: review with comments, line comments and suggested edits, approve or request changes, and merge or squash into main with one undo.
+- A protected main: `nb push` on main asks to push to a new branch (`you/<date>`) and opens a merge request; in a git folder it says to make a git branch. Agents go to their own branch without asking.
+- Agent tools in a new `branches` pack: `networkbase_branch_status`, `networkbase_branch_create`, `networkbase_merge_request_open`, `networkbase_merge_request_view`, `networkbase_merge_request_update` and `networkbase_merge_request_merge` (an unprotected main only, after the person's yes).
+
+### Changed
+- `nb file` commands that change files (restore, mkdir, copy, use, move, rename, delete, edit) refuse in a folder that's on a branch: they change main.
+- `nb revert` on a protected main puts the revert on a branch with a merge request.
+- New error codes: `BRANCH_PROTECTED`, `APPROVAL_REQUIRED`, `CHECKS_FAILED`, plus the branch and merge request codes.
+
 ## 2.3.0 (2026-11-17)
 
 ### Added
