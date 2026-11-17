@@ -637,7 +637,7 @@
     {
       "name": "change finish",
       "summary": "Send the last saves and check the change set (secrets, uploads)",
-      "usage": "nb change finish [-m text] [--confirm-secrets]",
+      "usage": "nb change finish [-m text] [--confirm-secrets] [--from-git main..HEAD]",
       "flags": {
         "message": {
           "type": "string",
@@ -648,9 +648,16 @@
         "confirm-secrets": {
           "type": "boolean",
           "describe": "It's safe: finish even though a file looks like it holds a key"
+        },
+        "from-git": {
+          "type": "string",
+          "describe": "Make the change set from these commits: their files as at the last one, their subjects as the title",
+          "valueName": "range"
         }
       },
-      "examples": [],
+      "examples": [
+        "nb change finish --from-git main..HEAD"
+      ],
       "exitCodes": [
         0,
         4,
@@ -2277,6 +2284,49 @@
         "nb agent access claude --read-only",
         "nb agent access claude --workspace design-lab --small"
       ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "agent activity",
+      "summary": "What your agents did here in the last 24 hours, by session; undo a session",
+      "usage": "nb agent activity [--undo <session>]",
+      "flags": {
+        "undo": {
+          "type": "string",
+          "describe": "Undo every change of this session (from the list)",
+          "valueName": "session"
+        }
+      },
+      "examples": [
+        "nb agent activity",
+        "nb agent activity --undo 3f2a9c1e"
+      ],
+      "exitCodes": [
+        0,
+        4,
+        130
+      ]
+    },
+    {
+      "name": "agent pause",
+      "summary": "Pause every agent in this workspace (owner and admins)",
+      "usage": "nb agent pause",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "agent resume",
+      "summary": "Let agents work in this workspace again (owner and admins)",
+      "usage": "nb agent resume",
+      "flags": {},
+      "examples": [],
       "exitCodes": [
         0,
         1
