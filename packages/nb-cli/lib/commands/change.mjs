@@ -154,13 +154,14 @@ async function gitItems(root, project, range) {
     try { return execFileSync("git", args, { cwd: root, maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }); }
     catch (error) { throw new CliError("USAGE", `git ${args[0]} failed: ${String(/** @type {any} */ (error).stderr ?? error).trim().split("\n")[0]}`, { hint: "Run it in a git repository, with a range like main..HEAD" }); }
   };
-  const top = git(["rev-parse", "--show-toplevel"]).toString().trim();
   const subjects = git(["log", "--format=%s", spec, "--"]).toString().split("\n").filter(Boolean);
   if (!subjects.length) throw new CliError("NOT_FOUND", `No commits in ${spec}`);
-  const fields = git(["diff", "--name-status", "-z", "-M", "--no-ext-diff", spec, "--"]).toString().split("\0").filter((x) => x !== "");
+  // --relative: paths relative to the linked folder, and only files inside it (no comparing folder spellings, which
+  // differ on Windows: D:/a vs D:\a, short 8.3 names).
+  const fields = git(["diff", "--name-status", "-z", "-M", "--relative", "--no-ext-diff", spec, "--"]).toString().split("\0").filter((x) => x !== "");
   const state = readState(root, project.workspaceId);
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "nb-from-git-"));
-  const remoteOf = (/** @type {string} */ p) => { const rel = path.relative(root, path.join(top, p)); return rel.startsWith("..") || path.isAbsolute(rel) ? null : toRemote(project.remoteRoot, rel); };
+  const remoteOf = (/** @type {string} */ p) => (p.startsWith("../") ? null : toRemote(project.remoteRoot, p));
   /** @type {any[]} */
   const items = [];
   for (let i = 0; i < fields.length;) {
@@ -172,7 +173,7 @@ async function gitItems(root, project, range) {
     const base = state.files[status[0] === "R" ? remoteOf(from) ?? "" : remote];
     const baseFields = base ? { baseVersion: base.baseVersion, baseHash: base.baseHash } : {};
     if (status[0] === "D") { items.push({ op: "delete", path: remote, ...baseFields }); continue; }
-    const bytes = git(["show", `${end}:${to}`]);
+    const bytes = git(["show", `${end}:./${to}`]);
     const hash = crypto.createHash("sha256").update(bytes).digest("hex");
     const abs = path.join(scratch, hash);
     fs.writeFileSync(abs, bytes);
