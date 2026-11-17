@@ -37,6 +37,7 @@ import {
   restoreFileVersion,
 } from "@/app/actions/files/versions";
 import { formatBytes } from "@/components/workspaces/v2/files-tab/folder/format";
+import { useMainProtected, useSaveToBranch } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import { downloadFile, workspaceFileUrl } from "@/lib/download";
 
 function formatDate(date: Date | string | null | undefined): string {
@@ -144,9 +145,16 @@ export function FileVersionHistoryDrawer({
     [node.id, node.name, projectId],
   );
 
+  const { offer: offerBranch, dialog: branchDialog } = useSaveToBranch(projectId);
+  const mainProtected = useMainProtected(projectId);
   const handleRestore = useCallback(
     async (version: FileVersion) => {
       if (!canEdit) return;
+      // A protected main takes merge requests only (H5, H24): "Use this version" goes on a new branch instead.
+      if (mainProtected && !node.taskId) {
+        offerBranch({ title: `Use v${version.version} of ${node.name}`, what: `use-v${version.version}-${node.name}`, change: { kind: "version", nodeId: node.id, version: version.version } });
+        return;
+      }
       const actionKey = `restore:${version.id}`;
       setPendingAction(actionKey);
       try {
@@ -167,7 +175,7 @@ export function FileVersionHistoryDrawer({
         setPendingAction(null);
       }
     },
-    [canEdit, node.id, onRestored, projectId, refresh],
+    [canEdit, mainProtected, node.id, node.name, node.taskId, offerBranch, onRestored, projectId, refresh],
   );
 
   const uploaderLabel = useCallback(
@@ -331,6 +339,7 @@ export function FileVersionHistoryDrawer({
           Historical blobs remain available for download.
         </div>
       </DialogContent>
+      {branchDialog}
     </Dialog>
   );
 }

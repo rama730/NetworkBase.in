@@ -792,3 +792,29 @@ test("files already gone from the workspace: a delete is dropped, a rename becom
   assert.equal(put.status, 200, JSON.stringify(put.json));
   assert.deepEqual(put.json.data.items.map((i: { op: string; path: string }) => [i.op, i.path]).sort(), [["add", "/moved.txt"], ["add", "/new.txt"]]);
 });
+
+test("agents on branches (H7): with Branches on, an agent's change starts on agent/<task>-<what>, applying opens a merge request", async () => {
+  const { owner, workspace } = await setup(["a"]);
+  const saves = await loadAppModule(() => import("../../src/lib/domain/saves"));
+  await saves.setBranchesEnabled({ user: { id: owner } }, workspace, true);
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, creator_id, status, task_number) VALUES (${workspace}, 'Fix the login bug', ${owner}, 'todo', 4) RETURNING id`;
+  const agent = await token(owner, "agent", workspace, ["file:read", "file:write", "task:read", "task:write"]);
+  const started = await call(ws.POST, agent, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "Login fix", taskId: task!.id }, { params: Promise.resolve({ id: workspace }) });
+  assert.equal(started.status, 201, JSON.stringify(started.json));
+  const cs = started.json.data.changeSet.id as string;
+  const [b] = await sql`SELECT b.name FROM change_sets c JOIN branches b ON b.id = c.branch_id WHERE c.id = ${cs}`;
+  assert.equal(b?.name, "agent/4-fix-the-login-bug");
+  await call(items.PUT, agent, "PUT", `/api/v1/change-sets/${cs}/items`, { items: [{ op: "change", path: "/a.txt", contentHash: sha("a two\n"), size: 6, mimeType: "text/plain" }] }, csCtx(cs));
+  await call(content.POST, agent, "POST", `/api/v1/change-sets/${cs}/content`, { files: [{ hash: sha("a two\n"), base64: Buffer.from("a two\n").toString("base64") }] }, csCtx(cs));
+  const finished = await finishIt(agent, cs, { message: "- Fixed the login check" });
+  const applied = await applyIt(agent, cs, finished.json.data.confirmToken ? { confirmToken: finished.json.data.confirmToken } : {});
+  assert.equal(applied.status, 200, JSON.stringify(applied.json));
+  assert.deepEqual(applied.json.data.mergeRequest, { number: 1, opened: true });
+  assert.equal(await textOf(workspace, "/a.txt"), "a one\n", "main untouched");
+  const [mr] = await sql`SELECT title, description, task_id FROM merge_requests WHERE workspace_id = ${workspace} AND number = 1`;
+  assert.deepEqual([mr!.title, mr!.description, mr!.task_id], ["Login fix", "- Fixed the login check", task!.id]);
+  // The same task's next change reuses the branch and its merge request.
+  const again = await call(ws.POST, agent, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "Login fix 2", taskId: task!.id }, { params: Promise.resolve({ id: workspace }) });
+  const [b2] = await sql`SELECT b.name FROM change_sets c JOIN branches b ON b.id = c.branch_id WHERE c.id = ${again.json.data.changeSet.id}`;
+  assert.equal(b2?.name, "agent/4-fix-the-login-bug");
+});

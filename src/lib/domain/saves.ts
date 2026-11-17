@@ -6,7 +6,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { branches, changeSets, fileVersions, profiles, saveChanges, saves, storageAssets, tasks, workspaces } from "@/lib/db/schema";
+import { branchProtection, branches, changeSets, fileVersions, profiles, saveChanges, saves, storageAssets, tasks, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { labelScope } from "@/lib/agents/via-scope";
 import { visibleVia } from "@/lib/agents/via-visibility";
@@ -72,6 +72,9 @@ export async function setBranchesEnabled(actor: Actor, workspaceId: string, on: 
     await tx.update(workspaces).set({ branchesEnabled: true, changeSetsEnabled: true, updatedAt: new Date() }).where(eq(workspaces.id, workspaceId));
     let [main] = await tx.select().from(branches).where(and(eq(branches.workspaceId, workspaceId), eq(branches.isDefault, true))).for("update");
     if (!main) [main] = await tx.insert(branches).values({ workspaceId, name: "main", isDefault: true, createdBy: userId }).returning();
+    // Main's protection starts at the H5 defaults (a team's main takes merge requests only); kept when turned back on.
+    const { defaultProtection } = await import("@/lib/domain/branch-protection");
+    await tx.insert(branchProtection).values({ branchId: main!.id, ...(await defaultProtection(workspaceId)), updatedBy: userId }).onConflictDoNothing();
     const head = main!.headSaveId ? (await tx.select({ seq: saves.seq }).from(saves).where(eq(saves.id, main!.headSaveId)))[0] : undefined;
     const [start] = await tx.insert(saves).values({
       workspaceId, branchId: main!.id, seq: (head?.seq ?? 0) + 1, parentSaveId: main!.headSaveId, kind: "start",
@@ -371,7 +374,13 @@ export async function revertSave(actor: Actor, request: Request, saveId: string,
     return { op: "rename", fromPath: c.afterPath!, path: c.beforePath!, baseVersion: c.version, baseHash: now?.hash,
       contentHash: contentBack ? needHash(c) : now?.hash, size: (contentBack ? before : now)?.size, mimeType: (contentBack ? before : now)?.mime };
   });
-  const set = await startChangeSet(actor, { workspaceId: save.workspaceId, title: `Revert "${(save.message ?? "save").slice(0, 100)}"`, taskId: save.taskId, branchId: onBranch ? save.branchId : null });
+  // On a protected main a revert is a change like any other (H3, H5): it goes on revert/save-<n> with a merge request.
+  const { protectionOf } = await import("@/lib/domain/branch-protection");
+  const rules = await protectionOf(main.id);
+  const viaBranch = !onBranch && (rules.requireMergeRequest || (actor.tokenKind === "agent" && rules.agentsOnBranches))
+    ? await (await import("@/lib/domain/branches")).createUniqueBranch(actor, save.workspaceId, `revert/save-${save.seq}`, save.taskId)
+    : null;
+  const set = await startChangeSet(actor, { workspaceId: save.workspaceId, title: `Revert "${(save.message ?? "save").slice(0, 100)}"`, taskId: save.taskId, branchId: viaBranch?.id ?? (onBranch ? save.branchId : null) });
   await db.update(changeSets).set({ revertsSaveId: save.id }).where(eq(changeSets.id, set.id));
   for (let i = 0; i < items.length; i += 200) await upsertItems(actor, set.id, items.slice(i, i + 200));
   const [{ count } = { count: 0 }] = await db.select({ count: sql<number>`(files_added + files_changed + files_deleted + files_renamed)::int` }).from(changeSets).where(eq(changeSets.id, set.id));
@@ -392,6 +401,13 @@ export async function revertSave(actor: Actor, request: Request, saveId: string,
     throw error;
   }
   const [made] = await db.select({ id: saves.id }).from(saves).where(eq(saves.changeSetId, set.id)).orderBy(desc(saves.seq)).limit(1);
+  if (viaBranch) {
+    // An agent's apply on a branch already opened it (H7); otherwise it's opened here.
+    const { createMergeRequest, openMergeRequestsOf } = await import("@/lib/domain/merge-requests");
+    const open = (await openMergeRequestsOf([viaBranch.id])).get(viaBranch.id);
+    const number = open?.number ?? (await createMergeRequest(actor, save.workspaceId, { source: viaBranch.name, title: set.title, taskId: save.taskId })).mergeRequest.number;
+    return { outcome: "merge_request" as const, changeSetId: finished.changeSet.id, saveId: made?.id ?? null, branch: viaBranch.name, mergeRequest: number };
+  }
   return { outcome: "reverted" as const, changeSetId: finished.changeSet.id, saveId: made?.id ?? null };
 }
 

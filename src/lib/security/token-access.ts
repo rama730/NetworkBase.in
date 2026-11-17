@@ -145,6 +145,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/merge-requests/[0-9]+/(reviews|comments|suggestions|checks|merge)`), write: "file:write", agent: "path" },
   // The Branches setting (H16): people only (the route refuses agents), owners and admins.
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/branches-setting`), write: "file:write" },
+  // Main's protection (H5): everyone reads; owners and admins change it, people only (the route refuses agents).
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/protection`), read: "file:read", write: "file:write", agent: "path" },
   { pattern: route("/api/v1/me"), read: null, agent: "self" },
   // Your notification settings (report C4, nb inbox settings and mute): the person's own terminal, not agents.
   { pattern: route("/api/v1/me/notifications"), read: "workspace:read", write: "workspace:read" },

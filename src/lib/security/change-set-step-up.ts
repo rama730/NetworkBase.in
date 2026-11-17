@@ -21,3 +21,18 @@ export async function changeSetStepUp(actor: Actor, changeSetId: string): Promis
   if (!availableMethods.length || (await resolveSecurityStepUp(user.id)).ok) return null;
   return { methods: availableMethods, factorId: primaryTotpFactorId };
 }
+
+/**
+ * "Verify it's you" for a person in the app, whatever the change (report H5: loosening main's protection, Merge without
+ * approval). Returns what to verify with, or null when a recent step-up already counts. Tokens get null: callers
+ * refuse those actions to tokens themselves.
+ */
+export async function personStepUp(actor: Actor): Promise<{ methods: SecurityStepUpMethod[]; factorId?: string } | null> {
+  if (actor.tokenScopes || !actor.user) return null;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || user.id !== actor.user.id) return null;
+  const { availableMethods, primaryTotpFactorId } = await resolveStepUpCapabilities({ supabase: supabase as never, user: user as never });
+  if (!availableMethods.length || (await resolveSecurityStepUp(user.id)).ok) return null;
+  return { methods: availableMethods, factorId: primaryTotpFactorId };
+}

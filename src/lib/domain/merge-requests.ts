@@ -20,7 +20,9 @@ import {
 } from "@/lib/domain/change-sets";
 import { mainBranch, memberAccess, SAVE_LIMITS } from "@/lib/domain/saves";
 import { enqueueNotificationFanout } from "@/lib/notifications/fanout";
-import { changeSetStepUp } from "@/lib/security/change-set-step-up";
+import { gateError, mergeGate, protectionOf } from "@/lib/domain/branch-protection";
+import { recordSecurityEvent } from "@/lib/security/audit";
+import { changeSetStepUp, personStepUp } from "@/lib/security/change-set-step-up";
 import { viaColumns } from "@/lib/server/request-via";
 import { lockTaskForWrite, transitionTaskTx } from "@/lib/workspaces/task-transition-service";
 import { logger } from "@/lib/logger";
@@ -270,7 +272,7 @@ async function overlap(source: Branch, mainId: string) {
 
 export async function getMergeRequest(actor: Actor, workspaceId: string, ref: string | number) {
   const viewer = userOf(actor);
-  const { mr, source, main, canWrite } = await loadMr(actor, workspaceId, ref);
+  const { mr, source, main, canWrite, isAdmin } = await loadMr(actor, workspaceId, ref);
   const [reviews, checks, comments, events, branchSaves, mainHeadSeq, mergedFrom] = await Promise.all([
     db.select().from(mergeRequestReviews).where(eq(mergeRequestReviews.mergeRequestId, mr.id)),
     source.headSaveId ? db.select().from(mergeRequestChecks).where(and(eq(mergeRequestChecks.mergeRequestId, mr.id), eq(mergeRequestChecks.saveId, source.headSaveId))).orderBy(asc(mergeRequestChecks.name)) : Promise.resolve([]),
@@ -294,6 +296,9 @@ export async function getMergeRequest(actor: Actor, workspaceId: string, ref: st
   const isAuthor = mr.authorId === viewer;
   const myReview = reviews.find((r) => r.reviewerId === viewer);
   const reviewState = reviews.some((r) => r.state === "changes_requested") ? "changes_requested" : reviews.some((r) => r.state === "approved") ? "approved" : null;
+  // What main's protection still needs before this can merge (H5), and whether this viewer may merge past it.
+  const rules = await protectionOf(main.id);
+  const gate = mergeGate(rules, { headSaveId: source.headSaveId, isAdmin, reviews, checks: checks.map((c) => ({ name: c.name, state: c.state, saveId: c.saveId })) });
   return {
     mergeRequest: {
       id: mr.id, number: mr.number, title: mr.title, description: mr.description,
@@ -332,8 +337,10 @@ export async function getMergeRequest(actor: Actor, workspaceId: string, ref: st
     viewer: {
       isAuthor, canWrite, myReview: myReview?.state ?? null,
       canReview: canWrite && open && !isAuthor && !isAgent(actor),
-      canMerge: canWrite && mr.state === "open" && source.status === "active",
+      canMerge: canWrite && mr.state === "open" && source.status === "active" && !(rules.requireMergeRequest && isAgent(actor)),
+      canOverride: isAdmin && !isAgent(actor) && gate.needs.length > 0,
     },
+    protection: { protected: rules.requireMergeRequest, needs: gate.needs, approvals: gate.approvals, checks: gate.checks, mergeBy: gate.mergeBy },
   };
 }
 
@@ -523,13 +530,31 @@ export async function mergeMergeRequest(actor: Actor, request: Request, workspac
   method?: "merge" | "squash" | null; confirmToken?: string | null; checkScope?: (scope: "file:final" | "doc:write") => Promise<Response | null>;
   /** The person's yes to files that look like they hold a key (SECRET_DETECTED lists them); agents can't give it. */
   confirmSecrets?: boolean;
+  /** Owners and admins in the app: merge past approvals and checks (H5), after "Verify it's you"; logged. */
+  override?: boolean;
 }) {
   const userId = userOf(actor);
   const method = input.method === "squash" ? "squash" : "merge";
-  const { mr, source, main } = await loadMr(actor, workspaceId, ref, { write: true });
+  const { mr, source, main, isAdmin } = await loadMr(actor, workspaceId, ref, { write: true });
   stillOpen(mr);
   if (mr.state === "draft") fail(`!${mr.number} is a draft; mark it ready first`, 409, "DRAFT");
   if (source.status !== "active") fail(`${source.name} was ${source.status}; restore it first`, 409, "BRANCH_DELETED");
+  // Protection (H5): agents never merge into a protected main; people need what the rules ask, or an owner's override.
+  const rules = await protectionOf(main.id);
+  if (rules.requireMergeRequest && isAgent(actor)) fail("main is protected: a person merges this; ask them to review it", 403, "BRANCH_PROTECTED", { reason: "agents" });
+  const gate = mergeGate(rules, {
+    headSaveId: source.headSaveId, isAdmin,
+    reviews: await db.select({ reviewerId: mergeRequestReviews.reviewerId, state: mergeRequestReviews.state, saveId: mergeRequestReviews.saveId }).from(mergeRequestReviews).where(eq(mergeRequestReviews.mergeRequestId, mr.id)),
+    checks: source.headSaveId ? await db.select({ name: mergeRequestChecks.name, state: mergeRequestChecks.state, saveId: mergeRequestChecks.saveId }).from(mergeRequestChecks).where(and(eq(mergeRequestChecks.mergeRequestId, mr.id), eq(mergeRequestChecks.saveId, source.headSaveId))) : [],
+  });
+  const overriding = gate.needs.length > 0 && Boolean(input.override);
+  if (gate.needs.length && !overriding) gateError(gate);
+  if (overriding) {
+    if (!isAdmin) fail("Only owners and admins can merge without approval", 403, "FORBIDDEN");
+    if (actor.tokenScopes) fail("Merge without approval works in the app, where you verify it's you", 403, "FORBIDDEN");
+    const stepUp = await personStepUp(actor);
+    if (stepUp) fail("Verify it's you, then merge without approval", 403, "STEP_UP_REQUIRED", { stepUp });
+  }
 
   // An agent's merge held for the person's yes reuses its change set (the yes names it) while the branch hasn't moved
   // and it's the same person merging; anyone else gets a fresh one.
@@ -544,7 +569,7 @@ export async function mergeMergeRequest(actor: Actor, request: Request, workspac
     const items = await mergeItems(source, main.id);
     if (!items.length) fail("This branch has nothing that main doesn't already have", 409, "MERGE_REQUEST_EMPTY");
     const title = (method === "squash" ? mr.title : `Merge !${mr.number}: ${mr.title}`).slice(0, 120);
-    const set = await startChangeSet(actor, { workspaceId, title, taskId: mr.taskId });
+    const set = await startChangeSet(actor, { workspaceId, title, taskId: mr.taskId, mergeIntoMain: true });
     for (let i = 0; i < items.length; i += 200) await upsertItems(actor, set.id, items.slice(i, i + 200));
     // Files that look like they hold a key stop the merge with the list, as Apply does, until the person says yes.
     try {
@@ -563,7 +588,7 @@ export async function mergeMergeRequest(actor: Actor, request: Request, workspac
   }
   let applied: Awaited<ReturnType<typeof applyChangeSet>>;
   try {
-    applied = await applyChangeSet(actor, request, setId!, { confirmToken: input.confirmToken, checkScope: input.checkScope });
+    applied = await applyChangeSet(actor, request, setId!, { confirmToken: input.confirmToken, checkScope: input.checkScope, fromMerge: true });
   } catch (error) {
     if (error instanceof ChangeSetError && error.code === "CHANGE_SET_CONFLICT") {
       await dropSet(setId!);
@@ -583,7 +608,11 @@ export async function mergeMergeRequest(actor: Actor, request: Request, workspac
     await tx.update(branches).set({ status: "merged", updatedAt: now }).where(eq(branches.id, source.id));
     return false;
   });
-  const eventId = await event(mr.id, userId, "merged", { method, saveId: made?.id ?? null });
+  const eventId = await event(mr.id, userId, "merged", { method, saveId: made?.id ?? null, ...(overriding ? { override: true, skipped: gate.needs } : {}) });
+  if (overriding) {
+    await recordSecurityEvent({ userId, eventType: "merge_without_approval", request, metadata: { workspaceId, mergeRequest: mr.number, skipped: gate.needs } })
+      .catch((error: unknown) => logger.warn("merge_requests.audit_failed", { module: "merge-requests", error: error instanceof Error ? error.message : String(error) }));
+  }
   // The linked task moves to Done, or to review when it needs one, through the normal task rules (H4).
   let task: { number: number | null; outcome: "done" | "review" | "unchanged"; reason?: string } | null = null;
   if (mr.taskId) {

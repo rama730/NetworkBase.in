@@ -54,6 +54,7 @@ import { useFilesStore } from "@/stores/filesStore";
 import { saveFileRevision } from "@/hooks/useFileVersions";
 import { getWorkspaceFileContent } from "@/app/actions/files/content";
 import { listFileVersions } from "@/app/actions/files/versions";
+import { isProtectedMain, useMainProtected, useSaveToBranch } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
 import type { FileLeaseStatus } from "../hooks/useFileLease";
 import { saveBlob } from "@/lib/download";
@@ -471,6 +472,9 @@ export function TextViewer({
     }
   }, [mode, savedContent]);
 
+  const { offer: offerBranch, dialog: branchDialog } = useSaveToBranch(projectId);
+  const mainProtected = useMainProtected(projectId);
+
   // ── Save ───────────────────────────────────────────────────────────
   const handleSaveClick = React.useCallback(() => {
     if (!canEdit) return;
@@ -490,6 +494,11 @@ export function TextViewer({
   const handleRevisionOptionSelected = React.useCallback(
     async (choice: { option: "commit"; comment?: string }) => {
       if (!canEdit || isSaving) return;
+      // A protected main takes merge requests only (H5): the edit goes on a new branch instead, with one click.
+      if (mainProtected && !node.taskId) {
+        offerBranch({ title: choice.comment?.trim() || `Changed ${node.name}`, what: `edit-${node.name}`, change: { kind: "text", path: node.path, text: content, baseHash } });
+        return;
+      }
       setIsSaving(true);
       setSaveError(null);
 
@@ -516,6 +525,9 @@ export function TextViewer({
           upsertNodes(projectId, [result.node]);
           onSaved?.();
           toast.success(`Saved as v${result.version.version}`);
+        } else if (isProtectedMain(result.error) && !node.taskId) {
+          // A protected main takes merge requests only (H5): offer this edit on a new branch instead.
+          offerBranch({ title: `Changed ${node.name}`, what: `edit-${node.name}`, change: { kind: "text", path: node.path, text: content, baseHash } });
         } else {
           setSaveError(result.error || "Couldn’t save version");
           toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));
@@ -528,7 +540,7 @@ export function TextViewer({
         setIsSaving(false);
       }
     },
-    [baseHash, baseVersion, canEdit, content, isSaving, lease, node.id, node.name, node.mimeType, node.s3Key, onSaved, projectId,upsertNodes]
+    [baseHash, baseVersion, canEdit, content, isSaving, lease, node.id, node.name, node.mimeType, node.path, node.s3Key, node.taskId, mainProtected, offerBranch, onSaved, projectId,upsertNodes]
   );
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -737,6 +749,7 @@ export function TextViewer({
         />
       </div>
 
+      {branchDialog}
       {isModalOpen && (
         <RevisionControlModal
           isOpen={isModalOpen}

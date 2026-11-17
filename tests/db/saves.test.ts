@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
-import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
+import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql, unprotect } from "./_helpers";
 
 // Report Part H, phase H-1 (M8): with Branches on, every change to main's files is a save, recorded by the database
 // (0096). History, a save's files, files at a save and revert read and act on those saves.
@@ -62,7 +62,7 @@ async function setup(on = true) {
   const workspace = await sql.begin((tx) => createProject(tx, owner));
   await addFile(workspace, owner, "/README.md", "# Demo\n");
   await addFile(workspace, owner, "/src/a.ts", "export const a = 1;\n");
-  if (on) await saves.setBranchesEnabled(actor(owner), workspace, true);
+  if (on) { await saves.setBranchesEnabled(actor(owner), workspace, true); await unprotect(workspace); }
   return { owner, workspace };
 }
 
@@ -71,6 +71,7 @@ test("off: writes record nothing; turning it on makes main, the start of history
   await addFile(workspace, owner, "/b.md", "b");
   assert.equal((await sql`SELECT count(*)::int AS n FROM saves WHERE workspace_id = ${workspace}`)[0]!.n, 0);
   await saves.setBranchesEnabled(actor(owner), workspace, true);
+  await unprotect(workspace);
   const [w] = await sql`SELECT branches_enabled, change_sets_enabled FROM workspaces WHERE id = ${workspace}`;
   assert.deepEqual([w!.branches_enabled, w!.change_sets_enabled], [true, true]);
   const [start] = await history(workspace);
@@ -82,6 +83,7 @@ test("off: writes record nothing; turning it on makes main, the start of history
   assert.deepEqual([main!.name, main!.head_save_id], ["main", start!.id]);
   // Turning it on twice changes nothing.
   await saves.setBranchesEnabled(actor(owner), workspace, true);
+  await unprotect(workspace);
   assert.equal((await history(workspace)).length, 1);
 });
 
@@ -213,6 +215,7 @@ test("speed (H18, H25): 5,000 files; turning History on, a history page and file
   const o = actor(owner);
   let t = Date.now();
   await saves.setBranchesEnabled(o, workspace, true);
+  await unprotect(workspace);
   const enableMs = Date.now() - t;
   const ids = await sql`SELECT id FROM workspace_nodes WHERE workspace_id = ${workspace} ORDER BY path LIMIT 150`;
   for (const n of ids) await sql`UPDATE workspace_nodes SET current_version = 2 WHERE id = ${n.id}`;

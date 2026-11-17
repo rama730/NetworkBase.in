@@ -28,7 +28,7 @@ export async function POST(request: Request, context: Ctx) {
     if (op === "checks") return postCheck(auth, id, n, { name: String(b.name ?? ""), state: b.state, url: b.url ?? null, saveId: b.save ?? b.saveId ?? null });
     if (op === "merge") {
       return mergeMergeRequest(auth, req, id, n, {
-        method: b.method === "squash" ? "squash" : "merge", confirmToken: typeof b.confirmToken === "string" ? b.confirmToken : null, confirmSecrets: b.confirmSecrets === true,
+        method: b.method === "squash" ? "squash" : "merge", confirmToken: typeof b.confirmToken === "string" ? b.confirmToken : null, confirmSecrets: b.confirmSecrets === true, override: b.override === true,
         checkScope: (scope) => requireTokenScope(auth, scope),
       });
     }

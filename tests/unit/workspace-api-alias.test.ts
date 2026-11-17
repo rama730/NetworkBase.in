@@ -41,6 +41,8 @@ const BORN_AFTER_RENAME = new Set([
   'src/app/api/v1/workspaces/[id]/merge-requests/route.ts',
   'src/app/api/v1/workspaces/[id]/merge-requests/[n]/route.ts',
   'src/app/api/v1/workspaces/[id]/merge-requests/[n]/[op]/route.ts',
+  // Main's protection (report Part H, H-4), 2026-11-17.
+  'src/app/api/v1/workspaces/[id]/protection/route.ts',
 ]);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 const routes = (dir: string): string[] => readdirSync(dir).flatMap((name) => {

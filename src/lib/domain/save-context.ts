@@ -10,7 +10,7 @@ type Executor = Pick<typeof db, "execute">;
  * transaction, so call it inside one.
  */
 export type SaveContext = {
-  kind?: "save" | "revert" | "sync" | "restore";
+  kind?: "save" | "revert" | "sync" | "restore" | "merge";
   message?: string | null;
   authorId?: string | null;
   via?: "cli" | "agent" | null;

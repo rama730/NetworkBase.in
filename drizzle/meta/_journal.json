@@ -687,6 +687,13 @@
       "when": 1794803529282,
       "tag": "0098_merge_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1794803589282,
+      "tag": "0099_branch_protection",
+      "breakpoints": true
     }
   ]
 }

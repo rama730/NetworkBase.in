@@ -135,6 +135,15 @@ async function appDatabaseUrl() {
  * Loads app modules (which import "@/lib/db") bound to the disposable
  * database. Call inside a test or hook; returns the dynamic import.
  */
+/**
+ * Main without protection (report H5): tests that write straight to main in a team workspace, or as an agent, turn
+ * off the defaults Branches starts with. tests/db/branch-protection.test.ts covers the rules themselves.
+ */
+export async function unprotect(workspaceId: string) {
+  await sql`UPDATE branch_protection SET require_merge_request = false, approvals = 0, agents_on_branches = false
+    WHERE branch_id IN (SELECT id FROM branches WHERE workspace_id = ${workspaceId})`;
+}
+
 export async function loadAppModule<T>(load: () => Promise<T>): Promise<T> {
   process.env.DATABASE_URL = await appDatabaseUrl();
   process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://test.supabase.co";

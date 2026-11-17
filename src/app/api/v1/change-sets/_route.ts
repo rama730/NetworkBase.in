@@ -2,6 +2,7 @@ import { routeErrorResponse } from "@/app/api/v1/_error";
 import { denyOutsideTokenWorkspace, getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { branches, changeSets, saves } from "@/lib/db/schema";
+import { protectedFromDb } from "@/lib/domain/branch-protection";
 import { ChangeSetError, HeldResponse } from "@/lib/domain/change-sets";
 import { validateCsrf } from "@/lib/security/csrf";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
@@ -61,6 +62,8 @@ export async function changeSetRoute(
     } catch (error) {
       if (error instanceof HeldResponse) return error.response;
       if (error instanceof ChangeSetError) return jsonError(error.message, error.status, error.code as never, error.details);
+      const refused = protectedFromDb(error);
+      if (refused) return jsonError(refused.message, refused.status, refused.code as never, refused.details);
       return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/change-sets", fallback: "Couldn’t do that with the change set" });
     }
   };

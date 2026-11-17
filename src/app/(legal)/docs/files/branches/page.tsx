@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { LegalDocumentPage, LegalList } from "@/components/legal/LegalDocumentPage";
 import { TerminalBlock } from "@/components/ui/terminal-block";
 
-// Report Part H, 0.8 #12: history (H-1), branches (H-2) and merge requests (H-3); protection comes with H-4.
+// Report Part H, 0.8 #12: history (H-1), branches (H-2), merge requests (H-3), protecting main and agents (H-4).
 
 export const metadata: Metadata = {
   title: "History, branches and merge requests",
@@ -82,7 +82,7 @@ export default function BranchesDocsPage() {
               <LegalList>
                 <li><strong>Reviewers:</strong> the workspace’s owners and admins unless you choose. They’re told when it’s opened, or when a draft is marked ready.</li>
                 <li><strong>Reviewing:</strong> comment, comment on lines of a file, or suggest an edit. The author applies a suggestion with <strong>Apply suggestion</strong>, which saves it on the branch. Then <strong>Approve</strong> or <strong>Request changes</strong>. You can’t approve your own, and agents comment but don’t approve. An approval stays when more saves arrive, marked “an earlier save”.</li>
-                <li><strong>Checks:</strong> builds post results for the branch’s latest save (<code>POST /api/v1/workspaces/:id/merge-requests/:n/checks</code>). They’re shown; requiring them comes with protection.</li>
+                <li><strong>Checks:</strong> builds post results for the branch’s latest save (<code>POST /api/v1/workspaces/:id/merge-requests/:n/checks</code>). They’re shown, and a protected main can require them.</li>
                 <li><strong>Merging:</strong> <strong>Merge</strong> adds one save to main that keeps the branch’s saves as its history; <strong>Squash and merge</strong> adds one save named after the merge request. Every file changes at once, and <strong>Revert merge</strong> undoes it. The linked task moves to Done, or to review when it needs one. The branch is then marked merged, ready to delete.</li>
                 <li><strong>Can’t merge yet:</strong> when main changed the same lines, the merge stops without changing main. Update the branch from main, choose for each file, then merge.</li>
               </LegalList>
@@ -91,8 +91,25 @@ export default function BranchesDocsPage() {
           ),
         },
         {
+          id: "protect",
+          title: "7. Protecting main",
+          content: (
+            <>
+              <p>Workspace settings → Files → <strong>Protect main</strong>, for owners and admins. Protected, main changes only through merge requests. It starts on for a workspace with more than one member and off for a personal one.</p>
+              <LegalList>
+                <li><strong>Rules:</strong> approvals needed (0 to 5), whether new saves need approval again, checks that must pass, and who may merge (everyone who can change files, or owners and admins). Making a rule looser asks you to verify it’s you, and every change goes to your security log.</li>
+                <li><strong>In the app:</strong> saving a file, <strong>Use this version</strong>, restoring from Trash and <strong>Revert</strong> offer <strong>Save to a new branch</strong>: one click makes the branch and opens its merge request. Uploads, moves, renames and new folders on main say to use a branch; the branch picker in the Files header makes one.</li>
+                <li><strong>In a folder:</strong> <code>nb push</code> on main asks “push to branch you/2026-11-17 and open a merge request?”. With git in the folder, make a git branch instead (<code>git switch -c you/fix</code>) and NetworkBase follows it.</li>
+                <li><strong>GitHub sync</strong> may keep updating main when you allow it; those saves say “from GitHub”.</li>
+                <li><strong>Merge without approval:</strong> owners and admins can merge past approvals and checks after verifying it’s them. It’s recorded on the merge request and in their security log.</li>
+                <li><strong>Agents</strong> work on a branch named for their task (<code>agent/4-login-bug</code>) and open a merge request when they finish; a person merges it. This is always on in a team workspace. Agents never approve, never merge into a protected main, and never change these rules.</li>
+              </LegalList>
+            </>
+          ),
+        },
+        {
           id: "on",
-          title: "7. Turning it on",
+          title: "8. Turning it on",
           content: (
             <p>Workspace settings → Files → <strong>History</strong>, for owners and admins. It starts with a “Start of history” save of the files as they are, and turns change sets on too. Turning it off keeps what’s recorded, and needs the other branches merged or deleted first.</p>
           ),

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
-import { addMember, closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
+import { addMember, closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql, unprotect } from "./_helpers";
 
 // Report Part H, phase H-3 (M8): merge requests. Open one from a branch, review it (comments, suggestions, approve or
 // request changes), post checks, merge or squash into main as one change set; the task moves; branch delete closes it.
@@ -78,6 +78,7 @@ async function setup() {
   await addFile(workspace, owner, "/README.md", "# Demo\n");
   await addFile(workspace, owner, "/src/a.ts", "a1\na2\na3\na4\na5\na6\n");
   await saves.setBranchesEnabled(actor(owner), workspace, true);
+  await unprotect(workspace);
   const { branch } = await branches.createBranch(actor(dev), workspace, { name: "dev/feature" });
   return { owner, dev, workspace, branch };
 }

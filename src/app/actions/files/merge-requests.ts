@@ -1,9 +1,14 @@
 "use server";
 
+import { headers } from "next/headers";
+
+import { getProtection, protectedFromDb, setProtection, type Protection } from "@/lib/domain/branch-protection";
+import type { ProtectedChange } from "@/lib/domain/branches";
 import { ChangeSetError, type Actor } from "@/lib/domain/change-sets";
 import {
   applySuggestion, commentOnMergeRequest, createMergeRequest, getMergeRequest, listMergeRequests, mergeMergeRequest, reviewMergeRequest, updateMergeRequest,
 } from "@/lib/domain/merge-requests";
+import { personStepUp } from "@/lib/security/change-set-step-up";
 import { createClient } from "@/lib/supabase/server";
 
 /** Merge requests in the Files tab (report H4): the signed-in person, through the same rules as the API. */
@@ -20,6 +25,7 @@ async function run<T>(fn: (a: Actor) => Promise<T>): Promise<Result<T>> {
   try {
     return { success: true, data: await fn(await actor()) };
   } catch (error) {
+    error = protectedFromDb(error) ?? error;
     if (error instanceof ChangeSetError) {
       const stepUp = (error.details as { stepUp?: StepUp } | undefined)?.stepUp;
       return { success: false, error: error.message, code: error.code, ...(error.details ? { details: error.details } : {}), ...(stepUp ? { stepUp } : {}) };
@@ -39,5 +45,27 @@ export const reviewMergeRequestAction = async (projectId: string, n: number, sta
 export const commentMergeRequestAction = async (projectId: string, n: number, input: { body: string; path?: string | null; line?: number | null; endLine?: number | null; suggestion?: string | null }) =>
   run((a) => commentOnMergeRequest(a, projectId, n, input));
 export const applySuggestionAction = async (projectId: string, n: number, commentId: string) => run((a) => applySuggestion(a, projectId, n, commentId));
-export const mergeMergeRequestAction = async (projectId: string, n: number, method: "merge" | "squash", confirmSecrets = false) =>
-  run((a) => mergeMergeRequest(a, new Request("https://app.local/merge-requests"), projectId, n, { method, confirmSecrets }));
+/** The request the security log reads (address, browser), for an owner's Merge without approval and protection changes. */
+const appRequest = async () => new Request("https://app.local/merge-requests", { headers: new Headers(Object.fromEntries((await headers()).entries())) });
+
+export const mergeMergeRequestAction = async (projectId: string, n: number, method: "merge" | "squash", confirmSecrets = false, override = false) =>
+  run(async (a) => mergeMergeRequest(a, await appRequest(), projectId, n, { method, confirmSecrets, override }));
+
+// ── Main's protection (H5) ────────────────────────────────────────────────────────────────────────────────────────
+
+export const getProtectionAction = async (projectId: string) => run((a) => getProtection(a, projectId));
+/** Loosening the rules asks "Verify it's you" first: the error carries the methods, as a merge's step-up does. */
+export const setProtectionAction = async (projectId: string, patch: Partial<Protection>) =>
+  run(async (a) => {
+    const stepUp = await personStepUp(a);
+    try {
+      return { rules: (await setProtection(a, projectId, patch, { verified: !stepUp, request: await appRequest() })).rules };
+    } catch (error) {
+      if (error instanceof ChangeSetError && error.code === "STEP_UP_REQUIRED" && stepUp) throw new ChangeSetError(error.message, 403, "STEP_UP_REQUIRED", { stepUp });
+      throw error;
+    }
+  });
+
+/** On a protected main (H5, H24): the edit, version or restore goes on a new branch with a merge request instead. */
+export const saveToNewBranchAction = async (projectId: string, input: { name: string; title: string; change: ProtectedChange }) =>
+  run(async (a) => (await import("@/lib/domain/branches")).saveToNewBranch(a, projectId, input));

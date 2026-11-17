@@ -16,7 +16,7 @@ import { ORG_REUSED_LABELS, ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMem
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/workspaces/settings/TaskCompletionSettings";
 import { AgentSettings } from "@/components/workspaces/settings/AgentSettings";
-import { BranchesSettings } from "@/components/workspaces/settings/BranchesSettings";
+import { FilesHistorySettings } from "@/components/workspaces/settings/BranchesSettings";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useIdentityStepUp } from "@/hooks/useIdentityStepUp";
@@ -2045,7 +2045,7 @@ function ProjectSettingsContent({
                             />
                             <DownloadHistory projectId={projectId} />
                         </SettingsCard>
-                        {canManageSettings && !organization ? <BranchesSettings projectId={projectId} /> : null}
+                        {canManageSettings && !organization ? <FilesHistorySettings projectId={projectId} /> : null}
                     </section>
                 )}
                 {sections.some((s) => s.id === "ai-agents") && canManageSettings && (

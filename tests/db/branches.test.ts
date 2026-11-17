@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
-import { addMember, closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
+import { addMember, closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql, unprotect } from "./_helpers";
 
 // Report Part H, phase H-2 (M8): branches. A branch is main at its base plus its own files; saves on it go through
 // change sets or the branch writer; update from main merges; names, limits and who may rename or delete.
@@ -89,6 +89,7 @@ async function setup() {
   await addFile(workspace, owner, "/README.md", "# Demo\n");
   await addFile(workspace, owner, "/src/a.ts", "a1\na2\na3\na4\na5\na6\n");
   await saves.setBranchesEnabled(actor(owner), workspace, true);
+  await unprotect(workspace);
   const [main] = await sql`SELECT id FROM branches WHERE workspace_id = ${workspace} AND is_default`;
   return { owner, workspace, mainId: main!.id as string };
 }
@@ -229,6 +230,7 @@ test("speed (H25): a 5,000-file workspace; a branch's files resolve well under a
     SELECT ${workspace}, 'file', 'f' || i || '.ts', '/src/m' || (i % 50) || '/f' || i || '.ts', ${owner}, 10, 1, 'k/' || i, 'text/plain' FROM generate_series(1, 5000) i`;
   const o = actor(owner);
   await saves.setBranchesEnabled(o, workspace, true);
+  await unprotect(workspace);
   const { branch } = await branches.createBranch(o, workspace, { name: "big" });
   const c = await content(workspace, owner, "changed\n");
   await branches.writeBranch(branch.id, { changes: Array.from({ length: 200 }, (_, i) => ({ op: "change" as const, path: `/src/m${(i + 1) % 50}/f${i + 1}.ts`, contentHash: c.hash, assetId: c.assetId, size: c.size })), message: "200 files", authorId: owner });

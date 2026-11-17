@@ -50,6 +50,7 @@ import {
   FolderListError,
 } from "./folder/FolderListStates";
 import { FOLDER_LIST_GRID_TEMPLATE } from "./folder/layout";
+import { useMainProtected, useSaveToBranch } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import { FilesViewsMenu, FilesHeaderSlot } from "./FilesHeader";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import styles from "./folder/FolderList.module.css";
@@ -65,6 +66,8 @@ function originalLocation(path: string) {
 type CategoryFilter = "all" | "files" | "folders";
 
 export function TrashFilesCollection({ projectId }: { projectId: string }) {
+  const { offer: offerBranch, dialog: branchDialog } = useSaveToBranch(projectId);
+  const mainProtected = useMainProtected(projectId);
   const { query } = useFilesViews()!;
   const { canEdit, canManageFiles } = useFilesTabRole();
   const [busy, setBusy] = useState<string | null>(null);
@@ -228,8 +231,21 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
     return () => observer.disconnect();
   }, [result.hasNextPage, result.isFetchingNextPage, result.fetchNextPage]);
 
+  /** A protected main takes merge requests only (H5, H24): restored files go on a new branch with a merge request. */
+  function restoreOnBranch(ids: string[]) {
+    const files = nodes.filter((n) => ids.includes(n.id) && n.type === "file" && !n.taskId);
+    if (!files.length) { toast.error("main is protected: restore files on a branch; folders come back with their files"); return; }
+    offerBranch({
+      title: files.length === 1 ? `Restore ${files[0]!.name}` : `Restore ${files.length} files`,
+      what: files.length === 1 ? `restore-${files[0]!.name}` : "restore-files",
+      change: { kind: "restore", nodeIds: files.map((n) => n.id) },
+      onDone: () => setSelectedIds(new Set()),
+    });
+  }
+
   async function restore(id: string) {
     if (busy) return;
+    if (mainProtected) { restoreOnBranch([id]); return; }
     setBusy(id);
     try {
       await restoreNode(id, projectId);
@@ -252,6 +268,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
 
   async function handleBatchRestore() {
     if (selectedIds.size === 0 || batchOperating) return;
+    if (mainProtected) { restoreOnBranch(Array.from(selectedIds)); return; }
     setBatchOperating(true);
     const ids = Array.from(selectedIds);
     try {
@@ -935,6 +952,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
           <p className="text-sm text-muted-foreground">Reviewing what will be deleted…</p>
         )}
       </ConfirmDialog>
+      {branchDialog}
     </div>
   );
 }

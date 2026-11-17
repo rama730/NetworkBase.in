@@ -18,6 +18,7 @@ import {
   Cell, FilesHeaderTitle, FilesStrip, GridRow, HeaderCrumbs, IconChip, LineCounts, NameCell, Person, StatusBadge, StripNote, StripSearch, headerButton,
   stripButton, type BadgeTone,
 } from "./FilesChrome";
+import { openRevertRequest } from "./SaveToBranch";
 import { FilesHeaderSlot, FilesViewsMenu } from "./FilesHeader";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { useFilesViews } from "./FilesViews";
@@ -181,6 +182,7 @@ function SavePage({ projectId, id, onBack, onOpen }: { projectId: string; id: st
       void client.invalidateQueries({ queryKey: ["saves", projectId] });
       void client.invalidateQueries({ queryKey: ["files-directory", projectId] });
       if (res.data.outcome === "reverted" && res.data.saveId) { toast.success("Reverted"); onOpen(res.data.saveId); }
+      else if (res.data.outcome === "merge_request") openRevertRequest(res.data);
       else if (res.data.outcome === "nothing") toast.success("Nothing to revert: the files are already as they were before");
       else {
         toast.error("Some files changed since: choose for each in Changes");

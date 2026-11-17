@@ -1,4 +1,5 @@
 import { jsonError } from "@/app/api/v1/_envelope";
+import { protectedRefusal } from "@/lib/branches/protected-refusal";
 import { isDomainError } from "@/lib/errors/domain";
 import { logger } from "@/lib/logger";
 
@@ -9,6 +10,9 @@ import { logger } from "@/lib/logger";
  */
 export function routeErrorResponse(error: unknown, context: { requestId: string; scope: string; fallback: string }) {
   if (isDomainError(error)) return jsonError(error.message, error.status, error.errorCode);
+  // A protected main refused the write at commit (report H5, 0099 saves_guard), whichever route made it.
+  const refused = protectedRefusal(error);
+  if (refused) return jsonError(refused.message, 403, "BRANCH_PROTECTED" as never, { reason: refused.reason });
   logger.error(`[${context.scope}] failed`, {
     module: "api",
     requestId: context.requestId,

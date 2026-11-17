@@ -65,7 +65,9 @@ export interface SecurityActivityEntry {
     | "account_deletion_scheduled"
     | "account_deletion_cancelled"
     | "project_ownership_transferred_out"
-    | "project_ownership_transferred_in";
+    | "project_ownership_transferred_in"
+    | "branch_protection_changed"
+    | "merge_without_approval";
   createdAt: string;
   networkFingerprint?: string;
   deviceFingerprint?: string;

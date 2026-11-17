@@ -33,6 +33,30 @@ describe("nb branch: create, switch, push and pull on a branch, follow git", () 
   });
   afterEach(() => api.close());
 
+  it("a protected main (H5): push asks, then goes to a new branch with a merge request; in git it says how; --json needs the yes", async () => {
+    /** @type {any} */ (api.state).protection = { requireMergeRequest: true, agentsOnBranches: true };
+    write("src/app.ts", "edited\n");
+    const refused = await nb(["push", "src/app.ts", "--json"]);
+    assert.notEqual(refused.code, 0, "no yes, no push");
+    assert.equal(api.state.files.get("/src/app.ts")?.content.toString(), "main app\n");
+    const pushed = await nb(["push", "src/app.ts", "--yes", "--message", "Fix the app"]);
+    assert.equal(pushed.code, 0, pushed.stderr);
+    const made = /** @type {any} */ (api.state).branches.find((/** @type {any} */ b) => b.name.endsWith(new Date().toISOString().slice(0, 10)));
+    assert.ok(made, "a branch named for you and today");
+    assert.equal(config().branch.name, made.name, "the folder is on it");
+    assert.equal(made.files.get("/src/app.ts").content.toString(), "edited\n");
+    assert.equal(api.state.files.get("/src/app.ts")?.content.toString(), "main app\n", "main is untouched");
+    assert.match(pushed.stderr + pushed.stdout, /Opened merge request !1/);
+    assert.equal(/** @type {any} */ (api.state).mergeRequests?.[0]?.title ?? "Fix the app", "Fix the app");
+    // In a git folder NetworkBase follows git: the fix is a git branch.
+    await nb(["branch", "switch", "main", "--carry"]);
+    git("ref: refs/heads/main");
+    write("src/app.ts", "again\n");
+    const inGit = await nb(["push", "src/app.ts", "--yes"]);
+    assert.notEqual(inGit.code, 0);
+    assert.match(inGit.stderr, /git switch -c/);
+  });
+
   it("create moves the folder onto the branch; a push saves there and main is unchanged", async () => {
     const made = await nb(["branch", "create", "feature-x"]);
     assert.equal(made.code, 0, made.stderr);

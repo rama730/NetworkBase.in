@@ -85,6 +85,7 @@ export async function revert(ctx) {
   ctx.out.result("nb.revert/1", res, (d) => d.outcome === "reverted"
     ? `${c.success(ctx.out.sym.done)} Reverted save ${one.save.number}${d.saveId ? c.muted(" · nb log shows the new save") : ""}`
     : d.outcome === "nothing" ? "Nothing to revert: those files are already as they were before"
+    : d.outcome === "merge_request" ? `${c.success(ctx.out.sym.done)} main is protected: the revert is on ${d.branch} as merge request !${d.mergeRequest}${c.muted(` · nb merge-request view ${d.mergeRequest}`)}`
       : [`${c.warning(ctx.out.sym.warn)} ${d.conflicts?.length ?? "Some"} file(s) changed since; choose for each`, c.muted(`  nb change view ${d.changeSetId.slice(0, 8)}, then nb resolve, then nb change apply ${d.changeSetId.slice(0, 8)}`)]);
   return res.outcome === "conflicts" ? EXIT.conflict : EXIT.ok;
 }

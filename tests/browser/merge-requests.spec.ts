@@ -9,7 +9,7 @@ const P = (id: string, name: string, username: string) => ({ id, name, username 
 const RAM = P('u1', 'Ram', 'ram');
 const SAM = P('u2', 'Sam', 'sam');
 const summary = { id: 'm1', number: 3, title: 'New header', state: 'open', source: { id: 'b1', name: 'ram/try-header', status: 'active' }, author: RAM, madeWith: 'with Claude Code', task: null, approvals: 0, changesRequested: 0, comments: 2, reviewRequested: true, createdAt: '2026-11-17T08:00:00Z', updatedAt: '2026-11-17T09:00:00Z' };
-function detail(over: { state?: string; canReview?: boolean; merged?: boolean } = {}) {
+function detail(over: { state?: string; canReview?: boolean; merged?: boolean; needs?: string[] } = {}) {
   const state = over.state ?? 'open';
   return {
     mergeRequest: {
@@ -28,11 +28,12 @@ function detail(over: { state?: string; canReview?: boolean; merged?: boolean } 
       { id: 'c2', author: SAM, madeWith: null, body: 'Shorter?', reviewState: null, path: '/README.md', line: 1, endLine: 1, onEarlierSave: false, suggestion: '# Header', original: '# The new header', appliedSaveId: null, resolved: false, createdAt: '2026-11-17T08:40:00Z', mine: false },
     ],
     events: [{ id: '1', kind: 'opened', actor: RAM, madeWith: 'with Claude Code', data: {}, createdAt: '2026-11-17T08:00:00Z' }],
-    viewer: { isAuthor: !over.canReview, canWrite: true, myReview: null, canReview: Boolean(over.canReview), canMerge: state === 'open' },
+    viewer: { isAuthor: !over.canReview, canWrite: true, myReview: null, canReview: Boolean(over.canReview), canMerge: state === 'open', canOverride: Boolean(over.needs?.length) },
+    protection: { protected: Boolean(over.needs), needs: over.needs ?? [], approvals: { needed: over.needs ? 1 : 0, have: 0 }, checks: [], mergeBy: 'writers' },
   };
 }
 
-async function open(page: Page, { width = 1440, theme = 'light', path = '/', canReview = false, conflicts = false }: { width?: number; theme?: string; path?: string; canReview?: boolean; conflicts?: boolean } = {}) {
+async function open(page: Page, { width = 1440, theme = 'light', path = '/', canReview = false, conflicts = false, needs }: { width?: number; theme?: string; path?: string; canReview?: boolean; conflicts?: boolean; needs?: string[] } = {}) {
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript(({ summary, D, DM, conflicts }) => {
     const calls: unknown[] = [];
@@ -54,7 +55,7 @@ async function open(page: Page, { width = 1440, theme = 'light', path = '/', can
       },
       branchDiffAction: async (_b: string, path: string) => ({ success: true, data: { kind: 'text', added: 1, removed: 1, lines: [{ kind: '@', text: '@@ -1 +1 @@' }, { kind: '-', text: 'old' }, { kind: '+', text: `new in ${path}` }] } }),
     };
-  }, { summary, D: detail({ canReview }), DM: detail({ state: 'merged', merged: true }), conflicts });
+  }, { summary, D: detail({ canReview, needs }), DM: detail({ state: 'merged', merged: true }), conflicts });
   await openApp(page, 'tests/browser/merge-requests.fixture.tsx', { path, head: theme === 'dark' ? "document.documentElement.classList.add('dark')" : '' });
 }
 
@@ -109,7 +110,7 @@ test('merge: squash merges and shows Merged with Revert merge; conflicts send yo
   await expect(page.getByRole('alertdialog')).toContainText('Revert the merge of !3?');
   await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
   const calls = await page.evaluate(() => (window as any).__calls);
-  expect(calls.find((c: unknown[]) => c[0] === 'merge')).toEqual(['merge', 'p1', 3, 'squash', false]);
+  expect(calls.find((c: unknown[]) => c[0] === 'merge')).toEqual(['merge', 'p1', 3, 'squash', false, false]);
 });
 
 test('conflicts: "Can\'t merge yet" with the files, and main is left alone', async ({ page }) => {
@@ -135,3 +136,14 @@ for (const theme of ['light', 'dark'] as const) {
     });
   }
 }
+
+test('a protected main (H5): the strip says what it needs, Merge waits, and an owner can merge without approval', async ({ page }) => {
+  await open(page, { path: '/?mr=3', needs: ['Needs 1 more approval', "Check build hasn't passed"] });
+  const strip = page.getByRole('region', { name: 'What main needs' });
+  await expect(strip).toContainText('main is protected:');
+  await expect(strip).toContainText('Needs 1 more approval');
+  await expect(page.getByRole('button', { name: /^Merge$/ })).toBeDisabled();
+  await strip.getByRole('button', { name: 'Merge without approval' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Merge without approval' }).click();
+  await expect.poll(async () => (await page.evaluate(() => (window as any).__calls)).find((c: unknown[]) => c[0] === 'merge')).toEqual(['merge', expect.anything(), 3, 'merge', false, true]);
+});

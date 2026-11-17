@@ -6387,6 +6387,20 @@ export const branches = pgTable("branches", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** A branch's protection rules (report H5, 0099). Only main has a row in this phase; the `saves_guard` trigger enforces it. */
+export const branchProtection = pgTable("branch_protection", {
+  branchId: uuid("branch_id").primaryKey().references(() => branches.id, { onDelete: "cascade" }),
+  requireMergeRequest: boolean("require_merge_request").default(false).notNull(),
+  approvals: smallint("approvals").default(0).notNull(),
+  reapproveOnNewSaves: boolean("reapprove_on_new_saves").default(false).notNull(),
+  requiredChecks: text("required_checks").array().default(sql`'{}'`).notNull(),
+  mergeBy: text("merge_by").$type<"writers" | "admins">().default("writers").notNull(),
+  agentsOnBranches: boolean("agents_on_branches").default(true).notNull(),
+  allowGithubSync: boolean("allow_github_sync").default(true).notNull(),
+  updatedBy: uuid("updated_by").references(() => profiles.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /** One save (commit). On main the database records them (0096 triggers); `seq` is the order on its branch, set at commit. */
 export const saves = pgTable("saves", {
   id: uuid("id").primaryKey().defaultRandom(),

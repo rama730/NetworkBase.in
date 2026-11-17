@@ -338,6 +338,8 @@ const branchOf = (state, ref) => (ref ? (state.branches ??= []).find((/** @type 
 const branchOut = (/** @type {any} */ b) => ({ id: b.id, name: b.name, isDefault: false, status: b.status ?? "active", ahead: b.ahead ?? 0, behind: 0, changedFiles: 0, stale: false, lastSave: null, createdBy: null, task: null, createdAt: now(), updatedAt: now(), deletedAt: null });
 export const MAIN_BRANCH_ID = "00000000-0000-4000-8000-00000000000a";
 const branchRoutes = [
+  // Main's protection (report H5): none unless a test sets state.protection.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/protection$/, "GET", (/** @type {any} */ _req, /** @type {any} */ state) => (state.protection ? { data: { rules: state.protection, canChange: false, agentsLocked: false } } : fail(403, "BRANCHES_OFF", "History isn't turned on for this workspace"))],
   [/^\/api\/v1\/workspaces\/([^/]+)\/branches$/, "GET", (/** @type {any} */ _req, /** @type {any} */ state) => {
     // Like most workspaces: no branches unless a test turns them on.
     if (!state.branchesOn || state.branchesOff) return fail(403, "BRANCHES_OFF", "History isn't turned on for this workspace");

@@ -8,7 +8,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, max, ne, or, sql } from "drizz
 
 import { CONFIRM_HEADER, agentAssignmentBlock, agentGate, issueConfirmToken, needsYes, recordUndo, spendConfirmToken, workspaceAgentPolicy, type ChangeKind } from "@/lib/agents/policy";
 import { db } from "@/lib/db";
-import { changeSetComments, changeSetItems, changeSets, fileVersions, profiles, storageAssets, taskNodeLinks, tasks, undoOperations, workspaceDocuments, workspaceNodeLocks, workspaceNodes, workspaces } from "@/lib/db/schema";
+import { changeSetComments, changeSetItems, changeSets, fileVersions, mergeRequests, profiles, storageAssets, taskNodeLinks, tasks, undoOperations, workspaceDocuments, workspaceNodeLocks, workspaceNodes, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { ensureParentFoldersTx } from "@/lib/files/ensure-folders";
 import { assertWorkspaceWriteAccessTx, recordNodeEventsBatch } from "@/lib/files/internal-helpers";
@@ -124,7 +124,7 @@ export async function findChangeSet(changeSetId: string) {
 
 // ── Start, list, read ─────────────────────────────────────────────────────────────────────────────────────────────
 
-export async function startChangeSet(actor: Actor, input: { workspaceId: string; title: string; taskId?: string | null; message?: string | null; branchId?: string | null }) {
+export async function startChangeSet(actor: Actor, input: { workspaceId: string; title: string; taskId?: string | null; message?: string | null; branchId?: string | null; mergeIntoMain?: boolean }) {
   const userId = userOf(actor);
   const { canWrite } = await workspaceAccess(actor, input.workspaceId);
   if (!canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
@@ -140,6 +140,10 @@ export async function startChangeSet(actor: Actor, input: { workspaceId: string;
     if (branch.status !== "active") fail(`${branch.name} was ${branch.status}; restore it first`, 409, "BRANCH_DELETED");
     branchId = branch.isDefault ? null : branch.id;
   }
+  // Agents work on their own branch (report H7): with Branches on and main's rule, a change aimed at main starts on
+  // agent/<task>-<what> instead, and applying it opens a merge request for the person.
+  // A merge request's own merge into main (mergeIntoMain) is the one main change an agent makes, after the person's yes.
+  if (!branchId && isAgent(actor) && !input.mergeIntoMain) branchId = await agentBranchFor(actor, input.workspaceId, input.taskId ?? null, title);
   const message = input.message?.trim().slice(0, 2000) || null;
   const sessionId = isAgent(actor) && actor.extensionSessionId && /^[0-9a-f-]{36}$/i.test(actor.extensionSessionId) ? actor.extensionSessionId : null;
   const open = and(eq(changeSets.workspaceId, input.workspaceId), inArray(changeSets.status, ["open", "ready"]));
@@ -163,6 +167,46 @@ export async function startChangeSet(actor: Actor, input: { workspaceId: string;
     branchId,
   }).returning();
   return set!;
+}
+
+const slugOf = (text: string) => text.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
+
+/**
+ * The branch an agent's change goes to when its workspace keeps agents on branches (H7, 0099), or null for main.
+ * One per task (agent/4-login-bug), else one per day and title; an active one with that name is reused.
+ */
+async function agentBranchFor(actor: Actor, workspaceId: string, taskId: string | null, title: string): Promise<string | null> {
+  const [ws] = await db.select({ on: workspaces.branchesEnabled }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
+  if (!ws?.on) return null;
+  const { mainBranch } = await import("@/lib/domain/saves");
+  const { protectionOf } = await import("@/lib/domain/branch-protection");
+  const rules = await protectionOf((await mainBranch(workspaceId)).id);
+  if (!rules.agentsOnBranches && !rules.requireMergeRequest) return null;
+  const [task] = taskId ? await db.select({ number: tasks.taskNumber, title: tasks.title }).from(tasks).where(eq(tasks.id, taskId)).limit(1) : [];
+  const name = task?.number != null
+    ? `agent/${task.number}-${slugOf(task.title) || "task"}`
+    : `agent/${new Date().toISOString().slice(0, 10)}-${slugOf(title) || "change"}`;
+  const { createBranch, findBranch } = await import("@/lib/domain/branches");
+  const existing = await findBranch(actor, workspaceId, name).catch(() => null);
+  if (existing?.status === "active") return existing.id;
+  try {
+    return (await createBranch(actor, workspaceId, { name, taskId })).branch.id;
+  } catch (error) {
+    // Another call made it a moment ago.
+    if (error instanceof ChangeSetError && error.code === "BRANCH_EXISTS") return (await findBranch(actor, workspaceId, name)).id;
+    throw error;
+  }
+}
+
+/** After an agent's change lands on its branch: its merge request, opened with "What I did", or the open one (H7). */
+async function agentMergeRequest(actor: Actor, set: ChangeSet) {
+  const { openMergeRequestsOf, createMergeRequest } = await import("@/lib/domain/merge-requests");
+  const open = (await openMergeRequestsOf([set.branchId!])).get(set.branchId!);
+  if (open) return { number: open.number, opened: false };
+  const { findBranch } = await import("@/lib/domain/branches");
+  const branch = await findBranch(actor, set.workspaceId, set.branchId!);
+  const made = await createMergeRequest(actor, set.workspaceId, { source: branch.name, title: set.title, description: set.message ?? null, taskId: set.taskId });
+  return { number: made.mergeRequest.number, opened: true };
 }
 
 /**
@@ -934,10 +978,15 @@ export type ApplyResult = {
 };
 
 /** Apply (route 9): all items in one transaction (G10), or nothing. Repeating it returns the stored result. */
-export async function applyChangeSet(actor: Actor, request: Request, changeSetId: string, opts: { confirmToken?: string | null; only?: string[] | null; checkScope?: (scope: "file:final" | "doc:write") => Promise<Response | null> } = {}) {
+export async function applyChangeSet(actor: Actor, request: Request, changeSetId: string, opts: { confirmToken?: string | null; only?: string[] | null; checkScope?: (scope: "file:final" | "doc:write") => Promise<Response | null>; fromMerge?: boolean } = {}) {
   const userId = userOf(actor);
   let set = await loadForWrite(actor, changeSetId, "author-or-admin");
   if (set.status === "applied" && set.applyResult) return { changeSet: set, ...(set.applyResult as unknown as ApplyResult) };
+  // A merge request's merge is applied only by the merge, which checks main's protection first (H5); never here.
+  if (!opts.fromMerge) {
+    const [merging] = await db.select({ number: mergeRequests.number }).from(mergeRequests).where(eq(mergeRequests.pendingChangeSetId, set.id)).limit(1);
+    if (merging) fail(`This is the merge of !${merging.number}; merge it from its merge request`, 409, "CONFLICT");
+  }
   if (opts.only?.length) {
     // Apply only some files is the person's choice in review (G12), from a finished set (secrets checked, content complete).
     if (isAgent(actor)) fail("Agents apply whole change sets; the person can apply only some files in the app", 403, "FORBIDDEN");
@@ -970,7 +1019,12 @@ export async function applyChangeSet(actor: Actor, request: Request, changeSetId
   if (set.branchId) {
     const result = await (await import("@/lib/domain/branches")).applyOnBranch(set, userId);
     await notifyApplied(set, userId, result.applied.length);
-    return { changeSet: await findChangeSet(set.id), ...result };
+    // An agent's work goes to the person as a merge request: "Opened merge request !5 for your review" (H7).
+    const mergeRequest = isAgent(actor) ? await agentMergeRequest(actor, set).catch((error: unknown) => {
+      logger.warn("change_set.agent_merge_request_failed", { module: "files", error: error instanceof Error ? error.message : String(error) });
+      return null;
+    }) : null;
+    return { changeSet: await findChangeSet(set.id), ...result, ...(mergeRequest ? { mergeRequest } : {}) };
   }
   const started = Date.now();
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -1007,8 +1061,10 @@ async function applyPlannedInner(set: ChangeSet, planned: Planned[], userId: str
     const [locked] = await tx.select().from(changeSets).where(eq(changeSets.id, set.id)).for("update");
     if (locked?.status === "applied" && locked.applyResult) return { already: locked.applyResult as unknown as ApplyResult };
     if (locked?.status !== "ready") fail(`This change set is ${locked?.status ?? "gone"}`, 409, "CHANGE_SET_NOT_READY");
-    // The save this records (H3): the set's title, task and author, or "Revert …" for a revert.
-    await saveContext(tx, { kind: set.revertsSaveId ? "revert" : "save", message: set.title, authorId: set.authorId, via: set.via, agentName: set.agentName, taskId: set.taskId, changeSetId: set.id, revertsSaveId: set.revertsSaveId });
+    // The save this records (H3): the set's title, task and author, or "Revert …" for a revert. A merge request's merge
+    // is a merge, which a protected main takes (H5, 0099 saves_guard); mergeMergeRequest then names it merge or squash.
+    const [merging] = await tx.select({ id: mergeRequests.id }).from(mergeRequests).where(eq(mergeRequests.pendingChangeSetId, set.id)).limit(1);
+    await saveContext(tx, { kind: merging ? "merge" : set.revertsSaveId ? "revert" : "save", message: set.title, authorId: set.authorId, via: set.via, agentName: set.agentName, taskId: set.taskId, changeSetId: set.id, revertsSaveId: set.revertsSaveId });
     // Lock every target in node-id order, so two applies never deadlock (G10 step 2.2).
     const ids = [...new Set(planned.flatMap((p) => (p.nodeId ? [p.nodeId] : [])))].sort();
     if (ids.length) await tx.execute(sql`SELECT id FROM workspace_nodes WHERE id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}) ORDER BY id FOR UPDATE`);

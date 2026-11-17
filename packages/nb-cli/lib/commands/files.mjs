@@ -261,6 +261,51 @@ function oldStatusFlags(ctx) {
 }
 
 /** @param {Context} ctx */
+/**
+ * Main's protection, read before pushing to main (report H5, H6). Returns null to push as usual, or the exit code of
+ * the push it made on a new branch. Offline or with Branches off it changes nothing.
+ * @param {Context} ctx @param {string} root
+ */
+async function pushToProtectedMain(ctx, root) {
+  const project = /** @type {any} */ (ctx.requireRoot().project);
+  if (project.branch || ctx.flags["dry-run"] || /** @type {any} */ (ctx).queueId) return null;
+  const rules = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(project.workspaceId)}/protection`).catch(() => null))?.rules;
+  const agent = String(ctx.profile?.token ?? "").startsWith("nb_agt_");
+  if (!rules || !(rules.requireMergeRequest || (agent && rules.agentsOnBranches))) return null;
+  const { readGitHead, switchTo } = await import("./branch.mjs");
+  if (readGitHead(root)) {
+    throw new CliError("BRANCH_PROTECTED", agent ? "Agents work on a branch here: main changes only through merge requests" : "main is protected: it changes only through merge requests", {
+      hint: "git switch -c <you>/<what>, then nb push again (NetworkBase follows git and offers to make the branch)",
+    });
+  }
+  const day = new Date().toISOString().slice(0, 10);
+  const who = String(ctx.profile?.user?.username ?? "me").toLowerCase().replace(/[^a-z0-9_.-]+/g, "-") || "me";
+  const base = agent ? `agent/${day}-push` : `${who}/${day}`;
+  if (!agent) {
+    const ok = await confirm(ctx, { key: "branch", question: `main is protected: push to branch ${base} and open a merge request?`, yesLabel: "Push to branch", defaultYes: true });
+    if (!ok) return EXIT.cancelled;
+  }
+  /** @type {any} */
+  let made = null;
+  for (let i = 1; !made && i <= 20; i++) {
+    const name = i === 1 ? base : `${base}-${i}`;
+    made = await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(project.workspaceId)}/branches`, { name }).catch((/** @type {any} */ error) => {
+      if (error instanceof CliError && error.code === "BRANCH_EXISTS") return null;
+      throw error;
+    });
+  }
+  if (!made) throw new CliError("BRANCH_EXISTS", `Couldn't find a free branch name after ${base}`, { hint: "nb branch create <name>, nb branch switch <name>, then nb push" });
+  const branch = made.branch;
+  await switchTo(ctx, { ...branch, isDefault: false }, { carry: true });
+  ctx.out.note(ctx.out.c.muted(`main is protected: this folder is now on ${safe(branch.name)}`));
+  const code = await push(ctx);
+  if (code !== EXIT.ok && code !== undefined) return code;
+  const opened = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(project.workspaceId)}/merge-requests`, { source: branch.name, ...(ctx.flags.message ? { title: String(ctx.flags.message) } : {}) }));
+  const n = opened?.mergeRequest?.number;
+  ctx.out.note(`${ctx.out.c.success(ctx.out.sym.done)} Opened merge request !${n} for review${ctx.out.c.muted(` · nb merge-request view ${n}`)}`);
+  return EXIT.ok;
+}
+
 export async function push(ctx) {
   oldStatusFlags(ctx);
   const { root } = ctx.requireRoot();
@@ -283,6 +328,10 @@ export async function push(ctx) {
   if (readGitHead(root)?.detached) throw new CliError("DETACHED_HEAD", "git isn't on a branch here (a detached HEAD), so there's no branch to push to", { hint: "git switch <branch> (or git switch -c <new-branch>), then nb push" });
   const as = ctx.flags.as ?? readUserConfig(ctx.env)["default-as"] ?? null;
   if (as && !["reference", "draft", "final"].includes(as)) throw usage(`--as must be reference, draft or final (not ${as})`);
+  // A protected main (report H5): the push goes to a new branch with a merge request instead (asked first; agents
+  // go straight to theirs). In a git folder NetworkBase follows git, so the fix is a git branch.
+  const onBranch = await pushToProtectedMain(ctx, root);
+  if (onBranch !== null) return onBranch;
   const keyBase = /** @type {any} */ (ctx).queueId ?? crypto.randomUUID();
   const queueOffline = () => {
     if (ctx.flags["dry-run"]) return new CliError("OFFLINE", "Can't reach the server", { hint: "Try again when you're online" });

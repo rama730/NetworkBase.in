@@ -46,6 +46,8 @@ const EVENT_LABELS: Record<SecurityActivityEntry["eventType"], string> = {
   account_deletion_cancelled: "Account deletion canceled",
   project_ownership_transferred_out: "Workspace ownership handed over",
   project_ownership_transferred_in: "Workspace ownership received",
+  branch_protection_changed: "Main's protection changed",
+  merge_without_approval: "Merged into main without approval",
 };
 
 function getEventSummary(entry: SecurityActivityEntry): string | null {

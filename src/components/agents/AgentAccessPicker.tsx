@@ -15,7 +15,7 @@ export type AgentWorkspaceOption = { id: string; title: string; viewerOnly: bool
 
 export const AGENT_EXPIRY_CHOICES = [7, 30, 90] as const
 const PRESETS: { value: AgentPreset; label: string; detail: string }[] = [
-    { value: 'full', label: 'Full help', detail: 'Does small things itself; asks before finishing tasks, final files, doc edits and deleting.' },
+    { value: 'full', label: 'Full help', detail: 'Does small things itself; asks before finishing tasks, final files, doc edits and deleting. Where a workspace has Branches, it works on a branch and opens a merge request for your review.' },
     { value: 'small', label: 'Small changes only', detail: 'Never finishes tasks, changes final files or edits docs.' },
     { value: 'read', label: 'Read only', detail: 'Looks and reports; changes nothing.' },
     { value: 'custom', label: 'Custom', detail: 'Pick what it may ask you for.' },

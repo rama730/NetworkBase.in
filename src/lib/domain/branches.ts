@@ -678,3 +678,61 @@ export async function finishUploadOnBranch(actor: Actor, request: Request, chang
   const [made] = await db.select({ id: saves.id, seq: saves.seq }).from(saves).where(eq(saves.changeSetId, changeSetId)).orderBy(desc(saves.seq)).limit(1);
   return { save: made ? { id: made.id, number: made.seq } : null };
 }
+
+// ── Protected main: the same change on a new branch, with a merge request (report H5, H24) ───────────────────────────
+
+/** A new branch named `base`, or `base-2`, `base-3`… when that name is taken. */
+export async function createUniqueBranch(actor: Actor, workspaceId: string, base: string, taskId: string | null = null) {
+  for (let i = 1; i <= 20; i += 1) {
+    const name = i === 1 ? base : `${base.slice(0, 95)}-${i}`;
+    try {
+      return (await createBranch(actor, workspaceId, { name, taskId })).branch;
+    } catch (error) {
+      if (!(error instanceof ChangeSetError && error.code === "BRANCH_EXISTS")) throw error;
+    }
+  }
+  return fail("Couldn't find a free branch name; pick one", 409, "BRANCH_EXISTS");
+}
+
+export type ProtectedChange =
+  | { kind: "text"; path: string; text: string; baseHash?: string | null }
+  | { kind: "version"; nodeId: string; version: number }
+  | { kind: "restore"; nodeIds: string[] };
+
+/**
+ * When main takes only merge requests, the app's edit, "Use this version" and Restore from Trash go to a new branch
+ * instead, with a merge request opened for review: one click, nothing lost. The branch starts from main now.
+ */
+export async function saveToNewBranch(actor: Actor, workspaceId: string, input: { name: string; title: string; change: ProtectedChange }) {
+  const userId = userOf(actor);
+  const { canWrite } = await memberAccess(actor, workspaceId);
+  if (!canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
+  const c = input.change;
+  // What goes on the branch, read from main before the branch exists (so a bad request makes no branch).
+  let changes: BranchChange[] = [];
+  if (c.kind === "version" || c.kind === "restore") {
+    const ids = c.kind === "version" ? [c.nodeId] : c.nodeIds.slice(0, 200);
+    const rows = Array.from(await db.execute<{ id: string; path: string; deleted: boolean; type: string; task: string | null; hash: string | null; asset: string | null; size: string | null; mime: string | null }>(sql`
+      SELECT n.id, n.path, n.deleted_at IS NOT NULL AS deleted, n.type, n.task_id AS task, v.content_hash AS hash, v.asset_id AS asset, v.size::text AS size, v.mime_type AS mime
+      FROM workspace_nodes n
+      JOIN LATERAL (SELECT * FROM file_versions fv WHERE fv.node_id = n.id AND fv.version = ${c.kind === "version" ? c.version : sql`n.current_version`} LIMIT 1) v ON true
+      WHERE n.workspace_id = ${workspaceId} AND n.id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})`));
+    if (rows.length !== ids.length || rows.some((r) => r.type !== "file" || r.task)) fail("Only project files go to a branch this way", 404, "NOT_FOUND");
+    changes = rows.map((r) => ({ op: c.kind === "restore" ? "add" : "change", path: r.path, contentHash: r.hash, assetId: r.asset, size: r.size == null ? null : Number(r.size), mimeType: r.mime }));
+    if (changes.some((x) => !x.contentHash || !x.assetId)) fail("That version has no stored content to put on a branch", 409, "NOT_REVERTIBLE");
+  }
+  const branch = await createUniqueBranch(actor, workspaceId, input.name);
+  let saved: unknown = null;
+  try {
+    saved = c.kind === "text"
+      ? (await saveTextOnBranch(actor, branch.id, { path: c.path, text: c.text, expectedHash: c.baseHash ?? null, message: input.title })).save
+      : (await writeBranch(branch.id, { changes, message: input.title, authorId: userId })).save;
+  } finally {
+    // Nothing differed from main, or the write failed: the new branch was never used, so it goes.
+    if (!saved) await db.delete(branches).where(eq(branches.id, branch.id));
+  }
+  if (!saved) fail("main already has this, so there's nothing to put on a branch", 409, "MERGE_REQUEST_EMPTY");
+  const { createMergeRequest } = await import("@/lib/domain/merge-requests");
+  const made = await createMergeRequest(actor, workspaceId, { source: branch.name, title: input.title });
+  return { branch: { id: branch.id, name: branch.name }, mergeRequest: made.mergeRequest.number };
+}

@@ -12,6 +12,7 @@ import {
 import { revertSaveAction } from "@/app/actions/files/saves";
 import { useStepUp } from "@/components/trust/StepUp";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { openRevertRequest } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import { RailSectionHeading } from "@/components/ui/rail-section";
 import type { getMergeRequest, MergeRequestSummary } from "@/lib/domain/merge-requests";
 import { toast } from "@/lib/feedback";
@@ -148,6 +149,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
   const [secretFiles, setSecretFiles] = useState<string[] | null>(null);
   const [confirmRevert, setConfirmRevert] = useState(false);
   const [confirmDeleteBranch, setConfirmDeleteBranch] = useState(false);
+  const [confirmOverride, setConfirmOverride] = useState(false);
   const { needs: needsStepUp, dialog: stepUpDialog } = useStepUp("This merge changes a doc or final files, so confirm it’s you before merging.");
   const refresh = () => {
     for (const key of [["merge-request", projectId, number], ["merge-requests", projectId], ["branches", projectId], ["branch", projectId], ["saves", projectId], ["files-directory", projectId]]) void client.invalidateQueries({ queryKey: key });
@@ -168,10 +170,10 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
       return res.data;
     } finally { setBusy(null); }
   };
-  async function merge(confirmSecrets = false) {
+  async function merge(confirmSecrets = false, override = false) {
     setSecretFiles(null);
     const res = await act("merge", async () => {
-      const r = await mergeMergeRequestAction(projectId, number, method, confirmSecrets);
+      const r = await mergeMergeRequestAction(projectId, number, method, confirmSecrets, override);
       // Files that look like they hold a key: say which, and merge only on the person's yes (as Apply does).
       if (!r.success && r.code === "SECRET_DETECTED") {
         const findings = (r.details?.findings ?? []) as Array<{ path?: string }>;
@@ -190,6 +192,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
     if (!m?.merged?.saveId) return;
     const res = await act("revert", () => revertSaveAction(m.merged!.saveId!));
     if (res && res.outcome === "reverted") toast.success("Reverted the merge: main is as it was before");
+    else if (res && res.outcome === "merge_request") openRevertRequest(res);
     else if (res && res.outcome === "conflicts") toast.error("Files changed since the merge; choose for each in Changes");
   }
   async function deleteBranch() {
@@ -216,7 +219,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
                       <option value="merge">Merge</option>
                       <option value="squash">Squash and merge</option>
                     </select>
-                    <button type="button" className={headerPrimary} disabled={Boolean(busy)} onClick={() => void merge()}><GitMerge className="size-3.5" aria-hidden="true" />{busy === "merge" ? "Merging…" : method === "squash" ? "Squash and merge" : "Merge"}</button>
+                    <button type="button" className={headerPrimary} disabled={Boolean(busy) || d!.protection.needs.length > 0} title={d!.protection.needs.length ? `main is protected: ${d!.protection.needs.join("; ")}` : undefined} onClick={() => void merge()}><GitMerge className="size-3.5" aria-hidden="true" />{busy === "merge" ? "Merging…" : method === "squash" ? "Squash and merge" : "Merge"}</button>
                   </>
                 ) : null}
               </>
@@ -235,6 +238,12 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
         <div className="p-4 text-sm"><p role="alert" className="text-destructive">{view.error instanceof Error ? view.error.message : "Couldn’t open this merge request"}</p><button type="button" className="mt-2 underline" onClick={onBack}>Back to merge requests</button></div>
       ) : (
         <>
+          {isOpen && d.protection.needs.length ? (
+            <FilesStrip role="region" label="What main needs" tone="warning">
+              <span className="min-w-0 flex-1 text-xs"><span className="font-medium">main is protected:</span> {d.protection.needs.join(" · ")}</span>
+              {d.viewer.canOverride && d.viewer.canMerge ? <button type="button" className={stripButton} disabled={Boolean(busy)} onClick={() => setConfirmOverride(true)}>Merge without approval</button> : null}
+            </FilesStrip>
+          ) : null}
           {conflicts ? (
             <FilesStrip role="region" label="Can’t merge yet" tone="warning">
               <span className="min-w-0 flex-1 text-xs">Can’t merge yet: {conflicts.length} file{conflicts.length === 1 ? "" : "s"} changed on both the branch and main (<span className="font-mono">{conflicts.map((c) => c.path).join(", ")}</span>).</span>
@@ -265,6 +274,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
       {m ? (
         <>
           <ConfirmDialog open={confirmRevert} onOpenChange={setConfirmRevert} title={`Revert the merge of !${m.number}?`} description="A new save on main puts the files back as they were before the merge. Later changes to them are kept where they don’t overlap; if they do, you choose in Changes." confirmLabel="Revert merge" onConfirm={() => void revertMerge()} />
+          <ConfirmDialog open={confirmOverride} onOpenChange={setConfirmOverride} title={`Merge !${m.number} without approval?`} description={`main’s protection still needs: ${d?.protection.needs.join("; ") ?? ""}. As an owner you can merge anyway after you verify it’s you; it’s recorded on this merge request and in your security log.`} confirmLabel="Merge without approval" variant="destructive" onConfirm={() => void merge(false, true)} />
           <ConfirmDialog open={confirmDeleteBranch} onOpenChange={setConfirmDeleteBranch} title={`Delete ${m.source.name}?`} description="It was merged into main. You can restore it for 30 days." confirmLabel="Delete" variant="destructive" onConfirm={() => void deleteBranch()} />
         </>
       ) : null}
@@ -365,7 +375,7 @@ function EventRow({ e }: { e: Detail["events"][number] }) {
   const reason = (e.data as { reason?: string }).reason;
   const what = e.kind === "opened" ? "opened this merge request" : e.kind === "ready" ? "marked it ready for review" : e.kind === "draft" ? "marked it as a draft"
     : e.kind === "closed" ? (reason === "branch_deleted" ? "closed it: the branch was deleted" : "closed it") : e.kind === "reopened" ? (reason === "branch_restored" ? "reopened it: the branch was restored" : "reopened it")
-    : e.kind === "merged" ? `merged it${(e.data as { method?: string }).method === "squash" ? " as one save" : ""}` : e.kind === "reviewers" ? "changed the reviewers" : "edited it";
+    : e.kind === "merged" ? `merged it${(e.data as { method?: string }).method === "squash" ? " as one save" : ""}${(e.data as { override?: boolean }).override ? " without approval" : ""}` : e.kind === "reviewers" ? "changed the reviewers" : "edited it";
   return <FeedRow person={e.actor} madeWith={e.madeWith} action={what} at={e.createdAt} />;
 }
 

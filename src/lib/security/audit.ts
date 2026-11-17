@@ -35,6 +35,9 @@ export const SECURITY_ACTIVITY_EVENT_TYPES = [
   // Handing a project to someone else is a change of who holds the keys: it shows in the log of both people.
   "project_ownership_transferred_out",
   "project_ownership_transferred_in",
+  // Protecting main (report H5): a change to the rules, and an owner merging past them.
+  "branch_protection_changed",
+  "merge_without_approval",
 ] as const;
 
 export type SecurityActivityEventType = (typeof SECURITY_ACTIVITY_EVENT_TYPES)[number];
