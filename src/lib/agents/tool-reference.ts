@@ -48,7 +48,7 @@ export function llmsText(origin = "https://networkbase.in") {
     `- [Agent tools](${origin}/docs/agents/tools): every tool, its arguments and its yes rule.`,
     `- [CLI](${origin}/docs/cli): every command, exit codes and errors.`,
     `- [Change sets](${origin}/docs/files/changes): multi-file work reviewed, applied and undone in one step.`,
-    `- [History](${origin}/docs/files/branches): every change to the files is a save; nb log, nb show, nb revert.`,
+    `- [History, branches and merge requests](${origin}/docs/files/branches): every change to the files is a save (nb log, nb show, nb revert); branches (nb branch) come back to main through merge requests (nb merge-request), and a protected main takes changes only that way.`,
     "",
     "## Agent tools",
     "",

@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import * as React from "react";
-import { AlertTriangle, Folder, Loader2 } from "lucide-react";
+import { AlertTriangle, Folder } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,13 +40,7 @@ export function FolderListLoading({
       data-testid="files-tab-folder-list-loading"
       className={cn("flex flex-col divide-y divide-[#DBD5C8]/40 dark:divide-border/40", className)}
     >
-      <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
-        <Loader2
-          className="h-3.5 w-3.5 animate-spin text-muted-foreground"
-          aria-hidden="true"
-        />
-        <span>Loading folder…</span>
-      </div>
+      <span className="sr-only">Loading folder…</span>
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}

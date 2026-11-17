@@ -266,17 +266,9 @@ const STATES_SOURCE = readFileSync(
 );
 
 describe("FolderListStates — loading / empty / error (Req 4.9, Req 4.10)", () => {
-  it("loading state renders a Loader2 spinner", () => {
-    assert.match(
-      STATES_SOURCE,
-      /Loader2/,
-      "loading state must render the Loader2 spinner icon",
-    );
-    assert.match(
-      STATES_SOURCE,
-      /animate-spin/,
-      "spinner must use the animate-spin Tailwind utility",
-    );
+  it("loading state is skeleton rows, not a spinner (0.8 #8)", () => {
+    assert.match(STATES_SOURCE, /<Skeleton/, "loading state must render skeleton rows");
+    assert.doesNotMatch(STATES_SOURCE, /animate-spin|Loader2/, "loading state must not spin");
   });
 
   it('loading state marks itself with `role="status"` + `aria-busy="true"` for a11y', () => {

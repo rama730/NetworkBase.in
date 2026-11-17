@@ -147,3 +147,20 @@ test('a protected main (H5): the strip says what it needs, Merge waits, and an o
   await page.getByRole('alertdialog').getByRole('button', { name: 'Merge without approval' }).click();
   await expect.poll(async () => (await page.evaluate(() => (window as any).__calls)).find((c: unknown[]) => c[0] === 'merge')).toEqual(['merge', expect.anything(), 3, 'merge', false, true]);
 });
+
+test('a comment you haven\'t sent stays in this browser until you send it (0.8 #5)', async ({ page }) => {
+  await open(page, { path: '/?mr=3' });
+  await page.getByPlaceholder('Leave a comment').fill('Half a thought');
+  await page.reload();
+  await expect(page.getByPlaceholder('Leave a comment')).toHaveValue('Half a thought');
+  await page.getByRole('button', { name: 'Comment', exact: true }).click();
+  await expect(page.getByPlaceholder('Leave a comment')).toHaveValue('');
+  await page.reload();
+  await expect(page.getByPlaceholder('Leave a comment')).toHaveValue('');
+});
+
+test('0.8 #1: an empty filter says what goes there', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('mr-filter-merged').click();
+  await expect(page.getByText('No merged merge requests.')).toBeVisible();
+});

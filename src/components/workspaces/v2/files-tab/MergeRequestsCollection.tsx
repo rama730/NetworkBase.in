@@ -30,6 +30,7 @@ import { DiffView } from "./HistoryCollection";
 import listStyles from "./folder/FolderList.module.css";
 import { FolderListHeader } from "./folder/FolderListHeader";
 import { FolderListEmpty, FolderListError, FolderListLoading } from "./folder/FolderListStates";
+import { useDraft } from "./useDraft";
 
 /**
  * Merge requests (report H4, phase H-3; design audit 17 Nov 2026): the list on the explorer's grid with Trash's filter
@@ -297,7 +298,7 @@ function FeedRow({ person, madeWith, action, at, children }: { person: PersonVie
 
 function Conversation({ projectId, detail, busy, act }: { projectId: string; detail: Detail; busy: string | null; act: Act }) {
   const m = detail.mergeRequest;
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft(`nb:mr-comment:${projectId}:${m.number}`);
   const open = m.state === "open" || m.state === "draft";
   const items = useMemo(() => [
     ...detail.events.map((e) => ({ at: e.createdAt, key: `e${e.id}`, node: <EventRow key={`e${e.id}`} e={e} /> })),
@@ -433,7 +434,7 @@ function FilesChanged({ projectId, detail, busy, act }: { projectId: string; det
   const diff = useQuery({ queryKey: ["branch-diff", m.source.id, current, m.source.headSaveId], enabled: Boolean(current), queryFn: () => unwrap(branchDiffAction(m.source.id, current!)) });
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [body, setBody] = useState("");
+  const [body, setBody] = useDraft(`nb:mr-line-comment:${projectId}:${m.number}:${current}`);
   const [suggest, setSuggest] = useState(false);
   const [suggestion, setSuggestion] = useState("");
   const open = m.state === "open" || m.state === "draft";

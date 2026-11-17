@@ -30,6 +30,9 @@ test.beforeAll(async () => {
     "@/app/actions/files/content": `export async function getWorkspaceFileContent() {return ${JSON.stringify(fileText)};}`,
     "@/app/actions/files/versions": "export async function listFileVersions() {return [];}",
     "@/components/ui/RevisionControlModal": "export const RevisionControlModal = () => null;",
+    // H-4 (protected main): the editor asks the server about protection; the fixture has none.
+    "@/hooks/use-auth": "export const useAuth = () => ({ user: null, profile: null });",
+    "@/app/actions/files/merge-requests": "export async function getProtectionAction() {return {success: true, data: {rules: {requireMergeRequest: false}}};} export async function saveToNewBranchAction() {throw new Error('Fixture cannot save');}",
   };
   const stylesheet = path.resolve("src/app/globals.css");
   const [styles, bundle] = await Promise.all([
@@ -258,4 +261,25 @@ test("selection colors retain normal-text contrast", () => {
     return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
   }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index]!, 0);
   expect((luminance([247, 223, 213]) + 0.05) / (luminance([20, 26, 30]) + 0.05)).toBeGreaterThanOrEqual(4.5);
+});
+
+test("0.8 #4: an unsaved edit survives leaving the page and comes back in Edit; leaving Edit drops it", async ({ page }) => {
+  const editMode = async () => {
+    await page.evaluate(() => (window as any).selectionFixture.mode("edit"));
+    await expect(page.getByTestId("files-tab-text-viewer-edit")).toBeVisible();
+  };
+  await editMode();
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("ControlOrMeta+End");
+  await page.keyboard.type(" plus a draft");
+  page.on("dialog", (dialog) => void dialog.accept());
+  await page.reload();
+  await expect(page.locator(".cm-content")).toBeVisible();
+  await editMode();
+  await expect(page.locator(".cm-content")).toContainText("Third selectable line plus a draft");
+  await page.evaluate(() => (window as any).selectionFixture.mode("view"));
+  await page.reload();
+  await expect(page.locator(".cm-content")).toBeVisible();
+  await editMode();
+  await expect(page.locator(".cm-content")).not.toContainText("plus a draft");
 });

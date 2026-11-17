@@ -21,5 +21,8 @@ test("llms.txt names the tools, the packs, the rules and the docs", () => {
   assert.match(text, /### classes \(assignments, hand-ins and reviews\)/);
   assert.match(text, /needs_confirmation/);
   assert.match(text, /\/docs\/agents\/tools/);
+  // 0.8 #12: each milestone's docs are linked (M5 change sets, M8 history, branches and merge requests).
+  assert.match(text, /\/docs\/files\/changes/);
+  assert.match(text, /\[History, branches and merge requests\]\([^)]*\/docs\/files\/branches\)/);
   assert.ok(text.length < 20_000, `${text.length} characters`);
 });

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { BranchView, UpdateConflict } from "@/lib/domain/branches";
 import { downloadFile } from "@/lib/download";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 import MarkdownPreview from "../preview/MarkdownPreview";
@@ -32,6 +33,7 @@ import { FilesHeaderSlot, FilesViewsMenu } from "./FilesHeader";
 import { BRANCH_VIEWS, useFilesViews } from "./FilesViews";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { CodeMirrorEditor } from "./file/TextViewer";
+import { readEditDraft, useEditDraft } from "./useDraft";
 import listStyles from "./folder/FolderList.module.css";
 import { FolderListHeader } from "./folder/FolderListHeader";
 import { FolderListEmpty, FolderListError, FolderListLoading } from "./folder/FolderListStates";
@@ -72,6 +74,8 @@ function useRefreshBranch(projectId: string) {
 
 // ── The picker ("main ▾"), on the app's dropdown menu ────────────────────────────────────────────────────────────
 
+const NEW_KEY = "nb:new:branches";
+
 export function BranchPicker({ projectId }: { projectId: string }) {
   const views = useFilesViews();
   const { canEdit } = useFilesTabRole();
@@ -84,6 +88,16 @@ export function BranchPicker({ projectId }: { projectId: string }) {
   const current = views?.branch ?? null;
   const shown = useMemo(() => (list.data?.branches ?? []).filter((b) => !query || b.name.toLowerCase().includes(query.toLowerCase())).slice(0, 30), [list.data, query]);
   useEffect(() => { if (!open) { setQuery(""); setCreating(false); } }, [open]);
+  // H23 / 0.8 #3: a "New" dot until the picker is first opened; that first time it says what branches are.
+  const [fresh, setFresh] = useState(false);
+  const [intro, setIntro] = useState(false);
+  useEffect(() => { try { setFresh(!window.localStorage.getItem(NEW_KEY)); } catch { /* private mode: no dot */ } }, []);
+  useEffect(() => {
+    if (!open || !fresh) return;
+    setFresh(false);
+    setIntro(true);
+    try { window.localStorage.setItem(NEW_KEY, "1"); } catch { /* private mode */ }
+  }, [open, fresh]);
   if (!views?.historyEnabled) return null;
   // Main-only views keep the picker in its place, on main (design audit F6).
   const mainOnly = !BRANCH_VIEWS.includes(views.view);
@@ -115,9 +129,11 @@ export function BranchPicker({ projectId }: { projectId: string }) {
           <GitBranch className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="truncate">{onBranch ? current : "main"}</span>
           <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden="true" />
+          {fresh && !mainOnly ? <span className="size-1.5 shrink-0 rounded-full bg-[#D14E24]" role="img" aria-label="New" /> : null}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" collisionPadding={8} role="dialog" aria-orientation={undefined} aria-label="Switch branch" className={cn(menuClass, "w-80 max-w-[calc(100vw-16px)]")}>
+        {intro ? <p className="px-2 pb-1.5 pt-1 text-xs text-muted-foreground">Branches let you try changes without touching main. Merge when you’re happy.</p> : null}
         <div className="px-1 pb-1 pt-0.5">
           <label htmlFor="branch-picker-search" className="sr-only">Find or create a branch</label>
           <input
@@ -142,7 +158,7 @@ export function BranchPicker({ projectId }: { projectId: string }) {
         ) : (
           <>
             <div role="menu" aria-label="Branches" className="max-h-72 overflow-y-auto">
-              {list.isLoading ? <p className="px-2 py-2 text-xs text-muted-foreground">Loading…</p> : shown.length === 0 ? (
+              {list.isLoading ? <div role="status" aria-label="Loading branches" className="space-y-2 px-2 py-2">{[64, 44, 56].map((w) => <Skeleton key={w} className="h-3.5 rounded-[3px]" style={{ width: `${w}%` }} />)}</div> : shown.length === 0 ? (
                 <p className="px-2 py-2 text-xs text-muted-foreground">No branch matches{canEdit && query.trim() ? "; create it below" : ""}.</p>
               ) : shown.map((b) => {
                 const on = b.isDefault ? !current : current?.toLowerCase() === b.name.toLowerCase();
@@ -397,6 +413,11 @@ function BranchFolder({ projectId, branch, folder }: { projectId: string; branch
   const upload = useBranchUpload(branch, refresh);
   const write = canEdit && branch.status !== "merged";
   const matches = query.trim() ? (paths.data?.paths ?? []).filter((p) => p.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 200) : null;
+  // 0.8 #8: each folder keeps its scroll when you switch branch (keyed by path, the same folder on every branch).
+  const scroller = useRef<HTMLDivElement>(null);
+  const scrollKey = `branch:${folder}`;
+  const ready = list.isSuccess;
+  useEffect(() => { if (ready && scroller.current) scroller.current.scrollTop = views.scrollOffsets.current.get(scrollKey) ?? 0; }, [ready, scrollKey, branch.id, views.scrollOffsets]);
 
   async function move() {
     const res = await moveOnBranchAction(branch.id, moving!, moveTo.trim().startsWith("/") ? moveTo.trim() : join(parentOf(moving!), moveTo.trim()));
@@ -456,7 +477,7 @@ function BranchFolder({ projectId, branch, folder }: { projectId: string; branch
       ) : null}
       <div role="table" aria-label={`Files in ${folder} on ${branch.name}`} className={cn(listStyles.container, "flex min-h-0 flex-1 flex-col overflow-hidden")}>
         <FolderListHeader updatedLabel="On this branch" byLabel="Last save" />
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={scroller} onScroll={(e) => { if (ready && !matches) views.scrollOffsets.current.set(scrollKey, e.currentTarget.scrollTop); }} className="min-h-0 flex-1 overflow-y-auto">
           {matches ? (
             paths.isLoading ? <FolderListLoading /> : matches.length ? (
               <div role="rowgroup" aria-label="Matching files">
@@ -542,7 +563,14 @@ function BranchFileView({ projectId, branch, path }: { projectId: string; branch
   const [text, setText] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  useEffect(() => { if (file.data?.text != null && text === null) setText(file.data.text); }, [file.data, text]);
+  const draftKey = `nb:edit:branch:${branch.id}:${path}`;
+  useEffect(() => {
+    if (file.data?.text == null || text !== null) return;
+    const draft = readEditDraft(draftKey, file.data.contentHash ?? null);
+    setText(draft ?? file.data.text);
+    if (draft !== null && draft !== file.data.text) { setEditing(true); toast.info("Your unsaved edit is back. Save it, or Cancel to drop it."); }
+  }, [file.data, text, draftKey]);
+  useEditDraft(file.data?.text != null ? draftKey : null, file.data?.contentHash ?? null, text, file.data?.text ?? null);
   const write = canEdit && branch.status !== "merged";
   const raw = `/api/v1/branches/${branch.id}/raw?path=${encodeURIComponent(path)}`;
   const mime = (file.data?.mimeType ?? "").toLowerCase();

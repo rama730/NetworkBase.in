@@ -34,7 +34,9 @@ test("browser edit mode waits for a lease and preserves a dirty buffer after lea
   assert.match(view, /fileLease\.acquire\(\)[\s\S]*setMode\("edit"\)/);
   assert.match(editor, /leaseStatus === "lost"/);
   assert.match(editor, /unsaved buffer is preserved/);
-  assert.match(editor, /beforeunload/);
+  // The leave warning and the kept draft (0.8 #4) live in the shared edit-draft hook.
+  assert.match(editor, /useEditDraft\(mode === "edit" && status === "ready" \? draftKey : null/);
+  assert.match(read("src/components/workspaces/v2/files-tab/useDraft.ts"), /addEventListener\("beforeunload", warn\)/);
   assert.match(hook, /renewBrowserFileLease/);
   assert.match(hook, /releaseBrowserFileLease\(current, \{ keepalive: true \}\)/);
 });

@@ -40,6 +40,7 @@
 import { FilesHeaderSlot } from "../FilesHeaderSlot";
 
 import { toast, feedbackError } from "@/lib/feedback";
+import { readEditDraft, useEditDraft } from "../useDraft";
 
 import * as React from "react";
 import dynamic from "next/dynamic";
@@ -295,6 +296,7 @@ export function TextViewer({
   // Freeze the base while editing: realtime revisions must not replace the draft.
   const loadVersion = editSnapshot.current?.version ?? node.currentVersion ?? 1;
   const loadUpdatedAt = editSnapshot.current?.updatedAt ?? node.updatedAt;
+  const draftKey = `nb:edit:${projectId}:${node.id}`;
   const [baseHash, setBaseHash] = React.useState<string | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
@@ -408,6 +410,8 @@ export function TextViewer({
     setSavedContent("");
     setBaseHash(null);
     setBaseVersion(loadVersion);
+    // Read the kept draft now: the draft hook below still sees the old "ready" for one render and would clear it.
+    const draft = mode === "edit" ? readEditDraft(draftKey, loadVersion) : null;
 
     void (async () => {
       try {
@@ -417,7 +421,8 @@ export function TextViewer({
         ]);
         if (cancelled) return;
         setSavedContent(text);
-        setContent(text);
+        setContent(draft ?? text);
+        if (draft !== null && draft !== text) toast.info("Your unsaved edit is back. Save it, or Discard to drop it.");
         setBaseHash(
           versions.find((version) => version.version === loadVersion)?.contentHash ?? null,
         );
@@ -433,7 +438,7 @@ export function TextViewer({
     return () => {
       cancelled = true;
     };
-  }, [projectId, node.id, mode, loadVersion, loadUpdatedAt, loadAttempt]);
+  }, [projectId, node.id, mode, loadVersion, loadUpdatedAt, loadAttempt, draftKey]);
 
   // ── Dirty state ────────────────────────────────────────────────────
   // Only meaningful in Edit mode; Raw always renders `savedContent`, so
@@ -452,25 +457,21 @@ export function TextViewer({
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  React.useEffect(() => {
-    if (!isDirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [isDirty]);
+  useEditDraft(mode === "edit" && status === "ready" ? draftKey : null, loadVersion, content, savedContent);
 
   // When leaving Edit mode, discard the in-memory buffer back to the last
   // saved snapshot. Users must save to persist — this matches the explicit
   // Save semantics from Open Question 2 and prevents Raw from displaying
   // unsaved edits.
+  const lastMode = React.useRef(mode);
   React.useEffect(() => {
+    // Leaving Edit is a discard (FileView asks first when dirty), so the kept draft goes too; opening in Raw keeps it.
+    if (lastMode.current === "edit" && mode !== "edit") { try { window.sessionStorage.removeItem(draftKey); } catch { /* private mode */ } }
+    lastMode.current = mode;
     if (mode === "raw") {
       setContent(savedContent);
     }
-  }, [mode, savedContent]);
+  }, [mode, savedContent, draftKey]);
 
   const { offer: offerBranch, dialog: branchDialog } = useSaveToBranch(projectId);
   const mainProtected = useMainProtected(projectId);

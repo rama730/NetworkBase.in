@@ -20,6 +20,7 @@ import { Cell, FilesStrip, FilterChip, GridRow, IconChip, LineCounts, NameCell, 
 import listStyles from "./folder/FolderList.module.css";
 import { FolderListHeader } from "./folder/FolderListHeader";
 import { FolderListError, FolderListLoading } from "./folder/FolderListStates";
+import { useDraft } from "./useDraft";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 
 /**
@@ -360,14 +361,6 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
 function ItemDiffView({ id, path, item, canResolve, onResolved, comments, canComment }: { id: string; path: string; item: Item | null; canResolve: boolean; onResolved: () => void; comments: Comment[]; canComment: boolean }) {
   if (item?.state === "conflict") return <MergeEditor id={id} path={path} item={item} canResolve={canResolve} onResolved={onResolved} />;
   return <DiffBody id={id} path={path} item={item} comments={comments} canComment={canComment} onCommented={onResolved} />;
-}
-
-/** An unsent comment stays in this browser until it's sent (0.8 #5). */
-function useDraft(key: string) {
-  const [text, setText] = useState(() => { try { return window.localStorage.getItem(key) ?? ""; } catch { return ""; } });
-  useEffect(() => { try { setText(window.localStorage.getItem(key) ?? ""); } catch { setText(""); } }, [key]);
-  const save = (value: string) => { setText(value); try { if (value) window.localStorage.setItem(key, value); else window.localStorage.removeItem(key); } catch { /* private mode */ } };
-  return [text, save] as const;
 }
 
 /** Review comments on one file (G12): on a line of the new content, or on the file. */

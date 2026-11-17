@@ -184,3 +184,63 @@ for (const theme of ['light', 'dark'] as const) {
     });
   }
 }
+
+// M9 B1 (0.8 #3, #4, #8, #11; H23): the first-time New dot and one line, keys, skeletons, and an unsaved edit kept.
+test('the picker shows a New dot until first opened, and that first time says what branches are', async ({ page }) => {
+  await open(page);
+  const button = page.getByRole('button', { name: 'Branch: main. Switch branch' });
+  await expect(button.getByRole('img', { name: 'New' })).toBeVisible();
+  await button.click();
+  await expect(picker(page)).toContainText('Branches let you try changes without touching main. Merge when you’re happy.');
+  await page.keyboard.press('Escape');
+  await expect(button.getByRole('img', { name: 'New' })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Branch: main. Switch branch' }).getByRole('img', { name: 'New' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Branch: main. Switch branch' }).click();
+  await expect(picker(page)).not.toContainText('Branches let you try changes');
+});
+
+test('keys on Files: ? lists them, / searches, b opens the branch picker', async ({ page }) => {
+  await open(page, { path: '/?branch=ram/try-header' });
+  await expect(page.getByRole('button', { name: 'Open README.md' })).toBeVisible();
+  await page.keyboard.press('?');
+  const keys = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
+  await expect(keys).toContainText('Search this view');
+  await expect(keys).toContainText('Switch branch');
+  await page.keyboard.press('Escape');
+  await expect(keys).toHaveCount(0);
+  await page.keyboard.press('/');
+  await expect(page.getByRole('dialog').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('b');
+  await expect(picker(page)).toBeVisible();
+});
+
+test('an unsaved edit on a branch is kept when you leave the file, and comes back when you open it again', async ({ page }) => {
+  await open(page, { path: '/?branch=ram/try-header' });
+  await page.getByRole('button', { name: 'Open README.md' }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  const editor = page.getByRole('group', { name: 'File content' }).locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('# Not saved yet');
+  await page.getByRole('button', { name: 'History' }).click();
+  await page.getByRole('button', { name: 'All files' }).click();
+  const back = page.getByRole('button', { name: 'Open README.md' });
+  if (await back.isVisible()) await back.click();
+  await expect(page.getByRole('group', { name: 'File content' }).locator('.cm-content')).toContainText('# Not saved yet');
+  await page.getByRole('button', { name: 'Save on ram/try-header' }).click();
+  await expect.poll(async () => (await calls(page)).find((c) => c[0] === 'save')).toEqual(['save', 'b1', { path: '/README.md', text: '# Not saved yet', expectedHash: 'h1' }]);
+});
+
+test('0.8 #1, #7: an empty History says so on the branch; Delete names the branch and the saves not in main', async ({ page }) => {
+  await open(page, { path: '/?branch=ram/try-header' });
+  await page.getByRole('button', { name: 'History' }).click();
+  await expect(page.getByText('No saves on ram/try-header yet')).toBeVisible();
+  await page.getByRole('button', { name: 'All files' }).click();
+  await page.getByRole('button', { name: 'More for ram/try-header' }).click();
+  await page.getByRole('menuitem', { name: 'Delete branch' }).click();
+  const confirm = page.getByRole('alertdialog', { name: 'Delete ram/try-header?' });
+  await expect(confirm).toContainText("2 saves aren't in main.");
+  await expect(confirm).toContainText('You can restore it for 30 days.');
+});

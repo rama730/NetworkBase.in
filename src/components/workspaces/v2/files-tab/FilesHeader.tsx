@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useContext, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -440,6 +440,13 @@ const collectionInfo = {
     "Restore an item and the contents deleted with it. Earlier deletions stay in Trash. Permanent deletion cannot be undone and does not delete anything from GitHub.",
 };
 
+const FILES_KEYS = [
+  ["/", "Search this view"],
+  ["b", "Switch branch (when History is on)"],
+  ["⌘P / Ctrl+P", "Open a file by name"],
+  ["?", "These shortcuts"],
+] as const;
+
 export function FilesViewsMenu({
   projectId,
   children,
@@ -466,8 +473,34 @@ export function FilesViewsMenu({
     setSurface(null);
     requestAnimationFrame(() => trigger.current?.focus());
   }
+  // 0.8 #11: / searches this view, ? lists the keys (b, the branch picker, lives with the picker).
+  const [keysOpen, setKeysOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (e.metaKey || e.ctrlKey || e.altKey || (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable || target.closest('[role="dialog"]')))) return;
+      if (e.key === "/") { e.preventDefault(); setDraft(""); setSurface("search"); }
+      else if (e.key === "?") { e.preventDefault(); setKeysOpen(true); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <>
+      <Dialog open={keysOpen} onOpenChange={setKeysOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogDescription>On Files screens, while you aren’t typing.</DialogDescription>
+          <dl className="divide-y divide-border rounded-md border border-border">
+            {FILES_KEYS.map(([keys, what]) => (
+              <div key={keys} className="flex items-center justify-between gap-3 px-3 py-1.5 text-[13px]">
+                <dt><kbd className="nb-meta text-foreground">{keys}</kbd></dt>
+                <dd className="text-right text-muted-foreground">{what}</dd>
+              </div>
+            ))}
+          </dl>
+        </DialogContent>
+      </Dialog>
       <FilesHeaderSlot>
         {/* The destination dialog owns modality. A modal menu can retain its
           body pointer lock when a dialog opens during the menu exit. */}
