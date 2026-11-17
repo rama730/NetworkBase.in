@@ -29,7 +29,8 @@ export async function GET(request: Request) {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
-    if (auth.tokenKind === "agent") return jsonError("Agents don't read your security summary", 403, "FORBIDDEN");
+    // Your own sign-in or the app only: never an agent, never a personal access token (CI, scripts).
+    if (auth.tokenKind && auth.tokenKind !== "device") return jsonError("Read your security summary from your own sign-in (nb login) or the app", 403, "FORBIDDEN");
     const [signIns, twoFactor, events] = await Promise.all([
       db.select({ name: extensionDeviceSessions.deviceName, kind: extensionDeviceSessions.tokenType, agentName: extensionDeviceSessions.agentName, country: extensionDeviceSessions.lastCountry, lastUsedAt: extensionDeviceSessions.lastSeenAt })
         .from(extensionDeviceSessions)

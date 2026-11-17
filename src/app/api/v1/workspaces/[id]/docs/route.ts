@@ -39,7 +39,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (!z.string().uuid().safeParse(id).success || !body.success) return jsonError("Send { path }", 400, "BAD_REQUEST");
       const held = await agentGate(auth, req, body.data, { workspaceId: id, kinds: ["doc"], summary: `Make ${body.data.path} a workspace doc` });
       if (held) return held;
-      return jsonSuccess(await addDocFromCli(id, body.data.path), undefined, { status: 201 });
+      return jsonSuccess(await addDocFromCli(auth.user.id, id, body.data.path), undefined, { status: 201 });
     } catch (error) {
       if (error instanceof WorkspaceCliError) return jsonError(error.message, error.status, error.code as never);
       return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/workspaces/docs", fallback: "Couldn’t add the doc" });

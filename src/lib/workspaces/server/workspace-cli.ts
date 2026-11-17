@@ -53,7 +53,10 @@ export async function archiveWorkspaceFromCli(workspaceId: string) {
 }
 
 /** `nb doc add <path>`: a file becomes a workspace doc (the file stays where it is). */
-export async function addDocFromCli(workspaceId: string, path: string) {
+export async function addDocFromCli(userId: string, workspaceId: string, path: string) {
+  // Access first, and the same answer for "no access" and "no file", so nothing about the files leaks.
+  const access = await getWorkspaceAccessById(workspaceId, userId);
+  if (!access.project || !access.canWrite) fail("Workspace not found", 404, "NOT_FOUND");
   const full = path.startsWith("/") ? path : `/${path}`;
   const [node] = await db.select({ id: workspaceNodes.id }).from(workspaceNodes)
     .where(and(eq(workspaceNodes.projectId, workspaceId), eq(workspaceNodes.path, full), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt))).limit(1);

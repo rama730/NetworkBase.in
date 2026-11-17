@@ -43,7 +43,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       words: sprintWords(org?.orgType ?? ws?.orgType, org?.orgSettings ?? ws?.orgSettings),
       sprints: rows.map((r) => ({ ...r, startDate: r.startDate.toISOString(), endDate: r.endDate.toISOString() })),
       unplanned: unplanned?.n ?? 0,
-      ...(sprintTasks ? { tasks: sprintTasks, burndown: await sprintBurndown(sprintParam!) } : {}),
+      ...(sprintTasks ? { tasks: sprintTasks, burndown: await sprintBurndown(id, sprintParam!) } : {}),
     }, undefined, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/workspaces/sprints", fallback: "Couldn’t read sprints" });

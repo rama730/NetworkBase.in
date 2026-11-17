@@ -63,10 +63,13 @@ export async function closeSprintFromCli(projectId: string, sprintId: string) {
 }
 
 /** Tasks left at the end of each day from the start to today (or the end): the text burndown in `nb sprint view`. */
-export async function sprintBurndown(sprintId: string) {
-  const [sprint] = await db.select({ start: workspaceSprints.startDate, end: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, sprintId)).limit(1);
+export async function sprintBurndown(projectId: string, sprintId: string) {
+  // Only this workspace's sprint and tasks: the id comes from the caller.
+  const [sprint] = await db.select({ start: workspaceSprints.startDate, end: workspaceSprints.endDate }).from(workspaceSprints)
+    .where(and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, projectId))).limit(1);
   if (!sprint) return [];
-  const rows = await db.select({ status: tasks.status, completedAt: tasks.completedAt }).from(tasks).where(and(eq(tasks.sprintId, sprintId), isNull(tasks.deletedAt)));
+  const rows = await db.select({ status: tasks.status, completedAt: tasks.completedAt }).from(tasks)
+    .where(and(eq(tasks.sprintId, sprintId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt)));
   const last = Math.min(sprint.end.getTime(), Date.now());
   const days: Array<{ date: string; left: number }> = [];
   for (let t = sprint.start.getTime(); t <= last && days.length < 120; t += DAY) {

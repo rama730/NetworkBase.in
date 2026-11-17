@@ -39,7 +39,8 @@ test("create, add by number, burndown, close: unfinished tasks go to the next pl
   await assert.rejects(cli.addTasksToSprint(member, ws, sprint.id, [1, 9]), /No task #9/);
   const added = await cli.addTasksToSprint(member, ws, sprint.id, [1, 2, 3, 3]);
   assert.deepEqual(added.added, [1, 2, 3]);
-  const burndown = await cli.sprintBurndown(sprint.id);
+  assert.deepEqual(await cli.sprintBurndown(member, sprint.id), [], "another workspace's id reads nothing");
+  const burndown = await cli.sprintBurndown(ws, sprint.id);
   assert.equal(burndown.length, 3, "from two days ago to today");
   assert.deepEqual(burndown.map((d) => d.left), [3, 2, 2]);
   // A member can't close (owners and admins, as in the app); the owner can, with no next sprint: the backlog.
