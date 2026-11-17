@@ -8,6 +8,8 @@
       "public/**",
       "drizzle/**",
       "scripts/**",
+      "packages/nb-cli/lib/**",
+      "packages/nb-cli/schema/**",
       "package.json",
       "package-lock.json",
       "next.config.ts",

@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -160,7 +161,7 @@ describe("Ponytail memory (RAM) resource contracts", () => {
     assert.match(publish, /function runAfterResponse\(/);
   });
 
-  it("restricts Railway watchPatterns so docs/, packages/nb-cli/, and tests/ commits do not trigger 4 GB rebuilds", () => {
+  it("restricts Railway watchPatterns so docs/, tests/ and the CLI's own tests and scripts do not trigger 4 GB rebuilds", () => {
     const railwayJson = JSON.parse(readRepoFile("railway.json")) as {
       build?: { watchPatterns?: string[] };
       deploy?: { healthcheckPath?: string };
@@ -169,7 +170,12 @@ describe("Ponytail memory (RAM) resource contracts", () => {
     assert.ok(patterns.includes("src/**"));
     assert.ok(patterns.includes("Dockerfile"));
     assert.ok(patterns.includes("next.config.ts"));
-    assert.ok(!patterns.some((p) => p.startsWith("docs") || p.startsWith("packages/nb-cli") || p.startsWith("tests")));
+    assert.ok(!patterns.some((p) => p.startsWith("docs") || p.startsWith("tests") || p === "packages/nb-cli/**" || p.startsWith("packages/nb-cli/test")));
+    // What the server imports from the CLI package deploys (a diff fix in packages/nb-cli/lib/sync was skipped once).
+    const imported = execSync("git grep -hoE 'packages/nb-cli/[A-Za-z0-9_./-]+' -- src", { encoding: "utf8" }).split("\n").filter(Boolean);
+    for (const file of new Set(imported)) {
+      assert.ok(patterns.some((p) => p.endsWith("/**") && file.startsWith(p.slice(0, -2))), `${file} is used by the server but not in watchPatterns`);
+    }
     assert.equal(railwayJson.deploy?.healthcheckPath, "/api/v1/live");
 
     const railwayTs = readRepoFile(".railway/railway.ts");

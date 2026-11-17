@@ -5,6 +5,9 @@ export const PRODUCTION_WATCH_PATTERNS = [
   "public/**",
   "drizzle/**",
   "scripts/**",
+  // The server runs the CLI's diff, merge and agent-tool code and its API schema: those folders deploy too.
+  "packages/nb-cli/lib/**",
+  "packages/nb-cli/schema/**",
   "package.json",
   "package-lock.json",
   "next.config.ts",
@@ -16,7 +19,7 @@ export const PRODUCTION_WATCH_PATTERNS = [
 export default defineRailway(() => {
   const NetworkBaseIn = github("rama730/NetworkBase.in", { branch: "main", checkSuites: false });
 
-  // ponytail: restrict Railway auto-deploys to runtime-affecting paths so docs/, packages/nb-cli/, and tests/ commits do not trigger dual 4 GB Docker builds and container overlap spikes. ceiling: manual redeploy if a build-only root dotfile changes. upgrade: split CI build artifact from deploy trigger.
+  // ponytail: restrict Railway auto-deploys to runtime-affecting paths so docs/, tests/ and the CLI's own tests, scripts and docs do not trigger dual 4 GB Docker builds and container overlap spikes. ceiling: manual redeploy if a build-only root dotfile changes. upgrade: split CI build artifact from deploy trigger.
   const networkbaseWeb = service("networkbase-web", {
     source: NetworkBaseIn,
     build: {
