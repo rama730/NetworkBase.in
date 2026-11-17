@@ -129,6 +129,12 @@ export const TOKEN_ROUTES: RouteRule[] = [
   // Files for cloud agents (report G14, routes 14–18).
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/fs/(list|read|search)`), read: "file:read", agent: "path" },
   { pattern: route(`/api/v1/change-sets/${ID}/fs/(edit|write|delete|move)`), write: "file:write", agent: "route" },
+  // History (report H3, H14): main's saves, one save, its diffs, files and zip; revert writes like a change set.
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/saves`), read: "file:read", agent: "path" },
+  { pattern: route(`/api/v1/saves/${ID}(/(diff|files|zip))?`), read: "file:read", agent: "route" },
+  { pattern: route(`/api/v1/saves/${ID}/revert`), write: "file:write", agent: "route" },
+  // The Branches setting (H16): people only (the route refuses agents), owners and admins.
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/branches-setting`), write: "file:write" },
   { pattern: route("/api/v1/me"), read: null, agent: "self" },
   // Your notification settings (report C4, nb inbox settings and mute): the person's own terminal, not agents.
   { pattern: route("/api/v1/me/notifications"), read: "workspace:read", write: "workspace:read" },

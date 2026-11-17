@@ -22,6 +22,7 @@ import { TaskFilesCollection } from "./TaskFilesCollection";
 import { SavedFilesCollection } from "./SavedFilesCollection";
 import { TrashFilesCollection } from "./TrashFilesCollection";
 import { ChangesCollection } from "./ChangesCollection";
+import { HistoryCollection } from "./HistoryCollection";
 import dynamic from "next/dynamic";
 import type { GithubImportAccessState } from "@/lib/github/import-types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -148,6 +149,8 @@ export function FilesTabMain({
             <TrashFilesCollection projectId={projectId} />
           ) : filesView.view === "changes" ? (
             <ChangesCollection projectId={projectId} />
+          ) : filesView.view === "history" ? (
+            <HistoryCollection projectId={projectId} />
           ) : (filesView.view === "materials" || filesView.view === "submissions" || filesView.view === "from_org") && filesView.org ? (
             <OrgFilesCollection view={filesView.view} projectId={projectId} org={filesView.org} />
           ) : (

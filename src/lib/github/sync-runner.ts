@@ -1,4 +1,5 @@
 import "server-only";
+import { saveContext } from "@/lib/domain/save-context";
 import { lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
 import { logger } from "@/lib/logger";
 import { randomUUID } from "node:crypto";
@@ -572,6 +573,9 @@ export async function runReviewedGitHubSync(
         };
         const nextApplied = [...(result.applied || []), file.path];
         const finish = async (tx: Transaction, nodeId: string | null) => {
+          // History (report H3): a pull's files are saves "from GitHub".
+          // ponytail: one save per pulled file (each file has its own transaction); one per pull needs one transaction.
+          await saveContext(tx, { kind: "sync", message: `From GitHub ${manifest.repository}@${(manifest.headSha ?? "").slice(0, 7)}`, authorId: actorId });
           if (file.renamedFrom && nodeId) {
             const collision = await tx.query.workspaceNodes.findFirst({
               where: and(

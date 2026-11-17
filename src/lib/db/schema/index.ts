@@ -811,6 +811,8 @@ export const workspaces = pgTable(
     sandboxExpiresAt: timestamp("sandbox_expires_at", { withTimezone: true }),
     /** Change sets are on for this workspace (0091, report G23). */
     changeSetsEnabled: boolean("change_sets_enabled").default(false).notNull(),
+    /** Branches and saves are on for this workspace (0096, report H16). */
+    branchesEnabled: boolean("branches_enabled").default(false).notNull(),
     /** Who sees "with Claude Code" on work here (0086, report Part B): everyone, only the person, or no one. */
     agentLabelVisibility: text("agent_label_visibility").$type<"everyone" | "person" | "none">().default("everyone").notNull(),
     termStart: date("term_start"),
@@ -6298,6 +6300,8 @@ export const changeSets = pgTable("change_sets", {
   appliedAt: timestamp("applied_at", { withTimezone: true }),
   discardedAt: timestamp("discarded_at", { withTimezone: true }),
   undoneAt: timestamp("undone_at", { withTimezone: true }),
+  /** A revert of this save (0096, report H3). */
+  revertsSaveId: uuid("reverts_save_id").references((): AnyPgColumn => saves.id, { onDelete: "set null" }),
 }, (t) => ({
   workspaceStatusIdx: index("change_sets_workspace_status_idx").on(t.workspaceId, t.status, t.updatedAt.desc()),
   authorOpenIdx: index("change_sets_author_open_idx").on(t.authorId, t.status).where(sql`status IN ('open', 'ready')`),
@@ -6362,3 +6366,81 @@ export const oauthRefreshTokens = pgTable("oauth_refresh_tokens", {
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/** Report Part H (0096): a line of work. H-1 has only main (`isDefault`); its head is the latest save. */
+export const branches = pgTable("branches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  headSaveId: uuid("head_save_id").references((): AnyPgColumn => saves.id, { onDelete: "set null" }),
+  baseSaveId: uuid("base_save_id").references((): AnyPgColumn => saves.id, { onDelete: "set null" }),
+  sourceBranchId: uuid("source_branch_id").references((): AnyPgColumn => branches.id, { onDelete: "set null" }),
+  mergedFromTargetSaveId: uuid("merged_from_target_save_id").references((): AnyPgColumn => saves.id, { onDelete: "set null" }),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  status: text("status").$type<"active" | "merged" | "deleted">().default("active").notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** One save (commit). On main the database records them (0096 triggers); `seq` is the order on its branch, set at commit. */
+export const saves = pgTable("saves", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  branchId: uuid("branch_id").notNull().references(() => branches.id, { onDelete: "cascade" }),
+  seq: bigint("seq", { mode: "number" }),
+  parentSaveId: uuid("parent_save_id").references((): AnyPgColumn => saves.id, { onDelete: "set null" }),
+  secondParentSaveId: uuid("second_parent_save_id").references((): AnyPgColumn => saves.id, { onDelete: "set null" }),
+  kind: text("kind").$type<"start" | "save" | "merge" | "squash" | "revert" | "sync" | "restore">().default("save").notNull(),
+  message: text("message"),
+  authorId: uuid("author_id").references(() => profiles.id, { onDelete: "set null" }),
+  via: text("via").$type<"cli" | "agent">(),
+  agentName: text("agent_name"),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  changeSetId: uuid("change_set_id").references((): AnyPgColumn => changeSets.id, { onDelete: "set null" }),
+  revertsSaveId: uuid("reverts_save_id").references((): AnyPgColumn => saves.id, { onDelete: "set null" }),
+  filesAdded: integer("files_added").default(0).notNull(),
+  filesChanged: integer("files_changed").default(0).notNull(),
+  filesDeleted: integer("files_deleted").default(0).notNull(),
+  filesRenamed: integer("files_renamed").default(0).notNull(),
+  txid: bigint("txid", { mode: "number" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** The files a save touched: before and after. On main, node and version (content in file_versions). */
+export const saveChanges = pgTable("save_changes", {
+  id: bigint("id", { mode: "number" }).primaryKey(),
+  saveId: uuid("save_id").notNull().references(() => saves.id, { onDelete: "cascade" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  nodeId: uuid("node_id"),
+  beforePath: text("before_path"),
+  afterPath: text("after_path"),
+  previousVersion: integer("previous_version"),
+  version: integer("version"),
+  contentHash: text("content_hash"),
+  assetId: uuid("asset_id"),
+  size: bigint("size", { mode: "number" }),
+  mimeType: text("mime_type"),
+  path: text("path").generatedAlwaysAs(sql`coalesce(after_path, before_path)`),
+  op: text("op").$type<"add" | "change" | "delete" | "rename" | "none">().generatedAlwaysAs(sql`'none'`),
+});
+
+export const treeCheckpoints = pgTable("tree_checkpoints", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  saveId: uuid("save_id").notNull().unique().references(() => saves.id, { onDelete: "cascade" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const checkpointFiles = pgTable("checkpoint_files", {
+  checkpointId: uuid("checkpoint_id").notNull().references(() => treeCheckpoints.id, { onDelete: "cascade" }),
+  path: text("path").notNull(),
+  nodeId: uuid("node_id"),
+  version: integer("version"),
+  contentHash: text("content_hash"),
+  assetId: uuid("asset_id"),
+  size: bigint("size", { mode: "number" }),
+  mimeType: text("mime_type"),
+}, (t) => ({ pk: primaryKey({ columns: [t.checkpointId, t.path] }) }));

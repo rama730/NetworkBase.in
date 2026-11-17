@@ -1,5 +1,6 @@
 "use server";
 
+import { saveContext } from "@/lib/domain/save-context";
 import { effectiveAccess, type FolderAccess } from "@/lib/organizations/file-rules";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 
@@ -48,7 +49,7 @@ import {
     escapeLikePattern,
     UUID_RE,
 } from "./_constants";
-import { viaPayload } from "@/lib/server/request-via";
+import { viaColumns, viaPayload } from "@/lib/server/request-via";
 import { startCopyOnWork } from "@/lib/organizations/assignments";
 
 function actorNotificationSnapshot(user: { user_metadata?: Record<string, unknown> | null }) {
@@ -788,6 +789,7 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
 
     const node = await db.transaction(async (tx) => {
         await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { nodeId });
+        await saveContext(tx, { authorId: user.id, ...(await viaColumns()) });
         await assertNodeNotLockedByAnotherUser(projectId, nodeId, user.id, tx);
         const current = await tx.query.workspaceNodes.findFirst({
             where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
@@ -879,6 +881,7 @@ export async function moveWorkspaceNodes(
 
     const result = await db.transaction(async (tx) => {
         await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
+        await saveContext(tx, { authorId: user.id, ...(await viaColumns()) });
         const nodes = await tx.query.workspaceNodes.findMany({
             where: and(
                 eq(workspaceNodes.projectId, projectId),
@@ -1049,6 +1052,7 @@ export async function restoreNode(nodeId: string, projectId: string) {
 
     await db.transaction(async (tx) => {
         await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { nodeId });
+        await saveContext(tx, { kind: "restore", authorId: user.id, ...(await viaColumns()) });
         const node = await tx.query.workspaceNodes.findFirst({
             where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
             columns: { id: true, parentId: true, name: true, deletedAt: true, metadata: true },
@@ -1206,6 +1210,7 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
     const now = new Date();
     const result = await db.transaction(async (tx) => {
         await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { nodeIds: nodeIds.filter(Boolean) });
+        await saveContext(tx, { kind: "restore", authorId: user.id });
         const selectedNodes = await tx.query.workspaceNodes.findMany({
             where: and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, uniqueIds)),
             columns: { id: true, parentId: true, name: true, deletedAt: true, metadata: true },

@@ -21,6 +21,7 @@ import {
   Inbox,
   Building2,
   FileDiff,
+  History,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { OrgFilesInfo } from "@/components/organizations/OrgFilesPanel";
@@ -45,6 +46,7 @@ export type FilesViewId =
   | "recent"
   | "starred"
   | "changes"
+  | "history"
   | "trash";
 export const fileCollectionViews = [
   { id: "project", label: "All files", Icon: Folder },
@@ -57,6 +59,7 @@ export const fileCollectionViews = [
   { id: "recent", label: "Recent", Icon: Clock3 },
   { id: "starred", label: "Starred", Icon: Star },
   { id: "changes", label: "Changes", Icon: FileDiff },
+  { id: "history", label: "History", Icon: History },
   { id: "trash", label: "Trash", Icon: Trash2 },
 ] as const;
 
@@ -100,6 +103,8 @@ const FilesViewsContext = createContext<{
   selectTask: (id: string | null) => void;
   /** Change sets (report G12): on for this workspace, and how many are ready to review. */
   changeSets: { enabled: boolean; ready: number };
+  /** History (report H3): on for this workspace and this person is one of its people. */
+  historyEnabled: boolean;
 } | null>(null);
 export const useFilesViews = () => useContext(FilesViewsContext);
 
@@ -137,6 +142,16 @@ export function FilesViews({
     },
     staleTime: 30_000,
   });
+  const historyQuery = useQuery({
+    queryKey: ["files-history-enabled", projectId],
+    queryFn: async () => {
+      const { branchesSettingAction } = await import("@/app/actions/files/saves");
+      const res = await branchesSettingAction(projectId);
+      return res.success ? Boolean(res.data?.enabled) : false;
+    },
+    staleTime: 60_000,
+  });
+  const historyEnabled = Boolean(historyQuery.data);
   const changeSets = useMemo(() => ({
     enabled: Boolean(changeSetsQuery.data?.enabled),
     ready: (changeSetsQuery.data?.changeSets ?? []).filter((s) => s.status === "ready").length,
@@ -192,8 +207,8 @@ export function FilesViews({
   }, [projectId]);
   const restoreView = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
-    // ?changes=<id> opens one change set (G12).
-    const value = (params.get("changes") ? "changes" : params.get("filesView")) as FilesViewId;
+    // ?changes=<id> opens one change set (G12); ?save=<id> one save (H3).
+    const value = (params.get("changes") ? "changes" : params.get("save") ? "history" : params.get("filesView")) as FilesViewId;
     if (value === "github" && !githubAccessResolved) return;
     const nextView =
       fileCollectionViews.some((item) => item.id === value) &&
@@ -340,9 +355,11 @@ export function FilesViews({
       selectTask,
       returnToCollection: handleReturnToCollection,
       changeSets,
+      historyEnabled,
     }),
     [
       changeSets,
+      historyEnabled,
       scrollOffsets,
       view,
       inspector,

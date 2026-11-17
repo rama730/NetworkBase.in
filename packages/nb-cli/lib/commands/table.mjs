@@ -136,6 +136,13 @@ export const COMMANDS = [
     flags: { mine: { type: "boolean", describe: "Your file goes over theirs" }, theirs: { type: "boolean", describe: "Take the workspace's file; drop yours from the change set" } } },
   { group: "Files", name: "change split", summary: "Split a change set that's too big into one per folder", usage: "nb change split", module: "change", fn: "changeSplit" },
   { group: "Files", name: "change copy", summary: "Copy an undone or discarded change set as a new draft", usage: "nb change copy <id>", module: "change", fn: "changeCopy" },
+  // History (report H3, H6): every change to the files is a save once History is on; revert undoes one.
+  { group: "Files", name: "log", summary: "The workspace's saves, newest first", usage: "nb log [path] [--author name] [--agent name] [--limit 20]", module: "history", fn: "log",
+    flags: { path: { type: "string", describe: "Only saves that touched this file or folder", valueName: "path" }, author: { type: "string", describe: "Only this person's saves", valueName: "name" }, agent: { type: "string", describe: "Only saves made with this agent", valueName: "name" }, limit: { type: "string", describe: "At most this many (default 20, up to 50)", valueName: "n" } },
+    examples: ["nb log", "nb log src/app --author ram"] },
+  { group: "Files", name: "show", summary: "One save: what it says and its files", usage: "nb show <save> [--diff path]", module: "history", fn: "show",
+    flags: { diff: { type: "string", describe: "Print this file's diff in the save", valueName: "path" } }, examples: ["nb show 12", "nb show 12 --diff src/app.ts"] },
+  { group: "Files", name: "revert", summary: "A new save that undoes one, merging with later work", usage: "nb revert <save>", module: "history", fn: "revert", examples: ["nb revert 12"], exit: [0, 4, 130] },
   // Cloud agents' files (report G14): hidden; the hosted MCP server's fs_* tools run these.
   { group: "Files", name: "fs list", hidden: true, summary: "The workspace's files as your change set sees them", usage: "nb fs list [glob]", module: "fs", fn: "fsList" },
   { group: "Files", name: "fs read", hidden: true, summary: "Read up to 50 files", usage: "nb fs read <path>...", module: "fs", fn: "fsRead" },

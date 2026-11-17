@@ -7152,9 +7152,9 @@
       "text": "One unit of change on a branch: files added, changed, deleted and renamed, plus a message, the author (\"Ram · with Claude Code\", Part B), the time, and optional",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): saves table + 0096 triggers; tests/db/saves.test.ts"
     },
     {
       "key": "H3.e4ba06dd",
@@ -7162,9 +7162,9 @@
       "text": "It's the Part G change set, applied to a branch. On main it also updates the files everyone sees, as Part G designs (G10).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): change set apply records one save with its title, task and author (saveContext)"
     },
     {
       "key": "H3.4b15c58c",
@@ -7172,9 +7172,9 @@
       "text": "Where · What becomes a save",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): every writer records a save via the workspace_nodes triggers (decision 1)"
     },
     {
       "key": "H3.1e8697ed",
@@ -7182,9 +7182,9 @@
       "text": "App editor · each \"Save version\" (with its optional message)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): editor version comment becomes the save message; test 'each kind of write'"
     },
     {
       "key": "H3.9532071f",
@@ -7192,9 +7192,9 @@
       "text": "Upload or drop in the Files tab · one save per drop (\"Uploaded 12 files\")",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): an upload's files are one save ('Added 12 files'); test 'one transaction is one save'"
     },
     {
       "key": "H3.b150abbd",
@@ -7202,9 +7202,9 @@
       "text": "Rename, move, delete in the Files tab · one save each",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): rename, move, delete: one save each with the person (saveContext in actions); tested"
     },
     {
       "key": "H3.3cf2fdf0",
@@ -7212,9 +7212,9 @@
       "text": "CLI nb push, nb change finish · one save per push or change set",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts (trigger), packages/nb-cli/test/history.test.mjs",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): nb push and change sets write workspace_nodes, so each is a save"
     },
     {
       "key": "H3.2966c8be",
@@ -7222,9 +7222,9 @@
       "text": "Agents · one save per finished change set",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts (trigger), packages/nb-cli/test/history.test.mjs",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): an applied change set is one save with via/agent"
     },
     {
       "key": "H3.e34a5d3e",
@@ -7232,9 +7232,9 @@
       "text": "GitHub sync pull · one save per synced GitHub commit range",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): GitHub pull saves are kind 'sync' 'From GitHub <repo>@sha'; ponytail: one save per pulled file (per-file transactions)"
     },
     {
       "key": "H3.ce399ca2",
@@ -7242,9 +7242,9 @@
       "text": "\"Use this version\" on a file · one save (\"Use v1 of login.tsx\")",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): activateFileVersion: kind restore, 'Use vN of name'"
     },
     {
       "key": "H3.d91a9305",
@@ -7252,9 +7252,9 @@
       "text": "Restore from Trash · one save (\"Restored report.pdf\")",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): restore from Trash: 'Restored name' (kind restore in actions); tested"
     },
     {
       "key": "H3.8920b508",
@@ -7262,9 +7262,9 @@
       "text": "Workspace history (?tab=files&view=history&branch=…): a timeline of saves, with message, author, files, +/− lines and the task. Filter by person, agent, folder ",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/history.spec.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): Files tab History view + GET /workspaces/:id/saves (path, author, agent, number filters, 50 a page); tests/browser/history.spec.ts"
     },
     {
       "key": "H3.f57aaf09",
@@ -7272,9 +7272,9 @@
       "text": "One save's page (?tab=files&save=<id>): its file list and diffs, plus Browse files at this save (read-only), Download as zip, and Revert.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/history.spec.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): ?save=<id>: files, diffs, Browse files at this save, Download zip (/saves/:s/zip), Revert; browser tested"
     },
     {
       "key": "H3.1fa91513",
@@ -7282,9 +7282,9 @@
       "text": "The file version panel gains a \"Save\" link on each version, so you can jump to the whole change it was part of.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): version panel 'Open its save' (saveOfVersion)"
     },
     {
       "key": "H3.08953cc6",
@@ -7292,9 +7292,9 @@
       "text": "Revert makes a new save that undoes that save's changes, on the current branch, merging if the files changed since.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): revertSave via a Part G change set; merges later work; conflicts open Changes; DB tests"
     },
     {
       "key": "H3.cabd4f21",
@@ -8102,9 +8102,9 @@
       "text": "saves · id, workspaceid, branchid, parentsaveid, secondparentsaveid (merges), kind (start, save, merge, squash, revert, sync, restore), message, authorid, via, ",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): 0096 saves (seq set at commit, parent, kind, counts, txid)"
     },
     {
       "key": "H10.b6beead3",
@@ -8112,9 +8112,9 @@
       "text": "savechanges · saveid, path, op (add, change, delete, rename), frompath, contenthash, assetid, size, mimetype, nodeid and version (main only) · index (saveid), (",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): 0096 save_changes (before/after path, version, generated op/path)"
     },
     {
       "key": "H10.86334e57",
@@ -8132,9 +8132,9 @@
       "text": "treecheckpoints, checkpointfiles · checkpointid, saveid; files: path, contenthash, assetid, size, mimetype · written at \"Start of history\", at each branch start",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): 0096 tree_checkpoints + checkpoint_files: start of history and every 100 saves (tested)"
     },
     {
       "key": "H10.42d88cc2",
@@ -8202,9 +8202,9 @@
       "text": "The files at save S:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): treeAt: nearest checkpoint + latest change per file; tested against 106 saves"
     },
     {
       "key": "H11.ad8d49de",
@@ -8212,9 +8212,9 @@
       "text": "Main now: workspacenodes as today (fastest path, unchanged).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): main now stays workspace_nodes; untouched"
     },
     {
       "key": "H11.235dafdd",
@@ -8242,9 +8242,9 @@
       "text": "recordSave(tx, { branchId, kind, message, author, via, agent, taskId, changes[] }) runs inside the existing transaction of every writer.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): recordSave is the database (decision 1): triggers + saveContext"
     },
     {
       "key": "H12.2ad0d2c5",
@@ -8252,9 +8252,9 @@
       "text": "On main, the existing writer has already updated workspacenodes and fileversions; recordSave adds the save and its changes, and moves headsaveid.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): on main the trigger adds the save and its changes and moves main's head at commit"
     },
     {
       "key": "H12.516cbb2b",
@@ -8272,9 +8272,9 @@
       "text": "Writers that must call it (the list a test enforces):",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): every writer covered by the triggers, raw SQL included"
     },
     {
       "key": "H12.c5685a4e",
@@ -8282,9 +8282,9 @@
       "text": "A unit test lists every function that writes workspacenodes or fileversions and fails if one doesn't call recordSave. It's the same guard idea as Part B's label",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): replaced by the triggers (a writer can't skip them); DB tests cover each kind of write"
     },
     {
       "key": "H12.bcb54fe1",
@@ -8752,9 +8752,9 @@
       "text": "A workspace setting, \"Branches\": off at first, on for the user's own workspaces, then on by default for new workspaces after rollout.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): Settings → Files → History switch; PUT /workspaces/:id/branches-setting"
     },
     {
       "key": "H16.30970fb1",
@@ -8762,9 +8762,9 @@
       "text": "Turning it on:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): turning on: main row, Start of history, checkpoint, change sets on; tested"
     },
     {
       "key": "H16.e903f5a1",
@@ -8772,9 +8772,9 @@
       "text": "Turning it off is only possible when no branches other than main are active. History stays.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): turning off refused while other branches are active; history stays"
     },
     {
       "key": "H16.a0c22434",
@@ -8872,9 +8872,9 @@
       "text": "H-1. Saves on main · tables, recordSave in every writer, \"Start of history\", checkpoints, workspace history and save pages, revert, nb log / show / revert · sit",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M8 H-1, local main, 2026-11-17 (not pushed): H-1 built: tables, triggers, history and save pages, revert, nb log/show/revert; 5,000 files: enable 79 ms, history 7 ms, files at a save 21 ms"
     },
     {
       "key": "H19.94252771",

@@ -764,6 +764,75 @@
       ]
     },
     {
+      "name": "log",
+      "summary": "The workspace's saves, newest first",
+      "usage": "nb log [path] [--author name] [--agent name] [--limit 20]",
+      "flags": {
+        "path": {
+          "type": "string",
+          "describe": "Only saves that touched this file or folder",
+          "valueName": "path"
+        },
+        "author": {
+          "type": "string",
+          "describe": "Only this person's saves",
+          "valueName": "name"
+        },
+        "agent": {
+          "type": "string",
+          "describe": "Only saves made with this agent",
+          "valueName": "name"
+        },
+        "limit": {
+          "type": "string",
+          "describe": "At most this many (default 20, up to 50)",
+          "valueName": "n"
+        }
+      },
+      "examples": [
+        "nb log",
+        "nb log src/app --author ram"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "show",
+      "summary": "One save: what it says and its files",
+      "usage": "nb show <save> [--diff path]",
+      "flags": {
+        "diff": {
+          "type": "string",
+          "describe": "Print this file's diff in the save",
+          "valueName": "path"
+        }
+      },
+      "examples": [
+        "nb show 12",
+        "nb show 12 --diff src/app.ts"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "revert",
+      "summary": "A new save that undoes one, merging with later work",
+      "usage": "nb revert <save>",
+      "flags": {},
+      "examples": [
+        "nb revert 12"
+      ],
+      "exitCodes": [
+        0,
+        4,
+        130
+      ]
+    },
+    {
       "name": "watch",
       "summary": "Push your saves as drafts; pull teammates' changes (foreground)",
       "usage": "nb watch [--no-pull] [--change]",

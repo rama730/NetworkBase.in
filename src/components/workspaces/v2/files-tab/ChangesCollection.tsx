@@ -37,7 +37,7 @@ const GROUPS: Array<{ key: string; label: string; test: (i: Item) => boolean }> 
 const STATUS_WORDS: Record<string, string> = { open: "Draft", ready: "Ready", applying: "Applying", applied: "Applied", discarded: "Discarded", undone: "Undone" };
 
 /** Local time, with the exact time on hover (0.8 #9). */
-function When({ at }: { at: string | Date | null }) {
+export function When({ at }: { at: string | Date | null }) {
   if (!at) return null;
   const d = new Date(at);
   const short = d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -119,7 +119,7 @@ function ChangeSetList({ projectId, onOpen }: { projectId: string; onOpen: (id: 
   );
 }
 
-function EmptyState({ title, body, command }: { title: string; body: string; command?: string }) {
+export function EmptyState({ title, body, command }: { title: string; body: string; command?: string }) {
   return (
     <div className="mx-auto max-w-md py-12 text-center">
       <p className="text-sm font-medium text-foreground">{title}</p>
@@ -527,7 +527,7 @@ function DiffBody({ id, path, item, comments, canComment, onCommented }: { id: s
 }
 
 /** Line numbers of the new content for each diff line (none on removed lines), from the @@ headers. */
-function numbered(lines: Array<{ kind: " " | "-" | "+" | "@"; text: string }>) {
+export function numbered(lines: Array<{ kind: " " | "-" | "+" | "@"; text: string }>) {
   let n = 0;
   return lines.map((l) => {
     if (l.kind === "@") { n = Number(/\+(\d+)/.exec(l.text)?.[1] ?? 1); return { ...l, n: null as number | null }; }

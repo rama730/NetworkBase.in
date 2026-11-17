@@ -18,6 +18,7 @@ import { viaColumns } from "@/lib/server/request-via";
 import { createAdminClient } from "@/lib/supabase/server";
 import { normalizeAndValidateMimeType } from "@/lib/upload/security";
 import { logger } from "@/lib/logger";
+import { saveContext } from "@/lib/domain/save-context";
 import { startSpan } from "@sentry/nextjs";
 import { labelScope } from "@/lib/agents/via-scope";
 import { visibleVia } from "@/lib/agents/via-visibility";
@@ -976,6 +977,8 @@ async function applyPlannedInner(set: ChangeSet, planned: Planned[], userId: str
     const [locked] = await tx.select().from(changeSets).where(eq(changeSets.id, set.id)).for("update");
     if (locked?.status === "applied" && locked.applyResult) return { already: locked.applyResult as unknown as ApplyResult };
     if (locked?.status !== "ready") fail(`This change set is ${locked?.status ?? "gone"}`, 409, "CHANGE_SET_NOT_READY");
+    // The save this records (H3): the set's title, task and author, or "Revert …" for a revert.
+    await saveContext(tx, { kind: set.revertsSaveId ? "revert" : "save", message: set.title, authorId: set.authorId, via: set.via, agentName: set.agentName, taskId: set.taskId, changeSetId: set.id, revertsSaveId: set.revertsSaveId });
     // Lock every target in node-id order, so two applies never deadlock (G10 step 2.2).
     const ids = [...new Set(planned.flatMap((p) => (p.nodeId ? [p.nodeId] : [])))].sort();
     if (ids.length) await tx.execute(sql`SELECT id FROM workspace_nodes WHERE id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}) ORDER BY id FOR UPDATE`);
@@ -1141,6 +1144,7 @@ async function undoChangeSetInner(actor: Actor, changeSetId: string, opts: { par
     await tx.execute(sql`SET LOCAL statement_timeout = '30s'`);
     const [locked] = await tx.select({ status: changeSets.status }).from(changeSets).where(eq(changeSets.id, set.id)).for("update");
     if (locked?.status !== "applied") fail("That was undone already", 409, "CHANGE_SET_CLOSED");
+    await saveContext(tx, { kind: "revert", message: `Undid "${set.title}"`.slice(0, 2000), authorId: userId, taskId: set.taskId });
     const ids = [...new Set(undo.map((u) => u.nodeId))].sort();
     if (ids.length) await tx.execute(sql`SELECT id FROM workspace_nodes WHERE id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}) ORDER BY id FOR UPDATE`);
     const nodes = new Map((ids.length ? await tx.select().from(workspaceNodes).where(inArray(workspaceNodes.id, ids)) : []).map((n) => [n.id, n]));
@@ -1246,13 +1250,18 @@ export async function diffItem(actor: Actor, changeSetId: string, rawPath: strin
   if (!item) fail("That file isn't in this change set", 404, "NOT_FOUND");
   const beforeAsset = item!.op === "add" ? null : await baseAssetOf(item!);
   const afterAsset = item!.op === "delete" ? null : item!.mergedAssetId ?? item!.assetId;
+  return diffAssets(beforeAsset, afterAsset, item!.mimeType);
+}
+
+/** Two contents' diff (a change set's item, or a save's file, H3): text, images by link, or sizes. */
+export async function diffAssets(beforeAsset: string | null, afterAsset: string | null, mimeType: string | null): Promise<ItemDiff> {
   const sizes = async () => {
     const ids = [beforeAsset, afterAsset].filter(Boolean) as string[];
     const rows = ids.length ? await db.select({ id: storageAssets.id, size: storageAssets.verifiedSize }).from(storageAssets).where(inArray(storageAssets.id, ids)) : [];
     const sizeOf = (id: string | null) => (id ? Number(rows.find((r) => r.id === id)?.size ?? 0) : null);
     return { beforeSize: sizeOf(beforeAsset), afterSize: sizeOf(afterAsset) };
   };
-  if ((item!.mimeType ?? "").startsWith("image/")) {
+  if ((mimeType ?? "").startsWith("image/")) {
     const storage = (await createAdminClient()).storage.from("project-files");
     const link = async (id: string | null) => {
       if (!id) return null;

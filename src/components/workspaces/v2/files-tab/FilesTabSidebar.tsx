@@ -599,6 +599,7 @@ export function FilesTabSidebar({
                   item.id !== "deliverables" &&
                   (canEdit || item.id !== "trash") &&
                   (item.id !== "changes" || (canEdit && filesView.changeSets.enabled)) &&
+                  (item.id !== "history" || filesView.historyEnabled) &&
                   (filesView.canReadTasks ||
                      !["tasks", "deliverables"].includes(item.id)) &&
                   (item.id !== "github" || filesView.canOpenGitHub) &&

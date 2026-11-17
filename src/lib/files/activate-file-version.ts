@@ -1,5 +1,6 @@
 import "server-only";
 
+import { saveContext } from "@/lib/domain/save-context";
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -33,6 +34,7 @@ export async function activateFileVersion(input: {
     });
     if (!node || node.deletedAt) throw new Error("File not found");
     if (node.type !== "file") throw new Error("Only file nodes support versions");
+    await saveContext(tx, { kind: "restore", message: `Use v${input.version} of ${node.name}`, authorId: input.actorUserId });
     await assertOwnedFileLease(tx, { projectId: input.projectId, nodeId: input.nodeId, userId: input.actorUserId, credentials: input.lease });
     if (input.expectActive != null && node.currentVersion !== input.expectActive) {
       throw new ActiveVersionChangedError("Someone saved a newer version since");

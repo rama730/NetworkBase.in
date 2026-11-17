@@ -18,6 +18,7 @@
 
 "use client";
 
+import { useFilesViews } from "../FilesViews";
 import { toast, feedbackError } from "@/lib/feedback";
 
 import * as React from "react";
@@ -109,6 +110,19 @@ export function FileVersionHistoryPanel({
     restoreVersion,
     deleteVersion,
   } = useFileVersions(projectId, nodeId);
+  // History (report H3): each version jumps to the whole save it was part of.
+  const historyEnabled = Boolean(useFilesViews()?.historyEnabled);
+  const openSave = React.useCallback(async (versionNumber: number) => {
+    const { saveOfVersionAction } = await import("@/app/actions/files/saves");
+    const res = await saveOfVersionAction(nodeId, versionNumber);
+    if (!res.success || !res.data) { toast.error(res.success ? "This version is from before History was turned on" : res.error); return; }
+    const url = new URL(window.location.href);
+    for (const k of ["path", "fileId", "filesNav", "changes"]) url.searchParams.delete(k);
+    url.searchParams.set("tab", "files");
+    url.searchParams.set("filesView", "history");
+    url.searchParams.set("save", res.data);
+    window.location.href = url.toString();
+  }, [nodeId]);
 
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
   const [pendingDeleteVersion, setPendingDeleteVersion] =
@@ -461,6 +475,11 @@ export function FileVersionHistoryPanel({
                   ) : null}
                   {version.changeSetTitle ? (
                     <p className="mt-1 truncate text-[11px] text-[#6B7880] dark:text-muted-foreground">Part of “{version.changeSetTitle}”</p>
+                  ) : null}
+                  {historyEnabled ? (
+                    <button type="button" onClick={() => void openSave(version.version)} className="mt-1 text-[11px] text-[#6B7880] underline underline-offset-2 hover:text-[#141A1E] dark:text-muted-foreground dark:hover:text-foreground">
+                      Open its save
+                    </button>
                   ) : null}
 
                   {/* Comment/Note if present */}
