@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.0 (2026-11-17)
+
+### Added
+- `nb change finish --from-git main..HEAD`: turns commits into one change set, with their files as at the last commit and the first commit's subject as the title.
+- `nb agent activity`: what your agents did in this workspace in the last 24 hours, by session; `--undo <session>` undoes one session's changes.
+- `nb agent pause` and `nb agent resume`: the workspace's agent switch, for owners and admins.
+- Cloud agents on the hosted MCP server get `fs_list`, `fs_read`, `fs_search`, `fs_edit`, `fs_write`, `fs_delete`, `fs_move` and `fs_finish`: they work on the workspace's files in a change set, with no folder of their own.
+
+### Changed
+- `nb change apply` takes a short id from `nb change list`.
 ## 2.2.2 (2026-11-17)
 
 ### Fixed
