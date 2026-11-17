@@ -6932,9 +6932,9 @@
       "text": "Main is today's workspace. Every existing feature keeps working on it unchanged: previews, task files, links, downloads, versions, search, the Documents tab and",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-1 86e324856 (live, 6ce10837f)"
     },
     {
       "key": "H1.2d24843f",
@@ -6942,9 +6942,9 @@
       "text": "A branch is a separate line of work. It starts as an exact copy of main at one moment, and only its own changes are stored.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H1.f771cfb5",
@@ -6952,9 +6952,9 @@
       "text": "Saves are commits: a message, an author, and the files changed.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-1 86e324856 (live, 6ce10837f)"
     },
     {
       "key": "H1.b4b7828c",
@@ -7763,7 +7763,7 @@
       "kind": "build",
       "milestone": "M8",
       "status": "live",
-      "test": "",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts",
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
@@ -7773,7 +7773,7 @@
       "kind": "build",
       "milestone": "M8",
       "status": "live",
-      "test": "",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts",
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
@@ -7783,7 +7783,7 @@
       "kind": "build",
       "milestone": "M8",
       "status": "live",
-      "test": "",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts",
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
@@ -7792,9 +7792,9 @@
       "text": "Defaults: main ↔ the repository's default branch (githubdefaultbranch). Other branches sync when you turn them on per branch, or for all.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "partial (H-5): default ↔ main, other branches by name; no per-branch switch (choosing the branch in Repository sync turns it on)"
+      "status": "live",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-5 760d995f7 (live, 0301b49a3)"
     },
     {
       "key": "H6.03d706c9",
@@ -7803,7 +7803,7 @@
       "kind": "build",
       "milestone": "M8",
       "status": "live",
-      "test": "",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts",
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
@@ -8012,9 +8012,9 @@
       "text": "Permissions · Members with read access see all branches (the public sees main only, H24); write access creates branches and saves; protection rules govern main;",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts; tests/db/branch-protection.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48); membership-first lookups 714c4bb70; H-4 ee12801df (live, 3425912de)"
     },
     {
       "key": "H8.433526c4",
@@ -8092,9 +8092,9 @@
       "text": "branches · id, workspaceid, name, isdefault, headsaveid, basesaveid (where it started on its source), sourcebranchid, mergedfromtargetsaveid (the latest target ",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48), 0097"
     },
     {
       "key": "H10.92fec8fd",
@@ -8122,9 +8122,9 @@
       "text": "branchfiles · branchid, path, state (present, deleted), contenthash, assetid, size, mimetype, updatedsaveid · only paths that differ from the branch's base; pri",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48), 0097"
     },
     {
       "key": "H10.f2b477a4",
@@ -8262,9 +8262,9 @@
       "text": "On another branch, it updates branchfiles instead. Content arrives through Part G's upload (G6).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts (H-2b upload through a change set)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2b c0210f060 (live, 3d6db658d)"
     },
     {
       "key": "H12.1995e520",
@@ -8302,9 +8302,9 @@
       "text": "Merge base: mergedfromtargetsaveid on the source branch: the last target save it already contains. It's set at branch start and on every \"update from main\". No ",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts; tests/db/merge-requests.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48); H-3 a23fb9015 (live, 3d6db658d)"
     },
     {
       "key": "H13.686bda2f",
@@ -8312,9 +8312,9 @@
       "text": "Three-way merge per path of base (the checkpoint at the merge base), source head and target head:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts; packages/nb-cli/test/merge3.test.mjs",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H13.9b5764e0",
@@ -8332,9 +8332,9 @@
       "text": "Into another branch: branchfiles of the target update in one transaction, plus a merge save.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "n/a-live",
+      "test": "none: deferred, not built",
+      "evidence": "Deferred: merging into a branch other than main comes later (H-3 plan, decision 1)."
     },
     {
       "key": "H13.dd7e7953",
@@ -8342,9 +8342,9 @@
       "text": "Update from main: the same merge with main as the source and the branch as the target. It moves mergedfromtargetsaveid.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts (update from main)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H13.fe85f0e1",
@@ -8352,9 +8352,9 @@
       "text": "Revert: builds the inverse of a save's changes against the current head (merging where needed) and saves it as kind: revert.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts (revert); tests/db/branches.test.ts (revert a branch save)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-1 86e324856 (live, 6ce10837f); H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H13.b3856ffe",
@@ -8442,9 +8442,9 @@
       "text": "GET /saves/:s · GET /saves/:s/diff?path= · file:read · one save, and a file's diff",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts; packages/nb-cli/test/history.test.mjs",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-1 86e324856 (live, 6ce10837f)"
     },
     {
       "key": "H14.cf2aa71b",
@@ -8452,9 +8452,9 @@
       "text": "POST /saves/:s/revert · file:write · → a save, or a merge request when the branch is protected",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts (revert on a protected main)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-4 ee12801df (live, 3425912de)"
     },
     {
       "key": "H14.e3512956",
@@ -8622,9 +8622,9 @@
       "text": "Create branches, save on unprotected branches · ✓ · ✓ · ✓ (small changes run; big ones as Part G)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts (agents on branches); tests/db/branches.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-4 ee12801df (live, 3425912de)"
     },
     {
       "key": "H15.1e94616a",
@@ -8682,9 +8682,9 @@
       "text": "Delete others' branches · ✓ · ✗",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts (a member can't delete someone else's)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H15.3f1ae9d5",
@@ -8722,9 +8722,9 @@
       "text": "Size per save · Part G's limits (2,000 files, 500 MB)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/change-sets.test.ts; tests/db/branches.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in Part G limits reused by branch change sets; H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H15.503e5ca3",
@@ -8783,7 +8783,7 @@
       "kind": "build",
       "milestone": "M8",
       "status": "live",
-      "test": "",
+      "test": "tests/db/github-branches.test.ts (H16: the old task sandbox is gone)",
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
@@ -8792,9 +8792,9 @@
       "text": "Next:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "n/a-live",
+      "test": "none: deferred, not built",
+      "evidence": "Not in the first set (H17 \"Next\"): compare any two points, blame, line links, code search per branch."
     },
     {
       "key": "H17.dcf23ca6",
@@ -8802,9 +8802,9 @@
       "text": "Later: a real git remote (git clone https://networkbase.in/<workspace>.git), forks, code owners, insights.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "n/a-live",
+      "test": "none: deferred, not built",
+      "evidence": "Not in the first set (H17 \"Later\")."
     },
     {
       "key": "H17.a61a66df",
@@ -8812,9 +8812,9 @@
       "text": "Also later: linking NetworkBase merge requests with GitHub pull requests; branches in assignment copies; branch-aware task files.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "n/a-live",
+      "test": "none: deferred, not built",
+      "evidence": "Not in the first set (H17 \"Also later\")."
     },
     {
       "key": "H18.64343130",
@@ -8822,9 +8822,9 @@
       "text": "Unit:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/branch-names.test.ts; tests/unit/github-branch-mapping.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-1..H-5"
     },
     {
       "key": "H18.ca13f430",
@@ -8832,9 +8832,9 @@
       "text": "Database:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts; tests/db/branches.test.ts; tests/db/merge-requests.test.ts; tests/db/branch-protection.test.ts; tests/db/github-branches.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-1..H-5"
     },
     {
       "key": "H18.328a06e0",
@@ -8842,9 +8842,9 @@
       "text": "CLI:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "packages/nb-cli/test/branch.test.mjs; packages/nb-cli/test/history.test.mjs; packages/nb-cli/test/merge-request.test.mjs; packages/nb-cli/test/merge3.test.mjs",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-1..H-5, CLI 2.4.1"
     },
     {
       "key": "H18.3b960fe2",
@@ -8882,9 +8882,9 @@
       "text": "H-2. Branches · branch tables, resolver, picker, branch bar, branch list, create, switch, rename, delete, update from main, CLI nb branch, git-following, ?branc",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts; packages/nb-cli/test/branch.test.mjs; tests/browser/branches.spec.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48); H-2b c0210f060 (live, 3d6db658d)"
     },
     {
       "key": "H19.5130f0c4",
@@ -8913,7 +8913,7 @@
       "kind": "build",
       "milestone": "M8",
       "status": "live",
-      "test": "",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts",
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
@@ -8922,9 +8922,9 @@
       "text": "Every phase: behind the workspace setting, its tests in H18, checked live on the user's workspace, and the user's go-ahead for each deploy.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts; tests/db/branches.test.ts; tests/db/merge-requests.test.ts; tests/db/branch-protection.test.ts; tests/db/github-branches.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in each phase deployed on the user's go-ahead and live-checked: 6ce10837f, d85dacf48, 3d6db658d, 3425912de, 0301b49a3"
     },
     {
       "key": "H19.aa420a1c",
@@ -8932,9 +8932,9 @@
       "text": "Order with Part G: Part G's core (G-1 to G-3) comes first; Part H uses its upload, merge and apply (R2).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts (saving on a branch through a change set)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in M5 (Part G) live 2026-11-16 before M8"
     },
     {
       "key": "H20.3293fc03",
@@ -8942,9 +8942,9 @@
       "text": "Main stays materialised as today; branches store only their own changes. This keeps every existing feature working without change.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts; tests/db/branches.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-1 86e324856 (live, 6ce10837f); H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H20.02b6178d",
@@ -8952,9 +8952,9 @@
       "text": "Branches don't move with main (like GitHub); Update from main brings it in.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts (update from main)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H20.68757004",
@@ -8992,9 +8992,9 @@
       "text": "The CLI follows the git branch automatically, and asks before creating a NetworkBase branch.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "packages/nb-cli/test/branch.test.mjs (follows git; an unknown one asks)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48); 5165046df"
     },
     {
       "key": "H20.ba999fcb",
@@ -9002,9 +9002,9 @@
       "text": "NetworkBase merge requests and GitHub pull requests stay separate in this first set, with branches synced by name.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-5 760d995f7 (live, 0301b49a3)"
     },
     {
       "key": "H20.3f536954",
@@ -9012,9 +9012,9 @@
       "text": "Every change to main records a save, through one writer that a test enforces.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts (each kind of write is one save)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in 0096 statement triggers record every main write; H-1 86e324856 (live, 6ce10837f)"
     },
     {
       "key": "H20.2525717e",
@@ -9022,9 +9022,9 @@
       "text": "Part G change sets become branch saves, built once for both.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts (saving on a branch through a change set)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H21.7a6d50a9",
@@ -9032,9 +9032,9 @@
       "text": "A writer forgets to record a save, leaving history with gaps · The H12 guard test, plus one DB test per writer",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts (each kind of write is one save)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in 0096 statement triggers record every main write; H-1 86e324856 (live, 6ce10837f)"
     },
     {
       "key": "H21.7e425c12",
@@ -9053,7 +9053,7 @@
       "kind": "build",
       "milestone": "M8",
       "status": "live",
-      "test": "",
+      "test": "tests/browser/branches.spec.ts",
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
@@ -9093,7 +9093,7 @@
       "kind": "build",
       "milestone": "M8",
       "status": "live",
-      "test": "",
+      "test": "tests/db/github-branches.test.ts (H16: the old task sandbox is gone)",
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
@@ -9102,9 +9102,9 @@
       "text": "see workspace history and revert a save",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/saves.test.ts; packages/nb-cli/test/history.test.mjs; tests/browser/history.spec.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-1 86e324856 (live, 6ce10837f)"
     },
     {
       "key": "H22.5a2f08c5",
@@ -9112,9 +9112,9 @@
       "text": "create a branch, switch to it, save on it, and update it from main",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branches.test.ts; packages/nb-cli/test/branch.test.mjs",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H22.fb3e5763",
@@ -9132,9 +9132,9 @@
       "text": "do all of this from the app and the CLI, with the CLI following git branches",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "packages/nb-cli/test/branch.test.mjs; tests/browser/branches.spec.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48); H-2b c0210f060 (live, 3d6db658d)"
     },
     {
       "key": "H22.823c5b62",
@@ -9142,9 +9142,9 @@
       "text": "checks (H4)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/merge-requests.test.ts (checks are tied to the head save); tests/db/branch-protection.test.ts (required checks)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-3 a23fb9015 (live, 3d6db658d); H-4 ee12801df (live, 3425912de)"
     },
     {
       "key": "H22.8e3a8e6c",
@@ -9173,7 +9173,7 @@
       "kind": "build",
       "milestone": "M8",
       "status": "live",
-      "test": "",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts",
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
@@ -9252,9 +9252,9 @@
       "text": "Pushes several saves.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "packages/nb-cli/test/branch.test.mjs (a push saves there)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H23.8f20e159",
@@ -9282,9 +9282,9 @@
       "text": "Checks pass (if configured).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/merge-requests.test.ts (checks)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-3 a23fb9015 (live, 3d6db658d)"
     },
     {
       "key": "H23.ff62d748",
@@ -9392,9 +9392,9 @@
       "text": "Asks Claude Code: \"fix the login bug in task 4\".",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts (agents on branches)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-4 ee12801df (live, 3425912de): agent change sets go to agent/<task>-<slug> with a merge request"
     },
     {
       "key": "H23.356f7657",
@@ -9442,9 +9442,9 @@
       "text": "Connects the repository. main ↔ the repository's default branch; other branches sync when turned on.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-5 760d995f7 (live, 0301b49a3)"
     },
     {
       "key": "H23.d14f9319",
@@ -9452,9 +9452,9 @@
       "text": "Works locally with git on feature-x. nb push goes to NetworkBase feature-x, and GitHub sync keeps GitHub feature-x in step.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/github-branches.test.ts; tests/unit/github-branch-mapping.test.ts; packages/nb-cli/test/branch.test.mjs",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-5 760d995f7 (live, 0301b49a3); H-2 a7c32d122 (live, d85dacf48)"
     },
     {
       "key": "H23.058f9273",
@@ -9482,9 +9482,9 @@
       "text": "Branches work as for any team. Main is protected by default; teachers and admins merge.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts (defaults; who merges)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-4 ee12801df (live, 3425912de)"
     },
     {
       "key": "H23.85d35511",
@@ -9942,9 +9942,9 @@
       "text": "Email: merge-request notifications follow the existing email settings and templates, with a link straight to the right tab.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/merge-requests.test.ts (people told)",
+      "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-3 a23fb9015 (live, 3d6db658d): enqueueNotificationFanout, the existing email settings"
     },
     {
       "key": "H27.1a04255b",
@@ -10403,7 +10403,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10413,7 +10413,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10423,7 +10423,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10433,7 +10433,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs (no assignment create command)",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10443,7 +10443,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/sprint-cli.test.ts; packages/nb-cli/test/work.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10453,7 +10453,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/sprint-cli.test.ts; packages/nb-cli/test/work.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10463,7 +10463,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/sprint-cli.test.ts; packages/nb-cli/test/work.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10473,7 +10473,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/sprint-cli.test.ts; packages/nb-cli/test/work.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10483,7 +10483,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10493,7 +10493,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10503,7 +10503,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10543,7 +10543,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/token-life.test.ts (use from a new country emails the owner once)",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10553,7 +10553,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10563,7 +10563,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10573,7 +10573,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/accounts.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10593,7 +10593,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10603,7 +10603,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/recipes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10643,7 +10643,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10653,7 +10653,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/admin.test.mjs (logout --purge)",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10673,7 +10673,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/colour.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10683,7 +10683,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/dates.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10693,7 +10693,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/recipes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10703,7 +10703,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/errors-audit.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10713,7 +10713,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/token-life.test.ts (F4 refresh tokens)",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10733,7 +10733,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10743,7 +10743,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/sprint-cli.test.ts; packages/nb-cli/test/work.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10753,7 +10753,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10763,7 +10763,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10773,7 +10773,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs; packages/nb-cli/test/agent-activity.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10783,7 +10783,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10793,7 +10793,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10803,7 +10803,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10813,7 +10813,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10823,7 +10823,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10833,7 +10833,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/sprint-cli.test.ts",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10843,7 +10843,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10853,7 +10853,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10863,7 +10863,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10873,7 +10873,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/agent-activity.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10883,7 +10883,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/token-life.test.ts (F4 refresh tokens)",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10893,7 +10893,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/token-life.test.ts (use from a new country emails the owner once)",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10903,7 +10903,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10913,7 +10913,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10933,7 +10933,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/admin.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10943,7 +10943,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs; tests/unit/folder-export-contract.test.ts",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10953,7 +10953,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/admin.test.mjs (logout --purge)",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10973,7 +10973,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/sprint-cli.test.ts; tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs; packages/nb-cli/test/classes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -10983,7 +10983,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/token-life.test.ts (F4 refresh tokens)",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -11003,7 +11003,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "packages/nb-cli/test/recipes.test.mjs",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -11013,7 +11013,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/db/token-life.test.ts (F4 refresh tokens)",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
@@ -11023,7 +11023,7 @@
       "kind": "build",
       "milestone": "M7",
       "status": "live",
-      "test": "",
+      "test": "tests/unit/folder-export-contract.test.ts; tests/db/export-deadline.test.ts",
       "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {

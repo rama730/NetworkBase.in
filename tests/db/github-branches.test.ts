@@ -93,3 +93,10 @@ test("the review's branch must be as it was: moved, or created meanwhile, stops 
   await branches.writeBranch(branch.id, { changes: [{ op: "add", path: "/new.md", contentHash: sha("x\n"), assetId: moved.id, size: 2, mimeType: "text/plain" }], message: "x", authorId: owner });
   await assert.rejects(service.validateBranchSide(workspace, local), /changed after review/);
 });
+
+test("H16: the old task sandbox is gone: no git deltas table, no canonical node column (0100)", async () => {
+  const [t] = await sql`SELECT to_regclass('public.workspace_git_deltas') AS t`;
+  assert.equal(t.t, null);
+  const cols = await sql`SELECT 1 FROM information_schema.columns WHERE table_name = 'workspace_nodes' AND column_name = 'canonical_node_id'`;
+  assert.equal(cols.length, 0);
+});
