@@ -203,7 +203,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
           <StateChip state={m.shownState} />
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          <button type="button" className="font-mono underline-offset-2 hover:underline" onClick={() => go({ filesView: "branches", branch: m.source.name, mr: null })}>{m.source.name}</button> → main · opened by {nameOf(m.author)}{m.madeWith ? ` ${m.madeWith}` : ""} <When at={m.createdAt} />
+          <button type="button" className="font-mono underline-offset-2 hover:underline" onClick={() => go({ filesView: null, filesNav: "tree", branch: m.source.name, mr: null })}>{m.source.name}</button> → main · opened by {nameOf(m.author)}{m.madeWith ? ` ${m.madeWith}` : ""} <When at={m.createdAt} />
           {m.task ? <> · task #{m.task.number} {m.task.title}</> : null}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
@@ -245,14 +245,14 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="min-w-0 flex-1">Merged{m.merged.method === "squash" ? " as one save" : ""} by {nameOf(m.merged.by)} <When at={m.merged.at} />.</span>
             {canEdit && m.merged.saveId ? <Button size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => void revertMerge()}>Revert merge</Button> : null}
-            {canEdit && m.source.status !== "deleted" ? <Button size="sm" variant="outline" onClick={() => go({ filesView: "branches", branch: m.source.name, mr: null })}>Delete the branch…</Button> : null}
+            {canEdit && m.source.status !== "deleted" ? <Button size="sm" variant="outline" onClick={() => go({ filesView: null, filesNav: "tree", branch: m.source.name, mr: null })}>Delete the branch…</Button> : null}
           </div>
         ) : null}
         {conflicts ? (
           <div role="alert" className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
             <p>Can’t merge yet: {conflicts.length} file{conflicts.length === 1 ? "" : "s"} changed on both the branch and main.</p>
             <ul className="my-1 font-mono text-xs">{conflicts.map((c) => <li key={c.path}>{c.path}</li>)}</ul>
-            <Button size="sm" variant="outline" onClick={() => go({ filesView: "branches", branch: m.source.name, mr: null })}>Update the branch from main</Button>
+            <Button size="sm" variant="outline" onClick={() => go({ filesView: null, filesNav: "tree", branch: m.source.name, mr: null })}>Update the branch from main</Button>
           </div>
         ) : null}
         <div role="tablist" aria-label="Merge request" className="mt-3 flex gap-1">

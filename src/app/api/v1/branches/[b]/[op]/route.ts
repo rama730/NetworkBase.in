@@ -26,14 +26,18 @@ export async function GET(request: Request, context: Ctx) {
       if (!file.storageKey) return jsonError("File content unavailable", 404, "NOT_FOUND");
       const { data, error } = await (await createAdminClient()).storage.from("project-files").createSignedUrl(file.storageKey, 60);
       if (error || !data?.signedUrl) return jsonError("File content unavailable", 404, "NOT_FOUND");
-      return streamPrivateObject({ request: req, signedUrl: data.signedUrl, totalSize: file.size ?? 0, mimeType: file.mimeType ?? "application/octet-stream", filename: file.path.split("/").pop()!, disposition: "attachment", etag: `"${file.contentHash ?? `r${file.revision}`}"` });
+      // Previews (H-2b): images and PDFs show in the page; everything else downloads (never HTML or SVG inline).
+      const mime = (file.mimeType ?? "").toLowerCase();
+      const inline = q.get("inline") === "1" && (/^image\/(png|jpe?g|gif|webp|avif|bmp)$/.test(mime) || mime === "application/pdf");
+      return streamPrivateObject({ request: req, signedUrl: data.signedUrl, totalSize: file.size ?? 0, mimeType: inline ? mime : file.mimeType ?? "application/octet-stream", filename: file.path.split("/").pop()!, disposition: inline ? "inline" : "attachment", etag: `"${file.contentHash ?? `r${file.revision}`}"` });
     }
     if (op === "zip") {
       const { branch, main } = await loadBranch(auth, b);
       const entries: Array<{ path: string; storageKey: string; size: number }> = [];
       let cursor: string | null = null;
       do {
-        const page = await branchTree(branch, main.id, { cursor });
+        // A folder of the branch (`path`), or all of it.
+        const page = await branchTree(branch, main.id, { cursor, path: q.get("path") ? `/${q.get("path")!.split("/").filter(Boolean).join("/")}` : null });
         for (const f of page.files) if (f.storageKey) entries.push({ path: f.path, storageKey: f.storageKey, size: f.size ?? 0 });
         if (entries.length > 20_000) return jsonError("A zip holds at most 20,000 files", 413, "TOO_LARGE" as never);
         cursor = page.nextCursor;
@@ -44,7 +48,8 @@ export async function GET(request: Request, context: Ctx) {
         entries: entries.map((e, i) => ({ id: `${i}`, path: e.path.replace(/^\/+/, ""), type: "file" as const, bucket: "project-files", storageKey: e.storageKey, assetId: null, size: e.size })),
         totalBytes: entries.reduce((sum, e) => sum + e.size, 0), requiresTaskAccess: false, skippedFiles: 0, historyName: branch.name, historyNodeId: null,
       };
-      const name = `${branch.name.replace(/[^A-Za-z0-9._-]+/g, "-")}.zip`;
+      const folder = q.get("path")?.split("/").filter(Boolean).pop();
+      const name = `${branch.name.replace(/[^A-Za-z0-9._-]+/g, "-")}${folder ? `-${folder.replace(/[^A-Za-z0-9._-]+/g, "-")}` : ""}.zip`;
       return new Response(streamFolderExport({ prepared, requestSignal: req.signal, reauthorize: async () => { await loadBranch(auth, b); } }), {
         headers: { "Content-Type": "application/zip", "Content-Disposition": safeContentDisposition(name, "attachment"), "Cache-Control": "private, no-store" },
       });

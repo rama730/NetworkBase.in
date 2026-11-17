@@ -273,3 +273,50 @@ test("routes: a token lists and creates branches, reads a branch's manifest with
   const listed = await call(list.GET, "GET", `/api/v1/workspaces/${workspace}/branches`);
   assert.deepEqual(listed.json.data.branches.map((b: any) => b.name), ["main", "via-api"]);
 });
+
+test("H-2b: the explorer on a branch: folders with counts, folder move and delete as one save, upload through a change set", async () => {
+  const { owner, workspace } = await setup();
+  const o = actor(owner);
+  const { branch } = await branches.createBranch(o, workspace, { name: "explore" });
+  await onBranch(owner, workspace, branch.id, "docs", { "/docs/a.md": "a\n", "/docs/deep/b.md": "b\n" });
+  const root = await branches.branchFolder(o, branch.id, null);
+  assert.deepEqual(root.folders.map((f) => [f.name, f.files]), [["docs", 2], ["src", 1]]);
+  assert.deepEqual(root.files.map((f) => f.name), ["README.md"]);
+  const docs = await branches.branchFolder(o, branch.id, "docs");
+  assert.deepEqual([docs.folders.map((f) => f.path), docs.files.map((f) => [f.path, f.own])], [["/docs/deep"], [["/docs/a.md", true]]]);
+  await assert.rejects(branches.branchFolder(o, branch.id, "/nope"), { code: "NOT_FOUND" });
+  // Move a folder: one save; into itself is refused; onto an existing path is a conflict.
+  await assert.rejects(branches.moveOnBranch(o, branch.id, "/docs", "/docs/x"), { code: "BAD_PATH" });
+  await assert.rejects(branches.moveOnBranch(o, branch.id, "/docs/a.md", "/README.md"), { code: "CONFLICT" });
+  const moved = await branches.moveOnBranch(o, branch.id, "/docs", "/guide");
+  assert.ok(moved.save);
+  assert.deepEqual((await branches.branchPaths(o, branch.id)).paths, ["/README.md", "/guide/a.md", "/guide/deep/b.md", "/src/a.ts"]);
+  const [s] = await sql`SELECT message, files_renamed FROM saves WHERE id = ${moved.save!.id}`;
+  assert.deepEqual([s!.message, s!.files_renamed], ["Renamed docs to guide", 2]);
+  const gone = await branches.deleteOnBranch(o, branch.id, "/guide");
+  assert.ok(gone.save);
+  assert.deepEqual((await branches.branchPaths(o, branch.id)).paths, ["/README.md", "/src/a.ts"]);
+  // Upload: begin, send bytes, finish → one save on the branch; main is untouched.
+  const bytes = Buffer.from("uploaded\n");
+  const { changeSetId } = await branches.beginUploadOnBranch(o, branch.id, [{ path: "/up/one.txt", hash: sha(bytes), size: bytes.byteLength, mimeType: "text/plain" }]);
+  await sets.putContent(o, changeSetId, { files: [{ hash: sha(bytes), base64: bytes.toString("base64") }] });
+  const up = await branches.finishUploadOnBranch(o, request(), changeSetId);
+  assert.ok(up.save);
+  assert.equal((await branches.branchFileText(o, branch.id, "/up/one.txt")).text, "uploaded\n");
+  const [onMain] = await sql`SELECT id FROM workspace_nodes WHERE workspace_id = ${workspace} AND path = '/up/one.txt'`;
+  assert.equal(onMain, undefined);
+});
+
+test("H-2b: History shows lines added and removed per save and per file, worked out once", async () => {
+  const { owner, workspace, mainId } = await setup();
+  const o = actor(owner);
+  const { branch } = await branches.createBranch(o, workspace, { name: "lines" });
+  await branches.saveTextOnBranch(o, branch.id, { path: "/src/a.ts", text: "a1\na2 changed\na3\na4\na5\na6\nnew line\n", expectedHash: sha("a1\na2\na3\na4\na5\na6\n") });
+  const list = await saves.listSaves(o, workspace, { branch: branch.id });
+  assert.deepEqual(list.saves[0]!.lines, { added: 2, removed: 1 });
+  const one = await saves.getSave(o, list.saves[0]!.id);
+  assert.deepEqual(one.files.map((f) => [f.path, f.lines]), [["/src/a.ts", { added: 2, removed: 1 }]]);
+  const [{ a }] = await sql`SELECT lines_added AS a FROM saves WHERE id = ${list.saves[0]!.id}`;
+  assert.equal(a, 2, "kept");
+  void mainId;
+});

@@ -30,6 +30,7 @@ import { useFilesTabRole } from "./FilesTabRoleContext";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useFilesStore } from "@/stores/filesStore";
 import { FILES_NAVIGATED_EVENT, useNavigateTo } from "./hooks/useNavigateTo";
+import { pushBranchLocation } from "./hooks/useFilesTabUrlSync";
 
 export type FilesInspector =
   | "details"
@@ -110,7 +111,21 @@ const FilesViewsContext = createContext<{
   changeSets: { enabled: boolean; ready: number };
   /** History (report H3): on for this workspace and this person is one of its people. */
   historyEnabled: boolean;
+  /**
+   * The branch the picker is on (H2, H-2b): null is main. It switches All files and History, stays in the address
+   * (`?branch=`) as you move between views, and the main-only views (task files, Trash…) ignore it.
+   */
+  branch: string | null;
+  setBranch: (name: string | null) => void;
+  pickerOpen: boolean;
+  setPickerOpen: (open: boolean) => void;
+  /** Where the branch explorer is: a folder (`?bpath=`) and an open file (`?bfile=`). */
+  branchFolder: string;
+  branchFile: string | null;
+  openBranchPath: (folder: string, file?: string | null) => void;
 } | null>(null);
+/** Views the branch picker switches; the others are main's (report H2). */
+export const BRANCH_VIEWS: readonly FilesViewId[] = ["project", "history", "merge-requests", "branches"];
 export const useFilesViews = () => useContext(FilesViewsContext);
 
 export function FilesViews({
@@ -195,6 +210,10 @@ export function FilesViews({
   const [sidebarMode, setSidebarMode] = useState<"collections" | "tree">(
     "collections",
   );
+  const [branch, setBranchState] = useState<string | null>(null);
+  const [branchFolder, setBranchFolder] = useState("/");
+  const [branchFile, setBranchFile] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const navigateTo = useNavigateTo(projectId);
   useEffect(() => {
     const onNavigate = (event: Event) => {
@@ -213,7 +232,11 @@ export function FilesViews({
   const restoreView = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
     // ?changes=<id> opens one change set (G12); ?save=<id> one save (H3).
-    const value = (params.get("changes") ? "changes" : params.get("save") ? "history" : params.get("branch") ? "branches" : params.get("mr") ? "merge-requests" : params.get("filesView")) as FilesViewId;
+    const value = (params.get("changes") ? "changes" : params.get("save") ? "history" : params.get("mr") ? "merge-requests" : params.get("filesView")) as FilesViewId;
+    const onBranch = params.get("branch");
+    setBranchState(onBranch && onBranch.toLowerCase() !== "main" ? onBranch : null);
+    setBranchFolder(params.get("bpath") || "/");
+    setBranchFile(params.get("bfile"));
     if (value === "github" && !githubAccessResolved) return;
     const nextView =
       fileCollectionViews.some((item) => item.id === value) &&
@@ -287,10 +310,10 @@ export function FilesViews({
       setFileRole("all");
       url.searchParams.delete("filesRole");
     }
-    // One branch or merge request belongs to its own view; leaving it drops it from the address.
+    // A merge request belongs to its own view; the branch stays for when you come back (H-2b).
     if (nextView !== view) {
-      url.searchParams.delete("branch");
       url.searchParams.delete("mr");
+      url.searchParams.delete("bfile");
     }
     let nextQuery = preserveQuery ? query : "";
     if (nextView === view && nextTask !== taskId) {
@@ -315,15 +338,42 @@ export function FilesViews({
     window.history.replaceState(window.history.state, "", url);
   }
   const selectView = (value: FilesViewId) => change(value, null);
-  // b opens Branches (0.8 #11), wherever focus isn't in a text field.
-  const openBranches = useRef(selectView);
-  openBranches.current = selectView;
+  /** Picks a branch (null: main) like GitHub's picker: the Files tab shows it from its top folder (H2). */
+  const setBranch = (name: string | null) => {
+    const next = name && name.toLowerCase() !== "main" ? name : null;
+    setBranchState(next);
+    navigateTo(null, { preserveQuery: true });
+    setBranchFolder("/");
+    setBranchFile(null);
+    setPickerOpen(false);
+    const url = new URL(window.location.href);
+    if (next) url.searchParams.set("branch", next);
+    else url.searchParams.delete("branch");
+    url.searchParams.delete("bpath");
+    url.searchParams.delete("bfile");
+    url.searchParams.delete("save");
+    window.history.replaceState(window.history.state, "", url);
+    if (!BRANCH_VIEWS.includes(view) || view === "branches") change("project", null);
+  };
+  const openBranchPath = (folder: string, file: string | null = null) => {
+    setBranchFolder(folder || "/");
+    setBranchFile(file);
+    const url = new URL(window.location.href);
+    if (folder && folder !== "/") url.searchParams.set("bpath", folder);
+    else url.searchParams.delete("bpath");
+    if (file) url.searchParams.set("bfile", file);
+    else url.searchParams.delete("bfile");
+    // Folders and files on a branch keep their history, like the explorer's (unified back A2).
+    pushBranchLocation(url);
+  };
+  // b opens the branch picker (0.8 #11), wherever focus isn't in a text field.
   useEffect(() => {
     if (!historyEnabled) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (e.key !== "b" || e.metaKey || e.ctrlKey || e.altKey || (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable))) return;
-      openBranches.current("branches");
+      e.preventDefault();
+      setPickerOpen(true);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -379,8 +429,19 @@ export function FilesViews({
       returnToCollection: handleReturnToCollection,
       changeSets,
       historyEnabled,
+      branch: historyEnabled ? branch : null,
+      setBranch,
+      pickerOpen,
+      setPickerOpen,
+      branchFolder,
+      branchFile,
+      openBranchPath,
     }),
     [
+      branch,
+      branchFolder,
+      branchFile,
+      pickerOpen,
       changeSets,
       historyEnabled,
       scrollOffsets,

@@ -541,12 +541,127 @@ export async function saveTextOnBranch(actor: Actor, branchId: string, input: { 
   return { save: save ? { id: save.id, number: save.seq } : null };
 }
 
-/** Deletes a file on a branch (a save; undo by reverting it, H8). */
+/** Every file of a branch at or under `folder` (all pages; a branch holds at most 20,000 files here). */
+async function filesUnder(branch: Branch, mainId: string, folder: string | null) {
+  const out: TreeEntry[] = [];
+  let cursor: string | null = null;
+  do {
+    const page = await branchTree(branch, mainId, { cursor, path: folder && folder !== "/" ? folder : null });
+    out.push(...page.files);
+    if (out.length > SAVE_LIMITS.zipFiles) fail("A branch shows at most 20,000 files here; use a folder on it", 413, "TOO_LARGE");
+    cursor = page.nextCursor;
+  } while (cursor);
+  return out;
+}
+
+export type BranchFolderEntry = { name: string; path: string; files: number };
+export type BranchFileEntry = { name: string; path: string; own: boolean; size: number | null; mimeType: string | null; contentHash: string | null };
+
+/**
+ * One folder of a branch, like the explorer's (H2: the picker switches All files): its subfolders (with how many
+ * files each holds) and its files. Folders exist on a branch while they hold a file.
+ */
+export async function branchFolder(actor: Actor, branchId: string, rawFolder: string | null) {
+  const { branch, main } = await loadBranch(actor, branchId);
+  const folder = rawFolder ? `/${String(rawFolder).split("/").filter(Boolean).join("/")}` : "/";
+  const all = await filesUnder(branch, main.id, folder);
+  if (folder !== "/" && !all.length) fail(`${folder} isn't on this branch`, 404, "NOT_FOUND");
+  const prefix = folder === "/" ? "/" : `${folder}/`;
+  const folders = new Map<string, number>();
+  const files: BranchFileEntry[] = [];
+  for (const f of all) {
+    const rest = f.path.slice(prefix.length);
+    const slash = rest.indexOf("/");
+    if (slash >= 0) {
+      const name = rest.slice(0, slash);
+      folders.set(name, (folders.get(name) ?? 0) + 1);
+    } else files.push({ name: rest, path: f.path, own: f.own, size: f.size, mimeType: f.mimeType, contentHash: f.contentHash });
+  }
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+  return {
+    folder,
+    folders: [...folders].map(([name, count]): BranchFolderEntry => ({ name, path: `${prefix}${name}`, files: count })).sort(byName),
+    files: files.sort(byName),
+  };
+}
+
+/** Every path on a branch, for searching names and the sidebar tree. */
+export async function branchPaths(actor: Actor, branchId: string) {
+  const { branch, main } = await loadBranch(actor, branchId);
+  return { paths: (await filesUnder(branch, main.id, null)).map((f) => f.path) };
+}
+
+/** Moves or renames a file, or a folder with everything in it, on a branch: one save. */
+export async function moveOnBranch(actor: Actor, branchId: string, rawFrom: string, rawTo: string) {
+  const userId = userOf(actor);
+  const { branch, main } = await loadBranch(actor, branchId, { write: true });
+  if (branch.isDefault) fail("Move main's files in the Files tab", 409, "MAIN_BRANCH");
+  const from = normalizeChangePath(rawFrom);
+  const to = normalizeChangePath(rawTo);
+  if (from === to) return { save: null };
+  if (to.startsWith(`${from}/`)) fail("A folder can't move into itself", 400, "BAD_PATH");
+  const [file] = (await branchTree(branch, main.id, { paths: [from] })).files;
+  const moving = file ? [file] : await filesUnder(branch, main.id, from);
+  if (!moving.length) fail(`${from} isn't on this branch`, 404, "NOT_FOUND");
+  if (moving.length > SAVE_LIMITS.changes) fail(`A move over ${SAVE_LIMITS.changes} files can't go in one step`, 413, "CHANGE_SET_TOO_LARGE");
+  const targets = moving.map((f) => (file ? to : `${to}${f.path.slice(from.length)}`));
+  const taken = (await branchTree(branch, main.id, { paths: targets })).files;
+  if (taken.length) fail(`${taken[0]!.path} already exists on this branch`, 409, "CONFLICT", { conflicts: taken.map((t) => ({ path: t.path, kind: "exists" })) });
+  const name = (p: string) => p.split("/").pop();
+  const sameFolder = from.slice(0, from.lastIndexOf("/")) === to.slice(0, to.lastIndexOf("/"));
+  const { save } = await writeBranch(branch.id, {
+    changes: moving.map((f, i) => ({ op: "rename" as const, fromPath: f.path, path: targets[i]! })),
+    expectedHead: branch.headSaveId, authorId: userId,
+    message: sameFolder ? `Renamed ${name(from)} to ${name(to)}` : `Moved ${name(from)} to ${to.slice(0, to.lastIndexOf("/")) || "/"}`,
+  });
+  return { save: save ? { id: save.id, number: save.seq } : null };
+}
+
+/** Deletes a file, or a folder with everything in it, on a branch (a save; undo by reverting it, H8). */
 export async function deleteOnBranch(actor: Actor, branchId: string, rawPath: string) {
   const userId = userOf(actor);
-  const { branch } = await loadBranch(actor, branchId, { write: true });
+  const { branch, main } = await loadBranch(actor, branchId, { write: true });
   if (branch.isDefault) fail("Delete main's files in the Files tab", 409, "MAIN_BRANCH");
   const path = normalizeChangePath(rawPath);
-  const { save } = await writeBranch(branch.id, { changes: [{ op: "delete", path }], expectedHead: branch.headSaveId, message: `Deleted ${path.split("/").pop()}`, authorId: userId });
+  const [file] = (await branchTree(branch, main.id, { paths: [path] })).files;
+  const gone = file ? [file] : await filesUnder(branch, main.id, path);
+  if (!gone.length) fail(`${path} isn't on this branch`, 404, "NOT_FOUND");
+  if (gone.length > SAVE_LIMITS.changes) fail(`A delete over ${SAVE_LIMITS.changes} files can't go in one step`, 413, "CHANGE_SET_TOO_LARGE");
+  const { save } = await writeBranch(branch.id, {
+    changes: gone.map((f) => ({ op: "delete" as const, path: f.path })), expectedHead: branch.headSaveId,
+    message: `Deleted ${path.split("/").pop()}${file ? "" : ` (${gone.length} file${gone.length === 1 ? "" : "s"})`}`, authorId: userId,
+  });
   return { save: save ? { id: save.id, number: save.seq } : null };
+}
+
+// ── Uploads on a branch (H-2b): a change set on the branch, as the CLI sends files ──────────────────────────────────
+
+/** Starts an upload: one change set on the branch with an item per file (added, or changed where the path exists). */
+export async function beginUploadOnBranch(actor: Actor, branchId: string, files: Array<{ path: string; hash: string; size: number; mimeType: string | null }>) {
+  const { branch } = await loadBranch(actor, branchId, { write: true });
+  if (branch.isDefault) fail("Upload to main in the Files tab", 409, "MAIN_BRANCH");
+  if (!files.length) fail("Choose files to upload", 400, "BAD_REQUEST");
+  if (files.length > SAVE_LIMITS.changes) fail(`An upload holds at most ${SAVE_LIMITS.changes} files`, 413, "CHANGE_SET_TOO_LARGE");
+  const paths = files.map((f) => normalizeChangePath(f.path));
+  const live = await branchLiveFiles(branch.id, paths);
+  const { startChangeSet, upsertItems } = await import("@/lib/domain/change-sets");
+  const set = await startChangeSet(actor, { workspaceId: branch.workspaceId, title: files.length === 1 ? `Uploaded ${paths[0]!.split("/").pop()}` : `Uploaded ${files.length} files`, branchId: branch.id });
+  const items = files.map((f, i) => ({ op: (live.has(paths[i]!) ? "change" : "add") as "change" | "add", path: paths[i]!, contentHash: String(f.hash).toLowerCase(), size: f.size, mimeType: f.mimeType || "application/octet-stream" }));
+  for (let i = 0; i < items.length; i += 200) await upsertItems(actor, set.id, items.slice(i, i + 200));
+  return { changeSetId: set.id };
+}
+
+/** Finishes an upload: checks it (keys need the person's yes) and saves it on the branch. */
+export async function finishUploadOnBranch(actor: Actor, request: Request, changeSetId: string, opts: { confirmSecrets?: boolean } = {}) {
+  const { finishChangeSet, applyChangeSet, discardChangeSet } = await import("@/lib/domain/change-sets");
+  try {
+    await finishChangeSet(actor, changeSetId, { confirmSecrets: Boolean(opts.confirmSecrets) && actor.tokenKind !== "agent" });
+    await applyChangeSet(actor, request, changeSetId);
+  } catch (error) {
+    // A refused upload leaves nothing half-done behind, except when it waits for a yes about keys.
+    if (!(error instanceof ChangeSetError && error.code === "SECRET_DETECTED")) await discardChangeSet(actor, changeSetId).catch(() => undefined);
+    throw error;
+  }
+  const [made] = await db.select({ id: saves.id, seq: saves.seq }).from(saves).where(eq(saves.changeSetId, changeSetId)).orderBy(desc(saves.seq)).limit(1);
+  return { save: made ? { id: made.id, number: made.seq } : null };
 }

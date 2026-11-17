@@ -35,7 +35,7 @@ export default function BranchesDocsPage() {
           id: "app",
           title: "2. In the app",
           content: (
-            <p>Files tab → <strong>History</strong> lists saves, newest first, and filters by file or folder. Open one to see each file’s diff, <strong>Browse files at this save</strong>, <strong>Download zip</strong>, or <strong>Revert</strong>. A file’s version panel links each version to its save.</p>
+            <p>Files tab → <strong>History</strong> lists saves like GitHub’s commit list: newest first, grouped by day, with who made each, its task, how many files and lines it added and removed (+12 −3), and its number. It filters by file or folder. Open one to see each file with its +/− and its diff, <strong>Browse files at this save</strong>, <strong>Download zip</strong>, or <strong>Revert</strong>. A file’s version panel links each version to its save.</p>
           ),
         },
         {
@@ -53,7 +53,8 @@ export default function BranchesDocsPage() {
           title: "4. Branches",
           content: (
             <>
-              <p>A branch is a separate line of work: main’s files as they were when it started, plus its own saves. Main doesn’t change until you bring the work back. Files tab → <strong>Branches</strong> (or press <kbd>b</kbd>) lists them with how many saves each is ahead of and behind main. Open one to see what it changes against main, edit or add text files on it, see its saves, download it as a zip, rename or delete it (restorable for 30 days).</p>
+              <p>A branch is a separate line of work: main’s files as they were when it started, plus its own saves. Main doesn’t change until you bring the work back. Switch with the branch picker in the Files header (<strong>main ▾</strong>, or press <kbd>b</kbd>), as on GitHub: All files and its sidebar tree then show the branch, with an “On branch” bar above them. On a branch you open, edit, add, upload, rename, move, delete and download files as usual, and each change is a save on the branch. History follows the picker. Task files, Recent, Starred and Trash stay main’s.</p>
+              <p>The bar shows how many saves the branch is ahead of and behind main, and has <strong>Compare with main</strong>, <strong>Update from main</strong> and <strong>Open merge request</strong>. <strong>View all branches</strong> in the picker lists them all: active, stale, merged and deleted (restorable for 30 days), with rename and delete.</p>
               <LegalList>
                 <li><strong>Update from main</strong> brings main’s newer work in. Files only main changed come in as they are; a file both changed is merged when the edits are in different lines. Where they overlap you choose: keep the branch’s or take main’s.</li>
                 <li><strong>Names:</strong> letters, numbers, -, _, / and ., up to 100 characters; not “main”.</li>

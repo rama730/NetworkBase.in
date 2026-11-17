@@ -25,6 +25,7 @@ import { ChangesCollection } from "./ChangesCollection";
 import { HistoryCollection } from "./HistoryCollection";
 import { BranchesCollection } from "./BranchesCollection";
 import { MergeRequestsCollection } from "./MergeRequestsCollection";
+import { BranchExplorer } from "./BranchExplorer";
 import dynamic from "next/dynamic";
 import type { GithubImportAccessState } from "@/lib/github/import-types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -131,7 +132,10 @@ export function FilesTabMain({
         {!isCollection && (isBooting || unresolved) && (
           <FilesViewsMenu projectId={projectId} />
         )}
-        {isCollection ? (
+        {filesView?.branch && filesView.view === "project" ? (
+          // On a branch, All files is the branch's tree (H2, the H-2b plan).
+          <BranchExplorer projectId={projectId} />
+        ) : isCollection ? (
           filesView.view === "github" ? (
             <RepositorySync
               key={projectId}

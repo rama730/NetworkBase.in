@@ -42,6 +42,7 @@ import { QuickOpenDialog } from "./quick-open/QuickOpenDialog";
 import { FilesHeaderContext, FilesHeaderSlot } from "./FilesHeaderSlot";
 export { FilesHeaderSlot } from "./FilesHeaderSlot";
 import { OpenInIdeButton, OpenInIdeSheet } from "./OpenInIdeButton";
+import { BranchPicker } from "./BranchExplorer";
 import { FilesTabRoleContext } from "./FilesTabRoleContext";
 
 export function FilesHeader({
@@ -188,7 +189,10 @@ export function FilesHeader({
           className="nb-meta flex shrink-0 items-center gap-2"
         />
         {/* Phones keep the row to tree, breadcrumb, Upload and ⋯; GitHub and the IDE handoff live in ⋯ (spec §23). */}
-        {canOpenGitHub && workspace?.view !== "trash" && (
+        {/* With History on, the branch picker takes GitHub's place; GitHub moves into ⋯ (H-2b). */}
+        {workspace?.historyEnabled ? (
+          <BranchPicker projectId={projectId} />
+        ) : canOpenGitHub && workspace?.view !== "trash" && (
           <span className="hidden md:contents"><HeaderGitHubSyncButton projectId={projectId} /></span>
         )}
         {workspace?.view !== "trash" && (
@@ -487,7 +491,8 @@ export function FilesViewsMenu({
               }
             }}
           >
-            {!selectionMode && (
+            {/* On a branch, All files searches with the branch explorer's "Go to file" (H-2b). */}
+            {!selectionMode && !(workspace?.branch && view === "project") && (
               <DropdownMenuItem
                 onSelect={() => {
                   setDraft(workspace?.query ?? "");
@@ -503,7 +508,7 @@ export function FilesViewsMenu({
               <>
                 <DropdownMenuSeparator />
                 {header?.canOpenGitHub && view !== "trash" && workspace?.selectView ? (
-                  <DropdownMenuItem className="md:hidden" onSelect={() => workspace.selectView("github")}>
+                  <DropdownMenuItem className={workspace.historyEnabled ? undefined : "md:hidden"} onSelect={() => workspace.selectView("github")}>
                     <Github className="size-4" />
                     GitHub sync
                   </DropdownMenuItem>

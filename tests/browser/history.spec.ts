@@ -2,18 +2,18 @@ import { expect, test, type Page } from '@playwright/test';
 import { openApp } from './app-bundle';
 import { axeViolations } from './axe';
 
-// Report H3 (M8, phase H-1): History lists saves newest first; a save opens with its files and diffs, the files as
+// Report H3 (M8, phase H-1; H-2b: like GitHub's commit list, grouped by day with +/−): History lists saves newest first; a save opens with its files and diffs, the files as
 // they were, a zip link and Revert (asked first). Light and dark, 1440 and 390 px, no accessibility violations.
-const save = (n: number, extra: Record<string, unknown> = {}) => ({ id: `s${n}`, number: n, kind: 'save', message: `Save message ${n}`, author: { id: 'u1', name: 'Ram', username: 'ram' }, via: null, agentName: null, madeWith: null, task: null, changeSetId: null, revertsSaveId: null, files: { added: 0, changed: 1, deleted: 0, renamed: 0 }, createdAt: '2026-11-17T09:00:00Z', ...extra });
+const save = (n: number, extra: Record<string, unknown> = {}) => ({ id: `s${n}`, number: n, kind: 'save', message: `Save message ${n}`, author: { id: 'u1', name: 'Ram', username: 'ram' }, via: null, agentName: null, madeWith: null, task: null, changeSetId: null, revertsSaveId: null, files: { added: 0, changed: 1, deleted: 0, renamed: 0 }, lines: { added: 2, removed: 1 }, createdAt: '2026-11-17T09:00:00Z', ...extra });
 const SAVES = [
-  save(3, { message: 'Fix the greeting', via: 'agent', agentName: 'Claude Code', madeWith: 'with Claude Code', task: { id: 't4', number: 4 }, files: { added: 1, changed: 1, deleted: 0, renamed: 1 } }),
+  save(3, { message: 'Fix the greeting', via: 'agent', agentName: 'Claude Code', madeWith: 'with Claude Code', task: { id: 't4', number: 4, title: 'Greeting' }, lines: { added: 12, removed: 3 }, files: { added: 1, changed: 1, deleted: 0, renamed: 1 } }),
   save(2),
-  save(1, { kind: 'start', message: 'Start of history', files: { added: 0, changed: 0, deleted: 0, renamed: 0 } }),
+  save(1, { kind: 'start', message: 'Start of history', files: { added: 0, changed: 0, deleted: 0, renamed: 0 }, lines: null, createdAt: '2026-11-16T09:00:00Z' }),
 ];
 const FILES = [
-  { path: '/src/hello.ts', fromPath: null, op: 'change', size: 20, mimeType: 'text/plain', version: 2, previousVersion: 1 },
-  { path: '/docs/new.md', fromPath: null, op: 'add', size: 5, mimeType: 'text/markdown', version: 1, previousVersion: null },
-  { path: '/lib/a.ts', fromPath: '/src/a.ts', op: 'rename', size: 9, mimeType: 'text/plain', version: 1, previousVersion: 1 },
+  { path: '/src/hello.ts', fromPath: null, op: 'change', size: 20, mimeType: 'text/plain', version: 2, previousVersion: 1, lines: { added: 5, removed: 2 } },
+  { path: '/docs/new.md', fromPath: null, op: 'add', size: 5, mimeType: 'text/markdown', version: 1, previousVersion: null, lines: { added: 1, removed: 0 } },
+  { path: '/lib/a.ts', fromPath: '/src/a.ts', op: 'rename', size: 9, mimeType: 'text/plain', version: 1, previousVersion: 1, lines: { added: 0, removed: 0 } },
 ];
 
 async function open(page: Page, { width = 1440, theme = 'light', path = '/', revert = 'reverted' }: { width?: number; theme?: string; path?: string; revert?: string } = {}) {
@@ -33,16 +33,19 @@ async function open(page: Page, { width = 1440, theme = 'light', path = '/', rev
   await openApp(page, 'tests/browser/history.fixture.tsx', { path, head: theme === 'dark' ? "document.documentElement.classList.add('dark')" : '' });
 }
 
-test('the list shows saves newest first with who, how and what; a path filter asks the server', async ({ page }) => {
+test('the list: grouped by day like GitHub, with who, how, the task, +/− and the save number; a path filter asks the server', async ({ page }) => {
   await open(page);
-  const list = page.getByRole('list').first();
-  await expect(list.getByRole('button').first()).toContainText('Fix the greeting');
-  await expect(list.getByRole('button').first()).toContainText('Ram · with Claude Code');
-  await expect(list.getByRole('button').first()).toContainText('#4');
-  await expect(list.getByRole('button').nth(2)).toContainText('Start');
+  const today = page.getByRole('region', { name: /^Saves on .*17.*2026$/ });
+  await expect(today.getByRole('button').first()).toContainText('Fix the greeting');
+  await expect(today.getByRole('button').first()).toContainText('Ram with Claude Code saved');
+  await expect(today.getByRole('button').first()).toContainText('#4 Greeting');
+  await expect(today.getByRole('button').first().getByLabel('12 lines added, 3 removed')).toBeVisible();
+  await expect(today.getByRole('button').first().getByLabel('Save 3')).toBeVisible();
+  const before = page.getByRole('region', { name: /^Saves on .*16.*2026$/ });
+  await expect(before.getByRole('button')).toContainText('Start');
   await page.getByLabel('Only saves that touched a file or folder').fill('/src');
   await page.keyboard.press('Enter');
-  await expect(list.getByRole('button')).toHaveCount(1);
+  await expect(page.getByRole('region', { name: /^Saves on/ }).getByRole('button')).toHaveCount(1);
   const calls = await page.evaluate(() => (window as any).__calls);
   expect(calls).toContainEqual(['list', '/src']);
 });
@@ -54,6 +57,7 @@ test('a save opens with its files and a diff, browses the files as they were, an
   expect(page.url()).toContain('save=s3');
   const files = page.getByRole('navigation', { name: 'Files in this save' });
   await expect(files).toContainText('/src/a.ts → /lib/a.ts');
+  await expect(files.getByLabel('5 lines added, 2 removed')).toBeVisible();
   await files.getByRole('button', { name: /docs\/new\.md/ }).click();
   await expect(page.getByRole('region', { name: 'Diff' })).toContainText('hello from /docs/new.md');
   await expect(page.getByRole('region', { name: 'Diff' })).toContainText('added line:');

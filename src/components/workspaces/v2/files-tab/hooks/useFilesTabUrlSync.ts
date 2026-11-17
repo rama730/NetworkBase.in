@@ -289,3 +289,8 @@ function getBrowserWindow(): Window | null {
 // Re-export so consumers can type the navigate callback without pulling in
 // the `useNavigateTo` module directly.
 export type { NavigateTo };
+
+/** A folder or file move on a branch (H-2b): pushed like the explorer's, so Back goes to the last folder (R5). */
+export function pushBranchLocation(url: URL) {
+  window.history.pushState(window.history.state, "", url);
+}

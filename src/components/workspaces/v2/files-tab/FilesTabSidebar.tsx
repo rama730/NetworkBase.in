@@ -21,6 +21,7 @@ import {
   fileCollectionViews,
   orgViewAllowed,
 } from "./FilesViews";
+import { BranchTree } from "./BranchExplorer";
 
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
@@ -600,7 +601,8 @@ export function FilesTabSidebar({
                   (canEdit || item.id !== "trash") &&
                   (item.id !== "changes" || (canEdit && filesView.changeSets.enabled)) &&
                   (item.id !== "history" || filesView.historyEnabled) &&
-                  (item.id !== "branches" || filesView.historyEnabled) &&
+                  // The branch list opens from the picker (View all branches), as on GitHub (H-2b).
+                  item.id !== "branches" &&
                   (item.id !== "merge-requests" || filesView.historyEnabled) &&
                   (filesView.canReadTasks ||
                      !["tasks", "deliverables"].includes(item.id)) &&
@@ -648,7 +650,7 @@ export function FilesTabSidebar({
         ) : (
           <>
             <div className="flex-1 min-h-0 overflow-hidden">
-              <ExplorerTree
+              {filesView?.branch ? <BranchTree projectId={projectId} /> : <ExplorerTree
                 rowsToRender={rowsToRender}
                 contextValue={contextValue}
                 nodesById={renderNodesById}
@@ -663,7 +665,7 @@ export function FilesTabSidebar({
                 onSelect={handleSelect}
                 onToggleFolder={handleToggleFolder}
                 onDropOnFolder={canManageFiles ? handleDropOnFolder : undefined}
-              />
+              />}
             </div>
           </>
         )}

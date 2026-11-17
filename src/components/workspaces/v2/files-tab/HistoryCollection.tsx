@@ -15,10 +15,14 @@ import { cn } from "@/lib/utils";
 import { EmptyState, When, numbered } from "./ChangesCollection";
 import { FilesViewsMenu } from "./FilesHeader";
 import { useFilesTabRole } from "./FilesTabRoleContext";
+import { useFilesViews } from "./FilesViews";
+import { BranchBar } from "./BranchExplorer";
 
 /**
- * History (report H3): main's saves, newest first. Open with ?tab=files&filesView=history, or one save with &save=<id>:
- * its files and diffs, the files as they were then, a zip, and Revert.
+ * History (report H3), like GitHub's commit list (H-2b): the saves of the branch in the picker (main by default),
+ * newest first and grouped by day, each with who, when, its files and lines added and removed. Open with
+ * ?tab=files&filesView=history, or one save with &save=<id>: its files with their +/−, diffs, the files as they were
+ * then, a zip, and Revert.
  */
 function readParam() {
   return typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("save");
@@ -40,19 +44,44 @@ export function HistoryCollection({ projectId }: { projectId: string }) {
   return (
     <div aria-label="History" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card dark:bg-background">
       <FilesViewsMenu projectId={projectId} />
+      <BranchBar projectId={projectId} />
       {openId ? <SavePage key={openId} projectId={projectId} id={openId} onBack={() => open(null)} onOpen={open} /> : <SaveList projectId={projectId} onOpen={open} />}
     </div>
   );
 }
 
+/** "Saves on 17 Nov 2026", the way GitHub groups commits; in the person's time zone (0.8 #9). */
+const dayOf = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+function Avatar({ person }: { person: SaveView["author"] }) {
+  const name = person?.name ?? person?.username ?? "?";
+  return person?.avatarUrl
+    ? <img src={person.avatarUrl} alt="" className="size-6 shrink-0 rounded-full object-cover" />
+    : <span aria-hidden className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">{name.replace(/^@/, "")[0]?.toUpperCase()}</span>;
+}
+
+/** +12 −3, GitHub's colours; nothing when the lines weren't counted (binary files, saves over 200 files). */
+export function LineCounts({ lines, className }: { lines: { added: number; removed: number } | null; className?: string }) {
+  if (!lines) return null;
+  return (
+    <span className={cn("shrink-0 font-mono text-xs", className)} aria-label={`${lines.added} line${lines.added === 1 ? "" : "s"} added, ${lines.removed} removed`}>
+      <span className="text-emerald-700 dark:text-emerald-400">+{lines.added}</span> <span className="text-red-700 dark:text-red-400">−{lines.removed}</span>
+    </span>
+  );
+}
+
+const fileTotal = (s: SaveView) => s.files.added + s.files.changed + s.files.deleted + s.files.renamed;
+
 function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: string) => void }) {
+  const views = useFilesViews();
+  const branch = views?.branch ?? null;
   const [draft, setDraft] = useState("");
   const [path, setPath] = useState("");
   const list = useInfiniteQuery({
-    queryKey: ["saves", projectId, path],
+    queryKey: ["saves", projectId, branch, path],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      const res = await listSavesAction(projectId, { path: path || null, cursor: pageParam });
+      const res = await listSavesAction(projectId, { branch, path: path || null, cursor: pageParam });
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
@@ -60,6 +89,15 @@ function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
     staleTime: 15_000,
   });
   const saves = list.data?.pages.flatMap((p) => p.saves) ?? [];
+  const days = useMemo(() => {
+    const out: Array<{ day: string; saves: SaveView[] }> = [];
+    for (const s of saves) {
+      const day = dayOf(s.createdAt);
+      if (out.at(-1)?.day === day) out.at(-1)!.saves.push(s);
+      else out.push({ day, saves: [s] });
+    }
+    return out;
+  }, [saves]);
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
       <form className="relative mb-3 max-w-sm" onSubmit={(e) => { e.preventDefault(); setPath(draft.trim()); }}>
@@ -72,25 +110,37 @@ function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
       ) : list.isError ? (
         <p role="alert" className="text-sm text-destructive">{feedbackError(list.error instanceof Error ? list.error.message : "", "Couldn’t load history")} <button type="button" className="underline" onClick={() => void list.refetch()}>Retry</button></p>
       ) : saves.length === 0 ? (
-        <EmptyState title={path ? `No saves touched ${path}` : "No saves yet"} body="Every change to the files shows up here." />
+        <EmptyState title={path ? `No saves touched ${path}` : branch ? `No saves on ${branch} yet` : "No saves yet"} body="Every change to the files shows up here." />
       ) : (
         <>
-          <ul className="divide-y divide-border rounded-md border border-border">
-            {saves.map((s) => (
-              <li key={s.id}>
-                <button type="button" onClick={() => onOpen(s.id)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none">
-                  <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-foreground">{s.message}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {byWhom(s)} · <When at={s.createdAt} />{fileCounts(s) ? ` · ${fileCounts(s)}` : ""}{s.task?.number ? ` · #${s.task.number}` : ""}
-                    </span>
-                  </span>
-                  {s.kind !== "save" ? <span className="shrink-0 rounded-[5px] border border-border px-1.5 py-0.5 text-xs text-muted-foreground">{s.kind === "start" ? "Start" : s.kind === "revert" ? "Revert" : s.kind === "sync" ? "GitHub" : s.kind === "restore" ? "Restore" : s.kind}</span> : null}
-                </button>
-              </li>
-            ))}
-          </ul>
+          {days.map((d) => (
+            <section key={d.day} aria-label={`Saves on ${d.day}`} className="mb-4">
+              <h3 className="mb-1.5 flex items-center gap-2 text-xs font-medium text-muted-foreground"><GitCommitHorizontal className="size-3.5" aria-hidden />Saves on {d.day}</h3>
+              <ul className="divide-y divide-border rounded-md border border-border">
+                {d.saves.map((s) => (
+                  <li key={s.id}>
+                    <button type="button" onClick={() => onOpen(s.id)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none">
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium text-foreground">{s.message}</span>
+                          {s.kind !== "save" ? <span className="shrink-0 rounded-[5px] border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">{s.kind === "start" ? "Start" : s.kind === "revert" ? "Revert" : s.kind === "sync" ? "GitHub" : s.kind === "restore" ? "Restore" : s.kind === "merge" ? "Merge" : s.kind === "squash" ? "Squash" : s.kind}</span> : null}
+                        </span>
+                        <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                          <Avatar person={s.author} />
+                          <span className="truncate"><span className="font-medium text-foreground/80">{s.author?.name ?? s.author?.username ?? "Someone"}</span>{s.madeWith ? ` ${s.madeWith}` : ""} saved <When at={s.createdAt} />{s.task?.number ? ` · #${s.task.number}${s.task.title ? ` ${s.task.title}` : ""}` : ""}</span>
+                        </span>
+                      </span>
+                      <span className="hidden shrink-0 flex-col items-end gap-0.5 sm:flex">
+                        <LineCounts lines={s.lines} />
+                        <span className="text-[11px] text-muted-foreground">{fileTotal(s)} file{fileTotal(s) === 1 ? "" : "s"}</span>
+                      </span>
+                      <span className="shrink-0 rounded-[4px] border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground" aria-label={`Save ${s.number}`}>#{s.number}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
           {list.hasNextPage ? (
             <div className="mt-3 text-center">
               <Button size="sm" variant="outline" disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{list.isFetchingNextPage ? "Loading…" : "Older saves"}</Button>
@@ -163,7 +213,7 @@ function SavePage({ projectId, id, onBack, onOpen }: { projectId: string; id: st
         <div className="flex flex-wrap items-start gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-semibold text-foreground">{s.message}</h2>
-            <p className="text-xs text-muted-foreground">Save {s.number} · {byWhom(s)} · <When at={s.createdAt} />{fileCounts(s) ? ` · ${fileCounts(s)}` : ""}{s.task?.number ? ` · #${s.task.number}` : ""}</p>
+            <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground"><Avatar person={s.author} /><span>Save {s.number} · {byWhom(s)} · <When at={s.createdAt} />{fileCounts(s) ? ` · ${fileCounts(s)}` : ""}{s.task?.number ? ` · #${s.task.number}${s.task.title ? ` ${s.task.title}` : ""}` : ""}</span><LineCounts lines={s.lines} /></p>
           </div>
           <div className="flex flex-wrap gap-2">
             {s.branch ? <span className="self-center rounded-[5px] border border-amber-300 px-1.5 py-0.5 text-xs text-amber-900 dark:border-amber-800 dark:text-amber-200">On {s.branch.name}</span> : null}
@@ -183,6 +233,7 @@ function SavePage({ projectId, id, onBack, onOpen }: { projectId: string; id: st
                     <button type="button" onClick={() => setSelected(f.path)} aria-current={current === f.path} className={cn("flex w-full items-center gap-2 px-3 py-1.5 text-left", current === f.path && "bg-accent")}>
                       <span className="w-14 shrink-0 text-[11px] text-muted-foreground">{OP_WORDS[f.op]}</span>
                       <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{f.fromPath ? `${f.fromPath} → ${f.path}` : f.path}</span>
+                      <LineCounts lines={f.lines} className="text-[11px]" />
                     </button>
                   </li>
                 ))}

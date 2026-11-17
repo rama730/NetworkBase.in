@@ -38,7 +38,7 @@ export const branchesSettingAction = async (projectId: string) => run(async (a) 
   };
 });
 export const setBranchesEnabledAction = async (projectId: string, enabled: boolean) => run((a) => setBranchesEnabled(a, projectId, enabled));
-export const listSavesAction = async (projectId: string, opts: { path?: string | null; author?: string | null; cursor?: string | null } = {}) => run((a) => listSaves(a, projectId, opts));
+export const listSavesAction = async (projectId: string, opts: { branch?: string | null; path?: string | null; author?: string | null; cursor?: string | null } = {}) => run((a) => listSaves(a, projectId, opts));
 export const getSaveAction = async (saveId: string) => run((a) => getSave(a, saveId));
 export const saveDiffAction = async (saveId: string, path: string) => run((a) => saveDiff(a, saveId, path));
 export const filesAtSaveAction = async (saveId: string, cursor?: string | null) => run((a) => filesAtSave(a, saveId, { cursor }));

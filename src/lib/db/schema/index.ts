@@ -6407,6 +6407,9 @@ export const saves = pgTable("saves", {
   filesChanged: integer("files_changed").default(0).notNull(),
   filesDeleted: integer("files_deleted").default(0).notNull(),
   filesRenamed: integer("files_renamed").default(0).notNull(),
+  /** Lines added and removed across its text files (H-2b), worked out once when first shown; null until then. */
+  linesAdded: integer("lines_added"),
+  linesRemoved: integer("lines_removed"),
   txid: bigint("txid", { mode: "number" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -6426,6 +6429,8 @@ export const saveChanges = pgTable("save_changes", {
   size: bigint("size", { mode: "number" }),
   mimeType: text("mime_type"),
   previousContentHash: text("previous_content_hash"),
+  linesAdded: integer("lines_added"),
+  linesRemoved: integer("lines_removed"),
   path: text("path").generatedAlwaysAs(sql`coalesce(after_path, before_path)`),
   op: text("op").$type<"add" | "change" | "delete" | "rename" | "none">().generatedAlwaysAs(sql`'none'`),
 });

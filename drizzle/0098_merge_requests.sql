@@ -108,3 +108,8 @@ REVOKE ALL ON TABLE public.merge_requests, public.merge_request_reviews, public.
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.merge_requests, public.merge_request_reviews, public.merge_request_comments, public.merge_request_checks, public.merge_request_events TO nb_app;
 --> statement-breakpoint
 GRANT ALL ON TABLE public.merge_requests, public.merge_request_reviews, public.merge_request_comments, public.merge_request_checks, public.merge_request_events TO service_role;
+--> statement-breakpoint
+-- History like GitHub's commit list (H-2b): lines added and removed, worked out once per change and kept.
+ALTER TABLE public.save_changes ADD COLUMN IF NOT EXISTS lines_added integer, ADD COLUMN IF NOT EXISTS lines_removed integer;
+--> statement-breakpoint
+ALTER TABLE public.saves ADD COLUMN IF NOT EXISTS lines_added integer, ADD COLUMN IF NOT EXISTS lines_removed integer;

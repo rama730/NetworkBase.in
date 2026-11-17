@@ -322,9 +322,9 @@
       "text": "2 · \"What's this?\" help links next to new ideas (preset, change set, branch, merge request, save), opening the matching /docs section · M1, M5, M8",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts",
+      "evidence": "M8 H-2b, local main, 2026-11-17 (not pushed): the branch picker in the Files header switches All files (main panel and sidebar tree), History follows it; On branch bar; View all branches; History by day with +/−; tests/browser/branches.spec.ts (10), history.spec.ts, tests/db/branches.test.ts H-2b tests"
     },
     {
       "key": "0.8.3e596023",
@@ -392,9 +392,9 @@
       "text": "9 · Times in history, saves and merge requests use the person's time zone, with the exact time on hover · M5, M8",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts",
+      "evidence": "M8 H-2b, local main, 2026-11-17 (not pushed): the branch picker in the Files header switches All files (main panel and sidebar tree), History follows it; On branch bar; View all branches; History by day with +/−; tests/browser/branches.spec.ts (10), history.spec.ts, tests/db/branches.test.ts H-2b tests"
     },
     {
       "key": "0.8.969db059",
@@ -7012,9 +7012,9 @@
       "text": "The branch picker switches the whole Files tab: the tree, the file views, downloads and search all show that branch.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts",
+      "evidence": "M8 H-2b, local main, 2026-11-17 (not pushed): the branch picker in the Files header switches All files (main panel and sidebar tree), History follows it; On branch bar; View all branches; History by day with +/−; tests/browser/branches.spec.ts (10), history.spec.ts, tests/db/branches.test.ts H-2b tests"
     },
     {
       "key": "H2.a166138f",
@@ -7132,9 +7132,9 @@
       "text": "README and linked doc files (seen on the branch in Files) · The Documents tab shows main; the branch's version shows in the merge request",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts",
+      "evidence": "M8 H-2b, local main, 2026-11-17 (not pushed): the branch picker in the Files header switches All files (main panel and sidebar tree), History follows it; On branch bar; View all branches; History by day with +/−; tests/browser/branches.spec.ts (10), history.spec.ts, tests/db/branches.test.ts H-2b tests"
     },
     {
       "key": "H2.910a2888",
@@ -9202,9 +9202,9 @@
       "text": "Names it (suggested: ram/try-new-header) and lands on it. The coloured bar says \"On branch ram/try-new-header · nothing changed yet\".",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts",
+      "evidence": "M8 H-2b, local main, 2026-11-17 (not pushed): the branch picker in the Files header switches All files (main panel and sidebar tree), History follows it; On branch bar; View all branches; History by day with +/−; tests/browser/branches.spec.ts (10), history.spec.ts, tests/db/branches.test.ts H-2b tests"
     },
     {
       "key": "H23.7aac4ff4",
@@ -9242,9 +9242,9 @@
       "text": "Works in the app, or in a linked folder with nb (the folder follows the git branch, or nb branch switch).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts",
+      "evidence": "M8 H-2b, local main, 2026-11-17 (not pushed): the branch picker in the Files header switches All files (main panel and sidebar tree), History follows it; On branch bar; View all branches; History by day with +/−; tests/browser/branches.spec.ts (10), history.spec.ts, tests/db/branches.test.ts H-2b tests"
     },
     {
       "key": "H23.042abe71",
@@ -9342,9 +9342,9 @@
       "text": "The branch picker:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts",
+      "evidence": "M8 H-2b, local main, 2026-11-17 (not pushed): the branch picker in the Files header switches All files (main panel and sidebar tree), History follows it; On branch bar; View all branches; History by day with +/−; tests/browser/branches.spec.ts (10), history.spec.ts, tests/db/branches.test.ts H-2b tests"
     },
     {
       "key": "H23.b0582d3a",
@@ -9352,9 +9352,9 @@
       "text": "The branch list:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts",
+      "evidence": "M8 H-2b, local main, 2026-11-17 (not pushed): the branch picker in the Files header switches All files (main panel and sidebar tree), History follows it; On branch bar; View all branches; History by day with +/−; tests/browser/branches.spec.ts (10), history.spec.ts, tests/db/branches.test.ts H-2b tests"
     },
     {
       "key": "H23.9e3d3c11",
@@ -9512,9 +9512,9 @@
       "text": "The branch bar stays visible under the header.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts",
+      "evidence": "M8 H-2b, local main, 2026-11-17 (not pushed): the branch picker in the Files header switches All files (main panel and sidebar tree), History follows it; On branch bar; View all branches; History by day with +/−; tests/browser/branches.spec.ts (10), history.spec.ts, tests/db/branches.test.ts H-2b tests"
     },
     {
       "key": "H23.bf4c7f4b",

@@ -3,7 +3,7 @@ import "server-only";
  * Saves and history on main (report Part H, phase H-1). The database records every save (0096); this module reads
  * history, a save's files and diffs, turns the setting on and off, and reverts a save through a Part G change set.
  */
-import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { branches, changeSets, fileVersions, profiles, saveChanges, saves, storageAssets, tasks, workspaces } from "@/lib/db/schema";
@@ -90,12 +90,14 @@ export type SaveView = {
   number: number;
   kind: string;
   message: string;
-  author: { id: string; name: string | null; username: string | null } | null;
+  author: { id: string; name: string | null; username: string | null; avatarUrl?: string | null } | null;
   via: "agent" | "cli" | null;
   agentName: string | null;
   /** "with Claude Code", "from the terminal", or null: what this viewer may see (Part B). */
   madeWith: string | null;
-  task: { id: string; number: number | null } | null;
+  task: { id: string; number: number | null; title?: string | null } | null;
+  /** Lines added and removed (H-2b); null when not worked out (over 200 files). */
+  lines: { added: number; removed: number } | null;
   changeSetId: string | null;
   revertsSaveId: string | null;
   files: { added: number; changed: number; deleted: number; renamed: number };
@@ -110,8 +112,8 @@ async function viewOf(viewerId: string, workspaceId: string, rows: Array<typeof 
   const taskIds = [...new Set(rows.flatMap((r) => (r.taskId ? [r.taskId] : [])))];
   const branchIds = [...new Set(rows.map((r) => r.branchId))];
   const [people, taskRows, scope, branchRows] = await Promise.all([
-    authorIds.length ? db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username }).from(profiles).where(inArray(profiles.id, authorIds)) : [],
-    taskIds.length ? db.select({ id: tasks.id, number: tasks.taskNumber }).from(tasks).where(inArray(tasks.id, taskIds)) : [],
+    authorIds.length ? db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, authorIds)) : [],
+    taskIds.length ? db.select({ id: tasks.id, number: tasks.taskNumber, title: tasks.title }).from(tasks).where(inArray(tasks.id, taskIds)) : [],
     labelScope(viewerId, workspaceId),
     db.select({ id: branches.id, name: branches.name, isDefault: branches.isDefault }).from(branches).where(inArray(branches.id, branchIds)),
   ]);
@@ -123,7 +125,8 @@ async function viewOf(viewerId: string, workspaceId: string, rows: Array<typeof 
       author: people.find((p) => p.id === r.authorId) ?? null,
       via: shown.via, agentName: shown.agentName,
       madeWith: shown.via === "agent" ? `with ${shown.agentName ?? "an agent"}` : shown.via === "cli" ? "from the terminal" : null,
-      task: task ? { id: task.id, number: task.number ?? null } : null,
+      task: task ? { id: task.id, number: task.number ?? null, title: task.title } : null,
+      lines: r.linesAdded == null || r.linesAdded < 0 ? null : { added: r.linesAdded, removed: r.linesRemoved ?? 0 },
       changeSetId: r.changeSetId, revertsSaveId: r.revertsSaveId,
       files: { added: r.filesAdded, changed: r.filesChanged, deleted: r.filesDeleted, renamed: r.filesRenamed },
       branch: ((b) => (b && !b.isDefault ? { id: b.id, name: b.name } : null))(branchRows.find((b) => b.id === r.branchId)),
@@ -156,17 +159,27 @@ export async function listSaves(actor: Actor, workspaceId: string, opts: { branc
   if (opts.agent) where.push(eq(saves.via, "agent"), sql`lower(${saves.agentName}) = lower(${String(opts.agent)})`);
   let rows = await db.select().from(saves).where(and(...where)).orderBy(desc(saves.seq)).limit(limit + 1);
   if (scope) rows = rows.filter((r) => visibleVia(scope, { via: r.via, agentName: r.agentName, authorId: r.authorId }).via === "agent");
-  const page = rows.slice(0, limit);
+  let page = rows.slice(0, limit);
+  // Line counts the first time a save is listed (kept after that).
+  const missing = page.filter((r) => r.linesAdded == null).map((r) => r.id);
+  if (missing.length) {
+    await fillLineStats(missing, { budget: 150 });
+    const filled = new Map((await db.select({ id: saves.id, a: saves.linesAdded, r: saves.linesRemoved }).from(saves).where(inArray(saves.id, missing))).map((x) => [x.id, x]));
+    page = page.map((r) => (filled.has(r.id) ? { ...r, linesAdded: filled.get(r.id)!.a, linesRemoved: filled.get(r.id)!.r } : r));
+  }
   return { saves: await viewOf(userOf(actor), workspaceId, page), nextCursor: rows.length > limit ? String(page.at(-1)!.seq) : null };
 }
 
-export type SaveFile = { path: string; fromPath: string | null; op: "add" | "change" | "delete" | "rename"; size: number | null; mimeType: string | null; version: number | null; previousVersion: number | null };
+export type SaveFile = { path: string; fromPath: string | null; op: "add" | "change" | "delete" | "rename"; size: number | null; mimeType: string | null; version: number | null; previousVersion: number | null; lines: { added: number; removed: number } | null };
 
 /** One save (H3): what it says, and its files. */
 export async function getSave(actor: Actor, saveId: string) {
-  const { save } = await findSave(actor, saveId);
+  const { save: found } = await findSave(actor, saveId);
+  await fillLineStats([found.id]);
+  const save = (await db.select().from(saves).where(eq(saves.id, found.id)).limit(1))[0]!;
   const rows = await db.select({
     path: saveChanges.path, before: saveChanges.beforePath, op: saveChanges.op, version: saveChanges.version, previousVersion: saveChanges.previousVersion,
+    linesAdded: saveChanges.linesAdded, linesRemoved: saveChanges.linesRemoved,
     size: sql<number | null>`coalesce(${fileVersions.size}, ${saveChanges.size})`, mimeType: sql<string | null>`coalesce(${fileVersions.mimeType}, ${saveChanges.mimeType})`,
   })
     .from(saveChanges)
@@ -177,6 +190,7 @@ export async function getSave(actor: Actor, saveId: string) {
   const files: SaveFile[] = rows.slice(0, SAVE_LIMITS.changes).map((r) => ({
     path: r.path!, fromPath: r.op === "rename" ? r.before : null, op: r.op as SaveFile["op"],
     size: r.size == null ? null : Number(r.size), mimeType: r.mimeType, version: r.version, previousVersion: r.previousVersion,
+    lines: r.linesAdded == null ? null : { added: r.linesAdded, removed: r.linesRemoved ?? 0 },
   }));
   const [view] = await viewOf(userOf(actor), save.workspaceId, [save]);
   return { save: view!, workspaceId: save.workspaceId, files, truncated: rows.length > SAVE_LIMITS.changes };
@@ -188,21 +202,76 @@ export async function saveDiff(actor: Actor, saveId: string, rawPath: string): P
   const path = `/${String(rawPath ?? "").split("/").filter(Boolean).join("/")}`;
   const [change] = await db.select().from(saveChanges).where(and(eq(saveChanges.saveId, save.id), eq(saveChanges.path, path))).limit(1);
   if (!change || change.op === "none") fail("That file isn't in this save", 404, "NOT_FOUND");
+  const { before, after } = await assetsOf(change!, save.workspaceId);
+  return diffAssets(before.assetId, after.assetId, after.mime ?? before.mime);
+}
+
+/** A change's content before and after: main's by version, a branch's by content hash (H-2). */
+async function assetsOf(change: typeof saveChanges.$inferSelect, workspaceId: string) {
   const versionOf = async (version: number | null) => {
-    if (!change!.nodeId || version == null) return { assetId: null, mime: null };
+    if (!change.nodeId || version == null) return { assetId: null as string | null, mime: null as string | null };
     const [v] = await db.select({ assetId: fileVersions.assetId, mime: fileVersions.mimeType }).from(fileVersions)
-      .where(and(eq(fileVersions.nodeId, change!.nodeId), eq(fileVersions.version, version))).limit(1);
+      .where(and(eq(fileVersions.nodeId, change.nodeId), eq(fileVersions.version, version))).limit(1);
     return { assetId: v?.assetId ?? null, mime: v?.mime ?? null };
   };
-  // A branch's change carries content hashes (H-2), not versions.
   const byHash = async (hash: string | null) => {
-    if (!hash) return { assetId: null, mime: change!.mimeType };
-    const [a] = await db.select({ id: storageAssets.id }).from(storageAssets).where(and(eq(storageAssets.projectId, save.workspaceId), eq(storageAssets.contentHash, hash), eq(storageAssets.state, "verified"))).limit(1);
-    return { assetId: a?.id ?? null, mime: change!.mimeType };
+    if (!hash) return { assetId: null as string | null, mime: change.mimeType };
+    const [a] = await db.select({ id: storageAssets.id }).from(storageAssets).where(and(eq(storageAssets.projectId, workspaceId), eq(storageAssets.contentHash, hash), eq(storageAssets.state, "verified"))).limit(1);
+    return { assetId: a?.id ?? null, mime: change.mimeType };
   };
-  const before = change!.op === "add" ? { assetId: null, mime: null } : change!.nodeId ? await versionOf(change!.previousVersion) : await byHash(change!.previousContentHash);
-  const after = change!.op === "delete" ? { assetId: null, mime: null } : change!.nodeId ? await versionOf(change!.version) : await byHash(change!.contentHash);
-  return diffAssets(before.assetId, after.assetId, after.mime ?? before.mime);
+  const before = change.op === "add" ? { assetId: null, mime: null } : change.nodeId ? await versionOf(change.previousVersion) : await byHash(change.previousContentHash);
+  const after = change.op === "delete" ? { assetId: null, mime: null } : change.nodeId ? await versionOf(change.version) : await byHash(change.contentHash);
+  return { before, after };
+}
+
+/** Saves over this many files show no line counts: working them out would read too much. */
+export const LINE_STATS_MAX_FILES = 200;
+
+/**
+ * Lines added and removed (H-2b, History like GitHub's): worked out once per change from its text before and after,
+ * then kept on save_changes and summed on the save. Binary, image and large files count as no lines; a save over
+ * 200 files is marked -1 (not shown). Bounded: four saves at a time.
+ */
+export async function fillLineStats(saveIds: string[], opts: { budget?: number } = {}) {
+  if (!saveIds.length) return;
+  const all = await db.select({ id: saves.id, workspaceId: saves.workspaceId, files: sql<number>`(${saves.filesAdded} + ${saves.filesChanged} + ${saves.filesDeleted} + ${saves.filesRenamed})::int` })
+    .from(saves).where(and(inArray(saves.id, saveIds), isNull(saves.linesAdded)));
+  // ponytail: a fixed budget of files read per call (newest saves first); the rest fill in on later loads. Upgrade:
+  // count lines when a save is recorded, in a background job.
+  let budget = opts.budget ?? Number.POSITIVE_INFINITY;
+  const order = new Map(saveIds.map((id, i) => [id, i]));
+  const todo = all.sort((a, b) => order.get(a.id)! - order.get(b.id)!).filter((s) => {
+    if (s.files > LINE_STATS_MAX_FILES) return true; // marked without reading
+    if (budget <= 0) return false;
+    budget -= s.files;
+    return true;
+  });
+  const one = async (save: { id: string; workspaceId: string }) => {
+    const changes = await db.select().from(saveChanges).where(and(eq(saveChanges.saveId, save.id), sql`${saveChanges.op} <> 'none'`)).limit(LINE_STATS_MAX_FILES + 1);
+    if (changes.length > LINE_STATS_MAX_FILES) {
+      await db.update(saves).set({ linesAdded: -1, linesRemoved: -1 }).where(eq(saves.id, save.id));
+      return;
+    }
+    let added = 0;
+    let removed = 0;
+    for (const change of changes) {
+      if (change.linesAdded != null) { added += change.linesAdded; removed += change.linesRemoved ?? 0; continue; }
+      let a = 0;
+      let r = 0;
+      const { before, after } = await assetsOf(change, save.workspaceId);
+      const mime = after.mime ?? before.mime ?? "";
+      const skip = mime.startsWith("image/") || (change.op === "rename" && before.assetId === after.assetId);
+      if (!skip) {
+        const diff = await diffAssets(before.assetId, after.assetId, mime).catch(() => null);
+        if (diff?.kind === "text") { a = diff.added; r = diff.removed; }
+      }
+      await db.update(saveChanges).set({ linesAdded: a, linesRemoved: r }).where(eq(saveChanges.id, change.id));
+      added += a;
+      removed += r;
+    }
+    await db.update(saves).set({ linesAdded: added, linesRemoved: removed }).where(eq(saves.id, save.id));
+  };
+  for (let i = 0; i < todo.length; i += 4) await Promise.all(todo.slice(i, i + 4).map((s) => one(s).catch(() => undefined)));
 }
 
 export type TreeFile = { path: string; nodeId: string; version: number; contentHash: string | null; assetId: string | null; storageKey: string | null; size: number | null; mimeType: string | null };
