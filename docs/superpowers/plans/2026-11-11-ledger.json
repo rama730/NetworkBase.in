@@ -7762,9 +7762,9 @@
       "text": "A connected GitHub repository maps each GitHub branch to the NetworkBase branch of the same name.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
       "key": "H6.60ac9fa1",
@@ -7772,9 +7772,9 @@
       "text": "Pulling GitHub feature-x writes saves on NetworkBase feature-x, never on main.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
       "key": "H6.271ae3f0",
@@ -7782,9 +7782,9 @@
       "text": "Pushing NetworkBase feature-x updates GitHub feature-x.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
       "key": "H6.0216c0a1",
@@ -7794,7 +7794,7 @@
       "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "partial (H-5): default ↔ main, other branches by name; no per-branch switch (choosing the branch in Repository sync turns it on)"
     },
     {
       "key": "H6.03d706c9",
@@ -7802,9 +7802,9 @@
       "text": "The existing per-branch baseline (githubsyncfiles.branch) is reused.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
       "key": "H6.6c74aad3",
@@ -7814,7 +7814,7 @@
       "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "partial (H-5): MRs and PRs stay separate; a NetworkBase merge is pushed to GitHub through a reviewed push, not automatically"
     },
     {
       "key": "H7.f13b9f66",
@@ -8782,9 +8782,9 @@
       "text": "Removing the old task-sandbox merge:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
       "key": "H17.e22b0fb4",
@@ -8912,9 +8912,9 @@
       "text": "H-5. GitHub branch mapping and cleanup · branch-to-branch sync, removing the old sandbox · site",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
       "key": "H19.15583831",
@@ -9052,9 +9052,9 @@
       "text": "People editing the wrong branch · The coloured branch bar, the branch in the address, the CLI status and prompt",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
       "key": "H21.ee794e42",
@@ -9092,9 +9092,9 @@
       "text": "The old sandbox holding data · Checked before removal; reported to the user if anything is found (H16)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
       "key": "H22.603e4eb1",
@@ -9172,9 +9172,9 @@
       "text": "GitHub branch-to-branch sync (H-5)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
       "key": "H23.a75d75f2",
