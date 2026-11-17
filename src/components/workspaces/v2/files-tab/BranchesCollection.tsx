@@ -220,7 +220,7 @@ function BranchPage({ projectId, name, onBack, onOpen }: { projectId: string; na
         <div role="tablist" aria-label="Branch" className="mt-3 flex gap-1">
           {(["changes", "files", "saves"] as const).map((t) => (
             <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cn("rounded-md px-2.5 py-1 text-sm", tab === t ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
-              {t === "changes" ? `Changes (${b.changedFiles})` : t === "files" ? "Files" : `Saves (${b.ahead})`}
+              {t === "changes" ? `Changes (${b.changedFiles})` : t === "files" ? "Files" : "Saves"}
             </button>
           ))}
         </div>

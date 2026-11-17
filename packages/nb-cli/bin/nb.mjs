@@ -69,6 +69,12 @@ try {
   }
   // login is what signs you in, so it can't look a workspace up first; an agent's workspace is picked on the approval page.
   if (spec.name !== "login") await ctx.resolveWorkspace();
+  // These change main's files by path: on a branch folder they would change main by accident (report H6).
+  if (spec.mainOnly && ctx.root && ctx.project?.workspaceId === ctx.requireWorkspace()) {
+    const { followGit } = await import("../lib/commands/branch.mjs");
+    await followGit(ctx).catch((error) => { if (!(error instanceof CliError) || error.code !== "OFFLINE") throw error; });
+    if (ctx.project.branch) throw new CliError("CONFLICT", `This folder is on branch ${ctx.project.branch.name}; nb ${spec.name} changes main`, { hint: "Change the file here and nb push to save it on the branch, or nb branch switch main first" });
+  }
   const mod = await import(`../lib/commands/${spec.module}.mjs`);
   const run = mod[spec.fn];
   if (typeof run !== "function") throw new CliError("INTERNAL", `nb ${spec.name} isn't built yet`);

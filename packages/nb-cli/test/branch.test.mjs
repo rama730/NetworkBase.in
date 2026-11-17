@@ -99,6 +99,30 @@ describe("nb branch: create, switch, push and pull on a branch, follow git", () 
     assert.equal(config().branch, null, "master follows main");
   });
 
+  it("on a branch folder, nb file delete/move/rename refuse: they would change main (live check, 2026-11-17)", async () => {
+    await nb(["branch", "create", "feature-x"]);
+    const r = await nb(["file", "delete", "README.md", "--yes"]);
+    assert.equal(r.code, 4, r.stderr);
+    assert.match(r.stderr, /on branch feature-x; nb file delete changes main/);
+    assert.ok(api.state.files.has("/README.md"), "main untouched");
+    git("ref: refs/heads/main");
+    const ok = await nb(["file", "delete", "README.md", "--yes"]);
+    assert.equal(ok.code, 0, ok.stderr);
+  });
+
+  it("branch list and update follow git too, before any sync command (live check, 2026-11-17)", async () => {
+    await nb(["branch", "create", "feature-x", "--no-switch"]);
+    git("ref: refs/heads/feature-x");
+    const list = JSON.parse((await nb(["branch", "list", "--json"])).stdout).data;
+    assert.equal(list.current, branch("feature-x").id);
+    git("ref: refs/heads/main");
+    assert.equal((await nb(["branch", "list"])).code, 0);
+    git("ref: refs/heads/feature-x");
+    const up = await nb(["branch", "update"]);
+    assert.equal(up.code, 0, up.stderr);
+    assert.equal(/** @type {any} */ (api.state).updates.at(-1).branch, branch("feature-x").id);
+  });
+
   it("a detached git head can't push; workspaces without branches leave git alone", async () => {
     git("8c3f2a9e1b7d4c6a5f0e9d8c7b6a5f4e3d2c1b0a");
     write("README.md", "x\n");

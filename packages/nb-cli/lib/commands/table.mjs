@@ -3,7 +3,7 @@
 
 /**
  * @typedef {{ type: "string" | "boolean", short?: string, multiple?: boolean, describe: string, valueName?: string, hidden?: boolean }} FlagSpec
- * @typedef {{ name: string, summary: string, usage: string, module: string, fn: string, flags?: Record<string, FlagSpec>, examples?: string[], exit?: number[], hidden?: boolean, group: string }} CommandSpec
+ * @typedef {{ name: string, summary: string, usage: string, module: string, fn: string, flags?: Record<string, FlagSpec>, examples?: string[], exit?: number[], hidden?: boolean, mainOnly?: boolean, group: string }} CommandSpec
  */
 
 /** Flags every command accepts (report §17.3). @type {Record<string, FlagSpec>} */
@@ -181,21 +181,21 @@ export const COMMANDS = [
   { group: "Account and setup", name: "inbox open", summary: "Open an inbox item in the browser", usage: "nb inbox open <n>", module: "inbox", fn: "inboxOpen" },
   { group: "Files", name: "file list", summary: "Files in the workspace", usage: "nb file list [folder] [--task 4] [--starred]", module: "docs", fn: "fileList", flags: { ...TASK, starred: { type: "boolean", describe: "Only files you starred (the same as the Files tab)" } } },
   { group: "Files", name: "file trash", summary: "What's in the workspace Trash, with days left", usage: "nb file trash [name]", module: "browse", fn: "fileTrash" },
-  { group: "Files", name: "file restore", summary: "Bring a file back from the Trash", usage: "nb file restore <path>", module: "browse", fn: "fileRestore" },
-  { group: "Files", name: "file mkdir", summary: "Make a folder in the workspace", usage: "nb file mkdir <folder>", module: "browse", fn: "fileMkdir" },
-  { group: "Files", name: "file copy", summary: "Copy a file to a new path (a new file, same content)", usage: "nb file copy <file> <to>", module: "browse", fn: "fileCopy" },
+  { group: "Files", name: "file restore", mainOnly: true, summary: "Bring a file back from the Trash", usage: "nb file restore <path>", module: "browse", fn: "fileRestore" },
+  { group: "Files", name: "file mkdir", mainOnly: true, summary: "Make a folder in the workspace", usage: "nb file mkdir <folder>", module: "browse", fn: "fileMkdir" },
+  { group: "Files", name: "file copy", mainOnly: true, summary: "Copy a file to a new path (a new file, same content)", usage: "nb file copy <file> <to>", module: "browse", fn: "fileCopy" },
   { group: "Files", name: "file lock", summary: "Show teammates you're editing a file, until Ctrl+C or --for", usage: "nb file lock <path> [--for 30m]", module: "browse", fn: "fileLock",
     flags: { for: { type: "string", describe: "How long: 30s, 10m, 2h (default: until Ctrl+C)", valueName: "time" } } },
-  { group: "Files", name: "edit", summary: "Edit a file in your editor; a new version when it closes", usage: "nb edit <file> [-m note]", module: "docs", fn: "fileEdit", flags: { ...MESSAGE } },
+  { group: "Files", name: "edit", mainOnly: true, summary: "Edit a file in your editor; a new version when it closes", usage: "nb edit <file> [-m note]", module: "docs", fn: "fileEdit", flags: { ...MESSAGE } },
   { group: "Files", name: "commit", summary: "git commit with the current task linked (NetworkBase-Task trailer)", usage: 'nb commit -m "message" [-a] [--task 4]', module: "extras", fn: "commit",
     flags: { ...MESSAGE, all: { type: "boolean", short: "a", describe: "Commit every changed tracked file (git commit -a)" }, task: { type: "string", describe: "This task instead of the current one", valueName: "n" } } },
   { group: "Files", name: "file recent", summary: "Files you changed lately", usage: "nb file recent", module: "docs", fn: "fileRecent" },
   { group: "Files", name: "file star", summary: "Star a file, shared with the Files tab (--off to unstar)", usage: "nb file star <path> [--off]", module: "docs", fn: "fileStar", flags: { off: { type: "boolean", describe: "Unstar" } } },
   { group: "Files", name: "file history", summary: "A file's versions: who, when, based on, which is active", usage: "nb file history <path>", module: "browse", fn: "fileHistory" },
-  { group: "Files", name: "file use", summary: "Make an earlier version active (as Use this version in the app)", usage: "nb file use <path> v<n>", module: "browse", fn: "fileUse", examples: ["nb file use report.md v1"] },
-  { group: "Files", name: "file move", summary: "Move a file to another folder (asks first)", usage: "nb file move <path> <folder>", module: "browse", fn: "fileMove" },
-  { group: "Files", name: "file rename", summary: "Rename a file (asks first)", usage: "nb file rename <path> <new name>", module: "browse", fn: "fileRename" },
-  { group: "Files", name: "file delete", summary: "Move a file to the workspace Trash (asks first)", usage: "nb file delete <path>", module: "browse", fn: "fileDelete" },
+  { group: "Files", name: "file use", mainOnly: true, summary: "Make an earlier version active (as Use this version in the app)", usage: "nb file use <path> v<n>", module: "browse", fn: "fileUse", examples: ["nb file use report.md v1"] },
+  { group: "Files", name: "file move", mainOnly: true, summary: "Move a file to another folder (asks first)", usage: "nb file move <path> <folder>", module: "browse", fn: "fileMove" },
+  { group: "Files", name: "file rename", mainOnly: true, summary: "Rename a file (asks first)", usage: "nb file rename <path> <new name>", module: "browse", fn: "fileRename" },
+  { group: "Files", name: "file delete", mainOnly: true, summary: "Move a file to the workspace Trash (asks first)", usage: "nb file delete <path>", module: "browse", fn: "fileDelete" },
   { group: "Files", name: "file attach", summary: "Attach a workspace file to a task with a role", usage: "nb file attach <path> --task 4 [--as reference|draft|final]", module: "browse", fn: "fileAttach", flags: { ...TASK, ...AS } },
   { group: "Files", name: "file detach", summary: "Take a file off a task", usage: "nb file detach <path> --task 4", module: "browse", fn: "fileDetach", flags: { ...TASK } },
   { group: "Files", name: "file view", summary: "Print a file (pipe-safe)", usage: "nb file view <path>", module: "docs", fn: "fileView" },

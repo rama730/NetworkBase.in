@@ -154,8 +154,15 @@ export async function switchTo(ctx, target, opts = {}) {
 
 // ───────────────────────────────── commands
 
+/** Commands that read "this folder's branch" follow git first, as the sync commands do. @param {Context} ctx */
+async function followHere(ctx) {
+  if (!ctx.root) return;
+  await followGit(ctx).catch((error) => { if (!(error instanceof CliError) || error.code !== "OFFLINE") throw error; });
+}
+
 /** @param {Context} ctx */
 export async function branchList(ctx) {
+  await followHere(ctx);
   const list = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${enc(ctx.requireWorkspace())}/branches`, { query: { ...(ctx.flags.mine ? { mine: "1" } : {}), ...(ctx.flags.stale ? { status: "stale" } : ctx.flags.deleted ? { status: "deleted" } : {}) } }));
   const here = ctx.project?.branch?.id ?? null;
   const { c } = ctx.out;
@@ -216,6 +223,7 @@ export async function branchRename(ctx) {
 export async function branchDelete(ctx) {
   const name = ctx.positionals[0];
   if (!name) throw new CliError("USAGE", "nb branch delete <name>");
+  await followHere(ctx);
   const branch = await findBranch(ctx, name);
   if (ctx.project?.branch?.id === branch.id) throw new CliError("CONFLICT", "This folder is on that branch", { hint: "nb branch switch main first" });
   const ok = await confirm(ctx, { key: "delete", question: `Delete ${branch.name}?${branch.ahead ? ` ${branch.ahead} save(s) aren't in main.` : ""} It can be restored for 30 days.`, yesLabel: "Delete", defaultYes: false });
@@ -232,6 +240,7 @@ export async function branchDelete(ctx) {
  */
 export async function branchUpdate(ctx) {
   const name = ctx.positionals[0];
+  await followHere(ctx);
   const branch = name ? await findBranch(ctx, name) : ctx.project?.branch ? { id: ctx.project.branch.id, name: ctx.project.branch.name } : null;
   if (!branch) throw new CliError("USAGE", "This folder is on main; name a branch to update", { hint: "nb branch update feature-x" });
   const list = (/** @type {string} */ v) => String(v ?? "").split(",").map((p) => p.trim()).filter(Boolean).map((p) => `/${p.replace(/^\/+/, "")}`);
