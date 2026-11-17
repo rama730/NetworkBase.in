@@ -1124,6 +1124,10 @@
         "squash": {
           "type": "boolean",
           "describe": "One save named after the merge request"
+        },
+        "confirm-secrets": {
+          "type": "boolean",
+          "describe": "Merge files that look like they hold a key (after checking they're safe)"
         }
       },
       "examples": [],

@@ -12,6 +12,7 @@ import {
 import { revertSaveAction } from "@/app/actions/files/saves";
 import { useStepUp } from "@/components/trust/StepUp";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { getMergeRequest, MergeRequestSummary } from "@/lib/domain/merge-requests";
 import { feedbackError, toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
@@ -142,6 +143,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
   const [busy, setBusy] = useState<string | null>(null);
   const [method, setMethod] = useState<"merge" | "squash">("merge");
   const [conflicts, setConflicts] = useState<Array<{ path: string; kind: string }> | null>(null);
+  const [secretFiles, setSecretFiles] = useState<string[] | null>(null);
   const { needs: needsStepUp, dialog: stepUpDialog } = useStepUp("This merge changes a doc or final files, so confirm it’s you before merging.");
   const refresh = () => {
     void client.invalidateQueries({ queryKey: ["merge-request", projectId, number] });
@@ -167,8 +169,18 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
       return res.data;
     } finally { setBusy(null); }
   }
-  async function merge() {
-    const res = await act("merge", () => mergeMergeRequestAction(projectId, number, method));
+  async function merge(confirmSecrets = false) {
+    setSecretFiles(null);
+    const res = await act("merge", async () => {
+      const r = await mergeMergeRequestAction(projectId, number, method, confirmSecrets);
+      // Files that look like they hold a key: say which, and merge only on the person's yes (as Apply does).
+      if (!r.success && r.code === "SECRET_DETECTED") {
+        const findings = (r.details?.findings ?? []) as Array<{ path?: string }>;
+        setSecretFiles([...new Set(findings.map((f) => f.path ?? "a file"))]);
+        return { success: true as const, data: null };
+      }
+      return r;
+    });
     if (!res) return;
     if (res.outcome === "conflicts") { setConflicts(res.conflicts); return; }
     setConflicts(null);
@@ -253,6 +265,15 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
       </header>
       {tab === "conversation" ? <Conversation projectId={projectId} detail={d} busy={busy} act={act} /> : tab === "saves" ? <SavesList detail={d} /> : <FilesChanged projectId={projectId} detail={d} busy={busy} act={act} />}
       {stepUpDialog}
+      <ConfirmDialog
+        open={Boolean(secretFiles)}
+        onOpenChange={(o) => { if (!o) setSecretFiles(null); }}
+        title="Merge files that look like they hold a key?"
+        description={`${(secretFiles ?? []).join(", ")} ${secretFiles?.length === 1 ? "looks" : "look"} like ${secretFiles?.length === 1 ? "it holds" : "they hold"} a password or key. Merge only if it’s safe for everyone in the workspace to see.`}
+        confirmLabel="Merge anyway"
+        variant="destructive"
+        onConfirm={() => void merge(true)}
+      />
     </div>
   );
 }

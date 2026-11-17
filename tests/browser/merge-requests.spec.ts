@@ -103,7 +103,7 @@ test('merge: squash merges and shows Merged with Revert merge; conflicts send yo
   await page.getByRole('button', { name: 'Squash and merge' }).click();
   await expect(page.getByRole('button', { name: 'Revert merge' })).toBeVisible();
   const calls = await page.evaluate(() => (window as any).__calls);
-  expect(calls.find((c: unknown[]) => c[0] === 'merge')).toEqual(['merge', 'p1', 3, 'squash']);
+  expect(calls.find((c: unknown[]) => c[0] === 'merge')).toEqual(['merge', 'p1', 3, 'squash', false]);
 });
 
 test('conflicts: "Can\'t merge yet" with the files, and main is left alone', async ({ page }) => {

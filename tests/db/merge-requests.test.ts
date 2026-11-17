@@ -250,3 +250,23 @@ test("a merge held for someone else's yes isn't reused by another person: they g
   const [{ status }] = await sql`SELECT status FROM change_sets WHERE id = ${held.id}`;
   assert.equal(status, "discarded");
 });
+
+test("a file that looks like it holds a key stops the merge with the list; it merges only on the person's yes, never an agent's", async () => {
+  const { owner, dev, workspace, branch } = await setup();
+  const d = actor(dev);
+  const key = `token = "ghp_${"a1B2c3D4e5".repeat(4).slice(0, 36)}"\n`;
+  const set = await sets.startChangeSet(d, { workspaceId: workspace, title: "config", branchId: branch.id });
+  const c = await content(workspace, dev, key);
+  await sets.upsertItems(d, set.id, [{ op: "add", path: "/config.env", contentHash: c.hash, size: c.size, mimeType: "text/plain" }]);
+  await sets.finishChangeSet(d, set.id, { confirmSecrets: true });
+  await sets.applyChangeSet(d, request(), set.id);
+  await mrs.createMergeRequest(d, workspace, { source: branch.name });
+  await assert.rejects(mrs.mergeMergeRequest(actor(owner), request(), workspace, 1, {}), (e: { code?: string; details?: { findings?: unknown[] } }) => e.code === "SECRET_DETECTED" && Boolean(e.details?.findings?.length));
+  assert.equal(await mainText(workspace, "/config.env"), undefined);
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM change_sets WHERE workspace_id = ${workspace} AND status IN ('open', 'ready') AND branch_id IS NULL`;
+  assert.equal(n, 0, "the stopped merge leaves no change set behind");
+  await assert.rejects(mrs.mergeMergeRequest({ user: { id: owner }, tokenKind: "agent" }, request(), workspace, 1, { confirmSecrets: true }), { code: "SECRET_DETECTED" });
+  const done = await mrs.mergeMergeRequest(actor(owner), request(), workspace, 1, { confirmSecrets: true });
+  assert.equal(done.outcome, "merged");
+  assert.equal(await mainText(workspace, "/config.env"), key);
+});

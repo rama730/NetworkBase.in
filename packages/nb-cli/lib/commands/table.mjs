@@ -168,7 +168,7 @@ export const COMMANDS = [
     flags: { ...MESSAGE, file: { type: "string", describe: "File the comment is on", valueName: "path" }, line: { type: "string", describe: "Line or range, like 12 or 12-14", valueName: "n[-m]" }, suggest: { type: "string", describe: "Replacement for those lines (a suggested edit)", valueName: "text" } } },
   { group: "Files", name: "merge-request apply", summary: "Apply a suggested edit as a save on the branch", usage: "nb merge-request apply <n> <comment id>", module: "merge-request", fn: "applySuggestion" },
   { group: "Files", name: "merge-request merge", summary: "Merge into main (--squash: one save), all at once, one undo", usage: "nb merge-request merge [n] [--squash]", module: "merge-request", fn: "merge", exit: [0, 4, 7, 130],
-    flags: { squash: { type: "boolean", describe: "One save named after the merge request" } } },
+    flags: { squash: { type: "boolean", describe: "One save named after the merge request" }, "confirm-secrets": { type: "boolean", describe: "Merge files that look like they hold a key (after checking they're safe)" } } },
   { group: "Files", name: "merge-request close", summary: "Close without merging (reopen while the branch exists)", usage: "nb merge-request close [n]", module: "merge-request", fn: "close" },
   { group: "Files", name: "merge-request reopen", summary: "Reopen a closed merge request", usage: "nb merge-request reopen [n]", module: "merge-request", fn: "reopen" },
   { group: "Files", name: "merge-request ready", summary: "Mark a draft ready; reviewers are asked", usage: "nb merge-request ready [n]", module: "merge-request", fn: "ready" },

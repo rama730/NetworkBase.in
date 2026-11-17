@@ -39,5 +39,5 @@ export const reviewMergeRequestAction = async (projectId: string, n: number, sta
 export const commentMergeRequestAction = async (projectId: string, n: number, input: { body: string; path?: string | null; line?: number | null; endLine?: number | null; suggestion?: string | null }) =>
   run((a) => commentOnMergeRequest(a, projectId, n, input));
 export const applySuggestionAction = async (projectId: string, n: number, commentId: string) => run((a) => applySuggestion(a, projectId, n, commentId));
-export const mergeMergeRequestAction = async (projectId: string, n: number, method: "merge" | "squash") =>
-  run((a) => mergeMergeRequest(a, new Request("https://app.local/merge-requests"), projectId, n, { method }));
+export const mergeMergeRequestAction = async (projectId: string, n: number, method: "merge" | "squash", confirmSecrets = false) =>
+  run((a) => mergeMergeRequest(a, new Request("https://app.local/merge-requests"), projectId, n, { method, confirmSecrets }));

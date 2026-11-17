@@ -11,7 +11,7 @@ const num = (v: unknown) => (v == null || v === "" ? null : Number(v));
 /**
  * Report H14: `reviews` `{ state: approve|request_changes|comment, body? }`; `comments` `{ body?, path?, line?, endLine?,
  * suggestion? }`; `suggestions` `{ commentId }` applies one; `checks` `{ name, state, url?, save? }`; `merge` `{ method:
- * merge|squash, confirmToken? }` (an agent's merge waits for the person's yes, as Apply does).
+ * merge|squash, confirmToken?, confirmSecrets? }` (an agent's merge waits for the person's yes, as Apply does).
  */
 export async function POST(request: Request, context: Ctx) {
   const { id, n, op } = await context.params;
@@ -28,7 +28,7 @@ export async function POST(request: Request, context: Ctx) {
     if (op === "checks") return postCheck(auth, id, n, { name: String(b.name ?? ""), state: b.state, url: b.url ?? null, saveId: b.save ?? b.saveId ?? null });
     if (op === "merge") {
       return mergeMergeRequest(auth, req, id, n, {
-        method: b.method === "squash" ? "squash" : "merge", confirmToken: typeof b.confirmToken === "string" ? b.confirmToken : null,
+        method: b.method === "squash" ? "squash" : "merge", confirmToken: typeof b.confirmToken === "string" ? b.confirmToken : null, confirmSecrets: b.confirmSecrets === true,
         checkScope: (scope) => requireTokenScope(auth, scope),
       });
     }

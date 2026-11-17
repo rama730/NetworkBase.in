@@ -144,7 +144,7 @@ export async function merge(ctx) {
   const method = ctx.flags.squash ? "squash" : "merge";
   const ok = await confirm(ctx, { key: "merge", question: `${method === "squash" ? "Squash and merge" : "Merge"} !${n} into main?`, yesLabel: "Merge", defaultYes: true });
   if (!ok) return EXIT.cancelled;
-  const res = /** @type {any} */ (await ctx.api.post(`${base(ctx)}/${n}/merge`, { method, ...(ctx.flags.confirm ? { confirmToken: String(ctx.flags.confirm) } : {}) }));
+  const res = /** @type {any} */ (await ctx.api.post(`${base(ctx)}/${n}/merge`, { method, ...(ctx.flags.confirm ? { confirmToken: String(ctx.flags.confirm) } : {}), ...(ctx.flags["confirm-secrets"] ? { confirmSecrets: true } : {}) }));
   const { c } = ctx.out;
   if (res.outcome === "conflicts") {
     ctx.out.result("nb.merge-request.merge/1", res, () => [

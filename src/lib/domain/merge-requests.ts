@@ -516,6 +516,8 @@ async function mergeItems(source: Branch, mainId: string): Promise<ItemInput[]> 
  */
 export async function mergeMergeRequest(actor: Actor, request: Request, workspaceId: string, ref: string | number, input: {
   method?: "merge" | "squash" | null; confirmToken?: string | null; checkScope?: (scope: "file:final" | "doc:write") => Promise<Response | null>;
+  /** The person's yes to files that look like they hold a key (SECRET_DETECTED lists them); agents can't give it. */
+  confirmSecrets?: boolean;
 }) {
   const userId = userOf(actor);
   const method = input.method === "squash" ? "squash" : "merge";
@@ -539,7 +541,13 @@ export async function mergeMergeRequest(actor: Actor, request: Request, workspac
     const title = (method === "squash" ? mr.title : `Merge !${mr.number}: ${mr.title}`).slice(0, 120);
     const set = await startChangeSet(actor, { workspaceId, title, taskId: mr.taskId });
     for (let i = 0; i < items.length; i += 200) await upsertItems(actor, set.id, items.slice(i, i + 200));
-    await finishChangeSet(actor, set.id, { confirmSecrets: !isAgent(actor) });
+    // Files that look like they hold a key stop the merge with the list, as Apply does, until the person says yes.
+    try {
+      await finishChangeSet(actor, set.id, { confirmSecrets: Boolean(input.confirmSecrets) && !isAgent(actor) });
+    } catch (error) {
+      await dropSet(set.id);
+      throw error;
+    }
     const stepUp = await changeSetStepUp(actor, set.id);
     if (stepUp) {
       await dropSet(set.id);
