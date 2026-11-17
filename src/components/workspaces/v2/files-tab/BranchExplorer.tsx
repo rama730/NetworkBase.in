@@ -13,6 +13,7 @@ import {
   uploadContentOnBranchAction,
 } from "@/app/actions/files/branches";
 import { createMergeRequestAction } from "@/app/actions/files/merge-requests";
+import { useStepUp } from "@/components/trust/StepUp";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
@@ -627,6 +628,7 @@ async function base64(file: Blob) {
 
 function useBranchUpload(branch: BranchView, refresh: () => void) {
   const [busy, setBusy] = useState(false);
+  const { needs: needsStepUp, dialog: stepUpDialog } = useStepUp("This upload includes a doc or final files, so confirm it’s you before saving it.");
   const [held, setHeld] = useState<{ setId: string; files: Array<{ file: File; hash: string }>; paths: string[] } | null>(null);
   async function sendContent(setId: string, entries: Array<{ file: File; hash: string }>, confirmSecrets = false) {
     let batch: Array<{ hash: string; base64: string }> = [];
@@ -657,8 +659,10 @@ function useBranchUpload(branch: BranchView, refresh: () => void) {
     }
     await flush();
   }
-  async function finish(setId: string, confirmSecrets = false) {
+  async function finish(setId: string, confirmSecrets = false): Promise<Awaited<ReturnType<typeof finishUploadOnBranchAction>>> {
     const res = await finishUploadOnBranchAction(setId, confirmSecrets);
+    // Docs and final files: "Verify it's you", then the same finish again.
+    if (needsStepUp(res as never, () => void finish(setId, confirmSecrets).then((r) => { if (!r.success && r.code !== "STEP_UP_REQUIRED") toast.error(r.error); }))) return res;
     if (!res.success) return res;
     toast.success(`Saved on ${branch.name}`);
     refresh();
@@ -681,12 +685,14 @@ function useBranchUpload(branch: BranchView, refresh: () => void) {
         setHeld({ setId, files: entries.filter((e) => paths.includes(e.path)), paths });
         return;
       }
-      if (!done.success) toast.error(done.error);
+      if (!done.success && done.code !== "STEP_UP_REQUIRED") toast.error(done.error);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The upload didn’t finish");
     } finally { setBusy(false); }
   }
   const dialog = (
+    <>
+    {stepUpDialog}
     <ConfirmDialog
       open={Boolean(held)}
       onOpenChange={(o) => { if (!o) setHeld(null); }}
@@ -702,13 +708,14 @@ function useBranchUpload(branch: BranchView, refresh: () => void) {
           try {
             await sendContent(h.setId, h.files, true);
             const done = await finish(h.setId, true);
-            if (!done.success) toast.error(done.error);
+            if (!done.success && done.code !== "STEP_UP_REQUIRED") toast.error(done.error);
           } catch (error) {
             toast.error(error instanceof Error ? error.message : "The upload didn’t finish");
           } finally { setBusy(false); }
         })();
       }}
     />
+    </>
   );
   return { busy, send, dialog };
 }

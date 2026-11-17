@@ -22,7 +22,10 @@ async function run<T>(fn: (a: Actor) => Promise<T>): Promise<Result<T>> {
   try {
     return { success: true, data: await fn(await actor()) };
   } catch (error) {
-    if (error instanceof ChangeSetError) return { success: false, error: error.message, code: error.code, ...(error.details ? { details: error.details } : {}) };
+    if (error instanceof ChangeSetError) {
+      const stepUp = (error.details as { stepUp?: { methods: string[]; factorId?: string } } | undefined)?.stepUp;
+      return { success: false, error: error.message, code: error.code, ...(error.details ? { details: error.details } : {}), ...(stepUp ? { stepUp } : {}) };
+    }
     throw error;
   }
 }

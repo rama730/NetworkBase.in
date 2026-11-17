@@ -320,3 +320,16 @@ test("H-2b: History shows lines added and removed per save and per file, worked 
   assert.equal(a, 2, "kept");
   void mainId;
 });
+
+test("H-2b: the upload finish only applies an upload on a branch, never a change set on main", async () => {
+  const { owner, workspace } = await setup();
+  const o = actor(owner);
+  const onMain = await sets.startChangeSet(o, { workspaceId: workspace, title: "main set" });
+  await assert.rejects(branches.finishUploadOnBranch(o, request(), onMain.id), { code: "NOT_AVAILABLE" });
+  const other = await sql.begin((tx) => createUser(tx));
+  await sql.begin((tx) => addMember(tx, workspace, other, "member"));
+  const { branch } = await branches.createBranch(o, workspace, { name: "uploads" });
+  const bytes = Buffer.from("x\n");
+  const { changeSetId } = await branches.beginUploadOnBranch(o, branch.id, [{ path: "/x.txt", hash: sha(bytes), size: 2, mimeType: "text/plain" }]);
+  await assert.rejects(branches.finishUploadOnBranch(actor(other), request(), changeSetId), { code: "NOT_FOUND" }, "someone else's upload");
+});

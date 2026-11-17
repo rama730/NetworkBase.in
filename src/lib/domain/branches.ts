@@ -654,6 +654,17 @@ export async function beginUploadOnBranch(actor: Actor, branchId: string, files:
 /** Finishes an upload: checks it (keys need the person's yes) and saves it on the branch. */
 export async function finishUploadOnBranch(actor: Actor, request: Request, changeSetId: string, opts: { confirmSecrets?: boolean } = {}) {
   const { finishChangeSet, applyChangeSet, discardChangeSet } = await import("@/lib/domain/change-sets");
+  // Only an upload on a branch finishes here: main's change sets go through Apply, with its checks.
+  if (!UUID.test(changeSetId)) fail("Change set not found", 404, "NOT_FOUND");
+  const [set] = await db.select({ branchId: changeSets.branchId, authorId: changeSets.authorId }).from(changeSets).where(eq(changeSets.id, changeSetId)).limit(1);
+  if (!set || set.authorId !== userOf(actor)) fail("Change set not found", 404, "NOT_FOUND");
+  if (!set!.branchId) fail("Apply main's change sets in Changes", 409, "NOT_AVAILABLE");
+  const { branch } = await loadBranch(actor, set!.branchId!, { write: true });
+  if (branch.isDefault) fail("Apply main's change sets in Changes", 409, "NOT_AVAILABLE");
+  // The same check as Apply: docs and final files ask "Verify it's you" first in the browser.
+  const { changeSetStepUp } = await import("@/lib/security/change-set-step-up");
+  const stepUp = await changeSetStepUp(actor, changeSetId);
+  if (stepUp) fail("This upload touches a doc or final files: verify it's you first", 403, "STEP_UP_REQUIRED", { stepUp });
   try {
     await finishChangeSet(actor, changeSetId, { confirmSecrets: Boolean(opts.confirmSecrets) && actor.tokenKind !== "agent" });
     await applyChangeSet(actor, request, changeSetId);
