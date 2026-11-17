@@ -8,8 +8,11 @@ const CONTEXT = 3;
  * @returns {{ lines: Array<{ kind: " " | "-" | "+" | "@", text: string }>, added: number, removed: number } | null} null when too big
  */
 export function unifiedDiff(a, b) {
-  const x = a.split("\n");
-  const y = b.split("\n");
+  // Lines, without the empty piece after a final newline: no file is no lines, not one empty line (an added file
+  // showed a removed blank line, M8 live check).
+  const toLines = (/** @type {string} */ t) => { const l = t.split("\n"); if (l.at(-1) === "") l.pop(); return l; };
+  const x = toLines(a);
+  const y = toLines(b);
   if (x.length > MAX_LINES || y.length > MAX_LINES) return null;
   const n = x.length;
   const m = y.length;

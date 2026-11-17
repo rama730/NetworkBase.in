@@ -11,8 +11,12 @@ const enc = encodeURIComponent;
 const counts = (s) => [s.files.added && `${s.files.added} added`, s.files.changed && `${s.files.changed} changed`, s.files.deleted && `${s.files.deleted} deleted`, s.files.renamed && `${s.files.renamed} moved`].filter(Boolean).join(", ");
 /** @param {any} s */
 const byWhom = (s) => `${s.author?.username ? `@${s.author.username}` : s.author?.name ?? "someone"}${s.via === "agent" ? ` with ${s.agentName ?? "an agent"}` : s.via === "cli" ? " (terminal)" : ""}`;
-/** @param {string} iso */
-const when = (iso) => iso.slice(0, 16).replace("T", " ");
+/** Local time, like the app (0.8 #9). @param {string} iso */
+const when = (iso) => {
+  const d = new Date(iso);
+  const p = (/** @type {number} */ n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
 
 /** A save named by its number ("12") or id. @param {Context} ctx @param {string | undefined} given */
 async function saveId(ctx, given) {
