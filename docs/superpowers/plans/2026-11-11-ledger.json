@@ -10402,9 +10402,9 @@
       "text": "Students: everything due across all their classes in one view (nb assignment list --due week), and assignments included in nb next.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F1.5feb597e",
@@ -10412,9 +10412,9 @@
       "text": "Teachers:",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F1.c40a0d91",
@@ -10422,9 +10422,9 @@
       "text": "Announcements: organization announcements shown in nb inbox and nb class announcements.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F1.0a99571e",
@@ -10432,9 +10432,9 @@
       "text": "Unchanged: creating assignments stays in the app (the CLI 2.0 report's decision D21).",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F2.03550178",
@@ -10442,9 +10442,9 @@
       "text": "nb sprint create \"<name>\" --from monday --to friday",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F2.41e71405",
@@ -10452,9 +10452,9 @@
       "text": "adding tasks: nb sprint add 3 4 5",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F2.1b9762cf",
@@ -10462,9 +10462,9 @@
       "text": "closing a sprint, with its unfinished tasks moved to the next one: nb sprint close",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F2.b9b7e551",
@@ -10472,9 +10472,9 @@
       "text": "a simple text burndown in nb sprint view",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F3.7552b51a",
@@ -10482,9 +10482,9 @@
       "text": "nb workspace create \"<title>\", nb workspace settings (view and change), and nb workspace archive.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F3.19769544",
@@ -10492,9 +10492,9 @@
       "text": "The agent policy (ask for everything / important only / trust drafts and docs) from the CLI.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F3.01574e94",
@@ -10502,9 +10502,9 @@
       "text": "Docs: nb doc add <file> makes a file a workspace doc, and nb doc remove <slug> unlinks it (the file stays).",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F4.c7da575b",
@@ -10542,9 +10542,9 @@
       "text": "New-country warning: the server already records the country a token was last used from (migration 0076). nb token list shows it, and use from a new country is f",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F5.8fb00446",
@@ -10552,9 +10552,9 @@
       "text": "nb whoami --security: your sign-ins, whether two-factor is on, and recent security events.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F5.2f9ae540",
@@ -10562,9 +10562,9 @@
       "text": "\"Verify it's you\" for risky CLI actions, like the app: making a personal access token, removing members, exporting.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F5.0c333f06",
@@ -10572,9 +10572,9 @@
       "text": "nb logout --all (exists) stays.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F6.abac2e47",
@@ -10584,7 +10584,7 @@
       "milestone": "M7",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "built in packages/networkbase-action (tested); user step: create networkbase/action"
     },
     {
       "key": "F6.7c95bc41",
@@ -10592,9 +10592,9 @@
       "text": "nb api <METHOD> <path>: calls any /api/v1 route with your sign-in, for anything the CLI doesn't cover yet. Writes follow the same yes rules.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F6.7b4e3e90",
@@ -10602,9 +10602,9 @@
       "text": "Scripting recipes in the docs: cron jobs, CI steps and shell loops using --json and the exit codes.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F7.558bc094",
@@ -10642,9 +10642,9 @@
       "text": "nb export: a zip of a workspace's tasks, comments, docs and files, for backups. It needs a yes for agents.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F8.05ddfc19",
@@ -10652,9 +10652,9 @@
       "text": "A clear note in /docs/cli of what the CLI keeps on the computer, and nb logout --purge to wipe all of it (credentials, caches, queue, base copies).",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F9.68a57ed0",
@@ -10664,7 +10664,7 @@
       "milestone": "M7",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "user step: VoiceOver/Narrator pass with --plain"
     },
     {
       "key": "F9.7905efdc",
@@ -10672,9 +10672,9 @@
       "text": "Never colour alone: every colour-coded state also has a word or symbol.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F9.27914226",
@@ -10682,9 +10682,9 @@
       "text": "Time zone: already honoured. Other languages come later.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F10.7f99a477",
@@ -10692,9 +10692,9 @@
       "text": "Recipes in /docs/cli: start the day, hand in an assignment, review a class, set up an agent, back up a workspace. Each is copy-ready and tested in CI.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F10.6ba1f702",
@@ -10702,9 +10702,9 @@
       "text": "Every error links to its docs section (see C5).",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F10b.46619500",
@@ -10712,9 +10712,9 @@
       "text": "F4 refresh tokens (no more re-signing in every 30 days)",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F10b.53a90ed2",
@@ -10724,7 +10724,7 @@
       "milestone": "M7",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "user step: npm dist-tag next with 2FA"
     },
     {
       "key": "F10b.5ba75bcf",
@@ -10732,9 +10732,9 @@
       "text": "F1 student \"due across classes\" and teacher batch return",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F10b.6337fe91",
@@ -10742,9 +10742,9 @@
       "text": "F2 sprint create and add",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F10b.3c2f4349",
@@ -10752,9 +10752,9 @@
       "text": "Student: nb assignment list --due week → nb next shows the nearest.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F10b.cd34dde0",
@@ -10762,9 +10762,9 @@
       "text": "Teacher: nb class progress lab-2 → nb review return 3 5 8 -m \"add tests\".",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F10b.8b8504b7",
@@ -10772,9 +10772,9 @@
       "text": "Admin: nb workspace settings → set the agent policy → nb agent pause during an incident.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F10b.f9907b64",
@@ -10782,9 +10782,9 @@
       "text": "Backup: nb export (main) or --all-branches (Part H).",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.fab793c4",
@@ -10792,9 +10792,9 @@
       "text": "F1 student \"due across classes\" · extend GET /api/v1/assignments with due",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.ea63517c",
@@ -10802,9 +10802,9 @@
       "text": "F1 class progress · new GET /api/v1/assignments/:master/progress over the existing roster data",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.4d3b57ef",
@@ -10812,9 +10812,9 @@
       "text": "F1 batch return · extend the review return route to take several ids and one comment",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.335a19df",
@@ -10822,9 +10822,9 @@
       "text": "F1 announcements · read route over the existing organization announcements",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.d59ba6da",
@@ -10832,9 +10832,9 @@
       "text": "F2 sprints · POST (create), POST …/:sprint/tasks (add), POST …/:sprint/close on top of GET /workspaces/:id/sprints (exists), using the existing sprint server fu",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.b8d57958",
@@ -10842,9 +10842,9 @@
       "text": "F3 workspace create, settings, archive · v1 routes over the existing workspace actions; owner and admin only",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.8086bfac",
@@ -10852,9 +10852,9 @@
       "text": "F3 agent policy · PATCH /workspaces/:id/agents { policy, paused } (also serves F4 pause and resume)",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.3904c650",
@@ -10862,9 +10862,9 @@
       "text": "F3 docs add and remove · v1 routes over linkWorkspaceDocAction and unlinkWorkspaceDocAction",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.00ed7b30",
@@ -10872,9 +10872,9 @@
       "text": "F4 agent activity · GET /api/v1/agent-sessions and …/:id/activity (the agent-sessions folder exists)",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.8bd3d87f",
@@ -10882,9 +10882,9 @@
       "text": "F4 refresh tokens · migration 0092 oauthrefreshtokens (id, sessionid, tokenhash, familyid, expiresat, usedat, revokedat); the token endpoint accepts granttype=r",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.4401eb1f",
@@ -10892,9 +10892,9 @@
       "text": "F5 new country · lastcountry exists (0076); nb token list shows it; a new country on a token sends a security notification",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.bb3ba2c1",
@@ -10902,9 +10902,9 @@
       "text": "F5 security summary · GET /api/v1/me/security",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.2b42405e",
@@ -10912,9 +10912,9 @@
       "text": "F5 \"Verify it's you\" in the CLI · for risky CLI actions the CLI opens a short browser page to verify, then continues (the same pattern as A10 change access)",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.209dc0e6",
@@ -10924,7 +10924,7 @@
       "milestone": "M7",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "built in packages/networkbase-action; user step: create the repository"
     },
     {
       "key": "F11.410b50ce",
@@ -10932,9 +10932,9 @@
       "text": "F6 nb api · CLI only; calls go through the same token route list and scopes, so nothing new is reachable",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.c9e130fd",
@@ -10942,9 +10942,9 @@
       "text": "F8 export · reuses the folder and workspace zip from the downloads work, plus a JSON file of tasks, comments and docs; --branch and --all-branches with Part H (",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.b813130c",
@@ -10952,9 +10952,9 @@
       "text": "F8 logout --purge · CLI only",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.47849a23",
@@ -10964,7 +10964,7 @@
       "milestone": "M7",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "user step: npm dist-tag next with 2FA"
     },
     {
       "key": "F11.f5c683d6",
@@ -10972,9 +10972,9 @@
       "text": "each item's command and route pass the CLI and DB suites",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.40dbf915",
@@ -10982,9 +10982,9 @@
       "text": "the refresh-token rotation and reuse tests pass",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.642824c5",
@@ -10994,7 +10994,7 @@
       "milestone": "M7",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "waits for networkbase/action to exist"
     },
     {
       "key": "F11.1ea3e202",
@@ -11002,9 +11002,9 @@
       "text": "the docs recipes pass in CI",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.914bdeef",
@@ -11012,9 +11012,9 @@
       "text": "Refresh-token mistakes. Handled with rotation, family revocation and tests modelled on the OAuth 2.0 security best practice.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F11.2e51a9eb",
@@ -11022,9 +11022,9 @@
       "text": "Export size. It reuses the zip streaming that is already live.",
       "kind": "build",
       "milestone": "M7",
-      "status": "todo",
+      "status": "live",
       "test": "",
-      "evidence": ""
+      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "R1.429d3a82",
