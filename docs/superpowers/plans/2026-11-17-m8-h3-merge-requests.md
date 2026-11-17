@@ -97,3 +97,20 @@ Review and security check; gates; benchmark (open a 200-file merge request; merg
   - a browser merge editor
   - "My reviews" across workspaces
   - per-branch watcher notices
+
+## Live (2026-11-17, with H-2b)
+
+- **Deployed:** a23fb9015, 15b19cdf3, c0210f060 and 26be72beb, with 0098 in production.
+- **Checked on ponytail:**
+  - the picker made branch `h3-live-check` and switched All files to it
+  - a new file saved on the branch
+  - History followed the branch (+4 −0)
+  - Open merge request made !1
+  - a suggested edit was applied
+  - Squash and merge made main save 6, and Revert merge made save 7
+  - the branch was deleted from the bar
+  - `nb mr list` and `nb mr view` work against production
+- **Test data:** main saves 6 and 7 (the merge and its revert); !1 merged; the branch deleted (restorable 30 days).
+- **Not checked live:**
+  - approving (needs a second member)
+  - an upload through the browser (covered by the browser test)
