@@ -287,7 +287,7 @@ export async function restoreBranch(actor: Actor, branchId: string) {
 
 export type BranchChange = { op: "add" | "change" | "delete" | "rename"; path: string; fromPath?: string | null; contentHash?: string | null; assetId?: string | null; size?: number | null; mimeType?: string | null; executable?: boolean | null };
 type WriteInput = {
-  changes: BranchChange[]; expectedHead?: string | null; kind?: "save" | "merge" | "revert"; message: string; authorId: string;
+  changes: BranchChange[]; expectedHead?: string | null; kind?: "save" | "merge" | "revert" | "sync"; message: string; authorId: string;
   via?: string | null; agentName?: string | null; taskId?: string | null; changeSetId?: string | null; revertsSaveId?: string | null;
   /** Update from main: the branch moves onto this main save (its new base and merge base). */
   rebase?: { saveId: string; seq: number } | null;
@@ -544,7 +544,7 @@ export async function saveTextOnBranch(actor: Actor, branchId: string, input: { 
 }
 
 /** Every file of a branch at or under `folder` (all pages; a branch holds at most 20,000 files here). */
-async function filesUnder(branch: Branch, mainId: string, folder: string | null) {
+export async function filesUnder(branch: Branch, mainId: string, folder: string | null) {
   const out: TreeEntry[] = [];
   let cursor: string | null = null;
   do {

@@ -47,7 +47,6 @@ const BROWSER_ONLY = new Set([
   "sessions",
   "skills/proposals",
   "skills/resolve",
-  "workspaces/[id]/tasks/[taskId]/merge",
 ]);
 
 const ROOT = path.join(process.cwd(), "src/app/api/v1");

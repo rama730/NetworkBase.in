@@ -102,7 +102,8 @@
     "drizzle/0096_file_saves_history.sql",
     "drizzle/0097_branch_files_writes.sql",
     "drizzle/0098_merge_requests.sql",
-    "drizzle/0099_branch_protection.sql"
+    "drizzle/0099_branch_protection.sql",
+    "drizzle/0100_drop_task_sandbox.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

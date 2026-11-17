@@ -133,7 +133,6 @@ export type TaskLinkedNode = {
   path: string | null;
   annotation?: string | null;
   tags?: string[] | null;
-  canonicalNodeId?: string | null;
 };
 
 export type TaskFileIntentResolution = {
@@ -304,8 +303,6 @@ export function inferTaskFileRole(node: TaskLinkedNode): TaskFileRole {
   if (hasKeyword(annotationTokens, DELIVERABLE_KEYWORDS)) return "deliverable";
   if (hasKeyword(annotationTokens, REFERENCE_KEYWORDS)) return "reference";
   if (hasKeyword(annotationTokens, WORKING_KEYWORDS)) return "working";
-
-  if (node.canonicalNodeId) return "deliverable";
 
   // Otherwise infer by name and type
   const tokens = normalizeToken(node.name).split(/[\s_.-]+/);

@@ -422,7 +422,6 @@ export async function afterTaskTransition(
             path: workspaceNodes.path,
             annotation: taskNodeLinks.annotation,
             tags: taskNodeLinks.tags,
-            canonicalNodeId: workspaceNodes.canonicalNodeId,
           })
           .from(taskNodeLinks)
           .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))

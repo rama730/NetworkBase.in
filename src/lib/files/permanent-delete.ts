@@ -1,4 +1,4 @@
-import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
@@ -64,17 +64,6 @@ export async function inspectPermanentDelete(
   if (nodes.some((node) => node.metadata?.isSystem === true))
     throw new Error("System folders cannot be permanently deleted.");
   const ids = nodes.map((node) => node.id);
-  const aliases = await tx.query.workspaceNodes.findFirst({
-    where: and(
-      inArray(workspaceNodes.canonicalNodeId, ids),
-      notInArray(workspaceNodes.id, ids),
-    ),
-    columns: { id: true },
-  });
-  if (aliases)
-    throw new Error(
-      "Another file still depends on this original. Remove its dependent copies before permanently deleting it.",
-    );
   const versions = await tx.query.fileVersions.findMany({
     where: inArray(fileVersions.nodeId, ids),
     columns: { s3Key: true, assetId: true },

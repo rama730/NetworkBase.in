@@ -127,8 +127,7 @@ test("COR-029: request feeds and role alignment project people through profile p
 });
 
 test("COR-059: subtree rewrites match literal path prefixes within the task scope", () => {
-  const merge = read("src/lib/workspaces/merge-sandbox.ts");
-  assert.doesNotMatch(merge, /path LIKE/);
+  // The task sandbox merge was removed with Branches (report H16, 2026-11-17).
   const project = projectActionsSource();
   assert.doesNotMatch(project, /path LIKE \$\{`\$\{node\.path\}\/%`\}/);
   assert.match(project, /AND task_id = \$\{taskId\}\s+AND starts_with\(path, \$\{`\$\{node\.path\}\/`\}\)/);

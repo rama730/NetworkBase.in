@@ -314,7 +314,6 @@ export function BreadcrumbBar({
             deletedAt: null,
             syncStatus: "merged",
             taskId: null,
-            canonicalNodeId: null,
             lastSyncedCommitSha: null,
           };
         });

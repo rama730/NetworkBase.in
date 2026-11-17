@@ -199,7 +199,6 @@ for (const [options, message] of [
   [{ active: true }, /Only items already in Trash/],
   [{ system: true }, /System folders/],
   [{ foreignKey: true }, /storage key/],
-  [{ alias: true }, /depends on this original/],
   [{ missingIntent: true }, /not authorized/],
   [{ scopeChanged: true }, /would be deleted has changed/],
   [{ unregistered: true }, /registration is still pending/],

@@ -17,8 +17,8 @@ export function taskFileEntriesSql(projectId: string, taskIds: string[], deliver
 }
 
 /** SQL equivalent of inferTaskFileRole, for filtering before pagination. */
-export function taskFileRoleSql(input: { tags: SQL; annotation: SQL; name: SQL; canonicalNodeId: SQL }) {
-  const { tags, annotation, name, canonicalNodeId } = input;
+export function taskFileRoleSql(input: { tags: SQL; annotation: SQL; name: SQL }) {
+  const { tags, annotation, name } = input;
   const ann = sql`lower(coalesce(${annotation}, ''))`;
   const annTokens = sql`regexp_split_to_array(regexp_replace(${ann}, '[.][a-z0-9]+$', ''), '[^a-z0-9]+')`;
   const nameTokens = sql`regexp_split_to_array(regexp_replace(lower(trim(coalesce(${name}, ''))), '[.][^/.]+$', ''), '[^a-z0-9]+')`;
@@ -35,7 +35,6 @@ export function taskFileRoleSql(input: { tags: SQL; annotation: SQL; name: SQL; 
     WHEN ${matches(annTokens, TASK_FILE_ROLE_KEYWORDS.deliverable)} THEN 'deliverable'
     WHEN ${matches(annTokens, TASK_FILE_ROLE_KEYWORDS.reference)} THEN 'reference'
     WHEN ${matches(annTokens, TASK_FILE_ROLE_KEYWORDS.working)} THEN 'working'
-    WHEN ${canonicalNodeId} IS NOT NULL THEN 'deliverable'
     WHEN ${matches(nameTokens, TASK_FILE_ROLE_KEYWORDS.deliverable)} THEN 'deliverable'
     WHEN ${matches(nameTokens, TASK_FILE_ROLE_KEYWORDS.reference)} THEN 'reference'
     ELSE 'working' END`;
@@ -45,13 +44,13 @@ export function taskFileRoleSql(input: { tags: SQL; annotation: SQL; name: SQL; 
 export function taskFileAssociationsSql(projectId: string) {
   return sql`WITH attachments AS (
     SELECT l.task_id, n.id AS node_id, l.tags, l.annotation,
-      ${taskFileRoleSql({ tags: sql`l.tags`, annotation: sql`l.annotation`, name: sql`n.name`, canonicalNodeId: sql`n.canonical_node_id` })} AS role
+      ${taskFileRoleSql({ tags: sql`l.tags`, annotation: sql`l.annotation`, name: sql`n.name` })} AS role
     FROM task_node_links l
     JOIN workspace_nodes n ON n.id = l.node_id AND n.workspace_id = ${projectId} AND n.deleted_at IS NULL
     JOIN tasks t ON t.id = l.task_id AND t.workspace_id = ${projectId} AND t.deleted_at IS NULL
     UNION ALL
     SELECT t.id, n.id, '[]'::jsonb AS tags, NULL::text AS annotation,
-      ${taskFileRoleSql({ tags: sql`'[]'::jsonb`, annotation: sql`NULL::text`, name: sql`n.name`, canonicalNodeId: sql`n.canonical_node_id` })} AS role
+      ${taskFileRoleSql({ tags: sql`'[]'::jsonb`, annotation: sql`NULL::text`, name: sql`n.name` })} AS role
     FROM tasks t
     JOIN workspace_nodes n ON n.workspace_id = t.workspace_id AND n.deleted_at IS NULL
       AND (n.task_id = t.id OR n.path LIKE '/.system/tasks/' || t.id::text || '/%')

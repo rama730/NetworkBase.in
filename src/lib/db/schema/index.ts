@@ -3243,10 +3243,6 @@ export const workspaceNodes = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     parentId: uuid("parent_id"),
     taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }),
-    canonicalNodeId: uuid("canonical_node_id").references(
-      (): AnyPgColumn => workspaceNodes.id,
-      { onDelete: "set null" },
-    ),
     path: text("path").notNull().default("/"),
     // Circular ref handled by foreignKey below
     type: text("type", { enum: ["folder", "file"] }).notNull(),
@@ -3310,13 +3306,6 @@ export const workspaceNodes = pgTable(
       t.projectId,
       t.taskId,
       t.syncStatus,
-    ),
-    canonicalIdx: index("workspace_nodes_canonical_idx").on(
-      t.projectId,
-      t.canonicalNodeId,
-    ),
-    canonicalNodeFkIdx: index("workspace_nodes_canonical_node_idx").on(
-      t.canonicalNodeId,
     ),
     taskFkIdx: index("workspace_nodes_task_idx").on(t.taskId),
     syncGitIdx: index("workspace_nodes_sync_git_idx").on(
@@ -5664,64 +5653,6 @@ export const extensionRecoveryDrafts = pgTable(
 );
 
 // ============================================================================
-// PROJECT GIT DELTAS
-// ============================================================================
-export const workspaceGitDeltas = pgTable(
-  "workspace_git_deltas",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    taskId: uuid("task_id").references(() => tasks.id, {
-      onDelete: "set null",
-    }),
-    targetBranch: text("target_branch").notNull(),
-    sequenceNumber: bigint("sequence_number", { mode: "number" }).notNull(),
-    deltaOrder: integer("delta_order").notNull(),
-    action: text("action").notNull(),
-    nodeId: uuid("node_id").references(() => workspaceNodes.id, {
-      onDelete: "set null",
-    }),
-    path: text("path").notNull(),
-    oldPath: text("old_path"),
-    gitBlobHash: text("git_blob_hash"),
-    fileVersionId: uuid("file_version_id").references(() => fileVersions.id, {
-      onDelete: "set null",
-    }),
-    s3Key: text("s3_key"),
-    status: text("status").default("pending").notNull(),
-    jobId: uuid("job_id"),
-    processedCommitSha: text("processed_commit_sha"),
-    processingError: text("processing_error"),
-    processedAt: timestamp("processed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    uniqueSeq: unique("workspace_git_deltas_seq_unique").on(
-      t.projectId,
-      t.targetBranch,
-      t.sequenceNumber,
-      t.deltaOrder,
-    ),
-    syncIdx: index("workspace_git_deltas_sync_idx").on(
-      t.projectId,
-      t.targetBranch,
-      t.status,
-      t.sequenceNumber,
-      t.deltaOrder,
-    ),
-    taskIdx: index("workspace_git_deltas_task_idx").on(t.taskId),
-    nodeIdx: index("workspace_git_deltas_node_idx").on(t.nodeId),
-    fileVersionIdx: index("workspace_git_deltas_file_version_idx").on(
-      t.fileVersionId,
-    ),
-  }),
-);
-
-// ============================================================================
 // IMPORT JOBS
 // ============================================================================
 export const importJobs = pgTable(
@@ -5841,8 +5772,6 @@ export type ExtensionRecoverySession =
   typeof extensionRecoverySessions.$inferSelect;
 export type NewExtensionRecoverySession =
   typeof extensionRecoverySessions.$inferInsert;
-export type WorkspaceGitDelta = typeof workspaceGitDeltas.$inferSelect;
-export type NewWorkspaceGitDelta = typeof workspaceGitDeltas.$inferInsert;
 export type ImportJob = typeof importJobs.$inferSelect;
 export type NewImportJob = typeof importJobs.$inferInsert;
 export type ImportJobFile = typeof importJobFiles.$inferSelect;

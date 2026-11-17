@@ -842,7 +842,6 @@ async function readSprintTaskActivityPage(input: {
             pn.name AS "nodeName",
             pn.type AS "nodeType",
             pn.path AS "nodePath",
-            pn.canonical_node_id AS "canonicalNodeId",
             tnl.linked_at AS "linkedAt",
             tnl.annotation,
             tnl.tags,
@@ -862,7 +861,6 @@ async function readSprintTaskActivityPage(input: {
           nodeName: string;
           nodeType: "folder" | "file";
           nodePath: string;
-          canonicalNodeId: string | null;
           linkedAt: Date;
           annotation: string | null;
           tags: string[] | null;
@@ -913,7 +911,6 @@ async function readSprintTaskActivityPage(input: {
       path: link.nodePath,
       annotation: link.annotation,
       tags: link.tags,
-      canonicalNodeId: link.canonicalNodeId,
     });
 
     files.push({

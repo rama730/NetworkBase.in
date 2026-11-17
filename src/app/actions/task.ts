@@ -707,7 +707,6 @@ export async function approveTaskReviewAction(
           name: workspaceNodes.name,
           type: workspaceNodes.type,
           path: workspaceNodes.path,
-          canonicalNodeId: workspaceNodes.canonicalNodeId,
           currentVersion: workspaceNodes.currentVersion,
           revisedAt: fileVersions.uploadedAt,
         })

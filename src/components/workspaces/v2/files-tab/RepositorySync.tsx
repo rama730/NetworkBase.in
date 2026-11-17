@@ -1926,7 +1926,9 @@ export function RepositorySync({
           description={
             manifest.direction === "push"
               ? "Choose the files to publish to GitHub."
-              : "Choose the files to import into workspace files."
+              : manifest.local
+                ? `Choose the files to save on the NetworkBase branch ${manifest.local.name}; main isn’t changed.`
+                : "Choose the files to import into workspace files."
           }
           onBack={back}
           headingRef={headingRef}

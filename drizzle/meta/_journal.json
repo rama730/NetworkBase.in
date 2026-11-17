@@ -694,6 +694,13 @@
       "when": 1794803589282,
       "tag": "0099_branch_protection",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1794803649282,
+      "tag": "0100_drop_task_sandbox",
+      "breakpoints": true
     }
   ]
 }

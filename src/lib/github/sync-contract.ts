@@ -80,6 +80,11 @@ export interface SyncManifest {
   files: SyncFile[];
   /** Draft branch: comparison uses base; publication creates branch only at confirmation. */
   newBranch?: { base: string };
+  /**
+   * The NetworkBase side when it isn't main (report H6, H-5): the branch with the GitHub branch's name, as it was at
+   * review (its head), or one a pull will create (`branchId` null).
+   */
+  local?: { branchId: string | null; name: string; headSaveId: string | null };
   visibility?: "public" | "private";
   newRepository?: {
     owner: string;

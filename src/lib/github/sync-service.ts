@@ -2,10 +2,12 @@ import "server-only";
 import { reusableBlobSha } from "@/lib/github/blob-reuse";
 import { childGrant } from "@/lib/organizations/permissions";
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
+import { and, eq, isNull, isNotNull, inArray, desc, ne, sql } from "drizzle-orm";
+import { mapLocalSide } from "@/lib/github/branch-mapping";
 import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
+  branches,
   workspaces,
   workspaceNodes,
   workspaceEventCounters,
@@ -315,6 +317,24 @@ export async function readSyncContributors(
   return result;
 }
 
+/**
+ * A branch's files as compare's local rows (H-5): the content the branch has (its own, or main's where it hasn't
+ * changed them), keyed by path without the leading slash. No node ids: a branch file belongs to the branch.
+ */
+async function branchSyncRows(branch: typeof branches.$inferSelect) {
+  const { filesUnder } = await import("@/lib/domain/branches");
+  const { mainBranch } = await import("@/lib/domain/saves");
+  const main = await mainBranch(branch.workspaceId);
+  const entries = await filesUnder(branch, main.id, null);
+  if (entries.length > SYNC_LIMITS.comparisonFiles)
+    throw new Error(`Repository exceeds the ${SYNC_LIMITS.comparisonFiles.toLocaleString()}-entry comparison limit`);
+  return new Map(entries.map((e) => [e.path.replace(/^\//, ""), {
+    node: { id: null, type: "file", s3Key: e.storageKey, size: e.size ?? 0, mimeType: e.mimeType, gitHash: null, currentVersion: e.version ?? e.revision },
+    version: { contentHash: e.contentHash, uploadedAt: null },
+    updater: null,
+  }]));
+}
+
 export async function compareSync(
   ctx: SyncContext,
   input: Pick<
@@ -406,9 +426,20 @@ export async function compareSync(
     : null;
   if (input.newBranch && !headSha)
     throw new Error("A new branch needs an existing starting commit");
+  // Which NetworkBase side (report H6): main for the default branch, else the branch of the same name (H-5).
+  const [settings] = await db.select({ on: workspaces.branchesEnabled }).from(workspaces).where(eq(workspaces.id, ctx.project.id)).limit(1);
+  const [twin] = settings?.on && repo && !input.newBranch && branch !== repo.default_branch
+    ? await db.select().from(branches).where(and(eq(branches.workspaceId, ctx.project.id), sql`lower(${branches.name}) = lower(${branch})`, ne(branches.status, "deleted"), eq(branches.isDefault, false))).limit(1)
+    : [];
+  const side = mapLocalSide({
+    branchesOn: Boolean(settings?.on), direction: input.direction, githubBranch: branch, defaultBranch: repo?.default_branch ?? null,
+    newBranch: Boolean(input.newBranch), nbBranch: twin ? { id: twin.id, status: twin.status } : null,
+  });
+  const onBranch = side.kind === "branch" ? twin! : null;
+  const branchRows = onBranch ? await branchSyncRows(onBranch) : null;
   const [tree, rows, baselines, knownBlobs] = await Promise.all([
     readGitHubTree(ctx.token, repository, headSha),
-    db
+    branchRows ? Promise.resolve([]) : db
       .select({
         node: workspaceNodes,
         version: fileVersions,
@@ -437,7 +468,6 @@ export async function compareSync(
         and(
           eq(workspaceNodes.projectId, ctx.project.id),
           isNull(workspaceNodes.taskId),
-          isNull(workspaceNodes.canonicalNodeId),
         ),
       )
       .limit(SYNC_LIMITS.comparisonFiles + 1),
@@ -540,6 +570,8 @@ export async function compareSync(
       const path = pathFor(row.node.id);
       if (path) local.set(path, row);
     }
+  // A branch's files have no node of their own: content is by hash and asset (H-2), so no node ids reach the review.
+  if (branchRows) for (const [path, row] of branchRows) local.set(path, row as unknown as (typeof rows)[number]);
   const remote = new Map(tree.map((entry) => [entry.path, entry]));
   const base = new Map(baselines.map((entry) => [entry.path, entry]));
   const paths = [
@@ -673,7 +705,7 @@ export async function compareSync(
                     : null,
               }
             : undefined,
-        nodeId: row?.node.id || previous?.nodeId || null,
+        nodeId: side.kind === "main" ? row?.node.id || previous?.nodeId || null : null,
         version: row?.node.currentVersion ?? null,
         storageKey: row?.node.s3Key || null,
         localHash,
@@ -771,6 +803,8 @@ export async function compareSync(
         : detectOutgoingRenames(files),
     ...(input.newRepository ? { newRepository: input.newRepository } : {}),
     ...(input.newBranch ? { newBranch: { base: baseBranch! } } : {}),
+    ...(side.kind === "branch" ? { local: { branchId: onBranch!.id, name: onBranch!.name, headSaveId: onBranch!.headSaveId } } : {}),
+    ...(side.kind === "create" ? { local: { branchId: null, name: branch, headSaveId: null } } : {}),
     visibility: input.newRepository
       ? input.newRepository.private
         ? "private"
@@ -1180,6 +1214,20 @@ export function syncRunView(
   };
 }
 
+/** The NetworkBase branch a review used is still as it was (or, for one a pull creates, still doesn't exist). */
+export async function validateBranchSide(projectId: string, local: NonNullable<SyncManifest["local"]>) {
+  if (local.branchId) {
+    const [branch] = await db.select({ status: branches.status, head: branches.headSaveId }).from(branches)
+      .where(and(eq(branches.id, local.branchId), eq(branches.workspaceId, projectId))).limit(1);
+    if (!branch || branch.status !== "active" || (branch.head ?? null) !== (local.headSaveId ?? null))
+      throw new Error(`The branch ${local.name} changed after review. Compare again.`);
+    return;
+  }
+  const [taken] = await db.select({ id: branches.id }).from(branches)
+    .where(and(eq(branches.workspaceId, projectId), sql`lower(${branches.name}) = lower(${local.name})`, ne(branches.status, "deleted"))).limit(1);
+  if (taken) throw new Error(`A branch named ${local.name} appeared after review. Compare again.`);
+}
+
 export async function validateReviewedLocalFiles(
   projectId: string,
   manifest: SyncManifest,
@@ -1189,6 +1237,11 @@ export async function validateReviewedLocalFiles(
   const appliedPaths = new Set(applied);
   const files = manifest.files.filter((file) => !appliedPaths.has(file.path));
   for (const file of files) validateSyncPath(file.path);
+  // A branch's side (H-5): its content is by hash, so the branch not having moved since review is the whole check.
+  if (manifest.local) {
+    if (files.length) await validateBranchSide(projectId, manifest.local);
+    return;
+  }
   const nodeIds = files.flatMap((file) => (file.nodeId ? [file.nodeId] : []));
   const collisionPaths = files.flatMap((file) =>
     !file.nodeId || !file.storageKey ? [`/${file.path}`] : [],

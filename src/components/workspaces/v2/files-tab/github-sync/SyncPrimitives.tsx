@@ -118,14 +118,22 @@ export function TransferRoute({
 }: {
   manifest: Pick<
     SyncManifest,
-    "repository" | "branch" | "direction" | "newBranch"
+    "repository" | "branch" | "direction" | "newBranch" | "local"
   >;
   projectName: string;
 }) {
+  // A GitHub branch other than the default syncs with the NetworkBase branch of the same name (report H6, H-5).
   const local = (
     <div className={styles.endpoint}>
       <small>NetworkBase</small>
-      <strong dir="auto">{projectName} / Workspace files</strong>
+      <strong dir="auto">{projectName} / {manifest.local ? "Branch" : "Workspace files"}</strong>
+      {manifest.local ? (
+        <span className={cn(styles.row, styles.small, styles.mono)}>
+          <GitBranch aria-hidden="true" />
+          {manifest.local.name}
+          {manifest.local.branchId ? null : <small> (new, from main)</small>}
+        </span>
+      ) : null}
     </div>
   );
   const remote = (

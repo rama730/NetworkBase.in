@@ -17,7 +17,7 @@ const OLD_TABLES: Record<string, string> = {
   project_sprints: "workspace_sprints", project_sprint_events: "workspace_sprint_events", project_workflow_columns: "workspace_workflow_columns",
   project_task_policy_events: "workspace_task_policy_events", project_nodes: "workspace_nodes", project_node_events: "workspace_node_events",
   project_node_locks: "workspace_node_locks", project_node_conflicts: "workspace_node_conflicts", project_file_index: "workspace_file_index",
-  project_git_deltas: "workspace_git_deltas", project_event_counters: "workspace_event_counters",
+  project_event_counters: "workspace_event_counters",
   profile_project_contributions: "profile_contributions", profile_project_contribution_stages: "profile_contribution_stages",
 };
 const OLD_COLUMNS = ["project_id", "source_project_id", "child_project_id", "project_count", "projects_count", "visible_project_count", "lead_user_id"];

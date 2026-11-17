@@ -40,6 +40,7 @@ import {
   type SyncFile,
   type SyncManifest,
   type SyncContributor,
+  type SyncResult,
 } from "./sync-contract";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import {
@@ -258,6 +259,45 @@ async function snapshotAssetId(
     )
     .limit(1);
   return row?.assetId ?? null;
+}
+
+/**
+ * A reviewed pull into a NetworkBase branch (report H6, phase H-5): the branch is made from main when it's new, the
+ * files land as one save "From GitHub owner/repo@sha" (kind sync), then the baselines and the run's progress.
+ * ponytail: commit authors aren't carried onto branch saves (main's per-file pull keeps them); add when asked.
+ */
+export async function pullIntoBranch(manifest: SyncManifest, runId: string, leaseId: string, projectId: string, actorId: string, result: SyncResult): Promise<SyncResult> {
+  const local = manifest.local!;
+  const paths = manifest.files.map((f) => f.path);
+  if (paths.every((p) => result.applied?.includes(p))) return result;
+  const { createBranch, writeBranch } = await import("@/lib/domain/branches");
+  const actor = { user: { id: actorId }, tokenKind: null, tokenScopes: null };
+  let branchId = local.branchId;
+  let expectedHead = local.headSaveId;
+  if (!branchId) {
+    const made = await createBranch(actor, projectId, { name: local.name });
+    branchId = made.branch.id;
+    expectedHead = null;
+  }
+  const changes: Array<{ op: "add" | "change" | "delete" | "rename"; path: string; fromPath?: string; contentHash?: string | null; assetId?: string | null; size?: number | null; mimeType?: string | null }> = [];
+  for (const file of manifest.files) {
+    const content = file.snapshotKey
+      ? { contentHash: file.resultHash ?? null, assetId: await snapshotAssetId(runId, file.snapshotKey), size: file.size, mimeType: file.mimeType }
+      : {};
+    if (file.renamedFrom) changes.push({ op: "rename", fromPath: `/${file.renamedFrom}`, path: `/${file.path}`, ...content });
+    else if (file.snapshotKey) changes.push({ op: file.localHash ? "change" : "add", path: `/${file.path}`, ...content });
+    else if (file.localHash) changes.push({ op: "delete", path: `/${file.path}` });
+  }
+  const repoName = manifest.repository.replace(/^https:\/\/github\.com\//, "");
+  await writeBranch(branchId, { changes, expectedHead, kind: "sync", message: `From GitHub ${repoName}@${(manifest.headSha ?? "").slice(0, 7)}`, authorId: actorId });
+  const next = { ...result, applied: paths, commitSha: manifest.headSha ?? undefined };
+  await db.transaction(async (tx) => {
+    const locked = await tx.execute(sql`SELECT id FROM github_sync_runs WHERE id=${runId} AND lease_id=${leaseId} AND status='running' FOR UPDATE`);
+    if (!locked.length) throw new Error("Synchronization lease was lost");
+    for (const file of manifest.files) await saveBaseline(tx, projectId, manifest, file, null, manifest.headSha!, manifest.sequence);
+    await tx.update(githubSyncRuns).set({ result: next, updatedAt: new Date() }).where(eq(githubSyncRuns.id, runId));
+  });
+  return next;
 }
 
 export async function runReviewedGitHubSync(
@@ -543,10 +583,15 @@ export async function runReviewedGitHubSync(
         throw new Error(
           "GitHub changed after review. Compare incoming changes again.",
         );
+      // GitHub feature-x pulls into NetworkBase feature-x (H6, H-5): one save on the branch, main untouched.
+      if (manifest.local) {
+        await update({ stage: `Saving on ${manifest.local.name}` });
+        result = await pullIntoBranch(manifest, runId, leaseId, projectId, actorId, result);
+      }
       const deltaCache = new Map<string, Promise<Set<string>>>();
       const identityCache = new Map<number, Promise<any>>();
       let lastStageUpdate = 0;
-      for (const file of manifest.files) {
+      for (const file of manifest.local ? [] : manifest.files) {
         if (result.applied?.includes(file.path)) continue;
         const now = Date.now();
         // ponytail: 2s throttle on stage update ceiling avoids saturating Postgres with per-file updates. ceiling: 2s throttle. upgrade: Redis pub/sub if realtime per-file progress is required.
@@ -806,7 +851,10 @@ export async function runReviewedGitHubSync(
         manifest.mode === "pr"
           ? manifest.newBranch?.base || manifest.branch
           : manifest.branch;
-      if (
+      // A NetworkBase branch's sync (H-5) leaves main's link (its branch and last commit) as it is.
+      if (manifest.local) {
+        await tx.update(workspaces).set({ githubLastSyncAt: new Date() }).where(eq(workspaces.id, projectId));
+      } else if (
         !ctx.connection ||
         ctx.connection.repository !== manifest.repository ||
         ctx.connection.branch !== connectedBranch
@@ -831,7 +879,7 @@ export async function runReviewedGitHubSync(
             },
           });
       }
-      await tx
+      if (!manifest.local) await tx
         .update(workspaces)
         .set({
           githubRepoUrl: manifest.repository,

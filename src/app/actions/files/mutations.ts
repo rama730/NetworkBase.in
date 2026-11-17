@@ -274,7 +274,6 @@ export async function createFileNode(projectId: string, parentId: string | null,
     mimeType: string;
     uploadIntentId?: string;
     taskId?: string;
-    canonicalNodeId?: string;
     taskLink?: { role?: TaskFileRole; annotation?: string | null };
 }) {
     const supabase = await createClient();
@@ -332,19 +331,6 @@ export async function createFileNode(projectId: string, parentId: string | null,
             const [task] = await tx.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, file.taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1).for("update");
             if (!task) throw new Error("Task not found");
         }
-        if (file.canonicalNodeId) {
-            // A staged task copy may only point at a live main-tree file of this
-            // same project; merge later rewrites that node (COR-057).
-            if (!UUID_RE.test(file.canonicalNodeId) || !file.taskId) throw new Error("Invalid canonical file");
-            const [canonical] = await tx.select({ id: workspaceNodes.id }).from(workspaceNodes).where(and(
-                eq(workspaceNodes.id, file.canonicalNodeId),
-                eq(workspaceNodes.projectId, projectId),
-                eq(workspaceNodes.type, "file"),
-                isNull(workspaceNodes.taskId),
-                isNull(workspaceNodes.deletedAt),
-            )).limit(1).for("update");
-            if (!canonical) throw new Error("Canonical file not found in this workspace");
-        }
         if (file.taskLink) await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { taskId: file.taskId });
         const parentPath = await resolveParentAndCheckSibling(tx, projectId, parentId, safeName);
         const nodePath = `${parentPath}/${safeName}`;
@@ -361,7 +347,6 @@ export async function createFileNode(projectId: string, parentId: string | null,
             mimeType: normalizedMimeType,
             createdBy: user.id,
             taskId: file.taskId || null,
-            canonicalNodeId: file.canonicalNodeId || null,
         }).returning();
         await tx.insert(fileVersions).values({
             nodeId: created!.id,
