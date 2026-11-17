@@ -6460,3 +6460,79 @@ export const branchFiles = pgTable("branch_files", {
   executable: boolean("executable"),
   updatedSaveId: uuid("updated_save_id").references(() => saves.id, { onDelete: "set null" }),
 }, (t) => ({ pk: primaryKey({ columns: [t.branchId, t.path] }) }));
+
+/** Merge requests from a branch into main (0098, report H4, H10). `number` is per workspace ("!3"). */
+export const mergeRequests = pgTable("merge_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  number: integer("number").notNull(),
+  sourceBranchId: uuid("source_branch_id").notNull().references(() => branches.id, { onDelete: "cascade" }),
+  targetBranchId: uuid("target_branch_id").notNull().references(() => branches.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description").default("").notNull(),
+  state: text("state").$type<"draft" | "open" | "merged" | "closed">().default("open").notNull(),
+  authorId: uuid("author_id").references(() => profiles.id, { onDelete: "set null" }),
+  via: text("via").$type<"cli" | "agent">(),
+  agentName: text("agent_name"),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  mergeMethod: text("merge_method").$type<"merge" | "squash">(),
+  mergeSaveId: uuid("merge_save_id").references(() => saves.id, { onDelete: "set null" }),
+  mergedBy: uuid("merged_by").references(() => profiles.id, { onDelete: "set null" }),
+  mergedAt: timestamp("merged_at", { withTimezone: true }),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  pendingChangeSetId: uuid("pending_change_set_id").references((): AnyPgColumn => changeSets.id, { onDelete: "set null" }),
+  pendingHeadSaveId: uuid("pending_head_save_id").references(() => saves.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const mergeRequestReviews = pgTable("merge_request_reviews", {
+  mergeRequestId: uuid("merge_request_id").notNull().references(() => mergeRequests.id, { onDelete: "cascade" }),
+  reviewerId: uuid("reviewer_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  state: text("state").$type<"requested" | "approved" | "changes_requested" | "commented">().default("requested").notNull(),
+  saveId: uuid("save_id").references(() => saves.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.mergeRequestId, t.reviewerId] }) }));
+
+/** Comments on a merge request: general, on lines of a file, or a suggested edit (`suggestion` replaces `original`). */
+export const mergeRequestComments = pgTable("merge_request_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  mergeRequestId: uuid("merge_request_id").notNull().references(() => mergeRequests.id, { onDelete: "cascade" }),
+  authorId: uuid("author_id").references(() => profiles.id, { onDelete: "set null" }),
+  via: text("via").$type<"cli" | "agent">(),
+  agentName: text("agent_name"),
+  body: text("body").default("").notNull(),
+  reviewState: text("review_state").$type<"approved" | "changes_requested" | "commented">(),
+  path: text("path"),
+  line: integer("line"),
+  endLine: integer("end_line"),
+  saveId: uuid("save_id").references(() => saves.id, { onDelete: "set null" }),
+  suggestion: text("suggestion"),
+  original: text("original"),
+  appliedSaveId: uuid("applied_save_id").references(() => saves.id, { onDelete: "set null" }),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  editedAt: timestamp("edited_at", { withTimezone: true }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const mergeRequestChecks = pgTable("merge_request_checks", {
+  mergeRequestId: uuid("merge_request_id").notNull().references(() => mergeRequests.id, { onDelete: "cascade" }),
+  saveId: uuid("save_id").notNull().references(() => saves.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  state: text("state").$type<"running" | "passed" | "failed">().notNull(),
+  url: text("url"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.mergeRequestId, t.saveId, t.name] }) }));
+
+export const mergeRequestEvents = pgTable("merge_request_events", {
+  id: bigint("id", { mode: "number" }).generatedAlwaysAsIdentity().primaryKey(),
+  mergeRequestId: uuid("merge_request_id").notNull().references(() => mergeRequests.id, { onDelete: "cascade" }),
+  actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "set null" }),
+  via: text("via").$type<"cli" | "agent">(),
+  agentName: text("agent_name"),
+  kind: text("kind").$type<"opened" | "ready" | "draft" | "closed" | "reopened" | "merged" | "edited" | "reviewers">().notNull(),
+  data: jsonb("data").$type<Record<string, unknown>>().default({}).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});

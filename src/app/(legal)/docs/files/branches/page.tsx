@@ -3,19 +3,19 @@ import type { Metadata } from "next";
 import { LegalDocumentPage, LegalList } from "@/components/legal/LegalDocumentPage";
 import { TerminalBlock } from "@/components/ui/terminal-block";
 
-// Report Part H, 0.8 #12: history (H-1) first; branches and merge requests are added here as they ship.
+// Report Part H, 0.8 #12: history (H-1), branches (H-2) and merge requests (H-3); protection comes with H-4.
 
 export const metadata: Metadata = {
-  title: "History and branches",
-  description: "Every change to a workspace's files is a save you can open, compare and revert.",
+  title: "History, branches and merge requests",
+  description: "Every change to a workspace's files is a save you can open, compare and revert; branches come back to main through merge requests.",
 };
 
 export default function BranchesDocsPage() {
   return (
     <LegalDocumentPage
       eyebrow="Docs · Files"
-      title="History and branches"
-      summary="With History on, every change to the files becomes a save: who changed what, when, and with which agent. Branches let you work next to main without touching it, from the app or a folder that follows git."
+      title="History, branches and merge requests"
+      summary="With History on, every change to the files becomes a save: who changed what, when, and with which agent. Branches let you work next to main without touching it, from the app or a folder that follows git, and come back through a reviewed merge request."
       version="2.4"
       sections={[
         {
@@ -73,10 +73,27 @@ export default function BranchesDocsPage() {
           ),
         },
         {
-          id: "on",
-          title: "6. Turning it on",
+          id: "merge-requests",
+          title: "6. Merge requests",
           content: (
-            <p>Workspace settings → Files → <strong>History</strong>, for owners and admins. It starts with a “Start of history” save of the files as they are, and turns change sets on too. Turning it off keeps what’s recorded, and needs the other branches merged or deleted first. Merge requests come next.</p>
+            <>
+              <p>A merge request asks for review before a branch comes into main. Open one from the branch’s page (<strong>Open merge request</strong>) or with <code>nb merge-request create</code>. The title comes from the linked task or the branch name, and the description lists the branch’s saves. “Closes #4” in the description links task 4. A branch has one open merge request at a time.</p>
+              <LegalList>
+                <li><strong>Reviewers:</strong> the workspace’s owners and admins unless you choose. They’re told when it’s opened, or when a draft is marked ready.</li>
+                <li><strong>Reviewing:</strong> comment, comment on lines of a file, or suggest an edit. The author applies a suggestion with <strong>Apply suggestion</strong>, which saves it on the branch. Then <strong>Approve</strong> or <strong>Request changes</strong>. You can’t approve your own, and agents comment but don’t approve. An approval stays when more saves arrive, marked “an earlier save”.</li>
+                <li><strong>Checks:</strong> builds post results for the branch’s latest save (<code>POST /api/v1/workspaces/:id/merge-requests/:n/checks</code>). They’re shown; requiring them comes with protection.</li>
+                <li><strong>Merging:</strong> <strong>Merge</strong> adds one save to main that keeps the branch’s saves as its history; <strong>Squash and merge</strong> adds one save named after the merge request. Every file changes at once, and <strong>Revert merge</strong> undoes it. The linked task moves to Done, or to review when it needs one. The branch is then marked merged, ready to delete.</li>
+                <li><strong>Can’t merge yet:</strong> when main changed the same lines, the merge stops without changing main. Update the branch from main, choose for each file, then merge.</li>
+              </LegalList>
+              <TerminalBlock variant="command" label="Merge requests from your terminal">{"$ nb merge-request create --draft -m \"Closes #4\"\n$ nb mr list --review-requested\n$ nb mr review 3 --approve\n$ nb mr comment 3 --file src/a.ts --line 12 --suggest \"const b = 2\"\n$ nb mr merge 3 --squash"}</TerminalBlock>
+            </>
+          ),
+        },
+        {
+          id: "on",
+          title: "7. Turning it on",
+          content: (
+            <p>Workspace settings → Files → <strong>History</strong>, for owners and admins. It starts with a “Start of history” save of the files as they are, and turns change sets on too. Turning it off keeps what’s recorded, and needs the other branches merged or deleted first.</p>
           ),
         },
       ]}

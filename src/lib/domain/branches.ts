@@ -35,7 +35,7 @@ type State = { hash: string | null; assetId: string | null; size: number | null;
 
 // ── Finding and access ────────────────────────────────────────────────────────────────────────────────────────────
 
-const seqOf = async (saveId: string | null) => (saveId ? (await db.select({ seq: saves.seq }).from(saves).where(eq(saves.id, saveId)).limit(1))[0]?.seq ?? 0 : 0);
+export const seqOf = async (saveId: string | null) => (saveId ? (await db.select({ seq: saves.seq }).from(saves).where(eq(saves.id, saveId)).limit(1))[0]?.seq ?? 0 : 0);
 
 /**
  * A branch by id or by name (any letter case) in a workspace; "main" is main. The workspace's people only: anyone else
@@ -108,7 +108,7 @@ export async function branchTree(branch: Branch, mainId: string, opts: { cursor?
 }
 
 /** Main's files at a save number, for some paths: a branch's base, or main before and after an update. */
-async function mainAt(mainId: string, seq: number, paths: string[]) {
+export async function mainAt(mainId: string, seq: number, paths: string[]) {
   const out = new Map<string, TreeEntry>();
   for (let i = 0; i < paths.length; i += 500) {
     const rows = Array.from(await db.execute<{ path: string; node_id: string; version: number; content_hash: string | null; asset_id: string | null; s3_key: string | null; size: string | null; mime_type: string | null }>(sql`
@@ -130,6 +130,8 @@ export type BranchView = {
   task: { id: string; number: number | null } | null;
   ahead: number; behind: number; changedFiles: number; stale: boolean;
   lastSave: { id: string; number: number; message: string; createdAt: string; madeWith: string | null } | null;
+  /** Its open merge request into main (H-3), shown as "MR !3". */
+  mergeRequest: { number: number; state: string } | null;
   createdAt: string; updatedAt: string; deletedAt: string | null;
 };
 
@@ -166,6 +168,7 @@ async function viewsOf(viewerId: string, workspaceId: string, mainHead: string |
   const taskIds = [...new Set(rows.flatMap((r) => (r.taskId ? [r.taskId] : [])))];
   const taskRows = taskIds.length ? await db.select({ id: tasks.id, number: tasks.taskNumber }).from(tasks).where(inArray(tasks.id, taskIds)) : [];
   const scope = await labelScope(viewerId, workspaceId);
+  const open = await (await import("@/lib/domain/merge-requests")).openMergeRequestsOf(ids);
   const staleBefore = Date.now() - BRANCH_LIMITS.staleDays * 86_400_000;
   return rows.map((r) => {
     const s = stats.find((x) => x.id === r.id);
@@ -181,6 +184,7 @@ async function viewsOf(viewerId: string, workspaceId: string, mainHead: string |
       behind: r.isDefault ? 0 : Math.max(0, mainSeq - Number(s?.merged_seq ?? 0)),
       changedFiles: r.isDefault ? 0 : s?.changed ?? 0,
       stale: !r.isDefault && r.status === "active" && activity < staleBefore,
+      mergeRequest: open.get(r.id) ?? null,
       lastSave: head ? { id: head.id, number: head.seq ?? 0, message: head.message ?? "", createdAt: head.createdAt.toISOString(), madeWith: shown?.via === "agent" ? `with ${shown.agentName ?? "an agent"}` : shown?.via === "cli" ? "from the terminal" : null } : null,
       createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(), deletedAt: r.deletedAt?.toISOString() ?? null,
     };
@@ -256,6 +260,8 @@ export async function deleteBranch(actor: Actor, branchId: string) {
     await tx.update(branches).set({ status: "deleted", deletedAt: now, updatedAt: now }).where(eq(branches.id, branch.id));
     await tx.update(changeSets).set({ status: "discarded", discardedAt: now, updatedAt: now }).where(and(eq(changeSets.branchId, branch.id), inArray(changeSets.status, ["open", "ready"])));
   });
+  // Its open merge requests close ("Branch deleted"); restoring it reopens them (H24).
+  await (await import("@/lib/domain/merge-requests")).closeForDeletedBranch(branch.id, userOf(actor), now);
   const [{ ahead } = { ahead: 0 }] = await db.select({ ahead: sql<number>`count(*)::int` }).from(saves).where(and(eq(saves.branchId, branch.id), sql`${saves.kind} NOT IN ('start', 'merge')`));
   return { deleted: true, savesNotInMain: branch.status === "merged" ? 0 : ahead, restoreUntil: new Date(now.getTime() + BRANCH_LIMITS.restoreDays * 86_400_000).toISOString() };
 }
@@ -271,6 +277,7 @@ export async function restoreBranch(actor: Actor, branchId: string) {
     if ((error as { code?: string })?.code === "23505" || (error as { cause?: { code?: string } })?.cause?.code === "23505") fail(`Another branch is called ${branch.name} now; rename that one first`, 409, "BRANCH_EXISTS");
     throw error;
   }
+  await (await import("@/lib/domain/merge-requests")).reopenForRestoredBranch(branch.id, userOf(actor), branch.deletedAt).catch(() => 0);
   return getBranch(actor, branch.id);
 }
 
@@ -292,7 +299,7 @@ export async function writeBranch(branchId: string, input: WriteInput) {
   return db.transaction(async (tx) => {
     const [branch] = await tx.select().from(branches).where(eq(branches.id, branchId)).for("update");
     if (!branch || branch.isDefault) fail("Branch not found", 404, "BRANCH_NOT_FOUND");
-    if (branch!.status !== "active") fail(`This branch was ${branch!.status}; restore it first`, 409, "BRANCH_DELETED");
+    if (branch!.status !== "active") fail(branch!.status === "merged" ? "This branch was merged into main; start a new branch for more work" : "This branch was deleted; restore it first", 409, "BRANCH_DELETED");
     if (input.expectedHead !== undefined && (input.expectedHead ?? null) !== (branch!.headSaveId ?? null)) {
       fail("The branch moved since this change started; update and try again", 409, "BRANCH_MOVED", { head: branch!.headSaveId });
     }
@@ -373,7 +380,7 @@ export async function updateFromMain(actor: Actor, branchId: string, opts: { res
   const userId = userOf(actor);
   const { branch, main } = await loadBranch(actor, branchId, { write: true });
   if (branch.isDefault) fail("Main is main; update a branch from it", 409, "MAIN_BRANCH");
-  if (branch.status !== "active") fail(`This branch was ${branch.status}; restore it first`, 409, "BRANCH_DELETED");
+  if (branch.status !== "active") fail(branch.status === "merged" ? "This branch was merged into main; start a new branch for more work" : "This branch was deleted; restore it first", 409, "BRANCH_DELETED");
   const from = await seqOf(branch.mergedFromTargetSaveId);
   const headId = main.headSaveId!;
   const to = await seqOf(headId);

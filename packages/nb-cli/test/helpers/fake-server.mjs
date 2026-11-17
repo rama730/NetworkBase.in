@@ -361,8 +361,51 @@ const branchRoutes = [
     return { data: state.updateAnswer ?? { upToDate: false, save: { id: crypto.randomUUID(), number: 2 }, conflicts: [] } };
   }],
 ];
+// Merge requests (report H4, phase H-3): enough to drive nb merge-request; the server's rules are tested in tests/db.
+const mrView = (/** @type {any} */ state, /** @type {any} */ m) => ({
+  mergeRequest: { ...m, shownState: m.state, source: { id: m.sourceId, name: branchOf(state, m.sourceId)?.name ?? "?", status: "active" }, target: { id: MAIN_BRANCH_ID, name: "main" },
+    author: { id: "u1", name: "Ram", username: "ram" }, madeWith: null, task: null, reviewers: m.reviewers ?? [], checks: [], merged: m.merged ?? null, behind: 0, bothChanged: [] },
+  saves: [{ id: "s1", number: 1, kind: "save", message: "Push of 1 file", author: null, madeWith: null, createdAt: now() }], moreSaves: false,
+  files: { files: [{ path: "/src/app.ts", op: "change" }], truncated: false }, comments: m.comments ?? [], events: [], viewer: { isAuthor: true, canWrite: true, canReview: false, canMerge: true, myReview: null },
+});
+const mrOf = (/** @type {any} */ state, /** @type {string} */ n) => (state.mergeRequests ?? []).find((/** @type {any} */ m) => m.number === Number(n));
+const mergeRequestRoutes = [
+  [/^\/api\/v1\/workspaces\/([^/]+)\/merge-requests$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
+    state.lastMrQuery = req.query;
+    const list = (state.mergeRequests ?? []).filter((/** @type {any} */ m) => (req.query.get("state") ?? "open") === "open" ? ["open", "draft"].includes(m.state) : m.state === req.query.get("state"));
+    return { data: { mergeRequests: list.map((/** @type {any} */ m) => ({ id: m.id, number: m.number, title: m.title, state: m.state, source: { id: m.sourceId, name: branchOf(state, m.sourceId)?.name ?? "?", status: "active" }, approvals: 0, changesRequested: 0, comments: 0, reviewRequested: false })) } };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/merge-requests$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const b = branchOf(state, req.body.source);
+    if (!b) return fail(404, "BRANCH_NOT_FOUND", "No such branch");
+    if ((state.mergeRequests ?? []).some((/** @type {any} */ m) => m.sourceId === b.id && ["open", "draft"].includes(m.state))) return fail(409, "MERGE_REQUEST_EXISTS", `${b.name} already has an open merge request`);
+    const m = { id: crypto.randomUUID(), number: (state.mergeRequests ?? []).length + 1, title: req.body.title ?? b.name, description: req.body.description ?? "", state: req.body.draft ? "draft" : "open", sourceId: b.id, body: req.body };
+    (state.mergeRequests ??= []).push(m);
+    return { status: 201, data: mrView(state, m) };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/merge-requests\/(\d+)$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => { const m = mrOf(state, req.params[1]); return m ? { data: mrView(state, m) } : fail(404, "NOT_FOUND", "Merge request not found"); }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/merge-requests\/(\d+)$/, "PATCH", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const m = mrOf(state, req.params[1]);
+    if (req.body.state) m.state = req.body.state;
+    if (req.body.draft === false) m.state = "open";
+    return { data: mrView(state, m) };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/merge-requests\/(\d+)\/(reviews|comments|suggestions|merge)$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const m = mrOf(state, req.params[1]);
+    (state.mrPosts ??= []).push({ op: req.params[2], number: m.number, body: req.body });
+    if (req.params[2] === "merge") {
+      if (state.mergeAnswer) return { data: state.mergeAnswer };
+      m.state = "merged";
+      return { data: { outcome: "merged", method: req.body.method, save: { id: "s9", number: 9 }, undoToken: null, task: null, branch: { id: m.sourceId, name: branchOf(state, m.sourceId)?.name } } };
+    }
+    if (req.params[2] === "comments") { (m.comments ??= []).push({ id: crypto.randomUUID(), body: req.body.body, suggestion: req.body.suggestion ?? null, path: req.body.path ?? null, line: req.body.line ?? null, author: null }); return { status: 201, data: { comment: { id: m.comments.at(-1).id } } }; }
+    if (req.params[2] === "suggestions") return { data: { save: { id: "s3", number: 3 } } };
+    return { data: mrView(state, m) };
+  }],
+];
 const changeSetRoutes = [
   ...branchRoutes,
+  ...mergeRequestRoutes,
   [/^\/api\/v1\/workspaces\/([^/]+)\/change-sets$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
     if (state.changeSetsOff) return fail(403, "CHANGE_SETS_OFF", "Change sets aren't turned on for this workspace yet");
     const cs = { id: crypto.randomUUID(), title: req.body.title, status: "open", items: new Map(), updatedAt: now(), branchId: req.body.branchId ?? null };

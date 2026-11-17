@@ -601,6 +601,7 @@ export function FilesTabSidebar({
                   (item.id !== "changes" || (canEdit && filesView.changeSets.enabled)) &&
                   (item.id !== "history" || filesView.historyEnabled) &&
                   (item.id !== "branches" || filesView.historyEnabled) &&
+                  (item.id !== "merge-requests" || filesView.historyEnabled) &&
                   (filesView.canReadTasks ||
                      !["tasks", "deliverables"].includes(item.id)) &&
                   (item.id !== "github" || filesView.canOpenGitHub) &&

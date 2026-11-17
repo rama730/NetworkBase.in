@@ -48,7 +48,9 @@ export type NotificationKind =
     /** One summary of what an agent session changed (report A11.6). */
     | "agent_session_summary"
     /** A task was finished with a report and is waiting for review (report A2.10). */
-    | "task_report_submitted";
+    | "task_report_submitted"
+    /** A merge request event: review requested, ready, comment, approved, changes requested, checks failed, merged, closed (report H4). */
+    | "merge_request";
 
 export type NotificationImportance = "important" | "more";
 

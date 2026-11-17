@@ -402,9 +402,9 @@
       "text": "10 · Notifications group per merge request and per change set · M5, M8",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "0.8.1cab4382",
@@ -6962,9 +6962,9 @@
       "text": "Merge requests bring a branch back into main (or another branch) after review.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H2.0644cb23",
@@ -7312,9 +7312,9 @@
       "text": "From the branch picker or list: New merge request (from a branch, into main by default; another branch can be chosen). It's pre-filled with:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.8dd70899",
@@ -7322,9 +7322,9 @@
       "text": "From the CLI: nb merge-request create --into main.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.1d26d4be",
@@ -7342,9 +7342,9 @@
       "text": "Drafts: a merge request can be marked Draft (not ready); reviewers aren't notified until it's ready.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.2219ff40",
@@ -7352,9 +7352,9 @@
       "text": "One open merge request per pair of source and target branch.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.2743d45c",
@@ -7362,9 +7362,9 @@
       "text": "Header: title and number (shown as \"MR !3\", H26), state (Draft, Open, Approved, Changes requested, Merged, Closed), the from and into branches, author, task, re",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.61add83c",
@@ -7372,9 +7372,9 @@
       "text": "Tabs:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.b3878635",
@@ -7382,9 +7382,9 @@
       "text": "Suggested edits: a reviewer writes the replacement lines in a comment, and the author (or their agent) accepts with Apply suggestion, which makes a new save on ",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.f51808f4",
@@ -7392,9 +7392,9 @@
       "text": "Reviewers:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.0bfe3d15",
@@ -7402,9 +7402,9 @@
       "text": "Review outcomes: Approve, Request changes, or Comment. A new save after an approval keeps the approval but marks it \"approved an earlier save\"; whether that sti",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.156bc5f3",
@@ -7412,9 +7412,9 @@
       "text": "Checks:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.b06a6c1c",
@@ -7422,9 +7422,9 @@
       "text": "Conflicts:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms; decision 3: conflicts settle on the branch with Update from main, no browser merge editor yet"
     },
     {
       "key": "H4.561ccb89",
@@ -7432,9 +7432,9 @@
       "text": "Merge button choices:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.101be72e",
@@ -7442,9 +7442,9 @@
       "text": "It's all or nothing (Part G's apply transaction, G10): every file updates at once and one Undo covers it.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.d4d1b0c5",
@@ -7452,9 +7452,9 @@
       "text": "After merging:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.fd7967a7",
@@ -7462,9 +7462,9 @@
       "text": "review requested",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.141075d1",
@@ -7472,9 +7472,9 @@
       "text": "new comment",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.f9a99780",
@@ -7482,9 +7482,9 @@
       "text": "approved",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.2836e0cf",
@@ -7492,9 +7492,9 @@
       "text": "changes requested",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.ddbb2d1d",
@@ -7502,9 +7502,9 @@
       "text": "checks failed",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.23707bff",
@@ -7512,9 +7512,9 @@
       "text": "merged",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H4.cf65c1b5",
@@ -7522,9 +7522,9 @@
       "text": "closed",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H5.90d2ae48",
@@ -7752,9 +7752,9 @@
       "text": "nb merge-request create, list, view, review --approve|--request-changes, merge [--squash], close",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H6.81899212",
@@ -7882,9 +7882,9 @@
       "text": "Tasks · A branch and merge request link to a task; the task page shows \"Branch task/4 · MR #3 open · checks passed\"; merging closes or moves the task",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H8.d29796a2",
@@ -8142,9 +8142,9 @@
       "text": "mergerequests · id, workspaceid, number (per workspace), sourcebranchid, targetbranchid, title, description, state (draft, open, merged, closed), authorid, via,",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H10.b0784f4c",
@@ -8152,9 +8152,9 @@
       "text": "mergerequestreviews · mergerequestid, reviewerid, state (requested, approved, changesrequested, commented), saveid reviewed, timestamps",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H10.c20886ef",
@@ -8162,9 +8162,9 @@
       "text": "mergerequestchecks · mergerequestid, saveid, name, state, url, updatedat · unique (mergerequestid, saveid, name)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H10.52f5daf9",
@@ -8172,9 +8172,9 @@
       "text": "mergerequestcomments · reuse the file comment anchors with mergerequestid and a saveid, plus suggestion text",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H10.c08f36fd",
@@ -8322,9 +8322,9 @@
       "text": "Into main: the merge result becomes a Part G change set applied with G10's transaction, all or nothing, with node-id lock order and one undo, then recordSave(ki",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H13.9a062001",
@@ -8362,9 +8362,9 @@
       "text": "Conflicts are stored on the merge request (or the update) until resolved in the merge editor, in the CLI (nb resolve), or by the agent. Resolutions become a sav",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms; decision 3: conflicts settle on the branch with Update from main, no browser merge editor yet"
     },
     {
       "key": "H14.e7847630",
@@ -8472,9 +8472,9 @@
       "text": "POST /workspaces/:id/merge-requests · file:write · { source, target, title, description?, taskId?, draft? }",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H14.60ccf887",
@@ -8482,9 +8482,9 @@
       "text": "GET /workspaces/:id/merge-requests?state= · GET /merge-requests/:n · file:read · list and detail",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H14.cb79bf41",
@@ -8492,9 +8492,9 @@
       "text": "PATCH /merge-requests/:n · file:write · title, description, draft or ready, reviewers, close or reopen",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H14.48160e4f",
@@ -8502,9 +8502,9 @@
       "text": "POST /merge-requests/:n/reviews · file:write · { state: approve \\ · requestchanges \\ · comment, body? } (people only; agents refused)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H14.bf3af670",
@@ -8512,9 +8512,9 @@
       "text": "POST /merge-requests/:n/comments · file:write · line or general comments, suggestions",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H14.8b9b8636",
@@ -8522,9 +8522,9 @@
       "text": "POST /merge-requests/:n/suggestions/:c/apply · file:write · applies a suggestion as a save on the source",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H14.e873591d",
@@ -8532,9 +8532,9 @@
       "text": "POST /merge-requests/:n/checks · workspace token with file:write · { save, name, state, url }",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H14.6d5704d8",
@@ -8542,9 +8542,9 @@
       "text": "POST /merge-requests/:n/merge · file:write · { method: merge \\ · squash, confirmToken? } → save; 409 CHANGESETCONFLICT, 403 BRANCHPROTECTED, 409 APPROVALREQUIRE",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H14.41d04bce",
@@ -8602,9 +8602,9 @@
       "text": "See branches, saves, merge requests · ✓ · ✓ · ✓ · ✓ (read scopes)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H15.ebcdc87b",
@@ -8612,9 +8612,9 @@
       "text": "Comment on merge requests · ✓ · ✓ · ✓ · ✓ (comments that mention people need a yes, D12)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H15.89e29d93",
@@ -8632,9 +8632,9 @@
       "text": "Open and update merge requests · ✓ · ✓ · ✓",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H15.d291df9d",
@@ -8642,9 +8642,9 @@
       "text": "Approve or request changes · ✓ · ✓ · ✗",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H15.158042cf",
@@ -8652,9 +8652,9 @@
       "text": "Merge into unprotected targets · ✓ · ✓ · only after the person's yes",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H15.d0b36efd",
@@ -8702,9 +8702,9 @@
       "text": "Open merge requests per workspace · 200",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H15.c05b5caa",
@@ -8892,9 +8892,9 @@
       "text": "H-3. Merge requests · merge requests, reviews, comments, suggestions, checks API, merge and squash, notifications, task linking, nb merge-request · site + CLI",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H19.68c798c3",
@@ -9122,9 +9122,9 @@
       "text": "open a merge request, review it with comments and suggestions, and merge or squash it",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H22.059d1799",
@@ -9212,9 +9212,9 @@
       "text": "Edits a file and saves. The bar now says \"1 save ahead of main\", with Open merge request.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H23.7d4735c3",
@@ -9222,9 +9222,9 @@
       "text": "Opens the merge request (pre-filled), merges it themselves (personal workspace, no protection), and accepts Delete branch. They're back on main with the change.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H23.0f285913",
@@ -9262,9 +9262,9 @@
       "text": "Opens a merge request with \"Closes #4\". The task shows \"MR !3 open\".",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H23.f19054d8",
@@ -9272,9 +9272,9 @@
       "text": "A reviewer comments and suggests an edit. The author applies it (a new save). The reviewer approves.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H23.55a25bbe",
@@ -9292,9 +9292,9 @@
       "text": "Merge (or squash). The task moves to Done, or to review, and the branch is offered for deletion.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H23.d2ad2b54",
@@ -9302,9 +9302,9 @@
       "text": "Gets \"Review requested: MR !3\" in the inbox (and email, per settings). nb inbox and nb merge-request list --review-requested show it too.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H23.3ff0c3d1",
@@ -9312,9 +9312,9 @@
       "text": "Opens Files changed, comments on lines, suggests edits, and approves or requests changes.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H23.20a63395",
@@ -9322,9 +9322,9 @@
       "text": "Gets \"!3 merged\" when it lands.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H23.c3a1a21e",
@@ -9602,9 +9602,9 @@
       "text": "A merge request with no changes · Can't be opened; \"This branch has nothing that main doesn't already have\" (MERGEREQUESTEMPTY)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H24.82e35d23",
@@ -9612,9 +9612,9 @@
       "text": "The source branch changes after approval · The approval stays but is marked \"approved an earlier save\"; whether it counts follows \"new saves need approval again",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H24.1acadd07",
@@ -9622,9 +9622,9 @@
       "text": "Main moves while a merge request is open · Ahead and behind update; conflicts are rechecked when merging; \"Update from main\" is offered",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H24.b9704b6b",
@@ -9652,9 +9652,9 @@
       "text": "Deleting a branch with an open merge request · Asks first; the merge request closes with \"Branch deleted\"; restoring the branch reopens it",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H24.edaf1cc0",
@@ -9782,9 +9782,9 @@
       "text": "Open merge requests per workspace · 200",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H25.033b7baa",
@@ -9792,9 +9792,9 @@
       "text": "Saves per merge request shown at once · 250, then paged",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H25.4b39e908",
@@ -9822,9 +9822,9 @@
       "text": "Opening a merge request · under 2 seconds for 200 files",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/merge-requests.test.ts",
+      "evidence": "M8 H-3, local main, 2026-11-17 (not pushed): merge requests (0098, src/lib/domain/merge-requests.ts, routes /workspaces/:id/merge-requests[/:n[/:op]], nb merge-request, Files tab → Merge requests); tests/db/merge-requests.test.ts (7), packages/nb-cli/test/merge-request.test.mjs (3), tests/browser/merge-requests.spec.ts (9); 200-file open 16 ms, merge 691 ms"
     },
     {
       "key": "H25.f29bc0d8",

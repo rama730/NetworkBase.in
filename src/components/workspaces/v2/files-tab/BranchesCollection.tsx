@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download, FilePlus2, GitBranch, Pencil, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, FilePlus2, GitBranch, GitPullRequest, Pencil, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import {
   branchByNameAction, branchChangesAction, branchDiffAction, branchFilesAction, branchFileTextAction, branchSavesAction, createBranchAction, deleteBranchAction,
   deleteOnBranchAction, listBranchesAction, renameBranchAction, restoreBranchAction, saveOnBranchAction, updateBranchAction,
 } from "@/app/actions/files/branches";
+import { createMergeRequestAction } from "@/app/actions/files/merge-requests";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { BranchView, UpdateConflict } from "@/lib/domain/branches";
@@ -133,6 +134,7 @@ function BranchList({ projectId, onOpen }: { projectId: string; onOpen: (name: s
                   </span>
                 </button>
               )}
+              {b.mergeRequest ? <span className="shrink-0 rounded-[5px] border border-sky-300 px-1.5 py-0.5 text-xs text-sky-900 dark:border-sky-800 dark:text-sky-200">MR !{b.mergeRequest.number}{b.mergeRequest.state === "draft" ? " draft" : ""}</span> : null}
               {b.stale ? <span className="shrink-0 rounded-[5px] border border-border px-1.5 py-0.5 text-xs text-muted-foreground">Stale</span> : null}
               {b.status === "deleted" && canEdit ? <Button size="sm" variant="outline" onClick={() => void restore(b)}>Restore</Button> : null}
             </li>
@@ -156,6 +158,7 @@ function BranchPage({ projectId, name, onBack, onOpen }: { projectId: string; na
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [rename, setRename] = useState(name);
+  const [opening, setOpening] = useState(false);
   const b = view.data?.branch;
   const refresh = () => {
     void client.invalidateQueries({ queryKey: ["branch", projectId] });
@@ -213,6 +216,11 @@ function BranchPage({ projectId, name, onBack, onOpen }: { projectId: string; na
               <Button size="sm" variant="ghost" type="button" onClick={() => setRenaming(false)}>Cancel</Button>
             </form>
           ) : <h2 className="min-w-0 flex-1 truncate font-mono text-base font-semibold text-foreground">{b.name}</h2>}
+          {b.mergeRequest ? (
+            <Button size="sm" variant="outline" onClick={() => openMergeRequest(b.mergeRequest!.number)}><GitPullRequest className="size-4" aria-hidden />MR !{b.mergeRequest.number}</Button>
+          ) : canEdit && b.status === "active" && b.changedFiles > 0 ? (
+            <Button size="sm" onClick={() => setOpening((o) => !o)} aria-expanded={opening}><GitPullRequest className="size-4" aria-hidden />Open merge request</Button>
+          ) : null}
           <Button size="sm" variant="outline" onClick={() => void downloadFile(`/api/v1/branches/${b.id}/zip`, { filename: `${b.name.replace(/[^A-Za-z0-9._-]+/g, "-")}.zip` })}><Download className="size-4" aria-hidden />Download zip</Button>
           {canEdit ? <Button size="sm" variant="outline" onClick={() => setRenaming(true)}><Pencil className="size-4" aria-hidden />Rename</Button> : null}
           {canEdit ? <Button size="sm" variant="outline" onClick={() => setConfirmDelete(true)}><Trash2 className="size-4" aria-hidden />Delete</Button> : null}
@@ -225,6 +233,7 @@ function BranchPage({ projectId, name, onBack, onOpen }: { projectId: string; na
           ))}
         </div>
       </header>
+      {opening ? <OpenMergeRequest projectId={projectId} branch={b} onDone={(n) => { setOpening(false); refresh(); openMergeRequest(n); }} /> : null}
       {conflicts ? (
         <section aria-label="Update conflicts" className="border-b border-border px-4 py-3">
           <p className="mb-2 text-sm text-foreground">{conflicts.length} file{conflicts.length === 1 ? "" : "s"} changed on both this branch and main. Choose for each, then update:</p>
@@ -252,6 +261,47 @@ function BranchPage({ projectId, name, onBack, onOpen }: { projectId: string; na
         onConfirm={() => void doDelete()}
       />
     </div>
+  );
+}
+
+/** To a merge request's page (another Files view: a full navigation, like a save's). */
+function openMergeRequest(n: number) {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("branch");
+  url.searchParams.set("filesView", "merge-requests");
+  url.searchParams.set("mr", String(n));
+  window.location.href = url.toString();
+}
+
+/** New merge request (H4): into main, pre-filled on the server (title from the task or branch, the saves listed). */
+function OpenMergeRequest({ projectId, branch, onDone }: { projectId: string; branch: BranchView; onDone: (n: number) => void }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [draft, setDraft] = useState(false);
+  const [busy, setBusy] = useState(false);
+  async function submit() {
+    setBusy(true);
+    try {
+      const res = await createMergeRequestAction(projectId, { source: branch.name, title: title.trim() || null, description: description.trim() || null, draft });
+      if (!res.success) { toast.error(res.error); return; }
+      toast.success(`Opened !${res.data.mergeRequest.number}`);
+      onDone(res.data.mergeRequest.number);
+    } finally { setBusy(false); }
+  }
+  return (
+    <form aria-label="New merge request" className="space-y-2 border-b border-border px-4 py-3" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+      <p className="text-sm text-foreground">Merge <span className="font-mono">{branch.name}</span> into main, after review.</p>
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">Title
+        <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={branch.task ? `Task #${branch.task.number}’s title` : "From the branch name"} className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground" />
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">Description
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Leave it empty to list the branch’s saves. “Closes #4” links a task, which moves when this merges." className="rounded-md border border-border bg-background p-2 text-sm text-foreground" />
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} />Draft (reviewers aren’t asked yet)</label>
+        <Button size="sm" type="submit" disabled={busy}>{busy ? "Opening…" : "Open merge request"}</Button>
+      </div>
+    </form>
   );
 }
 

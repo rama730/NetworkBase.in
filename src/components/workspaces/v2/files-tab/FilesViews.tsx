@@ -22,7 +22,7 @@ import {
   Building2,
   FileDiff,
   History,
-  GitBranch,
+  GitBranch, GitPullRequest,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { OrgFilesInfo } from "@/components/organizations/OrgFilesPanel";
@@ -49,6 +49,7 @@ export type FilesViewId =
   | "changes"
   | "history"
   | "branches"
+  | "merge-requests"
   | "trash";
 export const fileCollectionViews = [
   { id: "project", label: "All files", Icon: Folder },
@@ -63,6 +64,7 @@ export const fileCollectionViews = [
   { id: "changes", label: "Changes", Icon: FileDiff },
   { id: "history", label: "History", Icon: History },
   { id: "branches", label: "Branches", Icon: GitBranch },
+  { id: "merge-requests", label: "Merge requests", Icon: GitPullRequest },
   { id: "trash", label: "Trash", Icon: Trash2 },
 ] as const;
 
@@ -211,7 +213,7 @@ export function FilesViews({
   const restoreView = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
     // ?changes=<id> opens one change set (G12); ?save=<id> one save (H3).
-    const value = (params.get("changes") ? "changes" : params.get("save") ? "history" : params.get("branch") ? "branches" : params.get("filesView")) as FilesViewId;
+    const value = (params.get("changes") ? "changes" : params.get("save") ? "history" : params.get("branch") ? "branches" : params.get("mr") ? "merge-requests" : params.get("filesView")) as FilesViewId;
     if (value === "github" && !githubAccessResolved) return;
     const nextView =
       fileCollectionViews.some((item) => item.id === value) &&
@@ -284,6 +286,11 @@ export function FilesViews({
     if (nextTask !== taskId || nextView !== view) {
       setFileRole("all");
       url.searchParams.delete("filesRole");
+    }
+    // One branch or merge request belongs to its own view; leaving it drops it from the address.
+    if (nextView !== view) {
+      url.searchParams.delete("branch");
+      url.searchParams.delete("mr");
     }
     let nextQuery = preserveQuery ? query : "";
     if (nextView === view && nextTask !== taskId) {

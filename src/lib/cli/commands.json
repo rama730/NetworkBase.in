@@ -953,6 +953,221 @@
       ]
     },
     {
+      "name": "merge-request create",
+      "summary": "Ask for review of this folder's branch before it goes into main",
+      "usage": "nb merge-request create [--title t] [-m description] [--draft] [--reviewer @a,@b] [--task 4]",
+      "flags": {
+        "title": {
+          "type": "string",
+          "describe": "Title (default: the task's, or the branch name)",
+          "valueName": "text"
+        },
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "draft": {
+          "type": "boolean",
+          "describe": "Not ready yet: reviewers aren't asked"
+        },
+        "reviewer": {
+          "type": "string",
+          "describe": "Who reviews (default: owners and admins)",
+          "valueName": "@a,@b"
+        },
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "from": {
+          "type": "string",
+          "describe": "Branch (default: this folder's)",
+          "valueName": "branch"
+        },
+        "into": {
+          "type": "string",
+          "describe": "Target (main)",
+          "valueName": "branch"
+        }
+      },
+      "examples": [
+        "nb merge-request create",
+        "nb merge-request create --draft -m \"Closes #4\""
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "merge-request list",
+      "summary": "Open merge requests (--review-requested: waiting on you)",
+      "usage": "nb merge-request list [--review-requested] [--mine] [--merged|--closed]",
+      "flags": {
+        "review-requested": {
+          "type": "boolean",
+          "describe": "Waiting on your review"
+        },
+        "mine": {
+          "type": "boolean",
+          "describe": "Opened by you"
+        },
+        "merged": {
+          "type": "boolean",
+          "describe": "Merged ones"
+        },
+        "closed": {
+          "type": "boolean",
+          "describe": "Closed ones"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "merge-request view",
+      "summary": "A merge request: reviewers, checks, saves, files, comments",
+      "usage": "nb merge-request view [n]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "merge-request review",
+      "summary": "Approve, request changes, or comment",
+      "usage": "nb merge-request review [n] --approve | --request-changes -m text | --comment -m text",
+      "flags": {
+        "approve": {
+          "type": "boolean",
+          "describe": "Approve it"
+        },
+        "request-changes": {
+          "type": "boolean",
+          "describe": "Ask for changes (say what with -m)"
+        },
+        "comment": {
+          "type": "boolean",
+          "describe": "Just comment"
+        },
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "merge-request comment",
+      "summary": "Comment, on lines of a file, or suggest an edit",
+      "usage": "nb merge-request comment [n] -m text [--file path --line 3[-5]] [--suggest text]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "file": {
+          "type": "string",
+          "describe": "File the comment is on",
+          "valueName": "path"
+        },
+        "line": {
+          "type": "string",
+          "describe": "Line or range, like 12 or 12-14",
+          "valueName": "n[-m]"
+        },
+        "suggest": {
+          "type": "string",
+          "describe": "Replacement for those lines (a suggested edit)",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "merge-request apply",
+      "summary": "Apply a suggested edit as a save on the branch",
+      "usage": "nb merge-request apply <n> <comment id>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "merge-request merge",
+      "summary": "Merge into main (--squash: one save), all at once, one undo",
+      "usage": "nb merge-request merge [n] [--squash]",
+      "flags": {
+        "squash": {
+          "type": "boolean",
+          "describe": "One save named after the merge request"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        4,
+        7,
+        130
+      ]
+    },
+    {
+      "name": "merge-request close",
+      "summary": "Close without merging (reopen while the branch exists)",
+      "usage": "nb merge-request close [n]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "merge-request reopen",
+      "summary": "Reopen a closed merge request",
+      "usage": "nb merge-request reopen [n]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "merge-request ready",
+      "summary": "Mark a draft ready; reviewers are asked",
+      "usage": "nb merge-request ready [n]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "watch",
       "summary": "Push your saves as drafts; pull teammates' changes (foreground)",
       "usage": "nb watch [--no-pull] [--change]",
@@ -3020,6 +3235,16 @@
     "ws list": "workspace list",
     "ws": "workspace list",
     "ls": "file list",
+    "mr create": "merge-request create",
+    "mr list": "merge-request list",
+    "mr view": "merge-request view",
+    "mr review": "merge-request review",
+    "mr comment": "merge-request comment",
+    "mr apply": "merge-request apply",
+    "mr merge": "merge-request merge",
+    "mr close": "merge-request close",
+    "mr reopen": "merge-request reopen",
+    "mr ready": "merge-request ready",
     "done": "task done",
     "add": "task add",
     "task add": "task create"
