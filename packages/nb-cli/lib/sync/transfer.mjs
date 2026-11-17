@@ -14,15 +14,18 @@ export { renameRetry };
 
 /** @typedef {import("../api.mjs").Api} Api */
 
-/** Every visible file with version and hash (A2.5 manifest, pages of 5,000). @param {Api} api @param {string} workspaceId */
-export async function fetchManifest(api, workspaceId) {
+/**
+ * Every visible file with version and hash (A2.5 manifest, pages of 5,000); a branch's files when `branchId` is given
+ * (report H6: each file's revision is its version). @param {Api} api @param {string} workspaceId @param {string | null} [branchId]
+ */
+export async function fetchManifest(api, workspaceId, branchId = null) {
   /** @type {Map<string, import("./plan.mjs").RemoteFile & { path: string }>} */
   const files = new Map();
   let cursor = null;
   /** @type {any} */
   let page;
   do {
-    page = await api.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/manifest`, { query: { cursor } });
+    page = await api.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/manifest`, { query: { cursor, ...(branchId ? { branch: branchId } : {}) } });
     for (const f of page.files) files.set(f.path, { path: f.path, nodeId: f.nodeId, version: f.version, hash: f.contentHash ? String(f.contentHash).toLowerCase() : null, size: f.size ?? 0, updatedAt: f.updatedAt ?? null, ...(f.executable ? { executable: true } : {}) });
     cursor = page.nextCursor;
   } while (cursor);
@@ -52,15 +55,18 @@ export function safeJoin(root, rel) {
 /**
  * Streams a file to `dest` via a temp file in the same folder, checks its hash, then renames (A1.9, A12.10).
  * @param {Api} api @param {string} workspaceId @param {string} remotePath @param {string} dest @param {string | null} expectedHash
+ * @param {string | null} [branchId] a branch's file (report H6)
  * @returns {Promise<{ hash: string, size: number, content: Buffer | null }>} content only for small text-like files (base copies)
  */
-export async function downloadTo(api, workspaceId, remotePath, dest, expectedHash) {
+export async function downloadTo(api, workspaceId, remotePath, dest, expectedHash, branchId = null) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   const tmp = `${dest}.nbtmp-${crypto.randomBytes(4).toString("hex")}`;
   try {
-    const response = await api.download("/api/v1/extension/file", { projectId: workspaceId, path: remotePath, transfer: "raw" }).catch(async (error) => {
-      // Files the storage check hasn't verified are served inline instead.
-      if (!(error instanceof CliError) || error.status !== 404) throw error;
+    const response = await (branchId
+      ? api.download(`/api/v1/branches/${encodeURIComponent(branchId)}/raw`, { path: remotePath })
+      : api.download("/api/v1/extension/file", { projectId: workspaceId, path: remotePath, transfer: "raw" })).catch(async (error) => {
+      // Files the storage check hasn't verified are served inline instead (main only: a branch's file is verified).
+      if (branchId || !(error instanceof CliError) || error.status !== 404) throw error;
       return null;
     });
     if (response?.body) {

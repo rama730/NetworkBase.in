@@ -15,7 +15,7 @@ export default function BranchesDocsPage() {
     <LegalDocumentPage
       eyebrow="Docs · Files"
       title="History and branches"
-      summary="With History on, every change to the files becomes a save: who changed what, when, and with which agent. Open any save to see its diffs or the files as they were, download it as a zip, or revert it."
+      summary="With History on, every change to the files becomes a save: who changed what, when, and with which agent. Branches let you work next to main without touching it, from the app or a folder that follows git."
       version="2.4"
       sections={[
         {
@@ -49,10 +49,34 @@ export default function BranchesDocsPage() {
           ),
         },
         {
-          id: "on",
-          title: "4. Turning it on",
+          id: "branches",
+          title: "4. Branches",
           content: (
-            <p>Workspace settings → Files → <strong>History</strong>, for owners and admins. It starts with a “Start of history” save of the files as they are, and turns change sets on too. Turning it off keeps what’s recorded. Branches and merge requests come next.</p>
+            <>
+              <p>A branch is a separate line of work: main’s files as they were when it started, plus its own saves. Main doesn’t change until you bring the work back. Files tab → <strong>Branches</strong> (or press <kbd>b</kbd>) lists them with how many saves each is ahead of and behind main. Open one to see what it changes against main, edit or add text files on it, see its saves, download it as a zip, rename or delete it (restorable for 30 days).</p>
+              <LegalList>
+                <li><strong>Update from main</strong> brings main’s newer work in. Files only main changed come in as they are; a file both changed is merged when the edits are in different lines. Where they overlap you choose: keep the branch’s or take main’s.</li>
+                <li><strong>Names:</strong> letters, numbers, -, _, / and ., up to 100 characters; not “main”.</li>
+              </LegalList>
+            </>
+          ),
+        },
+        {
+          id: "folder",
+          title: "5. A folder on a branch",
+          content: (
+            <>
+              <TerminalBlock variant="command" label="Branches from your terminal">{"$ nb branch create ram/try-new-header\n$ nb push src/header.tsx\n$ nb branch update\n$ nb branch switch main"}</TerminalBlock>
+              <p>A linked folder is always on one branch, and <code>nb status</code> says which. <code>nb push</code> saves on that branch, never on main by accident, and <code>nb pull</code> brings the branch’s files. <code>nb branch switch</code> works like <code>git checkout</code>: files that differ are replaced, and your unsaved edits come along unless that file is different on the other branch.</p>
+              <p><strong>With git:</strong> nb follows git’s branch by itself. Switch git to <code>feature-x</code> and the next nb command moves the folder to NetworkBase’s <code>feature-x</code> (main and master follow main). A git branch NetworkBase doesn’t have yet asks once whether to create it; agents and <code>--json</code> get the question back instead of a guess. A detached git HEAD can’t push.</p>
+            </>
+          ),
+        },
+        {
+          id: "on",
+          title: "6. Turning it on",
+          content: (
+            <p>Workspace settings → Files → <strong>History</strong>, for owners and admins. It starts with a “Start of history” save of the files as they are, and turns change sets on too. Turning it off keeps what’s recorded, and needs the other branches merged or deleted first. Merge requests come next.</p>
           ),
         },
       ]}

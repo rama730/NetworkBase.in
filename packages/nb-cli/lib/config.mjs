@@ -168,7 +168,7 @@ export function findRoot(cwd) {
 }
 
 /**
- * @typedef {{ workspaceId: string, slug?: string | null, title?: string | null, remoteRoot: string, startedTask?: { id: string, number?: number | null, title?: string | null } | null, profile?: string | null, linkedAt?: string }} ProjectConfig
+ * @typedef {{ workspaceId: string, slug?: string | null, title?: string | null, remoteRoot: string, startedTask?: { id: string, number?: number | null, title?: string | null } | null, profile?: string | null, linkedAt?: string, branch?: { id: string, name: string } | null, gitBranch?: string | null, only?: string[] }} ProjectConfig
  */
 
 /**
@@ -192,6 +192,10 @@ export function readProjectConfig(root, warn) {
     linkedAt: raw.linkedAt,
     /** Folders this copy keeps in sync (C3 `nb sync --only`); none = everything. */
     only: Array.isArray(raw.only) ? raw.only.filter((/** @type {unknown} */ x) => typeof x === "string") : [],
+    /** The NetworkBase branch this folder is on (report H6); none = main. Stored by id, the name is for display. */
+    branch: raw.branch && typeof raw.branch.id === "string" ? { id: raw.branch.id, name: String(raw.branch.name ?? "") } : null,
+    /** The git branch nb last followed, so it only acts when git's changes (H6). */
+    gitBranch: typeof raw.gitBranch === "string" ? raw.gitBranch : null,
   };
 }
 

@@ -6,7 +6,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { branches, changeSets, fileVersions, profiles, saveChanges, saves, tasks, workspaces } from "@/lib/db/schema";
+import { branches, changeSets, fileVersions, profiles, saveChanges, saves, storageAssets, tasks, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { labelScope } from "@/lib/agents/via-scope";
 import { visibleVia } from "@/lib/agents/via-visibility";
@@ -21,13 +21,13 @@ const userOf = (actor: Actor) => actor.user?.id ?? fail("Sign in to continue", 4
 export const SAVE_LIMITS = { page: 50, files: 5_000, changes: 2_000, zipFiles: 20_000 };
 
 /** History is for the workspace's people (H26): members, owners and the organization's admins, never public readers. */
-async function memberAccess(actor: Actor, workspaceId: string) {
+export async function memberAccess(actor: Actor, workspaceId: string) {
   const access = await getWorkspaceAccessById(workspaceId, userOf(actor));
   if (!access.project || !access.canRead || !(access.isOwner || access.isMember || access.isInheritedAdmin)) fail("Workspace not found", 404, "NOT_FOUND");
   return { access, canWrite: access.canWrite, isAdmin: access.isOwner || access.memberRole === "admin" || access.isInheritedAdmin };
 }
 
-async function mainBranch(workspaceId: string) {
+export async function mainBranch(workspaceId: string) {
   const [row] = await db.select({ id: branches.id, headSaveId: branches.headSaveId, on: workspaces.branchesEnabled })
     .from(workspaces).leftJoin(branches, and(eq(branches.workspaceId, workspaces.id), eq(branches.isDefault, true)))
     .where(eq(workspaces.id, workspaceId)).limit(1);
@@ -99,6 +99,8 @@ export type SaveView = {
   changeSetId: string | null;
   revertsSaveId: string | null;
   files: { added: number; changed: number; deleted: number; renamed: number };
+  /** The branch it's on; null is main (H-2). */
+  branch: { id: string; name: string } | null;
   createdAt: string;
 };
 
@@ -106,10 +108,12 @@ async function viewOf(viewerId: string, workspaceId: string, rows: Array<typeof 
   if (!rows.length) return [];
   const authorIds = [...new Set(rows.flatMap((r) => (r.authorId ? [r.authorId] : [])))];
   const taskIds = [...new Set(rows.flatMap((r) => (r.taskId ? [r.taskId] : [])))];
-  const [people, taskRows, scope] = await Promise.all([
+  const branchIds = [...new Set(rows.map((r) => r.branchId))];
+  const [people, taskRows, scope, branchRows] = await Promise.all([
     authorIds.length ? db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username }).from(profiles).where(inArray(profiles.id, authorIds)) : [],
     taskIds.length ? db.select({ id: tasks.id, number: tasks.taskNumber }).from(tasks).where(inArray(tasks.id, taskIds)) : [],
     labelScope(viewerId, workspaceId),
+    db.select({ id: branches.id, name: branches.name, isDefault: branches.isDefault }).from(branches).where(inArray(branches.id, branchIds)),
   ]);
   return rows.map((r) => {
     const shown = visibleVia(scope, { via: r.via, agentName: r.agentName, authorId: r.authorId });
@@ -122,17 +126,20 @@ async function viewOf(viewerId: string, workspaceId: string, rows: Array<typeof 
       task: task ? { id: task.id, number: task.number ?? null } : null,
       changeSetId: r.changeSetId, revertsSaveId: r.revertsSaveId,
       files: { added: r.filesAdded, changed: r.filesChanged, deleted: r.filesDeleted, renamed: r.filesRenamed },
+      branch: ((b) => (b && !b.isDefault ? { id: b.id, name: b.name } : null))(branchRows.find((b) => b.id === r.branchId)),
       createdAt: r.createdAt.toISOString(),
     };
   });
 }
 
 /** Main's history, newest first, 50 a page. `path` matches a file or a folder; `author` a person's id or username. */
-export async function listSaves(actor: Actor, workspaceId: string, opts: { path?: string | null; author?: string | null; agent?: string | null; number?: number | null; cursor?: string | null; limit?: number } = {}) {
+export async function listSaves(actor: Actor, workspaceId: string, opts: { branch?: string | null; path?: string | null; author?: string | null; agent?: string | null; number?: number | null; cursor?: string | null; limit?: number } = {}) {
   await memberAccess(actor, workspaceId);
   const main = await mainBranch(workspaceId);
+  // A branch's own saves (H-2): by its id or name; main by default.
+  const branchId = opts.branch ? (await (await import("@/lib/domain/branches")).findBranch(workspaceId, opts.branch)).id : main.id;
   const limit = Math.min(Math.max(Number(opts.limit) || SAVE_LIMITS.page, 1), SAVE_LIMITS.page);
-  const where = [eq(saves.branchId, main.id), sql`${saves.seq} IS NOT NULL`];
+  const where = [eq(saves.branchId, branchId), sql`${saves.seq} IS NOT NULL`];
   const before = opts.cursor ? Number(opts.cursor) : null;
   if (before != null && Number.isFinite(before)) where.push(lt(saves.seq, before));
   // One save by its number, the way people say it ("save 12"; nb show 12).
@@ -187,8 +194,14 @@ export async function saveDiff(actor: Actor, saveId: string, rawPath: string): P
       .where(and(eq(fileVersions.nodeId, change!.nodeId), eq(fileVersions.version, version))).limit(1);
     return { assetId: v?.assetId ?? null, mime: v?.mime ?? null };
   };
-  const before = change!.op === "add" ? { assetId: null, mime: null } : await versionOf(change!.previousVersion);
-  const after = change!.op === "delete" ? { assetId: null, mime: null } : await versionOf(change!.version);
+  // A branch's change carries content hashes (H-2), not versions.
+  const byHash = async (hash: string | null) => {
+    if (!hash) return { assetId: null, mime: change!.mimeType };
+    const [a] = await db.select({ id: storageAssets.id }).from(storageAssets).where(and(eq(storageAssets.projectId, save.workspaceId), eq(storageAssets.contentHash, hash), eq(storageAssets.state, "verified"))).limit(1);
+    return { assetId: a?.id ?? null, mime: change!.mimeType };
+  };
+  const before = change!.op === "add" ? { assetId: null, mime: null } : change!.nodeId ? await versionOf(change!.previousVersion) : await byHash(change!.previousContentHash);
+  const after = change!.op === "delete" ? { assetId: null, mime: null } : change!.nodeId ? await versionOf(change!.version) : await byHash(change!.contentHash);
   return diffAssets(before.assetId, after.assetId, after.mime ?? before.mime);
 }
 
@@ -200,27 +213,38 @@ export type TreeFile = { path: string; nodeId: string; version: number; contentH
  */
 export async function filesAtSave(actor: Actor, saveId: string, opts: { cursor?: string | null; path?: string | null } = {}) {
   const { save } = await findSave(actor, saveId);
+  const main = await mainBranch(save.workspaceId);
+  if (save.branchId !== main.id) fail("Browsing a branch's files at one of its saves comes later; the branch shows its files now", 409, "NOT_AVAILABLE");
   const page = await treeAt(save.branchId, save.seq!, opts);
   // Storage keys and asset ids stay on the server.
   return { files: { files: page.files.map(({ storageKey: _key, assetId: _asset, ...f }) => f), nextCursor: page.nextCursor }, saveId: save.id };
 }
 
-export async function treeAt(branchId: string, seq: number, opts: { cursor?: string | null; path?: string | null; limit?: number } = {}) {
-  const limit = Math.min(opts.limit ?? SAVE_LIMITS.files, SAVE_LIMITS.files);
-  const rows = Array.from(await db.execute<{ path: string; node_id: string; version: number; content_hash: string | null; asset_id: string | null; s3_key: string | null; size: string | null; mime_type: string | null }>(sql`
-    WITH cp AS (
+/**
+ * Main's files at save number `seq`, as a SQL `WITH` list ending in `tree(path, node_id, version)`: the nearest
+ * checkpoint at or before it, then each file's latest change after that checkpoint, up to it. Branches build on it.
+ */
+export function mainTreeCte(mainBranchId: string, seq: number) {
+  return sql`
+    cp AS (
       SELECT c.id, s.seq FROM tree_checkpoints c JOIN saves s ON s.id = c.save_id
-      WHERE s.branch_id = ${branchId} AND s.seq <= ${seq} ORDER BY s.seq DESC LIMIT 1
+      WHERE s.branch_id = ${mainBranchId} AND s.seq <= ${seq} ORDER BY s.seq DESC LIMIT 1
     ), latest AS (
       SELECT DISTINCT ON (sc.node_id) sc.node_id, sc.after_path, sc.version
       FROM save_changes sc JOIN saves s ON s.id = sc.save_id, cp
-      WHERE s.branch_id = ${branchId} AND s.seq > cp.seq AND s.seq <= ${seq} AND sc.node_id IS NOT NULL AND sc.op <> 'none'
+      WHERE s.branch_id = ${mainBranchId} AND s.seq > cp.seq AND s.seq <= ${seq} AND sc.node_id IS NOT NULL AND sc.op <> 'none'
       ORDER BY sc.node_id, s.seq DESC
     ), tree AS (
       SELECT f.path, f.node_id, f.version FROM checkpoint_files f, cp WHERE f.checkpoint_id = cp.id AND f.node_id NOT IN (SELECT node_id FROM latest)
       UNION ALL
       SELECT after_path, node_id, version FROM latest WHERE after_path IS NOT NULL
-    )
+    )`;
+}
+
+export async function treeAt(branchId: string, seq: number, opts: { cursor?: string | null; path?: string | null; limit?: number } = {}) {
+  const limit = Math.min(opts.limit ?? SAVE_LIMITS.files, SAVE_LIMITS.files);
+  const rows = Array.from(await db.execute<{ path: string; node_id: string; version: number; content_hash: string | null; asset_id: string | null; s3_key: string | null; size: string | null; mime_type: string | null }>(sql`
+    WITH ${mainTreeCte(branchId, seq)}
     SELECT t.path, t.node_id, t.version, v.content_hash, v.asset_id, v.s3_key, v.size::text, v.mime_type
     FROM tree t LEFT JOIN file_versions v ON v.node_id = t.node_id AND v.version = t.version
     WHERE (${opts.cursor ?? null}::text IS NULL OR t.path COLLATE "C" > ${opts.cursor ?? null}::text COLLATE "C")
@@ -249,7 +273,8 @@ export async function revertSave(actor: Actor, request: Request, saveId: string,
   const { save, canWrite } = await findSave(actor, saveId);
   if (!canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
   if (save.kind === "start") fail("The start of history can't be reverted", 409, "NOT_REVERTIBLE");
-  await mainBranch(save.workspaceId);
+  const main = await mainBranch(save.workspaceId);
+  const onBranch = save.branchId !== main.id;
   const changes = await db.select().from(saveChanges).where(and(eq(saveChanges.saveId, save.id), sql`${saveChanges.op} <> 'none'`)).limit(SAVE_LIMITS.changes + 1);
   if (changes.length > SAVE_LIMITS.changes) fail(`A save over ${SAVE_LIMITS.changes} files can't be reverted in one step`, 413, "CHANGE_SET_TOO_LARGE");
   const versions = new Map<string, { hash: string | null; size: number | null; mime: string | null }>();
@@ -259,18 +284,25 @@ export async function revertSave(actor: Actor, request: Request, saveId: string,
       .from(fileVersions).where(sql`(${fileVersions.nodeId}, ${fileVersions.version}) IN (${sql.join(keys.map((k) => sql`(${k.nodeId}::uuid, ${k.v}::int)`), sql`, `)})`);
     for (const r of rows) versions.set(`${r.nodeId}:${r.version}`, { hash: r.hash?.toLowerCase() ?? null, size: r.size == null ? null : Number(r.size), mime: r.mime });
   }
-  const at = (c: typeof changes[number], v: number | null) => (v == null ? null : versions.get(`${c.nodeId}:${v}`) ?? null);
-  const needHash = (c: typeof changes[number], v: number | null) => at(c, v)?.hash ?? fail(`${c.path} has no stored content for that version, so it can't be reverted`, 409, "NOT_REVERTIBLE");
+  type Side = { hash: string | null; size: number | null; mime: string | null } | null;
+  // Main's changes name versions; a branch's carry their content hashes (H-2).
+  const side = (c: typeof changes[number], which: "before" | "after"): Side => {
+    if (c.nodeId) { const v = which === "before" ? c.previousVersion : c.version; return v == null ? null : versions.get(`${c.nodeId}:${v}`) ?? null; }
+    const hash = which === "before" ? c.previousContentHash : c.contentHash;
+    return hash ? { hash, size: which === "after" ? c.size ?? null : null, mime: c.mimeType } : null;
+  };
+  const needHash = (c: typeof changes[number]) => side(c, "before")?.hash ?? fail(`${c.path} has no stored content for that version, so it can't be reverted`, 409, "NOT_REVERTIBLE");
   const items: ItemInput[] = changes.map((c) => {
-    const before = at(c, c.previousVersion);
+    const before = side(c, "before");
+    const now = side(c, "after");
     if (c.op === "add") return { op: "delete", path: c.afterPath! };
-    if (c.op === "delete") return { op: "add", path: c.beforePath!, contentHash: needHash(c, c.previousVersion), size: before?.size, mimeType: before?.mime };
-    if (c.op === "change") return { op: "change", path: c.afterPath!, contentHash: needHash(c, c.previousVersion), baseVersion: c.version, baseHash: at(c, c.version)?.hash, size: before?.size, mimeType: before?.mime };
-    const contentBack = c.version !== c.previousVersion;
-    return { op: "rename", fromPath: c.afterPath!, path: c.beforePath!, baseVersion: c.version, baseHash: at(c, c.version)?.hash,
-      contentHash: contentBack ? needHash(c, c.previousVersion) : at(c, c.version)?.hash, size: (contentBack ? before : at(c, c.version))?.size, mimeType: (contentBack ? before : at(c, c.version))?.mime };
+    if (c.op === "delete") return { op: "add", path: c.beforePath!, contentHash: needHash(c), size: before?.size, mimeType: before?.mime };
+    if (c.op === "change") return { op: "change", path: c.afterPath!, contentHash: needHash(c), baseVersion: c.version, baseHash: now?.hash, size: before?.size, mimeType: before?.mime };
+    const contentBack = before?.hash !== now?.hash;
+    return { op: "rename", fromPath: c.afterPath!, path: c.beforePath!, baseVersion: c.version, baseHash: now?.hash,
+      contentHash: contentBack ? needHash(c) : now?.hash, size: (contentBack ? before : now)?.size, mimeType: (contentBack ? before : now)?.mime };
   });
-  const set = await startChangeSet(actor, { workspaceId: save.workspaceId, title: `Revert "${(save.message ?? "save").slice(0, 100)}"`, taskId: save.taskId });
+  const set = await startChangeSet(actor, { workspaceId: save.workspaceId, title: `Revert "${(save.message ?? "save").slice(0, 100)}"`, taskId: save.taskId, branchId: onBranch ? save.branchId : null });
   await db.update(changeSets).set({ revertsSaveId: save.id }).where(eq(changeSets.id, set.id));
   for (let i = 0; i < items.length; i += 200) await upsertItems(actor, set.id, items.slice(i, i + 200));
   const [{ count } = { count: 0 }] = await db.select({ count: sql<number>`(files_added + files_changed + files_deleted + files_renamed)::int` }).from(changeSets).where(eq(changeSets.id, set.id));
@@ -302,6 +334,7 @@ export async function assertCanReadSave(actor: Actor, saveId: string) {
 /** Files of a save's tree for a zip: path and storage key (H3 "Download as zip"). */
 export async function zipEntriesAtSave(actor: Actor, saveId: string) {
   const { save } = await findSave(actor, saveId);
+  if (save.branchId !== (await mainBranch(save.workspaceId)).id) fail("Download the branch itself as a zip", 409, "NOT_AVAILABLE");
   const entries: Array<{ path: string; storageKey: string; size: number }> = [];
   let cursor: string | null = null;
   do {

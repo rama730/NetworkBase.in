@@ -6302,6 +6302,8 @@ export const changeSets = pgTable("change_sets", {
   undoneAt: timestamp("undone_at", { withTimezone: true }),
   /** A revert of this save (0096, report H3). */
   revertsSaveId: uuid("reverts_save_id").references((): AnyPgColumn => saves.id, { onDelete: "set null" }),
+  /** The branch it writes to (0097, report H14); null is main. */
+  branchId: uuid("branch_id").references((): AnyPgColumn => branches.id, { onDelete: "cascade" }),
 }, (t) => ({
   workspaceStatusIdx: index("change_sets_workspace_status_idx").on(t.workspaceId, t.status, t.updatedAt.desc()),
   authorOpenIdx: index("change_sets_author_open_idx").on(t.authorId, t.status).where(sql`status IN ('open', 'ready')`),
@@ -6423,6 +6425,7 @@ export const saveChanges = pgTable("save_changes", {
   assetId: uuid("asset_id"),
   size: bigint("size", { mode: "number" }),
   mimeType: text("mime_type"),
+  previousContentHash: text("previous_content_hash"),
   path: text("path").generatedAlwaysAs(sql`coalesce(after_path, before_path)`),
   op: text("op").$type<"add" | "change" | "delete" | "rename" | "none">().generatedAlwaysAs(sql`'none'`),
 });
@@ -6444,3 +6447,16 @@ export const checkpointFiles = pgTable("checkpoint_files", {
   size: bigint("size", { mode: "number" }),
   mimeType: text("mime_type"),
 }, (t) => ({ pk: primaryKey({ columns: [t.checkpointId, t.path] }) }));
+
+/** A branch's own files (0097, report H10): only paths that differ from its base on main; "deleted" hides one. */
+export const branchFiles = pgTable("branch_files", {
+  branchId: uuid("branch_id").notNull().references(() => branches.id, { onDelete: "cascade" }),
+  path: text("path").notNull(),
+  state: text("state").$type<"present" | "deleted">().notNull(),
+  contentHash: text("content_hash"),
+  assetId: uuid("asset_id").references(() => storageAssets.id, { onDelete: "set null" }),
+  size: bigint("size", { mode: "number" }),
+  mimeType: text("mime_type"),
+  executable: boolean("executable"),
+  updatedSaveId: uuid("updated_save_id").references(() => saves.id, { onDelete: "set null" }),
+}, (t) => ({ pk: primaryKey({ columns: [t.branchId, t.path] }) }));

@@ -22,6 +22,7 @@ import {
   Building2,
   FileDiff,
   History,
+  GitBranch,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { OrgFilesInfo } from "@/components/organizations/OrgFilesPanel";
@@ -47,6 +48,7 @@ export type FilesViewId =
   | "starred"
   | "changes"
   | "history"
+  | "branches"
   | "trash";
 export const fileCollectionViews = [
   { id: "project", label: "All files", Icon: Folder },
@@ -60,6 +62,7 @@ export const fileCollectionViews = [
   { id: "starred", label: "Starred", Icon: Star },
   { id: "changes", label: "Changes", Icon: FileDiff },
   { id: "history", label: "History", Icon: History },
+  { id: "branches", label: "Branches", Icon: GitBranch },
   { id: "trash", label: "Trash", Icon: Trash2 },
 ] as const;
 
@@ -208,7 +211,7 @@ export function FilesViews({
   const restoreView = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
     // ?changes=<id> opens one change set (G12); ?save=<id> one save (H3).
-    const value = (params.get("changes") ? "changes" : params.get("save") ? "history" : params.get("filesView")) as FilesViewId;
+    const value = (params.get("changes") ? "changes" : params.get("save") ? "history" : params.get("branch") ? "branches" : params.get("filesView")) as FilesViewId;
     if (value === "github" && !githubAccessResolved) return;
     const nextView =
       fileCollectionViews.some((item) => item.id === value) &&
@@ -305,6 +308,19 @@ export function FilesViews({
     window.history.replaceState(window.history.state, "", url);
   }
   const selectView = (value: FilesViewId) => change(value, null);
+  // b opens Branches (0.8 #11), wherever focus isn't in a text field.
+  const openBranches = useRef(selectView);
+  openBranches.current = selectView;
+  useEffect(() => {
+    if (!historyEnabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (e.key !== "b" || e.metaKey || e.ctrlKey || e.altKey || (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable))) return;
+      openBranches.current("branches");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [historyEnabled]);
   const selectTask = (id: string | null) => change(view, id, true);
   function setNavigation(mode: "collections" | "tree") {
     setSidebarMode(mode);

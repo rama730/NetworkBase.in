@@ -133,6 +133,12 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/saves`), read: "file:read", agent: "path" },
   { pattern: route(`/api/v1/saves/${ID}(/(diff|files|zip))?`), read: "file:read", agent: "route" },
   { pattern: route(`/api/v1/saves/${ID}/revert`), write: "file:write", agent: "route" },
+  // Branches (report H14): list and create in the workspace; one branch, its files, changes, diffs, bytes and zip;
+  // rename, delete, restore and update from main write. The route finds the branch's workspace.
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/branches`), read: "file:read", write: "file:write", agent: "path" },
+  { pattern: route(`/api/v1/branches/${ID}`), read: "file:read", write: "file:write", agent: "route" },
+  { pattern: route(`/api/v1/branches/${ID}/(files|changes|diff|raw|zip)`), read: "file:read", agent: "route" },
+  { pattern: route(`/api/v1/branches/${ID}/(restore|update)`), write: "file:write", agent: "route" },
   // The Branches setting (H16): people only (the route refuses agents), owners and admins.
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/branches-setting`), write: "file:write" },
   { pattern: route("/api/v1/me"), read: null, agent: "self" },

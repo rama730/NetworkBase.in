@@ -31,7 +31,10 @@ async function saveId(ctx, given) {
 
 /** nb log: newest first. @param {Context} ctx */
 export async function log(ctx) {
+  // The folder's branch by default (report H6: history of the current branch); --branch main for main's.
+  const branch = ctx.flags.branch ? String(ctx.flags.branch) : ctx.project?.branch?.id ?? null;
   const query = {
+    ...(branch && branch !== "main" ? { branch } : {}),
     ...(ctx.positionals[0] || ctx.flags.path ? { path: String(ctx.flags.path ?? ctx.positionals[0]) } : {}),
     ...(ctx.flags.author ? { author: String(ctx.flags.author) } : {}),
     ...(ctx.flags.agent ? { agent: String(ctx.flags.agent) } : {}),

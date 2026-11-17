@@ -8,6 +8,7 @@ import { filesAtSaveAction, getSaveAction, listSavesAction, revertSaveAction, sa
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { SaveFile, SaveView } from "@/lib/domain/saves";
+import type { ItemDiff } from "@/lib/domain/change-sets";
 import { downloadFile } from "@/lib/download";
 import { feedbackError, toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
@@ -165,8 +166,9 @@ function SavePage({ projectId, id, onBack, onOpen }: { projectId: string; id: st
             <p className="text-xs text-muted-foreground">Save {s.number} · {byWhom(s)} · <When at={s.createdAt} />{fileCounts(s) ? ` · ${fileCounts(s)}` : ""}{s.task?.number ? ` · #${s.task.number}` : ""}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => setBrowsing((b) => !b)} aria-pressed={browsing}><FolderTree className="size-4" aria-hidden />{browsing ? "Show changes" : "Browse files at this save"}</Button>
-            <Button size="sm" variant="outline" disabled={zipping} onClick={() => { setZipping(true); void downloadFile(`/api/v1/saves/${id}/zip`, { filename: `save-${s.number}.zip` }).finally(() => setZipping(false)); }}><Download className="size-4" aria-hidden />{zipping ? "Preparing…" : "Download zip"}</Button>
+            {s.branch ? <span className="self-center rounded-[5px] border border-amber-300 px-1.5 py-0.5 text-xs text-amber-900 dark:border-amber-800 dark:text-amber-200">On {s.branch.name}</span> : null}
+            {s.branch ? null : <Button size="sm" variant="outline" onClick={() => setBrowsing((b) => !b)} aria-pressed={browsing}><FolderTree className="size-4" aria-hidden />{browsing ? "Show changes" : "Browse files at this save"}</Button>}
+            {s.branch ? null : <Button size="sm" variant="outline" disabled={zipping} onClick={() => { setZipping(true); void downloadFile(`/api/v1/saves/${id}/zip`, { filename: `save-${s.number}.zip` }).finally(() => setZipping(false)); }}><Download className="size-4" aria-hidden />{zipping ? "Preparing…" : "Download zip"}</Button>}
             {canEdit && s.kind !== "start" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => setConfirm(true)}><Undo2 className="size-4" aria-hidden />Revert</Button> : null}
           </div>
         </div>
@@ -216,13 +218,19 @@ function SaveDiff({ id, file }: { id: string; file: SaveFile }) {
     },
     staleTime: 5 * 60_000,
   });
-  const lines = useMemo(() => (diff.data?.kind === "text" ? numbered(diff.data.lines) : []), [diff.data]);
+  return <DiffView query={diff} label={file.fromPath ? `${file.fromPath} → ${file.path}` : file.path} path={file.path} renamedOnly={file.op === "rename"} />;
+}
+
+/** One file's diff (a save's, or a branch's against main): text with line numbers, images side by side, or sizes. */
+export function DiffView({ query, label, path, renamedOnly = false }: { query: { isLoading: boolean; isError: boolean; error: unknown; data?: ItemDiff }; label: string; path: string; renamedOnly?: boolean }) {
+  const lines = useMemo(() => (query.data?.kind === "text" ? numbered(query.data.lines) : []), [query.data]);
+  const data = query.data;
   return (
     <div className="p-3">
-      <p className="mb-2 truncate font-mono text-xs text-muted-foreground">{file.fromPath ? `${file.fromPath} → ${file.path}` : file.path}</p>
-      {diff.isLoading ? <div className="h-40 animate-pulse rounded bg-muted" aria-busy="true" /> : diff.isError || !diff.data ? (
-        <p role="alert" className="text-sm text-destructive">{diff.error instanceof Error ? diff.error.message : "Couldn’t load the diff"}</p>
-      ) : diff.data.kind === "text" ? (
+      <p className="mb-2 truncate font-mono text-xs text-muted-foreground">{label}</p>
+      {query.isLoading ? <div className="h-40 animate-pulse rounded bg-muted" aria-busy="true" /> : query.isError || !data ? (
+        <p role="alert" className="text-sm text-destructive">{query.error instanceof Error ? query.error.message : "Couldn’t load the diff"}</p>
+      ) : data.kind === "text" ? (
         <pre className="overflow-x-auto rounded-md border border-border font-mono text-xs leading-5">
           {lines.length ? lines.map((l, i) => (
             <div key={i} className={cn("flex whitespace-pre pr-3", l.kind === "+" && "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200", l.kind === "-" && "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200", l.kind === "@" && "bg-muted text-muted-foreground")}>
@@ -230,21 +238,21 @@ function SaveDiff({ id, file }: { id: string; file: SaveFile }) {
               <span className="sr-only">{l.kind === "+" ? "added line: " : l.kind === "-" ? "removed line: " : ""}</span>
               <span aria-hidden className="select-none pr-2">{l.kind === "@" ? "" : l.kind}</span>{l.text}
             </div>
-          )) : <div className="px-3 py-2 text-muted-foreground">No line changes{file.op === "rename" ? ": moved only" : ""}.</div>}
+          )) : <div className="px-3 py-2 text-muted-foreground">No line changes{renamedOnly ? ": moved only" : ""}.</div>}
         </pre>
-      ) : diff.data.kind === "image" ? (
+      ) : data.kind === "image" ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {(["before", "after"] as const).map((side) => (
             <figure key={side} className="rounded-md border border-border p-2">
               <figcaption className="mb-1 text-xs text-muted-foreground">{side === "before" ? "Before" : "After"}</figcaption>
-              {diff.data.kind === "image" && diff.data[side] ? <img src={diff.data[side]!} alt={`${file.path} ${side}`} className="max-h-80 w-full object-contain" /> : <p className="text-xs text-muted-foreground">None</p>}
+              {data[side] ? <img src={data[side]!} alt={`${path} ${side}`} className="max-h-80 w-full object-contain" /> : <p className="text-xs text-muted-foreground">None</p>}
             </figure>
           ))}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          {diff.data.kind === "too_large" ? "Too large to show here. " : "Not a text file. "}
-          Size {diff.data.beforeSize == null ? "—" : `${diff.data.beforeSize.toLocaleString()} bytes`} → {diff.data.afterSize == null ? "deleted" : `${diff.data.afterSize.toLocaleString()} bytes`}.
+          {data.kind === "too_large" ? "Too large to show here. " : "Not a text file. "}
+          Size {data.beforeSize == null ? "—" : `${data.beforeSize.toLocaleString()} bytes`} → {data.afterSize == null ? "deleted" : `${data.afterSize.toLocaleString()} bytes`}.
         </p>
       )}
     </div>

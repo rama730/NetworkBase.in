@@ -30,18 +30,23 @@ export function relativeArgs(ctx, root) {
 
 /**
  * Server, base and local side by side. Offline: the server side is the base, and status says so (A12.4).
- * @param {Context} ctx @param {{ only?: string[] }} [options]
+ * @param {Context} ctx @param {{ only?: string[], noFollow?: boolean }} [options]
  */
 export async function buildPlan(ctx, options = {}) {
   // A copy that keeps only some folders (C3) plans just those, so status doesn't list the rest as server-only.
   if (!options.only?.length && ctx.project?.only?.length) options = { ...options, only: ctx.project.only };
   const { root, project } = ctx.requireRoot();
+  // The folder follows its git branch first (report H6); offline it stays where it is.
+  if (!options.noFollow) {
+    const { followGit } = await import("./branch.mjs");
+    await followGit(ctx).catch((error) => { if (!(error instanceof CliError) || error.code !== "OFFLINE") throw error; });
+  }
   const state = readState(root, project.workspaceId);
   let offline = false;
   /** @type {Awaited<ReturnType<typeof fetchManifest>>} */
   let manifest;
   try {
-    manifest = await fetchManifest(ctx.api, project.workspaceId);
+    manifest = await fetchManifest(ctx.api, project.workspaceId, project.branch?.id ?? null);
   } catch (error) {
     if (!(error instanceof CliError) || error.code !== "OFFLINE") throw error;
     offline = true;
@@ -96,6 +101,7 @@ export async function status(ctx) {
   const conflicts = changed.filter((i) => i.state === "conflict");
   const data = {
     workspace: { id: project.workspaceId, slug: project.slug, title: project.title },
+    branch: project.branch ? project.branch.name : "main",
     // The current task (C8): the started one, or the one the nb/<n>- git branch names.
     startedTask: project.startedTask ?? ((n) => (n ? { number: Number(n), title: "(from the git branch)" } : null))(branchTask(root)),
     offline,
@@ -108,7 +114,7 @@ export async function status(ctx) {
   const { c, sym } = ctx.out;
   ctx.out.result("nb.status/1", data, (d) => {
     const task = d.startedTask ? ` · #${d.startedTask.number ?? ""} ${safe(d.startedTask.title ?? "")}` : "";
-    const head = `${c.brand(sym.brand)} ${safe(project.slug ?? project.workspaceId)}${task}${d.readOnly ? ` · ${c.warning("read only")}` : ""}${d.offline ? ` · ${c.warning("offline: server side not checked")}` : ""}`;
+    const head = `${c.brand(sym.brand)} ${safe(project.slug ?? project.workspaceId)}${project.branch ? ` · on branch ${c.accent(safe(project.branch.name))}` : ""}${task}${d.readOnly ? ` · ${c.warning("read only")}` : ""}${d.offline ? ` · ${c.warning("offline: server side not checked")}` : ""}`;
     const queued = d.queued ? [`  ${c.warning(`${d.queued} push(es) queued while offline: nb queue`)}`] : [];
     const t = d.today;
     const here = d.files.filter((f) => f.action === "push" || f.state === "conflict").length;
@@ -199,12 +205,12 @@ export async function pull(ctx, options = {}) {
       if (item.action === "conflict") {
         // Never overwrite: the server's version lands next to yours (A1.7, D18).
         const copy = conflictCopyPath(abs, r.version);
-        await downloadTo(ctx.api, project.workspaceId, item.path, copy, r.hash);
+        await downloadTo(ctx.api, project.workspaceId, item.path, copy, r.hash, project.branch?.id ?? null);
         state.conflicts[item.path] = { remoteVersion: r.version, copy: path.relative(root, copy) };
         results.push({ path: item.path, did: "conflict", version: r.version, copy: path.relative(root, copy) });
         return;
       }
-      const got = await downloadTo(ctx.api, project.workspaceId, item.path, abs, r.hash).catch((error) => {
+      const got = await downloadTo(ctx.api, project.workspaceId, item.path, abs, r.hash, project.branch?.id ?? null).catch((error) => {
         // A file whose content isn't on the server yet (an unfinished import) is skipped, not the end of the pull.
         if (error instanceof CliError && error.code === "CONTENT_NOT_READY") { skipped.push({ path: item.path, reason: "its content isn't on the server yet" }); return null; }
         throw error;
@@ -272,6 +278,9 @@ export async function push(ctx) {
     // Never upload a whole folder without being told which files (finding 21).
     throw usage("Say which files to push", "nb push <paths…>, or nb push --all for every changed tracked file");
   }
+  // A push always goes to the branch the folder is on (report H6); a detached git head has none, so it's refused.
+  const { readGitHead } = await import("./branch.mjs");
+  if (readGitHead(root)?.detached) throw new CliError("DETACHED_HEAD", "git isn't on a branch here (a detached HEAD), so there's no branch to push to", { hint: "git switch <branch> (or git switch -c <new-branch>), then nb push" });
   const as = ctx.flags.as ?? readUserConfig(ctx.env)["default-as"] ?? null;
   if (as && !["reference", "draft", "final"].includes(as)) throw usage(`--as must be reference, draft or final (not ${as})`);
   const keyBase = /** @type {any} */ (ctx).queueId ?? crypto.randomUUID();
@@ -321,6 +330,13 @@ export async function push(ctx) {
     }
     if (ctx.flags["dry-run"]) {
       return ctx.out.result("nb.push.plan/1", { files: items.map((i) => ({ path: i.path, state: i.state })), moves: moves.map((m) => ({ from: m.from, to: m.path })), deletions: deletions.map((i) => i.path) }, (d) => (d.files.length || d.deletions.length || d.moves.length ? [...d.files.map((f) => `  would push    ${safe(f.path)}`), ...d.moves.map((m) => `  would move    ${safe(m.from)} ${ctx.out.sym.arrow} ${safe(m.to)}`), ...d.deletions.map((p) => `  would delete  ${safe(p)}`)] : "Nothing to push"));
+    }
+    // On a branch everything goes up as one change set saved on that branch (report H6, H14); task files, roles and
+    // folders belong to main.
+    if (project.branch) {
+      if (as || ctx.flags.folder || ctx.flags["keep-both"]) throw usage("On a branch, files go to the branch; task files and roles stay on main", "nb branch switch main for those");
+      const { pushToBranch } = await import("./change.mjs");
+      return await pushToBranch(ctx, root, project, state, { items, moves, deletions, conflicts: ctx.flags.force ? conflicts : [] });
     }
     // Moves and renames keep the file's history (A1.17). One the server can't do in place (a new folder, or both
     // name and folder changed) goes up as a new file and the old one to Trash, like before.

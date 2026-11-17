@@ -90,12 +90,14 @@ export async function resolve(ctx) {
     ],
   });
   const { project, state } = plan;
+  // On a branch, yours goes up with the branch's push (report H6), not through main's upload.
+  if (project.branch && choice !== "theirs") throw usage(`On ${project.branch.name}, keep yours with nb push --force ${item.path.slice(1)}, or take the branch's with --theirs`);
   const leftover = state.conflicts[item.path]?.copy;
   const release = await acquireLock(root, "nb resolve");
   try {
     if (choice === "theirs") {
       moveToLocalTrash(root, item.local.abs);
-      const got = await downloadTo(ctx.api, project.workspaceId, item.path, item.local.abs, item.remote.hash);
+      const got = await downloadTo(ctx.api, project.workspaceId, item.path, item.local.abs, item.remote.hash, project.branch?.id ?? null);
       recordBase(state, item.path, { nodeId: item.remote.nodeId, version: item.remote.version, hash: got.hash, abs: item.local.abs });
     } else if (choice === "mine") {
       const res = await uploadFiles(ctx.api, { workspaceId: project.workspaceId, items: [{ path: item.path, abs: item.local.abs, size: item.local.size, hash: item.local.hash, baseVersion: item.remote.version }], message: ctx.flags.message ?? null });
@@ -111,7 +113,7 @@ export async function resolve(ctx) {
       if (fs.existsSync(copyAbs)) throw new CliError("LOCAL_CONFLICT", `${safe(copy.path)} already exists here`, { hint: "Move it aside, then run nb pull" });
       renameRetry(item.local.abs, copyAbs);
       recordBase(state, copy.path, { nodeId: copy.nodeId, version: copy.version, hash: item.local.hash, abs: copyAbs });
-      const got = await downloadTo(ctx.api, project.workspaceId, item.path, item.local.abs, item.remote.hash);
+      const got = await downloadTo(ctx.api, project.workspaceId, item.path, item.local.abs, item.remote.hash, project.branch?.id ?? null);
       recordBase(state, item.path, { nodeId: item.remote.nodeId, version: item.remote.version, hash: got.hash, abs: item.local.abs });
     }
     if (leftover && fs.existsSync(path.join(root, leftover))) fs.rmSync(path.join(root, leftover));

@@ -333,10 +333,39 @@ const setOut = (/** @type {any} */ cs) => {
   const n = (/** @type {string} */ op) => items.filter((i) => i.op === op).length;
   return { id: cs.id, title: cs.title, status: cs.status, message: cs.message ?? null, filesAdded: n("add"), filesChanged: n("change"), filesDeleted: n("delete"), filesRenamed: n("rename"), linesAdded: 0, linesRemoved: 0, updatedAt: cs.updatedAt };
 };
+/** Branches (report H6): each its own files, main is state.files. @param {any} state @param {string | null} ref */
+const branchOf = (state, ref) => (ref ? (state.branches ??= []).find((/** @type {any} */ b) => b.id === ref || b.name.toLowerCase() === String(ref).toLowerCase()) ?? null : null);
+const branchOut = (/** @type {any} */ b) => ({ id: b.id, name: b.name, isDefault: false, status: b.status ?? "active", ahead: b.ahead ?? 0, behind: 0, changedFiles: 0, stale: false, lastSave: null, createdBy: null, task: null, createdAt: now(), updatedAt: now(), deletedAt: null });
+export const MAIN_BRANCH_ID = "00000000-0000-4000-8000-00000000000a";
+const branchRoutes = [
+  [/^\/api\/v1\/workspaces\/([^/]+)\/branches$/, "GET", (/** @type {any} */ _req, /** @type {any} */ state) => {
+    // Like most workspaces: no branches unless a test turns them on.
+    if (!state.branchesOn || state.branchesOff) return fail(403, "BRANCHES_OFF", "History isn't turned on for this workspace");
+    return { data: { branches: [{ ...branchOut({ id: MAIN_BRANCH_ID, name: "main" }), isDefault: true }, ...(state.branches ?? []).filter((/** @type {any} */ b) => b.status !== "deleted").map(branchOut)] } };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/branches$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    if (branchOf(state, req.body.name)) return fail(409, "BRANCH_EXISTS", `A branch named ${req.body.name} already exists`);
+    const from = branchOf(state, req.body.from ?? null);
+    const b = { id: crypto.randomUUID(), name: req.body.name, files: new Map([...(from ? from.files : state.files)].map(([p, f]) => [p, { ...f }])), status: "active" };
+    (state.branches ??= []).push(b);
+    return { status: 201, data: { branch: branchOut(b) } };
+  }],
+  [/^\/api\/v1\/branches\/([^/]+)$/, "PATCH", (/** @type {any} */ req, /** @type {any} */ state) => { const b = branchOf(state, req.params[0]); b.name = req.body.name; return { data: { branch: branchOut(b) } }; }],
+  [/^\/api\/v1\/branches\/([^/]+)$/, "DELETE", (/** @type {any} */ req, /** @type {any} */ state) => { const b = branchOf(state, req.params[0]); b.status = "deleted"; return { data: { deleted: true, savesNotInMain: 0, restoreUntil: now() } }; }],
+  [/^\/api\/v1\/branches\/([^/]+)\/raw$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const f = branchOf(state, req.params[0])?.files.get(req.query.get("path") ?? "");
+    return f ? { raw: f.content } : fail(404, "NOT_FOUND", "Not on this branch");
+  }],
+  [/^\/api\/v1\/branches\/([^/]+)\/update$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    state.updates = [...(state.updates ?? []), { branch: req.params[0], resolutions: req.body.resolutions }];
+    return { data: state.updateAnswer ?? { upToDate: false, save: { id: crypto.randomUUID(), number: 2 }, conflicts: [] } };
+  }],
+];
 const changeSetRoutes = [
+  ...branchRoutes,
   [/^\/api\/v1\/workspaces\/([^/]+)\/change-sets$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
     if (state.changeSetsOff) return fail(403, "CHANGE_SETS_OFF", "Change sets aren't turned on for this workspace yet");
-    const cs = { id: crypto.randomUUID(), title: req.body.title, status: "open", items: new Map(), updatedAt: now() };
+    const cs = { id: crypto.randomUUID(), title: req.body.title, status: "open", items: new Map(), updatedAt: now(), branchId: req.body.branchId ?? null };
     sets(state).set(cs.id, cs);
     return { status: 201, data: { changeSet: setOut(cs) } };
   }],
@@ -389,11 +418,13 @@ const changeSetRoutes = [
     if (cs.status !== "ready") return fail(409, "CHANGE_SET_NOT_READY", "Finish the change set first");
     const applied = [];
     const undo = [];
+    // A change set on a branch saves on that branch only (H14).
+    const target = cs.branchId ? branchOf(state, cs.branchId) : state;
     for (const i of cs.items.values()) {
-      if (i.op === "delete") { const f = state.files.get(i.path); state.files.delete(i.path); applied.push({ path: i.path, nodeId: f?.nodeId, version: null, op: i.op }); continue; }
-      if (i.op === "rename") { const f = state.files.get(i.fromPath); state.files.delete(i.fromPath); if (f) state.files.set(i.path, { ...f, path: i.path }); undo.push({ path: i.path, fromPath: i.fromPath }); }
-      const bytes = knownContent(state).get(i.contentHash) ?? [...state.files.values()].find((f) => sha256(f.content) === i.contentHash)?.content;
-      const { file } = putFile(state, i.path, /** @type {Buffer} */ (bytes));
+      if (i.op === "delete") { const f = target.files.get(i.path); target.files.delete(i.path); applied.push({ path: i.path, nodeId: f?.nodeId, version: null, op: i.op }); continue; }
+      if (i.op === "rename") { const f = target.files.get(i.fromPath); target.files.delete(i.fromPath); if (f) target.files.set(i.path, { ...f, path: i.path }); undo.push({ path: i.path, fromPath: i.fromPath }); }
+      const bytes = knownContent(state).get(i.contentHash) ?? [...target.files.values(), ...state.files.values()].find((f) => sha256(f.content) === i.contentHash)?.content;
+      const { file } = putFile(target, i.path, /** @type {Buffer} */ (bytes));
       applied.push({ path: i.path, nodeId: file.nodeId, version: file.version, op: i.op });
     }
     cs.status = "applied";
@@ -587,7 +618,7 @@ const patterns = [
     return { data: { deleted: req.body.id } };
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", role: "owner" }, { id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || `${m.username} ${m.fullName}`.toLowerCase().includes(String(req.query.get("q")).toLowerCase())) } })],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...state.files.values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...(branchOf(state, req.query.get("branch"))?.files ?? state.files).values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: (d.nodePath && state.files.get(d.nodePath)?.nodeId) ?? null })) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {
     const doc = state.docs.find((d) => d.slug === req.params[1]);

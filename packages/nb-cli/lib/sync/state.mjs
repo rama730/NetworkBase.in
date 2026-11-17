@@ -14,14 +14,22 @@ export const STATE_VERSION = 1;
  * @typedef {{ schemaVersion: number, workspaceId: string, files: Record<string, BaseEntry>, conflicts: Record<string, { remoteVersion: number, copy: string }> }} SyncState
  */
 
+/** Each branch keeps its own base (report H6): main in state.json, a branch in state.<id>.json. @param {string} root */
+function stateFile(root) {
+  const branch = readJson(path.join(root, DIR_NAME, "config.json"))?.branch?.id;
+  return path.join(root, DIR_NAME, typeof branch === "string" && /^[0-9a-f-]{36}$/i.test(branch) ? `state.${branch}.json` : "state.json");
+}
+
 /** @param {string} root @param {string} workspaceId @returns {SyncState} */
 export function readState(root, workspaceId) {
-  const raw = readJson(path.join(root, DIR_NAME, "state.json"));
+  const file = stateFile(root);
+  const raw = readJson(file);
   if (raw) {
     if (raw.schemaVersion > STATE_VERSION) throw new CliError("CLIENT_TOO_OLD", "This folder was synced by a newer nb", { hint: "Update: npm i -g @networkbase/cli" });
     if (raw.workspaceId === workspaceId) return { conflicts: {}, ...raw };
     return { schemaVersion: STATE_VERSION, workspaceId, files: {}, conflicts: {} };
   }
+  if (!file.endsWith("state.json")) return { schemaVersion: STATE_VERSION, workspaceId, files: {}, conflicts: {} };
   // 1.x kept versions in manifest.json; they become the base so nothing is re-downloaded (A1.20).
   const legacy = readJson(path.join(root, DIR_NAME, "manifest.json"));
   /** @type {Record<string, BaseEntry>} */
@@ -36,7 +44,7 @@ export function readState(root, workspaceId) {
 
 /** @param {string} root @param {SyncState} state */
 export function writeState(root, state) {
-  writeAtomic(path.join(root, DIR_NAME, "state.json"), `${JSON.stringify(state)}\n`);
+  writeAtomic(stateFile(root), `${JSON.stringify(state)}\n`);
 }
 
 /** Process start time, so a PID reused after a reboot isn't mistaken for a running nb (finding 26). @param {number} pid */

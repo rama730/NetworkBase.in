@@ -1,7 +1,7 @@
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { denyOutsideTokenWorkspace, getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { changeSets, saves } from "@/lib/db/schema";
+import { branches, changeSets, saves } from "@/lib/db/schema";
 import { ChangeSetError, HeldResponse } from "@/lib/domain/change-sets";
 import { validateCsrf } from "@/lib/security/csrf";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
@@ -19,7 +19,7 @@ export const LIMIT = { items: 120, content: 60, read: 120, apply: 10, other: 60 
  */
 export async function changeSetRoute(
   request: Request,
-  opts: { limit: keyof typeof LIMIT; changeSetId?: string; saveId?: string; workspaceId?: string },
+  opts: { limit: keyof typeof LIMIT; changeSetId?: string; saveId?: string; branchId?: string; workspaceId?: string },
   run: (auth: Auth, request: Request) => Promise<unknown>,
 ) {
   const write = request.method !== "GET" && request.method !== "HEAD";
@@ -43,6 +43,10 @@ export async function changeSetRoute(
       if (!workspaceId && opts.changeSetId && /^[0-9a-f-]{36}$/i.test(opts.changeSetId)) {
         const [set] = await db.select({ workspaceId: changeSets.workspaceId }).from(changeSets).where(eq(changeSets.id, opts.changeSetId)).limit(1);
         workspaceId = set?.workspaceId ?? null;
+      }
+      if (!workspaceId && opts.branchId && /^[0-9a-f-]{36}$/i.test(opts.branchId)) {
+        const [branch] = await db.select({ workspaceId: branches.workspaceId }).from(branches).where(eq(branches.id, opts.branchId)).limit(1);
+        workspaceId = branch?.workspaceId ?? null;
       }
       if (!workspaceId && opts.saveId && /^[0-9a-f-]{36}$/i.test(opts.saveId)) {
         const [save] = await db.select({ workspaceId: saves.workspaceId }).from(saves).where(eq(saves.id, opts.saveId)).limit(1);

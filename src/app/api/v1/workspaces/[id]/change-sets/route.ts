@@ -12,7 +12,7 @@ export async function POST(request: Request, context: Ctx) {
   const workspaceId = await workspaceIdFromRef((await context.params).id);
   return changeSetRoute(request, { limit: "other", workspaceId: workspaceId ?? undefined }, async (auth, req) => {
     const body = await readJson(req);
-    const changeSet = await startChangeSet(auth, { workspaceId: workspaceId ?? "", title: body.title, taskId: body.taskId ?? null, message: body.message ?? null });
+    const changeSet = await startChangeSet(auth, { workspaceId: workspaceId ?? "", title: body.title, taskId: body.taskId ?? null, message: body.message ?? null, branchId: typeof body.branchId === "string" ? body.branchId : null });
     return jsonSuccess({ changeSet }, undefined, { status: 201 });
   });
 }

@@ -419,6 +419,8 @@ const collectionInfo = {
     "Starred files are your shortcuts, the same in every browser and in nb file list --starred. Star or unstar a file from its actions menu. Deleted files and inaccessible files are excluded.",
   changes:
     "Multi-file work, yours or an agent's, waiting to be reviewed and applied in one step. Undo puts every file back.",
+  branches:
+    "Lines of work next to main: each has main's files as they were when it started, plus its own saves. Update one from main to bring newer work in.",
   history:
     "Every change to the files, newest first: who changed what and when. Open a save to see its diffs, the files as they were, or revert it.",
   trash:

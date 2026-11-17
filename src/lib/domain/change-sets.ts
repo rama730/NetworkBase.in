@@ -124,7 +124,7 @@ export async function findChangeSet(changeSetId: string) {
 
 // ── Start, list, read ─────────────────────────────────────────────────────────────────────────────────────────────
 
-export async function startChangeSet(actor: Actor, input: { workspaceId: string; title: string; taskId?: string | null; message?: string | null }) {
+export async function startChangeSet(actor: Actor, input: { workspaceId: string; title: string; taskId?: string | null; message?: string | null; branchId?: string | null }) {
   const userId = userOf(actor);
   const { canWrite } = await workspaceAccess(actor, input.workspaceId);
   if (!canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
@@ -132,6 +132,14 @@ export async function startChangeSet(actor: Actor, input: { workspaceId: string;
   await requireAgentAllowed(actor, input.workspaceId, input.taskId);
   const title = String(input.title ?? "").trim().slice(0, 120);
   if (!title) fail("A change set needs a title", 400, "BAD_REQUEST");
+  // On a branch (report H14): the branch's files are the base, and applying saves on the branch, never on main.
+  let branchId: string | null = null;
+  if (input.branchId) {
+    const { findBranch } = await import("@/lib/domain/branches");
+    const branch = await findBranch(input.workspaceId, input.branchId);
+    if (branch.status !== "active") fail(`${branch.name} was ${branch.status}; restore it first`, 409, "BRANCH_DELETED");
+    branchId = branch.isDefault ? null : branch.id;
+  }
   const message = input.message?.trim().slice(0, 2000) || null;
   const sessionId = isAgent(actor) && actor.extensionSessionId && /^[0-9a-f-]{36}$/i.test(actor.extensionSessionId) ? actor.extensionSessionId : null;
   const open = and(eq(changeSets.workspaceId, input.workspaceId), inArray(changeSets.status, ["open", "ready"]));
@@ -152,6 +160,7 @@ export async function startChangeSet(actor: Actor, input: { workspaceId: string;
     agentSessionId: sessionId,
     title,
     message,
+    branchId,
   }).returning();
   return set!;
 }
@@ -369,9 +378,13 @@ export async function upsertItems(actor: Actor, changeSetId: string, raw: ItemIn
     const executable = typeof i.executable === "boolean" && i.op !== "delete" ? i.executable : null;
     return { op: i.op, path, fromPath, contentHash, size, mimeType, executable, baseVersion: i.baseVersion ?? null, baseHash: i.baseHash ? String(i.baseHash).toLowerCase() : null };
   });
-  const live = await liveFiles(set.workspaceId, [...new Set(items.flatMap((i) => [i.path, ...(i.fromPath ? [i.fromPath] : [])]))]);
+  const touched = [...new Set(items.flatMap((i) => [i.path, ...(i.fromPath ? [i.fromPath] : [])]))];
+  const live: Map<string, { id: string | null; version: number; hash: string | null; deletedAt: Date | null }> = set.branchId
+    ? await (await import("@/lib/domain/branches")).branchLiveFiles(set.branchId, touched)
+    : await liveFiles(set.workspaceId, touched);
   const known = await knownContent(set.workspaceId, [...new Set(items.flatMap((i) => (i.contentHash ? [i.contentHash] : [])))]);
-  await refuseLocked(new Map([...live.entries()].map(([p, f]) => [f.id, p])), userId);
+  // Locks are per branch (H8): main's locks don't hold a branch's files.
+  if (!set.branchId) await refuseLocked(new Map([...live.entries()].map(([p, f]) => [f.id!, p])), userId);
 
   const missing = new Set<string>();
   await db.transaction(async (tx) => {
@@ -577,6 +590,11 @@ export async function readAsset(assetId: string | null) {
 }
 
 async function baseAssetOf(item: ChangeSetItem) {
+  // A branch's file has no node: its content by hash (H14).
+  if (!item.baseNodeId && item.baseHash) {
+    const [set] = await db.select({ workspaceId: changeSets.workspaceId }).from(changeSets).where(eq(changeSets.id, item.changeSetId)).limit(1);
+    return set ? (await knownContent(set.workspaceId, [item.baseHash])).get(item.baseHash)?.id ?? null : null;
+  }
   if (!item.baseNodeId || item.baseVersion == null) return null;
   const [v] = await db.select({ assetId: fileVersions.assetId }).from(fileVersions)
     .where(and(eq(fileVersions.nodeId, item.baseNodeId), eq(fileVersions.version, item.baseVersion))).limit(1);
@@ -791,17 +809,21 @@ async function mergeItemInner(set: ChangeSet, item: ChangeSetItem, node: LiveNod
 
 /** Content made on the server (a merge, a resolved result): stored once, verified. */
 async function storeBytes(set: ChangeSet, hash: string, bytes: Buffer, mimeType: string | null) {
-  const key = contentKey(set.workspaceId, hash);
+  return storeWorkspaceBytes(set.workspaceId, set.authorId, hash, bytes, mimeType, { changeSetId: set.id, source: "change_set_merge" });
+}
+/** Verified bytes stored once per workspace by hash (G6); a merge result on main or on a branch (H13). */
+export async function storeWorkspaceBytes(workspaceId: string, ownerId: string, hash: string, bytes: Buffer, mimeType: string | null, metadata: Record<string, unknown>) {
+  const key = contentKey(workspaceId, hash);
   const [have] = await db.select({ id: storageAssets.id }).from(storageAssets).where(and(eq(storageAssets.bucket, "project-files"), eq(storageAssets.storageKey, key), eq(storageAssets.state, "verified"))).limit(1);
   if (have) return have.id;
   const { error } = await (await createAdminClient()).storage.from("project-files").upload(key, bytes, { contentType: storableMime(mimeType), cacheControl: "31536000", upsert: true });
   if (error) fail(`Couldn't store the merged file: ${error.message}`, 502, "INTERNAL_ERROR");
   const now = new Date();
   const [row] = await db.insert(storageAssets).values({
-    ownerUserId: set.authorId, projectId: set.workspaceId, bucket: "project-files", storageKey: key, purpose: "change_set_content", state: "verified",
+    ownerUserId: ownerId, projectId: workspaceId, bucket: "project-files", storageKey: key, purpose: "change_set_content", state: "verified",
     declaredMimeType: mimeType ?? "text/plain", declaredSize: bytes.byteLength, verifiedMimeType: mimeType ?? "text/plain", verifiedSize: bytes.byteLength, contentHash: hash,
-    expiresAt: new Date(now.getTime() + 15 * 60_000), verifiedAt: now, idempotencyKey: `change-content:${set.workspaceId}:${hash}`,
-    requestFingerprint: crypto.createHash("sha256").update(`change-content:${set.workspaceId}:${hash}`).digest("hex"), metadata: { changeSetId: set.id, source: "change_set_merge" },
+    expiresAt: new Date(now.getTime() + 15 * 60_000), verifiedAt: now, idempotencyKey: `change-content:${workspaceId}:${hash}`,
+    requestFingerprint: crypto.createHash("sha256").update(`change-content:${workspaceId}:${hash}`).digest("hex"), metadata,
   }).onConflictDoNothing().returning({ id: storageAssets.id });
   return row?.id ?? (await db.select({ id: storageAssets.id }).from(storageAssets).where(and(eq(storageAssets.bucket, "project-files"), eq(storageAssets.storageKey, key))).limit(1))[0]!.id;
 }
@@ -810,6 +832,7 @@ async function storeBytes(set: ChangeSet, hash: string, bytes: Buffer, mimeType:
 export async function updateDraft(actor: Actor, changeSetId: string) {
   const set = await loadForWrite(actor, changeSetId, "author");
   if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
+  if (set.branchId) fail("On a branch, update the branch from main instead (nb branch update)", 409, "CONFLICT");
   // A draft again before anything changes: finish checks the merged files before the set can apply.
   await db.transaction(async (tx) => reopenIfReady(tx, await lockOpenSet(tx, set.id)));
   const items = await db.select().from(changeSetItems).where(eq(changeSetItems.changeSetId, set.id));
@@ -825,6 +848,7 @@ export async function updateDraft(actor: Actor, changeSetId: string) {
 export async function resolveItem(actor: Actor, changeSetId: string, input: { path: string; choice: "mine" | "theirs" | "content"; contentHash?: string | null; text?: string | null }) {
   const set = await loadForWrite(actor, changeSetId, "author-or-admin");
   if (!["open", "ready"].includes(set.status)) fail(`This change set is ${set.status}`, 409, "CHANGE_SET_CLOSED");
+  if (set.branchId) fail("On a branch, settle it by updating the file and finishing again", 409, "CONFLICT");
   const path = normalizeChangePath(input.path);
   const [item] = await db.select().from(changeSetItems).where(and(eq(changeSetItems.changeSetId, set.id), or(eq(changeSetItems.path, path), eq(changeSetItems.fromPath, path)))).limit(1);
   if (!item) fail("That file isn't in this change set", 404, "NOT_FOUND");
@@ -917,6 +941,7 @@ export async function applyChangeSet(actor: Actor, request: Request, changeSetId
   if (opts.only?.length) {
     // Apply only some files is the person's choice in review (G12), from a finished set (secrets checked, content complete).
     if (isAgent(actor)) fail("Agents apply whole change sets; the person can apply only some files in the app", 403, "FORBIDDEN");
+    if (set.branchId) fail("On a branch, apply the whole change set", 409, "CONFLICT");
     if (set.status !== "ready") fail("Finish the change set first", 409, "CHANGE_SET_NOT_READY");
     set = await splitOff(actor, set, opts.only);
   }
@@ -942,6 +967,11 @@ export async function applyChangeSet(actor: Actor, request: Request, changeSetId
     }
   }
 
+  if (set.branchId) {
+    const result = await (await import("@/lib/domain/branches")).applyOnBranch(set, userId);
+    await notifyApplied(set, userId, result.applied.length);
+    return { changeSet: await findChangeSet(set.id), ...result };
+  }
   const started = Date.now();
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const { planned, conflicts } = await prepare(set);
@@ -1139,6 +1169,7 @@ async function undoChangeSetInner(actor: Actor, changeSetId: string, opts: { par
   const userId = userOf(actor);
   const set = await loadForWrite(actor, changeSetId, "author-or-admin");
   if (set.status !== "applied" || !set.applyResult) fail(`Only an applied change set can be undone; this one is ${set.status}`, 409, "CHANGE_SET_CLOSED");
+  if (set.branchId) fail("On a branch, revert its save instead (nb revert, or Revert in History)", 409, "CONFLICT");
   const { undo } = set.applyResult as unknown as ApplyResult;
   const outcome = await db.transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL statement_timeout = '30s'`);

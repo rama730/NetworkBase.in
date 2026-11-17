@@ -9,6 +9,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const { id } = await context.params;
   return changeSetRoute(request, { limit: "read", workspaceId: id }, async (auth, req) => {
     const q = new URL(req.url).searchParams;
-    return listSaves(auth, id, { path: q.get("path"), author: q.get("author"), agent: q.get("agent"), number: q.get("number") ? Number(q.get("number")) : null, cursor: q.get("cursor"), limit: q.get("limit") ? Number(q.get("limit")) : undefined });
+    return listSaves(auth, id, { branch: q.get("branch"), path: q.get("path"), author: q.get("author"), agent: q.get("agent"), number: q.get("number") ? Number(q.get("number")) : null, cursor: q.get("cursor"), limit: q.get("limit") ? Number(q.get("limit")) : undefined });
   });
 }

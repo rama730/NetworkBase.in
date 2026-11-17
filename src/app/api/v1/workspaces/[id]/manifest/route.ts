@@ -25,6 +25,29 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (auth.response) return auth.response;
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const { id } = await context.params;
+    // A branch's files (report H14): the resolver, with each file's revision as its version (the CLI compares
+    // versions and hashes, so its planner works unchanged). Paged by path.
+    const branchRef = new URL(request.url).searchParams.get("branch");
+    if (branchRef && branchRef.toLowerCase() !== "main") {
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return jsonError("Invalid workspace", 400, "BAD_REQUEST");
+      const { findBranch, listBranchFiles } = await import("@/lib/domain/branches");
+      const { ChangeSetError } = await import("@/lib/domain/change-sets");
+      try {
+        const actor = auth as unknown as import("@/lib/domain/change-sets").Actor;
+        const branch = await findBranch(id, branchRef);
+        if (branch.status !== "active") return jsonError(`The branch ${branch.name} was deleted`, 410, "BRANCH_DELETED" as never);
+        const page = await listBranchFiles(actor, branch.id, { cursor: new URL(request.url).searchParams.get("cursor") });
+        const access = await assertWorkspaceFileReadAccess(id, auth.user.id);
+        return jsonSuccess({
+          files: page.files.map((f) => ({ nodeId: f.nodeId ?? "", path: f.path, version: f.revision, contentHash: f.contentHash, size: f.size ?? 0, updatedAt: null, ...(f.executable ? { executable: true } : {}) })),
+          nextCursor: page.nextCursor, canWrite: access.canWrite, branch: { id: branch.id, name: branch.name },
+          limits: { largestFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES },
+        }, undefined, { headers: { "Cache-Control": "private, no-store" } });
+      } catch (error) {
+        if (error instanceof ChangeSetError) return jsonError(error.message, error.status, error.code as never, error.details);
+        throw error;
+      }
+    }
     const query = z
       .object({ projectId: z.string().uuid(), after: z.string().uuid().optional() })
       .safeParse({ projectId: id, after: new URL(request.url).searchParams.get("cursor") ?? undefined });

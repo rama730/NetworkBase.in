@@ -765,9 +765,14 @@
     },
     {
       "name": "log",
-      "summary": "The workspace's saves, newest first",
-      "usage": "nb log [path] [--author name] [--agent name] [--limit 20]",
+      "summary": "The saves of this folder's branch (or main), newest first",
+      "usage": "nb log [path] [--branch name] [--author name] [--agent name] [--limit 20]",
       "flags": {
+        "branch": {
+          "type": "string",
+          "describe": "This branch's saves (main for main's)",
+          "valueName": "name"
+        },
         "path": {
           "type": "string",
           "describe": "Only saves that touched this file or folder",
@@ -830,6 +835,121 @@
         0,
         4,
         130
+      ]
+    },
+    {
+      "name": "branch list",
+      "summary": "The workspace's branches, with saves ahead of and behind main",
+      "usage": "nb branch list [--mine] [--stale] [--deleted]",
+      "flags": {
+        "mine": {
+          "type": "boolean",
+          "describe": "Only yours"
+        },
+        "stale": {
+          "type": "boolean",
+          "describe": "No saves for 30 days"
+        },
+        "deleted": {
+          "type": "boolean",
+          "describe": "Deleted in the last 30 days (restorable)"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "branch create",
+      "summary": "A new branch from main (or --from another), and this folder moves onto it",
+      "usage": "nb branch create <name> [--from branch] [--task 4] [--no-switch]",
+      "flags": {
+        "from": {
+          "type": "string",
+          "describe": "Start from this branch instead of main",
+          "valueName": "branch"
+        },
+        "task": {
+          "type": "string",
+          "short": "t",
+          "describe": "Task number or id (default: the started task)",
+          "valueName": "task"
+        },
+        "no-switch": {
+          "type": "boolean",
+          "describe": "Make it but keep this folder where it is"
+        }
+      },
+      "examples": [
+        "nb branch create ram/try-new-header"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "branch switch",
+      "summary": "Move this folder to another branch; your edits come along",
+      "usage": "nb branch switch <name> [--carry]",
+      "flags": {
+        "carry": {
+          "type": "boolean",
+          "describe": "Bring your edits even to files that differ on the other branch"
+        }
+      },
+      "examples": [
+        "nb branch switch main"
+      ],
+      "exitCodes": [
+        0,
+        4
+      ]
+    },
+    {
+      "name": "branch rename",
+      "summary": "Rename a branch (folders on it stay on it)",
+      "usage": "nb branch rename <old> <new>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "branch delete",
+      "summary": "Delete a branch (restorable for 30 days)",
+      "usage": "nb branch delete <name>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        130
+      ]
+    },
+    {
+      "name": "branch update",
+      "summary": "Bring main's newer work into a branch; both-sided edits merge",
+      "usage": "nb branch update [name] [--keep-branch paths] [--take-main paths]",
+      "flags": {
+        "keep-branch": {
+          "type": "string",
+          "describe": "For these conflicts keep the branch's file",
+          "valueName": "paths"
+        },
+        "take-main": {
+          "type": "string",
+          "describe": "For these conflicts take main's file",
+          "valueName": "paths"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        4
       ]
     },
     {

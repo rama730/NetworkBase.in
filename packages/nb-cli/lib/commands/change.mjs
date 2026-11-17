@@ -44,7 +44,8 @@ export async function changeStart(ctx) {
   if (!title) throw new CliError("USAGE", "Name the change set", { hint: "nb change start \"Redesign the sign-in page\"" });
   const { resolveTask } = await import("./tasks.mjs");
   const taskId = ctx.flags.task ? (await resolveTask(ctx, String(ctx.flags.task), { brief: true })).id : null;
-  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title, ...(taskId ? { taskId } : {}) }));
+  // On a branch, the change set saves on the branch (report H14).
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title, ...(taskId ? { taskId } : {}), ...(project.branch ? { branchId: project.branch.id } : {}) }));
   const set = res.changeSet;
   setCurrentChange(root, set.id);
   writeJournal(root, { id: set.id, title: set.title, sent: {}, missing: [] });
@@ -345,7 +346,7 @@ export async function changeUpdate(ctx) {
       const local = /** @type {NonNullable<typeof item.local>} */ (item.local);
       const remote = /** @type {NonNullable<typeof item.remote>} */ (item.remote);
       const theirsFile = `${local.abs}.nbtmp-theirs`;
-      const got = await downloadTo(ctx.api, plan.project.workspaceId, item.path, theirsFile, remote.hash);
+      const got = await downloadTo(ctx.api, plan.project.workspaceId, item.path, theirsFile, remote.hash, plan.project.branch?.id ?? null);
       try {
         const theirs = fs.readFileSync(theirsFile);
         const mine = fs.readFileSync(local.abs);
@@ -403,7 +404,7 @@ export async function changeResolve(ctx) {
   const abs = rel ? safeJoin(root, rel) : null;
   if (choice === "theirs" && meta && abs) {
     const { downloadTo } = await import("../sync/transfer.mjs");
-    const got = await downloadTo(ctx.api, project.workspaceId, remote, abs, meta.contentHash ?? null);
+    const got = await downloadTo(ctx.api, project.workspaceId, remote, abs, meta.contentHash ?? null, project.branch?.id ?? null);
     const st = fs.statSync(abs);
     state.files[remote] = { nodeId: meta.nodeId ?? meta.id, baseVersion: meta.currentVersion ?? meta.version, baseHash: got.hash, size: st.size, mtimeMs: st.mtimeMs };
   } else if (choice === "mine" && meta) {
@@ -431,23 +432,30 @@ export async function changeResolve(ctx) {
  * @param {Context} ctx @param {string} root @param {any} project @param {any[]} items plan items with .local
  * @returns {Promise<{ changeSet: any, applied: any[] } | null>}
  */
-export async function pushAsChangeSet(ctx, root, project, items) {
+export async function pushAsChangeSet(ctx, root, project, items, extra = /** @type {{ branchId?: string, moves?: any[], deletions?: any[] }} */ ({})) {
   const { mimeFor } = await import("../sync/transfer.mjs");
-  const title = String(ctx.flags.message ?? `Push of ${items.length} files`).slice(0, 120);
+  const count = items.length + (extra.moves?.length ?? 0) + (extra.deletions?.length ?? 0);
+  const title = String(ctx.flags.message ?? `Push of ${count} file${count === 1 ? "" : "s"}`).slice(0, 120);
   /** @type {any} */
   let started;
   try {
-    started = await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title });
+    started = await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title, ...(extra.branchId ? { branchId: extra.branchId } : {}) });
   } catch (error) {
     if (error instanceof CliError && error.code === "CHANGE_SETS_OFF") return null;
     throw error;
   }
   const id = started.changeSet.id;
   writeJournal(root, { id, title, sent: {}, missing: [] });
-  const draft = items.map((i) => ({
-    op: /** @type {"add" | "change"} */ (i.base ? "change" : "add"), path: i.path, abs: i.local.abs, contentHash: i.local.hash, size: i.local.size, mimeType: mimeFor(i.path),
-    ...(i.base ? { baseVersion: i.base.baseVersion, baseHash: i.base.baseHash } : {}),
-  }));
+  /** @type {import("../changes/capture.mjs").DraftItem[]} */
+  const draft = [
+    ...items.map((i) => ({
+      op: /** @type {"add" | "change"} */ (i.base || i.remote ? "change" : "add"), path: i.path, abs: i.local.abs, contentHash: i.local.hash, size: i.local.size, mimeType: mimeFor(i.path),
+      // --force over a newer server copy (a conflict): based on what the server has now.
+      ...(i.state === "conflict" && i.remote ? { baseHash: i.remote.hash } : i.base ? { baseVersion: i.base.baseVersion, baseHash: i.base.baseHash } : {}),
+    })),
+    ...(extra.moves ?? []).map((m) => ({ op: /** @type {"rename"} */ ("rename"), fromPath: m.from, path: m.path, abs: m.local.abs, contentHash: m.local.hash, size: m.local.size, mimeType: mimeFor(m.path), ...(m.base ? { baseHash: m.base.baseHash } : {}) })),
+    ...(extra.deletions ?? []).map((d) => ({ op: /** @type {"delete"} */ ("delete"), path: d.path, ...(d.base ? { baseHash: d.base.baseHash } : {}) })),
+  ];
   const sync = await syncDraft(ctx.api, root, id, draft, { confirmSecrets: Boolean(ctx.flags["confirm-secrets"]) });
   if (sync.held.length) throw new CliError("SECRET_DETECTED", `Not pushed: ${sync.held.join(", ")} ${sync.held.length === 1 ? "looks" : "look"} like ${sync.held.length === 1 ? "it holds" : "they hold"} a password or key`, { hint: "Remove the key, or push with --confirm-secrets if it's safe to share" });
   if (sync.pending) throw new CliError("CONTENT_MISSING", `${plural(sync.pending, "file")} couldn't be uploaded`, { hint: `Run nb push again; nb change status ${id.slice(0, 8)} shows what's left` });
@@ -515,4 +523,39 @@ export async function changeSplit(ctx) {
     ctx.out.c.muted(`  Apply each: nb change apply <id>`),
   ]);
   return EXIT.ok;
+}
+
+/**
+ * nb push on a branch (report H6, H14): every change, moves and deletions too, goes up as one change set saved on the
+ * folder's branch, never on main. The folder's base then comes from the branch's files.
+ * @param {Context} ctx @param {string} root @param {any} project @param {import("../sync/state.mjs").SyncState} state
+ * @param {{ items: any[], moves: any[], deletions: any[], conflicts: any[] }} plan
+ */
+export async function pushToBranch(ctx, root, project, state, plan) {
+  const items = [...plan.items, ...plan.conflicts];
+  const { c, sym } = ctx.out;
+  if (!items.length && !plan.moves.length && !plan.deletions.length) {
+    return ctx.out.result("nb.push/1", { files: [], branch: project.branch.name }, () => "Nothing changed");
+  }
+  if (plan.deletions.length && !(await confirm(ctx, { key: "delete", question: `Delete ${plan.deletions.length} file(s) you deleted here from ${project.branch.name}?`, preview: plan.deletions.map((d) => d.path).join("\n"), yesLabel: "Delete", defaultYes: false }))) {
+    plan.deletions = [];
+  }
+  const done = await pushAsChangeSet(ctx, root, project, items, { branchId: project.branch.id, moves: plan.moves, deletions: plan.deletions });
+  if (!done) throw new CliError("BRANCHES_OFF", "Change sets are off in this workspace, so a branch can't take pushes", { hint: "nb branch switch main" });
+  const { fetchManifest } = await import("../sync/transfer.mjs");
+  const { recordBase } = await import("./files.mjs");
+  const manifest = await fetchManifest(ctx.api, project.workspaceId, project.branch.id);
+  for (const d of plan.deletions) delete state.files[d.path];
+  for (const m of plan.moves) delete state.files[m.from];
+  for (const i of [...items, ...plan.moves]) {
+    const f = manifest.files.get(i.path);
+    if (f && i.local) recordBase(state, i.path, { nodeId: f.nodeId, version: f.version, hash: /** @type {string} */ (f.hash), abs: i.local.abs });
+  }
+  writeState(root, state);
+  const data = { files: done.applied.map((/** @type {any} */ a) => ({ path: a.path, op: a.op })), branch: project.branch.name, changeSet: { id: done.changeSet.id, title: done.changeSet.title } };
+  return ctx.out.result("nb.push/1", data, (d) => [
+    `${c.success(sym.done)} Saved ${d.files.length} file${d.files.length === 1 ? "" : "s"} on ${safe(d.branch)}`,
+    ...d.files.slice(0, 20).map((/** @type {any} */ f) => `  ${safe(f.path)} ${c.muted(f.op)}`),
+    c.muted(`  nb log shows it; main is unchanged`),
+  ]);
 }

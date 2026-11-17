@@ -23,6 +23,8 @@ import {
   storageAssetPins,
   storageAssets,
   uploadIntents,
+  branchFiles,
+  saveChanges,
 } from "@/lib/db/schema";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getS3BackupConfig } from "@/lib/storage/s3-backup-client";
@@ -102,6 +104,15 @@ export function hasNoLiveReference() {
       JOIN ${changeSets} ON ${changeSets.id} = ${changeSetItems.changeSetId}
       WHERE (${changeSetItems.assetId} = ${storageAssets.id} OR ${changeSetItems.mergedAssetId} = ${storageAssets.id})
         AND (${changeSets.status} IN ('open', 'ready', 'applying') OR ${changeSets.updatedAt} > now() - interval '7 days')
+    )`,
+    // A branch's files and its history (report H10): content lives in them, not in file versions (0097).
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${branchFiles}
+      WHERE ${branchFiles.assetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${saveChanges}
+      WHERE ${saveChanges.assetId} = ${storageAssets.id}
     )`,
     sql`NOT EXISTS (
       SELECT 1 FROM ${storageAssetPins}
