@@ -101,6 +101,17 @@ export function useExplorerMutations({
   }>({ nodeId: null, value: "", original: "" });
 
   const mutationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  // A protected main takes merge requests only (report H5): uploads, new folders, renames, moves and deletes on it stop
+  // before calling the server, and say to use a branch (the picker in the Files header). Production hides a server
+  // error's text, so the database's refusal alone would read "Action couldn't finish". Task files aren't main's files.
+  const mainProtected = useMainProtected(projectId);
+  const refusedByMain = useCallback((taskScoped: boolean) => {
+    if (!mainProtected || taskScoped) return false;
+    showToast(PROTECTED_MAIN, "error");
+    return true;
+  }, [mainProtected, showToast]);
+  const inTask = useCallback((parentId: string | null) => Boolean(parentId && nodesById[parentId]?.taskId), [nodesById]);
+
   const refreshAfterMutation = useCallback(async (parentId: string | null, mode: "append" | "refresh" = "refresh") => {
     await loadFolderContent(parentId, mode).catch(() => showToast("Saved · refreshing list", "warning"));
   }, [loadFolderContent, showToast]);
@@ -180,6 +191,7 @@ export function useExplorerMutations({
     if (!canEdit) return;
 
     const parentId = createDialog.parentId ?? null;
+    if (refusedByMain(inTask(parentId))) return;
     const mutationKey = `create:${projectId}:${createDialog.kind}:${parentId ?? "root"}:${name.toLowerCase()}`;
 
     try {
@@ -247,6 +259,8 @@ export function useExplorerMutations({
     toggleExpanded,
     uploadWithPresignedUrl,
     upsertNodes,
+    refusedByMain,
+    inTask,
   ]);
 
 const FALLBACK_EXT_MIME: Record<string, string> = {
@@ -293,18 +307,9 @@ function isNonRetryableUploadError(message?: string): boolean {
 }
 
   // Picker and flat drag/drop uploads share collision, finalization, and retry behavior.
-  // A protected main takes merge requests only (report H5): uploads to it stop before any bytes move, and say to use a
-  // branch (the picker in the Files header), where Upload saves on the branch. Task files aren't main's files.
-  const mainProtected = useMainProtected(projectId);
-  const refusedByMain = useCallback((parentId: string | null) => {
-    if (!mainProtected || (parentId && nodesById[parentId]?.taskId)) return false;
-    showToast(PROTECTED_MAIN, "error");
-    return true;
-  }, [mainProtected, nodesById, showToast]);
-
   const uploadFiles = useCallback(async (files: File[], parentId: string | null, retryToastId?: string | number): Promise<WorkspaceNode[]> => {
     if (!canEdit || !files.length) return [];
-    if (refusedByMain(parentId)) return [];
+    if (refusedByMain(inTask(parentId))) return [];
     const validation = validateUploadSelection(files, { isFolder: false });
     if (!validation.valid) {
       showToast(validation.error || "Invalid file selection", "error");
@@ -515,7 +520,7 @@ function isNonRetryableUploadError(message?: string): boolean {
       if (!outcomeShown && progress !== undefined) toast.dismiss(progress);
     }
     return createdNodes;
-  }, [canEdit, projectId, runUniqueMutation, upsertNodes, setChildren, toggleExpanded, loadFolderContent, showToast, recordOperation, onOpenFile, chooseUploadCollision, refusedByMain]);
+  }, [canEdit, projectId, runUniqueMutation, upsertNodes, setChildren, toggleExpanded, loadFolderContent, showToast, recordOperation, onOpenFile, chooseUploadCollision, refusedByMain, inTask]);
 
   const openUpload = useCallback((parentId: string | null) => {
     if (!canEdit) return;
@@ -551,6 +556,7 @@ function isNonRetryableUploadError(message?: string): boolean {
       setRenameState({ nodeId: null, value: "", original: "" });
       return;
     }
+    if (refusedByMain(Boolean(node.taskId))) return;
 
     const nextName = renameState.value.trim();
     if (!nextName) {
@@ -613,6 +619,8 @@ function isNonRetryableUploadError(message?: string): boolean {
     runUniqueMutation,
     showToast,
     upsertNodes,
+    refusedByMain,
+    inTask,
   ]);
 
   const resolveActionNodes = useCallback(
@@ -650,6 +658,7 @@ function isNonRetryableUploadError(message?: string): boolean {
     if (!nodes.length || !canManageFiles) return;
 
     const target = moveDialog.targetFolderId;
+    if (refusedByMain(nodes.every((n) => n.taskId))) return;
 
     const nodeIds = nodes.map((n) => n.id).sort();
     const originalParentByNode = new Map<string, string | null>(
@@ -715,11 +724,12 @@ function isNonRetryableUploadError(message?: string): boolean {
       showToast(`Move failed: ${getErrorMessage(e, "Unknown error")}`, "error");
       throw e;
     }
-  }, [canManageFiles, refreshAfterMutation, moveDialog, projectId, recordOperation, runUniqueMutation, showToast, toggleExpanded, upsertNodes]);
+  }, [canManageFiles, refreshAfterMutation, moveDialog, projectId, recordOperation, runUniqueMutation, showToast, toggleExpanded, upsertNodes, refusedByMain]);
 
   const confirmDelete = useCallback(async () => {
     const nodes = deleteDialog.nodes;
     if (!nodes.length || !canEdit) return;
+    if (refusedByMain(nodes.every((n) => n.taskId))) return;
 
     const nodeIds = nodes.map((n) => n.id).sort();
     const mutationKey = `trash:${projectId}:${nodeIds.join(",")}`;
@@ -763,7 +773,7 @@ function isNonRetryableUploadError(message?: string): boolean {
     } catch (e: unknown) {
       showToast(`Delete failed: ${getErrorMessage(e, "Unknown error")}`, "error");
     }
-  }, [canEdit, deleteDialog.nodes, refreshAfterMutation, onNodeDeleted, projectId, recordOperation, runUniqueMutation, showToast]);
+  }, [canEdit, deleteDialog.nodes, refreshAfterMutation, onNodeDeleted, projectId, recordOperation, runUniqueMutation, showToast, refusedByMain, inTask]);
 
   const handleMoveFromMenu = useCallback(
     (node: WorkspaceNode) => {
@@ -799,7 +809,7 @@ function isNonRetryableUploadError(message?: string): boolean {
   const uploadFilesDirectly = useCallback(
     async (files: File[], parentId: string | null, retryToastId?: string | number): Promise<WorkspaceNode[]> => {
       if (!canEdit || files.length === 0) return [];
-      if (refusedByMain(parentId)) return [];
+      if (refusedByMain(inTask(parentId))) return [];
       const validation = validateUploadSelection(files, { isFolder: true });
       if (!validation.valid) {
         showToast(validation.error || "Invalid folder selection", "error");
@@ -1018,7 +1028,7 @@ function isNonRetryableUploadError(message?: string): boolean {
       loadFolderContent,
       toggleExpanded,
       uploadFiles,
-      chooseUploadCollision, refusedByMain]
+      chooseUploadCollision, refusedByMain, inTask]
   );
 
   const openFolderUpload = useCallback((parentId: string | null) => {

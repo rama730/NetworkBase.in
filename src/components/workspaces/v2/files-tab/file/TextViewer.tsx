@@ -496,7 +496,8 @@ export function TextViewer({
       if (!canEdit || isSaving) return;
       // A protected main takes merge requests only (H5): the edit goes on a new branch instead, with one click.
       if (mainProtected && !node.taskId) {
-        offerBranch({ title: choice.comment?.trim() || `Changed ${node.name}`, what: `edit-${node.name}`, change: { kind: "text", path: node.path, text: content, baseHash } });
+        // Once it's on the branch, main's editor drops the edit (main never had it), so leaving the page doesn't warn.
+        offerBranch({ title: choice.comment?.trim() || `Changed ${node.name}`, what: `edit-${node.name}`, change: { kind: "text", path: node.path, text: content, baseHash }, onDone: () => setContent(savedContent) });
         return;
       }
       setIsSaving(true);
@@ -527,7 +528,7 @@ export function TextViewer({
           toast.success(`Saved as v${result.version.version}`);
         } else if (isProtectedMain(result.error) && !node.taskId) {
           // A protected main takes merge requests only (H5): offer this edit on a new branch instead.
-          offerBranch({ title: `Changed ${node.name}`, what: `edit-${node.name}`, change: { kind: "text", path: node.path, text: content, baseHash } });
+          offerBranch({ title: `Changed ${node.name}`, what: `edit-${node.name}`, change: { kind: "text", path: node.path, text: content, baseHash }, onDone: () => setContent(savedContent) });
         } else {
           setSaveError(result.error || "Couldn’t save version");
           toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));
@@ -540,7 +541,7 @@ export function TextViewer({
         setIsSaving(false);
       }
     },
-    [baseHash, baseVersion, canEdit, content, isSaving, lease, node.id, node.name, node.mimeType, node.path, node.s3Key, node.taskId, mainProtected, offerBranch, onSaved, projectId,upsertNodes]
+    [baseHash, baseVersion, canEdit, content, isSaving, lease, node.id, node.name, node.mimeType, node.path, node.s3Key, node.taskId, mainProtected, offerBranch, onSaved, projectId, savedContent, upsertNodes]
   );
 
   // ── Render ─────────────────────────────────────────────────────────
