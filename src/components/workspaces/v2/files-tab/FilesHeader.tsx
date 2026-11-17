@@ -477,10 +477,11 @@ export function FilesViewsMenu({
   const [keysOpen, setKeysOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
+      const target = e.target instanceof HTMLElement ? e.target : null;
       if (e.metaKey || e.ctrlKey || e.altKey || (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable || target.closest('[role="dialog"]')))) return;
-      if (e.key === "/") { e.preventDefault(); setDraft(""); setSurface("search"); }
-      else if (e.key === "?") { e.preventDefault(); setKeysOpen(true); }
+      // Some keyboards and tools report Shift+/ as "/" with Shift held; that is "?" too.
+      if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); setKeysOpen(true); }
+      else if (e.key === "/") { e.preventDefault(); setDraft(""); setSurface("search"); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

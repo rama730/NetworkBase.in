@@ -312,9 +312,9 @@
       "text": "1 · Every new list (history, branches, merge requests, change sets, agents, access requests) has an empty state with one sentence and one action, including a co",
       "kind": "build",
       "milestone": "M9",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts (0.8 #1, #7); tests/browser/merge-requests.spec.ts (0.8 #1); tests/browser/change-sets.spec.ts",
-      "evidence": "M9 B1 2026-11-18 (local, not deployed): empty states checked on History, merge requests and change sets; the lists shipped in M5/M8"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local, not deployed): empty states checked on History, merge requests and change sets; the lists shipped in M5/M8"
     },
     {
       "key": "0.8.ff6355ef",
@@ -332,9 +332,9 @@
       "text": "3 · A one-time, dismissible \"New: …\" banner in the app when one-click agents, change sets and branches ship · M1, M5, M8",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts (New dot until first opened)",
-      "evidence": "M9 B1 2026-11-18 (local, not deployed): a New dot on main ▾ until the picker is first opened, then one line on what branches are"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local, not deployed): a New dot on main ▾ until the picker is first opened, then one line on what branches are"
     },
     {
       "key": "0.8.07748bcf",
@@ -342,9 +342,9 @@
       "text": "4 · Unsaved edits in the app editor are kept when switching branch, opening a change set or leaving the page (with the existing leave warning) · M5, M8",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts (unsaved edit on a branch is kept); tests/browser/text-selection.spec.ts (0.8 #4); tests/unit/file-lease-contract.test.ts",
-      "evidence": "M9 B1 2026-11-18 (local, not deployed): useEditDraft keeps unsaved text per tab with the leave warning, main and branch editors"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local, not deployed): useEditDraft keeps unsaved text per tab with the leave warning, main and branch editors"
     },
     {
       "key": "0.8.7334f128",
@@ -352,9 +352,9 @@
       "text": "5 · Comment drafts on merge requests and change sets are kept locally until sent · M5, M8",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/merge-requests.spec.ts (a comment you haven't sent stays); tests/browser/change-sets.spec.ts",
-      "evidence": "M9 B1 2026-11-18 (local, not deployed): useDraft shared by change sets and merge requests"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local, not deployed): useDraft shared by change sets and merge requests"
     },
     {
       "key": "0.8.7ee89dd4",
@@ -372,9 +372,9 @@
       "text": "7 · Confirm dialogs name the exact thing (\"Delete branch task/4-login-bug with 3 saves not in main?\") · each milestone",
       "kind": "build",
       "milestone": "M9",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts (0.8 #1, #7: Delete names the branch and its saves not in main)",
-      "evidence": "M9 B1 2026-11-18 (local): the confirm shipped in H-2b/H-3; test added"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local): the confirm shipped in H-2b/H-3; test added"
     },
     {
       "key": "0.8.991327a9",
@@ -382,9 +382,9 @@
       "text": "8 · Skeletons, not spinners, for branch switching and diff loading; a branch switch keeps the scroll position per folder · M8",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/unit/files-tab/folder-list.test.ts (skeleton rows, not a spinner)",
-      "evidence": "M9 B1 2026-11-18 (local, not deployed): no spinner in the folder skeleton, picker skeleton rows, branch folders keep their scroll per folder across branch switches"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local, not deployed): no spinner in the folder skeleton, picker skeleton rows, branch folders keep their scroll per folder across branch switches"
     },
     {
       "key": "0.8.208000f5",
@@ -412,9 +412,9 @@
       "text": "11 · Keyboard: / searches files, b opens branches, ? lists shortcuts on Files screens · M8",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts (keys on Files)",
-      "evidence": "M9 B1 2026-11-18 (local, not deployed): / searches, b opens branches, ? lists the keys"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local, not deployed): / searches, b opens branches, ? lists the keys"
     },
     {
       "key": "0.8.d46fa491",
@@ -422,9 +422,9 @@
       "text": "12 · Docs pages: /docs/agents (presets, asking for more), /docs/files/changes, /docs/files/branches, and llms.txt updated each milestone · M1, M5, M8",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/unit/tool-reference.test.ts; tests/unit/docs-agents.test.ts",
-      "evidence": "M9 B1 2026-11-18 (local, not deployed): /docs/agents, /docs/files/changes and /docs/files/branches exist; llms.txt names branches and merge requests"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local, not deployed): /docs/agents, /docs/files/changes and /docs/files/branches exist; llms.txt names branches and merge requests"
     },
     {
       "key": "0.8.5aca463e",
@@ -9182,9 +9182,9 @@
       "text": "Opens Files. The branch picker shows \"main ▾\" with a small \"New\" dot the first time.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts (New dot until first opened)",
-      "evidence": "M9 B1 2026-11-18 (local, not deployed)"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local, not deployed)"
     },
     {
       "key": "H23.47b507c7",
@@ -9192,9 +9192,9 @@
       "text": "Opens the picker and sees one line: \"Branches let you try changes without touching main. Merge when you're happy.\" Then Create a branch.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts (New dot until first opened)",
-      "evidence": "M9 B1 2026-11-18 (local, not deployed)"
+      "evidence": "2026-11-18 LIVE (82d08f2bb, Railway SUCCESS): on ponytail main ▾ showed the New dot, the first open showed \"Branches let you try changes without touching main. Merge when you’re happy.\", the dot was gone after; ? opened Keyboard shortcuts; / opened Search workspace files; no spinner in the folder loader; llms.txt names branches and merge requests. Comment drafts and kept edits are proven by the browser tests (no open merge request on ponytail to try them on). M9 B1 2026-11-18 (local, not deployed)"
     },
     {
       "key": "H23.28f703ad",
