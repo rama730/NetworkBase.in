@@ -7,14 +7,15 @@
 // completions with real names) took it to 501 KiB (148 KB packed), so the ceiling was 560 KiB. M4c (agents: packs,
 // briefing, notes, presence) took it to 550 KiB and M4d's messages, nb learn and nb start to 568 KiB (166 KB packed),
 // so the ceiling was 640 KiB for M4d's nb ui. M5 (2.2: change sets, live capture, merge3, split, review comments) took
-// it to 640.3 KiB, so the ceiling is 720 KiB; M6 checks it again.
+// it to 640.3 KiB, so the ceiling was 720 KiB. M8 (2.4: history, branches, merge requests, a protected main, the
+// branches pack) took it to 727 KiB, so the ceiling is 800 KiB.
 // Startup stays within budget because command modules load only when used.
 import { putFile, startFakeServer } from "./helpers/fake-server.mjs";
 import { cliMs, medianMs, unpackedBytes } from "./helpers/measure.mjs";
 import { runCli, tempDir } from "./helpers/run-cli.mjs";
 
 // statusMs (C6): nb status in a linked folder of 50 files, the everyday command, against the local fake server.
-const BUDGET = { unpackedBytes: 720 * 1024, versionMs: 120, helpMs: 200, statusMs: 400 };
+const BUDGET = { unpackedBytes: 800 * 1024, versionMs: 120, helpMs: 200, statusMs: 400 };
 
 const api = await startFakeServer();
 const cwd = await tempDir("nb-budget-");

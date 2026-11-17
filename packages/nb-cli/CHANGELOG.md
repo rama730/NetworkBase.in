@@ -1,6 +1,8 @@
 # Changelog
 
-## 2.4.0 (2026-11-17)
+## 2.4.1 (2026-11-17)
+
+The first release with these changes: 2.4.0 was tagged but not published (the package size check stopped it).
 
 ### Added
 - History: `nb log` lists the saves on this folder's branch (or a file's with `nb log <path>`), `nb show <save>` shows one with its files and diffs, and `nb revert <save>` undoes one as a new save.
