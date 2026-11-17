@@ -569,6 +569,10 @@
   gap: 12px;
   margin-top: 24px;
 }
+/* Multi-line commit messages keep their trailer line (NetworkBase-Task: #N). */
+.commit .field textarea {
+  min-height: 34px;
+}
 .selectionFooter {
   display: flex;
   align-items: center;

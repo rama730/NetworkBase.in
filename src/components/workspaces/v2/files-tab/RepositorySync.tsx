@@ -2150,9 +2150,10 @@ export function RepositorySync({
                 {manifest.direction === "push"
                   ? "Commit message"
                   : "Import note"}
-                <input
+                <textarea
                   value={message}
                   maxLength={2000}
+                  rows={message.includes("\n") ? 4 : 1}
                   onChange={(e) => setMessage(e.target.value)}
                 />
               </label>

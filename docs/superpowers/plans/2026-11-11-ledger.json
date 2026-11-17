@@ -5494,7 +5494,7 @@
       "milestone": "M6",
       "status": "live",
       "test": "tests/browser/change-sets.spec.ts (push note, message, task line)",
-      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): site deployed; signed-in push check still open; before that: Plan decision 2: no silent push job; an applied set shows Not pushed to GitHub yet and Push opens the Repository sync review with the commit message filled in"
+      "evidence": "2026-11-17 signed-in check on deepscope-ai (test set 544dedca applied, then undone): note hidden while GitHub needed access; after the user renewed access, Not pushed to GitHub yet. Push to rama730/deepscope-ai showed, and Push opened the Repository sync review; found the commit message box was one line, so the trailer ran into the subject; fixed as a textarea (local, not deployed); nothing pushed; before that: 2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): site deployed; signed-in push check still open; before that: Plan decision 2: no silent push job; an applied set shows Not pushed to GitHub yet and Push opens the Repository sync review with the commit message filled in"
     },
     {
       "key": "G11.afd6c1a3",
@@ -6214,7 +6214,7 @@
       "milestone": "M6",
       "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): site deployed; signed-in push check in a GitHub-synced workspace still open; before that: Push to GitHub from the applied set, with NetworkBase-Task: #N (or the change set id); see decision 2"
+      "evidence": "2026-11-17 signed-in check on deepscope-ai (test set 544dedca applied, then undone): note hidden while GitHub needed access; after the user renewed access, Not pushed to GitHub yet. Push to rama730/deepscope-ai showed, and Push opened the Repository sync review; found the commit message box was one line, so the trailer ran into the subject; fixed as a textarea (local, not deployed); nothing pushed; before that: 2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): site deployed; signed-in push check in a GitHub-synced workspace still open; before that: Push to GitHub from the applied set, with NetworkBase-Task: #N (or the change set id); see decision 2"
     },
     {
       "key": "G19.179c23d0",
