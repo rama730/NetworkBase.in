@@ -73,13 +73,20 @@ export async function setProtection(actor: Actor, workspaceId: string, patch: Pa
   if (!isAdmin) fail("Only the workspace's owners and admins can change protection", 403, "FORBIDDEN");
   const main = await mainBranch(workspaceId);
   const before = await protectionOf(main.id);
-  const next: Protection = { ...before, ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) };
-  if (!Number.isInteger(next.approvals) || next.approvals < 0 || next.approvals > 5) fail("Approvals needed is 0 to 5", 400, "BAD_REQUEST");
-  if (!["writers", "admins"].includes(next.mergeBy)) fail("Who may merge is writers or admins", 400, "BAD_REQUEST");
-  next.requiredChecks = [...new Set((next.requiredChecks ?? []).map((c) => String(c).trim()).filter(Boolean))];
+  // Each field strictly its type: a string "false" must never pass as a tightening (it would skip Verify it's you).
+  const given = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
+  for (const key of ["requireMergeRequest", "reapproveOnNewSaves", "agentsOnBranches", "allowGithubSync"]) {
+    if (key in given && typeof given[key] !== "boolean") fail(`${key} is true or false`, 400, "BAD_REQUEST");
+  }
+  if ("approvals" in given && !(typeof given.approvals === "number" && Number.isInteger(given.approvals) && given.approvals >= 0 && given.approvals <= 5)) fail("Approvals needed is 0 to 5", 400, "BAD_REQUEST");
+  if ("mergeBy" in given && given.mergeBy !== "writers" && given.mergeBy !== "admins") fail("Who may merge is writers or admins", 400, "BAD_REQUEST");
+  if ("requiredChecks" in given && !(Array.isArray(given.requiredChecks) && given.requiredChecks.every((c) => typeof c === "string"))) fail("Checks are a list of names", 400, "BAD_REQUEST");
+  const next: Protection = { ...before, ...(given as Partial<Protection>) };
+  next.requiredChecks = [...new Set(next.requiredChecks.map((c) => c.trim()).filter(Boolean))];
   if (next.requiredChecks.length > 20 || next.requiredChecks.some((c) => !CHECK_NAME.test(c))) fail("Up to 20 check names: letters, numbers, spaces and . : / - _", 400, "BAD_REQUEST");
   if (!next.agentsOnBranches && (await writerCount(workspaceId)) > 1) fail("In a team workspace, agents always work on a branch", 409, "CONFLICT");
   const loosens = (before.requireMergeRequest && !next.requireMergeRequest) || next.approvals < before.approvals
+    || (before.reapproveOnNewSaves && !next.reapproveOnNewSaves)
     || before.requiredChecks.some((c) => !next.requiredChecks.includes(c)) || (before.agentsOnBranches && !next.agentsOnBranches)
     || (!before.allowGithubSync && next.allowGithubSync) || (before.mergeBy === "admins" && next.mergeBy === "writers");
   if (loosens && !opts.verified) fail("Loosening main's protection needs you to verify it's you", 403, "STEP_UP_REQUIRED");

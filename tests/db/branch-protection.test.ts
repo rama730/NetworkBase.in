@@ -140,6 +140,7 @@ test("merging: approvals, re-approval after new saves, required checks, who merg
   assert.deepEqual(view.protection.needs, ["Needs 1 more approval", "Check build hasn't passed"], "the approval was on an earlier save");
   assert.equal(view.viewer.canOverride, true);
   await mrs.reviewMergeRequest(actor(owner), workspace, number, { state: "approve" });
+  await assert.rejects(mrs.postCheck(agent(dev), workspace, number, { name: "build", state: "passed" }), { code: "FORBIDDEN" }, "agents don't grade their own work");
   await mrs.postCheck(actor(dev), workspace, number, { name: "build", state: "failed" });
   await assert.rejects(mrs.mergeMergeRequest(actor(owner), request(), workspace, number, {}), { code: "CHECKS_FAILED" });
   await mrs.postCheck(actor(dev), workspace, number, { name: "build", state: "passed" });
@@ -181,6 +182,10 @@ test("changing the rules: owners and admins, people only; loosening needs Verify
   await assert.rejects(protect.setProtection(actor(owner), workspace, { agentsOnBranches: false }, { verified: true }), { code: "CONFLICT" });
   await assert.rejects(protect.setProtection(actor(owner), workspace, { approvals: 6 }, { verified: true }), { code: "BAD_REQUEST" });
   await assert.rejects(protect.setProtection(actor(owner), workspace, { requiredChecks: ["bad;name"] }, { verified: true }), { code: "BAD_REQUEST" });
+  // Strict types: a string "false" is refused, not taken as a tightening that skips Verify it's you.
+  await assert.rejects(protect.setProtection(actor(owner), workspace, { requireMergeRequest: "false" as never }, { verified: false }), { code: "BAD_REQUEST" });
+  await protect.setProtection(actor(owner), workspace, { reapproveOnNewSaves: true }, { verified: false });
+  await assert.rejects(protect.setProtection(actor(owner), workspace, { reapproveOnNewSaves: false }, { verified: false }), { code: "STEP_UP_REQUIRED" });
   const tightened = await protect.setProtection(actor(owner), workspace, { approvals: 2, requiredChecks: ["build", "build", "lint"] }, { verified: false });
   assert.deepEqual([tightened.rules.approvals, tightened.rules.requiredChecks, tightened.loosens], [2, ["build", "lint"], false]);
   const off = await protect.setProtection(actor(owner), workspace, { requireMergeRequest: false }, { verified: true });

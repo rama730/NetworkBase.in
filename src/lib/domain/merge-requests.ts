@@ -499,6 +499,10 @@ export async function postCheck(actor: Actor, workspaceId: string, ref: string |
   const saveId = input.saveId ?? source.headSaveId ?? fail("The branch has no saves yet", 409, "CONFLICT");
   const [owned] = await db.select({ id: saves.id }).from(saves).where(and(eq(saves.id, saveId!), eq(saves.branchId, source.id))).limit(1);
   if (!owned) fail("That save isn't on this merge request's branch", 404, "NOT_FOUND");
+  // A check main's protection requires is posted by the build, never by an agent grading its own work (H5).
+  if (isAgent(actor) && (await protectionOf((await mainBranch(workspaceId)).id)).requiredChecks.includes(name)) {
+    fail(`${name} is a check main requires; your build posts it, not an agent`, 403, "FORBIDDEN");
+  }
   const now = new Date();
   await db.insert(mergeRequestChecks).values({ mergeRequestId: mr.id, saveId: saveId!, name, state: input.state, url, updatedAt: now })
     .onConflictDoUpdate({ target: [mergeRequestChecks.mergeRequestId, mergeRequestChecks.saveId, mergeRequestChecks.name], set: { state: input.state, url, updatedAt: now } });
@@ -567,6 +571,9 @@ export async function mergeMergeRequest(actor: Actor, request: Request, workspac
   if (!setId) {
     if (mr.pendingChangeSetId) await dropSet(mr.pendingChangeSetId);
     const items = await mergeItems(source, main.id);
+    // What merges is what the gate checked: a save that reached the branch meanwhile stops it (approvals, checks).
+    const [still] = await db.select({ head: branches.headSaveId }).from(branches).where(eq(branches.id, source.id)).limit(1);
+    if (still?.head !== mergedHead) fail(`New saves reached ${source.name} just now; look again, then merge`, 409, "BRANCH_MOVED");
     if (!items.length) fail("This branch has nothing that main doesn't already have", 409, "MERGE_REQUEST_EMPTY");
     const title = (method === "squash" ? mr.title : `Merge !${mr.number}: ${mr.title}`).slice(0, 120);
     const set = await startChangeSet(actor, { workspaceId, title, taskId: mr.taskId, mergeIntoMain: true });
