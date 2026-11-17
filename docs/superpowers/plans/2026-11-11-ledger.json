@@ -3512,9 +3512,9 @@
       "text": "With branches on (Part H): big work happens on an agent branch with a merge request, never directly on a protected main.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "D23.4434356e",
@@ -7002,9 +7002,9 @@
       "text": "From an agent: agents start a branch named for the task (agent/4-login-bug) when main is protected, or when the change is big (H7).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H2.2998ad61",
@@ -7302,9 +7302,9 @@
       "text": "On a protected main, revert goes through a merge request like any change (H5).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H4.31d11a0f",
@@ -7332,9 +7332,9 @@
       "text": "From an agent: at the end of its work, \"opened merge request #3 for your review\".",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H4.205d314d",
@@ -7532,9 +7532,9 @@
       "text": "Change main only through merge requests · on / off · off for personal workspaces; on for team workspaces with more than one member",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H5.e7625ccd",
@@ -7542,9 +7542,9 @@
       "text": "Approvals needed · 0–5 · 1 when the rule above is on",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H5.5ef234e6",
@@ -7552,9 +7552,9 @@
       "text": "New saves after approval need approval again · on / off · off",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H5.efe4ad5c",
@@ -7562,9 +7562,9 @@
       "text": "Checks must pass · on / off, and which checks · off",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H5.7dbca767",
@@ -7572,9 +7572,9 @@
       "text": "Who may merge into main · everyone with write access / owners and admins · everyone with write access",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H5.297b424c",
@@ -7582,9 +7582,9 @@
       "text": "Agents · always work on a branch and open a merge request · on, and can't be turned off for team workspaces",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H5.ace29b60",
@@ -7592,9 +7592,9 @@
       "text": "In the app: editing on main asks \"Save to a new branch?\", one click making ram/edit-login-page.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H5.9587fd4c",
@@ -7604,7 +7604,7 @@
       "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "partial (H-4): uploads/drops on a protected main stop with 'main is protected: use a branch'; one-click upload to a new branch not built"
     },
     {
       "key": "H5.9412e416",
@@ -7612,9 +7612,9 @@
       "text": "The CLI: nb push on main answers \"main is protected: pushed to branch ram/2026-11-11 and opened merge request #4?\" (asks first).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H5.9bb6f951",
@@ -7622,9 +7622,9 @@
       "text": "The API: writes to a protected main are refused with BRANCHPROTECTED, which says how to use a branch.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H5.bed4b4ab",
@@ -7632,9 +7632,9 @@
       "text": "GitHub sync pulls into a protected main are allowed (the repository is the source of truth for that branch). They're recorded as saves \"from GitHub\", and the ow",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H6.93299cce",
@@ -7822,9 +7822,9 @@
       "text": "The default for agents is a branch per task: agent/4-login-bug, made on the first save, unless the workspace allows agents on main and the change is small.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H7.2cd57bd8",
@@ -7832,9 +7832,9 @@
       "text": "Their work:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H7.fae05c54",
@@ -7842,9 +7842,9 @@
       "text": "Agents can't:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H7.e0b1e478",
@@ -7852,9 +7852,9 @@
       "text": "They can:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H7.f47d3479",
@@ -7862,9 +7862,9 @@
       "text": "The approval page (Part A) can say \"works on branches and opens merge requests for your review\", making Full help even safer.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H7.e015debc",
@@ -7872,9 +7872,9 @@
       "text": "New agent tools (core pack once branches are on): branchstatus, branchcreate, mergerequestopen, mergerequestview, mergerequestupdate (reply and push new saves).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H8.37435de2",
@@ -8182,9 +8182,9 @@
       "text": "branchprotection · branchid, requiremergerequest, approvals, reapproveonnewsaves, requiredchecks text[], mergeby (writers, admins), agentsonbranches",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H11.14fa8422",
@@ -8292,9 +8292,9 @@
       "text": "A protected main is checked in the same place: recordSave refuses non-merge saves on a branch whose protection requires merge requests, unless the save is a Git",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H13.6a21e055",
@@ -8552,9 +8552,9 @@
       "text": "GET/PUT /branches/:b/protection · owners and admins · the H5 rules",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H14.6626dffc",
@@ -8662,9 +8662,9 @@
       "text": "Merge into protected targets · per the rule · ✓ · ✗",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H15.c8b41bae",
@@ -8672,9 +8672,9 @@
       "text": "Change protection, merge without approval · ✓ (\"Verify it's you\") · ✗",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H15.58628f1b",
@@ -8902,9 +8902,9 @@
       "text": "H-4. Protection and agents · protection rules and enforcement, agent defaults and tools, the approval-page wording · site + CLI",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H19.a4b9017e",
@@ -8972,9 +8972,9 @@
       "text": "Agents work on branches and open merge requests by default.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H20.575f9fa9",
@@ -8982,9 +8982,9 @@
       "text": "Main is protected by default only for team workspaces (more than one member); personal workspaces keep working directly on main unless the owner turns protectio",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H20.8d151472",
@@ -9062,9 +9062,9 @@
       "text": "Protected main blocking urgent fixes · Owners' \"Merge without approval\", with \"Verify it's you\" and an audit entry",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H21.50ca35aa",
@@ -9072,9 +9072,9 @@
       "text": "GitHub sync and protection fighting · The explicit choice when connecting (H5); sync saves labelled \"from GitHub\"",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H21.92182a29",
@@ -9152,9 +9152,9 @@
       "text": "protection rules (H-4)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H22.dd81b057",
@@ -9162,9 +9162,9 @@
       "text": "agent defaults (H7)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H22.fd4a4b2f",
@@ -9402,9 +9402,9 @@
       "text": "The agent creates agent/4-login-bug (or uses the task's branch), works and saves.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H23.2bad629e",
@@ -9412,9 +9412,9 @@
       "text": "It opens MR !5 with its \"What I did\" list, and says \"Opened merge request !5 for your review\".",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H23.af47eef5",
@@ -9432,9 +9432,9 @@
       "text": "The person merges. The agent never merges into a protected main.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H23.afd9d3bc",
@@ -9562,9 +9562,9 @@
       "text": "Protected main and \"Use this version\" on a file · Offers \"Make a branch with this version\" and opens a merge request; owners can override (H5)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H24.d6622d91",
@@ -9572,9 +9572,9 @@
       "text": "Protected main and restoring from Trash · Restore goes to a branch plus a merge request; owners can restore directly",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/branch-protection.test.ts, tests/browser/protect-main.spec.ts",
+      "evidence": "H-4 live 2026-11-17: ee12801df+286cf9411+7a502c419+15a4dd101, 0099 in prod; live check on ponytail (Save to a new branch → !2, protected strip, rename refused with message, Verify it's you on loosening)"
     },
     {
       "key": "H24.a9ddaa21",
@@ -9594,7 +9594,7 @@
       "milestone": "M8",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "partial (H-4): uploads/drops on a protected main stop with 'main is protected: use a branch'; one-click upload to a new branch not built"
     },
     {
       "key": "H24.0d0f6538",
