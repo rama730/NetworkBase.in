@@ -5482,9 +5482,9 @@
       "text": "the text index job (G14)",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts (index fills once per content; daily clean-up)",
-      "evidence": "2026-11-17 local: Plan decision 1: the index fills when a search needs it (300 files a search), not from a job per save; the daily retention job prunes it (pruneTextIndex)"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: Plan decision 1: the index fills when a search needs it (300 files a search), not from a job per save; the daily retention job prunes it (pruneTextIndex)"
     },
     {
       "key": "G10.a8500b65",
@@ -5492,9 +5492,9 @@
       "text": "the GitHub push job when the workspace syncs with GitHub (G18)",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts (push note, message, task line)",
-      "evidence": "2026-11-17 local: Plan decision 2: no silent push job; an applied set shows Not pushed to GitHub yet and Push opens the Repository sync review with the commit message filled in"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): site deployed; signed-in push check still open; before that: Plan decision 2: no silent push job; an applied set shows Not pushed to GitHub yet and Push opens the Repository sync review with the commit message filled in"
     },
     {
       "key": "G11.afd6c1a3",
@@ -5952,9 +5952,9 @@
       "text": "fslist · list files by folder or glob",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts; packages/nb-cli/test/fs.test.mjs",
-      "evidence": "2026-11-17 local: GET /workspaces/:id/fs/list with glob and the draft view"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): nb fs list on ponytail: 38 .md files; before that: GET /workspaces/:id/fs/list with glob and the draft view"
     },
     {
       "key": "G14.80e21f8e",
@@ -5962,9 +5962,9 @@
       "text": "fsread · read up to 50 files at once (each ≤ 1 MB inline)",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts",
-      "evidence": "2026-11-17 local: GET fs/read, path up to 50 times, 1 MB each, NOT_FOUND/TOO_LARGE/binary per file"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): read showed the draft text; before that: GET fs/read, path up to 50 times, 1 MB each, NOT_FOUND/TOO_LARGE/binary per file"
     },
     {
       "key": "G14.1699195e",
@@ -5972,9 +5972,9 @@
       "text": "fssearch · search text across the workspace, with line numbers (≤ 200 matches)",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts",
-      "evidence": "2026-11-17 local: GET fs/search: lines with numbers, up to 200, case-insensitive by default, glob"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): nb fs search on ponytail: 100 matches; first search 8 s (filled the index), then under 1 s; before that: GET fs/search: lines with numbers, up to 200, case-insensitive by default, glob"
     },
     {
       "key": "G14.ef013c08",
@@ -5982,9 +5982,9 @@
       "text": "fsedit · exact \"replace this with that\" edits, several per call. Each old text must appear exactly once (EDITNOTUNIQUE otherwise, with the count), the same rule",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts; packages/nb-cli/test/fs.test.mjs",
-      "evidence": "2026-11-17 local: POST fs/edit with edits[]: in order, all or none; EDIT_NOT_FOUND, EDIT_NOT_UNIQUE with the count"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): two edits in one call, replaced 2; before that: POST fs/edit with edits[]: in order, all or none; EDIT_NOT_FOUND, EDIT_NOT_UNIQUE with the count"
     },
     {
       "key": "G14.f1ca60ba",
@@ -5992,9 +5992,9 @@
       "text": "fswrite, fsdelete, fsmove · whole-file write, delete, rename",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts",
-      "evidence": "2026-11-17 local: write, delete, move; a draft move twice is one rename; deleting a moved file deletes the original; keys held"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): write, move, list showed the moved draft file; discarded after; before that: write, delete, move; a draft move twice is one rename; deleting a moved file deletes the original; keys held"
     },
     {
       "key": "G14.2e5be879",
@@ -6002,9 +6002,9 @@
       "text": "Table filetextindex: contenthash PK, content text, bytes, indexedat. It's keyed by content, not by file, so every file, version, change set and branch with that",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "drizzle/0094_file_text_index.sql; tests/db/change-set-fs.test.ts",
-      "evidence": "2026-11-17 local: file_text_index keyed by content; content NULL for binary"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: file_text_index keyed by content; content NULL for binary"
     },
     {
       "key": "G14.056b519b",
@@ -6012,9 +6012,9 @@
       "text": "Table filetextindexpaths: workspaceid, nodeid, path, contenthash. It maps main's current files to their content, and is updated when versions change.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts",
-      "evidence": "2026-11-17 local: Plan decision 1: no paths table; the draft view reads the current files and the change set items, so it is always in step"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: Plan decision 1: no paths table; the draft view reads the current files and the change set items, so it is always in step"
     },
     {
       "key": "G14.42374bff",
@@ -6022,9 +6022,9 @@
       "text": "Index: GIN gintrgmops on content.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "drizzle/0094_file_text_index.sql",
-      "evidence": "2026-11-17 local: GIN extensions.gin_trgm_ops on content"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: GIN extensions.gin_trgm_ops on content"
     },
     {
       "key": "G14.91e0372c",
@@ -6032,9 +6032,9 @@
       "text": "What's indexed: text files up to 1 MB, filled after every version write by a background job, with a one-time backfill job for existing files.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts (index fills once, binaries skipped; 2,000-file bench)",
-      "evidence": "2026-11-17 local: Text files up to 1 MB; filled on search (decision 1), no backfill needed. Bench: 2,000 files indexed over 7 searches, then 75 ms a search (local)"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): first search 8 s filling ponytail, next under 1 s; before that: Text files up to 1 MB; filled on search (decision 1), no backfill needed. Bench: 2,000 files indexed over 7 searches, then 75 ms a search (local)"
     },
     {
       "key": "G14.57dac953",
@@ -6042,9 +6042,9 @@
       "text": "Kept in step: deleted files drop out of the path map, \"Use this version\" updates it, and content no longer referenced anywhere is removed by the cleanup job.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts (daily clean-up)",
-      "evidence": "2026-11-17 local: Keyed by content so it never goes stale; pruneTextIndex drops entries no version or draft refers to, 7 days on"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: Keyed by content so it never goes stale; pruneTextIndex drops entries no version or draft refers to, 7 days on"
     },
     {
       "key": "G14.b2065346",
@@ -6052,9 +6052,9 @@
       "text": "Search:",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts",
-      "evidence": "2026-11-17 local: Trigram narrowing and line matching in Postgres with a 5 s statement timeout (no regex in Node); draft items searched; bad regex is BAD_REQUEST"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): search found the draft line; before that: Trigram narrowing and line matching in Postgres with a 5 s statement timeout (no regex in Node); draft items searched; bad regex is BAD_REQUEST"
     },
     {
       "key": "G14.042b7f19",
@@ -6062,9 +6062,9 @@
       "text": "Access: follows workspace file access, so task-private files are excluded for people who can't read them.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts",
-      "evidence": "2026-11-17 local: assertWorkspaceFileReadAccess + visibleFileNodesSql, /.system left out; drafts only for people who can write; another workspace token refused"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: assertWorkspaceFileReadAccess + visibleFileNodesSql, /.system left out; drafts only for people who can write; another workspace token refused"
     },
     {
       "key": "G15.cf13e48f",
@@ -6192,9 +6192,9 @@
       "text": "A git folder works as usual: git and NetworkBase work side by side, and capture follows the folder's files.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/change.test.mjs (--from-git in a git folder)",
-      "evidence": "2026-11-17 local: Capture never reads .git (safeJoin, scan); the linked folder is a git repo in the test"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: Capture never reads .git (safeJoin, scan); the linked folder is a git repo in the test"
     },
     {
       "key": "G18.988f33a3",
@@ -6202,9 +6202,9 @@
       "text": "nb change finish --from-git main..HEAD turns commits into one change set, using their messages as its message (the first line as the title).",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/change.test.mjs",
-      "evidence": "2026-11-17 local: nb change finish --from-git main..HEAD: files as at the end, renames kept, first commit subject as title, the rest as the message; option-looking ranges refused"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: nb change finish --from-git main..HEAD: files as at the end, renames kept, first commit subject as title, the rest as the message; option-looking ranges refused"
     },
     {
       "key": "G18.68f90ab3",
@@ -6212,9 +6212,9 @@
       "text": "Workspaces synced with GitHub (the app's repository sync): an applied change set can push one commit to GitHub with the NetworkBase-Task line. This is a backgro",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/change-sets.spec.ts",
-      "evidence": "2026-11-17 local: Push to GitHub from the applied set, with NetworkBase-Task: #N (or the change set id); see decision 2"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): site deployed; signed-in push check in a GitHub-synced workspace still open; before that: Push to GitHub from the applied set, with NetworkBase-Task: #N (or the change set id); see decision 2"
     },
     {
       "key": "G19.179c23d0",
@@ -6262,9 +6262,9 @@
       "text": "Inngest: the text index and the GitHub push run as background functions. Their counts are checked against the free plan's limit before rollout.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "src/inngest/functions/download-history-retention.ts",
-      "evidence": "2026-11-17 local: No new Inngest functions: the index is filled on search and the push is the person's sync; one step added to the existing daily job (+1 step a day)"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): Inngest re-synced; no new functions; before that: No new Inngest functions: the index is filled on search and the push is the person's sync; one step added to the existing daily job (+1 step a day)"
     },
     {
       "key": "G20.2e47372f",
@@ -6602,9 +6602,9 @@
       "text": "G-4. Cloud agents · routes 14–18, fs tools, the text index and its jobs · 0091: filetextindex · site",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-set-fs.test.ts; packages/nb-cli/test/fs.test.mjs",
-      "evidence": "2026-11-17 local: Routes 14-18, fs_* tools (hosted only), 0094"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: Routes 14-18, fs_* tools (hosted only), 0094"
     },
     {
       "key": "G24.6cd9cd1b",
@@ -6612,9 +6612,9 @@
       "text": "G-5. Git · --from-git, the GitHub push job · none · site + CLI 2.2.x",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/change.test.mjs; tests/browser/change-sets.spec.ts",
-      "evidence": "2026-11-17 local: --from-git and the GitHub push link"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: --from-git and the GitHub push link"
     },
     {
       "key": "G24.b6da9a71",
@@ -6682,9 +6682,9 @@
       "text": "Cloud agent only: works through fs tools on a draft; the person reviews and applies; to run the site, the person pulls it locally.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/fs.test.mjs (hosted lists fs_*, nb mcp does not)",
-      "evidence": "2026-11-17 local: fs_finish tells the agent it cannot run the site and to have the person check it"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): deployed; before that: fs_finish tells the agent it cannot run the site and to have the person check it"
     },
     {
       "key": "G25.7b4c5a8c",
@@ -6832,9 +6832,9 @@
       "text": "Inngest usage (free plan) · Index and GitHub jobs measured before rollout; batching per change set",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "src/inngest/functions/download-history-retention.ts",
-      "evidence": "2026-11-17 local: Measured by design: 0 runs per save, 1 extra step a day"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): Inngest re-synced; no new functions; before that: Measured by design: 0 runs per save, 1 extra step a day"
     },
     {
       "key": "H.177474de",
@@ -10512,9 +10512,9 @@
       "text": "nb agent activity: what agents did, grouped by session, with Undo per session.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-controls.test.ts; packages/nb-cli/test/agent-activity.test.mjs",
-      "evidence": "2026-11-17 local: GET /workspaces/:id/agents groups the last 24 hours by session; nb agent activity --undo <session>"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): nb agent activity answered (no agent sessions in 24 h); before that: GET /workspaces/:id/agents groups the last 24 hours by session; nb agent activity --undo <session>"
     },
     {
       "key": "F4.7a3bbf5e",
@@ -10522,9 +10522,9 @@
       "text": "nb agent pause / nb agent resume for a workspace (owner only), the same as the switch in workspace settings.",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/agent-controls.test.ts; packages/nb-cli/test/agent-activity.test.mjs",
-      "evidence": "2026-11-17 local: POST /workspaces/:id/agents {paused}: owners and admins; members and agent tokens refused"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): nb agent pause then resume on ponytail; workspace view showed paused then not; before that: POST /workspaces/:id/agents {paused}: owners and admins; members and agent tokens refused"
     },
     {
       "key": "F4.08fb3242",
@@ -10532,9 +10532,9 @@
       "text": "OAuth refresh tokens for hosted MCP: editors that sign in through the browser get no refresh token today, so every 30 days the editor has to sign in again. The ",
       "kind": "build",
       "milestone": "M6",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/oauth-hosted-mcp.test.ts",
-      "evidence": "2026-11-17 local: 0095 oauth_refresh_tokens; grant_type=refresh_token rotates both tokens, binds the client, revokes family and sign-in on reuse, stops when the sign-in is revoked; 7-day sign-ins get none"
+      "evidence": "2026-11-17 LIVE (2c77b0c1a site, 0094+0095 prod): metadata lists refresh_token; a bad refresh token gets invalid_grant; full rotation tested locally only (needs an approved OAuth sign-in); before that: 0095 oauth_refresh_tokens; grant_type=refresh_token rotates both tokens, binds the client, revokes family and sign-in on reuse, stops when the sign-in is revoked; 7-day sign-ins get none"
     },
     {
       "key": "F5.14ddaf1a",
