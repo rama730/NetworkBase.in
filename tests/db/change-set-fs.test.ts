@@ -293,3 +293,30 @@ test("H8: on a branch, list, read and search see the branch's files; a change se
   const stranger = await token(outsider, "device", null, ["file:read"]);
   assert.notEqual((await get(stranger, workspace, "search", { query: "hello", branch: "feature-x" })).status, 200);
 });
+
+test("security review: on a branch, a member held back by an organization's folder rule never reads the branch's copy", async () => {
+  const { owner, workspace } = await setup();
+  const { unprotect, addMember } = await import("./_helpers");
+  const saves = await loadAppModule(() => import("../../src/lib/domain/saves"));
+  const branches = await loadAppModule(() => import("../../src/lib/domain/branches"));
+  await addFile(workspace, owner, "/admin/secret.md", "admins only\n");
+  await saves.setBranchesEnabled({ user: { id: owner } }, workspace, true);
+  await unprotect(workspace);
+  const { branch } = await branches.createBranch({ user: { id: owner } }, workspace, { name: "feature-x" });
+  await branches.saveTextOnBranch({ user: { id: owner } }, branch.id, { path: "/admin/secret.md", text: "admins only, edited on the branch\n", expectedHash: sha("admins only\n") });
+  await branches.saveTextOnBranch({ user: { id: owner } }, branch.id, { path: "/admin/new.md", text: "new admin note\n" });
+  // Organizations don't have branches yet; this guards the day they do (fail closed for restricted members).
+  await sql`UPDATE workspaces SET kind = 'organization' WHERE id = ${workspace}`;
+  await sql`UPDATE workspace_nodes SET metadata = jsonb_build_object('access', 'admins') WHERE workspace_id = ${workspace} AND path = '/admin' AND type = 'folder'`;
+  const member = await sql.begin((tx) => createUser(tx));
+  await sql.begin((tx) => addMember(tx, workspace, member, "member"));
+  const t = await token(member, "device", null, ["file:read"]);
+  const listed = await get(t, workspace, "list", { branch: "feature-x" });
+  assert.equal(listed.status, 200, JSON.stringify(listed.json));
+  const paths = listed.json.data.files.map((f: any) => f.path);
+  assert.ok(!paths.some((p: string) => p.startsWith("/admin")), paths.join(", "));
+  assert.ok(paths.includes("/README.md"), "ordinary files stay");
+  assert.deepEqual((await get(t, workspace, "search", { query: "edited on the branch", branch: "feature-x" })).json.data.matches, []);
+  const ownerToken = await token(owner, "device", null, ["file:read"]);
+  assert.ok((await get(ownerToken, workspace, "list", { branch: "feature-x" })).json.data.files.some((f: any) => f.path === "/admin/new.md"), "the owner still sees it");
+});

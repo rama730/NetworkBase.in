@@ -60,14 +60,21 @@ async function baseFiles(actor: Actor, workspaceId: string, access: Awaited<Retu
       const { branch, main } = await loadBranch(actor, found.id);
       let tree = (await filesUnder(branch, main.id, null)).filter((f) => !f.path.startsWith("/.system"));
       // Files that come from main follow main's rule for this viewer (task files, organization file access).
+      // A restricted viewer (no task files, or an organization's file rules) sees a branch file only when main has a
+      // file they may see at that path; the branch's own new files can't be decided, so they're left out (fail closed).
       const rule = visibleFileNodesSql(access);
-      const fromMain = tree.flatMap((f) => (f.nodeId ? [f.nodeId] : []));
-      if (rule && fromMain.length) {
-        const seen = new Set<string>();
+      if (rule && tree.length) {
+        const ids = new Set<string>();
+        const paths = new Set<string>();
+        const fromMain = tree.flatMap((f) => (f.nodeId ? [f.nodeId] : []));
+        const own = tree.flatMap((f) => (f.nodeId ? [] : [f.path]));
         for (let i = 0; i < fromMain.length; i += 1000) {
-          for (const r of await db.select({ id: workspaceNodes.id }).from(workspaceNodes).where(and(inArray(workspaceNodes.id, fromMain.slice(i, i + 1000)), rule))) seen.add(r.id);
+          for (const r of await db.select({ id: workspaceNodes.id }).from(workspaceNodes).where(and(inArray(workspaceNodes.id, fromMain.slice(i, i + 1000)), rule))) ids.add(r.id);
         }
-        tree = tree.filter((f) => !f.nodeId || seen.has(f.nodeId));
+        for (let i = 0; i < own.length; i += 1000) {
+          for (const r of await db.select({ path: workspaceNodes.path }).from(workspaceNodes).where(and(eq(workspaceNodes.projectId, workspaceId), inArray(workspaceNodes.path, own.slice(i, i + 1000)), isNull(workspaceNodes.deletedAt), rule))) paths.add(r.path);
+        }
+        tree = tree.filter((f) => (f.nodeId ? ids.has(f.nodeId) : paths.has(f.path)));
       }
       return new Map<string, Entry>(tree.map((f) => [f.path, { path: f.path, hash: f.contentHash, key: f.storageKey, assetId: f.assetId, size: f.size, mimeType: f.mimeType, live: true, draft: false, renamedFrom: null }]));
     }
