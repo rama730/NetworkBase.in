@@ -36,6 +36,27 @@ describe("nb assignment and nb review", () => {
     assert.match(v.stdout, /Write 500 words\./);
   });
 
+  it("--due across classes, a class's progress for teachers, and its announcements (report F1)", async () => {
+    const week = JSON.parse((await nb(["assignment", "list", "--due", "week", "--json"])).stdout).data.copies;
+    assert.deepEqual(week.map((/** @type {any} */ c) => c.number), [3], "due within the week, still to hand in; no due date is left out");
+    assert.notEqual((await nb(["assignment", "list", "--due", "someday"])).code, 0);
+    const list = await nb(["class", "progress"]);
+    assert.match(list.stdout, /Essay on motion .*1 of 3 +1/);
+    const one = await nb(["class", "progress", "essay"]);
+    assert.equal(one.code, 0, one.stderr);
+    assert.match(one.stdout, /1 handed in · 1 not started · 1 missing/);
+    assert.match(one.stdout, /Sam Lee +handed in · late/);
+    assert.match(one.stdout, /Not given it: Raj Iyer/);
+    /** @type {any} */ (api.state).feed = [
+      { id: "u1", updateType: "announcement", authorName: "Ms. Rao", createdAt: new Date().toISOString(), content: "No class on Friday" },
+      { id: "u2", updateType: "discussion", authorName: "Sam", createdAt: new Date().toISOString(), content: "Anyone up for study group?" },
+    ];
+    const ann = await nb(["class", "announcements"]);
+    assert.match(ann.stdout, /Ms\. Rao/);
+    assert.match(ann.stdout, /No class on Friday/);
+    assert.doesNotMatch(ann.stdout, /study group/);
+  });
+
   it("hands in files as final on the copy, then submits; a link assignment needs --link", async () => {
     fs.writeFileSync(path.join(cwd, "essay.pdf"), "pdf");
     const r = await nb(["assignment", "hand-in", "3", "essay.pdf", "-m", "Final draft"]);

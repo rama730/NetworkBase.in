@@ -145,21 +145,31 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/merge-requests/[0-9]+/(reviews|comments|suggestions|checks|merge)`), write: "file:write", agent: "path" },
   // The Branches setting (H16): people only (the route refuses agents), owners and admins.
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/branches-setting`), write: "file:write" },
+  // Workspace admin (report F3): create (people), settings, archive (after Verify it's you), docs add and remove.
+  { pattern: route("/api/v1/(workspaces|projects)"), read: null, write: "task:write" },
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/settings`), read: "workspace:read", write: "task:write", agent: "path" },
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/archive`), write: "task:write" },
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/export`), read: "file:read", agent: "path" },
   // Main's protection (H5): everyone reads; owners and admins change it, people only (the route refuses agents).
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/protection`), read: "file:read", write: "file:write", agent: "path" },
   { pattern: route("/api/v1/me"), read: null, agent: "self" },
+  // Your security summary (report F5, nb whoami --security): the person's own terminal, never an agent.
+  { pattern: route("/api/v1/me/security"), read: "workspace:read" },
   // Your notification settings (report C4, nb inbox settings and mute): the person's own terminal, not agents.
   { pattern: route("/api/v1/me/notifications"), read: "workspace:read", write: "workspace:read" },
   { pattern: route("/api/v1/tasks/count"), read: "task:read", agent: "self" },
   // nb on its own (report C1): the person's terminal only, since it includes the inbox.
   { pattern: route("/api/v1/home"), read: "task:read" },
-  { pattern: route(`/api/v1/workspaces/${ID}/docs`), read: "workspace:read", agent: "path" },
-  { pattern: route(`/api/v1/workspaces/${ID}/docs/${ID}`), read: "workspace:read", agent: "path" },
+  { pattern: route(`/api/v1/workspaces/${ID}/docs`), read: "workspace:read", write: "doc:write", agent: "path" },
+  { pattern: route(`/api/v1/workspaces/${ID}/docs/${ID}`), read: "workspace:read", write: "doc:write", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/manifest`), read: "file:read", agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/image`), read: "workspace:read" },
   // One workspace, its activity and sprints, and updates (report A2.5, A8.7, D25).
   { pattern: route(`/api/v1/workspaces/${ID}`), read: "workspace:read", agent: "path" },
-  { pattern: route(`/api/v1/workspaces/${ID}/(activity|sprints)`), read: "task:read", agent: "path" },
+  { pattern: route(`/api/v1/workspaces/${ID}/activity`), read: "task:read", agent: "path" },
+  // Sprints (report F2): read, create; add tasks and close write like tasks.
+  { pattern: route(`/api/v1/workspaces/${ID}/sprints`), read: "task:read", write: "task:write", agent: "path" },
+  { pattern: route(`/api/v1/workspaces/${ID}/sprints/${ID}/${ID}`), write: "task:write", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/updates`), read: "workspace:read", write: "task:write", agent: "path" },
   // One update: read its comments, like it, comment (report C4).
   { pattern: route(`/api/v1/workspaces/${ID}/updates/${ID}`), read: "workspace:read", write: "task:write", agent: "path" },
@@ -204,6 +214,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/assignments/${ID}/hand-in`), write: "assignment:hand-in" },
   { pattern: route(`/api/v1/assignments/${ID}/question`), write: "task:write" },
   { pattern: route("/api/v1/reviews"), read: "task:read" },
+  // A class's progress (report F1): the teacher's roster, read-only, people only (no agent rule).
+  { pattern: route("/api/v1/reviews/progress"), read: "task:read" },
   { pattern: route(`/api/v1/reviews/${ID}`), write: "task:review" },
   // The hosted MCP server (P6.1): agent tokens only (the route checks); each tool calls the routes above.
   { pattern: route("/api/mcp"), write: "workspace:read", agent: "self" },

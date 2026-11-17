@@ -38,6 +38,9 @@ export const SECURITY_ACTIVITY_EVENT_TYPES = [
   // Protecting main (report H5): a change to the rules, and an owner merging past them.
   "branch_protection_changed",
   "merge_without_approval",
+  // Report F5: a terminal verified in the browser for risky actions, and a token used from a new country.
+  "cli_verified",
+  "token_new_country",
 ] as const;
 
 export type SecurityActivityEventType = (typeof SECURITY_ACTIVITY_EVENT_TYPES)[number];

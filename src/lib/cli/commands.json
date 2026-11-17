@@ -44,17 +44,21 @@
     {
       "name": "logout",
       "summary": "Revoke this device's token and sign out",
-      "usage": "nb logout [--all]",
+      "usage": "nb logout [--all] [--purge]",
       "flags": {
         "all": {
           "type": "boolean",
           "describe": "Sign out every device and agent (opens Settings to confirm it's you)"
+        },
+        "purge": {
+          "type": "boolean",
+          "describe": "Also delete everything nb keeps on this computer (asks first)"
         }
       },
       "examples": [],
       "exitCodes": [
         0,
-        1
+        130
       ]
     },
     {
@@ -83,17 +87,41 @@
     {
       "name": "whoami",
       "summary": "Who you are, what this token may do, limits",
-      "usage": "nb whoami [--all]",
+      "usage": "nb whoami [--all] [--security]",
       "flags": {
         "all": {
           "type": "boolean",
           "describe": "Every saved sign-in (profiles)"
+        },
+        "security": {
+          "type": "boolean",
+          "describe": "Your sign-ins, two-factor and recent security events"
         }
       },
       "examples": [],
       "exitCodes": [
         0,
         3
+      ]
+    },
+    {
+      "name": "api",
+      "summary": "Call any /api/v1 route with your sign-in (writes ask first)",
+      "usage": "nb api <METHOD> <path> [--data json]",
+      "flags": {
+        "data": {
+          "type": "string",
+          "describe": "The JSON body",
+          "valueName": "json"
+        }
+      },
+      "examples": [
+        "nb api GET /api/v1/me",
+        "nb api POST /api/v1/workspaces --data '{\"title\":\"Demo\"}'"
+      ],
+      "exitCodes": [
+        0,
+        130
       ]
     },
     {
@@ -2089,18 +2117,49 @@
     },
     {
       "name": "assignment list",
-      "summary": "Your assignments: due, state, AI policy",
-      "usage": "nb assignment list [--status missing,returned]",
+      "summary": "Your assignments across classes: due, state, AI policy",
+      "usage": "nb assignment list [--due week] [--status missing,returned]",
       "flags": {
         "status": {
           "type": "string",
           "describe": "Only these states: not_started,in_progress,submitted,returned,done,missing",
           "valueName": "a,b"
+        },
+        "due": {
+          "type": "string",
+          "describe": "Still to hand in, due today, this week, overdue, or on a date",
+          "valueName": "when"
         }
       },
       "examples": [
+        "nb assignment list --due week",
         "nb assignment list --status missing,returned"
       ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "class progress",
+      "summary": "A class's assignments, or one assignment's students (teachers)",
+      "usage": "nb class progress [assignment] -w <organization>",
+      "flags": {},
+      "examples": [
+        "nb class progress -w cse-3b",
+        "nb class progress \"Lab 2\" -w cse-3b"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "class announcements",
+      "summary": "The organization's announcements",
+      "usage": "nb class announcements -w <organization>",
+      "flags": {},
+      "examples": [],
       "exitCodes": [
         0,
         1
@@ -2741,6 +2800,17 @@
       ]
     },
     {
+      "name": "agent policy",
+      "summary": "What agents may do here without asking; stricter only from here",
+      "usage": "nb agent policy [ask-all|important|trust-docs]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "agent remove",
       "summary": "Disconnect an agent and remove its NetworkBase notes",
       "usage": "nb agent remove claude|codex|cursor",
@@ -2789,6 +2859,28 @@
       "exitCodes": [
         0,
         1
+      ]
+    },
+    {
+      "name": "doc add",
+      "summary": "Make a file a workspace doc (the file stays)",
+      "usage": "nb doc add <file>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "doc remove",
+      "summary": "Unlink a doc; its file stays",
+      "usage": "nb doc remove <slug>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        130
       ]
     },
     {
@@ -2859,6 +2951,92 @@
       ]
     },
     {
+      "name": "workspace create",
+      "summary": "A new workspace (private unless --public)",
+      "usage": "nb workspace create \"<title>\" [-m description] [--public]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "public": {
+          "type": "boolean",
+          "describe": "Anyone can see it"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "workspace settings",
+      "summary": "See the workspace's settings; change its title or description",
+      "usage": "nb workspace settings [--title t] [--description d]",
+      "flags": {
+        "title": {
+          "type": "string",
+          "describe": "A new title",
+          "valueName": "text"
+        },
+        "description": {
+          "type": "string",
+          "describe": "A new description",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "workspace archive",
+      "summary": "Archive the workspace (owner; asks you to verify it's you)",
+      "usage": "nb workspace archive",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        130
+      ]
+    },
+    {
+      "name": "export",
+      "summary": "A zip of the workspace: files, tasks, comments and docs",
+      "usage": "nb export [-o file.zip] [--branch name | --all-branches]",
+      "flags": {
+        "output": {
+          "type": "string",
+          "short": "o",
+          "describe": "Where to save it",
+          "valueName": "file"
+        },
+        "branch": {
+          "type": "string",
+          "describe": "Also this branch's files",
+          "valueName": "name"
+        },
+        "all-branches": {
+          "type": "boolean",
+          "describe": "Also every active branch"
+        },
+        "force": {
+          "type": "boolean",
+          "describe": "Replace the file if it exists"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "workspace open",
       "summary": "Open the workspace in the browser",
       "usage": "nb workspace open",
@@ -2910,13 +3088,62 @@
     },
     {
       "name": "sprint view",
-      "summary": "One sprint and its tasks",
+      "summary": "One sprint, its tasks and a burndown",
       "usage": "nb sprint view <name or number>",
       "flags": {},
       "examples": [],
       "exitCodes": [
         0,
         1
+      ]
+    },
+    {
+      "name": "sprint create",
+      "summary": "Plan a sprint (owners and admins)",
+      "usage": "nb sprint create \"<name>\" --from monday --to friday [--goal text]",
+      "flags": {
+        "from": {
+          "type": "string",
+          "describe": "First day: monday, next week, 2026-12-01",
+          "valueName": "date"
+        },
+        "to": {
+          "type": "string",
+          "describe": "Last day",
+          "valueName": "date"
+        },
+        "goal": {
+          "type": "string",
+          "describe": "What it's for",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "sprint add",
+      "summary": "Put tasks in a sprint",
+      "usage": "nb sprint add <sprint> 3 4 5",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "sprint close",
+      "summary": "Close a running sprint; unfinished tasks move on",
+      "usage": "nb sprint close [sprint]",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        130
       ]
     },
     {

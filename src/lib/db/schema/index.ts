@@ -5335,6 +5335,8 @@ export const extensionDeviceSessions = pgTable("extension_device_sessions", {
   callbackUri: text("callback_uri"),
   revocationReason: text("revocation_reason"),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  /** Report F5: verified in the browser for this terminal until (risky CLI actions). */
+  stepUpUntil: timestamp("step_up_until", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
     .defaultNow()

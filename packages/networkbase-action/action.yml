@@ -1,0 +1,50 @@
+# NetworkBase for GitHub Actions (report F6). Copy this folder into the public repository networkbase/action.
+# It runs the published CLI with a workspace's personal access token (Settings → Integrations → Personal tokens).
+name: NetworkBase
+description: Push build output to a NetworkBase task, or finish the task a merged pull request closes.
+author: NetworkBase
+branding:
+  icon: check-square
+  color: orange
+inputs:
+  token:
+    description: A NetworkBase personal access token (store it as a secret).
+    required: true
+  workspace:
+    description: The workspace's slug.
+    required: true
+  action:
+    description: "push (send files to a task) or done (finish the task this pull request closes)"
+    required: true
+  task:
+    description: The task number. For done, read from the pull request ("Closes #4" or a branch named nb/4-…) when left out.
+    required: false
+  paths:
+    description: For push, the files to send, separated by spaces.
+    required: false
+  as:
+    description: For push, how the files go on the task (reference, draft or final).
+    required: false
+    default: draft
+  server:
+    description: The NetworkBase address.
+    required: false
+    default: https://networkbase.in
+outputs:
+  task:
+    description: The task number used.
+    value: ${{ steps.run.outputs.task }}
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      env:
+        NETWORKBASE_TOKEN: ${{ inputs.token }}
+        NB_SERVER: ${{ inputs.server }}
+        NB_WORKSPACE: ${{ inputs.workspace }}
+        NB_ACTION: ${{ inputs.action }}
+        NB_TASK: ${{ inputs.task }}
+        NB_PATHS: ${{ inputs.paths }}
+        NB_AS: ${{ inputs.as }}
+      run: node "${{ github.action_path }}/run.mjs"

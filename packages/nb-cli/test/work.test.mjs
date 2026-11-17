@@ -90,7 +90,19 @@ describe("more commands", () => {
     assert.match((await runCli(["workspace", "view", "design-lab"], { api: api.url })).stdout, /Design Lab/, "by name, without a linked folder");
     assert.match((await nb(["activity", "--since", "1d"])).stdout, /@tester via Claude Code +status changed +#1 Logo/);
     assert.match((await nb(["sprint", "list"])).stdout, /Unit +Status/);
-    assert.match((await nb(["sprint", "view", "1"])).stdout, /#1 Logo/);
+    const view = (await nb(["sprint", "view", "1"])).stdout;
+    assert.match(view, /#1 Logo/);
+    assert.match(view, /11-17 █+·* 1 left/, "a burndown with the number in words (F9)");
+    // Report F2: create, add, close.
+    assert.equal((await nb(["sprint", "create", "Week 3", "--from", "2026-12-01", "--to", "2026-12-05", "--goal", "Ship"])).code, 0);
+    assert.deepEqual(/** @type {any} */ (api.state).sprintsMade.map((/** @type {any} */ s) => [s.name, s.startDate, s.endDate, s.goal]), [["Week 3", "2026-12-01", "2026-12-05", "Ship"]]);
+    assert.notEqual((await nb(["sprint", "create", "Week 4", "--from", "someday", "--to", "friday"])).code, 0, "a date it can't read");
+    assert.equal((await nb(["sprint", "add", "Unit 1", "1", "#2"])).code, 0);
+    assert.deepEqual(/** @type {any} */ (api.state).sprintAdds, [{ sprintId: "s1111111-1111-4111-8111-111111111111", numbers: [1, 2] }]);
+    const closed = await nb(["sprint", "close", "--yes"]);
+    assert.equal(closed.code, 0, closed.stderr);
+    assert.match(closed.stdout, /Closed Unit 1 · 1 unfinished task moved to the backlog/);
+    assert.equal(/** @type {any} */ (api.state).sprintClosed, "s1111111-1111-4111-8111-111111111111", "no name: the running one");
     assert.equal((await nb(["update", "post", "-m", "Shipped", "--yes"])).code, 0);
     assert.deepEqual(api.state.updates, ["Shipped"]);
   });

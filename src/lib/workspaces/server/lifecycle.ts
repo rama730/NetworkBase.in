@@ -535,6 +535,18 @@ async function ensureGithubImportAccess(
 
 
 // --- Create Action ---
+/** The person: a CLI or agent token's on the v1 routes that allow it (report F3, A2.1), else the app's session. */
+async function actingUser(supabase: Awaited<ReturnType<typeof createClient>>) {
+  let bearer = false;
+  try {
+    bearer = /^bearer\s/i.test((await headers()).get("authorization") ?? "");
+  } catch {
+    bearer = false;
+  }
+  if (bearer) return (await getViewerAuthContext()).user;
+  return (await supabase.auth.getUser()).data.user;
+}
+
 export async function createWorkspaceAction(
   rawInput: CreateWorkspaceInput & { slug?: string; project_id?: string },
 ): Promise<CreateProjectResult> {
@@ -542,9 +554,8 @@ export async function createWorkspaceAction(
   let lockKey = "";
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // A CLI token on the v1 routes too (report F3, A2.1); the app's session otherwise, as before.
+    const user = await actingUser(supabase);
 
     if (!user) {
       return {
@@ -1278,9 +1289,8 @@ export async function createWorkspaceAction(
 // --- Update Action ---
 export async function updateWorkspace(projectId: string, input: UpdateWorkspaceInput) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // A CLI token on the v1 routes too (report F3, A2.1); the app's session otherwise, as before.
+    const user = await actingUser(supabase);
 
   if (!user) throw new Error("Sign in to continue");
   const parsed = updateWorkspaceSchema.safeParse(input);
@@ -2060,9 +2070,8 @@ export async function archiveWorkspaceAction(
 ): Promise<WorkspaceSettingsMutationResult> {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // A CLI token on the v1 routes too (report F3, A2.1); the app's session otherwise, as before.
+    const user = await actingUser(supabase);
     if (!user) {
       return {
         success: false,

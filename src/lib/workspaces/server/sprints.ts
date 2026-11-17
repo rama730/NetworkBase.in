@@ -14,7 +14,10 @@ import { isMissingRelationError } from "@/lib/db/errors";
 import { db } from "@/lib/db";
 import { sql, and, eq, inArray, desc, ilike, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { getWorkspaceAccessById, assertWorkspaceTabReadAccess, type WorkspaceAccess, canReadWorkspaceTab, WorkspaceTabForbiddenError } from "@/lib/data/workspace-access";
-import { createClient } from "@/lib/supabase/server";
+/** The signed-in person, from the app's session or a CLI token on the sprint routes (report F2, A2.1). */
+async function sprintUser() {
+  return (await getViewerAuthContext()).user;
+}
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { type SprintTaskTimelineEntity, type SprintListItem, buildSprintHealthSummary, type SprintDetailPayload, buildSprintPermissionSet } from "@/lib/workspaces/sprint-detail";
 import { workspaceSprintEvents, workspaceSprints, profiles, workspaceMembers, sprintTaskMemberships, tasks, taskNodeLinks, workspaceNodes, taskSubtasks, workspaces, workspaceDocuments, sprintMaterials } from "@/lib/db/schema";
@@ -119,10 +122,7 @@ export async function fetchWorkspaceSprintsAction(
   limit: number = 120,
 ) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await sprintUser();
     const actorId = user?.id ?? null;
     const safeLimit = Math.min(Math.max(limit, 1), 200);
 
@@ -1215,10 +1215,7 @@ export async function fetchWorkspaceSprintDetailAction(input: {
   limit?: number;
 }) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await sprintUser();
     const actorId = user?.id ?? null;
     const cursorKey = input.cursor ?? "head";
     const sprintKey = input.sprintId ?? "default";
@@ -1279,10 +1276,7 @@ export async function fetchWorkspaceSprintTimelinePageAction(input: {
   limit?: number;
 }) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await sprintUser();
     const actorId = user?.id ?? null;
     const cursorKey = input.cursor ?? "head";
     const sprintKey = input.sprintId ?? "default";
@@ -1437,10 +1431,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
 export async function createSprintAction(data: CreateSprintInput) {
   let actorIdForMetric: string | null = null;
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await sprintUser();
     if (!user) throw new Error("Sign in to continue");
     actorIdForMetric = user.id;
 
@@ -1591,10 +1582,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
   let actorIdForMetric: string | null = null;
   const startedAt = Date.now();
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await sprintUser();
     if (!user) throw new Error("Sign in to continue");
     actorIdForMetric = user.id;
 
@@ -1783,10 +1771,7 @@ export async function deleteSprintAction(data: {
   let actorIdForMetric: string | null = null;
   const startedAt = Date.now();
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await sprintUser();
     if (!user) throw new Error("Sign in to continue");
     actorIdForMetric = user.id;
 
@@ -1940,8 +1925,7 @@ type CompleteSprintOptions = {
 
 /** Complete's question (report §37.2): how many open assignments the sprint holds, for whoever can complete it. */
 export async function countOpenSprintAssignmentsAction(sprintId: string, projectId: string): Promise<number> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await sprintUser();
   if (!user) return 0;
   try { await requireSprintOwner(projectId, user.id); } catch { return 0; }
   const [row] = await db.execute<{ n: number }>(sql`
@@ -1975,10 +1959,7 @@ export async function completeSprintAction(
   options: CompleteSprintOptions = {},
 ) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await sprintUser();
     if (!user) throw new Error("Sign in to continue");
     await requireSprintOwner(projectId, user.id);
     const unfinished = options.unfinished ?? "keep";
@@ -2156,10 +2137,7 @@ export async function completeSprintAction(
 
 export async function archiveSprintAction(sprintId: string, projectId: string) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await sprintUser();
     if (!user) throw new Error("Sign in to continue");
     await requireSprintOwner(projectId, user.id);
     const now = new Date();
@@ -2233,10 +2211,7 @@ async function sprintsInside(projectId: string, sprintId: string) {
 
 export async function cancelSprintAction(sprintId: string, projectId: string) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await sprintUser();
     if (!user) throw new Error("Sign in to continue");
     await requireSprintOwner(projectId, user.id);
     // Board/review report §6: cancelling a main sprint cancels the sprints inside it.
@@ -2555,8 +2530,7 @@ export async function remindSprintLeadsAction(input: { projectId: string; sprint
 }
 
 async function getAuthUserOrThrow() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await sprintUser();
   if (!user) throw new Error("Sign in to continue");
   return user;
 }

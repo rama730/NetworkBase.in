@@ -227,6 +227,17 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 260,
     allowForceDynamic: true,
   }),
+  // Verify a terminal (report F5): the page nb opens for a risky action, then back to the terminal.
+  "/cli/verify": buildUserShellContract("/cli/verify", "src/app/(site)/(auth)/cli/verify/page.tsx", {
+    renderingMode: "dynamic",
+    cacheTtlSeconds: 0,
+    cacheStrategy: "none",
+    invalidationOwner: "server-action",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "auth_snapshot",
+    maxInitialPayloadKb: 260,
+    allowForceDynamic: true,
+  }),
   "/onboarding": buildUserShellContract("/onboarding", "src/app/(site)/(onboarding)/onboarding/page.tsx", {
     renderingMode: "dynamic",
     cacheStrategy: "none",

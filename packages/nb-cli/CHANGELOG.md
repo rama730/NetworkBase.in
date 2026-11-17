@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.5.0 (2026-11-18)
+
+### Added
+- Sprints: `nb sprint create "<name>" --from monday --to friday`, `nb sprint add <sprint> 3 4 5`, and `nb sprint close`, which moves unfinished tasks to the next planned sprint or the backlog. `nb sprint view` shows a text burndown.
+- Classes: `nb assignment list --due week|today|overdue|<date>` across every class; `nb class progress [assignment]` for teachers (handed in, late, returned, approved, missing); `nb class announcements`.
+- Workspace admin: `nb workspace create`, `nb workspace settings [--title] [--description]`, `nb workspace archive`, `nb agent policy` (stricter only from the terminal), and `nb doc add <file>` / `nb doc remove <slug>`.
+- Security: `nb whoami --security` (sign-ins with their country, two-factor, recent security events). `nb token list` shows each sign-in's country. Risky actions (archive, export, removing a member) open a browser page to verify it's you, then continue for 10 minutes.
+- Data: `nb export [-o file.zip] [--branch name | --all-branches]` saves the workspace's files plus `export.json` with its tasks, comments and docs (owners and admins). `nb logout --purge` deletes everything nb keeps on the computer.
+- `nb api <METHOD> <path> [--data json]` calls any `/api/v1` route with your sign-in; writes ask first.
+- Copy-ready recipes in /docs/cli, run in CI on every change.
+
+### Changed
+- `nb class progress` and `nb class announcements` are their own commands; other `nb class …` words still mean `nb assignment …`.
+
 ## 2.4.1 (2026-11-17)
 
 The first release with these changes: 2.4.0 was tagged but not published (the package size check stopped it).

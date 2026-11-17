@@ -59,14 +59,27 @@ export async function POST(request: Request, context: Ctx) {
       // A personal access token (CI, scripts) never flips the switch: only the person's own sign-in or the app.
       if (auth.tokenKind === "pat") return jsonError("Pause or resume agents from your own sign-in (nb login) or the app", 403, "FORBIDDEN");
       const id = (await context.params).id;
-      const body = z.object({ paused: z.boolean() }).safeParse(await req.json().catch(() => null));
-      if (!z.string().uuid().safeParse(id).success || !body.success) return jsonError("Send { paused: true | false }", 400, "BAD_REQUEST");
+      const body = z.object({ paused: z.boolean().optional(), policy: z.enum(["ask_all", "ask_important", "trust_drafts_docs"]).optional() })
+        .refine((b) => b.paused !== undefined || b.policy !== undefined).safeParse(await req.json().catch(() => null));
+      if (!z.string().uuid().safeParse(id).success || !body.success) return jsonError("Send { paused: true | false } or { policy }", 400, "BAD_REQUEST");
       const access = await getWorkspaceAccessById(id, auth.user.id);
       if (!access.project) return jsonError("Workspace not found", 404, "NOT_FOUND");
-      if (!access.isOwner && access.memberRole !== "admin") return jsonError("Only the workspace owner and admins can pause agents", 403, "FORBIDDEN");
-      const [row] = await db.update(workspaces).set({ agentsPausedAt: body.data.paused ? sql`coalesce(${workspaces.agentsPausedAt}, now())` : null, updatedAt: new Date() })
-        .where(eq(workspaces.id, id)).returning({ pausedAt: workspaces.agentsPausedAt });
-      return jsonSuccess({ paused: Boolean(row?.pausedAt), pausedAt: row?.pausedAt?.toISOString() ?? null });
+      if (!access.isOwner && access.memberRole !== "admin") return jsonError("Only the workspace owner and admins can change agent settings", 403, "FORBIDDEN");
+      // The agent policy from the terminal (report F3): only stricter. Letting agents do more is the app's, with
+      // "Verify it's you", so a stolen terminal sign-in can't widen what agents may do.
+      if (body.data.policy) {
+        const [ws] = await db.select({ policy: workspaces.agentPolicy }).from(workspaces).where(eq(workspaces.id, id)).limit(1);
+        const strictness = { trust_drafts_docs: 0, ask_important: 1, ask_all: 2 } as const;
+        if (auth.tokenScopes && strictness[body.data.policy] < strictness[ws?.policy ?? "ask_important"]) {
+          return jsonError("Letting agents do more is done in the app: workspace settings → AI agents", 403, "FORBIDDEN");
+        }
+      }
+      const [row] = await db.update(workspaces).set({
+        ...(body.data.paused === undefined ? {} : { agentsPausedAt: body.data.paused ? sql`coalesce(${workspaces.agentsPausedAt}, now())` : null }),
+        ...(body.data.policy ? { agentPolicy: body.data.policy } : {}),
+        updatedAt: new Date(),
+      }).where(eq(workspaces.id, id)).returning({ pausedAt: workspaces.agentsPausedAt, policy: workspaces.agentPolicy });
+      return jsonSuccess({ paused: Boolean(row?.pausedAt), pausedAt: row?.pausedAt?.toISOString() ?? null, policy: row?.policy ?? null });
     } catch (error) {
       return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/workspaces/agents", fallback: "Couldn’t change agent settings" });
     }

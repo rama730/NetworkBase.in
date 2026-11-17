@@ -2,6 +2,7 @@
 // (report §17.4, A2.5, A8.7, D25).
 import path from "node:path";
 
+import { parseDate } from "../dates.mjs";
 import { CliError, EXIT, usage } from "../errors.mjs";
 import { toRemote } from "../sync/local.mjs";
 import { commentText, safe } from "../print/style.mjs";
@@ -73,11 +74,61 @@ export async function sprintView(ctx) {
   const hit = sprints.find((/** @type {any} */ s) => String(s.number) === name || String(s.name).toLowerCase() === name) ?? sprints.find((/** @type {any} */ s) => String(s.name).toLowerCase().includes(name));
   if (!hit) throw new CliError("NOT_FOUND", `No ${words.main.toLowerCase()} called ${name}`, { hint: "nb sprint list" });
   const res = /** @type {any} */ (await ctx.api.get(base, { query: { sprint: hit.id } }));
-  ctx.out.result("nb.sprint.view/1", { sprint: hit, tasks: res.tasks }, (d) => [
+  ctx.out.result("nb.sprint.view/1", { sprint: hit, tasks: res.tasks, burndown: res.burndown ?? [] }, (d) => [
     `${ctx.out.c.bold(safe(d.sprint.name))} ${ctx.out.c.muted(`${d.sprint.status} · ${formatDate(d.sprint.startDate)} → ${formatDate(d.sprint.endDate)}`)}`,
     ...(d.sprint.goal ? [`  ${safe(d.sprint.goal)}`] : []),
     ...d.tasks.map((/** @type {any} */ t) => `  #${t.number} ${safe(t.title)} ${ctx.out.c.muted(t.status.replace("_", " "))}`),
+    ...burndownLines(d.burndown),
   ]);
+}
+
+/**
+ * A text burndown (report F2): tasks left at the end of each day, one bar per day, with the number as a word so it
+ * never relies on the bar alone (F9). @param {Array<{ date: string, left: number }>} days
+ */
+export function burndownLines(days) {
+  if (!days.length) return [];
+  const most = Math.max(1, ...days.map((d) => d.left));
+  return ["", "  Tasks left each day", ...days.map((d) => `  ${d.date.slice(5)} ${"█".repeat(Math.round((d.left / most) * 20)).padEnd(20, "·")} ${d.left} left`)];
+}
+
+/** A sprint by name, number or "current". @param {Context} ctx @param {string} ref */
+async function findSprint(ctx, ref) {
+  const { sprints, words } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/sprints`));
+  const want = ref.trim().toLowerCase();
+  const hit = want === "current" ? sprints.find((/** @type {any} */ s) => s.status === "active")
+    : sprints.find((/** @type {any} */ s) => String(s.number) === want || String(s.name).toLowerCase() === want);
+  if (!hit) throw new CliError("NOT_FOUND", want === "current" ? `No ${words.main.toLowerCase()} is running here` : `No ${words.main.toLowerCase()} called ${ref}`, { hint: "nb sprint list" });
+  return { sprint: hit, words };
+}
+
+/** `nb sprint create "<name>" --from monday --to friday [--goal text]` (report F2). @param {Context} ctx */
+export async function sprintCreate(ctx) {
+  const name = ctx.positionals.join(" ").trim();
+  if (!name || !ctx.flags.from || !ctx.flags.to) throw usage('nb sprint create "Week 3" --from monday --to friday');
+  const from = parseDate(String(ctx.flags.from));
+  const to = parseDate(String(ctx.flags.to));
+  if (!from || !to) throw usage("--from and --to take dates like monday, next week, or 2026-12-01");
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/sprints`, { name, from, to, ...(ctx.flags.goal ? { goal: String(ctx.flags.goal) } : {}) }));
+  ctx.out.result("nb.sprint.create/1", { sprint: res.sprint, name, from, to }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Created ${safe(d.name)} · ${d.from} → ${d.to}${ctx.out.c.muted(`  Next: nb sprint add "${d.name}" 3 4 5`)}`);
+}
+
+/** `nb sprint add <sprint> 3 4 5` (report F2). @param {Context} ctx */
+export async function sprintAdd(ctx) {
+  const [ref, ...rest] = ctx.positionals;
+  const numbers = rest.map((n) => Number(String(n).replace(/^#/, ""))).filter((n) => Number.isInteger(n) && n > 0);
+  if (!ref || !numbers.length) throw usage("nb sprint add <sprint> 3 4 5", "The sprint is its name, its number or current");
+  const { sprint } = await findSprint(ctx, ref);
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/sprints/${encodeURIComponent(sprint.id)}/tasks`, { numbers }));
+  ctx.out.result("nb.sprint.add/1", res, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Added ${d.added.map((/** @type {number} */ n) => `#${n}`).join(", ")} to ${safe(d.sprint.name)}`);
+}
+
+/** `nb sprint close [sprint]` (report F2): unfinished tasks move to the next planned sprint, or the backlog. @param {Context} ctx */
+export async function sprintClose(ctx) {
+  const { sprint, words } = await findSprint(ctx, ctx.positionals.join(" ") || "current");
+  if (!(await confirm(ctx, { key: "close", heldByServer: true, question: `Close ${sprint.name}? Its unfinished tasks move to the next planned ${words.main.toLowerCase()}, or to the backlog.`, yesLabel: "Close", defaultYes: false }))) return EXIT.cancelled;
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/sprints/${encodeURIComponent(sprint.id)}/close`, {}));
+  ctx.out.result("nb.sprint.close/1", res, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Closed ${safe(d.sprint.name)}${d.moved ? ` · ${d.moved} unfinished task${d.moved === 1 ? "" : "s"} moved to ${d.to === "backlog" ? "the backlog" : safe(d.to.name)}` : ""}`);
 }
 
 /** @param {Context} ctx */

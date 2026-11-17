@@ -78,6 +78,11 @@ test("members: role and removal by the owner's own sign-in; a personal token can
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${ws} AND user_id = ${kim!}`)[0]!.n, 0);
   const ownerLeaves = await members.DELETE(req(ownerRaw, "DELETE", `/api/v1/workspaces/${ws}/members`, { leave: true }) as never, ctx);
   assert.notEqual(ownerLeaves.status, 200, "the owner can't leave");
+  // Removing someone else from the terminal needs "Verify it's you" in the browser first (report F5).
+  const unverified = await members.DELETE(req(ownerRaw, "DELETE", `/api/v1/workspaces/${ws}/members`, { username: samName }) as never, ctx);
+  assert.equal(unverified.status, 403);
+  assert.equal((await unverified.json() as { errorCode: string }).errorCode, "STEP_UP_REQUIRED");
+  await sql`UPDATE extension_device_sessions SET step_up_until = now() + interval '10 minutes' WHERE user_id = ${owner!}`;
   const removed = await members.DELETE(req(ownerRaw, "DELETE", `/api/v1/workspaces/${ws}/members`, { username: samName }) as never, ctx);
   assert.equal(removed.status, 200, await removed.clone().text());
 });

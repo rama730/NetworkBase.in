@@ -37,7 +37,8 @@ const TASK_REF = /^(#?\d+|T-\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
  */
 export function resolveCommand(argv) {
   // Help groups these under "Classes", so nb class … is nb assignment … (C16 #10).
-  if (argv[0] === "class") argv = ["assignment", ...argv.slice(1)];
+  // nb class progress and nb class announcements are their own (report F1).
+  if (argv[0] === "class" && !["progress", "announcements"].includes(argv[1] ?? "")) argv = ["assignment", ...argv.slice(1)];
   /** @type {string[]} */
   const words = [];
   for (const token of argv) {

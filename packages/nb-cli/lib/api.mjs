@@ -136,7 +136,7 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, 
         if (response.ok) return response;
         if (!RETRY_STATUS.has(response.status) || attempt >= MAX_ATTEMPTS || Date.now() - started > RETRY_BUDGET_MS) {
           const payload = /** @type {any} */ (await response.json().catch(() => null));
-          throw new CliError(payload?.errorCode ?? `HTTP_${response.status}`, payload?.message ?? `Download failed (HTTP ${response.status})`, { status: response.status });
+          throw new CliError(payload?.errorCode ?? `HTTP_${response.status}`, payload?.message ?? `Download failed (HTTP ${response.status})`, { status: response.status, details: payload?.details });
         }
       } catch (error) {
         if (error instanceof CliError) throw error;

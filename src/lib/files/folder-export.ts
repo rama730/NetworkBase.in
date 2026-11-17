@@ -263,6 +263,8 @@ export function streamFolderExport(input: {
   prepared: PreparedFolderExport;
   requestSignal: AbortSignal;
   reauthorize: () => Promise<void>;
+  /** Small files made on the server, written first (`nb export`'s export.json, report F8). */
+  extraFiles?: Array<{ path: string; bytes: Uint8Array }>;
   /** Test seam: a deadline a test can wait for. */
   maxMs?: number;
 }) {
@@ -303,6 +305,12 @@ export function streamFolderExport(input: {
     let signedAt = 0;
     let processedBytes = 0;
     try {
+      for (const extra of input.extraFiles ?? []) {
+        const zipEntry = new ZipPassThrough(extra.path);
+        zip.add(zipEntry);
+        zipEntry.push(extra.bytes, true);
+        await writes;
+      }
       for (let index = 0; index < input.prepared.entries.length; index += 1) {
         if (abortController.signal.aborted) throw abortController.signal.reason;
         if (Date.now() - lastAuthorizationAt > 3 * 60 * 1000) {

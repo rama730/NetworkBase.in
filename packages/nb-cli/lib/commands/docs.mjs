@@ -265,7 +265,8 @@ export async function memberRemove(ctx) {
   if (!who) throw usage("nb member remove @username");
   const { confirm } = await import("../tui/ask.mjs");
   if (!(await confirm(ctx, { key: "remove", question: `Remove ${who.startsWith("@") ? who : `@${who}`} from this workspace? Their open tasks become unassigned.`, yesLabel: "Remove", defaultYes: false }))) return EXIT.cancelled;
-  await members(ctx, "DELETE", { username: who.replace(/^@/, "") });
+  const { withStepUp } = await import("./admin.mjs");
+  await withStepUp(ctx, () => members(ctx, "DELETE", { username: who.replace(/^@/, "") }));
   ctx.out.result("nb.member.remove/1", { username: who.replace(/^@/, "") }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Removed @${safe(d.username)}`);
 }
 

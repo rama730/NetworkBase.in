@@ -31,6 +31,7 @@ import { db } from "@/lib/db";
 import { profiles, workspaceMembers, workspaceOpenRoles, workspaces } from "@/lib/db/schema";
 import { removeWorkspaceMemberAction, updateWorkspaceMemberRoleAction } from "@/lib/workspaces/server/settings";
 import { createWorkspaceInvitation } from "@/lib/workspaces/workspace-invitations";
+import { requireStepUp } from "@/lib/security/cli-step-up";
 import { validateCsrf } from "@/lib/security/csrf";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { isWorkspaceMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
@@ -198,12 +199,12 @@ export async function GET(
 /** Changing who is in a workspace needs the person's own sign-in: personal tokens and agents are refused. */
 async function personAt(request: Request) {
   const csrf = validateCsrf(request);
-  if (csrf) return { response: csrf, user: null };
+  if (csrf) return { response: csrf, user: null, auth: null };
   const auth = await requireAuthenticatedUser();
-  if (auth.response) return { response: auth.response, user: null };
-  if (!auth.user) return { response: jsonError("Sign in to continue", 401, "UNAUTHORIZED"), user: null };
-  if (auth.tokenKind && auth.tokenKind !== "device") return { response: jsonError("Changing members needs your own sign-in (nb login), not a token", 403, "FORBIDDEN"), user: null };
-  return { response: null, user: auth.user };
+  if (auth.response) return { response: auth.response, user: null, auth: null };
+  if (!auth.user) return { response: jsonError("Sign in to continue", 401, "UNAUTHORIZED"), user: null, auth: null };
+  if (auth.tokenKind && auth.tokenKind !== "device") return { response: jsonError("Changing members needs your own sign-in (nb login), not a token", 403, "FORBIDDEN"), user: null, auth: null };
+  return { response: null, user: auth.user, auth };
 }
 const answer = (r: { success: boolean; message?: string; errorCode?: string }, ok: unknown) =>
   r.success ? jsonSuccess(ok) : jsonError(r.message ?? "Couldn’t change the member", r.errorCode === "FORBIDDEN" ? 403 : r.errorCode === "NOT_FOUND" ? 404 : 400, r.errorCode === "FORBIDDEN" ? "FORBIDDEN" : r.errorCode === "NOT_FOUND" ? "NOT_FOUND" : "BAD_REQUEST");
@@ -247,7 +248,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
 /** Remove a member (their open tasks are unassigned), or leave yourself with `{ leave: true }`. */
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { response, user } = await personAt(request);
+  const { response, user, auth } = await personAt(request);
   if (response) return response;
   const { id } = await context.params;
   const parsed = memberRemoveSchema.safeParse(await request.json().catch(() => null));
@@ -255,5 +256,10 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   if (parsed.data.leave) return answer(await removeWorkspaceMemberAction(id, user!.id, { mode: "unassign_active_tasks", leave: true }), { left: true });
   const person = await personByName(parsed.data.username!);
   if (!person) return jsonError(`No one called @${parsed.data.username!.replace(/^@/, "")}`, 404, "NOT_FOUND");
+  // Removing someone else is risky (report F5): from the terminal, "Verify it's you" in the browser first.
+  if (auth?.tokenScopes) {
+    const refused = await requireStepUp(auth, request, "remove a member");
+    if (refused) return refused;
+  }
   return answer(await removeWorkspaceMemberAction(id, person.id, { mode: "unassign_active_tasks" }), { removed: person.username });
 }

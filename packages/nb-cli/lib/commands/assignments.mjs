@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { dueRange } from "../dates.mjs";
 import { CliError, EXIT, usage } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { hashFile } from "../sync/state.mjs";
@@ -35,7 +36,17 @@ async function copyByRef(ctx, ref) {
 /** @param {Context} ctx */
 export async function assignmentList(ctx) {
   const wanted = ctx.flags.status ? String(ctx.flags.status).split(",").map((s) => s.trim()) : null;
-  const copies = (await myCopies(ctx)).filter((c) => !wanted || wanted.includes(c.state));
+  // --due across every class (report F1): today, week, overdue, or a date; only work still to hand in.
+  const range = ctx.flags.due === undefined ? null : dueRange(String(ctx.flags.due));
+  if (ctx.flags.due !== undefined && !range) throw usage(`--due ${ctx.flags.due} isn't a time I know`, "today, week, overdue, or a date like 2026-12-01");
+  const inRange = (/** @type {any} */ c) => {
+    if (!range) return true;
+    if (!c.due || ["submitted", "done", "excused"].includes(c.state)) return false;
+    const t = Date.parse(c.due);
+    return (!range.after || t >= Date.parse(range.after)) && (!range.before || t < Date.parse(range.before));
+  };
+  const copies = (await myCopies(ctx)).filter((c) => (!wanted || wanted.includes(c.state)) && inRange(c))
+    .sort((a, b) => (a.due ? Date.parse(a.due) : Infinity) - (b.due ? Date.parse(b.due) : Infinity));
   ctx.out.result("nb.assignment.list/1", { copies }, (d) => d.copies.length ? ctx.out.table([
     { title: "#", value: (c) => (c.number ? String(c.number) : "—"), align: "right" },
     { title: "Assignment", value: (c) => safe(c.title), flex: true },
@@ -245,4 +256,41 @@ export async function reviewPull(ctx) {
   const dir = `reviews/${slugOf(a.title)}/${slugOf(row.who)}`;
   const got = await downloadAll(ctx, root, dir, a.latest?.files ?? [], true);
   ctx.out.result("nb.review.pull/1", { folder: dir, files: got }, (d) => (d.files.length ? [`${ctx.out.c.success(ctx.out.sym.done)} Pulled ${d.files.length} file(s) into ${d.folder} (read-only)`, ...d.files.map((/** @type {string} */ f) => `  ${f}`)] : "No files in this hand-in"));
+}
+
+const PROGRESS_WORDS = /** @type {Record<string, string>} */ ({ ...STATE_WORDS, submitted: "handed in" });
+
+/**
+ * `nb class progress [assignment]` (report F1): with no assignment, the class's assignments and their counts; with
+ * one, every student's state. Teachers and admins see names; others see counts. @param {Context} ctx
+ */
+export async function classProgress(ctx) {
+  const org = ctx.requireWorkspace();
+  const ref = ctx.positionals.join(" ").trim();
+  const res = /** @type {any} */ (await ctx.api.get("/api/v1/reviews/progress", { query: { org, ...(ref ? { assignment: ref } : {}) } }));
+  if (!ref) {
+    return ctx.out.result("nb.class.progress/1", res, (d) => d.assignments.length ? ctx.out.table([
+      { title: "Assignment", value: (a) => safe(a.title), flex: true },
+      { title: "Due", value: (a) => (a.dueDate ? formatDate(a.dueDate) : "—") },
+      { title: "Handed in", value: (a) => `${(a.counts?.submitted ?? 0) + (a.counts?.done ?? 0)} of ${a.counts?.total ?? 0}` },
+      { title: "Missing", value: (a) => String(a.counts?.missing ?? 0) },
+    ], d.assignments) : "No assignments in this class");
+  }
+  ctx.out.result("nb.class.progress/1", res, (d) => [
+    `${ctx.out.c.bold(safe(d.assignment.title))}${d.assignment.dueDate ? ctx.out.c.muted(` · due ${formatDate(d.assignment.dueDate)}`) : ""}${d.closed ? ctx.out.c.muted(" · closed") : ""}`,
+    `  ${["submitted", "done", "returned", "in_progress", "not_started", "missing", "excused"].filter((k) => d.counts[k]).map((k) => `${d.counts[k]} ${PROGRESS_WORDS[k] ?? k}`).join(" · ") || "Nobody yet"}`,
+    ...(d.rows.length ? ["", ...d.rows.map((/** @type {any} */ r) => `  ${safe(r.name).padEnd(24)} ${PROGRESS_WORDS[r.state] ?? r.state}${r.approved ? " · approved" : ""}${r.late ? " · late" : ""}${r.submittedAt ? ctx.out.c.muted(` · ${formatDate(r.submittedAt)}${r.version ? ` v${r.version}` : ""}`) : ""}`)] : []),
+    ...(d.withoutCopy.length ? ["", ctx.out.c.muted(`  Not given it: ${d.withoutCopy.map((/** @type {string} */ n) => safe(n)).join(", ")}`)] : []),
+    ctx.out.c.muted("  Return several at once: nb review return 3 5 8 -m \"…\""),
+  ]);
+}
+
+/** `nb class announcements` (report F1): the organization's announcements, newest first. @param {Context} ctx */
+export async function classAnnouncements(ctx) {
+  const data = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates`));
+  const items = (data.updates ?? []).filter((/** @type {any} */ u) => u.updateType === "announcement")
+    .map((/** @type {any} */ u) => ({ id: u.id, by: u.authorName ?? u.author?.name ?? u.authorUsername ?? null, at: u.createdAt, text: String(u.content ?? "") }));
+  ctx.out.result("nb.class.announcements/1", { announcements: items }, (d) => d.announcements.length
+    ? d.announcements.flatMap((/** @type {any} */ a) => [`${ctx.out.c.bold(safe(a.by ?? "The organization"))} ${ctx.out.c.muted(formatDate(a.at))}`, `  ${safe(a.text).replace(/\s+/g, " ").slice(0, 400)}`, ""])
+    : "No announcements");
 }

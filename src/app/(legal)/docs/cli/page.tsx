@@ -5,6 +5,7 @@ import { LegalDocumentPage, LegalList } from "@/components/legal/LegalDocumentPa
 import { TerminalBlock } from "@/components/ui/terminal-block";
 import { ERROR_CATALOG } from "@/lib/api/errors";
 import help from "@/lib/cli/commands.json";
+import recipes from "../../../../../packages/nb-cli/schema/recipes.json";
 
 // The CLI guide (report A6.8, A9.10). The command reference is generated from the CLI's own command table
 // (src/lib/cli/commands.json, kept fresh by tests/unit/api-schemas-fresh), so it always matches `nb help`.
@@ -122,8 +123,33 @@ export default function CliDocsPage() {
           ),
         },
         {
+          id: "recipes",
+          title: "8. Recipes",
+          content: (
+            <>
+              <p>Copy-ready, and run in our tests on every change, so they keep working.</p>
+              {recipes.recipes.map((r) => (
+                <TerminalBlock key={r.id} variant="command" label={r.title}>{r.steps.map((s) => `$ ${s.cmd}`).join("\n")}</TerminalBlock>
+              ))}
+              <p>A GitHub Action runs the same commands in CI: push a build to a task, or finish the task a merged pull request closes (<code>networkbase/action</code>).</p>
+            </>
+          ),
+        },
+        {
+          id: "on-your-computer",
+          title: "9. What nb keeps on your computer",
+          content: (
+            <LegalList>
+              <li><strong>Your sign-in:</strong> in the system keychain, or <code>~/.networkbase/credentials.json</code> (readable only by you) when there isn’t one.</li>
+              <li><strong>Settings and notices:</strong> <code>~/.networkbase</code> (the update check, your defaults, saved task lists).</li>
+              <li><strong>In a linked folder:</strong> <code>.networkbase/</code> holds the link, the last version of each file it saw (to tell your edits from a teammate’s), the offline queue and files set aside when switching branches (kept 30 days).</li>
+              <li><code>nb logout --purge</code> signs out every saved profile and deletes all of it; your own files stay.</li>
+            </LegalList>
+          ),
+        },
+        {
           id: "trouble",
-          title: "8. When something’s wrong",
+          title: "10. When something’s wrong",
           content: <p><code>nb doctor</code> checks Node, the server, your sign-in, proxy and certificates, the folder, disk space and your role, and says what to do for each. <code>nb feedback</code> prints a report to send to support with tokens, names and paths removed. Agents: see <Link href="/docs/agents" className="underline">AI agents</Link>.</p>,
         },
       ]}

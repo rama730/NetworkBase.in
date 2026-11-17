@@ -261,6 +261,7 @@ const page = (title, text) =>
 
 /** @param {Context} ctx */
 export async function logout(ctx) {
+  if (ctx.flags.purge) return logoutPurge(ctx);
   if (ctx.flags.all) {
     // Signing out everywhere revokes every device and agent; that needs the browser's fresh check (report A3.9).
     const url = `${ctx.profile.origin}/settings?tab=integrations`;
@@ -287,6 +288,7 @@ export async function logout(ctx) {
 /** @param {Context} ctx */
 export async function whoami(ctx) {
   if (ctx.flags.all) return whoamiAll(ctx);
+  if (ctx.flags.security) return (await import("./admin.mjs")).securitySummary(ctx);
   const me = /** @type {any} */ (await ctx.api.get("/api/v1/me"));
   const data = { origin: ctx.profile.origin, profile: ctx.profile.name, tokenSource: ctx.profile.profile?.source ?? null, storage: ctx.profile.profile?.storage ?? "file", ...me };
   ctx.out.result("nb.whoami/1", data, (d) => [
@@ -346,6 +348,8 @@ export async function tokenList(ctx) {
           { title: "Name", value: (t) => safe(t.type === "agent" && t.agentName ? `${t.agentName} on ${t.name}` : t.name), flex: true },
           { title: "Workspace", value: (t) => (t.workspace ? safe(t.workspace) : "all"), optional: true },
           { title: "Last used", value: (t) => (t.lastUsedAt ? String(t.lastUsedAt).slice(0, 10) : "—"), optional: true },
+          // Where it was last used from (report F5); a new country also sends you a security notice.
+          { title: "Country", value: (t) => (t.country ? String(t.country) : "—"), optional: true },
         ], d.tokens)
       : "No signed-in devices or tokens");
 }
@@ -363,4 +367,31 @@ export async function tokenRevoke(ctx) {
   await ctx.api.post(`/api/v1/tokens/${t.id}/revoke`, {});
   if (t.current) saveProfile(ctx.profile.name, null, ctx.env);
   ctx.out.result("nb.token.revoke/1", { id: t.id, type: t.type }, () => `${ctx.out.c.success(ctx.out.sym.done)} Revoked`);
+}
+
+/**
+ * `nb logout --purge` (report F8): signs out every saved profile (this one's token revoked on the server when it can
+ * be), and removes everything the CLI keeps: ~/.networkbase (sign-ins, caches, notices) and, in a linked folder, its
+ * .networkbase (base copies, the offline queue, the link). Your own files stay. @param {Context} ctx
+ */
+export async function logoutPurge(ctx) {
+  const { confirm } = await import("../tui/ask.mjs");
+  const { globalDir, findRoot, DIR_NAME } = await import("../config.mjs");
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const home = globalDir(ctx.env);
+  const root = findRoot(ctx.cwd);
+  const folder = root ? path.join(root, DIR_NAME) : null;
+  if (!(await confirm(ctx, { key: "purge", question: `Sign out everywhere on this computer and delete ${home}${folder ? ` and ${folder}` : ""}? Your own files stay.`, yesLabel: "Delete", defaultYes: false }))) return 130;
+  let revoked = false;
+  if (ctx.profile.token && ctx.profile.profile?.source !== "env") {
+    revoked = await ctx.api.post("/api/v1/extension/session", {}).then(() => true, () => false);
+  }
+  for (const name of Object.keys(listProfiles(ctx.env))) saveProfile(name, null, ctx.env);
+  const removed = [home, ...(folder ? [folder] : [])].filter((dir) => fs.existsSync(dir));
+  for (const dir of removed) fs.rmSync(dir, { recursive: true, force: true });
+  ctx.out.result("nb.logout.purge/1", { revoked, removed }, (d) => [
+    `${ctx.out.c.success(ctx.out.sym.done)} Signed out and removed ${d.removed.length ? d.removed.map((/** @type {string} */ r) => safe(r)).join(" and ") : "nothing (it was already clean)"}`,
+    ...(d.revoked ? [] : [ctx.out.c.muted("  This sign-in wasn't revoked on the server (offline, or an env token): revoke it in Settings → Integrations")]),
+  ]);
 }

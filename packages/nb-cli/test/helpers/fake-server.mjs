@@ -73,6 +73,14 @@ const exact = {
     return { data: q };
   },
   "GET /api/v1/assignments": (_req, state) => ({ data: { copies: state.assignments.map((a) => ({ id: a.id, number: a.number, title: a.title, org: "Physics 101", orgId: WORKSPACE_ID, workspaceId: WORKSPACE_ID, due: a.due, state: a.state, late: false, submissionType: a.submissionType, aiPolicy: a.aiPolicy, team: null })) } }),
+  // A class's progress (report F1): the list, or one assignment's students.
+  "GET /api/v1/reviews/progress": (req, state) => {
+    const assignments = state.assignments.map((a) => ({ id: a.id, title: a.title, dueDate: a.due, status: "open", counts: { not_started: 1, in_progress: 0, submitted: 1, returned: 0, done: 0, missing: 1, excused: 0, total: 3 } }));
+    const ref = String(req.query.get("assignment") ?? "").toLowerCase();
+    if (!ref) return { data: { assignments } };
+    const hit = assignments.find((a) => a.title.toLowerCase().includes(ref));
+    return hit ? { data: { assignment: hit, counts: hit.counts, closed: false, rows: [{ name: "Sam Lee", state: "submitted", late: true, approved: false, submittedAt: now(), version: 2 }, { name: "Ana Park", state: "missing", late: false, approved: false, submittedAt: null, version: null }], withoutCopy: ["Raj Iyer"] } } : fail(404, "NOT_FOUND", `No assignment matches ${ref}`);
+  },
   "GET /api/v1/reviews": (req, state) => (req.query.get("org") ? { data: { rows: state.assignments.filter((a) => a.state === "submitted").map((a) => ({ kind: "copy", mine: true, copyId: a.id, masterId: a.id, title: a.title, who: "Sam Lee", submittedBy: "u2", submittedAt: now(), late: false, href: "", projectId: WORKSPACE_ID, updatedAt: now(), version: 1, link: null, text: null, note: null, files: [], versions: a.versions ?? [] })), total: 1, nextCursor: null } } : fail(400, "BAD_REQUEST", "Which organization?")),
   // Messages (report C4, M4d): two #design channels in different workspaces and a DM.
   // nb learn (report C1): the practice workspace is the fake's design-lab, so every step works.
@@ -504,7 +512,21 @@ const patterns = [
   ...changeSetRoutes,
   [/^\/api\/v1\/workspaces\/([^/]+)$/, "GET", (_req, /** @type {FakeState} */ state) => ({ data: { id: WORKSPACE_ID, title: state.workspace.title, slug: state.workspace.slug, description: null, role: "owner", canWrite: true, openTasks: state.tasks.filter((t) => t.status !== "done").length, files: state.files.size, currentSprint: null, words: { main: "Sprint", inner: "Sprint", plan: "Plan", isClass: false }, organization: null, agents: { policy: "ask_important", paused: false } } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/activity$/, "GET", (_req, /** @type {FakeState} */ state) => ({ data: { items: state.tasks.map((t) => ({ at: t.updatedAt, kind: "task", type: "status_changed", by: "tester", via: "agent", agentName: "Claude Code", task: { id: t.id, number: t.taskNumber, title: t.title }, detail: `→ ${t.status}` })), nextBefore: null } })],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/sprints$/, "GET", (req, /** @type {FakeState} */ state) => ({ data: { words: { main: "Unit", inner: "Week", plan: "Term", isClass: true }, sprints: [{ id: "s1111111-1111-4111-8111-111111111111", number: 1, name: "Unit 1", goal: "Basics", status: "active", startDate: now(), endDate: now(), open: state.tasks.length, done: 0 }], unplanned: 0, ...(req.query.get("sprint") ? { tasks: state.tasks.map((t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status })) } : {}) } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/sprints$/, "GET", (req, /** @type {FakeState} */ state) => ({ data: { words: { main: "Unit", inner: "Week", plan: "Term", isClass: true }, sprints: [{ id: "s1111111-1111-4111-8111-111111111111", number: 1, name: "Unit 1", goal: "Basics", status: "active", startDate: now(), endDate: now(), open: state.tasks.length, done: 0 }, .../** @type {any} */ (state).sprintsMade ?? []], unplanned: 0, ...(req.query.get("sprint") ? { tasks: state.tasks.map((t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status })), burndown: [{ date: "2026-11-16", left: 2 }, { date: "2026-11-17", left: 1 }] } : {}) } })],
+  // Sprints from the CLI (report F2): what was asked is kept on the state for the test to check.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/sprints$/, "POST", (req, /** @type {any} */ state) => {
+    const made = { id: crypto.randomUUID(), number: 2 + (state.sprintsMade ?? []).length, name: req.body.name, goal: req.body.goal ?? null, status: "planning", startDate: req.body.from, endDate: req.body.to, open: 0, done: 0 };
+    (state.sprintsMade ??= []).push(made);
+    return { status: 201, data: { sprint: made } };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/sprints\/([^/]+)\/tasks$/, "POST", (req, /** @type {any} */ state) => {
+    state.sprintAdds = [...(state.sprintAdds ?? []), { sprintId: req.params[1], numbers: req.body.numbers }];
+    return { data: { sprint: { id: req.params[1], name: "Unit 1" }, added: req.body.numbers } };
+  }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/sprints\/([^/]+)\/close$/, "POST", (req, /** @type {any} */ state) => {
+    state.sprintClosed = req.params[1];
+    return { data: { sprint: { id: req.params[1], name: "Unit 1" }, moved: 1, to: "backlog" } };
+  }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/updates$/, "POST", (req, /** @type {FakeState} */ state) => { state.updates.push(req.body.content); return { data: { success: true } }; }],
   [/^\/api\/v1\/tasks\/([^/]+)\/files$/, "POST", (req, /** @type {FakeState} */ state) => {
     const t = findTask(state, req.params[0] ?? "");

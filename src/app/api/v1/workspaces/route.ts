@@ -231,3 +231,30 @@ export async function GET(request: Request) {
         return unavailable('INTERNAL_ERROR', error)
     }
 }
+
+/**
+ * `nb workspace create "<title>"` (report F3): a new workspace, the person's own (private unless asked), with the app's
+ * create action and its limits. People only; agents don't create workspaces.
+ */
+export async function POST(request: Request) {
+  const { validateCsrf } = await import('@/lib/security/csrf')
+  const csrf = validateCsrf(request)
+  if (csrf) return csrf
+  const { idempotentWrite, requireAuthenticatedUser } = await import('@/app/api/v1/_shared')
+  return idempotentWrite(request, 'workspaces.create', async (req) => {
+    const auth = await requireAuthenticatedUser()
+    if (auth.response) return auth.response
+    if (!auth.user) return jsonError('Sign in to continue', 401, 'UNAUTHORIZED')
+    if (auth.tokenKind === 'agent') return jsonError("Agents don't create workspaces", 403, 'FORBIDDEN')
+    const body = z.object({ title: z.string().trim().min(3).max(100), description: z.string().trim().max(5000).optional(), visibility: z.enum(['public', 'private']).optional() }).safeParse(await req.json().catch(() => null))
+    if (!body.success) return jsonError('Send { title } (3 to 100 characters)', 400, 'BAD_REQUEST')
+    const { WorkspaceCliError, createWorkspaceFromCli } = await import('@/lib/workspaces/server/workspace-cli')
+    try {
+      return jsonSuccess(await createWorkspaceFromCli(body.data), undefined, { status: 201 })
+    } catch (error) {
+      if (error instanceof WorkspaceCliError) return jsonError(error.message, error.status, error.code as never)
+      logger.error('[api/v1/workspaces] create failed', { error: error instanceof Error ? error.message : String(error) })
+      return jsonError('Couldn’t create the workspace', 500, 'INTERNAL_ERROR')
+    }
+  })
+}

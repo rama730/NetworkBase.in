@@ -1,6 +1,9 @@
 import { and, eq, isNull } from "drizzle-orm";
 
-import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { agentGate } from "@/lib/agents/policy";
+import { validateCsrf } from "@/lib/security/csrf";
+import { WorkspaceCliError, removeDocFromCli } from "@/lib/workspaces/server/workspace-cli";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { readWorkspaceDocAction } from "@/app/actions/workspace/doc";
 import { db } from "@/lib/db";
@@ -52,4 +55,24 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   } catch (error) {
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/workspaces/docs/slug", fallback: "Couldn’t read the doc" });
   }
+}
+
+/** `nb doc remove <slug>` (report F3): unlinks the doc; its file stays. An agent asks first. */
+export async function DELETE(request: Request, context: { params: Promise<{ id: string; slug: string }> }) {
+  const csrf = validateCsrf(request);
+  if (csrf) return csrf;
+  return idempotentWrite(request, "workspace.docs.remove", async (req) => {
+    try {
+      const auth = await requireAuthenticatedUser();
+      if (auth.response) return auth.response;
+      if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
+      const { id, slug } = await context.params;
+      const held = await agentGate(auth, req, { slug }, { workspaceId: id, kinds: ["doc"], summary: `Remove the doc ${slug} (its file stays)` });
+      if (held) return held;
+      return jsonSuccess(await removeDocFromCli(id, slug));
+    } catch (error) {
+      if (error instanceof WorkspaceCliError) return jsonError(error.message, error.status, error.code as never);
+      return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/workspaces/docs", fallback: "Couldn’t remove the doc" });
+    }
+  });
 }

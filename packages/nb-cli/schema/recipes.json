@@ -1,0 +1,33 @@
+{
+  "note": "Copy-ready recipes for /docs/cli (report F10). CI runs every step against the fake server (test/recipes.test.mjs), so a recipe never goes stale.",
+  "recipes": [
+    { "id": "start-the-day", "title": "Start the day", "steps": [
+      { "cmd": "nb", "why": "What's yours: tasks, reviews, the inbox" },
+      { "cmd": "nb next", "why": "The few things to do first, with why" },
+      { "cmd": "nb task start 1", "why": "Take one: it's yours and in progress" }
+    ] },
+    { "id": "hand-in", "title": "Hand in an assignment", "steps": [
+      { "cmd": "nb assignment list --due week", "why": "Everything due this week, across classes" },
+      { "cmd": "nb assignment view 3", "why": "The instructions, the due date and the AI policy" },
+      { "cmd": "nb assignment hand-in 3 essay.md --yes", "why": "Hand in the file as final" }
+    ] },
+    { "id": "review-a-class", "title": "Review a class", "steps": [
+      { "cmd": "nb class progress", "why": "Every assignment: handed in, missing" },
+      { "cmd": "nb class progress essay", "why": "One assignment's students" },
+      { "cmd": "nb review list", "why": "Hand-ins waiting for you" },
+      { "cmd": "nb review return 1 -m \"Add the sources\" --yes", "why": "Return one (or several: 1 2 3) with one note" }
+    ] },
+    { "id": "set-up-an-agent", "title": "Set up an agent", "steps": [
+      { "cmd": "nb agent status", "why": "Which agents are connected, and their access" },
+      { "cmd": "nb agent policy ask-all", "why": "Every change an agent makes waits for your yes" },
+      { "cmd": "nb agent activity", "why": "What agents did in the last day, with Undo per session" }
+    ] },
+    { "id": "back-up", "title": "Back up a workspace", "steps": [
+      { "cmd": "nb export -o backup.zip --force", "why": "Files, tasks, comments and docs in one zip (it asks you to verify it's you)" }
+    ] },
+    { "id": "ci", "title": "In CI or a cron job", "steps": [
+      { "cmd": "nb task list --status todo --json", "why": "Plain JSON to read with jq; exit codes tell what happened" },
+      { "cmd": "nb push report.md --task 1 --as draft --yes", "why": "Send a build's output to a task (with NETWORKBASE_TOKEN set)" }
+    ] }
+  ]
+}
