@@ -33,7 +33,7 @@ const isAgent = (actor: Actor) => actor.tokenKind === "agent";
 
 export const MR_LIMITS = { open: 200, saves: 250, comments: 500 };
 export type MergeRequest = typeof mergeRequests.$inferSelect;
-type Person = { id: string; name: string | null; username: string | null };
+type Person = { id: string; name: string | null; username: string | null; avatarUrl?: string | null };
 const OPEN = ["draft", "open"] as const;
 
 // ── Finding ───────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ const stillOpen = (mr: MergeRequest) => {
 
 async function peopleById(ids: Array<string | null | undefined>): Promise<Map<string, Person>> {
   const list = [...new Set(ids.filter((x): x is string => Boolean(x)))];
-  const rows = list.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username }).from(profiles).where(inArray(profiles.id, list)) : [];
+  const rows = list.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, list)) : [];
   return new Map(rows.map((p) => [p.id, p]));
 }
 const nameOf = (p: Person | undefined) => p?.name || (p?.username ? `@${p.username}` : "Someone");
@@ -287,6 +287,8 @@ export async function getMergeRequest(actor: Actor, workspaceId: string, ref: st
     return shown.via === "agent" ? `with ${shown.agentName ?? "an agent"}` : shown.via === "cli" ? "from the terminal" : null;
   };
   const [task] = mr.taskId ? await db.select({ id: tasks.id, number: tasks.taskNumber, title: tasks.title, status: tasks.status }).from(tasks).where(eq(tasks.id, mr.taskId)).limit(1) : [];
+  // A merge that was reverted says so, instead of offering Revert again (design audit F4).
+  const [reverted] = mr.mergeSaveId ? await db.select({ id: saves.id, number: saves.seq }).from(saves).where(eq(saves.revertsSaveId, mr.mergeSaveId)).limit(1) : [];
   const files = mr.state === "merged" || source.status === "deleted" ? null : await branchChanges(actor, source.id).catch(() => null);
   const open = OPEN.includes(mr.state as never);
   const isAuthor = mr.authorId === viewer;
@@ -306,7 +308,10 @@ export async function getMergeRequest(actor: Actor, workspaceId: string, ref: st
         earlierSave: r.state === "approved" && Boolean(r.saveId) && r.saveId !== source.headSaveId,
       })),
       checks: checks.map((c) => ({ name: c.name, state: c.state, url: c.url, updatedAt: c.updatedAt.toISOString() })),
-      merged: mr.state === "merged" ? { method: mr.mergeMethod, saveId: mr.mergeSaveId, by: mr.mergedBy ? people.get(mr.mergedBy) ?? null : null, at: mr.mergedAt?.toISOString() ?? null } : null,
+      merged: mr.state === "merged" ? {
+        method: mr.mergeMethod, saveId: mr.mergeSaveId, by: mr.mergedBy ? people.get(mr.mergedBy) ?? null : null, at: mr.mergedAt?.toISOString() ?? null,
+        revertedBy: reverted ? { saveId: reverted.id, number: reverted.number ?? 0 } : null,
+      } : null,
       behind: Math.max(0, mainHeadSeq - mergedFrom),
       bothChanged: open && source.status === "active" ? await overlap(source, main.id) : [],
       createdAt: mr.createdAt.toISOString(), updatedAt: mr.updatedAt.toISOString(), closedAt: mr.closedAt?.toISOString() ?? null,

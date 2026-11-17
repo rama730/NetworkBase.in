@@ -18,6 +18,8 @@ const MOCKS: Record<string, string> = {
   'next/image': `import React from 'react';export default ({src,alt,width,height,fill,priority,unoptimized,sizes,quality,placeholder,blurDataURL,loader,fetchPriority,...p})=>React.createElement('img',{src:typeof src==='string'?src:(src&&src.src)||'',alt,width,height,...p});`,
   'next/dynamic': `import React from 'react';export default (loader)=>{const L=React.lazy(()=>loader().then(m=>({default:m.default??m})));return (props)=>React.createElement(React.Suspense,{fallback:null},React.createElement(L,props));};`,
   'server-only': `export {};`,
+  // MarkdownPreview reaches lib/workspaces/doc.ts, which hashes on the server; Next shims it for the browser.
+  'crypto': `export const createHash=()=>({update(){return this},digest(){return ''}});export const randomUUID=()=>globalThis.crypto.randomUUID();export default {createHash,randomUUID};`,
   'next/script': `import {useEffect} from 'react';export default function Script({onReady,onLoad}){useEffect(()=>{onReady?.();onLoad?.();},[]);return null;}`,
   '@/components/providers/SecurityRuntimeProvider': `export const useSecurityRuntime=()=>({nonce:null});`,
   '@/hooks/use-auth': `export const useAuth=()=>window.__auth;`,
@@ -28,12 +30,18 @@ const cache = new Map<string, { script: string; css: string; sans: Buffer; mono:
 export async function buildApp(entry: string) {
   const hit = cache.get(entry);
   if (hit) return hit;
+  const modules = new Set<string>();
   const bundle = await build({
     entryPoints: [path.resolve(entry)], bundle: true, write: false, platform: 'browser', format: 'iife', logLevel: 'error', define: { 'process.env.NODE_ENV': '"test"' },
     plugins: [{ name: 'edges', setup(b) {
-      // CSS modules: a class name is its own name. The app's stylesheet is compiled separately below.
-      b.onResolve({ filter: /\.module\.css$/ }, (args) => ({ path: args.path, namespace: 'cssmodule' }));
-      b.onLoad({ filter: /.*/, namespace: 'cssmodule' }, () => ({ contents: 'export default new Proxy({}, { get: (_, key) => String(key) });', loader: 'js' }));
+      // CSS modules: a class name is its own name (prefixed m-), and the module's rules join the page's stylesheet unchanged, so
+      // container queries and the like apply as in the app (design audit V1: the explorer's grid at phone width).
+      b.onResolve({ filter: /\.module\.css$/ }, (args) => ({ path: path.resolve(args.resolveDir, args.path), namespace: 'cssmodule' }));
+      b.onLoad({ filter: /.*/, namespace: 'cssmodule' }, (args) => {
+        modules.add(args.path);
+        // Prefixed like the app's hashed names, so a module's .container never meets Tailwind's .container.
+        return { contents: "export default new Proxy({}, { get: (_, key) => 'm-' + String(key) });", loader: 'js' };
+      });
       b.onResolve({ filter: /.*/ }, (args) => {
         if (args.path in MOCKS) return { path: args.path, namespace: 'mock' };
         if (EDGES.some((re) => re.test(args.path))) return { path: args.path, namespace: 'action' };
@@ -50,8 +58,10 @@ export async function buildApp(entry: string) {
     } }, serverActionsPlugin],
   });
   const result = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
+  const moduleCss = (await Promise.all([...modules].map((file) => readFile(file, 'utf8').catch(() => ''))))
+    .map((css) => css.replace(/\.(?=[A-Za-z_])([\w-]+)/g, '.m-$1')).join('\n');
   const [sans, mono] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2')]);
-  const css = `@font-face{font-family:'Instrument Sans';src:url('/sans.ttf');font-weight:400 700;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 800;}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';}` + result.css;
+  const css = `@font-face{font-family:'Instrument Sans';src:url('/sans.ttf');font-weight:400 700;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 800;}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';}` + result.css + moduleCss;
   const built = { script: bundle.outputFiles![0]!.text, css, sans, mono };
   cache.set(entry, built);
   return built;

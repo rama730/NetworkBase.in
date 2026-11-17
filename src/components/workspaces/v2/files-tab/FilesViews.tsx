@@ -233,6 +233,13 @@ export function FilesViews({
     const params = new URLSearchParams(window.location.search);
     // ?changes=<id> opens one change set (G12); ?save=<id> one save (H3).
     const value = (params.get("changes") ? "changes" : params.get("save") ? "history" : params.get("mr") ? "merge-requests" : params.get("filesView")) as FilesViewId;
+    // A link that names a view (or a branch) and no file opens that view, not the file you last had open on main,
+    // which the Files tab keeps between visits (design audit F1).
+    const namesView = (value && value !== "project") || params.has("branch") || params.has("mr") || params.has("save") || params.has("changes");
+    if (namesView && !params.has("path") && !params.has("fileId")) {
+      const store = useFilesStore.getState();
+      if (store.byProjectId[projectId]?.currentLocationId) store.setCurrentLocation(projectId, null);
+    }
     const onBranch = params.get("branch");
     setBranchState(onBranch && onBranch.toLowerCase() !== "main" ? onBranch : null);
     setBranchFolder(params.get("bpath") || "/");
@@ -280,7 +287,7 @@ export function FilesViews({
       nextUrl.search = params.toString();
       window.history.replaceState(window.history.state, "", nextUrl);
     }
-  }, [canReadTasks, canEdit, canOpenGitHub, githubAccessResolved, org]);
+  }, [canReadTasks, canEdit, canOpenGitHub, githubAccessResolved, org, projectId]);
   useEffect(() => {
     restoreView();
     window.addEventListener("popstate", restoreView);

@@ -43,6 +43,7 @@ import { FilesHeaderContext, FilesHeaderSlot } from "./FilesHeaderSlot";
 export { FilesHeaderSlot } from "./FilesHeaderSlot";
 import { OpenInIdeButton, OpenInIdeSheet } from "./OpenInIdeButton";
 import { BranchPicker } from "./BranchExplorer";
+import { FilesHeaderTitleContext, useFilesHeaderTitle } from "./FilesChrome";
 import { FilesTabRoleContext } from "./FilesTabRoleContext";
 
 export function FilesHeader({
@@ -67,6 +68,8 @@ export function FilesHeader({
   const toggleSidebar = useFilesStore((s) => s.toggleSidebar);
   const [actions, setActions] = useState<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<HTMLDivElement | null>(null);
+  // A view's own breadcrumb (a branch's path, a merge request, a save) replaces the header's (design audit S1–S4).
+  const [viewTitle, setViewTitle] = useFilesHeaderTitle();
   const found = fileCollectionViews.find(
     (item) => item.id === workspace?.view,
   );
@@ -75,6 +78,7 @@ export function FilesHeader({
   const isFile = location?.type === "file";
   const hasLocation = location && location.type !== "root";
   return (
+    <FilesHeaderTitleContext.Provider value={setViewTitle}>
     <FilesHeaderContext.Provider value={{ actions, status, canOpenGitHub, ide: { projectId, projectSlug, location, taskId: workspace?.taskId } }}>
       <header
         data-testid="files-header"
@@ -103,7 +107,9 @@ export function FilesHeader({
             <ArrowLeft className="size-4" aria-hidden="true" />
           </button>
         )}
-        {isProject && !isFile && workspace?.query ? (
+        {viewTitle ? (
+          viewTitle
+        ) : isProject && !isFile && workspace?.query ? (
           <nav
             aria-label="Breadcrumb"
             className="nb-ui-label flex min-w-0 flex-1 items-center gap-2"
@@ -211,6 +217,7 @@ export function FilesHeader({
       </header>
       {children}
     </FilesHeaderContext.Provider>
+    </FilesHeaderTitleContext.Provider>
   );
 }
 

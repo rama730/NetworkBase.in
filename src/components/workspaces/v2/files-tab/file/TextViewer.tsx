@@ -86,7 +86,7 @@ function parseLineRangeFromHash(hash: string): { fromLine: number; toLine: numbe
 // fires when the user opens View or Edit mode, preserving the
 // Req 16.1–16.3 performance budget. `ssr: false` is required because the
 // editor touches `window` and `document` during construction.
-const CodeMirrorEditor = dynamic(
+export const CodeMirrorEditor = dynamic(
   async () => {
     const [
       { default: CodeMirror },

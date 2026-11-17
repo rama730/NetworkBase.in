@@ -35,25 +35,27 @@ async function open(page: Page, { width = 1440, theme = 'light', path = '/', rev
 
 test('the list: grouped by day like GitHub, with who, how, the task, +/− and the save number; a path filter asks the server', async ({ page }) => {
   await open(page);
-  const today = page.getByRole('region', { name: /^Saves on .*17.*2026$/ });
-  await expect(today.getByRole('button').first()).toContainText('Fix the greeting');
-  await expect(today.getByRole('button').first()).toContainText('Ram with Claude Code saved');
-  await expect(today.getByRole('button').first()).toContainText('#4 Greeting');
-  await expect(today.getByRole('button').first().getByLabel('12 lines added, 3 removed')).toBeVisible();
-  await expect(today.getByRole('button').first().getByLabel('Save 3')).toBeVisible();
-  const before = page.getByRole('region', { name: /^Saves on .*16.*2026$/ });
-  await expect(before.getByRole('button')).toContainText('Start');
+  const today = page.getByRole('rowgroup', { name: /^Saves on .*17.*2026$/ });
+  const first = today.getByRole('row').first();
+  await expect(first).toContainText('Fix the greeting');
+  await expect(first).toContainText('Ram');
+  await expect(first).toContainText('with Claude Code');
+  await expect(first).toContainText('#4 Greeting');
+  await expect(first.getByLabel('12 lines added, 3 removed')).toBeVisible();
+  await expect(first.getByLabel('Save 3', { exact: true })).toBeVisible();
+  const before = page.getByRole('rowgroup', { name: /^Saves on .*16.*2026$/ });
+  await expect(before.getByRole('row')).toContainText('Start');
   await page.getByLabel('Only saves that touched a file or folder').fill('/src');
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('region', { name: /^Saves on/ }).getByRole('button')).toHaveCount(1);
+  await expect(page.getByRole('rowgroup', { name: /^Saves on/ }).getByRole('row')).toHaveCount(1);
   const calls = await page.evaluate(() => (window as any).__calls);
   expect(calls).toContainEqual(['list', '/src']);
 });
 
 test('a save opens with its files and a diff, browses the files as they were, and has a zip link', async ({ page }) => {
   await open(page);
-  await page.getByRole('button', { name: /Fix the greeting/ }).click();
-  await expect(page.getByRole('heading', { name: 'Fix the greeting' })).toBeVisible();
+  await page.getByRole('button', { name: /Open save 3: Fix the greeting/ }).click();
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Save 3: Fix the greeting');
   expect(page.url()).toContain('save=s3');
   const files = page.getByRole('navigation', { name: 'Files in this save' });
   await expect(files).toContainText('/src/a.ts → /lib/a.ts');
@@ -63,8 +65,7 @@ test('a save opens with its files and a diff, browses the files as they were, an
   await expect(page.getByRole('region', { name: 'Diff' })).toContainText('added line:');
   await expect(page.getByRole('button', { name: 'Download zip' })).toBeEnabled();
   await page.getByRole('button', { name: 'Browse files at this save' }).click();
-  await expect(page.getByText('2 files as they were at this save')).toBeVisible();
-  await expect(page.getByText('/README.md')).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Files at this save' })).toContainText('README.md');
 });
 
 test('Revert asks first, then reverts and opens the new save', async ({ page }) => {
@@ -79,10 +80,10 @@ test('Revert asks first, then reverts and opens the new save', async ({ page }) 
 
 test('the start of history has no Revert; viewers see no Revert', async ({ page }) => {
   await open(page, { path: '/?save=s1' });
-  await expect(page.getByRole('heading', { name: 'Start of history' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Save 1: Start of history');
   await expect(page.getByRole('button', { name: 'Revert' })).toHaveCount(0);
   await open(page, { path: '/?save=s3&viewer=1' });
-  await expect(page.getByRole('heading', { name: 'Fix the greeting' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Fix the greeting');
   await expect(page.getByRole('button', { name: 'Revert' })).toHaveCount(0);
 });
 
@@ -90,11 +91,12 @@ for (const theme of ['light', 'dark'] as const) {
   for (const width of [1440, 390]) {
     test(`no accessibility violations: ${theme}, ${width}px`, async ({ page }) => {
       await open(page, { theme, width, path: '/?save=s3' });
-      await expect(page.getByRole('heading', { name: 'Fix the greeting' })).toBeVisible();
+      await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Fix the greeting');
       await expect(page.getByRole('region', { name: 'Diff' })).toContainText('hello from');
       expect(await axeViolations(page)).toEqual([]);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow).toBeLessThanOrEqual(0);
+      await page.screenshot({ path: `test-results/audit-shots/save-${theme}-${width}.png` });
     });
   }
 }

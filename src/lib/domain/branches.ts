@@ -126,7 +126,7 @@ const same = (a: State, b: State) => (a == null || b == null ? a === b : a.hash 
 
 export type BranchView = {
   id: string; name: string; isDefault: boolean; status: string;
-  createdBy: { id: string; name: string | null; username: string | null } | null;
+  createdBy: { id: string; name: string | null; username: string | null; avatarUrl?: string | null } | null;
   task: { id: string; number: number | null } | null;
   ahead: number; behind: number; changedFiles: number; stale: boolean;
   lastSave: { id: string; number: number; message: string; createdAt: string; madeWith: string | null } | null;
@@ -164,7 +164,7 @@ async function viewsOf(viewerId: string, workspaceId: string, mainHead: string |
   const heads = rows.flatMap((r) => (r.headSaveId ? [r.headSaveId] : []));
   const last = heads.length ? await db.select().from(saves).where(inArray(saves.id, heads)) : [];
   const people = [...new Set(rows.flatMap((r) => (r.createdBy ? [r.createdBy] : [])))];
-  const who = people.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username }).from(profiles).where(inArray(profiles.id, people)) : [];
+  const who = people.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, people)) : [];
   const taskIds = [...new Set(rows.flatMap((r) => (r.taskId ? [r.taskId] : [])))];
   const taskRows = taskIds.length ? await db.select({ id: tasks.id, number: tasks.taskNumber }).from(tasks).where(inArray(tasks.id, taskIds)) : [];
   const scope = await labelScope(viewerId, workspaceId);
@@ -272,7 +272,9 @@ export async function restoreBranch(actor: Actor, branchId: string) {
   if (branch.status !== "deleted") return getBranch(actor, branch.id);
   if (!branch.deletedAt || branch.deletedAt.getTime() < Date.now() - BRANCH_LIMITS.restoreDays * 86_400_000) fail("Deleted branches can be restored for 30 days", 410, "BRANCH_GONE");
   try {
-    await db.update(branches).set({ status: "active", deletedAt: null, updatedAt: new Date() }).where(eq(branches.id, branch.id));
+    // A branch that was merged before it was deleted comes back merged, not open for more saves (design audit F3).
+    const [merged] = await db.execute<{ one: number }>(sql`SELECT 1 AS one FROM merge_requests WHERE source_branch_id = ${branch.id} AND state = 'merged' LIMIT 1`).then((r) => Array.from(r));
+    await db.update(branches).set({ status: merged ? "merged" : "active", deletedAt: null, updatedAt: new Date() }).where(eq(branches.id, branch.id));
   } catch (error) {
     if ((error as { code?: string })?.code === "23505" || (error as { cause?: { code?: string } })?.cause?.code === "23505") fail(`Another branch is called ${branch.name} now; rename that one first`, 409, "BRANCH_EXISTS");
     throw error;
@@ -555,7 +557,7 @@ async function filesUnder(branch: Branch, mainId: string, folder: string | null)
 }
 
 export type BranchFolderEntry = { name: string; path: string; files: number };
-export type BranchFileEntry = { name: string; path: string; own: boolean; size: number | null; mimeType: string | null; contentHash: string | null };
+export type BranchFileEntry = { name: string; path: string; own: boolean; size: number | null; mimeType: string | null; contentHash: string | null; save: number | null };
 
 /**
  * One folder of a branch, like the explorer's (H2: the picker switches All files): its subfolders (with how many
@@ -575,7 +577,7 @@ export async function branchFolder(actor: Actor, branchId: string, rawFolder: st
     if (slash >= 0) {
       const name = rest.slice(0, slash);
       folders.set(name, (folders.get(name) ?? 0) + 1);
-    } else files.push({ name: rest, path: f.path, own: f.own, size: f.size, mimeType: f.mimeType, contentHash: f.contentHash });
+    } else files.push({ name: rest, path: f.path, own: f.own, size: f.size, mimeType: f.mimeType, contentHash: f.contentHash, save: f.own ? f.revision - BRANCH_LIMITS.branchRevision : null });
   }
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
   return {

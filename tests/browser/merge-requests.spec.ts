@@ -60,20 +60,22 @@ async function open(page: Page, { width = 1440, theme = 'light', path = '/', can
 
 test('the list: open ones with your review marked; Waiting on me asks for review-requested', async ({ page }) => {
   await open(page);
-  const row = page.getByRole('button', { name: /!3 New header/ });
+  const row = page.getByRole('row').filter({ hasText: '!3 New header' });
   await expect(row).toContainText('ram/try-header');
   await expect(row).toContainText('Your review');
-  await page.getByRole('tab', { name: 'Waiting on me' }).click();
-  await expect.poll(async () => (await page.evaluate(() => (window as any).__calls)).at(-1)).toEqual(['list', 'p1', 'open', true]);
-  await page.getByRole('tab', { name: 'Open' }).click();
-  await page.getByRole('button', { name: /!3 New header/ }).click();
-  await expect(page.getByRole('heading', { name: /New header/ })).toBeVisible();
+  // Each filter chip has its count; Waiting on me asks the server for review-requested ones.
+  await expect.poll(async () => (await page.evaluate(() => (window as any).__calls)).some((c: unknown[]) => c[0] === 'list' && c[3] === true)).toBe(true);
+  await expect(page.getByTestId('mr-filter-open')).toContainText('1');
+  await page.getByTestId('mr-filter-review').click();
+  await page.getByTestId('mr-filter-open').click();
+  await page.getByRole('button', { name: /Open merge request !3: New header/ }).click();
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('!3 New header');
   expect(page.url()).toContain('mr=3');
 });
 
 test('the page: reviewers with "an earlier save", checks, the conversation; a reviewer approves', async ({ page }) => {
   await open(page, { path: '/?mr=3', canReview: true });
-  await expect(page.getByText('approved (an earlier save)')).toBeVisible();
+  await expect(page.getByText('Approved · earlier save')).toBeVisible();
   await expect(page.getByRole('link', { name: 'build' })).toHaveAttribute('href', 'https://ci.example/1');
   await expect(page.getByText('opened this merge request')).toBeVisible();
   await expect(page.getByText('Looks good')).toBeVisible();
@@ -102,6 +104,10 @@ test('merge: squash merges and shows Merged with Revert merge; conflicts send yo
   await page.getByLabel('How to merge').selectOption('squash');
   await page.getByRole('button', { name: 'Squash and merge' }).click();
   await expect(page.getByRole('button', { name: 'Revert merge' })).toBeVisible();
+  // Revert merge asks first (design audit F4).
+  await page.getByRole('button', { name: 'Revert merge' }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('Revert the merge of !3?');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
   const calls = await page.evaluate(() => (window as any).__calls);
   expect(calls.find((c: unknown[]) => c[0] === 'merge')).toEqual(['merge', 'p1', 3, 'squash', false]);
 });
@@ -109,7 +115,7 @@ test('merge: squash merges and shows Merged with Revert merge; conflicts send yo
 test('conflicts: "Can\'t merge yet" with the files, and main is left alone', async ({ page }) => {
   await open(page, { path: '/?mr=3', conflicts: true });
   await page.getByRole('button', { name: 'Merge', exact: true }).click();
-  const alert = page.getByRole('alert').filter({ hasText: 'Can’t merge yet' });
+  const alert = page.getByRole('region', { name: 'Can’t merge yet' });
   await expect(alert).toContainText('/README.md');
   await expect(alert.getByRole('button', { name: 'Update the branch from main' })).toBeVisible();
 });
@@ -125,6 +131,7 @@ for (const theme of ['light', 'dark'] as const) {
       expect(await axeViolations(page)).toEqual([]);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow).toBeLessThanOrEqual(0);
+      await page.screenshot({ path: `test-results/audit-shots/mr-${theme}-${width}.png` });
     });
   }
 }

@@ -270,3 +270,16 @@ test("a file that looks like it holds a key stops the merge with the list; it me
   assert.equal(done.outcome, "merged");
   assert.equal(await mainText(workspace, "/config.env"), key);
 });
+
+test("audit F3: a merged branch that is deleted and restored comes back merged, not open for saves", async () => {
+  const { dev, workspace, branch } = await setup();
+  const d = actor(dev);
+  await branches.saveTextOnBranch(d, branch.id, { path: "/docs/m.md", text: "m\n", expectedHash: null });
+  await mrs.createMergeRequest(d, workspace, { source: branch.name });
+  await mrs.mergeMergeRequest(d, request(), workspace, 1, {});
+  await branches.deleteBranch(d, branch.id);
+  await branches.restoreBranch(d, branch.id);
+  const [b] = await sql`SELECT status FROM branches WHERE id = ${branch.id}`;
+  assert.equal(b!.status, "merged");
+  await assert.rejects(branches.saveTextOnBranch(d, branch.id, { path: "/docs/n.md", text: "n\n", expectedHash: null }), { code: "BRANCH_DELETED" });
+});

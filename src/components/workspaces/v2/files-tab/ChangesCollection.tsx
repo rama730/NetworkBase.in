@@ -16,6 +16,10 @@ import { cn } from "@/lib/utils";
 import { readHeaderGitHubSyncStatus } from "@/lib/files-tab-batch";
 import { useStepUp } from "@/components/trust/StepUp";
 import { FilesViewsMenu } from "./FilesHeader";
+import { Cell, FilesStrip, FilterChip, GridRow, IconChip, LineCounts, NameCell, StatusBadge } from "./FilesChrome";
+import listStyles from "./folder/FolderList.module.css";
+import { FolderListHeader } from "./folder/FolderListHeader";
+import { FolderListError, FolderListLoading } from "./folder/FolderListStates";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 
 /**
@@ -81,41 +85,40 @@ function ChangeSetList({ projectId, onOpen }: { projectId: string; onOpen: (id: 
     staleTime: 15_000,
   });
   const sets = (list.data?.changeSets ?? []) as Set[];
+  // Trash's filter strip and the explorer's grid (design audit S5, S6, C4).
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <div className="mb-3 flex items-center gap-2" role="tablist" aria-label="Which change sets">
-        {(["open", "all"] as const).map((f) => (
-          <button key={f} type="button" role="tab" aria-selected={filter === f} onClick={() => setFilter(f)}
-            className={cn("rounded-md px-2.5 py-1 text-sm", filter === f ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
-            {f === "open" ? "Drafts and ready" : "All"}
-          </button>
-        ))}
+    <>
+      <FilesStrip label="Change set filters">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FilterChip on={filter === "open"} label="Drafts and ready" onClick={() => setFilter("open")} />
+          <FilterChip on={filter === "all"} label="All" onClick={() => setFilter("all")} />
+        </div>
+      </FilesStrip>
+      <div role="table" aria-label="Change sets" className={cn(listStyles.container, "flex min-h-0 flex-1 flex-col overflow-hidden")}>
+        <FolderListHeader updatedLabel="Updated" sizeLabel="Files" byLabel="Made by" />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {list.isLoading ? <FolderListLoading /> : list.isError ? (
+            <FolderListError onRetry={() => void list.refetch()} />
+          ) : !list.data?.enabled ? (
+            <EmptyState title="Change sets aren’t on for this workspace yet" body="When they are, an agent’s multi-file work shows up here to review and apply in one step." />
+          ) : sets.length === 0 ? (
+            <EmptyState title={filter === "open" ? "Nothing waiting for review" : "No change sets yet"} body="Ask an agent for a multi-file change, or start one from your terminal:" command={'nb change start "Redesign the sign-in page"'} />
+          ) : (
+            <div role="rowgroup">
+              {sets.map((s) => (
+                <GridRow key={s.id} onClick={() => onOpen(s.id)}>
+                  <NameCell chip={<IconChip><FileDiff /></IconChip>} name={s.title} onOpen={() => onOpen(s.id)} nameLabel={`Open ${s.title}`} after={<StatusChip status={s.status} />} sub={counts(s)} />
+                  <Cell column="updated"><When at={s.updatedAt} /></Cell>
+                  <Cell column="size" align="right">{s.linesAdded || s.linesRemoved ? <LineCounts lines={{ added: s.linesAdded, removed: s.linesRemoved }} /> : String(s.filesAdded + s.filesChanged + s.filesDeleted + s.filesRenamed)}</Cell>
+                  <Cell column="by">{who(s)}</Cell>
+                  <div role="cell" />
+                </GridRow>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-      {list.isLoading ? (
-        <div className="space-y-2" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="h-14 animate-pulse rounded-md bg-muted" />)}</div>
-      ) : list.isError ? (
-        <p role="alert" className="text-sm text-destructive">{feedbackError(list.error instanceof Error ? list.error.message : "", "Couldn’t load change sets")} <button type="button" className="underline" onClick={() => void list.refetch()}>Retry</button></p>
-      ) : !list.data?.enabled ? (
-        <EmptyState title="Change sets aren’t on for this workspace yet" body="When they are, an agent’s multi-file work shows up here to review and apply in one step." />
-      ) : sets.length === 0 ? (
-        <EmptyState title={filter === "open" ? "Nothing waiting for review" : "No change sets yet"} body="Ask an agent for a multi-file change, or start one from your terminal:" command={'nb change start "Redesign the sign-in page"'} />
-      ) : (
-        <ul className="divide-y divide-border rounded-md border border-border">
-          {sets.map((s) => (
-            <li key={s.id}>
-              <button type="button" onClick={() => onOpen(s.id)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none">
-                <FileDiff className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-foreground">{s.title}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{counts(s)} · {who(s)} · <When at={s.updatedAt} /></span>
-                </span>
-                <StatusChip status={s.status} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -135,8 +138,7 @@ export function EmptyState({ title, body, command }: { title: string; body: stri
 }
 
 function StatusChip({ status }: { status: string }) {
-  const tone = status === "ready" ? "border-emerald-300 text-emerald-800 dark:border-emerald-800 dark:text-emerald-300" : status === "applied" ? "border-border text-foreground" : "border-border text-muted-foreground";
-  return <span className={cn("shrink-0 rounded-[5px] border px-1.5 py-0.5 text-xs", tone)}>{STATUS_WORDS[status] ?? status}</span>;
+  return <StatusBadge tone={status === "ready" ? "success" : status === "applied" ? "info" : status === "open" ? "warning" : "neutral"}>{STATUS_WORDS[status] ?? status}</StatusBadge>;
 }
 
 type GitHubStatus = { connected: boolean; authorized: boolean; repository: string | null; latestDirection: "push" | "pull" | null; latestRunStatus: string | null; latestSyncAt: string | null } | null | undefined;

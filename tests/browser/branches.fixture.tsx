@@ -19,7 +19,7 @@ function Shell() {
         <BranchPicker projectId="p1" />
       </header>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        {v.branch && v.view === 'project' ? <aside aria-label="Sidebar" style={{ width: 220 }}><BranchTree projectId="p1" /></aside> : null}
+        {v.branch && v.view === 'project' ? <aside aria-label="Sidebar" className="hidden w-[220px] shrink-0 md:block"><BranchTree projectId="p1" /></aside> : null}
         <main style={{ flex: 1, minWidth: 0 }}>
           {v.view === 'branches' ? <BranchesCollection projectId="p1" /> : v.view === 'history' ? <HistoryCollection projectId="p1" /> : v.branch ? <BranchExplorer projectId="p1" /> : <p>Main’s files</p>}
         </main>

@@ -1,33 +1,42 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, CircleDot, GitMerge, GitPullRequest, MessageSquare, X } from "lucide-react";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, CircleDot, GitMerge, GitPullRequest, MessageSquare, Trash2, Undo2, X } from "lucide-react";
 
-import { branchDiffAction } from "@/app/actions/files/branches";
+import { branchDiffAction, deleteBranchAction } from "@/app/actions/files/branches";
 import {
   applySuggestionAction, commentMergeRequestAction, getMergeRequestAction, listMergeRequestsAction, mergeMergeRequestAction, reviewMergeRequestAction,
   updateMergeRequestAction,
 } from "@/app/actions/files/merge-requests";
 import { revertSaveAction } from "@/app/actions/files/saves";
 import { useStepUp } from "@/components/trust/StepUp";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { RailSectionHeading } from "@/components/ui/rail-section";
 import type { getMergeRequest, MergeRequestSummary } from "@/lib/domain/merge-requests";
-import { feedbackError, toast } from "@/lib/feedback";
+import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
-import { EmptyState, When } from "./ChangesCollection";
-import { FilesViewsMenu } from "./FilesHeader";
+import { When } from "./ChangesCollection";
+import { FileTypeChip } from "./FileTypeChip";
+import {
+  Cell, FilesHeaderTitle, FilesStrip, FilterChip, GridRow, HeaderCrumbs, IconChip, LineCounts, NameCell, Person, StatusBadge, UnderlineTabs, headerButton, headerPrimary,
+  personName, stripButton, stripPrimary, type BadgeTone,
+} from "./FilesChrome";
+import { FilesHeaderSlot, FilesViewsMenu } from "./FilesHeader";
+import { useFilesViews } from "./FilesViews";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { DiffView } from "./HistoryCollection";
+import listStyles from "./folder/FolderList.module.css";
+import { FolderListHeader } from "./folder/FolderListHeader";
+import { FolderListEmpty, FolderListError, FolderListLoading } from "./folder/FolderListStates";
 
 /**
- * Merge requests (report H4, phase H-3): the list (open, merged, closed; waiting on you), and one merge request with
- * its conversation, saves and files changed (diffs, line comments, suggested edits), reviews and merging.
- * Open with ?tab=files&filesView=merge-requests, or one with &mr=<number>.
+ * Merge requests (report H4, phase H-3; design audit 17 Nov 2026): the list on the explorer's grid with Trash's filter
+ * chips, and one merge request with its title, state and actions in the Files header, tabs under it, and a feed of
+ * what happened with square avatars. Open with ?tab=files&filesView=merge-requests, or one with &mr=<number>.
  */
 type Detail = Awaited<ReturnType<typeof getMergeRequest>>;
-type Person = { id: string; name: string | null; username: string | null } | null;
+type PersonView = { id: string; name: string | null; username: string | null; avatarUrl?: string | null } | null;
 
 function readParam() {
   if (typeof window === "undefined") return null;
@@ -45,26 +54,20 @@ const unwrap = async <T,>(p: Promise<{ success: true; data: T } | { success: fal
   if (!res.success) throw new Error(res.error);
   return res.data;
 };
-const nameOf = (p: Person) => p?.name || (p?.username ? `@${p.username}` : "Someone");
-const STATE_LABEL: Record<string, string> = { draft: "Draft", open: "Open", approved: "Approved", changes_requested: "Changes requested", merged: "Merged", closed: "Closed" };
-const STATE_CLASS: Record<string, string> = {
-  draft: "border-border text-muted-foreground",
-  open: "border-sky-300 text-sky-900 dark:border-sky-800 dark:text-sky-200",
-  approved: "border-emerald-300 text-emerald-900 dark:border-emerald-800 dark:text-emerald-200",
-  changes_requested: "border-amber-300 text-amber-900 dark:border-amber-800 dark:text-amber-200",
-  merged: "border-violet-300 text-violet-900 dark:border-violet-800 dark:text-violet-200",
-  closed: "border-border text-muted-foreground",
+const STATE: Record<string, { label: string; tone: BadgeTone }> = {
+  draft: { label: "Draft", tone: "neutral" }, open: { label: "Open", tone: "info" }, approved: { label: "Approved", tone: "success" },
+  changes_requested: { label: "Changes requested", tone: "warning" }, merged: { label: "Merged", tone: "success" }, closed: { label: "Closed", tone: "neutral" },
 };
-function StateChip({ state }: { state: string }) {
-  return <span className={cn("shrink-0 rounded-[5px] border px-1.5 py-0.5 text-xs", STATE_CLASS[state] ?? STATE_CLASS.open)}>{STATE_LABEL[state] ?? state}</span>;
+function StateBadge({ state }: { state: string }) {
+  const s = STATE[state] ?? STATE.open!;
+  return <StatusBadge tone={s.tone}>{s.label}</StatusBadge>;
 }
-/** Leaves the merge requests view for a branch page or a save (full navigation, like the branch page's saves). */
-function go(params: Record<string, string | null>) {
+/** To the branch in All files (it takes the picker with it). */
+function toBranch(name: string) {
   const url = new URL(window.location.href);
-  for (const [k, v] of Object.entries(params)) {
-    if (v == null) url.searchParams.delete(k);
-    else url.searchParams.set(k, v);
-  }
+  for (const k of ["filesView", "mr", "save", "bpath", "bfile"]) url.searchParams.delete(k);
+  url.searchParams.set("branch", name);
+  url.searchParams.set("filesNav", "tree");
   window.location.href = url.toString();
 }
 
@@ -79,85 +82,81 @@ export function MergeRequestsCollection({ projectId }: { projectId: string }) {
   );
 }
 
+const FILTERS = [["open", "Open"], ["review", "Waiting on me"], ["merged", "Merged"], ["closed", "Closed"]] as const;
+type Filter = (typeof FILTERS)[number][0];
+
 function MergeRequestList({ projectId, onOpen }: { projectId: string; onOpen: (n: number) => void }) {
-  const [filter, setFilter] = useState<"open" | "review" | "merged" | "closed">("open");
-  const list = useQuery({
-    queryKey: ["merge-requests", projectId, filter],
-    queryFn: () => unwrap(listMergeRequestsAction(projectId, filter === "review" ? "open" : filter, filter === "review")),
-    staleTime: 15_000,
-  });
+  const [filter, setFilter] = useState<Filter>("open");
+  // One list per filter, so each chip shows its count (Trash's filters).
+  const lists = useQueries({ queries: FILTERS.map(([f]) => ({ queryKey: ["merge-requests", projectId, f], queryFn: () => unwrap(listMergeRequestsAction(projectId, f === "review" ? "open" : f, f === "review")), staleTime: 15_000 })) });
+  const list = lists[FILTERS.findIndex(([f]) => f === filter)]!;
   const rows: MergeRequestSummary[] = list.data?.mergeRequests ?? [];
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <p className="mb-3 text-sm text-muted-foreground">A merge request asks for review of a branch before it goes into main. Open one from a branch’s page. <a href="/docs/files/branches#merge-requests" className="underline underline-offset-2 hover:text-foreground">What’s this?</a></p>
-      <div role="tablist" aria-label="Which merge requests" className="mb-3 flex flex-wrap gap-1">
-        {(["open", "review", "merged", "closed"] as const).map((f) => (
-          <button key={f} type="button" role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} className={cn("rounded-md px-2.5 py-1 text-sm", filter === f ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
-            {f === "open" ? "Open" : f === "review" ? "Waiting on me" : f === "merged" ? "Merged" : "Closed"}
-          </button>
-        ))}
+    <>
+      <FilesStrip label="Merge request filters">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {FILTERS.map(([f, label], i) => <FilterChip key={f} on={filter === f} label={label} count={lists[i]?.data?.mergeRequests.length ?? null} onClick={() => setFilter(f)} testId={`mr-filter-${f}`} />)}
+        </div>
+      </FilesStrip>
+      <div role="table" aria-label="Merge requests" className={cn(listStyles.container, "flex min-h-0 flex-1 flex-col overflow-hidden")}>
+        <FolderListHeader updatedLabel="Updated" sizeLabel="Reviews" byLabel="Opened by" />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {list.isLoading ? <FolderListLoading /> : list.isError ? <FolderListError onRetry={() => void list.refetch()} /> : rows.length === 0 ? (
+            <FolderListEmpty message={filter === "review" ? "Nothing waiting on you." : filter === "open" ? "No open merge requests. Open one from a branch’s bar, or nb merge-request create." : `No ${filter} merge requests.`} />
+          ) : (
+            <div role="rowgroup">
+              {rows.map((m) => {
+                const shown = m.state === "open" && m.changesRequested ? "changes_requested" : m.state === "open" && m.approvals ? "approved" : m.state;
+                return (
+                  <GridRow key={m.id} onClick={() => onOpen(m.number)}>
+                    <NameCell
+                      chip={<IconChip><GitPullRequest /></IconChip>}
+                      name={<>!{m.number} {m.title}</>}
+                      onOpen={() => onOpen(m.number)}
+                      nameLabel={`Open merge request !${m.number}: ${m.title}`}
+                      after={<><StateBadge state={shown} />{m.reviewRequested ? <StatusBadge tone="info">Your review</StatusBadge> : null}</>}
+                      sub={<>{m.source.name} → main{m.comments ? ` · ${m.comments} comment${m.comments === 1 ? "" : "s"}` : ""}{m.madeWith ? ` · ${m.madeWith}` : ""}</>}
+                    />
+                    <Cell column="updated"><When at={m.updatedAt} /></Cell>
+                    <Cell column="size" align="right">{m.approvals || m.changesRequested ? `${m.approvals} ✓ · ${m.changesRequested} ✗` : null}</Cell>
+                    <Cell column="by"><Person person={m.author} /></Cell>
+                    <div role="cell" />
+                  </GridRow>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-      {list.isLoading ? (
-        <div className="space-y-2" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />)}</div>
-      ) : list.isError ? (
-        <p role="alert" className="text-sm text-destructive">{feedbackError(list.error instanceof Error ? list.error.message : "", "Couldn’t load merge requests")} <button type="button" className="underline" onClick={() => void list.refetch()}>Retry</button></p>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          title={filter === "review" ? "Nothing waiting on you" : `No ${filter === "open" ? "open" : filter} merge requests`}
-          body={filter === "open" ? "Open one from a branch’s page, or from a folder on the branch:" : "They show here once there are some."}
-          command={filter === "open" ? "nb merge-request create" : undefined}
-        />
-      ) : (
-        <ul className="divide-y divide-border rounded-md border border-border">
-          {rows.map((m) => {
-            const shown = m.state === "open" && m.changesRequested ? "changes_requested" : m.state === "open" && m.approvals ? "approved" : m.state;
-            return (
-              <li key={m.id}>
-                <button type="button" onClick={() => onOpen(m.number)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-accent">
-                  <GitPullRequest className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-foreground"><span className="text-muted-foreground">!{m.number}</span> {m.title}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      <span className="font-mono">{m.source.name}</span> → main · {nameOf(m.author)}{m.madeWith ? ` ${m.madeWith}` : ""} · <When at={m.updatedAt} />{m.comments ? ` · ${m.comments} comment${m.comments === 1 ? "" : "s"}` : ""}
-                    </span>
-                  </span>
-                  {m.reviewRequested ? <span className="shrink-0 rounded-[5px] border border-sky-300 px-1.5 py-0.5 text-xs text-sky-900 dark:border-sky-800 dark:text-sky-200">Your review</span> : null}
-                  <StateChip state={shown} />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
+    </>
   );
 }
 
 type Tab = "conversation" | "saves" | "files";
+type Act = <T>(name: string, run: () => Promise<{ success: true; data: T } | { success: false; error: string; stepUp?: unknown }>, done?: string) => Promise<T | null>;
+const selectClass = "h-8 rounded-[5px] border border-border bg-card px-2 text-xs text-foreground focus:border-[#D14E24] focus:outline-none";
 
 function MergeRequestPage({ projectId, number, onBack }: { projectId: string; number: number; onBack: () => void }) {
   const { canEdit } = useFilesTabRole();
   const client = useQueryClient();
+  const views = useFilesViews();
   const view = useQuery({ queryKey: ["merge-request", projectId, number], queryFn: () => unwrap(getMergeRequestAction(projectId, number)) });
   const [tab, setTab] = useState<Tab>("conversation");
   const [busy, setBusy] = useState<string | null>(null);
   const [method, setMethod] = useState<"merge" | "squash">("merge");
   const [conflicts, setConflicts] = useState<Array<{ path: string; kind: string }> | null>(null);
   const [secretFiles, setSecretFiles] = useState<string[] | null>(null);
+  const [confirmRevert, setConfirmRevert] = useState(false);
+  const [confirmDeleteBranch, setConfirmDeleteBranch] = useState(false);
   const { needs: needsStepUp, dialog: stepUpDialog } = useStepUp("This merge changes a doc or final files, so confirm it’s you before merging.");
   const refresh = () => {
-    void client.invalidateQueries({ queryKey: ["merge-request", projectId, number] });
-    void client.invalidateQueries({ queryKey: ["merge-requests", projectId] });
-    void client.invalidateQueries({ queryKey: ["branches", projectId] });
-    void client.invalidateQueries({ queryKey: ["files-directory", projectId] });
+    for (const key of [["merge-request", projectId, number], ["merge-requests", projectId], ["branches", projectId], ["branch", projectId], ["saves", projectId], ["files-directory", projectId]]) void client.invalidateQueries({ queryKey: key });
   };
   const d = view.data;
-  if (view.isLoading) return <div className="space-y-2 p-4" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="h-8 animate-pulse rounded bg-muted" />)}</div>;
-  if (view.isError || !d) return <div className="p-4 text-sm"><p role="alert" className="text-destructive">{view.error instanceof Error ? view.error.message : "Couldn’t open this merge request"}</p><button type="button" className="mt-2 underline" onClick={onBack}>Back to merge requests</button></div>;
-  const m = d.mergeRequest;
-  const isOpen = m.state === "open" || m.state === "draft";
+  const m = d?.mergeRequest;
+  const isOpen = m?.state === "open" || m?.state === "draft";
 
-  async function act<T>(name: string, run: () => Promise<{ success: true; data: T } | { success: false; error: string; stepUp?: unknown }>, done?: string): Promise<T | null> {
+  const act: Act = async (name, run, done) => {
     if (busy) return null;
     setBusy(name);
     try {
@@ -168,7 +167,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
       refresh();
       return res.data;
     } finally { setBusy(null); }
-  }
+  };
   async function merge(confirmSecrets = false) {
     setSecretFiles(null);
     const res = await act("merge", async () => {
@@ -188,82 +187,71 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
     if (res.branchMoved) toast.error(`Saves reached ${res.branch.name} while it merged; they aren’t in main yet. Open another merge request for them.`);
   }
   async function revertMerge() {
-    if (!m.merged?.saveId) return;
+    if (!m?.merged?.saveId) return;
     const res = await act("revert", () => revertSaveAction(m.merged!.saveId!));
     if (res && res.outcome === "reverted") toast.success("Reverted the merge: main is as it was before");
-    else if (res && res.outcome === "conflicts") toast.error("Files changed since the merge; open History to revert it by hand");
+    else if (res && res.outcome === "conflicts") toast.error("Files changed since the merge; choose for each in Changes");
+  }
+  async function deleteBranch() {
+    const res = await act("delete-branch", () => deleteBranchAction(m!.source.id), `Deleted ${m!.source.name}; restorable for 30 days`);
+    if (res && views?.branch?.toLowerCase() === m!.source.name.toLowerCase()) views.setBranch(null);
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="border-b border-border px-4 py-3">
-        <button type="button" onClick={onBack} className="mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="size-3.5" aria-hidden />Merge requests</button>
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="min-w-0 flex-1 text-base font-semibold text-foreground"><span className="text-muted-foreground">!{m.number}</span> {m.title}</h2>
-          <StateChip state={m.shownState} />
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          <button type="button" className="font-mono underline-offset-2 hover:underline" onClick={() => go({ filesView: null, filesNav: "tree", branch: m.source.name, mr: null })}>{m.source.name}</button> → main · opened by {nameOf(m.author)}{m.madeWith ? ` ${m.madeWith}` : ""} <When at={m.createdAt} />
-          {m.task ? <> · task #{m.task.number} {m.task.title}</> : null}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span className="text-muted-foreground">Reviewers:</span>
-          {m.reviewers.length ? m.reviewers.map((r) => (
-            <span key={r.person.id} className="inline-flex items-center gap-1 text-foreground">
-              {r.state === "approved" ? <Check className="size-3.5 text-emerald-600" aria-hidden /> : r.state === "changes_requested" ? <X className="size-3.5 text-amber-600" aria-hidden /> : <CircleDot className="size-3.5 text-muted-foreground" aria-hidden />}
-              {nameOf(r.person)} <span className="text-muted-foreground">{r.state === "requested" ? "asked" : r.state.replace("_", " ")}{r.earlierSave ? " (an earlier save)" : ""}</span>
-            </span>
-          )) : <span className="text-muted-foreground">none</span>}
-          {m.checks.length ? <span className="text-muted-foreground">Checks:</span> : null}
-          {m.checks.map((c) => (
-            <span key={c.name} className={cn("inline-flex items-center gap-1", c.state === "failed" ? "text-destructive" : c.state === "passed" ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground")}>
-              {c.url ? <a href={c.url} target="_blank" rel="noreferrer noopener" className="underline-offset-2 hover:underline">{c.name}</a> : c.name} {c.state}
-            </span>
-          ))}
-        </div>
-        {isOpen ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {m.bothChanged.length ? (
-              <p className="min-w-0 flex-1 text-xs text-amber-800 dark:text-amber-300">Main also changed {m.bothChanged.length} of these files; it may not merge. Update the branch from main first.</p>
-            ) : <p className="min-w-0 flex-1 text-xs text-muted-foreground">{m.behind ? `${m.behind} save${m.behind === 1 ? "" : "s"} behind main, no files in common: merges cleanly.` : "Up to date with main."}</p>}
-            {canEdit && m.state === "draft" ? <Button size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => void act("ready", () => updateMergeRequestAction(projectId, number, { draft: false }), "Marked ready; reviewers were asked")}>Ready for review</Button> : null}
-            {d.viewer.canMerge ? (
-              <span className="inline-flex items-center gap-1">
-                <label className="sr-only" htmlFor="merge-method">How to merge</label>
-                <select id="merge-method" value={method} onChange={(e) => setMethod(e.target.value as "merge" | "squash")} className="h-8 rounded-md border border-border bg-background px-2 text-sm">
-                  <option value="merge">Merge</option>
-                  <option value="squash">Squash and merge</option>
-                </select>
-                <Button size="sm" disabled={Boolean(busy)} onClick={() => void merge()}><GitMerge className="size-4" aria-hidden />{busy === "merge" ? "Merging…" : method === "squash" ? "Squash and merge" : "Merge"}</Button>
-              </span>
+      <FilesHeaderTitle>
+        <HeaderCrumbs items={[{ label: "Merge requests", onClick: onBack }, { label: m ? `!${m.number} ${m.title}` : `!${number}`, title: m?.title }]} after={m ? <StateBadge state={m.shownState} /> : null} />
+      </FilesHeaderTitle>
+      {m && canEdit ? (
+        <FilesHeaderSlot slot="actions">
+          <div className="mr-1 flex items-center gap-1.5">
+            {isOpen ? (
+              <>
+                {m.state === "draft" ? <button type="button" className={headerButton} disabled={Boolean(busy)} onClick={() => void act("ready", () => updateMergeRequestAction(projectId, number, { draft: false }), "Marked ready; reviewers were asked")}>Ready for review</button> : null}
+                <button type="button" className={headerButton} disabled={Boolean(busy)} aria-label="Close" onClick={() => void act("close", () => updateMergeRequestAction(projectId, number, { state: "closed" }), "Closed")}><X className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Close</span></button>
+                {d!.viewer.canMerge ? (
+                  <>
+                    <label htmlFor="merge-method" className="sr-only">How to merge</label>
+                    <select id="merge-method" value={method} onChange={(e) => setMethod(e.target.value as "merge" | "squash")} className={selectClass}>
+                      <option value="merge">Merge</option>
+                      <option value="squash">Squash and merge</option>
+                    </select>
+                    <button type="button" className={headerPrimary} disabled={Boolean(busy)} onClick={() => void merge()}><GitMerge className="size-3.5" aria-hidden="true" />{busy === "merge" ? "Merging…" : method === "squash" ? "Squash and merge" : "Merge"}</button>
+                  </>
+                ) : null}
+              </>
+            ) : m.state === "closed" && m.source.status === "active" ? (
+              <button type="button" className={headerButton} disabled={Boolean(busy)} onClick={() => void act("reopen", () => updateMergeRequestAction(projectId, number, { state: "open" }), "Reopened")}>Reopen</button>
+            ) : m.merged ? (
+              <>
+                {m.merged.revertedBy ? <StatusBadge tone="warning">Reverted in save {m.merged.revertedBy.number}</StatusBadge> : m.merged.saveId ? <button type="button" className={headerButton} disabled={Boolean(busy)} aria-label="Revert merge" onClick={() => setConfirmRevert(true)}><Undo2 className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Revert merge</span></button> : null}
+                {m.source.status !== "deleted" ? <button type="button" className={headerButton} disabled={Boolean(busy)} aria-label="Delete branch" onClick={() => setConfirmDeleteBranch(true)}><Trash2 className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Delete branch</span></button> : null}
+              </>
             ) : null}
-            {canEdit ? <Button size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => void act("close", () => updateMergeRequestAction(projectId, number, { state: "closed" }), "Closed")}>Close</Button> : null}
           </div>
-        ) : m.state === "closed" && canEdit && m.source.status === "active" ? (
-          <div className="mt-3"><Button size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => void act("reopen", () => updateMergeRequestAction(projectId, number, { state: "open" }), "Reopened")}>Reopen</Button></div>
-        ) : m.merged ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="min-w-0 flex-1">Merged{m.merged.method === "squash" ? " as one save" : ""} by {nameOf(m.merged.by)} <When at={m.merged.at} />.</span>
-            {canEdit && m.merged.saveId ? <Button size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => void revertMerge()}>Revert merge</Button> : null}
-            {canEdit && m.source.status !== "deleted" ? <Button size="sm" variant="outline" onClick={() => go({ filesView: null, filesNav: "tree", branch: m.source.name, mr: null })}>Delete the branch…</Button> : null}
+        </FilesHeaderSlot>
+      ) : null}
+      {view.isLoading ? <FolderListLoading /> : view.isError || !d || !m ? (
+        <div className="p-4 text-sm"><p role="alert" className="text-destructive">{view.error instanceof Error ? view.error.message : "Couldn’t open this merge request"}</p><button type="button" className="mt-2 underline" onClick={onBack}>Back to merge requests</button></div>
+      ) : (
+        <>
+          {conflicts ? (
+            <FilesStrip role="region" label="Can’t merge yet" tone="warning">
+              <span className="min-w-0 flex-1 text-xs">Can’t merge yet: {conflicts.length} file{conflicts.length === 1 ? "" : "s"} changed on both the branch and main (<span className="font-mono">{conflicts.map((c) => c.path).join(", ")}</span>).</span>
+              <button type="button" className={stripButton} onClick={() => toBranch(m.source.name)}>Update the branch from main</button>
+            </FilesStrip>
+          ) : null}
+          <UnderlineTabs<Tab>
+            label="Merge request"
+            value={tab}
+            onChange={setTab}
+            tabs={[{ id: "conversation", label: "Conversation" }, { id: "saves", label: `Saves (${d.saves.length}${d.moreSaves ? "+" : ""})` }, { id: "files", label: `Files changed${d.files ? ` (${d.files.files.length})` : ""}` }]}
+          />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {tab === "conversation" ? <Conversation projectId={projectId} detail={d} busy={busy} act={act} /> : tab === "saves" ? <SavesList detail={d} /> : <FilesChanged projectId={projectId} detail={d} busy={busy} act={act} />}
           </div>
-        ) : null}
-        {conflicts ? (
-          <div role="alert" className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-            <p>Can’t merge yet: {conflicts.length} file{conflicts.length === 1 ? "" : "s"} changed on both the branch and main.</p>
-            <ul className="my-1 font-mono text-xs">{conflicts.map((c) => <li key={c.path}>{c.path}</li>)}</ul>
-            <Button size="sm" variant="outline" onClick={() => go({ filesView: null, filesNav: "tree", branch: m.source.name, mr: null })}>Update the branch from main</Button>
-          </div>
-        ) : null}
-        <div role="tablist" aria-label="Merge request" className="mt-3 flex gap-1">
-          {(["conversation", "saves", "files"] as const).map((t) => (
-            <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cn("rounded-md px-2.5 py-1 text-sm", tab === t ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
-              {t === "conversation" ? "Conversation" : t === "saves" ? `Saves (${d.saves.length}${d.moreSaves ? "+" : ""})` : `Files changed${d.files ? ` (${d.files.files.length})` : ""}`}
-            </button>
-          ))}
-        </div>
-      </header>
-      {tab === "conversation" ? <Conversation projectId={projectId} detail={d} busy={busy} act={act} /> : tab === "saves" ? <SavesList detail={d} /> : <FilesChanged projectId={projectId} detail={d} busy={busy} act={act} />}
+        </>
+      )}
       {stepUpDialog}
       <ConfirmDialog
         open={Boolean(secretFiles)}
@@ -274,20 +262,37 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
         variant="destructive"
         onConfirm={() => void merge(true)}
       />
+      {m ? (
+        <>
+          <ConfirmDialog open={confirmRevert} onOpenChange={setConfirmRevert} title={`Revert the merge of !${m.number}?`} description="A new save on main puts the files back as they were before the merge. Later changes to them are kept where they don’t overlap; if they do, you choose in Changes." confirmLabel="Revert merge" onConfirm={() => void revertMerge()} />
+          <ConfirmDialog open={confirmDeleteBranch} onOpenChange={setConfirmDeleteBranch} title={`Delete ${m.source.name}?`} description="It was merged into main. You can restore it for 30 days." confirmLabel="Delete" variant="destructive" onConfirm={() => void deleteBranch()} />
+        </>
+      ) : null}
     </div>
   );
 }
 
-type Act = <T>(name: string, run: () => Promise<{ success: true; data: T } | { success: false; error: string; stepUp?: unknown }>, done?: string) => Promise<T | null>;
+/** One line of what happened: the square avatar, who, what, when; a comment's text under it. */
+function FeedRow({ person, madeWith, action, at, children }: { person: PersonView; madeWith?: string | null; action: React.ReactNode; at: string; children?: React.ReactNode }) {
+  return (
+    <li className="flex gap-2.5 border-b border-border/60 px-4 py-2.5">
+      <span className="pt-0.5"><Person person={person} size={20} nameClassName="sr-only" /></span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{personName(person)}</span>{madeWith ? ` ${madeWith}` : ""} {action} <span className="font-mono text-[11px]">· <When at={at} /></span></p>
+        {children}
+      </div>
+    </li>
+  );
+}
 
 function Conversation({ projectId, detail, busy, act }: { projectId: string; detail: Detail; busy: string | null; act: Act }) {
   const m = detail.mergeRequest;
   const [text, setText] = useState("");
-  const items = useMemo(() => [
-    ...detail.events.map((e) => ({ at: e.createdAt, key: `e${e.id}`, node: <EventLine e={e} /> })),
-    ...detail.comments.filter((c) => !c.path).map((c) => ({ at: c.createdAt, key: c.id, node: <CommentCard c={c} /> })),
-  ].sort((a, b) => a.at.localeCompare(b.at)), [detail]);
   const open = m.state === "open" || m.state === "draft";
+  const items = useMemo(() => [
+    ...detail.events.map((e) => ({ at: e.createdAt, key: `e${e.id}`, node: <EventRow key={`e${e.id}`} e={e} /> })),
+    ...detail.comments.filter((c) => !c.path).map((c) => ({ at: c.createdAt, key: c.id, node: <CommentRow key={c.id} c={c} /> })),
+  ].sort((a, b) => a.at.localeCompare(b.at)), [detail]);
   async function send(kind: "comment" | "approve" | "request_changes") {
     const done = kind === "approve" ? "Approved" : kind === "request_changes" ? "Asked for changes" : "Commented";
     const res = kind === "comment" && !detail.viewer.canReview
@@ -296,70 +301,119 @@ function Conversation({ projectId, detail, busy, act }: { projectId: string; det
     if (res) setText("");
   }
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      {m.description ? <div className="mb-4 whitespace-pre-wrap rounded-md border border-border p-3 text-sm text-foreground">{m.description}</div> : null}
-      <ol className="space-y-2">{items.map((i) => <li key={i.key}>{i.node}</li>)}</ol>
+    <div className="pb-6">
+      <section aria-label="Details" className="px-4 pt-4">
+        <RailSectionHeading title="Details" />
+        <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-2 text-xs">
+          <dt className="font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground">Branch</dt>
+          <dd className="min-w-0 font-mono"><button type="button" className="underline-offset-2 hover:underline" onClick={() => toBranch(m.source.name)}>{m.source.name}</button> → main{m.state !== "merged" ? <span className="text-muted-foreground"> · {m.bothChanged.length ? `main also changed ${m.bothChanged.length} of these files` : m.behind ? `${m.behind} behind main, merges cleanly` : "up to date with main"}</span> : null}</dd>
+          <dt className="font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground">Opened by</dt>
+          <dd className="min-w-0"><Person person={m.author} size={20} />{m.madeWith ? <span className="text-muted-foreground"> {m.madeWith}</span> : null} <span className="font-mono text-[11px] text-muted-foreground">· <When at={m.createdAt} /></span></dd>
+          {m.task ? <><dt className="font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground">Task</dt><dd className="min-w-0">#{m.task.number} {m.task.title}</dd></> : null}
+          <dt className="font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground">Reviewers</dt>
+          <dd className="flex min-w-0 flex-wrap gap-x-4 gap-y-1.5">
+            {m.reviewers.length ? m.reviewers.map((r) => (
+              <span key={r.person.id} className="inline-flex items-center gap-1.5">
+                <Person person={r.person} size={20} />
+                {r.state === "approved" ? <StatusBadge tone="success" title={r.earlierSave ? "Approved an earlier save" : undefined}>Approved{r.earlierSave ? " · earlier save" : ""}</StatusBadge> : r.state === "changes_requested" ? <StatusBadge tone="warning">Changes requested</StatusBadge> : r.state === "commented" ? <StatusBadge>Commented</StatusBadge> : <StatusBadge>Asked</StatusBadge>}
+              </span>
+            )) : <span className="text-muted-foreground">None</span>}
+          </dd>
+          {m.checks.length ? (
+            <>
+              <dt className="font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground">Checks</dt>
+              <dd className="flex min-w-0 flex-wrap gap-2">
+                {m.checks.map((c) => (
+                  <span key={c.name} className="inline-flex items-center gap-1.5">
+                    <StatusBadge tone={c.state === "passed" ? "success" : c.state === "failed" ? "danger" : "neutral"}>{c.state}</StatusBadge>
+                    {c.url ? <a href={c.url} target="_blank" rel="noreferrer noopener" className="font-mono underline-offset-2 hover:underline">{c.name}</a> : <span className="font-mono">{c.name}</span>}
+                  </span>
+                ))}
+              </dd>
+            </>
+          ) : null}
+          {m.merged ? <><dt className="font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground">Merged</dt><dd className="min-w-0">{m.merged.method === "squash" ? "As one save" : "With its saves"} by {personName(m.merged.by)} <span className="font-mono text-[11px] text-muted-foreground">· <When at={m.merged.at} /></span>{m.merged.revertedBy ? <span className="text-muted-foreground"> · reverted in save {m.merged.revertedBy.number}</span> : null}</dd></> : null}
+        </dl>
+      </section>
+      {m.description ? (
+        <section aria-label="Description" className="px-4 pt-5">
+          <RailSectionHeading title="Description" />
+          <p className="whitespace-pre-wrap text-sm text-foreground">{m.description}</p>
+        </section>
+      ) : null}
+      <section aria-label="Activity" className="pt-5">
+        <div className="px-4"><RailSectionHeading title="Activity" /></div>
+        <ol className="border-t border-border/60">{items.map((i) => i.node)}</ol>
+      </section>
       {open ? (
-        <form className="mt-4 space-y-2" onSubmit={(e) => { e.preventDefault(); void send("comment"); }}>
+        <form className="space-y-2 px-4 pt-4" onSubmit={(e) => { e.preventDefault(); void send("comment"); }}>
           <label htmlFor="mr-comment" className="sr-only">Comment</label>
-          <textarea id="mr-comment" value={text} onChange={(e) => setText(e.target.value)} placeholder="Leave a comment" rows={3} className="w-full rounded-md border border-border bg-background p-2 text-sm text-foreground" />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" type="submit" variant="outline" disabled={Boolean(busy) || !text.trim()}><MessageSquare className="size-4" aria-hidden />Comment</Button>
-            {detail.viewer.canReview ? <Button size="sm" type="button" disabled={Boolean(busy)} onClick={() => void send("approve")}><Check className="size-4" aria-hidden />Approve</Button> : null}
-            {detail.viewer.canReview ? <Button size="sm" type="button" variant="outline" disabled={Boolean(busy) || !text.trim()} onClick={() => void send("request_changes")}>Request changes</Button> : null}
+          <textarea id="mr-comment" value={text} onChange={(e) => setText(e.target.value)} placeholder="Leave a comment" rows={3} className="w-full rounded-[5px] border border-border bg-background p-2 text-sm text-foreground focus:border-[#D14E24] focus:outline-none" />
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="submit" className={stripButton} disabled={Boolean(busy) || !text.trim()}><MessageSquare className="size-3.5" aria-hidden="true" />Comment</button>
+            {detail.viewer.canReview ? <button type="button" className={stripPrimary} disabled={Boolean(busy)} onClick={() => void send("approve")}><Check className="size-3.5" aria-hidden="true" />Approve</button> : null}
+            {detail.viewer.canReview ? <button type="button" className={stripButton} disabled={Boolean(busy) || !text.trim()} onClick={() => void send("request_changes")}><CircleDot className="size-3.5" aria-hidden="true" />Request changes</button> : null}
+            {detail.viewer.canReview && !text.trim() ? <span className="font-mono text-[11px] text-muted-foreground">Say what to change before requesting changes.</span> : null}
           </div>
-          {detail.viewer.canReview && !text.trim() ? <p className="text-xs text-muted-foreground">Say what to change before requesting changes.</p> : null}
         </form>
       ) : null}
     </div>
   );
 }
 
-function EventLine({ e }: { e: Detail["events"][number] }) {
+function EventRow({ e }: { e: Detail["events"][number] }) {
   const reason = (e.data as { reason?: string }).reason;
   const what = e.kind === "opened" ? "opened this merge request" : e.kind === "ready" ? "marked it ready for review" : e.kind === "draft" ? "marked it as a draft"
     : e.kind === "closed" ? (reason === "branch_deleted" ? "closed it: the branch was deleted" : "closed it") : e.kind === "reopened" ? (reason === "branch_restored" ? "reopened it: the branch was restored" : "reopened it")
     : e.kind === "merged" ? `merged it${(e.data as { method?: string }).method === "squash" ? " as one save" : ""}` : e.kind === "reviewers" ? "changed the reviewers" : "edited it";
-  return <p className="text-xs text-muted-foreground">{nameOf(e.actor)}{e.madeWith ? ` ${e.madeWith}` : ""} {what} · <When at={e.createdAt} /></p>;
+  return <FeedRow person={e.actor} madeWith={e.madeWith} action={what} at={e.createdAt} />;
 }
 
-function CommentCard({ c, children }: { c: Detail["comments"][number]; children?: React.ReactNode }) {
+function CommentRow({ c, children }: { c: Detail["comments"][number]; children?: React.ReactNode }) {
+  const action = c.reviewState === "approved" ? "approved" : c.reviewState === "changes_requested" ? "requested changes" : c.path ? <>commented on <span className="font-mono">{c.path}:{c.line}{c.endLine && c.endLine !== c.line ? `–${c.endLine}` : ""}</span></> : "commented";
   return (
-    <div className="rounded-md border border-border p-2.5">
-      <p className="mb-1 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">{nameOf(c.author)}</span>{c.madeWith ? ` ${c.madeWith}` : ""}
-        {c.reviewState === "approved" ? <span className="text-emerald-700 dark:text-emerald-400"> approved</span> : c.reviewState === "changes_requested" ? <span className="text-amber-700 dark:text-amber-400"> requested changes</span> : null}
-        {c.path ? <span className="font-mono"> · {c.path}:{c.line}{c.endLine && c.endLine !== c.line ? `–${c.endLine}` : ""}</span> : null}
-        {c.onEarlierSave ? " · on an earlier save" : ""} · <When at={c.createdAt} />
-      </p>
-      {c.body ? <p className="whitespace-pre-wrap text-sm text-foreground">{c.body}</p> : null}
+    <FeedRow person={c.author} madeWith={c.madeWith} action={<>{action}{c.onEarlierSave ? " (an earlier save)" : ""}</>} at={c.createdAt}>
+      {c.body ? <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{c.body}</p> : null}
       {c.suggestion != null ? (
-        <div className="mt-2 overflow-x-auto rounded border border-border font-mono text-xs leading-5">
-          {(c.original ?? "").split("\n").map((l, i) => <div key={`o${i}`} className="whitespace-pre bg-red-50 px-2 text-red-900 dark:bg-red-950/40 dark:text-red-200">- {l}</div>)}
-          {c.suggestion.split("\n").map((l, i) => <div key={`s${i}`} className="whitespace-pre bg-emerald-50 px-2 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">+ {l}</div>)}
+        <div className="mt-2 overflow-x-auto rounded-[5px] border border-border font-mono text-xs leading-5">
+          {(c.original ?? "").split("\n").map((l, i) => <div key={`o${i}`} className="whitespace-pre bg-[var(--status-danger-soft)] px-2 text-[var(--status-danger)]">- {l}</div>)}
+          {c.suggestion.split("\n").map((l, i) => <div key={`s${i}`} className="whitespace-pre bg-[var(--status-success-soft)] px-2 text-[var(--status-success)]">+ {l}</div>)}
         </div>
       ) : null}
       {children}
-    </div>
+    </FeedRow>
   );
 }
 
 function SavesList({ detail }: { detail: Detail }) {
-  if (!detail.saves.length) return <p className="p-4 text-sm text-muted-foreground">No saves on this branch.</p>;
+  const toSave = (id: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("mr");
+    url.searchParams.set("filesView", "history");
+    url.searchParams.set("save", id);
+    window.location.href = url.toString();
+  };
+  if (!detail.saves.length) return <FolderListEmpty message="No saves on this branch." />;
   return (
-    <ul className="m-4 divide-y divide-border rounded-md border border-border">
-      {detail.saves.map((s) => (
-        <li key={s.id}>
-          <button type="button" onClick={() => go({ filesView: "history", save: s.id, mr: null })} className="block w-full px-3 py-2 text-left hover:bg-accent">
-            <span className="block truncate text-sm font-medium text-foreground">{s.message}</span>
-            <span className="block truncate text-xs text-muted-foreground">{nameOf(s.author)}{s.madeWith ? ` · ${s.madeWith}` : ""} · <When at={s.createdAt} />{s.kind === "merge" ? " · update from main" : ""}</span>
-          </button>
-        </li>
-      ))}
-      {detail.moreSaves ? <li className="px-3 py-2 text-xs text-muted-foreground">Older saves are on the branch’s page.</li> : null}
-    </ul>
+    <div role="table" aria-label="Saves on this branch" className={listStyles.container}>
+      <FolderListHeader updatedLabel="When" sizeLabel="Files" byLabel="Saved by" />
+      <div role="rowgroup">
+        {detail.saves.map((s) => (
+          <GridRow key={s.id} onClick={() => toSave(s.id)}>
+            <NameCell chip={<IconChip><GitMerge /></IconChip>} name={s.message} onOpen={() => toSave(s.id)} nameLabel={`Open save ${s.number}: ${s.message}`} after={s.kind === "merge" ? <StatusBadge>Update from main</StatusBadge> : null} sub={s.madeWith ?? `Save ${s.number}`} />
+            <Cell column="updated"><When at={s.createdAt} /></Cell>
+            <Cell column="size" align="right">{`${s.added + s.changed + s.deleted + s.renamed}`}</Cell>
+            <Cell column="by"><Person person={s.author} /></Cell>
+            <div role="cell" className="text-right font-mono text-[11px] text-muted-foreground">{s.number}</div>
+          </GridRow>
+        ))}
+      </div>
+      {detail.moreSaves ? <p className="px-4 py-2 font-mono text-[11px] text-muted-foreground">Older saves are in History on the branch.</p> : null}
+    </div>
   );
 }
+
+const fieldClass = "h-7 w-16 rounded-[5px] border border-border bg-background px-1.5 font-mono text-xs text-foreground focus:border-[#D14E24] focus:outline-none";
 
 function FilesChanged({ projectId, detail, busy, act }: { projectId: string; detail: Detail; busy: string | null; act: Act }) {
   const m = detail.mergeRequest;
@@ -373,9 +427,10 @@ function FilesChanged({ projectId, detail, busy, act }: { projectId: string; det
   const [suggest, setSuggest] = useState(false);
   const [suggestion, setSuggestion] = useState("");
   const open = m.state === "open" || m.state === "draft";
-  if (!detail.files) return <p className="p-4 text-sm text-muted-foreground">{m.state === "merged" ? "Merged: the changes are in main now. Its saves are under Saves." : "The branch was deleted, so its files can’t be shown."}</p>;
-  if (!files.length) return <p className="p-4 text-sm text-muted-foreground">Nothing on the branch differs from main.</p>;
+  if (!detail.files) return <FolderListEmpty message={m.state === "merged" ? "Merged: the changes are in main now. Its saves are under Saves." : "The branch was deleted, so its files can’t be shown."} />;
+  if (!files.length) return <FolderListEmpty message="Nothing on the branch differs from main." />;
   const comments = detail.comments.filter((c) => c.path === current);
+  const OP: Record<string, { label: string; tone: BadgeTone }> = { add: { label: "Added", tone: "success" }, change: { label: "Changed", tone: "warning" }, delete: { label: "Deleted", tone: "danger" } };
   async function send() {
     const line = Number(from);
     const end = Number(to || from);
@@ -383,52 +438,60 @@ function FilesChanged({ projectId, detail, busy, act }: { projectId: string; det
     if (res) { setBody(""); setSuggestion(""); setFrom(""); setTo(""); setSuggest(false); }
   }
   return (
-    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+    <div className="flex min-h-full flex-col md:flex-row">
       <nav aria-label="Files changed" className="max-h-64 overflow-y-auto border-b border-border md:max-h-none md:w-80 md:border-b-0 md:border-r">
-        <ul className="py-1">
+        <ul>
           {files.map((f) => (
             <li key={f.path}>
-              <button type="button" onClick={() => setSelected(f.path)} aria-current={current === f.path} className={cn("flex w-full items-center gap-2 px-3 py-1.5 text-left", current === f.path && "bg-accent")}>
-                <span className="w-14 shrink-0 text-[11px] text-muted-foreground">{f.op === "add" ? "Added" : f.op === "delete" ? "Deleted" : "Changed"}</span>
-                <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{f.path}</span>
+              <button type="button" onClick={() => setSelected(f.path)} aria-current={current === f.path} className={cn("flex min-h-12 w-full items-center gap-2.5 border-b border-border/60 px-3 text-left hover:bg-[#FAF8F5] dark:hover:bg-white/[0.02]", current === f.path && "bg-[#F3F0EA] dark:bg-white/[0.06]")}>
+                <FileTypeChip name={f.path.split("/").pop()!} mimeType={null} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-mono text-xs font-medium text-foreground">{f.path.split("/").pop()}</span>
+                  <span className="block truncate font-mono text-[11px] text-muted-foreground">{f.path}</span>
+                </span>
                 {detail.comments.some((c) => c.path === f.path) ? <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" aria-label="Has comments" /> : null}
+                <StatusBadge tone={OP[f.op]?.tone ?? "neutral"}>{OP[f.op]?.label ?? f.op}</StatusBadge>
               </button>
             </li>
           ))}
         </ul>
       </nav>
-      <section aria-label="Diff and comments" className="min-h-0 min-w-0 flex-1 overflow-auto">
+      <section aria-label="Diff and comments" className="min-h-0 min-w-0 flex-1">
         {current ? <DiffView query={diff} label={`${current} · against main`} path={current} /> : null}
-        <div className="space-y-2 px-3 pb-4">
-          {comments.map((c) => (
-            <CommentCard key={c.id} c={c}>
-              {c.suggestion != null ? (
-                c.appliedSaveId ? <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">Applied</p>
-                  : open && detail.viewer.canWrite ? <Button className="mt-2" size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => void act("apply", () => applySuggestionAction(projectId, m.number, c.id), "Applied the suggestion on the branch")}>Apply suggestion</Button> : null
-              ) : null}
-            </CommentCard>
-          ))}
-          {open && current ? (
-            <form className="space-y-2 rounded-md border border-dashed border-border p-2.5" onSubmit={(e) => { e.preventDefault(); void send(); }}>
-              <p className="text-xs font-medium text-foreground">Comment on lines of {current}</p>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <label className="inline-flex items-center gap-1">Line <input inputMode="numeric" value={from} onChange={(e) => setFrom(e.target.value.replace(/\D/g, ""))} className="h-7 w-16 rounded border border-border bg-background px-1.5 text-foreground" /></label>
-                <label className="inline-flex items-center gap-1">to <input inputMode="numeric" value={to} onChange={(e) => setTo(e.target.value.replace(/\D/g, ""))} placeholder={from || ""} className="h-7 w-16 rounded border border-border bg-background px-1.5 text-foreground" /></label>
-                <label className="inline-flex items-center gap-1"><input type="checkbox" checked={suggest} onChange={(e) => setSuggest(e.target.checked)} />Suggest an edit</label>
-              </div>
-              <label className="sr-only" htmlFor="mr-line-comment">Comment</label>
-              <textarea id="mr-line-comment" value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder="What about these lines?" className="w-full rounded-md border border-border bg-background p-2 text-sm text-foreground" />
-              {suggest ? (
-                <>
-                  <label className="sr-only" htmlFor="mr-suggestion">Replacement lines</label>
-                  <textarea id="mr-suggestion" value={suggestion} onChange={(e) => setSuggestion(e.target.value)} rows={3} placeholder="The lines as they should be" spellCheck={false} className="w-full rounded-md border border-border bg-background p-2 font-mono text-xs text-foreground" />
-                </>
-              ) : null}
-              <Button size="sm" type="submit" disabled={Boolean(busy) || !from || (!body.trim() && !suggest)}>{suggest ? "Suggest" : "Comment"}</Button>
-            </form>
-          ) : null}
-        </div>
+        {comments.length ? (
+          <ol className="border-t border-border/60">
+            {comments.map((c) => (
+              <CommentRow key={c.id} c={c}>
+                {c.suggestion != null ? (
+                  c.appliedSaveId ? <p className="mt-2"><StatusBadge tone="success">Applied</StatusBadge></p>
+                    : open && detail.viewer.canWrite ? <button type="button" className={cn(stripButton, "mt-2")} disabled={Boolean(busy)} onClick={() => void act("apply", () => applySuggestionAction(projectId, m.number, c.id), "Applied the suggestion on the branch")}>Apply suggestion</button> : null
+                ) : null}
+              </CommentRow>
+            ))}
+          </ol>
+        ) : null}
+        {open && current ? (
+          <form className="space-y-2 border-t border-border/60 px-4 py-3" onSubmit={(e) => { e.preventDefault(); void send(); }}>
+            <RailSectionHeading title={`Comment on lines of ${current.split("/").pop()}`} />
+            <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
+              <label className="inline-flex items-center gap-1">Line <input inputMode="numeric" value={from} onChange={(e) => setFrom(e.target.value.replace(/\D/g, ""))} className={fieldClass} /></label>
+              <label className="inline-flex items-center gap-1">to <input inputMode="numeric" value={to} onChange={(e) => setTo(e.target.value.replace(/\D/g, ""))} placeholder={from || ""} className={fieldClass} /></label>
+              <label className="inline-flex items-center gap-1"><input type="checkbox" checked={suggest} onChange={(e) => setSuggest(e.target.checked)} />Suggest an edit</label>
+            </div>
+            <label className="sr-only" htmlFor="mr-line-comment">Comment</label>
+            <textarea id="mr-line-comment" value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder="What about these lines?" className="w-full rounded-[5px] border border-border bg-background p-2 text-sm text-foreground focus:border-[#D14E24] focus:outline-none" />
+            {suggest ? (
+              <>
+                <label className="sr-only" htmlFor="mr-suggestion">Replacement lines</label>
+                <textarea id="mr-suggestion" value={suggestion} onChange={(e) => setSuggestion(e.target.value)} rows={3} placeholder="The lines as they should be" spellCheck={false} className="w-full rounded-[5px] border border-border bg-background p-2 font-mono text-xs text-foreground focus:border-[#D14E24] focus:outline-none" />
+              </>
+            ) : null}
+            <button type="submit" className={stripPrimary} disabled={Boolean(busy) || !from || (!body.trim() && !suggest)}>{suggest ? "Suggest" : "Comment"}</button>
+          </form>
+        ) : null}
       </section>
     </div>
   );
 }
+
+export { LineCounts };

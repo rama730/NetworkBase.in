@@ -5,7 +5,8 @@ import { axeViolations } from './axe';
 // Report H2 (M8, H-2b: like GitHub): the "main ▾" picker switches the Files tab to a branch. All files then shows the
 // branch's folders and files (sidebar tree too), with the "On branch" bar: Compare with main, Update from main,
 // Open merge request. On the branch you open, edit, add, upload, rename or move, and delete files; History follows
-// the picker. View all branches lists them. Light and dark, 1440 and 390 px, no accessibility violations.
+// the picker. View all branches lists them. Design audit (17 Nov 2026): the app's menu, header breadcrumb and grid.
+// Light and dark, 1440 and 390 px, no accessibility violations.
 const view = (over: Record<string, unknown> = {}) => ({ id: 'b1', name: 'ram/try-header', isDefault: false, status: 'active', createdBy: { id: 'u1', name: 'Ram', username: 'ram' }, task: null, ahead: 2, behind: 3, changedFiles: 2, stale: false, mergeRequest: null, lastSave: { id: 's2', number: 2, message: 'New header', createdAt: '2026-11-17T09:00:00Z', madeWith: 'with Claude Code' }, createdAt: '2026-11-17T08:00:00Z', updatedAt: '2026-11-17T09:00:00Z', deletedAt: null, ...over });
 const MAIN = view({ id: 'm', name: 'main', isDefault: true, ahead: 0, behind: 0, changedFiles: 0, lastSave: null, createdBy: null });
 const FOLDERS: Record<string, unknown> = {
@@ -47,53 +48,59 @@ async function open(page: Page, { width = 1440, theme = 'light', path = '/', con
   await openApp(page, 'tests/browser/branches.fixture.tsx', { path, head: theme === 'dark' ? "document.documentElement.classList.add('dark')" : '' });
 }
 const calls = (page: Page) => page.evaluate(() => (window as any).__calls as unknown[][]);
+const picker = (page: Page) => page.getByRole('dialog', { name: 'Switch branch' });
 
-test('the picker: main ▾ lists branches with ahead, behind and their merge request; picking one switches All files', async ({ page }) => {
+test('the picker: main ▾ is the app’s menu, lists branches with ahead, behind and MR; picking one switches All files', async ({ page }) => {
   await open(page);
   await expect(page.getByText('Main’s files')).toBeVisible();
   await page.getByRole('button', { name: 'Branch: main. Switch branch' }).click();
-  const picker = page.getByRole('dialog', { name: 'Switch branch' });
-  await expect(picker.getByRole('button', { name: /ram\/try-header/ })).toContainText('2 saves ahead, 3 behind main');
-  await expect(picker.getByRole('button', { name: /ram\/try-header/ })).toContainText('MR !3');
-  await picker.getByRole('button', { name: /ram\/try-header/ }).click();
+  const item = picker(page).getByRole('menuitem', { name: /ram\/try-header/ });
+  await expect(item).toContainText('2 saves ahead, 3 behind main');
+  await expect(item).toContainText('MR !3');
+  await item.click();
   expect(page.url()).toContain('branch=ram%2Ftry-header');
   await expect(page.getByRole('status', { name: 'On branch' })).toContainText('2 saves ahead, 3 behind main');
-  await expect(page.getByRole('button', { name: 'Branch: ram/try-header. Switch branch' })).toBeVisible();
-  const files = page.getByRole('table');
-  await expect(files).toContainText('README.md');
-  await expect(files).toContainText('changed here');
-  await files.getByRole('button', { name: 'src', exact: true }).click();
-  await expect(files).toContainText('app.ts');
+  await expect(page.getByRole('navigation', { name: 'Branch breadcrumb' })).toContainText('ram/try-header');
+  await expect(page.getByRole('button', { name: 'Open README.md' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'README.md' })).toContainText('Changed');
+  await page.getByRole('button', { name: 'Open folder src' }).click();
+  await expect(page.getByRole('button', { name: 'Open app.ts' })).toBeVisible();
   expect(page.url()).toContain('bpath=%2Fsrc');
+  await expect(page.getByRole('navigation', { name: 'Branch breadcrumb' })).toContainText('src');
   await expect(page.getByRole('tree', { name: /Files on/ })).toContainText('logo.png');
   // b opens the picker.
+  await page.locator('body').click({ position: { x: 5, y: 600 } });
   await page.keyboard.press('b');
-  await expect(page.getByRole('dialog', { name: 'Switch branch' })).toBeVisible();
+  await expect(picker(page)).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: 'Switch branch' })).toHaveCount(0);
+  await expect(picker(page)).toHaveCount(0);
 });
 
 test('New branch from the picker starts from the branch you are on and switches to it', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: /Switch branch/ }).click();
-  await page.getByRole('button', { name: 'New branch' }).click();
+  await picker(page).getByRole('menuitem', { name: 'New branch…' }).click();
   await page.getByLabel('Find or create a branch').fill('ram/fresh');
   await page.getByRole('button', { name: 'Create branch' }).click();
   await expect(page.getByRole('status', { name: 'On branch' })).toContainText('ram/fresh');
   expect((await calls(page)).find((c) => c[0] === 'create')).toEqual(['create', 'p1', 'ram/fresh', 'main']);
 });
 
-test('on a branch: open a file with line numbers, edit and save it with the hash it saw; previews an image', async ({ page }) => {
+test('on a branch: a file opens in the app’s viewer; edit and save it with the hash it saw; previews an image', async ({ page }) => {
   await open(page, { path: '/?branch=ram/try-header' });
-  await page.getByRole('table').getByRole('button', { name: /^README\.md/ }).click();
-  await expect(page.getByLabel('Content of /README.md')).toContainText('line one of /README.md');
+  await page.getByRole('button', { name: 'Open README.md' }).click();
+  await expect(page.getByText('line one of /README.md')).toBeVisible();
+  await expect(page.getByText('Changed here')).toBeVisible();
   await page.getByRole('button', { name: 'Edit' }).click();
-  await page.getByLabel('File content').fill('# New text');
+  const editor = page.getByRole('group', { name: 'File content' }).locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('# New text');
   await page.getByRole('button', { name: 'Save on ram/try-header' }).click();
   await expect.poll(async () => (await calls(page)).find((c) => c[0] === 'save')).toEqual(['save', 'b1', { path: '/README.md', text: '# New text', expectedHash: 'h1' }]);
   await page.getByRole('navigation', { name: 'Branch breadcrumb' }).getByRole('button', { name: 'ram/try-header' }).click();
-  await page.getByRole('table').getByRole('button', { name: 'src', exact: true }).click();
-  await page.getByRole('table').getByRole('button', { name: /^logo\.png/ }).click();
+  await page.getByRole('button', { name: 'Open folder src' }).click();
+  await page.getByRole('button', { name: 'Open logo.png' }).click();
   await expect(page.getByRole('img', { name: 'logo.png' })).toHaveAttribute('src', /raw\?path=%2Fsrc%2Flogo\.png&inline=1/);
 });
 
@@ -120,15 +127,17 @@ test('on a branch: new file, rename or move, delete, upload, and find a file by 
   expect((all.find((c) => c[0] === 'begin') as any)[2][0]).toMatchObject({ path: '/up.txt', size: 8, mimeType: 'text/plain' });
   expect(all.find((c) => c[0] === 'content')).toEqual(['content', 'cs1', 1]);
   await page.getByLabel('Find a file on this branch').fill('app');
-  await expect(page.getByRole('list', { name: 'Matching files' })).toContainText('/src/app.ts');
+  await expect(page.getByRole('rowgroup', { name: 'Matching files' })).toContainText('app.ts');
 });
 
-test('the bar: Compare with main, Update from main with a choice per file, Open merge request', async ({ page }) => {
+test('the strip: Compare with main (pressed), Update from main with a choice per file, Open merge request', async ({ page }) => {
   await open(page, { path: '/?branch=ram/try-header', conflicts: true });
   const bar = page.getByRole('status', { name: 'On branch' });
   await bar.getByRole('button', { name: 'Compare with main' }).click();
+  await expect(bar.getByRole('button', { name: 'Compare with main' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('navigation', { name: 'Branch breadcrumb' })).toContainText('Compare with main');
   await expect(page.getByRole('region', { name: 'Diff' })).toContainText('new in /README.md');
-  await bar.getByRole('button', { name: 'Back to files' }).click();
+  await bar.getByRole('button', { name: 'Compare with main' }).click();
   await bar.getByRole('button', { name: 'Update from main' }).click();
   const region = page.getByRole('region', { name: 'Update conflicts' });
   await region.getByLabel("Keep the branch's").check();
@@ -141,18 +150,19 @@ test('the bar: Compare with main, Update from main with a choice per file, Open 
   await expect.poll(async () => (await calls(page)).find((c) => c[0] === 'mr')).toEqual(['mr', 'p1', { source: 'ram/try-header', title: 'New header', description: null, draft: false }]);
 });
 
-test('History follows the picker; View all branches lists them with filters and switches on a click', async ({ page }) => {
+test('History follows the picker; View all branches lists them with filter chips and switches on a click', async ({ page }) => {
   await open(page, { path: '/?branch=ram/try-header' });
   await page.getByRole('button', { name: 'History' }).click();
   await expect.poll(async () => (await calls(page)).find((c) => c[0] === 'saves')).toEqual(['saves', 'ram/try-header']);
   await expect(page.getByRole('status', { name: 'On branch' })).toBeVisible();
   await page.getByRole('button', { name: /Switch branch/ }).click();
-  await page.getByRole('button', { name: 'View all branches' }).click();
-  await expect(page.getByRole('button', { name: /you’re on it/ })).toContainText('ram/try-header');
-  await page.getByRole('tab', { name: 'Deleted' }).click();
+  await picker(page).getByRole('menuitem', { name: 'View all branches' }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'ram/try-header' })).toContainText('You’re on it');
+  await page.getByTestId('branches-filter-deleted').click();
   await expect(page.getByText('old-idea')).toBeVisible();
-  await page.getByRole('tab', { name: 'Active' }).click();
-  await page.getByRole('button', { name: /^main/ }).click();
+  await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
+  await page.getByTestId('branches-filter-active').click();
+  await page.getByRole('button', { name: 'Switch to main' }).click();
   await expect(page.getByText('Main’s files')).toBeVisible();
   expect(page.url()).not.toContain('branch=');
 });
@@ -161,13 +171,16 @@ for (const theme of ['light', 'dark'] as const) {
   for (const width of [1440, 390]) {
     test(`no accessibility violations: ${theme}, ${width}px`, async ({ page }) => {
       await open(page, { theme, width, path: '/?branch=ram/try-header' });
-      await expect(page.getByRole('table')).toContainText('README.md');
+      await expect(page.getByRole('button', { name: 'Open README.md' })).toBeVisible();
       expect(await axeViolations(page)).toEqual([]);
       await page.getByRole('button', { name: /Switch branch/ }).click();
-      await expect(page.getByRole('dialog', { name: 'Switch branch' })).toBeVisible();
+      await expect(picker(page)).toBeVisible();
+      // The menu fades in; checking contrast mid-fade measures half-transparent text.
+      await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
       expect(await axeViolations(page)).toEqual([]);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow).toBeLessThanOrEqual(0);
+      await page.screenshot({ path: `test-results/audit-shots/branches-${theme}-${width}.png` });
     });
   }
 }
