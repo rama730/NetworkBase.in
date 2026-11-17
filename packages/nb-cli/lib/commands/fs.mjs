@@ -49,7 +49,8 @@ async function write(ctx, op, body) {
   }
 }
 /** @param {Context} ctx */
-const readQuery = (ctx) => { const id = sessionSet(ctx, ctx.requireWorkspace()); return id ? { changeSet: id } : {}; };
+// A change set reads its own base; without one, a branch folder reads its branch (H8).
+const readQuery = (ctx) => { const id = sessionSet(ctx, ctx.requireWorkspace()); return id ? { changeSet: id } : ctx.project?.branch ? { branch: ctx.project.branch.id } : {}; };
 
 /** @param {Context} ctx */
 export async function fsList(ctx) {

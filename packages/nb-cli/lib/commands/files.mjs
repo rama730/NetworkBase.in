@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DIR_NAME, readUserConfig, writeProjectConfig } from "../config.mjs";
+import { DIR_NAME, readProjectConfig, readUserConfig, writeProjectConfig } from "../config.mjs";
 import { CliError, EXIT, usage } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { scanLocal, toRelative, toRemote } from "../sync/local.mjs";
@@ -30,7 +30,7 @@ export function relativeArgs(ctx, root) {
 
 /**
  * Server, base and local side by side. Offline: the server side is the base, and status says so (A12.4).
- * @param {Context} ctx @param {{ only?: string[], noFollow?: boolean }} [options]
+ * @param {Context} ctx @param {{ only?: string[], noFollow?: boolean, leaving?: boolean }} [options]
  */
 export async function buildPlan(ctx, options = {}) {
   // A copy that keeps only some folders (C3) plans just those, so status doesn't list the rest as server-only.
@@ -48,9 +48,16 @@ export async function buildPlan(ctx, options = {}) {
   try {
     manifest = await fetchManifest(ctx.api, project.workspaceId, project.branch?.id ?? null);
   } catch (error) {
-    if (!(error instanceof CliError) || error.code !== "OFFLINE") throw error;
-    offline = true;
-    manifest = { files: new Map(Object.entries(state.files).map(([p, b]) => [p, { path: p, nodeId: b.nodeId, version: b.baseVersion, hash: b.baseHash, size: b.size }])), canWrite: true, largestFileBytes: 0 };
+    // Leaving a branch that was deleted or merged (H24): its side is what was last pulled, so edits still show.
+    const gone = options.leaving && error instanceof CliError && error.code === "BRANCH_DELETED";
+    if (!(error instanceof CliError) || (error.code !== "OFFLINE" && !gone)) throw error;
+    offline = !gone;
+    manifest = { files: new Map(Object.entries(state.files).map(([p, b]) => [p, { path: p, nodeId: b.nodeId, version: b.baseVersion, hash: b.baseHash, size: b.size }])), canWrite: true, largestFileBytes: 0, branch: null };
+  }
+  // The folder keeps its branch by id; a rename elsewhere only changes the name it shows (H24).
+  if (project.branch && manifest.branch?.id === project.branch.id && manifest.branch.name !== project.branch.name) {
+    project.branch = { id: project.branch.id, name: manifest.branch.name };
+    writeProjectConfig(root, { ...readProjectConfig(root), ...project });
   }
   // Only the part of the workspace this folder is linked to (A1.1 item 5).
   const remote = new Map([...manifest.files].filter(([p]) => toRelative(project.remoteRoot, p) !== null));

@@ -23,8 +23,9 @@ async function open(page: Page, { width = 1440, theme = 'light', path = '/', con
     (window as any).__actions = {
       branchesSettingAction: () => ok({ enabled: true, canChange: true }),
       listBranchesAction: (_p: string, status: string) => ok({ branches: status === 'deleted' ? [{ ...B, id: 'b9', name: 'old-idea', status: 'deleted', deletedAt: '2026-11-16T00:00:00Z' }] : [MAIN, { ...B, mergeRequest: { number: 3, state: 'open' } }] }),
-      branchByNameAction: (_p: string, name: string) => ok({ branch: { ...B, name } }),
-      createBranchAction: (...a: unknown[]) => { calls.push(['create', ...a]); return ok({ branch: { ...B, id: 'b2', name: a[1], ahead: 0, behind: 0, changedFiles: 0, lastSave: null } }); },
+      branchByNameAction: (_p: string, name: string) => ok({ branch: (window as any).__deletedBranch ? { ...B, id: 'b9', name, status: 'deleted', deletedAt: new Date(Date.now() - 86_400_000).toISOString() } : { ...B, id: (window as any).__made?.[name] ?? B.id, name } }),
+      restoreBranchAction: (...a: unknown[]) => { calls.push(['restore', ...a]); return ok({ branch: B }); },
+      createBranchAction: (...a: unknown[]) => { calls.push(['create', ...a]); ((window as any).__made ??= {})[a[1] as string] = 'b2'; return ok({ branch: { ...B, id: 'b2', name: a[1], ahead: 0, behind: 0, changedFiles: 0, lastSave: null } }); },
       branchFolderAction: (_b: string, folder: string) => { calls.push(['folder', folder]); return ok(FOLDERS[folder || '/'] ?? FOLDERS['/']); },
       branchPathsAction: () => ok({ paths: ['/README.md', '/src/app.ts', '/src/logo.png'] }),
       branchFileTextAction: (_b: string, path: string) => ok({ path, text: path.endsWith('.png') ? null : `line one of ${path}\nline two`, size: 20, own: path === '/README.md', contentHash: 'h1', mimeType: path.endsWith('.png') ? 'image/png' : 'text/plain' }),
@@ -209,9 +210,10 @@ test('keys on Files: ? lists them, / searches, b opens the branch picker', async
   await expect(keys).toContainText('Switch branch');
   await page.keyboard.press('Escape');
   await expect(keys).toHaveCount(0);
+  // On a branch, / searches the branch's files (H8), not main's.
   await page.keyboard.press('/');
-  await expect(page.getByRole('dialog').first()).toBeVisible();
-  await page.keyboard.press('Escape');
+  await expect(page.locator('#branch-name-search')).toBeFocused();
+  await page.locator('#branch-name-search').blur();
   await page.keyboard.press('b');
   await expect(picker(page)).toBeVisible();
 });
@@ -243,4 +245,25 @@ test('0.8 #1, #7: an empty History says so on the branch; Delete names the branc
   const confirm = page.getByRole('alertdialog', { name: 'Delete ram/try-header?' });
   await expect(confirm).toContainText("2 saves aren't in main.");
   await expect(confirm).toContainText('You can restore it for 30 days.');
+});
+
+test('H5, H24: an upload on a protected main is offered a new branch; the files go there', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('nb:protected-upload', { detail: { projectId: 'p1', files: [new File(['hello\n'], 'notes.txt', { type: 'text/plain' })], folder: '/' } })));
+  const offer = page.getByRole('alertdialog', { name: 'main is protected. Upload to a new branch?' });
+  await expect(offer).toContainText('The file goes on a new branch');
+  await offer.getByLabel('Branch name').fill('ram/upload');
+  await offer.getByRole('button', { name: 'Upload to branch' }).click();
+  await expect.poll(async () => (await calls(page)).find((c) => c[0] === 'create')).toEqual(['create', 'p1', 'ram/upload', 'main']);
+  await expect.poll(async () => (await calls(page)).find((c) => c[0] === 'begin')?.[2]).toEqual([expect.objectContaining({ path: '/notes.txt', size: 6 })]);
+  await expect.poll(async () => (await calls(page)).some((c) => c[0] === 'finish')).toBe(true);
+});
+
+test('H24: an old link to a deleted branch says when, with Restore and Go to main', async ({ page }) => {
+  await page.addInitScript(() => { (window as any).__deletedBranch = true; });
+  await open(page, { path: '/?branch=old-idea' });
+  await expect(page.getByText(/This branch was deleted on/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
+  await page.getByRole('button', { name: 'Go to main' }).click();
+  await expect(page.getByText('Main’s files')).toBeVisible();
 });

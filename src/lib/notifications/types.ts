@@ -50,7 +50,9 @@ export type NotificationKind =
     /** A task was finished with a report and is waiting for review (report A2.10). */
     | "task_report_submitted"
     /** A merge request event: review requested, ready, comment, approved, changes requested, checks failed, merged, closed (report H4). */
-    | "merge_request";
+    | "merge_request"
+    /** Saves on a branch, for its watchers: one per branch per 15 minutes (report H8, H24). */
+    | "branch_saves";
 
 export type NotificationImportance = "important" | "more";
 

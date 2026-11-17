@@ -23,6 +23,7 @@ import {
   requireSyncOwner,
   readStoredSyncContent,
   validateReviewedLocalFiles,
+  linkGithubBranch,
 } from "./sync-service";
 import {
   readGitHubHead,
@@ -854,6 +855,8 @@ export async function runReviewedGitHubSync(
       // A NetworkBase branch's sync (H-5) leaves main's link (its branch and last commit) as it is.
       if (manifest.local) {
         await tx.update(workspaces).set({ githubLastSyncAt: new Date() }).where(eq(workspaces.id, projectId));
+        // The branch remembers which GitHub branch it syncs with, so renaming it keeps the link (H24).
+        await linkGithubBranch(tx, projectId, manifest.local, manifest.branch);
       } else if (
         !ctx.connection ||
         ctx.connection.repository !== manifest.repository ||

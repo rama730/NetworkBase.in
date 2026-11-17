@@ -536,6 +536,10 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
 
     const live = subscribeBroadcast(liveTopics.files(projectId), (event) => {
       if (event === "lock.changed") reconcileLocks();
+      // Saves on a branch and merge request events (H8): the branch views, History and merge requests refetch.
+      if (event === "branch.updated" || event === "merge_request.updated") {
+        for (const key of ["branch", "branches", "saves", "merge-requests", "merge-request"]) void queryClient.invalidateQueries({ queryKey: [key, projectId] });
+      }
     }, (status) => {
       if (status === "connected") reconcileLocks();
     });

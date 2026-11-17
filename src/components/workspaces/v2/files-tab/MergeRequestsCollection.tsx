@@ -2,17 +2,18 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleDot, GitMerge, GitPullRequest, MessageSquare, Trash2, Undo2, X } from "lucide-react";
+import { Check, CircleDot, GitMerge, GitPullRequest, MessageSquare, Paperclip, Trash2, Undo2, X } from "lucide-react";
 
 import { branchDiffAction, deleteBranchAction } from "@/app/actions/files/branches";
 import {
-  applySuggestionAction, commentMergeRequestAction, getMergeRequestAction, listMergeRequestsAction, mergeMergeRequestAction, reviewMergeRequestAction,
+  applySuggestionAction, attachMergeResultAction, commentMergeRequestAction, getMergeRequestAction, listMergeRequestsAction, mergeMergeRequestAction, reviewMergeRequestAction,
   updateMergeRequestAction,
 } from "@/app/actions/files/merge-requests";
-import { revertSaveAction } from "@/app/actions/files/saves";
+import { getSaveAction, revertSaveAction } from "@/app/actions/files/saves";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useStepUp } from "@/components/trust/StepUp";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { openRevertRequest } from "@/components/workspaces/v2/files-tab/SaveToBranch";
+import { mergeRequestHref, openRevertRequest } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import { RailSectionHeading } from "@/components/ui/rail-section";
 import type { getMergeRequest, MergeRequestSummary } from "@/lib/domain/merge-requests";
 import { toast } from "@/lib/feedback";
@@ -38,7 +39,7 @@ import { useDraft } from "./useDraft";
  * what happened with square avatars. Open with ?tab=files&filesView=merge-requests, or one with &mr=<number>.
  */
 type Detail = Awaited<ReturnType<typeof getMergeRequest>>;
-type PersonView = { id: string; name: string | null; username: string | null; avatarUrl?: string | null } | null;
+type PersonView = { id: string; name: string | null; username: string | null; avatarUrl?: string | null; former?: boolean } | null;
 
 function readParam() {
   if (typeof window === "undefined") return null;
@@ -186,12 +187,17 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
     if (!res) return;
     if (res.outcome === "conflicts") { setConflicts(res.conflicts); return; }
     setConflicts(null);
-    toast.success(`Merged !${number} into main${res.task && res.task.outcome !== "unchanged" ? `; task #${res.task.number} ${res.task.outcome === "review" ? "went for review" : "is done"}` : ""}`);
+    // One Undo right after merging (H8): it reverts the merge's save, as Revert merge does.
+    const mergedSave = res.save?.id ?? null;
+    toast.success(`Merged !${number} into main${res.task && res.task.outcome !== "unchanged" ? `; task #${res.task.number} ${res.task.outcome === "review" ? "went for review" : "is done"}` : ""}`,
+      mergedSave ? { action: { label: "Undo", onClick: () => void undoMerge(mergedSave) } } : undefined);
     if (res.branchMoved) toast.error(`Saves reached ${res.branch.name} while it merged; they aren’t in main yet. Open another merge request for them.`);
   }
   async function revertMerge() {
-    if (!m?.merged?.saveId) return;
-    const res = await act("revert", () => revertSaveAction(m.merged!.saveId!));
+    if (m?.merged?.saveId) await undoMerge(m.merged.saveId);
+  }
+  async function undoMerge(saveId: string) {
+    const res = await act("revert", () => revertSaveAction(saveId));
     if (res && res.outcome === "reverted") toast.success("Reverted the merge: main is as it was before");
     else if (res && res.outcome === "merge_request") openRevertRequest(res);
     else if (res && res.outcome === "conflicts") toast.error("Files changed since the merge; choose for each in Changes");
@@ -229,6 +235,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
             ) : m.merged ? (
               <>
                 {m.merged.revertedBy ? <StatusBadge tone="warning">Reverted in save {m.merged.revertedBy.number}</StatusBadge> : m.merged.saveId ? <button type="button" className={headerButton} disabled={Boolean(busy)} aria-label="Revert merge" onClick={() => setConfirmRevert(true)}><Undo2 className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Revert merge</span></button> : null}
+                {m.task && m.merged.saveId && !m.merged.revertedBy ? <AttachResult projectId={projectId} number={number} saveId={m.merged.saveId} taskNumber={m.task.number} /> : null}
                 {m.source.status !== "deleted" ? <button type="button" className={headerButton} disabled={Boolean(busy)} aria-label="Delete branch" onClick={() => setConfirmDeleteBranch(true)}><Trash2 className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Delete branch</span></button> : null}
               </>
             ) : null}
@@ -284,12 +291,44 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
 }
 
 /** One line of what happened: the square avatar, who, what, when; a comment's text under it. */
+/** "Attach as final file" (H8): one of the merged files goes on the merge request's task as a final file. */
+function AttachResult({ projectId, number, saveId, taskNumber }: { projectId: string; number: number; saveId: string; taskNumber: number | null }) {
+  const [open, setOpen] = useState(false);
+  const files = useQuery({ queryKey: ["save", saveId, "files"], enabled: open, queryFn: () => unwrap(getSaveAction(saveId)) });
+  const shown = (files.data?.files ?? []).filter((f) => f.op !== "delete").slice(0, 30);
+  async function attach(path: string) {
+    const res = await attachMergeResultAction(projectId, number, path);
+    if (!res.success) { toast.error(res.error); return; }
+    toast.success(`${path.split("/").pop()} is a final file on #${res.data.task ?? taskNumber}`);
+  }
+  return (
+    <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className={headerButton} aria-label={`Attach to #${taskNumber ?? ""} as final file`}><Paperclip className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Attach to #{taskNumber}</span></button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className={"w-72 max-w-[calc(100vw-16px)] rounded-[8px] border border-border bg-card p-1 shadow-md"}>
+        <p className="px-2 pb-1 pt-1 text-xs text-muted-foreground">Attach as a final file on #{taskNumber}</p>
+        {files.isLoading ? <p className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</p> : shown.length ? shown.map((f) => (
+          <DropdownMenuItem key={f.path} className="rounded-[5px] text-xs" onSelect={() => void attach(f.path)}><span className="truncate font-mono text-xs">{f.path}</span></DropdownMenuItem>
+        )) : <p className="px-2 py-1.5 text-xs text-muted-foreground">No files to attach</p>}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** "!3" in a comment opens merge request 3 (H26 reference words); the rest is plain text. */
+function WithRefs({ text }: { text: string }) {
+  return <>{text.split(/(?<![\w!])(![0-9]{1,7})\b/).map((part, i) => (/^![0-9]+$/.test(part)
+    ? <a key={i} href={mergeRequestHref(Number(part.slice(1)))} className="font-mono text-foreground underline underline-offset-2">{part}</a>
+    : part))}</>;
+}
+
 function FeedRow({ person, madeWith, action, at, children }: { person: PersonView; madeWith?: string | null; action: React.ReactNode; at: string; children?: React.ReactNode }) {
   return (
     <li className="flex gap-2.5 border-b border-border/60 px-4 py-2.5">
       <span className="pt-0.5"><Person person={person} size={20} nameClassName="sr-only" /></span>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{personName(person)}</span>{madeWith ? ` ${madeWith}` : ""} {action} <span className="font-mono text-[11px]">· <When at={at} /></span></p>
+        <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{personName(person)}</span>{person?.former ? " (former member)" : ""}{madeWith ? ` ${madeWith}` : ""} {action} <span className="font-mono text-[11px]">· <When at={at} /></span></p>
         {children}
       </div>
     </li>
@@ -384,7 +423,7 @@ function CommentRow({ c, children }: { c: Detail["comments"][number]; children?:
   const action = c.reviewState === "approved" ? "approved" : c.reviewState === "changes_requested" ? "requested changes" : c.path ? <>commented on <span className="font-mono">{c.path}:{c.line}{c.endLine && c.endLine !== c.line ? `–${c.endLine}` : ""}</span></> : "commented";
   return (
     <FeedRow person={c.author} madeWith={c.madeWith} action={<>{action}{c.onEarlierSave ? " (an earlier save)" : ""}</>} at={c.createdAt}>
-      {c.body ? <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{c.body}</p> : null}
+      {c.body ? <p className="mt-1 whitespace-pre-wrap text-sm text-foreground"><WithRefs text={c.body} /></p> : null}
       {c.suggestion != null ? (
         <div className="mt-2 overflow-x-auto rounded-[5px] border border-border font-mono text-xs leading-5">
           {(c.original ?? "").split("\n").map((l, i) => <div key={`o${i}`} className="whitespace-pre bg-[var(--status-danger-soft)] px-2 text-[var(--status-danger)]">- {l}</div>)}

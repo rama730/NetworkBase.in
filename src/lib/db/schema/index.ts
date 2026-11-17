@@ -6314,6 +6314,11 @@ export const branches = pgTable("branches", {
   createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
   status: text("status").$type<"active" | "merged" | "deleted">().default("active").notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  /** The GitHub branch it syncs with (H24, 0102), recorded on its first sync, so a rename keeps the link. */
+  githubBranch: text("github_branch"),
+  /** Its name before the last rename (H26, 0102): links and folders using it still find it for 30 days. */
+  previousName: text("previous_name"),
+  renamedAt: timestamp("renamed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

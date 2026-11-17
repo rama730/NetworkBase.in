@@ -51,6 +51,7 @@ async function versionDiff(ctx) {
   const p = ctx.positionals[0];
   if (!p) throw usage("nb diff <path> --from v1 [--to v3]");
   const num = (/** @type {unknown} */ v) => Number(String(v ?? "").replace(/^v/i, ""));
+  if (ctx.project?.branch) return branchSaveDiff(ctx, p, num(ctx.flags.from), ctx.flags.to ? num(ctx.flags.to) : null);
   const { nodeOf } = await import("./browse.mjs");
   const node = await nodeOf(ctx, p);
   const nodeId = node.nodeId ?? node.id;
@@ -66,6 +67,29 @@ async function versionDiff(ctx) {
   const { c } = ctx.out;
   ctx.out.result("nb.diff.versions/1", { path: node.path ?? p, from, to, binary, diff: result }, (d) => [
     c.bold(`${safe(d.path)}: v${d.from} → v${d.to}`),
+    ...(d.binary ? [c.muted("  binary file: no line diff")] : !d.diff?.lines.length ? [c.muted("  the same content")] : d.diff.lines.map((/** @type {any} */ l) => paint(c, l))),
+  ]);
+}
+
+/**
+ * On a branch folder (C14b), --from and --to are the branch's saves (nb file history lists them); --to defaults to
+ * the branch now. @param {Context} ctx @param {string} p @param {number} from @param {number | null} to
+ */
+async function branchSaveDiff(ctx, p, from, to) {
+  const branch = /** @type {{ id: string, name: string }} */ (ctx.project?.branch);
+  if (!Number.isInteger(from) || from < 1 || (to !== null && (!Number.isInteger(to) || to < 1))) throw usage("On a branch: nb diff <path> --from <save> [--to <save>]", "See its saves: nb file history <path>");
+  const { remote } = await import("./browse.mjs");
+  const where = remote(ctx, p);
+  const read = async (/** @type {number | null} */ n) => {
+    const res = await ctx.api.download(`/api/v1/branches/${encodeURIComponent(branch.id)}/raw`, { path: where, ...(n ? { save: String(n) } : {}) });
+    return Buffer.from(await res.arrayBuffer()).toString("utf8");
+  };
+  const [a, b] = await Promise.all([read(from), read(to)]);
+  const binary = a.includes("\u0000") || b.includes("\u0000");
+  const result = binary ? null : unifiedDiff(a, b);
+  const { c } = ctx.out;
+  ctx.out.result("nb.diff.versions/1", { path: where, branch: branch.name, from, to, binary, diff: result }, (d) => [
+    c.bold(`${safe(d.path)} on ${safe(d.branch)}: save ${d.from} → ${d.to === null ? "now" : `save ${d.to}`}`),
     ...(d.binary ? [c.muted("  binary file: no line diff")] : !d.diff?.lines.length ? [c.muted("  the same content")] : d.diff.lines.map((/** @type {any} */ l) => paint(c, l))),
   ]);
 }

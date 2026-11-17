@@ -127,13 +127,18 @@
     {
       "name": "init",
       "summary": "Link this folder to a workspace",
-      "usage": "nb init [workspace] [--task 4]",
+      "usage": "nb init [workspace] [--task 4] [--branch <name>]",
       "flags": {
         "task": {
           "type": "string",
           "short": "t",
           "describe": "Task number or id (default: the started task)",
           "valueName": "task"
+        },
+        "branch": {
+          "type": "string",
+          "describe": "Start on this NetworkBase branch (main otherwise)",
+          "valueName": "name"
         },
         "path": {
           "type": "string",
@@ -147,7 +152,8 @@
       },
       "examples": [
         "nb init design-lab",
-        "nb init design-lab --task 4"
+        "nb init design-lab --task 4",
+        "nb init design-lab --branch ram/try-header"
       ],
       "exitCodes": [
         0,
@@ -391,12 +397,12 @@
       "flags": {
         "from": {
           "type": "string",
-          "describe": "Compare this server version…",
+          "describe": "Compare this server version (a save number on a branch)…",
           "valueName": "vN"
         },
         "to": {
           "type": "string",
-          "describe": "…with this one (default: the active one)",
+          "describe": "…with this one (default: the active one, or the branch now)",
           "valueName": "vN"
         }
       },
@@ -1516,7 +1522,7 @@
     },
     {
       "name": "file history",
-      "summary": "A file's versions: who, when, based on, which is active",
+      "summary": "A file's versions: who, when, based on, which is active (on a branch, its saves)",
       "usage": "nb file history <path>",
       "flags": {},
       "examples": [],
@@ -1527,8 +1533,8 @@
     },
     {
       "name": "file use",
-      "summary": "Make an earlier version active (as Use this version in the app)",
-      "usage": "nb file use <path> v<n>",
+      "summary": "Make an earlier version active (as Use this version in the app); on a branch, a new save from one of its saves",
+      "usage": "nb file use <path> v<n> | nb file use <path> <save>",
       "flags": {},
       "examples": [
         "nb file use report.md v1"

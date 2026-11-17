@@ -176,4 +176,65 @@ describe("nb branch: create, switch, push and pull on a branch, follow git", () 
     const del = await nb(["branch", "delete", "feature-x", "--yes"]);
     assert.notEqual(del.code, 0, "not the branch this folder is on");
   });
+
+  // M9 B2 (C14b, H6, H24): a branch folder's file history, use and diff are the branch's; nb init --branch; a folder
+  // whose branch was deleted says so, and switching to main keeps its edits.
+  it("on a branch folder, file history lists the branch's saves, file use makes a save there, diff --from compares saves", async () => {
+    await nb(["branch", "create", "feature-x"]);
+    const b = branch("feature-x");
+    b.saves = [{ id: "s2", number: 2, kind: "save", message: "Second try", author: { username: "ram" }, via: null, createdAt: "2026-11-18T09:00:00Z", paths: ["/src/app.ts"] }, { id: "s1", number: 1, kind: "save", message: "First try", author: { username: "ram" }, via: null, createdAt: "2026-11-18T08:00:00Z", paths: ["/src/app.ts"] }];
+    b.saveFiles = new Map([["1:/src/app.ts", Buffer.from("first\n")], ["2:/src/app.ts", Buffer.from("second\n")]]);
+    const history = await nb(["file", "history", "src/app.ts"]);
+    assert.equal(history.code, 0, history.stderr);
+    assert.match(history.stdout, /save 2 .*Second try/);
+    assert.match(history.stdout, /nb file use src\/app\.ts <save>/);
+    const listed = api.requests.findLast((r) => r.path.endsWith("/saves"));
+    assert.equal(listed?.query.get("branch"), b.id);
+    assert.equal(listed?.query.get("path"), "/src/app.ts");
+    const diff = await nb(["diff", "src/app.ts", "--from", "1", "--to", "2"]);
+    assert.equal(diff.code, 0, diff.stderr);
+    assert.match(diff.stdout, /on feature-x: save 1 → save 2/);
+    assert.match(diff.stdout, /-first/);
+    assert.match(diff.stdout, /\+second/);
+    const used = await nb(["file", "use", "src/app.ts", "1", "--json"]);
+    assert.equal(used.code, 0, used.stderr);
+    assert.equal(JSON.parse(used.stdout).data.from, 1);
+    assert.equal(b.files.get("/src/app.ts").content.toString(), "first\n", "a save on the branch");
+    assert.equal(api.state.files.get("/src/app.ts")?.content.toString(), "main app\n", "main is untouched");
+  });
+
+  it("nb init --branch starts the folder on that branch (by id); an unknown branch says how to make it", async () => {
+    await nb(["branch", "create", "feature-x", "--no-switch"]);
+    const other = await tempDir("nb-init-branch-");
+    const linked = await runCli(["init", "design-lab", "--branch", "Feature-X"], { api: api.url, cwd: other, home });
+    assert.equal(linked.code, 0, linked.stderr);
+    const cfg = JSON.parse(fs.readFileSync(path.join(other, ".networkbase", "config.json"), "utf8"));
+    assert.deepEqual(cfg.branch, { id: branch("feature-x").id, name: "feature-x" });
+    const missing = await runCli(["init", "design-lab", "--branch", "nope"], { api: api.url, cwd: await tempDir("nb-init-missing-"), home });
+    assert.notEqual(missing.code, 0);
+    assert.match(missing.stderr, /nb branch create nope/);
+  });
+
+  it("the folder's branch was deleted: the next command says so; switching to main works and keeps edits", async () => {
+    await nb(["branch", "create", "feature-x"]);
+    write("src/app.ts", "my edit\n");
+    branch("feature-x").status = "deleted";
+    const status = await nb(["status"]);
+    assert.notEqual(status.code, 0);
+    assert.match(status.stderr, /deleted/);
+    assert.match(status.stderr, /nb branch switch main/);
+    const back = await nb(["branch", "switch", "main", "--carry"]);
+    assert.equal(back.code, 0, back.stderr);
+    assert.equal(config().branch, null);
+    assert.equal(read("src/app.ts"), "my edit\n", "the edit is kept");
+  });
+
+  it("a branch renamed elsewhere keeps the folder on it (by id); the next command shows the new name", async () => {
+    await nb(["branch", "create", "feature-x"]);
+    branch("feature-x").name = "feature-y";
+    const status = await nb(["status", "--json"]);
+    assert.equal(status.code, 0, status.stderr);
+    assert.equal(JSON.parse(status.stdout).data.branch, "feature-y");
+    assert.equal(config().branch.name, "feature-y");
+  });
 });

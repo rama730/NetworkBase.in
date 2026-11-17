@@ -2722,9 +2722,9 @@
       "text": "nb file history shows that branch's saves",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "moved to M8: file commands on a branch come with branches (Part H)"
+      "status": "tested",
+      "test": "packages/nb-cli/test/branch.test.mjs; tests/db/branches.test.ts (C14b)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): nb file history on a branch folder lists the branch saves that changed the file"
     },
     {
       "key": "C14b.c5fb135d",
@@ -2732,9 +2732,9 @@
       "text": "nb file use on a branch makes a save there",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "moved to M8: file commands on a branch come with branches (Part H)"
+      "status": "tested",
+      "test": "packages/nb-cli/test/branch.test.mjs; tests/db/branches.test.ts (C14b)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): POST /branches/:b/use; nb file use <path> <save> makes a save on the branch"
     },
     {
       "key": "C14b.e85d8d25",
@@ -2742,9 +2742,9 @@
       "text": "nb diff compares with that branch",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "moved to M8: file commands on a branch come with branches (Part H)"
+      "status": "tested",
+      "test": "packages/nb-cli/test/branch.test.mjs",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): nb diff on a branch folder compares with the branch copy; --from/--to are branch saves (raw ?save=n)"
     },
     {
       "key": "C15.3e811474",
@@ -7602,9 +7602,9 @@
       "text": "Uploads and drops on main offer the same.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "partial (H-4): uploads/drops on a protected main stop with 'main is protected: use a branch'; one-click upload to a new branch not built"
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts (H5, H24 upload offer)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): uploads and drops on main offer a new branch"
     },
     {
       "key": "H5.9412e416",
@@ -7642,9 +7642,9 @@
       "text": "nb init links the folder to main (or --branch <name>).",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/branch.test.mjs (nb init --branch)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): nb init --branch <name> stores the branch by id and remembers git head"
     },
     {
       "key": "H6.0eb61038",
@@ -7892,9 +7892,9 @@
       "text": "Task files and final files · Stay on main (H2). A merge request can attach its result as a final file on the task through an explicit button",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/merge-requests.spec.ts (H8 attach)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): a merged merge request with a task: Attach to #N lists the merged files; one becomes a final file through linkNodeToTask"
     },
     {
       "key": "H8.70757f57",
@@ -7912,9 +7912,9 @@
       "text": "Docs and README · Files on a branch show the branch's README; the Documents tab and the workspace page show main",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts (a file opens in the app viewer on a branch)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): a README opened on a branch shows the branch copy; Documents and the workspace page read main"
     },
     {
       "key": "H8.bb07cc33",
@@ -7922,9 +7922,9 @@
       "text": "Versions panel · Shows main's versions; on a branch, a file's history is that branch's saves plus main's history before the branch began",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/history.spec.ts; tests/db/branches.test.ts",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): a branch file has History (filtered to it); a branch History continues with main saves before it began (listSaves mainBefore)"
     },
     {
       "key": "H8.fa62e0e3",
@@ -7952,9 +7952,9 @@
       "text": "Search · Searches the branch you're on (Part G index for main, plus the branch's own files)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-set-fs.test.ts (H8); tests/browser/branches.spec.ts (keys)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): / on a branch searches its files; nb fs list/read/search on a branch folder use the branch (also fixes change sets on a branch reading main)"
     },
     {
       "key": "H8.ab0529d4",
@@ -7982,9 +7982,9 @@
       "text": "Notifications and inbox · Merge request events (H4); branch saves notify only watchers of that branch",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/branches.test.ts (H8, H24 watchers)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): branch saves notify only its watchers: creator and savers still in the workspace, never the saver"
     },
     {
       "key": "H8.f05293f5",
@@ -7992,9 +7992,9 @@
       "text": "Undo · Every save can be reverted; a merge has one Undo right after merging",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/merge-requests.spec.ts (H8 Undo)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): the merge toast has Undo, which reverts the merge save"
     },
     {
       "key": "H8.f3016ecc",
@@ -8022,9 +8022,9 @@
       "text": "Realtime · Saves, merges and merge-request events broadcast on the workspace topic, so open tabs on that branch refresh",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/branches.test.ts",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): branch.updated and merge_request.updated broadcast on live:files:<workspace> with ids only; the Files tab refetches branches, saves and merge requests"
     },
     {
       "key": "H8.a1e858d5",
@@ -8032,9 +8032,9 @@
       "text": "Previews and thumbnails · Work by content (asset), so a branch's files preview like main's",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/branches.spec.ts (previews an image)",
+      "evidence": "M9 B2 2026-11-18: live since H-2b (c0210f060): branch files preview by asset; checked on ponytail 2026-11-17"
     },
     {
       "key": "H9.9a87d113",
@@ -9582,9 +9582,9 @@
       "text": "Protected main and the Documents tab README editor · Saving offers \"Save to a new branch\" and opens a merge request; the Documents tab keeps showing main until ",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts; tests/browser/text-selection.spec.ts",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): the README Edit opens the Files editor, which saves to a new branch on a protected main; a starter README goes to a new branch"
     },
     {
       "key": "H24.ef20807a",
@@ -9592,9 +9592,9 @@
       "text": "Protected main and drops or uploads · Offered a branch (H5)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "partial (H-4): uploads/drops on a protected main stop with 'main is protected: use a branch'; one-click upload to a new branch not built"
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts (H5, H24 upload offer)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): uploads and drops on a protected main offer a new branch; the files are uploaded there"
     },
     {
       "key": "H24.0d0f6538",
@@ -9642,9 +9642,9 @@
       "text": "Renaming a branch · Its merge requests, linked CLI folders (stored by branch id, not name) and GitHub mapping follow. The GitHub branch is renamed only if the p",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/github-branches.test.ts (H24, H26); packages/nb-cli/test/branch.test.mjs (renamed elsewhere)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): folders keep the branch by id and pick up the new name; the GitHub link is github_branch (0102); GitHub branches are never renamed by NetworkBase"
     },
     {
       "key": "H24.df2a0af8",
@@ -9672,9 +9672,9 @@
       "text": "The branch a CLI folder is on is deleted · The next command says so and offers nb branch switch main (local edits are kept)",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/branch.test.mjs (deleted branch)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): the next command says the branch was deleted with nb branch switch main; switching keeps edits"
     },
     {
       "key": "H24.f9aee025",
@@ -9702,9 +9702,9 @@
       "text": "A member is removed from the workspace · Their branches stay (owned by the workspace) and show \"former member\"; their open merge requests stay open for others t",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/branches.test.ts (H24 archived/former); tests/browser/merge-requests.spec.ts (H26)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): branches and merge request people who left show former member"
     },
     {
       "key": "H24.e8d5bd2e",
@@ -9712,9 +9712,9 @@
       "text": "A person deletes their account · Their branches and merge requests stay, shown as \"deleted user\", as other authored content is today",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/merge-requests.spec.ts",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): a person whose account is gone shows Deleted user"
     },
     {
       "key": "H24.6335c753",
@@ -9722,9 +9722,9 @@
       "text": "The workspace is archived · Branches and merge requests become read-only",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/branches.test.ts (H24 archived/former)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): an archived workspace: branch and merge request writes refused with a clear reason"
     },
     {
       "key": "H24.6b599d50",
@@ -9752,9 +9752,9 @@
       "text": "Someone opens an old link to a deleted branch · \"This branch was deleted on <date>\", with Restore (within 30 days, for those allowed) or Go to main",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/branches.spec.ts (H24 old link)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): an old link to a deleted branch: This branch was deleted on <date>, Restore, Go to main"
     },
     {
       "key": "H24.63dd1d3d",
@@ -9762,9 +9762,9 @@
       "text": "Many saves in a short time (an agent saving every few seconds) · Branch watchers get one batched notification per 15 minutes, as agent session summaries are bat",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/branches.test.ts (H8, H24 watchers)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): one aggregated notification per branch per watcher per 15 minutes"
     },
     {
       "key": "H25.8a5f1b18",
@@ -9862,9 +9862,9 @@
       "text": "Branch identity: CLI folders, GitHub mappings, merge requests and links store the branch id. Names are only for display and the address; a renamed branch's old ",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/github-branches.test.ts (H24, H26)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): branch ids everywhere; old name finds the branch for 30 days (previous_name, renamed_at, 0102)"
     },
     {
       "key": "H26.3cd8c4f9",
@@ -9872,9 +9872,9 @@
       "text": "Reference words:",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/merge-requests.spec.ts (H26 !3)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): !3 in comments links to the merge request; Closes #4 closes the task (H-3)"
     },
     {
       "key": "H26.06034e2a",
@@ -9892,9 +9892,9 @@
       "text": "Search on any branch: the Part G text index is keyed by content hash (G14). A branch's files, and any save's files, are searched through the same index without ",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/change-set-fs.test.ts (H8)",
+      "evidence": "M9 B2 2026-11-18 (local, not deployed): branch files are searched through the content-hash index"
     },
     {
       "key": "H26.d68825f7",
@@ -9932,9 +9932,9 @@
       "text": "Export (F8): nb export covers main by default; --branch <name> exports a branch; --all-branches adds each active branch as a folder in the zip.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "packages/nb-cli/test/admin.test.mjs; tests/db/cli-admin.test.ts",
+      "evidence": "M9 B2 2026-11-18: route and CLI flags live in M7 (c3d9f6500, CLI 2.5.0); branch flags tested in M9 B2"
     },
     {
       "key": "H26.a084f884",

@@ -20,6 +20,9 @@ moduleStubs.set("@/lib/supabase/server", {
   }) } }),
 });
 
+// Branch watchers' notifications (H8, H24) are caught here instead of queued.
+const sent: Array<{ kind: string; title: string; recipientUserId: string; dedupeKey: string; operation?: string }> = [];
+moduleStubs.set("@/lib/notifications/fanout", { enqueueNotificationFanout: async (e: { writes: Array<{ operation: string; input: { kind: string; title: string; recipientUserId: string; dedupeKey: string } }> }) => { for (const w of e.writes) sent.push({ ...w.input, operation: w.operation }); return { enqueued: e.writes.length }; } });
 type Branches = typeof import("../../src/lib/domain/branches");
 type Saves = typeof import("../../src/lib/domain/saves");
 type Sets = typeof import("../../src/lib/domain/change-sets");
@@ -334,4 +337,64 @@ test("H-2b: the upload finish only applies an upload on a branch, never a change
   const bytes = Buffer.from("x\n");
   const { changeSetId } = await branches.beginUploadOnBranch(o, branch.id, [{ path: "/x.txt", hash: sha(bytes), size: 2, mimeType: "text/plain" }]);
   await assert.rejects(branches.finishUploadOnBranch(actor(other), request(), changeSetId), { code: "NOT_FOUND" }, "someone else's upload");
+});
+
+test("C14b: a file as a branch save left it: read it, use it as a new save; a save that didn't change it says so", async () => {
+  const { owner, workspace, mainId } = await setup();
+  const o = actor(owner);
+  const { branch } = await branches.createBranch(o, workspace, { name: "feature-x" });
+  await onBranch(owner, workspace, branch.id, "First", { "/README.md": "# First\n" });
+  await onBranch(owner, workspace, branch.id, "Second", { "/README.md": "# Second\n", "/docs/b.md": "b\n" });
+  const history = await saves.listSaves(o, workspace, { branch: branch.id, path: "/README.md" });
+  assert.deepEqual(history.saves.map((s) => s.number), [2, 1], "nb file history on the branch");
+  const at1 = await branches.branchFileAtSave(o, branch.id, "/README.md", 1);
+  assert.equal(stored.get(at1.file.storageKey!)?.toString(), "# First\n");
+  await assert.rejects(branches.branchFileAtSave(o, branch.id, "/docs/b.md", 1), { code: "NOT_FOUND" });
+  const used = await branches.useSaveOnBranch(o, branch.id, { path: "/README.md", save: 1 });
+  assert.equal(used.save?.number, 3);
+  assert.equal(await textOn(branch, mainId, "/README.md"), "# First\n");
+  assert.equal((await branches.useSaveOnBranch(o, branch.id, { path: "/README.md", save: 1 })).save, null, "already like that");
+  const [main] = await sql`SELECT current_version FROM workspace_nodes WHERE workspace_id = ${workspace} AND path = '/README.md'`;
+  assert.equal(main!.current_version, 1, "main is untouched");
+  const outsider = await sql.begin((tx) => createUser(tx));
+  await assert.rejects(branches.useSaveOnBranch(actor(outsider), branch.id, { path: "/README.md", save: 1 }));
+});
+
+test("H8, H24: saves on a branch tell its watchers (never the saver), one notification per 15 minutes, counted up", async () => {
+  const { owner, workspace } = await setup();
+  const sam = await sql.begin((tx) => createUser(tx));
+  await sql.begin((tx) => addMember(tx, workspace, sam, "member"));
+  const { branch } = await branches.createBranch(actor(owner), workspace, { name: "feature-x" });
+  sent.length = 0;
+  await branches.saveTextOnBranch(actor(owner), branch.id, { path: "/notes.md", text: "one\n" });
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(sent.filter((n) => n.kind === "branch_saves").length, 0, "nobody else watches it yet");
+  await branches.saveTextOnBranch(actor(sam), branch.id, { path: "/notes.md", text: "two\n", expectedHash: sha("one\n") });
+  await branches.saveTextOnBranch(actor(sam), branch.id, { path: "/notes.md", text: "three\n", expectedHash: sha("two\n") });
+  for (let i = 0; i < 40 && sent.filter((n) => n.kind === "branch_saves").length < 2; i++) await new Promise((r) => setTimeout(r, 50));
+  const toOwner = sent.filter((n) => n.kind === "branch_saves" && n.recipientUserId === owner);
+  assert.equal(toOwner.length, 2);
+  assert.equal(new Set(toOwner.map((n) => n.dedupeKey)).size, 1, "one notification per window, aggregated");
+  assert.ok(toOwner.every((n) => n.operation === "aggregate" && /saved on feature-x/.test(n.title)));
+  assert.equal(sent.filter((n) => n.recipientUserId === sam).length, 0, "the saver isn't told");
+  // Someone who left isn't told about the branch any more.
+  await sql`DELETE FROM workspace_members WHERE workspace_id = ${workspace} AND user_id = ${sam}`;
+  sent.length = 0;
+  await branches.saveTextOnBranch(actor(owner), branch.id, { path: "/notes.md", text: "four\n", expectedHash: sha("three\n") });
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(sent.filter((n) => n.recipientUserId === sam).length, 0, "a former member isn't told");
+});
+
+test("H24: an archived workspace's branches are read-only; someone removed shows as a former member", async () => {
+  const { owner, workspace } = await setup();
+  const sam = await sql.begin((tx) => createUser(tx));
+  await sql.begin((tx) => addMember(tx, workspace, sam, "member"));
+  const { branch } = await branches.createBranch(actor(sam), workspace, { name: "sam/idea" });
+  await sql`DELETE FROM workspace_members WHERE workspace_id = ${workspace} AND user_id = ${sam}`;
+  const list = await branches.listBranches(actor(owner), workspace);
+  assert.equal(list.branches.find((b) => b.id === branch.id)?.createdBy?.former, true, "former member");
+  await sql`UPDATE workspaces SET status = 'archived' WHERE id = ${workspace}`;
+  await assert.rejects(branches.saveTextOnBranch(actor(owner), branch.id, { path: "/a.md", text: "x" }), /archived, so its branches and merge requests are read-only/);
+  await assert.rejects(branches.createBranch(actor(owner), workspace, { name: "late" }));
+  assert.ok((await branches.listBranches(actor(owner), workspace)).branches.length >= 2, "still readable");
 });

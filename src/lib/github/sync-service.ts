@@ -428,9 +428,7 @@ export async function compareSync(
     throw new Error("A new branch needs an existing starting commit");
   // Which NetworkBase side (report H6): main for the default branch, else the branch of the same name (H-5).
   const [settings] = await db.select({ on: workspaces.branchesEnabled }).from(workspaces).where(eq(workspaces.id, ctx.project.id)).limit(1);
-  const [twin] = settings?.on && repo && !input.newBranch && branch !== repo.default_branch
-    ? await db.select().from(branches).where(and(eq(branches.workspaceId, ctx.project.id), sql`lower(${branches.name}) = lower(${branch})`, ne(branches.status, "deleted"), eq(branches.isDefault, false))).limit(1)
-    : [];
+  const twin = settings?.on && repo && !input.newBranch && branch !== repo.default_branch ? await githubTwin(ctx.project.id, branch) : null;
   const side = mapLocalSide({
     branchesOn: Boolean(settings?.on), direction: input.direction, githubBranch: branch, defaultBranch: repo?.default_branch ?? null,
     newBranch: Boolean(input.newBranch), nbBranch: twin ? { id: twin.id, status: twin.status } : null,
@@ -1212,6 +1210,24 @@ export function syncRunView(
     manifest: redactSyncManifest(run.manifest),
     result: run.result,
   };
+}
+
+/**
+ * The NetworkBase branch for a GitHub branch (H-5, H24): the one linked to it by an earlier sync (so a rename keeps the
+ * link), else the one of the same name that isn't linked elsewhere.
+ */
+export async function githubTwin(projectId: string, githubBranch: string) {
+  const [twin] = await db.select().from(branches).where(and(eq(branches.workspaceId, projectId), ne(branches.status, "deleted"), eq(branches.isDefault, false),
+    sql`(lower(${branches.githubBranch}) = lower(${githubBranch}) OR (${branches.githubBranch} IS NULL AND lower(${branches.name}) = lower(${githubBranch})))`))
+    .orderBy(sql`${branches.githubBranch} IS NULL`).limit(1);
+  return twin ?? null;
+}
+
+/** After a branch's sync, it remembers its GitHub branch (H24). `tx` is the run's transaction. */
+export async function linkGithubBranch(tx: { execute: typeof db.execute }, projectId: string, local: { branchId: string | null; name: string }, githubBranch: string) {
+  await tx.execute(sql`UPDATE branches SET github_branch = coalesce(github_branch, ${githubBranch})
+    WHERE workspace_id = ${projectId} AND NOT is_default AND status = 'active'
+      AND (id = ${local.branchId ?? null}::uuid OR (${local.branchId ?? null}::uuid IS NULL AND lower(name) = lower(${local.name})))`);
 }
 
 /** The NetworkBase branch a review used is still as it was (or, for one a pull creates, still doesn't exist). */

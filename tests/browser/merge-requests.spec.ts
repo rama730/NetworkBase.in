@@ -24,7 +24,7 @@ function detail(over: { state?: string; canReview?: boolean; merged?: boolean; n
     moreSaves: false,
     files: over.merged ? null : { files: [{ path: '/README.md', op: 'change', size: 20 }], truncated: false },
     comments: [
-      { id: 'c1', author: SAM, madeWith: null, body: 'Looks good', reviewState: 'approved', path: null, line: null, endLine: null, onEarlierSave: true, suggestion: null, original: null, appliedSaveId: null, resolved: false, createdAt: '2026-11-17T08:30:00Z', mine: false },
+      { id: 'c1', author: { ...SAM, former: true }, madeWith: null, body: 'Looks good, like !2', reviewState: 'approved', path: null, line: null, endLine: null, onEarlierSave: true, suggestion: null, original: null, appliedSaveId: null, resolved: false, createdAt: '2026-11-17T08:30:00Z', mine: false },
       { id: 'c2', author: SAM, madeWith: null, body: 'Shorter?', reviewState: null, path: '/README.md', line: 1, endLine: 1, onEarlierSave: false, suggestion: '# Header', original: '# The new header', appliedSaveId: null, resolved: false, createdAt: '2026-11-17T08:40:00Z', mine: false },
     ],
     events: [{ id: '1', kind: 'opened', actor: RAM, madeWith: 'with Claude Code', data: {}, createdAt: '2026-11-17T08:00:00Z' }],
@@ -54,6 +54,9 @@ async function open(page: Page, { width = 1440, theme = 'light', path = '/', can
         return { success: true, data: { outcome: 'merged', method: a[2], save: { id: 'm9', number: 9 }, undoToken: null, task: { number: 4, outcome: 'done' }, branch: { id: 'b1', name: 'ram/try-header' } } };
       },
       branchDiffAction: async (_b: string, path: string) => ({ success: true, data: { kind: 'text', added: 1, removed: 1, lines: [{ kind: '@', text: '@@ -1 +1 @@' }, { kind: '-', text: 'old' }, { kind: '+', text: `new in ${path}` }] } }),
+      getSaveAction: async () => ({ success: true, data: { save: { id: 'm9', number: 9 }, files: [{ path: '/README.md', op: 'change' }, { path: '/old.md', op: 'delete' }], truncated: false } }),
+      attachMergeResultAction: async (...a: unknown[]) => { calls.push(['attach', ...a]); return { success: true, data: { path: a[2], task: 4 } }; },
+      revertSaveAction: async (...a: unknown[]) => { calls.push(['revert', ...a]); return { success: true, data: { outcome: 'reverted' } }; },
     };
   }, { summary, D: detail({ canReview, needs }), DM: detail({ state: 'merged', merged: true }), conflicts });
   await openApp(page, 'tests/browser/merge-requests.fixture.tsx', { path, head: theme === 'dark' ? "document.documentElement.classList.add('dark')" : '' });
@@ -163,4 +166,21 @@ test('0.8 #1: an empty filter says what goes there', async ({ page }) => {
   await open(page);
   await page.getByTestId('mr-filter-merged').click();
   await expect(page.getByText('No merged merge requests.')).toBeVisible();
+});
+
+test('H8: a merged merge request with a task attaches one of its files as a final file; Undo right after merging reverts it', async ({ page }) => {
+  await open(page, { path: '/?mr=3' });
+  await page.getByRole('button', { name: 'Merge', exact: true }).click();
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(async () => (await page.evaluate(() => (window as any).__calls)).find((c: unknown[]) => c[0] === 'revert')).toEqual(['revert', 'm9']);
+  await page.getByRole('button', { name: 'Attach to #4 as final file' }).click();
+  await expect(page.getByRole('menuitem', { name: '/old.md' })).toHaveCount(0);
+  await page.getByRole('menuitem', { name: '/README.md' }).click();
+  await expect.poll(async () => (await page.evaluate(() => (window as any).__calls)).find((c: unknown[]) => c[0] === 'attach')).toEqual(['attach', 'p1', 3, '/README.md']);
+});
+
+test('H26: !3 in a comment links to that merge request; someone who left shows "former member"', async ({ page }) => {
+  await open(page, { path: '/?mr=3' });
+  await expect(page.getByRole('link', { name: '!2' })).toHaveAttribute('href', /mr=2/);
+  await expect(page.getByText('(former member)')).toBeVisible();
 });

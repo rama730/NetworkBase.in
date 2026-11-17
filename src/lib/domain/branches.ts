@@ -8,13 +8,16 @@ import crypto from "node:crypto";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
+import { enqueueNotificationFanout } from "@/lib/notifications/fanout";
+import { broadcast } from "@/lib/realtime/server-broadcast";
 import { branchFiles, branches, changeSetItems, changeSets, profiles, saves, tasks } from "@/lib/db/schema";
 import { branchNameProblem } from "@/lib/branches/names";
 import { labelScope } from "@/lib/agents/via-scope";
 import { visibleVia } from "@/lib/agents/via-visibility";
 import { ChangeSetError, diffAssets, isTextual, normalizeChangePath, readAsset, storeWorkspaceBytes, type Actor, type ChangeSet, type ItemDiff } from "@/lib/domain/change-sets";
 import { scanForSecrets } from "@/lib/security/secret-scan";
-import { mainBranch, mainTreeCte, memberAccess, SAVE_LIMITS } from "@/lib/domain/saves";
+import { formerMembers, mainBranch, mainTreeCte, memberAccess, readOnlyWhy, SAVE_LIMITS } from "@/lib/domain/saves";
 import { isMergeableText, merge3 } from "../../../packages/nb-cli/lib/sync/merge3.mjs";
 
 const fail = (message: string, status: number, code: string, details?: Record<string, unknown>): never => {
@@ -48,8 +51,12 @@ export async function findBranch(actor: Actor, workspaceId: string, ref: string)
   if (!value || value.toLowerCase() === "main") return (await db.select().from(branches).where(eq(branches.id, main.id)))[0]!;
   const [row] = await db.select().from(branches).where(and(eq(branches.workspaceId, workspaceId), UUID.test(value) ? eq(branches.id, value) : sql`lower(${branches.name}) = lower(${value})`))
     .orderBy(sql`${branches.status} = 'deleted'`, desc(branches.updatedAt)).limit(1);
-  if (!row) fail(`No branch ${value} here`, 404, "BRANCH_NOT_FOUND");
-  return row!;
+  if (row) return row;
+  // A renamed branch's old name still finds it for 30 days (H26): old links and folders keep working.
+  const [renamed] = UUID.test(value) ? [] : await db.select().from(branches).where(and(eq(branches.workspaceId, workspaceId), sql`lower(${branches.previousName}) = lower(${value})`,
+    sql`${branches.renamedAt} > now() - make_interval(days => ${BRANCH_LIMITS.restoreDays})`)).orderBy(desc(branches.renamedAt)).limit(1);
+  if (!renamed) fail(`No branch ${value} here`, 404, "BRANCH_NOT_FOUND");
+  return renamed!;
 }
 
 /** The branch, checked: the workspace's people only (H26), writers for changes. */
@@ -59,7 +66,7 @@ export async function loadBranch(actor: Actor, branchId: string, opts: { write?:
   if (!branch) fail("Branch not found", 404, "BRANCH_NOT_FOUND");
   const who = await memberAccess(actor, branch!.workspaceId);
   const main = await mainBranch(branch!.workspaceId);
-  if (opts.write && !who.canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
+  if (opts.write && !who.canWrite) fail(readOnlyWhy(who), 403, "FORBIDDEN");
   return { branch: branch!, main, ...who };
 }
 
@@ -126,7 +133,7 @@ const same = (a: State, b: State) => (a == null || b == null ? a === b : a.hash 
 
 export type BranchView = {
   id: string; name: string; isDefault: boolean; status: string;
-  createdBy: { id: string; name: string | null; username: string | null; avatarUrl?: string | null } | null;
+  createdBy: { id: string; name: string | null; username: string | null; avatarUrl?: string | null; former?: boolean } | null;
   task: { id: string; number: number | null } | null;
   ahead: number; behind: number; changedFiles: number; stale: boolean;
   lastSave: { id: string; number: number; message: string; createdAt: string; madeWith: string | null } | null;
@@ -164,7 +171,9 @@ async function viewsOf(viewerId: string, workspaceId: string, mainHead: string |
   const heads = rows.flatMap((r) => (r.headSaveId ? [r.headSaveId] : []));
   const last = heads.length ? await db.select().from(saves).where(inArray(saves.id, heads)) : [];
   const people = [...new Set(rows.flatMap((r) => (r.createdBy ? [r.createdBy] : [])))];
-  const who = people.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, people)) : [];
+  const former = await formerMembers(workspaceId, people);
+  const who = (people.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, people)) : [])
+    .map((p) => (former.has(p.id) ? { ...p, former: true } : p));
   const taskIds = [...new Set(rows.flatMap((r) => (r.taskId ? [r.taskId] : [])))];
   const taskRows = taskIds.length ? await db.select({ id: tasks.id, number: tasks.taskNumber }).from(tasks).where(inArray(tasks.id, taskIds)) : [];
   const scope = await labelScope(viewerId, workspaceId);
@@ -202,8 +211,8 @@ export async function getBranch(actor: Actor, branchId: string) {
 /** A new branch from main (as it is now) or from another branch (with its files), optionally for a task. */
 export async function createBranch(actor: Actor, workspaceId: string, input: { name: string; from?: string | null; taskId?: string | null }) {
   const userId = userOf(actor);
-  const { canWrite } = await memberAccess(actor, workspaceId);
-  if (!canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
+  const who = await memberAccess(actor, workspaceId);
+  if (!who.canWrite) fail(readOnlyWhy(who), 403, "FORBIDDEN");
   const main = await mainBranch(workspaceId);
   const name = String(input.name ?? "").trim();
   const problem = branchNameProblem(name);
@@ -242,7 +251,8 @@ export async function renameBranch(actor: Actor, branchId: string, rawName: stri
   const problem = branchNameProblem(name);
   if (problem) fail(problem, 400, "BAD_BRANCH_NAME");
   try {
-    await db.update(branches).set({ name, updatedAt: new Date() }).where(eq(branches.id, branch.id));
+    // The old name keeps working for 30 days (H26); the GitHub link is by github_branch, so it stays (H24).
+    if (name !== branch.name) await db.update(branches).set({ name, previousName: branch.name, renamedAt: new Date(), updatedAt: new Date() }).where(eq(branches.id, branch.id));
   } catch (error) {
     if ((error as { code?: string })?.code === "23505" || (error as { cause?: { code?: string } })?.cause?.code === "23505") fail(`A branch named ${name} already exists`, 409, "BRANCH_EXISTS");
     throw error;
@@ -298,6 +308,54 @@ type WriteInput = {
  * only paths that differ from the base in branch_files; records the save and its changes.
  */
 export async function writeBranch(branchId: string, input: WriteInput) {
+  const done = await writeBranchTx(branchId, input);
+  if (done.save) {
+    if ((input.kind ?? "save") !== "merge") void notifyBranchWatchers(done.branch, done.save, input.authorId);
+    // Open tabs on this branch refresh (H8, H26 events: ids only, clients refetch what they may see).
+    void broadcast([{ topic: `live:files:${done.branch.workspaceId}`, event: "branch.updated", payload: { branchId: done.branch.id } }]);
+  }
+  return done;
+}
+
+/**
+ * Saves on a branch tell its watchers (H8, H24): whoever made it and whoever saved on it, never the saver. An agent
+ * saving every few seconds makes one notification per watcher per 15 minutes, counted up (aggregate per window).
+ */
+async function notifyBranchWatchers(branch: Branch, save: typeof saves.$inferSelect, authorId: string) {
+  try {
+    const rows = Array.from(await db.execute<{ id: string }>(sql`
+      SELECT DISTINCT u.id FROM (SELECT ${branch.createdBy}::uuid AS id UNION SELECT author_id FROM saves WHERE branch_id = ${branch.id} AND author_id IS NOT NULL) u
+      WHERE u.id IS NOT NULL AND u.id <> ${authorId}::uuid
+        -- Only people still in the workspace hear about its branches.
+        AND (u.id = (SELECT owner_id FROM workspaces WHERE id = ${branch.workspaceId})
+          OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = ${branch.workspaceId} AND m.user_id = u.id))
+      LIMIT 50`));
+    if (!rows.length) return;
+    const [who] = await db.select({ name: profiles.fullName, username: profiles.username }).from(profiles).where(eq(profiles.id, authorId)).limit(1);
+    const person = who?.name ?? (who?.username ? `@${who.username}` : "Someone");
+    const name = save.via === "agent" ? `${person}'s ${save.agentName ?? "agent"}` : person;
+    const window = Math.floor(Date.now() / (15 * 60_000));
+    await enqueueNotificationFanout({
+      source: "branch-saves",
+      writes: rows.map((r) => ({
+        operation: "aggregate" as const,
+        input: {
+          recipientUserId: r.id, actorUserId: authorId, kind: "branch_saves" as const, category: "workflows" as const, importance: "more" as const,
+          title: `${name} saved on ${branch.name}`.slice(0, 200), body: (save.message ?? "").slice(0, 200),
+          href: `/workspaces/${branch.workspaceId}?tab=files&filesView=history&branch=${encodeURIComponent(branch.name)}`,
+          entityRefs: { projectId: branch.workspaceId },
+          dedupeKey: `branch-saves:${branch.id}:${window}`,
+          sourceEventId: save.id,
+        },
+      })),
+    });
+  } catch (error) {
+    // A notification never undoes a save.
+    logger.warn("branches.notify_failed", { module: "branches", error: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+async function writeBranchTx(branchId: string, input: WriteInput) {
   return db.transaction(async (tx) => {
     const [branch] = await tx.select().from(branches).where(eq(branches.id, branchId)).for("update");
     if (!branch || branch.isDefault) fail("Branch not found", 404, "BRANCH_NOT_FOUND");
@@ -543,6 +601,46 @@ export async function saveTextOnBranch(actor: Actor, branchId: string, input: { 
   return { save: save ? { id: save.id, number: save.seq } : null };
 }
 
+/** A file as save `n` of a branch left it (C14b): that save's change to the path. */
+async function fileAtBranchSave(branch: Branch, path: string, n: number) {
+  if (!Number.isInteger(n) || n < 1) fail("Name the save by its number, like 3", 400, "BAD_REQUEST");
+  const [row] = Array.from(await db.execute<{ after_path: string | null; content_hash: string | null; asset_id: string | null; storage_key: string | null; size: string | null; mime_type: string | null }>(sql`
+    SELECT sc.after_path, sc.content_hash, sc.asset_id, a.storage_key, sc.size::text, sc.mime_type
+    FROM saves s JOIN save_changes sc ON sc.save_id = s.id LEFT JOIN storage_assets a ON a.id = sc.asset_id
+    WHERE s.branch_id = ${branch.id} AND s.seq = ${n} AND (sc.after_path = ${path} OR sc.before_path = ${path})
+    ORDER BY (sc.after_path = ${path}) DESC LIMIT 1`));
+  if (!row) fail(`Save ${n} on ${branch.name} didn't change ${path}`, 404, "NOT_FOUND", { hint: `nb file history ${path.slice(1)}` });
+  if (row!.after_path !== path || !row!.content_hash) fail(`Save ${n} removed ${path}; there's no file there to use`, 409, "NOT_AVAILABLE");
+  return { path, contentHash: row!.content_hash!.toLowerCase(), assetId: row!.asset_id, storageKey: row!.storage_key, size: row!.size == null ? null : Number(row!.size), mimeType: row!.mime_type };
+}
+
+/** One file of a branch as save `n` left it, for `nb diff --from` on a branch (C14b). */
+export async function branchFileAtSave(actor: Actor, branchId: string, rawPath: string, n: number) {
+  const { branch } = await loadBranch(actor, branchId);
+  return { branch, file: await fileAtBranchSave(branch, normalizeChangePath(rawPath), n) };
+}
+
+/**
+ * `nb file use <path> <n>` on a branch (C14b): the file as save n of this branch left it becomes a new save on the
+ * branch. Only saves that changed the file count, the ones `nb file history` lists there.
+ */
+export async function useSaveOnBranch(actor: Actor, branchId: string, input: { path: string; save: number }) {
+  const userId = userOf(actor);
+  const { branch, main } = await loadBranch(actor, branchId, { write: true });
+  if (branch.isDefault) fail("On main, nb file use takes a version: nb file history shows them", 409, "MAIN_BRANCH");
+  const path = normalizeChangePath(input.path);
+  const n = Number(input.save);
+  const row = await fileAtBranchSave(branch, path, n);
+  const [now] = (await branchTree(branch, main.id, { paths: [path] })).files;
+  if (now?.contentHash === row.contentHash) return { save: null, path, from: n };
+  const { save } = await writeBranch(branch.id, {
+    changes: [{ op: now ? "change" : "add", path, contentHash: row.contentHash, assetId: row.assetId, size: row.size, mimeType: row.mimeType }],
+    expectedHead: branch.headSaveId, message: `Used ${path.split("/").pop()} from save ${n}`, authorId: userId,
+    via: actor.tokenKind === "agent" ? "agent" : actor.tokenKind ? "cli" : null,
+  });
+  return { save: save ? { id: save.id, number: save.seq } : null, path, from: n };
+}
+
 /** Every file of a branch at or under `folder` (all pages; a branch holds at most 20,000 files here). */
 export async function filesUnder(branch: Branch, mainId: string, folder: string | null) {
   const out: TreeEntry[] = [];
@@ -705,8 +803,8 @@ export type ProtectedChange =
  */
 export async function saveToNewBranch(actor: Actor, workspaceId: string, input: { name: string; title: string; change: ProtectedChange }) {
   const userId = userOf(actor);
-  const { canWrite } = await memberAccess(actor, workspaceId);
-  if (!canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
+  const who = await memberAccess(actor, workspaceId);
+  if (!who.canWrite) fail(readOnlyWhy(who), 403, "FORBIDDEN");
   const c = input.change;
   // What goes on the branch, read from main before the branch exists (so a bad request makes no branch).
   let changes: BranchChange[] = [];

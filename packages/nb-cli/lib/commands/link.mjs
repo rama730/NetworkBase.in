@@ -37,16 +37,27 @@ export async function init(ctx) {
     chosen = workspaces.find((/** @type {any} */ w) => w.slug === slug);
   }
   const remoteRoot = ctx.flags.path ? `/${String(ctx.flags.path).replace(/^\/+|\/+$/g, "")}` : "/";
-  writeProjectConfig(here, { workspaceId: chosen.id, slug: chosen.slug, title: chosen.title, remoteRoot: remoteRoot === "/" ? "/" : remoteRoot, startedTask: null, linkedAt: new Date().toISOString() });
+  // --branch <name> (H6): the folder starts on that NetworkBase branch; main otherwise. It is stored by id, so a
+  // rename keeps the folder on it, and git's branch now is remembered so it isn't followed straight back to main.
+  let branch = null;
+  const wanted = ctx.flags.branch ? String(ctx.flags.branch) : null;
+  if (wanted && wanted.toLowerCase() !== "main") {
+    const { branches } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(chosen.id)}/branches`));
+    const found = branches.find((/** @type {any} */ b) => !b.isDefault && b.name.toLowerCase() === wanted.toLowerCase());
+    if (!found) throw new CliError("BRANCH_NOT_FOUND", `No branch ${wanted} in ${chosen.slug}`, { hint: `nb init ${chosen.slug}, then nb branch create ${wanted}` });
+    branch = { id: found.id, name: found.name };
+  }
+  const { readGitHead } = await import("./branch.mjs");
+  writeProjectConfig(here, { workspaceId: chosen.id, slug: chosen.slug, title: chosen.title, remoteRoot: remoteRoot === "/" ? "/" : remoteRoot, startedTask: null, linkedAt: new Date().toISOString(), ...(branch ? { branch, gitBranch: readGitHead(here)?.branch ?? null } : {}) });
   const notes = migrateLegacy(here);
-  ctx.out.done(`Linked this folder to ${safe(chosen.title)} (${safe(chosen.slug)})${remoteRoot !== "/" ? ` · only ${remoteRoot}` : ""}`);
+  ctx.out.done(`Linked this folder to ${safe(chosen.title)} (${safe(chosen.slug)})${remoteRoot !== "/" ? ` · only ${remoteRoot}` : ""}${branch ? ` · on branch ${safe(branch.name)}` : ""}`);
   for (const note of notes) ctx.out.warn(note);
   if (ctx.flags.task) {
     const { start } = await import("./tasks.mjs");
     const ctx2 = /** @type {Context} */ ({ ...ctx, root: here, project: { workspaceId: chosen.id, slug: chosen.slug, title: chosen.title, remoteRoot, startedTask: null }, positionals: [String(ctx.flags.task)] });
     await start(ctx2);
   }
-  ctx.out.result("nb.init/1", { workspace: { id: chosen.id, slug: chosen.slug, title: chosen.title }, root: here, remoteRoot, notes }, () =>
+  ctx.out.result("nb.init/1", { workspace: { id: chosen.id, slug: chosen.slug, title: chosen.title }, root: here, remoteRoot, branch: branch?.name ?? "main", notes }, () =>
     ctx.out.c.muted(`Next: nb pull to get the files, or edit and nb push <files>${ctx.flags.task ? "" : " (nb task start <n> to work on a task)"}`));
 }
 

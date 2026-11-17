@@ -18,7 +18,7 @@ import { branchChanges, branchFileText, findBranch, mainAt, saveTextOnBranch, se
 import {
   ChangeSetError, applyChangeSet, finishChangeSet, startChangeSet, upsertItems, type Actor, type ItemInput,
 } from "@/lib/domain/change-sets";
-import { mainBranch, memberAccess, SAVE_LIMITS } from "@/lib/domain/saves";
+import { formerMembers, mainBranch, memberAccess, readOnlyWhy, SAVE_LIMITS } from "@/lib/domain/saves";
 import { enqueueNotificationFanout } from "@/lib/notifications/fanout";
 import { gateError, mergeGate, protectionOf } from "@/lib/domain/branch-protection";
 import { recordSecurityEvent } from "@/lib/security/audit";
@@ -26,6 +26,7 @@ import { changeSetStepUp, personStepUp } from "@/lib/security/change-set-step-up
 import { viaColumns } from "@/lib/server/request-via";
 import { lockTaskForWrite, transitionTaskTx } from "@/lib/workspaces/task-transition-service";
 import { logger } from "@/lib/logger";
+import { broadcast } from "@/lib/realtime/server-broadcast";
 
 const fail = (message: string, status: number, code: string, details?: Record<string, unknown>): never => {
   throw new ChangeSetError(message, status, code, details);
@@ -35,7 +36,7 @@ const isAgent = (actor: Actor) => actor.tokenKind === "agent";
 
 export const MR_LIMITS = { open: 200, saves: 250, comments: 500 };
 export type MergeRequest = typeof mergeRequests.$inferSelect;
-type Person = { id: string; name: string | null; username: string | null; avatarUrl?: string | null };
+type Person = { id: string; name: string | null; username: string | null; avatarUrl?: string | null; former?: boolean };
 const OPEN = ["draft", "open"] as const;
 
 // ── Finding ───────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ async function loadMr(actor: Actor, workspaceId: string, ref: string | number, o
   const main = await mainBranch(workspaceId);
   const [mr] = await db.select().from(mergeRequests).where(and(eq(mergeRequests.workspaceId, workspaceId), eq(mergeRequests.number, numberOf(ref)))).limit(1);
   if (!mr) fail("Merge request not found", 404, "NOT_FOUND");
-  if (opts.write && !who.canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
+  if (opts.write && !who.canWrite) fail(readOnlyWhy(who), 403, "FORBIDDEN");
   const [source] = await db.select().from(branches).where(eq(branches.id, mr!.sourceBranchId)).limit(1);
   return { mr: mr!, source: source!, main, ...who };
 }
@@ -63,10 +64,12 @@ const stillOpen = (mr: MergeRequest) => {
   if (mr.state === "closed") fail(`!${mr.number} is closed; reopen it first`, 409, "MERGE_REQUEST_CLOSED");
 };
 
-async function peopleById(ids: Array<string | null | undefined>): Promise<Map<string, Person>> {
+async function peopleById(ids: Array<string | null | undefined>, workspaceId?: string): Promise<Map<string, Person>> {
   const list = [...new Set(ids.filter((x): x is string => Boolean(x)))];
   const rows = list.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, list)) : [];
-  return new Map(rows.map((p) => [p.id, p]));
+  // People who left stay on what they did, marked "former member" (H24).
+  const former = workspaceId ? await formerMembers(workspaceId, list) : new Set<string>();
+  return new Map(rows.map((p) => [p.id, former.has(p.id) ? { ...p, former: true } : p]));
 }
 const nameOf = (p: Person | undefined) => p?.name || (p?.username ? `@${p.username}` : "Someone");
 
@@ -112,6 +115,8 @@ const EVENT_TITLE: Record<MrEvent, (who: string, ref: string) => string> = {
 };
 
 async function notify(mr: MergeRequest, event: MrEvent, actorId: string | null, recipients: Array<string | null | undefined>, sourceEventId: string) {
+  // Open Files tabs refresh the merge request (H8, H26: ids only).
+  void broadcast([{ topic: `live:files:${mr.workspaceId}`, event: "merge_request.updated", payload: { number: mr.number } }]);
   const to = [...new Set(recipients.filter((id): id is string => Boolean(id) && id !== actorId))];
   if (!to.length) return;
   const who = nameOf((await peopleById([actorId])).get(actorId ?? ""));
@@ -151,8 +156,8 @@ export async function createMergeRequest(actor: Actor, workspaceId: string, inpu
   source: string; target?: string | null; title?: string | null; description?: string | null; taskId?: string | null; draft?: boolean; reviewers?: string[] | null;
 }) {
   const userId = userOf(actor);
-  const { canWrite } = await memberAccess(actor, workspaceId);
-  if (!canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
+  const who = await memberAccess(actor, workspaceId);
+  if (!who.canWrite) fail(readOnlyWhy(who), 403, "FORBIDDEN");
   const main = await mainBranch(workspaceId);
   if (input.target && input.target.toLowerCase() !== "main" && input.target !== main.id) fail("Merge requests go into main for now", 409, "NOT_AVAILABLE");
   const source = await findBranch(actor, workspaceId, input.source);
@@ -242,7 +247,7 @@ async function summaries(viewer: string, workspaceId: string, rows: MergeRequest
       FROM merge_requests m WHERE m.id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})`).then((r) => Array.from(r)),
     db.select({ id: branches.id, name: branches.name, status: branches.status }).from(branches).where(inArray(branches.id, rows.map((r) => r.sourceBranchId))),
     (() => { const t = rows.flatMap((r) => (r.taskId ? [r.taskId] : [])); return t.length ? db.select({ id: tasks.id, number: tasks.taskNumber, title: tasks.title }).from(tasks).where(inArray(tasks.id, t)) : Promise.resolve([]); })(),
-    peopleById(rows.map((r) => r.authorId)),
+    peopleById(rows.map((r) => r.authorId), workspaceId),
     labelScope(viewer, workspaceId),
   ]);
   return rows.map((r) => {
@@ -282,7 +287,7 @@ export async function getMergeRequest(actor: Actor, workspaceId: string, ref: st
     seqOf(main.headSaveId),
     seqOf(source.mergedFromTargetSaveId),
   ]);
-  const people = await peopleById([mr.authorId, mr.mergedBy, ...reviews.map((r) => r.reviewerId), ...comments.map((c) => c.authorId), ...events.map((e) => e.actorId), ...branchSaves.map((s) => s.authorId)]);
+  const people = await peopleById([mr.authorId, mr.mergedBy, ...reviews.map((r) => r.reviewerId), ...comments.map((c) => c.authorId), ...events.map((e) => e.actorId), ...branchSaves.map((s) => s.authorId)], workspaceId);
   const scope = await labelScope(viewer, workspaceId);
   const madeWith = (row: { via: "cli" | "agent" | null; agentName: string | null; authorId: string | null }) => {
     const shown = visibleVia(scope, row);

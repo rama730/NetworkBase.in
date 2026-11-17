@@ -1,6 +1,10 @@
 "use server";
 
 import { headers } from "next/headers";
+import { and, eq, isNull } from "drizzle-orm";
+
+import { db } from "@/lib/db";
+import { workspaceNodes } from "@/lib/db/schema";
 
 import { getProtection, protectedFromDb, setProtection, type Protection } from "@/lib/domain/branch-protection";
 import type { ProtectedChange } from "@/lib/domain/branches";
@@ -69,3 +73,19 @@ export const setProtectionAction = async (projectId: string, patch: Partial<Prot
 /** On a protected main (H5, H24): the edit, version or restore goes on a new branch with a merge request instead. */
 export const saveToNewBranchAction = async (projectId: string, input: { name: string; title: string; change: ProtectedChange }) =>
   run(async (a) => (await import("@/lib/domain/branches")).saveToNewBranch(a, projectId, input));
+
+/**
+ * Task files stay on main (H8): after a merge, an explicit "Attach as final file" puts one of the merged files on the
+ * merge request's task as a final file, through the task's own link rules.
+ */
+export const attachMergeResultAction = async (projectId: string, n: number, path: string) => run(async (a) => {
+  const { mergeRequest: mr } = await getMergeRequest(a, projectId, n);
+  if (mr.state !== "merged" || !mr.task) throw new ChangeSetError("Only a merged merge request with a task can attach its result", 409, "NOT_AVAILABLE");
+  const [node] = await db.select({ id: workspaceNodes.id }).from(workspaceNodes)
+    .where(and(eq(workspaceNodes.projectId, projectId), eq(workspaceNodes.path, path), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt))).limit(1);
+  if (!node) throw new ChangeSetError(`${path} isn't in main any more`, 404, "NOT_FOUND");
+  const { linkNodeToTask } = await import("@/app/actions/files/links");
+  await linkNodeToTask(mr.task.id, node.id, { role: "deliverable" });
+  return { path, task: mr.task.number };
+});
+

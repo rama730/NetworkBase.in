@@ -27,7 +27,7 @@ import { useUploadCollisionDecision } from "./useUploadCollisionDecision";
 import { useFileTransfers } from "../files-tab/FileTransfers";
 import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 import { downloadFile, workspaceExportUrl } from "@/lib/download";
-import { useMainProtected } from "@/components/workspaces/v2/files-tab/SaveToBranch";
+import { offerUploadToBranch, useMainProtected } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 
 const PROTECTED_MAIN = "BRANCH_PROTECTED: main is protected; save to a branch and open a merge request";
 
@@ -111,6 +111,12 @@ export function useExplorerMutations({
     return true;
   }, [mainProtected, showToast]);
   const inTask = useCallback((parentId: string | null) => Boolean(parentId && nodesById[parentId]?.taskId), [nodesById]);
+  // Uploads and drops on a protected main are offered a new branch instead (H5, H24).
+  const uploadRefused = useCallback((files: File[], parentId: string | null) => {
+    if (!mainProtected || inTask(parentId)) return false;
+    offerUploadToBranch(projectId, { files, folder: (parentId ? nodesById[parentId]?.path : null) ?? "/" });
+    return true;
+  }, [inTask, mainProtected, nodesById, projectId]);
 
   const refreshAfterMutation = useCallback(async (parentId: string | null, mode: "append" | "refresh" = "refresh") => {
     await loadFolderContent(parentId, mode).catch(() => showToast("Saved · refreshing list", "warning"));
@@ -309,7 +315,7 @@ function isNonRetryableUploadError(message?: string): boolean {
   // Picker and flat drag/drop uploads share collision, finalization, and retry behavior.
   const uploadFiles = useCallback(async (files: File[], parentId: string | null, retryToastId?: string | number): Promise<WorkspaceNode[]> => {
     if (!canEdit || !files.length) return [];
-    if (refusedByMain(inTask(parentId))) return [];
+    if (uploadRefused(files, parentId)) return [];
     const validation = validateUploadSelection(files, { isFolder: false });
     if (!validation.valid) {
       showToast(validation.error || "Invalid file selection", "error");
@@ -520,7 +526,7 @@ function isNonRetryableUploadError(message?: string): boolean {
       if (!outcomeShown && progress !== undefined) toast.dismiss(progress);
     }
     return createdNodes;
-  }, [canEdit, projectId, runUniqueMutation, upsertNodes, setChildren, toggleExpanded, loadFolderContent, showToast, recordOperation, onOpenFile, chooseUploadCollision, refusedByMain, inTask]);
+  }, [canEdit, projectId, runUniqueMutation, upsertNodes, setChildren, toggleExpanded, loadFolderContent, showToast, recordOperation, onOpenFile, chooseUploadCollision, uploadRefused]);
 
   const openUpload = useCallback((parentId: string | null) => {
     if (!canEdit) return;
@@ -809,7 +815,7 @@ function isNonRetryableUploadError(message?: string): boolean {
   const uploadFilesDirectly = useCallback(
     async (files: File[], parentId: string | null, retryToastId?: string | number): Promise<WorkspaceNode[]> => {
       if (!canEdit || files.length === 0) return [];
-      if (refusedByMain(inTask(parentId))) return [];
+      if (uploadRefused(files, parentId)) return [];
       const validation = validateUploadSelection(files, { isFolder: true });
       if (!validation.valid) {
         showToast(validation.error || "Invalid folder selection", "error");
@@ -1028,7 +1034,7 @@ function isNonRetryableUploadError(message?: string): boolean {
       loadFolderContent,
       toggleExpanded,
       uploadFiles,
-      chooseUploadCollision, refusedByMain, inTask]
+      chooseUploadCollision, uploadRefused]
   );
 
   const openFolderUpload = useCallback((parentId: string | null) => {

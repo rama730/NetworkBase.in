@@ -32,6 +32,7 @@ test.beforeAll(async () => {
     "@/components/ui/RevisionControlModal": "export const RevisionControlModal = () => null;",
     // H-4 (protected main): the editor asks the server about protection; the fixture has none.
     "@/hooks/use-auth": "export const useAuth = () => ({ user: null, profile: null });",
+    "@/app/actions/files/branches": "export async function createBranchAction() {throw new Error('Fixture cannot make branches');}",
     "@/app/actions/files/merge-requests": "export async function getProtectionAction() {return {success: true, data: {rules: {requireMergeRequest: false}}};} export async function saveToNewBranchAction() {throw new Error('Fixture cannot save');}",
   };
   const stylesheet = path.resolve("src/app/globals.css");

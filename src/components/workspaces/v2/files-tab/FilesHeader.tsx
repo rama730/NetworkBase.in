@@ -481,7 +481,13 @@ export function FilesViewsMenu({
       if (e.metaKey || e.ctrlKey || e.altKey || (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable || target.closest('[role="dialog"]')))) return;
       // Some keyboards and tools report Shift+/ as "/" with Shift held; that is "?" too.
       if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); setKeysOpen(true); }
-      else if (e.key === "/") { e.preventDefault(); setDraft(""); setSurface("search"); }
+      else if (e.key === "/") {
+        e.preventDefault();
+        // On a branch, / searches that branch's files (H8), not main's.
+        const onBranch = document.getElementById("branch-name-search");
+        if (onBranch) onBranch.focus();
+        else { setDraft(""); setSurface("search"); }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

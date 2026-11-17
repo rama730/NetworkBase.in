@@ -157,7 +157,7 @@ export function BranchesCollection({ projectId }: { projectId: string }) {
                     />
                     <Cell column="updated">{b.lastSave ? <When at={b.lastSave.createdAt} /> : null}</Cell>
                     <Cell column="size" align="right">{b.isDefault || deleted ? null : `${b.ahead} · ${b.behind}`}</Cell>
-                    <Cell column="by">{b.createdBy && !b.isDefault ? <Person person={b.createdBy} /> : null}</Cell>
+                    <Cell column="by">{!b.isDefault ? <Person person={b.createdBy} /> : null}</Cell>
                     <div role="cell" className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                       {deleted && canEdit ? (
                         <button type="button" className={stripButton} onClick={() => void restore(b)}><RotateCcw className="size-3.5" aria-hidden="true" />Restore</button>

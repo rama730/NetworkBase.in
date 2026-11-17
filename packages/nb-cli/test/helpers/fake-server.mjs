@@ -363,8 +363,22 @@ const branchRoutes = [
   [/^\/api\/v1\/branches\/([^/]+)$/, "PATCH", (/** @type {any} */ req, /** @type {any} */ state) => { const b = branchOf(state, req.params[0]); b.name = req.body.name; return { data: { branch: branchOut(b) } }; }],
   [/^\/api\/v1\/branches\/([^/]+)$/, "DELETE", (/** @type {any} */ req, /** @type {any} */ state) => { const b = branchOf(state, req.params[0]); b.status = "deleted"; return { data: { deleted: true, savesNotInMain: 0, restoreUntil: now() } }; }],
   [/^\/api\/v1\/branches\/([^/]+)\/raw$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
-    const f = branchOf(state, req.params[0])?.files.get(req.query.get("path") ?? "");
-    return f ? { raw: f.content } : fail(404, "NOT_FOUND", "Not on this branch");
+    const b = branchOf(state, req.params[0]);
+    // `save=n` (C14b): the file as that save of the branch left it, from b.saveFiles ("n:/path" → bytes).
+    const f = req.query.get("save") ? { content: b?.saveFiles?.get(`${req.query.get("save")}:${req.query.get("path")}`) } : b?.files.get(req.query.get("path") ?? "");
+    return f?.content ? { raw: f.content } : fail(404, "NOT_FOUND", "Not on this branch");
+  }],
+  // A branch's saves that changed a file (C14b), from b.saves; and nb file use on a branch.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/saves$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const b = branchOf(state, req.query.get("branch"));
+    return { data: { saves: (b?.saves ?? []).filter((/** @type {any} */ x) => !req.query.get("path") || x.paths.includes(req.query.get("path"))), nextCursor: null } };
+  }],
+  [/^\/api\/v1\/branches\/([^/]+)\/use$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const b = branchOf(state, req.params[0]);
+    const content = b?.saveFiles?.get(`${req.body.save}:${req.body.path}`);
+    if (!content) return fail(404, "NOT_FOUND", `Save ${req.body.save} didn't change ${req.body.path}`);
+    b.files.set(req.body.path, { ...(b.files.get(req.body.path) ?? {}), path: req.body.path, content, hash: crypto.createHash("sha256").update(content).digest("hex"), version: (b.files.get(req.body.path)?.version ?? 0) + 1 });
+    return { data: { save: { id: crypto.randomUUID(), number: (b.saves?.length ?? 0) + 1 }, path: req.body.path, from: req.body.save } };
   }],
   [/^\/api\/v1\/branches\/([^/]+)\/update$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
     state.updates = [...(state.updates ?? []), { branch: req.params[0], resolutions: req.body.resolutions }];
@@ -685,7 +699,7 @@ const patterns = [
     return { data: { deleted: req.body.id } };
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", role: "owner" }, { id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || `${m.username} ${m.fullName}`.toLowerCase().includes(String(req.query.get("q")).toLowerCase())) } })],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...(branchOf(state, req.query.get("branch"))?.files ?? state.files).values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => branchOf(state, req.query.get("branch"))?.status === "deleted" ? fail(410, "BRANCH_DELETED", `The branch ${branchOf(state, req.query.get("branch")).name} was deleted`) : ({ data: { files: [...(branchOf(state, req.query.get("branch"))?.files ?? state.files).values()].map(meta), nextCursor: null, canWrite: state.canWrite, ...(branchOf(state, req.query.get("branch")) ? { branch: { id: branchOf(state, req.query.get("branch")).id, name: branchOf(state, req.query.get("branch")).name } } : {}), limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: (d.nodePath && state.files.get(d.nodePath)?.nodeId) ?? null })) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {
     const doc = state.docs.find((d) => d.slug === req.params[1]);

@@ -105,7 +105,7 @@ export async function followGit(ctx) {
 export async function switchTo(ctx, target, opts = {}) {
   const { root, project } = ctx.requireRoot();
   const { buildPlan, localPathOf, moveToLocalTrash, recordBase } = await import("./files.mjs");
-  const plan = await buildPlan(ctx, { noFollow: true });
+  const plan = await buildPlan(ctx, { noFollow: true, leaving: true });
   if (plan.offline) throw new CliError("OFFLINE", "Switching branches needs the network", { hint: "Try again when you're online" });
   const dirty = plan.items.filter((i) => ["push", "conflict", "delete-remote", "move", "keep-local"].includes(i.action));
   const branchId = target.isDefault ? null : target.id;

@@ -708,6 +708,13 @@
       "when": 1794803709282,
       "tag": "0101_cli_step_up",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1794890109282,
+      "tag": "0102_branch_names",
+      "breakpoints": true
     }
   ]
 }

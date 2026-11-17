@@ -24,8 +24,24 @@ export const SAVE_LIMITS = { page: 50, files: 5_000, changes: 2_000, zipFiles: 2
 export async function memberAccess(actor: Actor, workspaceId: string) {
   const access = await getWorkspaceAccessById(workspaceId, userOf(actor));
   if (!access.project || !access.canRead || !(access.isOwner || access.isMember || access.isInheritedAdmin)) fail("Workspace not found", 404, "NOT_FOUND");
-  return { access, canWrite: access.canWrite, isAdmin: access.isOwner || access.memberRole === "admin" || access.isInheritedAdmin };
+  // An archived workspace keeps its branches and merge requests read-only (H24).
+  return { access, canWrite: access.canWrite && access.project?.status !== "archived", isAdmin: access.isOwner || access.memberRole === "admin" || access.isInheritedAdmin };
 }
+
+/** People among `ids` who aren't the workspace's owner or members any more (H24: shown as "former member"). */
+export async function formerMembers(workspaceId: string, ids: Array<string | null | undefined>) {
+  const list = [...new Set(ids.filter((x): x is string => Boolean(x)))];
+  if (!list.length) return new Set<string>();
+  const rows = Array.from(await db.execute<{ id: string }>(sql`
+    SELECT u.id FROM unnest(ARRAY[${sql.join(list.map((id) => sql`${id}::uuid`), sql`, `)}]) AS u(id)
+    WHERE u.id <> (SELECT owner_id FROM workspaces WHERE id = ${workspaceId})
+      AND NOT EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = ${workspaceId} AND m.user_id = u.id)`));
+  return new Set(rows.map((r) => r.id));
+}
+
+/** Why someone can't change branches here, in the person's words. */
+export const readOnlyWhy = (who: { access: { project: { status?: string | null } | null } }) =>
+  who.access.project?.status === "archived" ? "This workspace is archived, so its branches and merge requests are read-only" : "You can read this workspace but not change it";
 
 export async function mainBranch(workspaceId: string) {
   const [row] = await db.select({ id: branches.id, headSaveId: branches.headSaveId, on: workspaces.branchesEnabled })
@@ -144,7 +160,8 @@ export async function listSaves(actor: Actor, workspaceId: string, opts: { branc
   await memberAccess(actor, workspaceId);
   const main = await mainBranch(workspaceId);
   // A branch's own saves (H-2): by its id or name; main by default.
-  const branchId = opts.branch ? (await (await import("@/lib/domain/branches")).findBranch(actor, workspaceId, opts.branch)).id : main.id;
+  const onBranch = opts.branch ? await (await import("@/lib/domain/branches")).findBranch(actor, workspaceId, opts.branch) : null;
+  const branchId = onBranch?.id ?? main.id;
   const limit = Math.min(Math.max(Number(opts.limit) || SAVE_LIMITS.page, 1), SAVE_LIMITS.page);
   const where = [eq(saves.branchId, branchId), sql`${saves.seq} IS NOT NULL`];
   const before = opts.cursor ? Number(opts.cursor) : null;
@@ -171,7 +188,10 @@ export async function listSaves(actor: Actor, workspaceId: string, opts: { branc
     const filled = new Map((await db.select({ id: saves.id, a: saves.linesAdded, r: saves.linesRemoved }).from(saves).where(inArray(saves.id, missing))).map((x) => [x.id, x]));
     page = page.map((r) => (filled.has(r.id) ? { ...r, linesAdded: filled.get(r.id)!.a, linesRemoved: filled.get(r.id)!.r } : r));
   }
-  return { saves: await viewOf(userOf(actor), workspaceId, page), nextCursor: rows.length > limit ? String(page.at(-1)!.seq) : null };
+  // On a branch (H8): main's saves up to where the branch stands on main are its history too; this is the cursor
+  // that lists them (main's saves numbered below it).
+  const baseSeq = onBranch && !onBranch.isDefault && onBranch.baseSaveId ? (await db.select({ seq: saves.seq }).from(saves).where(eq(saves.id, onBranch.baseSaveId)).limit(1))[0]?.seq ?? null : null;
+  return { saves: await viewOf(userOf(actor), workspaceId, page), nextCursor: rows.length > limit ? String(page.at(-1)!.seq) : null, mainBefore: baseSeq != null ? String(baseSeq + 1) : null };
 }
 
 export type SaveFile = { path: string; fromPath: string | null; op: "add" | "change" | "delete" | "rename"; size: number | null; mimeType: string | null; version: number | null; previousVersion: number | null; lines: { added: number; removed: number } | null };

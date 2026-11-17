@@ -266,3 +266,30 @@ test("security review: a declared but unsent hash never searches another workspa
   const glob = await get(agent, workspace, "list", { glob: "{a,b}{c,d}{e,f}{g,h}/**/*.ts" });
   assert.equal(glob.status, 400);
 });
+
+test("H8: on a branch, list, read and search see the branch's files; a change set on a branch builds on them", async () => {
+  const { owner, workspace } = await setup();
+  const { unprotect } = await import("./_helpers");
+  const saves = await loadAppModule(() => import("../../src/lib/domain/saves"));
+  const branches = await loadAppModule(() => import("../../src/lib/domain/branches"));
+  await saves.setBranchesEnabled({ user: { id: owner } }, workspace, true);
+  await unprotect(workspace);
+  const { branch } = await branches.createBranch({ user: { id: owner } }, workspace, { name: "feature-x" });
+  await branches.saveTextOnBranch({ user: { id: owner } }, branch.id, { path: "/README.md", text: "# Demo\nOnly on the branch: hello there.\n", expectedHash: sha(PROJECT["/README.md"]!) });
+  const reader = await token(owner, "device", null, ["file:read"]);
+  const onBranch = await get(reader, workspace, "search", { query: "hello there", branch: "feature-x" });
+  assert.equal(onBranch.status, 200, JSON.stringify(onBranch.json));
+  assert.deepEqual(onBranch.json.data.matches.map((m: any) => `${m.path}:${m.line}`), ["/README.md:2"]);
+  assert.deepEqual((await get(reader, workspace, "search", { query: "hello there" })).json.data.matches, [], "main doesn't have it");
+  const read = await get(reader, workspace, "read", { branch: branch.id, path: "/README.md" });
+  assert.match(read.json.data.files[0].text, /Only on the branch/);
+  // A change set on the branch edits the branch's text, not main's.
+  const agent = await token(owner, "agent", workspace, ["file:read", "file:write"]);
+  const started = await call(ws.POST, agent, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "On the branch", branchId: branch.id }, { params: Promise.resolve({ id: workspace }) });
+  assert.equal(started.status, 201, JSON.stringify(started.json));
+  const edit = await post(agent, started.json.data.changeSet.id, "edit", { path: "/README.md", oldText: "hello there", newText: "hello again" });
+  assert.equal(edit.status, 200, JSON.stringify(edit.json));
+  const outsider = await sql.begin((tx) => createUser(tx));
+  const stranger = await token(outsider, "device", null, ["file:read"]);
+  assert.notEqual((await get(stranger, workspace, "search", { query: "hello", branch: "feature-x" })).status, 200);
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FolderTree, GitCommitHorizontal, Undo2 } from "lucide-react";
 
@@ -90,8 +90,14 @@ function SaveRow({ s, onOpen }: { s: SaveView; onOpen: () => void }) {
 function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: string) => void }) {
   const views = useFilesViews();
   const branch = views?.branch ?? null;
-  const [draft, setDraft] = useState("");
-  const [path, setPath] = useState("");
+  // A file's History button (on a branch too, H8) opens this list filtered to it: ?hpath=/src/a.ts.
+  const [draft, setDraft] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("hpath") ?? ""));
+  const [path, setPath] = useState(draft);
+  const [showMain, setShowMain] = useState(false);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("hpath")) { url.searchParams.delete("hpath"); window.history.replaceState(window.history.state, "", url); }
+  }, []);
   const list = useInfiniteQuery({
     queryKey: ["saves", projectId, branch, path],
     initialPageParam: null as string | null,
@@ -104,6 +110,20 @@ function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
     staleTime: 15_000,
   });
   const saves = list.data?.pages.flatMap((p) => p.saves) ?? [];
+  // On a branch, main's saves from before it began follow its own (H8).
+  const mainBefore = branch ? list.data?.pages[0]?.mainBefore ?? null : null;
+  const before = useInfiniteQuery({
+    queryKey: ["saves", projectId, null, path, "before", mainBefore],
+    enabled: showMain && Boolean(mainBefore),
+    initialPageParam: mainBefore,
+    queryFn: async ({ pageParam }) => {
+      const res = await listSavesAction(projectId, { branch: null, path: path || null, cursor: pageParam });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+    getNextPageParam: (last) => last.nextCursor,
+  });
+  const mainSaves = before.data?.pages.flatMap((p) => p.saves) ?? [];
   const days = useMemo(() => {
     const out: Array<{ day: string; saves: SaveView[] }> = [];
     for (const s of saves) {
@@ -139,6 +159,17 @@ function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
               ) : null}
             </>
           )}
+          {mainBefore && !list.hasNextPage && !list.isLoading ? (
+            showMain ? (
+              <section role="rowgroup" aria-label={`On main before ${branch} began`}>
+                <div className="px-4 pb-1 pt-3"><RailSectionHeading title={`On main before ${branch} began`} /></div>
+                {before.isLoading ? <FolderListLoading /> : mainSaves.length ? mainSaves.map((s) => <SaveRow key={s.id} s={s} onOpen={() => onOpen(s.id)} />) : <FolderListEmpty message={path ? `No saves on main touched ${path}` : "No saves on main before it"} />}
+                {before.hasNextPage ? <div className="flex justify-center py-3"><button type="button" className={stripButton} disabled={before.isFetchingNextPage} onClick={() => void before.fetchNextPage()}>{before.isFetchingNextPage ? "Loading…" : "Older saves"}</button></div> : null}
+              </section>
+            ) : (
+              <div className="flex justify-center py-3"><button type="button" className={stripButton} onClick={() => setShowMain(true)}>Main’s saves before {branch} began</button></div>
+            )
+          ) : null}
         </div>
       </div>
     </>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { createBranchAction } from "@/app/actions/files/branches";
 import { getProtectionAction, saveToNewBranchAction } from "@/app/actions/files/merge-requests";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/hooks/use-auth";
@@ -86,4 +87,68 @@ export function useSaveToBranch(projectId: string) {
     </ConfirmDialog>
   );
   return { offer, dialog };
+}
+
+// ── Uploads and drops on a protected main (H5, H24) ───────────────────────────────────────────────────────────────
+
+type PendingUpload = { files: File[]; folder: string };
+const pendingUploads = new Map<string, PendingUpload>();
+/** The explorer asks; the offer below answers (it lives with the branch picker). */
+export function offerUploadToBranch(projectId: string, upload: PendingUpload) {
+  window.dispatchEvent(new CustomEvent("nb:protected-upload", { detail: { projectId, ...upload } }));
+}
+/** The branch's folder view takes the files once, when it opens. */
+export function takePendingUpload(branchId: string) {
+  const p = pendingUploads.get(branchId);
+  pendingUploads.delete(branchId);
+  return p ?? null;
+}
+
+/**
+ * "main is protected. Upload to a new branch?": makes the branch from main, switches Files to it, and the branch's
+ * folder uploads the same files there (with its key check and "Verify it's you"); its bar opens the merge request.
+ */
+export function ProtectedUploadOffer({ projectId, onBranch }: { projectId: string; onBranch: (name: string) => void }) {
+  const { profile } = useAuth() as { profile?: { username?: string | null } | null };
+  const [pending, setPending] = useState<PendingUpload | null>(null);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const on = (event: Event) => {
+      const d = (event as CustomEvent<PendingUpload & { projectId: string }>).detail;
+      if (d?.projectId !== projectId) return;
+      setName(`${(profile?.username ?? "me").toLowerCase()}/upload-${new Date().toISOString().slice(0, 10)}`);
+      setPending({ files: d.files, folder: d.folder });
+    };
+    window.addEventListener("nb:protected-upload", on);
+    return () => window.removeEventListener("nb:protected-upload", on);
+  }, [projectId, profile?.username]);
+  async function go() {
+    if (!pending || busy) return;
+    setBusy(true);
+    try {
+      const res = await createBranchAction(projectId, name.trim(), "main");
+      if (!res.success) { toast.error(res.error); return; }
+      pendingUploads.set(res.data.branch.id, pending);
+      setPending(null);
+      onBranch(res.data.branch.name);
+    } finally { setBusy(false); }
+  }
+  const count = pending?.files.length ?? 0;
+  return (
+    <ConfirmDialog
+      open={Boolean(pending)}
+      onOpenChange={(open) => { if (!open && !busy) setPending(null); }}
+      title="main is protected. Upload to a new branch?"
+      description={`main changes only through merge requests. ${count === 1 ? "The file goes" : `The ${count} files go`} on a new branch; open a merge request from its bar when you're ready.`}
+      confirmLabel={busy ? "Making the branch…" : "Upload to branch"}
+      autoCloseOnConfirm={false}
+      loading={busy}
+      onConfirm={() => void go()}
+    >
+      <label htmlFor="upload-branch-name" className="nb-compact font-medium">Branch name</label>
+      <input id="upload-branch-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100}
+        className="mt-1 h-8 w-full rounded-[5px] border border-border bg-card px-2 font-mono text-xs text-foreground focus:border-[#D14E24] focus:outline-none" />
+    </ConfirmDialog>
+  );
 }

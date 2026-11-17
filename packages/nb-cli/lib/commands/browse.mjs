@@ -145,7 +145,7 @@ export async function updatePost(ctx) {
  * linked folder, so in a folder linked to /design, nb file history logo.svg means /design/logo.svg (found in the
  * 2.1.6 live check: these commands looked at the workspace root). @param {Context} ctx @param {string} p
  */
-const remote = (ctx, p) => {
+export const remote = (ctx, p) => {
   if (p.startsWith("/") || !ctx.project || !ctx.root) return `/${p.replace(/^\/+/, "")}`;
   const rel = path.relative(ctx.root, path.resolve(ctx.cwd, p));
   return rel.startsWith("..") || path.isAbsolute(rel) ? `/${p.replace(/^\/+/, "")}` : toRemote(ctx.project.remoteRoot ?? "/", rel);
@@ -163,6 +163,7 @@ export async function nodeOf(ctx, p) {
 export async function fileHistory(ctx) {
   const p = ctx.positionals[0];
   if (!p) throw usage("nb file history <path>");
+  if (ctx.project?.branch) return branchFileHistory(ctx, p);
   const node = await nodeOf(ctx, p);
   const res = /** @type {any} */ (await ctx.api.get("/api/v1/extension/file-history", { query: { projectId: ctx.requireWorkspace(), nodeId: node.nodeId ?? node.id } }));
   const { c } = ctx.out;
@@ -177,12 +178,41 @@ export async function fileHistory(ctx) {
 export async function fileUse(ctx) {
   const [p, raw] = ctx.positionals;
   const version = Number(String(raw ?? "").replace(/^v/i, ""));
+  if (ctx.project?.branch) return branchFileUse(ctx, p, raw);
   if (!p || !Number.isInteger(version) || version < 1) throw usage("nb file use <path> v<n>", "See the versions: nb file history <path>");
   const node = await nodeOf(ctx, p);
   const res = /** @type {any} */ (await ctx.api.post("/api/v1/extension/file-history", { projectId: ctx.requireWorkspace(), nodeId: node.nodeId ?? node.id, version }));
   ctx.out.result("nb.file.use/1", { path: remote(ctx, p), activeVersion: res.activeVersion, previousVersion: res.previousVersion }, (d) => [
     d.previousVersion === d.activeVersion ? `v${d.activeVersion} of ${safe(d.path)} was already active` : `${ctx.out.c.success(ctx.out.sym.done)} v${d.activeVersion} of ${safe(d.path)} is active (was v${d.previousVersion}); the next save is based on it`,
     ctx.out.c.muted(`  nb pull gets it here · nb undo puts v${d.previousVersion} back`),
+  ]);
+}
+
+/**
+ * On a branch folder (C14b), a file's history is the branch's saves that changed it; main's versions stay with
+ * --branch main in nb log. @param {Context} ctx @param {string} p
+ */
+async function branchFileHistory(ctx, p) {
+  const branch = /** @type {{ id: string, name: string }} */ (ctx.project?.branch);
+  const res = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/saves`, { query: { branch: branch.id, path: remote(ctx, p), limit: 20 } }));
+  const { c } = ctx.out;
+  ctx.out.result("nb.file.history/1", { path: remote(ctx, p), branch: branch.name, activeVersion: null, versions: [], saves: res.saves }, (d) => d.saves.length
+    ? [
+        ...d.saves.map((/** @type {any} */ s, /** @type {number} */ i) => `${i === 0 ? c.brand(ctx.out.sym.cursor) : " "} save ${s.number}  ${c.muted(String(s.createdAt).slice(0, 16).replace("T", " "))}  ${s.author?.username ? `@${safe(s.author.username)}` : safe(s.author?.name ?? "someone")}${s.via === "agent" ? c.muted(` via ${safe(s.agentName ?? "an agent")}`) : ""}  ${safe(s.message)}`),
+        "", c.muted(`  Go back: nb file use ${safe(d.path.slice(1))} <save> · before ${safe(d.branch)} began: nb log --branch main ${safe(d.path.slice(1))}`),
+      ]
+    : [`${safe(d.path)} hasn't changed on ${safe(d.branch)}`, c.muted(`  Its history on main: nb log --branch main ${safe(d.path.slice(1))}`)]);
+}
+
+/** `nb file use <path> <save>` on a branch folder (C14b): a new save on the branch with the file as that save left it. @param {Context} ctx @param {string | undefined} p @param {string | undefined} raw */
+async function branchFileUse(ctx, p, raw) {
+  const branch = /** @type {{ id: string, name: string }} */ (ctx.project?.branch);
+  const n = Number(String(raw ?? "").replace(/^(save\s*|#|v)/i, ""));
+  if (!p || !Number.isInteger(n) || n < 1) throw usage("nb file use <path> <save>", "On a branch, name one of its saves: nb file history <path>");
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/branches/${encodeURIComponent(branch.id)}/use`, { path: remote(ctx, p), save: n }));
+  ctx.out.result("nb.file.use/1", { path: res.path, branch: branch.name, from: res.from, save: res.save, activeVersion: null, previousVersion: null }, (d) => [
+    d.save ? `${ctx.out.c.success(ctx.out.sym.done)} ${safe(d.path)} is back as save ${d.from} left it: save ${d.save.number} on ${safe(d.branch)}` : `${safe(d.path)} on ${safe(d.branch)} is already as save ${d.from} left it`,
+    ctx.out.c.muted("  nb pull gets it here"),
   ]);
 }
 

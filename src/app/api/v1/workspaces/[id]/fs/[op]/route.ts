@@ -16,10 +16,12 @@ export async function GET(request: Request, context: Ctx) {
   return changeSetRoute(request, { limit: "read", workspaceId: id }, async (auth, req) => {
     const q = new URL(req.url).searchParams;
     const changeSet = q.get("changeSet");
+    // `branch` (H8): read and search a branch's files, without a change set.
+    const branch = q.get("branch");
     const limit = q.get("limit") ? Number(q.get("limit")) : undefined;
-    if (op === "list") return listFiles(auth, id, { changeSet, glob: q.get("glob"), limit });
-    if (op === "read") return readFiles(auth, id, { changeSet, paths: q.getAll("path") });
-    if (op === "search") return searchFiles(auth, id, { changeSet, query: q.get("query") ?? "", regex: q.get("regex") === "true", caseSensitive: q.get("caseSensitive") === "true", glob: q.get("glob"), limit });
+    if (op === "list") return listFiles(auth, id, { changeSet, branch, glob: q.get("glob"), limit });
+    if (op === "read") return readFiles(auth, id, { changeSet, branch, paths: q.getAll("path") });
+    if (op === "search") return searchFiles(auth, id, { changeSet, branch, query: q.get("query") ?? "", regex: q.get("regex") === "true", caseSensitive: q.get("caseSensitive") === "true", glob: q.get("glob"), limit });
     return jsonError("Not found", 404, "NOT_FOUND");
   });
 }

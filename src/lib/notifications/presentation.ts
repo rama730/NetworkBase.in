@@ -55,6 +55,7 @@ const KIND_REASON: Record<NotificationKind, NotificationReason> = {
     agent_session_summary: "update",
     task_report_submitted: "done",
     merge_request: "workflow",
+    branch_saves: "update",
 };
 
 export const REASON_LABELS: Record<NotificationReason, string> = {
@@ -131,6 +132,7 @@ const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: stri
     agent_session_summary: { singular: "agent session", plural: "agent sessions" },
     task_report_submitted: { singular: "report", plural: "reports" },
     merge_request: { singular: "merge request update", plural: "merge request updates" },
+    branch_saves: { singular: "save on a branch you follow", plural: "saves on a branch you follow" },
 };
 
 export function getAggregateLabel(kind: NotificationKind, count: number): string | null {

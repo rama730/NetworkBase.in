@@ -100,3 +100,23 @@ test("H16: the old task sandbox is gone: no git deltas table, no canonical node 
   const cols = await sql`SELECT 1 FROM information_schema.columns WHERE table_name = 'workspace_nodes' AND column_name = 'canonical_node_id'`;
   assert.equal(cols.length, 0);
 });
+
+test("H24, H26: a renamed branch keeps its GitHub link and its old name finds it for 30 days", async () => {
+  const { owner, workspace } = await setup();
+  const branches = await loadAppModule(() => import("../../src/lib/domain/branches"));
+  const { db } = await loadAppModule(() => import("../../src/lib/db"));
+  const o = { user: { id: owner } };
+  const { branch } = await branches.createBranch(o, workspace, { name: "feature-x" });
+  assert.equal((await service.githubTwin(workspace, "feature-x"))?.id, branch.id, "same name before any sync");
+  await service.linkGithubBranch(db, workspace, { branchId: branch.id, name: "feature-x" }, "feature-x");
+  await branches.renameBranch(o, branch.id, "ram/feature-y");
+  assert.equal((await service.githubTwin(workspace, "feature-x"))?.id, branch.id, "the GitHub link follows the rename");
+  assert.equal(await service.githubTwin(workspace, "ram/feature-y"), null, "not linked to a GitHub branch of the new name");
+  assert.equal((await branches.findBranch(o, workspace, "Feature-X")).id, branch.id, "the old name still finds it");
+  await sql`UPDATE branches SET renamed_at = now() - interval '31 days' WHERE id = ${branch.id}`;
+  await assert.rejects(branches.findBranch(o, workspace, "feature-x"), { code: "BRANCH_NOT_FOUND" });
+  // A pull into a new branch links it too.
+  await service.linkGithubBranch(db, workspace, { branchId: null, name: "ram/feature-y" }, "other");
+  const [row] = await sql`SELECT github_branch FROM branches WHERE id = ${branch.id}`;
+  assert.equal(row!.github_branch, "feature-x", "a link once made isn't replaced");
+});

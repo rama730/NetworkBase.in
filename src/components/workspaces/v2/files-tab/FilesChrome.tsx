@@ -226,8 +226,9 @@ export function IconChip({ children }: { children: ReactNode }) {
   );
 }
 
-type PersonLike = { id?: string; name?: string | null; username?: string | null; avatarUrl?: string | null } | null | undefined;
-export const personName = (p: PersonLike) => p?.name || (p?.username ? `@${p.username}` : "Someone");
+type PersonLike = { id?: string; name?: string | null; username?: string | null; avatarUrl?: string | null; former?: boolean } | null | undefined;
+/** Someone whose account is gone reads "Deleted user", as other authored content does (H24). */
+export const personName = (p: PersonLike) => (p === null ? "Deleted user" : p?.name || (p?.username ? `@${p.username}` : "Someone"));
 
 /** A person, the way Trash shows "Deleted by": the shared square avatar (3px corners) and the name. */
 export function Person({ person, size = 18, nameClassName }: { person: PersonLike; size?: 18 | 20 | 26; nameClassName?: string }) {
@@ -240,6 +241,7 @@ export function Person({ person, size = 18, nameClassName }: { person: PersonLik
         fallbackClassName="text-[9px] font-mono bg-[#E8E3D9] text-[#141A1E] dark:bg-white/10 dark:text-foreground"
       />
       <span className={cn("truncate", nameClassName)}>{personName(person)}</span>
+      {person?.former ? <span className="shrink-0 text-[11px] text-muted-foreground">former member</span> : null}
     </span>
   );
 }

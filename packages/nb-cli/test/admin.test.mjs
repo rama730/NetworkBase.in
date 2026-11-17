@@ -68,6 +68,11 @@ describe("workspace admin, security and data from the terminal", () => {
       assert.equal(exported.code, 0, exported.stderr);
       assert.equal(fs.readFileSync(out, "utf8"), "PK zip");
       assert.notEqual((await runCli(["export", "-o", out], { api: api.url, env, cwd })).code, 0, "it won't replace a file without --force");
+      // H26: --branch exports one branch; --all-branches adds each active branch as a folder.
+      assert.equal((await runCli(["export", "--branch", "feature-x", "-o", path.join(cwd, "b.zip")], { api: api.url, env, cwd })).code, 0);
+      assert.equal(api.requests.findLast((r) => r.path.endsWith("/export"))?.query.get("branch"), "feature-x");
+      assert.equal((await runCli(["export", "--all-branches", "-o", path.join(cwd, "all.zip")], { api: api.url, env, cwd })).code, 0);
+      assert.equal(api.requests.findLast((r) => r.path.endsWith("/export"))?.query.get("allBranches"), "1");
       const sec = await runCli(["whoami", "--security"], { api: api.url, env, cwd });
       assert.match(sec.stdout, /Two-factor +on/);
       assert.match(sec.stdout, /laptop .*terminal · IN/);

@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Check, ChevronDown, ChevronRight, Download, FileText, Folder, FolderInput, FolderOpen, GitBranch, GitCompare, GitPullRequest, MoreHorizontal, Pencil, Plus,
+  Check, ChevronDown, ChevronRight, Download, FileText, Folder, FolderInput, FolderOpen, GitBranch, GitCompare, GitPullRequest, History, MoreHorizontal, Pencil, Plus,
   RefreshCw, Trash2, Upload,
 } from "lucide-react";
 
 import {
-  beginUploadOnBranchAction, branchByNameAction, branchFileTextAction, branchFolderAction, branchPathsAction, createBranchAction, deleteBranchAction,
+  beginUploadOnBranchAction, branchByNameAction, branchFileTextAction, branchFolderAction, branchPathsAction, createBranchAction, deleteBranchAction, restoreBranchAction,
   deleteOnBranchAction, finishUploadOnBranchAction, listBranchesAction, moveOnBranchAction, renameBranchAction, saveOnBranchAction, updateBranchAction,
   uploadContentOnBranchAction,
 } from "@/app/actions/files/branches";
@@ -34,6 +34,7 @@ import { BRANCH_VIEWS, useFilesViews } from "./FilesViews";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { CodeMirrorEditor } from "./file/TextViewer";
 import { readEditDraft, useEditDraft } from "./useDraft";
+import { ProtectedUploadOffer, takePendingUpload } from "./SaveToBranch";
 import listStyles from "./folder/FolderList.module.css";
 import { FolderListHeader } from "./folder/FolderListHeader";
 import { FolderListEmpty, FolderListError, FolderListLoading } from "./folder/FolderListStates";
@@ -115,6 +116,8 @@ export function BranchPicker({ projectId }: { projectId: string }) {
     } finally { setBusy(false); }
   }
   return (
+    <>
+    <ProtectedUploadOffer projectId={projectId} onBranch={(name) => { views.selectView("project"); views.setBranch(name); }} />
     <DropdownMenu modal={false} open={open && !mainOnly} onOpenChange={(o) => views.setPickerOpen(o)}>
       <DropdownMenuTrigger asChild disabled={mainOnly}>
         <button
@@ -183,6 +186,7 @@ export function BranchPicker({ projectId }: { projectId: string }) {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   );
 }
 
@@ -375,6 +379,10 @@ export function BranchExplorer({ projectId }: { projectId: string }) {
   const [compare, setCompare] = useState(false);
   const b = branch.data?.branch;
   const name = views.branch ?? "";
+  // A link with a renamed branch's old name (H26) moves onto its name now.
+  useEffect(() => { if (b && b.status === "active" && name && b.name.toLowerCase() !== name.toLowerCase()) views.setBranch(b.name); }, [b, name, views]);
+  // An old link to a deleted branch, or one that's gone (H24): say so, with Restore or Go to main.
+  if (branch.isError || b?.status === "deleted") return <section aria-label={`Branch ${name}`} className="flex h-full min-h-0 flex-col bg-card dark:bg-background"><FilesViewsMenu projectId={projectId} /><GoneBranch projectId={projectId} name={name} branch={b ?? null} /></section>;
   return (
     <section aria-label={`Files on ${name}`} className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card dark:bg-background">
       <FilesViewsMenu projectId={projectId} />
@@ -390,6 +398,37 @@ export function BranchExplorer({ projectId }: { projectId: string }) {
         <BranchFolder projectId={projectId} branch={b} folder={views.branchFolder} />
       )}
     </section>
+  );
+}
+
+/** "This branch was deleted on <date>", with Restore (30 days, writers) or Go to main (H24). */
+function GoneBranch({ projectId, name, branch }: { projectId: string; name: string; branch: BranchView | null }) {
+  const views = useFilesViews()!;
+  const { canEdit } = useFilesTabRole();
+  const client = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const deletedAt = branch?.deletedAt ? new Date(branch.deletedAt) : null;
+  const restorable = Boolean(deletedAt && canEdit && Date.now() - deletedAt.getTime() < 30 * 86_400_000);
+  async function restore() {
+    setBusy(true);
+    try {
+      const res = await restoreBranchAction(branch!.id);
+      if (!res.success) { toast.error(res.error); return; }
+      toast.success(`Restored ${branch!.name}`);
+      void client.invalidateQueries({ queryKey: ["branch", projectId] });
+      void client.invalidateQueries({ queryKey: ["branches", projectId] });
+    } finally { setBusy(false); }
+  }
+  return (
+    <div role="status" className="m-auto max-w-sm px-6 py-12 text-center">
+      <GitBranch className="mx-auto mb-3 size-5 text-muted-foreground" aria-hidden="true" />
+      <p className="text-sm font-medium text-foreground">{deletedAt ? <>This branch was deleted on {deletedAt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</> : <>There’s no branch <span className="font-mono">{name}</span> here</>}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{deletedAt ? (restorable ? "It can be restored for 30 days after it was deleted." : "Its saves stay in History.") : "It may have been renamed or deleted more than 30 days ago."}</p>
+      <div className="mt-4 flex justify-center gap-2">
+        {restorable ? <button type="button" className={stripPrimary} disabled={busy} onClick={() => void restore()}>{busy ? "Restoring…" : "Restore"}</button> : null}
+        <button type="button" className={stripButton} onClick={() => views.setBranch(null)}>Go to main</button>
+      </div>
+    </div>
   );
 }
 
@@ -412,6 +451,13 @@ function BranchFolder({ projectId, branch, folder }: { projectId: string; branch
   const dir = useRef<HTMLInputElement>(null);
   const upload = useBranchUpload(branch, refresh);
   const write = canEdit && branch.status !== "merged";
+  // Files someone uploaded on a protected main land here once the new branch opens (H5, H24).
+  useEffect(() => {
+    const p = takePendingUpload(branch.id);
+    if (!p) return;
+    if (p.folder !== folder) views.openBranchPath(p.folder);
+    void upload.send(p.files, p.folder);
+  }, [branch.id]); // once per branch
   const matches = query.trim() ? (paths.data?.paths ?? []).filter((p) => p.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 200) : null;
   // 0.8 #8: each folder keeps its scroll when you switch branch (keyed by path, the same folder on every branch).
   const scroller = useRef<HTMLDivElement>(null);
@@ -603,6 +649,7 @@ function BranchFileView({ projectId, branch, path }: { projectId: string; branch
             </>
           ) : (
             <>
+              <button type="button" className={headerButton} aria-label="History" onClick={() => { const url = new URL(window.location.href); url.searchParams.set("hpath", path); window.history.replaceState(window.history.state, "", url); views.selectView("history"); }}><History className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">History</span></button>
               <button type="button" className={headerButton} aria-label="Download" onClick={() => void downloadFile(raw, { filename: path.split("/").pop()! })}><Download className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Download</span></button>
               {write && file.data?.text != null ? <button type="button" className={headerButton} aria-label="Edit" onClick={() => setEditing(true)}><Pencil className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Edit</span></button> : null}
               {write ? <button type="button" className={headerButton} aria-label="Delete" onClick={() => setConfirmDelete(true)}><Trash2 className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">Delete</span></button> : null}

@@ -21,6 +21,7 @@ import { buildWorkspaceDocViewModel } from "@/lib/workspaces/doc-view-model";
 import { WorkspaceDocRail, WorkspaceDocMobileBar, useDocRail } from "@/components/workspaces/doc/WorkspaceDocRail";
 import { OrgDocHeader, uploadWorkspaceFile, useOrgDocs } from "@/components/organizations/OrgDocParts";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
+import { useMainProtected, useSaveToBranch } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import type { Workspace } from "@/types/discover";
 
 const WorkspaceDocRenderer = dynamic(
@@ -38,9 +39,13 @@ function DocEditButton({ projectId, docSlug, filename, content, fileHref }: { pr
     const pathname = usePathname();
     const queryClient = useQueryClient();
     const [busy, setBusy] = useState(false);
+    // A protected main takes merge requests only (H24): the first README goes on a new branch instead.
+    const mainProtected = useMainProtected(projectId);
+    const { offer, dialog } = useSaveToBranch(projectId);
     if (fileHref) return <Button asChild variant="outline" size="sm"><Link href={fileHref}>Edit</Link></Button>;
     const start = async () => {
         if (busy) return;
+        if (mainProtected) { offer({ title: `Add ${filename}`, what: filename, change: { kind: "text", path: `/${filename}`, text: content, baseHash: null } }); return; }
         setBusy(true);
         try {
             const node = await uploadWorkspaceFile(projectId, null, filename, new Blob([content], { type: "text/markdown" }));
@@ -63,7 +68,7 @@ function DocEditButton({ projectId, docSlug, filename, content, fileHref }: { pr
             setBusy(false);
         }
     };
-    return <Button variant="outline" size="sm" onClick={() => void start()} disabled={busy}>{busy ? "Starting…" : "Edit"}</Button>;
+    return <>{dialog}<Button variant="outline" size="sm" onClick={() => void start()} disabled={busy}>{busy ? "Starting…" : "Edit"}</Button></>;
 }
 
 function shouldReduceMotion() {

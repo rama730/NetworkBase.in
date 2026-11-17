@@ -30,17 +30,13 @@ type Entry = { path: string; hash: string | null; key: string | null; assetId: s
  * The workspace's files as the viewer may see them (task files and /.system as the manifest leaves them out), with the
  * change set's items laid over them when one is named. ponytail: one read of up to 20,000 files; page it past that.
  */
-async function view(actor: Actor, workspaceId: string, changeSetId?: string | null): Promise<Map<string, Entry>> {
+async function view(actor: Actor, workspaceId: string, changeSetId?: string | null, branchRef?: string | null): Promise<Map<string, Entry>> {
   const access = await assertWorkspaceFileReadAccess(workspaceId, userOf(actor));
-  const rows = await db.select({ path: workspaceNodes.path, hash: fileVersions.contentHash, key: workspaceNodes.s3Key, size: workspaceNodes.size, mimeType: workspaceNodes.mimeType })
-    .from(workspaceNodes)
-    .leftJoin(fileVersions, and(eq(fileVersions.nodeId, workspaceNodes.id), eq(fileVersions.version, workspaceNodes.currentVersion)))
-    .where(and(eq(workspaceNodes.projectId, workspaceId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt), notLike(workspaceNodes.path, "/.system%"), visibleFileNodesSql(access)))
-    .limit(FS_LIMITS.listFiles);
-  const files = new Map<string, Entry>(rows.map((r) => [r.path, { path: r.path, hash: r.hash?.toLowerCase() ?? null, key: r.key, assetId: null, size: r.size ?? null, mimeType: r.mimeType, live: true, draft: false, renamedFrom: null }]));
-  if (!changeSetId) return files;
-  const set = await findChangeSet(changeSetId);
-  if (set.workspaceId !== workspaceId) fail("Change set not found", 404, "NOT_FOUND");
+  const set = changeSetId ? await findChangeSet(changeSetId) : null;
+  if (set && set.workspaceId !== workspaceId) fail("Change set not found", 404, "NOT_FOUND");
+  // A change set on a branch, or `branch` (H8: searching the branch you're on): the branch's files are the base.
+  const files = await baseFiles(actor, workspaceId, access, set ? set.branchId : branchRef ?? null);
+  if (!set) return files;
   // Drafts are for people who can change the files (as getChangeSet decides).
   if (!access.canWrite && !["applied", "undone"].includes(set.status)) fail("Change set not found", 404, "NOT_FOUND");
   if (!["open", "ready"].includes(set.status)) return files;
@@ -54,6 +50,34 @@ async function view(actor: Actor, workspaceId: string, changeSetId?: string | nu
     files.set(item.path, { path: item.path, hash: asset ? item.contentHash : null, key: null, assetId: item.mergedAssetId ?? item.assetId, size: item.size, mimeType: item.mimeType, live: Boolean(item.baseNodeId) && !item.fromPath, draft: true, renamedFrom: item.fromPath });
   }
   return files;
+}
+
+async function baseFiles(actor: Actor, workspaceId: string, access: Awaited<ReturnType<typeof assertWorkspaceFileReadAccess>>, branchRef: string | null) {
+  if (branchRef) {
+    const { filesUnder, findBranch, loadBranch } = await import("@/lib/domain/branches");
+    const found = await findBranch(actor, workspaceId, branchRef);
+    if (!found.isDefault) {
+      const { branch, main } = await loadBranch(actor, found.id);
+      let tree = (await filesUnder(branch, main.id, null)).filter((f) => !f.path.startsWith("/.system"));
+      // Files that come from main follow main's rule for this viewer (task files, organization file access).
+      const rule = visibleFileNodesSql(access);
+      const fromMain = tree.flatMap((f) => (f.nodeId ? [f.nodeId] : []));
+      if (rule && fromMain.length) {
+        const seen = new Set<string>();
+        for (let i = 0; i < fromMain.length; i += 1000) {
+          for (const r of await db.select({ id: workspaceNodes.id }).from(workspaceNodes).where(and(inArray(workspaceNodes.id, fromMain.slice(i, i + 1000)), rule))) seen.add(r.id);
+        }
+        tree = tree.filter((f) => !f.nodeId || seen.has(f.nodeId));
+      }
+      return new Map<string, Entry>(tree.map((f) => [f.path, { path: f.path, hash: f.contentHash, key: f.storageKey, assetId: f.assetId, size: f.size, mimeType: f.mimeType, live: true, draft: false, renamedFrom: null }]));
+    }
+  }
+  const rows = await db.select({ path: workspaceNodes.path, hash: fileVersions.contentHash, key: workspaceNodes.s3Key, size: workspaceNodes.size, mimeType: workspaceNodes.mimeType })
+    .from(workspaceNodes)
+    .leftJoin(fileVersions, and(eq(fileVersions.nodeId, workspaceNodes.id), eq(fileVersions.version, workspaceNodes.currentVersion)))
+    .where(and(eq(workspaceNodes.projectId, workspaceId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt), notLike(workspaceNodes.path, "/.system%"), visibleFileNodesSql(access)))
+    .limit(FS_LIMITS.listFiles);
+  return new Map<string, Entry>(rows.map((r) => [r.path, { path: r.path, hash: r.hash?.toLowerCase() ?? null, key: r.key, assetId: null, size: r.size ?? null, mimeType: r.mimeType, live: true, draft: false, renamedFrom: null }]));
 }
 
 async function bytesOf(entry: Entry): Promise<Buffer | null> {
@@ -76,8 +100,8 @@ const matcher = (glob?: string | null) => {
 
 // ── Route 14: list ────────────────────────────────────────────────────────────────────────────────────────────────
 
-export async function listFiles(actor: Actor, workspaceId: string, opts: { changeSet?: string | null; glob?: string | null; limit?: number } = {}) {
-  const files = await view(actor, workspaceId, opts.changeSet);
+export async function listFiles(actor: Actor, workspaceId: string, opts: { changeSet?: string | null; branch?: string | null; glob?: string | null; limit?: number } = {}) {
+  const files = await view(actor, workspaceId, opts.changeSet, opts.branch);
   const limit = Math.min(Math.max(opts.limit ?? 1000, 1), 5000);
   const match = matcher(opts.glob);
   const all = [...files.values()].filter((f) => match(f.path)).sort((a, b) => byPath(a.path, b.path));
@@ -86,10 +110,10 @@ export async function listFiles(actor: Actor, workspaceId: string, opts: { chang
 
 // ── Route 15: read ────────────────────────────────────────────────────────────────────────────────────────────────
 
-export async function readFiles(actor: Actor, workspaceId: string, opts: { paths: string[]; changeSet?: string | null }) {
+export async function readFiles(actor: Actor, workspaceId: string, opts: { paths: string[]; changeSet?: string | null; branch?: string | null }) {
   if (!Array.isArray(opts.paths) || !opts.paths.length) fail("Name the files to read", 400, "BAD_REQUEST");
   if (opts.paths.length > FS_LIMITS.readFiles) fail(`At most ${FS_LIMITS.readFiles} files a call`, 400, "BAD_REQUEST");
-  const files = await view(actor, workspaceId, opts.changeSet);
+  const files = await view(actor, workspaceId, opts.changeSet, opts.branch);
   const out = await Promise.all(opts.paths.map(async (raw) => {
     const p = normalizeChangePath(raw);
     const entry = files.get(p);
@@ -125,12 +149,12 @@ async function fill(entries: Entry[]) {
   return byHash.size - todo.length;
 }
 
-export async function searchFiles(actor: Actor, workspaceId: string, opts: { query: string; regex?: boolean; caseSensitive?: boolean; glob?: string | null; changeSet?: string | null; limit?: number }) {
+export async function searchFiles(actor: Actor, workspaceId: string, opts: { query: string; regex?: boolean; caseSensitive?: boolean; glob?: string | null; changeSet?: string | null; branch?: string | null; limit?: number }) {
   const query = String(opts.query ?? "");
   if (!query.trim() || query.length > 500) fail("Search for 1 to 500 characters", 400, "BAD_REQUEST");
   const limit = Math.min(Math.max(opts.limit ?? 100, 1), FS_LIMITS.matches);
   const match = matcher(opts.glob);
-  const entries = [...(await view(actor, workspaceId, opts.changeSet)).values()].filter((e) => e.hash && match(e.path));
+  const entries = [...(await view(actor, workspaceId, opts.changeSet, opts.branch)).values()].filter((e) => e.hash && match(e.path));
   const notIndexed = await fill(entries);
   const pathsOf = new Map<string, string[]>();
   for (const e of entries) pathsOf.set(e.hash!, [...(pathsOf.get(e.hash!) ?? []), e.path]);
