@@ -1,6 +1,7 @@
 import { changeSetRoute } from "@/app/api/v1/change-sets/_route";
 import { jsonError } from "@/app/api/v1/_shared";
-import { filesAtSave, revertSave, saveDiff, zipEntriesAtSave } from "@/lib/domain/saves";
+import { requireTokenScope } from "@/app/api/v1/_shared";
+import { assertCanReadSave, filesAtSave, revertSave, saveDiff, zipEntriesAtSave } from "@/lib/domain/saves";
 import { streamFolderExport } from "@/lib/files/folder-export";
 import { safeContentDisposition } from "@/lib/storage/private-object-response";
 
@@ -31,7 +32,7 @@ export async function GET(request: Request, context: Ctx) {
         historyName: `save-${save.seq}`,
         historyNodeId: null,
       };
-      return new Response(streamFolderExport({ prepared, requestSignal: req.signal, reauthorize: async () => undefined }), {
+      return new Response(streamFolderExport({ prepared, requestSignal: req.signal, reauthorize: () => assertCanReadSave(auth, s) }), {
         headers: { "Content-Type": "application/zip", "Content-Disposition": safeContentDisposition(`save-${save.seq}.zip`, "attachment"), "Cache-Control": "private, no-store" },
       });
     }
@@ -43,5 +44,5 @@ export async function GET(request: Request, context: Ctx) {
 export async function POST(request: Request, context: Ctx) {
   const { s, op } = await context.params;
   if (op !== "revert") return jsonError("Not found", 404, "NOT_FOUND");
-  return changeSetRoute(request, { limit: "apply", saveId: s }, (auth, req) => revertSave(auth, req, s));
+  return changeSetRoute(request, { limit: "apply", saveId: s }, (auth, req) => revertSave(auth, req, s, { checkScope: (scope) => requireTokenScope(auth, scope) }));
 }

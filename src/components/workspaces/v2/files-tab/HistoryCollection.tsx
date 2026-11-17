@@ -128,6 +128,15 @@ function SavePage({ projectId, id, onBack, onOpen }: { projectId: string; id: st
     setBusy(true);
     try {
       const res = await revertSaveAction(id);
+      if (!res.success && res.code === "STEP_UP_REQUIRED" && res.details?.changeSetId) {
+        // Apply in Changes asks "Verify it's you" first, then applies the revert.
+        toast.error(res.error);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("save");
+        url.searchParams.set("changes", String(res.details.changeSetId));
+        window.location.href = url.toString();
+        return;
+      }
       if (!res.success) { toast.error(res.error); return; }
       void client.invalidateQueries({ queryKey: ["saves", projectId] });
       void client.invalidateQueries({ queryKey: ["files-directory", projectId] });

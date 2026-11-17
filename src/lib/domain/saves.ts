@@ -10,6 +10,7 @@ import { branches, changeSets, fileVersions, profiles, saveChanges, saves, tasks
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { labelScope } from "@/lib/agents/via-scope";
 import { visibleVia } from "@/lib/agents/via-visibility";
+import { changeSetStepUp } from "@/lib/security/change-set-step-up";
 import { ChangeSetError, applyChangeSet, diffAssets, finishChangeSet, startChangeSet, upsertItems, type Actor, type ItemDiff, type ItemInput } from "@/lib/domain/change-sets";
 
 const fail = (message: string, status: number, code: string, details?: Record<string, unknown>): never => {
@@ -22,7 +23,7 @@ export const SAVE_LIMITS = { page: 50, files: 5_000, changes: 2_000, zipFiles: 2
 /** History is for the workspace's people (H26): members, owners and the organization's admins, never public readers. */
 async function memberAccess(actor: Actor, workspaceId: string) {
   const access = await getWorkspaceAccessById(workspaceId, userOf(actor));
-  if (!access.project || !(access.isOwner || access.isMember || access.isInheritedAdmin)) fail("Workspace not found", 404, "NOT_FOUND");
+  if (!access.project || !access.canRead || !(access.isOwner || access.isMember || access.isInheritedAdmin)) fail("Workspace not found", 404, "NOT_FOUND");
   return { access, canWrite: access.canWrite, isAdmin: access.isOwner || access.memberRole === "admin" || access.isInheritedAdmin };
 }
 
@@ -244,7 +245,7 @@ export async function saveOfVersion(actor: Actor, nodeId: string, version: numbe
  * A new save that undoes this one: a Part G change set with each file back as it was before the save, finished and
  * applied at once. Files changed since merge (G9); a conflict leaves the change set open to resolve in Changes.
  */
-export async function revertSave(actor: Actor, request: Request, saveId: string) {
+export async function revertSave(actor: Actor, request: Request, saveId: string, opts: { checkScope?: (scope: "file:final" | "doc:write") => Promise<Response | null> } = {}) {
   const { save, canWrite } = await findSave(actor, saveId);
   if (!canWrite) fail("You can read this workspace but not change it", 403, "FORBIDDEN");
   if (save.kind === "start") fail("The start of history can't be reverted", 409, "NOT_REVERTIBLE");
@@ -277,15 +278,25 @@ export async function revertSave(actor: Actor, request: Request, saveId: string)
     await db.update(changeSets).set({ status: "discarded", discardedAt: new Date() }).where(eq(changeSets.id, set.id));
     return { outcome: "nothing" as const, changeSetId: null, saveId: null };
   }
-  const finished = await finishChangeSet(actor, set.id, { confirmSecrets: true });
+  // Putting back content the workspace already held: a person's revert confirms a key-like file was there before;
+  // an agent's can't (finishChangeSet refuses agents' confirmations), so the set stays open for the person.
+  const finished = await finishChangeSet(actor, set.id, { confirmSecrets: actor.tokenKind !== "agent" });
+  // The same checks as Apply: a doc or final file in the browser verifies it's you first; tokens need their scopes.
+  const stepUp = await changeSetStepUp(actor, set.id);
+  if (stepUp) fail("This revert touches a doc: verify it’s you, then apply it in Changes", 403, "STEP_UP_REQUIRED", { stepUp, changeSetId: set.id });
   try {
-    await applyChangeSet(actor, request, set.id);
+    await applyChangeSet(actor, request, set.id, { checkScope: opts.checkScope });
   } catch (error) {
     if (error instanceof ChangeSetError && error.code === "CHANGE_SET_CONFLICT") return { outcome: "conflicts" as const, changeSetId: set.id, saveId: null, conflicts: error.details?.conflicts ?? [] };
     throw error;
   }
   const [made] = await db.select({ id: saves.id }).from(saves).where(eq(saves.changeSetId, set.id)).orderBy(desc(saves.seq)).limit(1);
   return { outcome: "reverted" as const, changeSetId: finished.changeSet.id, saveId: made?.id ?? null };
+}
+
+/** Still allowed to read this save (a long zip re-checks while it streams). */
+export async function assertCanReadSave(actor: Actor, saveId: string) {
+  await findSave(actor, saveId);
 }
 
 /** Files of a save's tree for a zip: path and storage key (H3 "Download as zip"). */
