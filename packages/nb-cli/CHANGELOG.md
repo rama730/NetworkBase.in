@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.6.2 (2026-11-18)
+
+Fixes from the walkthrough on 2.6.1.
+
+### Fixed
+- Switching branch (or following `git checkout -b`) in a folder that pulled only some files no longer downloads the rest; it took 103 s on a 143-file workspace.
+- After `nb merge-request merge` in a folder on that branch, the folder is on main again.
+- `nb` and `nb status` show the overdue and due-this-week counts of the folder's own workspace.
+- `nb agent status` works outside a linked folder (it lists your signed-in agents).
+- Behind a proxy, Node's "EnvHttpProxyAgent is experimental" warning no longer prints on every command.
+
 ## 2.6.1 (2026-11-18)
 
 ### Added
