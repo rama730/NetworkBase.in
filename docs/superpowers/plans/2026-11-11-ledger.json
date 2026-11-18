@@ -2212,9 +2212,9 @@
       "text": "Large uploads show progress, can be paused with Ctrl+C, and resume on the next push (files can be 25 MB).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/reliability.test.mjs",
-      "evidence": "T16 live: no progress and a draft left per Ctrl+C since M5 change sets; fixed locally (2.6.5). M4b, local main (9c4cb7836..), 2026-11-12; progress per big file; Ctrl+C then the next push sends the file whole (ponytail: no byte-level resume, files ≤25 MB)"
+      "evidence": "LIVE 2026-11-18 on CLI 2.6.5: 24 MB push shows progress, Ctrl+C then push says \"Carrying on with the push that was stopped\", no drafts left. T16 live: no progress and a draft left per Ctrl+C since M5 change sets; fixed locally (2.6.5). M4b, local main (9c4cb7836..), 2026-11-12; progress per big file; Ctrl+C then the next push sends the file whole (ponytail: no byte-level resume, files ≤25 MB)"
     },
     {
       "key": "C3.4029e26d",
@@ -2502,9 +2502,9 @@
       "text": "nb open <file> --code: opens the file in VS Code or Cursor (whichever is installed), from the linked folder.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "T16 live: refused with VS Code installed off PATH; fixed locally (2.6.5). M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "LIVE 2026-11-18 on CLI 2.6.5: opened in VS Code with code not on PATH. T16 live: refused with VS Code installed off PATH; fixed locally (2.6.5). M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "C10.dc645585",
