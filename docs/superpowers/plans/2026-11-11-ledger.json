@@ -9522,9 +9522,9 @@
       "text": "Merge requests:",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/merge-requests.spec.ts (H23 journey 8: phone)",
-      "evidence": "M9 leftovers 2026-11-18 (local, not deployed): on a phone files open one at a time with a way back, Approve/Request changes full width, Merge full width at the bottom, conflicts suggest a larger screen"
+      "evidence": "LIVE 2026-11-18 (c8be1adf8 + 2e3242419): deepscope-ai !1 at phone width, one file at a time with \"All files (N)\", Merge bar at the bottom. M9 leftovers 2026-11-18 (local, not deployed): on a phone files open one at a time with a way back, Approve/Request changes full width, Merge full width at the bottom, conflicts suggest a larger screen"
     },
     {
       "key": "H23.0125f7cd",
@@ -9532,9 +9532,9 @@
       "text": "nb branch switch to a branch whose files were pulled before works offline, and is labelled \"offline\".",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs (offline H23 journey 9)",
-      "evidence": "M9 leftovers 2026-11-18 (local, not deployed): nb branch switch offline to a branch this folder had: its base list and kept text copies rebuild it, labelled (offline); one never had needs the network"
+      "evidence": "LIVE 2026-11-18 (CLI 2.6.3 npm latest): on Ponytail, nb branch switch m9-offline with the network refused → \"On m9-offline (offline)\" in 8.9 s. M9 leftovers 2026-11-18 (local, not deployed): nb branch switch offline to a branch this folder had: its base list and kept text copies rebuild it, labelled (offline); one never had needs the network"
     },
     {
       "key": "H23.7cab9144",
@@ -9902,9 +9902,9 @@
       "text": "Events:",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/cli-commands.test.ts (H8 activity); tests/db/branch-protection.test.ts",
-      "evidence": "M9 leftovers 2026-11-18 (local, not deployed): branch.updated / merge_request.updated broadcasts (B2); branch deleted and restored go to the security log (who, workspace) and the activity feed; protection changes and owner overrides were already logged (H-4)"
+      "evidence": "LIVE 2026-11-18 (c8be1adf8): branch_deleted and branch_restored in the live security log; Ponytail activity shows branch_deleted by @ramanayudu_ch. Merged branch delete by name checked live on 2.6.3 (!5). M9 leftovers 2026-11-18 (local, not deployed): branch.updated / merge_request.updated broadcasts (B2); branch deleted and restored go to the security log (who, workspace) and the activity feed; protection changes and owner overrides were already logged (H-4)"
     },
     {
       "key": "H26.a8851290",
