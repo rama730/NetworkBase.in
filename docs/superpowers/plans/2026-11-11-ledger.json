@@ -2722,9 +2722,9 @@
       "text": "nb file history shows that branch's saves",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs; tests/db/branches.test.ts (C14b)",
-      "evidence": "M9 B2 2026-11-18 (local, not deployed): nb file history on a branch folder lists the branch saves that changed the file"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.0 npm latest, site a414fb717): on ponytail, nb init ponytail --branch m9-cli-check stored the branch by id; two pushes made saves 1 and 2 on the branch; nb file history listed them; nb diff --from 1 --to 2 showed the change; nb fs search found the text on the branch and not on main; after nb branch delete, nb status said \"The branch m9-cli-check was deleted\" with nb branch switch main; the test branch stays deleted. Before that: M9 B2 2026-11-18 (local, not deployed): nb file history on a branch folder lists the branch saves that changed the file"
     },
     {
       "key": "C14b.c5fb135d",
@@ -2734,7 +2734,7 @@
       "milestone": "M8",
       "status": "tested",
       "test": "packages/nb-cli/test/branch.test.mjs; tests/db/branches.test.ts (C14b)",
-      "evidence": "M9 B2 2026-11-18 (local, not deployed): POST /branches/:b/use; nb file use <path> <save> makes a save on the branch"
+      "evidence": "2026-11-18 live check: refused for terminal sign-ins (route missing from the token list); fixed in deb371d26, not deployed. M9 B2 2026-11-18 (local, not deployed): POST /branches/:b/use; nb file use <path> <save> makes a save on the branch"
     },
     {
       "key": "C14b.e85d8d25",
@@ -2742,9 +2742,9 @@
       "text": "nb diff compares with that branch",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M9 B2 2026-11-18 (local, not deployed): nb diff on a branch folder compares with the branch copy; --from/--to are branch saves (raw ?save=n)"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.0 npm latest, site a414fb717): on ponytail, nb init ponytail --branch m9-cli-check stored the branch by id; two pushes made saves 1 and 2 on the branch; nb file history listed them; nb diff --from 1 --to 2 showed the change; nb fs search found the text on the branch and not on main; after nb branch delete, nb status said \"The branch m9-cli-check was deleted\" with nb branch switch main; the test branch stays deleted. Before that: M9 B2 2026-11-18 (local, not deployed): nb diff on a branch folder compares with the branch copy; --from/--to are branch saves (raw ?save=n)"
     },
     {
       "key": "C15.3e811474",
@@ -7642,9 +7642,9 @@
       "text": "nb init links the folder to main (or --branch <name>).",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs (nb init --branch)",
-      "evidence": "M9 B2 2026-11-18 (local, not deployed): nb init --branch <name> stores the branch by id and remembers git head"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.0 npm latest, site a414fb717): on ponytail, nb init ponytail --branch m9-cli-check stored the branch by id; two pushes made saves 1 and 2 on the branch; nb file history listed them; nb diff --from 1 --to 2 showed the change; nb fs search found the text on the branch and not on main; after nb branch delete, nb status said \"The branch m9-cli-check was deleted\" with nb branch switch main; the test branch stays deleted. Before that: M9 B2 2026-11-18 (local, not deployed): nb init --branch <name> stores the branch by id and remembers git head"
     },
     {
       "key": "H6.0eb61038",
@@ -9672,9 +9672,9 @@
       "text": "The branch a CLI folder is on is deleted · The next command says so and offers nb branch switch main (local edits are kept)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs (deleted branch)",
-      "evidence": "M9 B2 2026-11-18 (local, not deployed): the next command says the branch was deleted with nb branch switch main; switching keeps edits"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.0 npm latest, site a414fb717): on ponytail, nb init ponytail --branch m9-cli-check stored the branch by id; two pushes made saves 1 and 2 on the branch; nb file history listed them; nb diff --from 1 --to 2 showed the change; nb fs search found the text on the branch and not on main; after nb branch delete, nb status said \"The branch m9-cli-check was deleted\" with nb branch switch main; the test branch stays deleted. Before that: M9 B2 2026-11-18 (local, not deployed): the next command says the branch was deleted with nb branch switch main; switching keeps edits"
     },
     {
       "key": "H24.f9aee025",
