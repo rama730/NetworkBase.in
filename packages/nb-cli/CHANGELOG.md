@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.6 (2026-11-18)
+
+### Fixed
+- In a folder kept to some folders (`nb sync --only`), an agent's change set holds only those folders' files; files like `.mcp.json` and `CLAUDE.md` at the top level stay out.
+- `nb push` with a change set open in the folder says to finish and apply it, instead of saving around it and leaving it empty.
+
 ## 2.6.5 (2026-11-18)
 
 Fixes from testing every built item live.
