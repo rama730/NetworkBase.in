@@ -10372,9 +10372,9 @@
       "text": "The walkthrough becomes automated tests: the stable parts of each journey (scripted terminal steps against a seeded server, and the agent steps through the Part",
       "kind": "build",
       "milestone": "M9",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/journeys.test.mjs (M9 walkthrough: branches)",
-      "evidence": "2026-11-18: the branch journey as walked runs in CI with every CLI change"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.2 npm latest): the automated branch journey ships; rechecked live on ponytail: push after git checkout -b took 9 s (was 103 s) with no other files fetched, merge left the folder on main. 2026-11-18: the branch journey as walked runs in CI with every CLI change"
     },
     {
       "key": "E9.05a2ece6",
