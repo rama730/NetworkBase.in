@@ -198,7 +198,9 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
             setProgressText('Connecting…')
 
             const protocol = parseProtocol(callbackUrl)
-            const res = await generateExtensionAuthCode(editorName, {
+            // The CLI names its computer (device=), so Settings can tell two terminal sign-ins apart.
+            const device = protocol === 'http' ? (searchParams.get('device') ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 120) : ''
+            const res = await generateExtensionAuthCode(device || editorName, {
                 authMethod: 'web_login',
                 editorHost: protocol === 'http' ? 'cli' : protocol || undefined,
                 editorName,

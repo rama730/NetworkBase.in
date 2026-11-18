@@ -241,6 +241,8 @@ function browserLogin(ctx) {
       authorize.searchParams.set("state", state);
       authorize.searchParams.set("code_challenge", challenge);
       authorize.searchParams.set("code_challenge_method", "S256");
+      // The computer's name, so Settings can tell this sign-in from another (T16 live test: cards looked the same).
+      authorize.searchParams.set("device", os.hostname().slice(0, 120) || "terminal");
       const opened = await openInBrowser(authorize.toString());
       ctx.out.note(`${opened ? "Opened your browser to sign in" : "Open this link to sign in"} on ${new URL(origin).host}:`);
       ctx.out.note(`  ${authorize.toString()}`);
