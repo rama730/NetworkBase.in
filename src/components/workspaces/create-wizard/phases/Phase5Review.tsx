@@ -221,7 +221,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Step 5 · Review</p>
                 <h3 className="nb-section-title mt-2 text-foreground">Review before creating</h3>
                 <p className="nb-body mt-2 text-muted-foreground">
-                    {org ? 'Confirm what members will see. Use Edit to return to a step; the organization is created only when you choose Create organization in the footer.' : 'Check what members will see. Use Edit to go back to a step. Nothing is created until you select Create workspaceect in the footer.'}
+                    {org ? 'Confirm what members will see. Use Edit to return to a step; the organization is created only when you choose Create organization in the footer.' : 'Check what members will see. Use Edit to go back to a step. Nothing is created until you select Create workspace in the footer.'}
                 </p>
             </header>
 
