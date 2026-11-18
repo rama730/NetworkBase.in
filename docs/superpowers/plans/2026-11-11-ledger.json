@@ -9334,7 +9334,7 @@
       "milestone": "M8",
       "status": "live",
       "test": "tests/db/merge-requests.test.ts (My reviews); packages/nb-cli/test/merge-request.test.mjs (My reviews)",
-      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): inbox tray tab My reviews and nb merge-request list --review-requested --all (GET /api/v1/me/reviews, personal sign-ins only)"
+      "evidence": "CLI 2.6.1 live 2026-11-18: nb merge-request list --review-requested --all works on networkbase.in. 2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): inbox tray tab My reviews and nb merge-request list --review-requested --all (GET /api/v1/me/reviews, personal sign-ins only)"
     },
     {
       "key": "H23.c2e926db",
@@ -9542,9 +9542,9 @@
       "text": "Saves go into the offline queue (C6) tagged with their branch, and replay to that branch.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs (offline)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): queued pushes keep their branch and are sent only while the folder is on it"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1 npm latest): installed and run against networkbase.in (nb merge-request list --review-requested --all answered \"Nothing is waiting on your review\"); offline behaviour is proven by packages/nb-cli/test/branch.test.mjs (a real offline run would need another sign-in). M9 B3 2026-11-18 (local, not deployed): queued pushes keep their branch and are sent only while the folder is on it"
     },
     {
       "key": "H23.0fbd9124",
@@ -9552,9 +9552,9 @@
       "text": "Creating a branch, opening a merge request and merging need the network, and say so.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs (offline)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): making a branch, opening a merge request and merging say they need the network"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1 npm latest): installed and run against networkbase.in (nb merge-request list --review-requested --all answered \"Nothing is waiting on your review\"); offline behaviour is proven by packages/nb-cli/test/branch.test.mjs (a real offline run would need another sign-in). M9 B3 2026-11-18 (local, not deployed): making a branch, opening a merge request and merging say they need the network"
     },
     {
       "key": "H24.ded549cb",
