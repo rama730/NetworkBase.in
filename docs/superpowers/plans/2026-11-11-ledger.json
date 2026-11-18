@@ -452,9 +452,9 @@
       "text": "15 · A starter README (no file yet) gets Edit in the app, creating its file the same way the CLI does · M4",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/doc-starter-edit.test.ts",
-      "evidence": "T16: waits for the nb workspace create fix (a throwaway workspace). M4d, local main (a028e54af..), 2026-11-16; live check needs a signed-in browser (the in-app browser is signed out), and the only README without a file is unpublished (Team Falcon), so it needs a published starter README"
+      "evidence": "LIVE 2026-11-18 (T16): a wizard-made workspace's starter README → Edit created /README.md v1 and opened it in Files (as a preview, not the editor; polish noted). T16: waits for the nb workspace create fix (a throwaway workspace). M4d, local main (a028e54af..), 2026-11-16; live check needs a signed-in browser (the in-app browser is signed out), and the only README without a file is unpublished (Team Falcon), so it needs a published starter README"
     },
     {
       "key": "0.8.0afea991",
@@ -10484,7 +10484,7 @@
       "milestone": "M7",
       "status": "live",
       "test": "tests/db/cli-admin.test.ts; packages/nb-cli/test/admin.test.mjs",
-      "evidence": "M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
+      "evidence": "T16 2026-11-18: nb workspace create failed live for everyone (custom type); fixed fb26837b2, deployed, created \"T16 README check\" live. M7 live 2026-11-18: c3d9f6500+b63ced75f+a317c9602, 0101 in prod; live check on networkbase.in (whoami --security, workspace settings, sprint list/view burndown, class progress, announcements, nb api, export step-up → /cli/verify page); CLI 2.5.0 tagged"
     },
     {
       "key": "F3.19769544",
