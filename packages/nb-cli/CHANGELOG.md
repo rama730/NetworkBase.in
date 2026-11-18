@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.6.4 (2026-11-18)
+
+Fixes from the E1 and E2 walks on 2.6.3.
+
+### Fixed
+- After `nb merge-request merge`, a folder kept to some folders (`nb sync --only`) no longer downloads the whole workspace to go back to main; branch switches only bring those folders.
+- In a git folder with main protected, `nb push` on a new git branch saves on that branch instead of refusing.
+- A file in conflict stays a conflict after a branch switch, so `nb push` doesn't replace the server's copy without asking.
+- `--plain` and piped output show whole paths.
+- `nb status` no longer stops to ask about a git branch NetworkBase doesn't have; it says so.
+- `nb status` shows the folder's open change set.
+- `nb merge-request comment --suggest` prints the command that applies the suggestion.
+- `nb branch create --no-switch` says how to switch to the new branch.
+
 ## 2.6.3 (2026-11-18)
 
 ### Added
