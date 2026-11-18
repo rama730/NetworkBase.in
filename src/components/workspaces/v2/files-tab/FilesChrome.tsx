@@ -114,9 +114,9 @@ export function FilterChip({ on, label, count, onClick, testId }: { on: boolean;
 }
 
 /** Trash's inline filter field. */
-export function StripSearch({ id, value, onChange, placeholder, label, onSubmit }: { id: string; value: string; onChange: (v: string) => void; placeholder: string; label: string; onSubmit?: () => void }) {
+export function StripSearch({ id, value, onChange, placeholder, label, onSubmit }: { id: string; value: string; onChange: (v: string) => void; placeholder: string; label: string; onSubmit?: (value: string) => void }) {
   return (
-    <form className="relative flex items-center" onSubmit={(e) => { e.preventDefault(); onSubmit?.(); }}>
+    <form className="relative flex items-center" onSubmit={(e) => { e.preventDefault(); onSubmit?.(value); }}>
       <Search className="pointer-events-none absolute left-2 size-3 text-[#6B7880] dark:text-muted-foreground" aria-hidden="true" />
       <label htmlFor={id} className="sr-only">{label}</label>
       <input
@@ -124,12 +124,12 @@ export function StripSearch({ id, value, onChange, placeholder, label, onSubmit 
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onBlur={() => onSubmit?.()}
+        onBlur={() => onSubmit?.(value)}
         placeholder={placeholder}
         className="h-6 w-36 rounded-[3px] border border-[#DBD5C8] bg-white pl-6 pr-6 font-mono text-[11px] text-[#141A1E] placeholder:text-[#8E9AA1] focus:border-[#D14E24] focus:outline-none dark:border-border dark:bg-card dark:text-foreground sm:w-48"
       />
       {value ? (
-        <button type="button" onClick={() => { onChange(""); onSubmit?.(); }} aria-label={`Clear: ${label}`} className="absolute right-1.5 flex size-3.5 items-center justify-center rounded-[2px] text-[#6B7880] hover:text-[#141A1E] dark:text-muted-foreground dark:hover:text-foreground">
+        <button type="button" onClick={() => { onChange(""); onSubmit?.(""); }} aria-label={`Clear: ${label}`} className="absolute right-1.5 flex size-3.5 items-center justify-center rounded-[2px] text-[#6B7880] hover:text-[#141A1E] dark:text-muted-foreground dark:hover:text-foreground">
           <X className="size-3" aria-hidden="true" />
         </button>
       ) : null}

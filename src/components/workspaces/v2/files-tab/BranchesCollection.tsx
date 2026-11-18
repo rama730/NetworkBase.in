@@ -134,7 +134,7 @@ export function BranchesCollection({ projectId }: { projectId: string }) {
         <FolderListHeader updatedLabel="Last save" sizeLabel="Ahead · behind" byLabel="Made by" />
         <div className="min-h-0 flex-1 overflow-y-auto">
           {list.isLoading ? <FolderListLoading /> : list.isError ? <FolderListError onRetry={() => void list.refetch()} /> : branches.length === 0 ? (
-            <FolderListEmpty message={query ? "No branch matches." : filter === "active" ? "No branches yet. Make one with New branch, or nb branch create ram/try-new-header." : filter === "stale" ? "Branches with no saves for 30 days show here." : filter === "merged" ? "Branches merged into main show here, ready to delete." : "Deleted branches can be restored for 30 days."} />
+            <FolderListEmpty plain message={query ? "No branch matches." : filter === "active" ? "No branches yet. Make one with New branch, or nb branch create ram/try-new-header." : filter === "stale" ? "Branches with no saves for 30 days show here." : filter === "merged" ? "Branches merged into main show here, ready to delete." : "Deleted branches can be restored for 30 days."} />
           ) : (
             <div role="rowgroup">
               {branches.map((b) => {
@@ -203,7 +203,7 @@ export function BranchChanges({ branch }: { branch: BranchView }) {
   const current = selected ?? files[0]?.path ?? null;
   const diff = useQuery({ queryKey: ["branch-diff", branch.id, current, branch.lastSave?.id], enabled: Boolean(current), queryFn: () => unwrap(branchDiffAction(branch.id, current!)) });
   if (changes.isLoading) return <FolderListLoading />;
-  if (!files.length) return <FolderListEmpty message="Nothing on this branch differs from main yet." />;
+  if (!files.length) return <FolderListEmpty plain message="Nothing on this branch differs from main yet." />;
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <nav aria-label="Files changed on this branch" className="max-h-64 overflow-y-auto border-b border-border md:max-h-none md:w-80 md:border-b-0 md:border-r">

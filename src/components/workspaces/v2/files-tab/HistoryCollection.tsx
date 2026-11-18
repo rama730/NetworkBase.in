@@ -137,13 +137,13 @@ function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
     <>
       <FilesStrip label="History filters">
         <StripNote>{saves.length ? `${saves.length}${list.hasNextPage ? "+" : ""} save${saves.length === 1 ? "" : "s"} on ${branch ?? "main"}` : `Saves on ${branch ?? "main"}`}</StripNote>
-        <StripSearch id="history-path" value={draft} onChange={setDraft} onSubmit={() => setPath(draft.trim())} placeholder="File or folder, like /src" label="Only saves that touched a file or folder" />
+        <StripSearch id="history-path" value={draft} onChange={setDraft} onSubmit={(v) => setPath(v.trim())} placeholder="File or folder, like /src" label="Only saves that touched a file or folder" />
       </FilesStrip>
       <div role="table" aria-label={`Saves on ${branch ?? "main"}`} className={cn(listStyles.container, "flex min-h-0 flex-1 flex-col overflow-hidden")}>
         <FolderListHeader updatedLabel="When" sizeLabel="Lines" byLabel="Files" />
         <div className="min-h-0 flex-1 overflow-y-auto">
           {list.isLoading ? <FolderListLoading /> : list.isError ? <FolderListError onRetry={() => void list.refetch()} /> : saves.length === 0 ? (
-            <FolderListEmpty message={path ? `No saves touched ${path}` : branch ? `No saves on ${branch} yet` : "No saves yet. Every change to the files shows up here."} />
+            <FolderListEmpty plain message={path ? `No saves touched ${path}` : branch ? `No saves on ${branch} yet` : "No saves yet. Every change to the files shows up here."} />
           ) : (
             <>
               {days.map((d) => (
@@ -163,7 +163,7 @@ function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
             showMain ? (
               <section role="rowgroup" aria-label={`On main before ${branch} began`}>
                 <div className="px-4 pb-1 pt-3"><RailSectionHeading title={`On main before ${branch} began`} /></div>
-                {before.isLoading ? <FolderListLoading /> : mainSaves.length ? mainSaves.map((s) => <SaveRow key={s.id} s={s} onOpen={() => onOpen(s.id)} />) : <FolderListEmpty message={path ? `No saves on main touched ${path}` : "No saves on main before it"} />}
+                {before.isLoading ? <FolderListLoading /> : mainSaves.length ? mainSaves.map((s) => <SaveRow key={s.id} s={s} onOpen={() => onOpen(s.id)} />) : <FolderListEmpty plain message={path ? `No saves on main touched ${path}` : "No saves on main before it"} />}
                 {before.hasNextPage ? <div className="flex justify-center py-3"><button type="button" className={stripButton} disabled={before.isFetchingNextPage} onClick={() => void before.fetchNextPage()}>{before.isFetchingNextPage ? "Loading…" : "Older saves"}</button></div> : null}
               </section>
             ) : (

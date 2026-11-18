@@ -50,6 +50,9 @@ test('the list: grouped by day like GitHub, with who, how, the task, +/− and t
   await expect(page.getByRole('rowgroup', { name: /^Saves on/ }).getByRole('row')).toHaveCount(1);
   const calls = await page.evaluate(() => (window as any).__calls);
   expect(calls).toContainEqual(['list', '/src']);
+  // Clearing the field shows every save again (live check, M9 B2: it kept the old filter).
+  await page.getByRole('button', { name: 'Clear: Only saves that touched a file or folder' }).click();
+  await expect(page.getByRole('rowgroup', { name: /^Saves on/ }).getByRole('row')).not.toHaveCount(1);
 });
 
 test('a save opens with its files and a diff, browses the files as they were, and has a zip link', async ({ page }) => {

@@ -105,7 +105,7 @@ function MergeRequestList({ projectId, onOpen }: { projectId: string; onOpen: (n
         <FolderListHeader updatedLabel="Updated" sizeLabel="Reviews" byLabel="Opened by" />
         <div className="min-h-0 flex-1 overflow-y-auto">
           {list.isLoading ? <FolderListLoading /> : list.isError ? <FolderListError onRetry={() => void list.refetch()} /> : rows.length === 0 ? (
-            <FolderListEmpty message={filter === "review" ? "Nothing waiting on you." : filter === "open" ? "No open merge requests. Open one from a branch’s bar, or nb merge-request create." : `No ${filter} merge requests.`} />
+            <FolderListEmpty plain message={filter === "review" ? "Nothing waiting on you." : filter === "open" ? "No open merge requests. Open one from a branch’s bar, or nb merge-request create." : `No ${filter} merge requests.`} />
           ) : (
             <div role="rowgroup">
               {rows.map((m) => {
@@ -443,7 +443,7 @@ function SavesList({ detail }: { detail: Detail }) {
     url.searchParams.set("save", id);
     window.location.href = url.toString();
   };
-  if (!detail.saves.length) return <FolderListEmpty message="No saves on this branch." />;
+  if (!detail.saves.length) return <FolderListEmpty plain message="No saves on this branch." />;
   return (
     <div role="table" aria-label="Saves on this branch" className={listStyles.container}>
       <FolderListHeader updatedLabel="When" sizeLabel="Files" byLabel="Saved by" />
@@ -477,8 +477,8 @@ function FilesChanged({ projectId, detail, busy, act }: { projectId: string; det
   const [suggest, setSuggest] = useState(false);
   const [suggestion, setSuggestion] = useState("");
   const open = m.state === "open" || m.state === "draft";
-  if (!detail.files) return <FolderListEmpty message={m.state === "merged" ? "Merged: the changes are in main now. Its saves are under Saves." : "The branch was deleted, so its files can’t be shown."} />;
-  if (!files.length) return <FolderListEmpty message="Nothing on the branch differs from main." />;
+  if (!detail.files) return <FolderListEmpty plain message={m.state === "merged" ? "Merged: the changes are in main now. Its saves are under Saves." : "The branch was deleted, so its files can’t be shown."} />;
+  if (!files.length) return <FolderListEmpty plain message="Nothing on the branch differs from main." />;
   const comments = detail.comments.filter((c) => c.path === current);
   const OP: Record<string, { label: string; tone: BadgeTone }> = { add: { label: "Added", tone: "success" }, change: { label: "Changed", tone: "warning" }, delete: { label: "Deleted", tone: "danger" } };
   async function send() {
