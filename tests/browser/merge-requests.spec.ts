@@ -184,3 +184,13 @@ test('H26: !3 in a comment links to that merge request; someone who left shows "
   await expect(page.getByRole('link', { name: '!2' })).toHaveAttribute('href', /mr=2/);
   await expect(page.getByText('(former member)')).toBeVisible();
 });
+
+test('H23 journey 4: in the list, j and k move, and a approves one waiting on your review', async ({ page }) => {
+  await open(page);
+  const row = page.getByRole('button', { name: /Open merge request !3: New header/ });
+  await row.focus();
+  await page.keyboard.press('k');
+  await expect(row).toBeFocused();
+  await page.keyboard.press('a');
+  await expect.poll(async () => (await page.evaluate(() => (window as any).__calls)).find((c: unknown[]) => c[0] === 'review')).toEqual(['review', 'p1', 3, 'approve', '']);
+});

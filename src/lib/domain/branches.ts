@@ -26,7 +26,7 @@ const fail = (message: string, status: number, code: string, details?: Record<st
 const userOf = (actor: Actor) => actor.user?.id ?? fail("Sign in to continue", 401, "UNAUTHORIZED");
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const BRANCH_LIMITS = { active: 500, restoreDays: 30, staleDays: 30, branchRevision: 1_000_000 };
+export const BRANCH_LIMITS = { active: 500, perAgent: 10, restoreDays: 30, staleDays: 30, mergedDays: 7, staleNoteDays: 90, branchRevision: 1_000_000 };
 
 export type Branch = typeof branches.$inferSelect;
 /** One file as a branch (or main) has it. `own`: the branch's own, not main's. `revision`: what the CLI compares. */
@@ -227,6 +227,13 @@ export async function createBranch(actor: Actor, workspaceId: string, input: { n
     return await db.transaction(async (tx) => {
       const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(branches).where(and(eq(branches.workspaceId, workspaceId), eq(branches.status, "active"), eq(branches.isDefault, false)));
       if (n >= BRANCH_LIMITS.active) fail(`A workspace has at most ${BRANCH_LIMITS.active} active branches; delete merged or stale ones first`, 409, "BRANCH_LIMIT");
+      // One agent sign-in works on at most 10 active branches here (H15): the ones its change sets went to.
+      if (actor.tokenKind === "agent" && actor.extensionSessionId) {
+        const [{ mine } = { mine: 0 }] = Array.from(await tx.execute<{ mine: number }>(sql`
+          SELECT count(DISTINCT cs.branch_id)::int AS mine FROM change_sets cs JOIN branches b ON b.id = cs.branch_id
+          WHERE cs.agent_session_id = ${actor.extensionSessionId} AND cs.workspace_id = ${workspaceId} AND b.status = 'active'`));
+        if (mine >= BRANCH_LIMITS.perAgent) fail(`An agent sign-in works on at most ${BRANCH_LIMITS.perAgent} branches here; merge or delete some first`, 409, "BRANCH_LIMIT");
+      }
       const base = source ? source.baseSaveId : main.headSaveId;
       const [made] = await tx.insert(branches).values({
         workspaceId, name, isDefault: false, baseSaveId: base, mergedFromTargetSaveId: source ? source.mergedFromTargetSaveId : base,
@@ -833,4 +840,47 @@ export async function saveToNewBranch(actor: Actor, workspaceId: string, input: 
   const { createMergeRequest } = await import("@/lib/domain/merge-requests");
   const made = await createMergeRequest(actor, workspaceId, { source: branch.name, title: input.title });
   return { branch: { id: branch.id, name: branch.name }, mergeRequest: made.mergeRequest.number };
+}
+
+/**
+ * The daily branch tidy-up (report H2, H23, H26 cleanup jobs), a step of the daily retention function:
+ * - merged branches are deleted 7 days after merging (their saves stay in History; restorable for 30 days);
+ * - deleted branches' own files go after the 30 days a restore allows (content still used by a save stays);
+ * - a branch with no saves for 90 days tells its maker once: "Archive or keep?". Nothing else is deleted for age.
+ */
+export async function sweepBranches(now = new Date()) {
+  const day = 86_400_000;
+  const merged = await db.update(branches).set({ status: "deleted", deletedAt: now, updatedAt: now })
+    .where(and(eq(branches.status, "merged"), sql`${branches.updatedAt} < ${new Date(now.getTime() - BRANCH_LIMITS.mergedDays * day).toISOString()}::timestamptz`))
+    .returning({ id: branches.id });
+  const gone = Array.from(await db.execute<{ asset_id: string | null }>(sql`
+    DELETE FROM branch_files f USING branches b
+    WHERE f.branch_id = b.id AND b.status = 'deleted' AND b.deleted_at < ${new Date(now.getTime() - BRANCH_LIMITS.restoreDays * day).toISOString()}::timestamptz
+    RETURNING f.asset_id`));
+  if (gone.length) {
+    const { scheduleAssetDeletionIfUnreferenced } = await import("@/lib/storage/asset-deletion");
+    await scheduleAssetDeletionIfUnreferenced(db, gone.map((g) => g.asset_id));
+  }
+  const old = Array.from(await db.execute<{ id: string; workspace_id: string; name: string; created_by: string }>(sql`
+    SELECT b.id, b.workspace_id, b.name, b.created_by FROM branches b LEFT JOIN saves h ON h.id = b.head_save_id
+    WHERE b.status = 'active' AND NOT b.is_default AND b.created_by IS NOT NULL
+      AND coalesce(h.created_at, b.created_at) < ${new Date(now.getTime() - BRANCH_LIMITS.staleNoteDays * day).toISOString()}::timestamptz
+    LIMIT 500`));
+  if (old.length) {
+    await enqueueNotificationFanout({
+      source: "branch-stale",
+      writes: old.map((b) => ({
+        operation: "create" as const,
+        input: {
+          recipientUserId: b.created_by, actorUserId: null, kind: "branch_saves" as const, category: "workflows" as const, importance: "more" as const,
+          title: `Archive or keep ${b.name}? It has had no saves for 90 days`.slice(0, 200),
+          href: `/workspaces/${b.workspace_id}?tab=files&filesView=branches`,
+          entityRefs: { projectId: b.workspace_id },
+          // Once per branch, ever.
+          dedupeKey: `branch-stale:${b.id}`,
+        },
+      })),
+    });
+  }
+  return { mergedDeleted: merged.length, filesPurged: gone.length, staleNotes: old.length };
 }

@@ -1,11 +1,11 @@
-import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { labelScopes, visibleViaOfPayload } from "@/lib/agents/via-scope";
 import { z } from "zod";
 
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { profiles, taskActivityEvents, tasks, workspaceNodeEvents, workspaceNodes } from "@/lib/db/schema";
+import { branches, profiles, saves, taskActivityEvents, tasks, workspaceNodeEvents, workspaceNodes } from "@/lib/db/schema";
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 
 export const runtime = "nodejs";
@@ -30,7 +30,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (!access.project || !canReadWorkspaceTab(access, "tasks")) return jsonError("Workspace not found", 404, "NOT_FOUND");
     const since = q.since ? new Date(q.since) : undefined;
     const before = q.before ? new Date(q.before) : undefined;
-    const [taskRows, fileRows] = await Promise.all([
+    // Branches (report H8): saves and merges per branch, and deletions, for the workspace's people only; the public
+    // sees main's files only. ponytail: restoring a branch isn't listed (nothing records it yet).
+    const member = access.isOwner || access.isMember || access.isInheritedAdmin;
+    const branchLog = !q.task && member && canReadWorkspaceTab(access, "files");
+    const [taskRows, fileRows, branchRows, deletedRows] = await Promise.all([
       db.select({ at: taskActivityEvents.createdAt, type: taskActivityEvents.eventType, payload: taskActivityEvents.payload, actorId: taskActivityEvents.actorId, taskId: taskActivityEvents.taskId, taskNumber: tasks.taskNumber, taskTitle: tasks.title })
         .from(taskActivityEvents).innerJoin(tasks, eq(tasks.id, taskActivityEvents.taskId))
         .where(and(eq(taskActivityEvents.projectId, id), q.task ? eq(taskActivityEvents.taskId, q.task) : undefined, since ? gte(taskActivityEvents.createdAt, since) : undefined, before ? lt(taskActivityEvents.createdAt, before) : undefined))
@@ -39,8 +43,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         .from(workspaceNodeEvents).leftJoin(workspaceNodes, eq(workspaceNodes.id, workspaceNodeEvents.nodeId))
         .where(and(eq(workspaceNodeEvents.projectId, id), since ? gte(workspaceNodeEvents.createdAt, since) : undefined, before ? lt(workspaceNodeEvents.createdAt, before) : undefined))
         .orderBy(desc(workspaceNodeEvents.createdAt)).limit(q.limit),
+      !branchLog ? Promise.resolve([]) : db.select({ at: saves.createdAt, kind: saves.kind, number: saves.seq, message: saves.message, actorId: saves.authorId, via: saves.via, agentName: saves.agentName, branch: branches.name, isMain: branches.isDefault })
+        .from(saves).innerJoin(branches, eq(branches.id, saves.branchId))
+        .where(and(eq(saves.workspaceId, id), sql`${saves.kind} <> 'start'`, sql`(NOT ${branches.isDefault} OR ${saves.kind} = 'merge')`, since ? gte(saves.createdAt, since) : undefined, before ? lt(saves.createdAt, before) : undefined))
+        .orderBy(desc(saves.createdAt)).limit(q.limit),
+      !branchLog ? Promise.resolve([]) : db.select({ at: branches.deletedAt, branch: branches.name })
+        .from(branches).where(and(eq(branches.workspaceId, id), eq(branches.status, "deleted"), since ? gte(branches.deletedAt, since) : undefined, before ? lt(branches.deletedAt, before) : undefined))
+        .orderBy(desc(branches.deletedAt)).limit(q.limit),
     ]);
-    const actorIds = [...new Set([...taskRows, ...fileRows].map((r) => r.actorId).filter((x): x is string => Boolean(x)))];
+    const actorIds = [...new Set([...taskRows, ...fileRows, ...branchRows].map((r) => r.actorId).filter((x): x is string => Boolean(x)))];
     const actors = actorIds.length ? await db.select({ id: profiles.id, username: profiles.username, name: profiles.fullName }).from(profiles).where(inArray(profiles.id, actorIds)) : [];
     const who = new Map(actors.map((a) => [a.id, a.username ?? a.name ?? null]));
     // "with Claude Code" only where the workspace owner's setting allows this viewer to see it (report Part B).
@@ -51,6 +62,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       ...taskRows.map((r) => ({ at: r.at.toISOString(), kind: "task" as const, type: r.type, by: r.actorId ? who.get(r.actorId) ?? null : null, task: { id: r.taskId, number: r.taskNumber, title: r.taskTitle }, ...visibleViaOfPayload(taskScopes.get(r.taskId)!, r.payload, r.actorId),
         detail: (() => { const p = (r.payload ?? {}) as Record<string, unknown>; return p.to ? `→ ${String(p.to)}` : p.reason ? String(p.reason) : null; })() })),
       ...fileRows.map((r) => ({ at: r.at.toISOString(), kind: "file" as const, type: r.type, by: r.actorId ? who.get(r.actorId) ?? null : null, path: r.path ?? null, ...visibleViaOfPayload(fileScope, r.metadata, r.actorId), detail: null })),
+      ...branchRows.map((r) => ({ at: r.at.toISOString(), kind: "branch" as const, type: r.kind === "merge" && r.isMain ? "merged" : r.kind, by: r.actorId ? who.get(r.actorId) ?? null : null, branch: r.branch,
+        ...visibleViaOfPayload(fileScope, { via: r.via, agentName: r.agentName }, r.actorId), detail: `${r.isMain ? "main" : r.branch} save ${r.number}: ${(r.message ?? "").slice(0, 120)}` })),
+      ...deletedRows.flatMap((r) => (r.at ? [{ at: r.at.toISOString(), kind: "branch" as const, type: "deleted", by: null, branch: r.branch, via: null, agentName: null, detail: `${r.branch} deleted` }] : [])),
     ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, q.limit);
     return jsonSuccess({ items, nextBefore: items.length === q.limit ? items.at(-1)!.at : null }, undefined, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {

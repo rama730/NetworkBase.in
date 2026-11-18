@@ -102,3 +102,17 @@ export function toCliError(error) {
   const message = error instanceof Error ? error.message : String(error);
   return new CliError("INTERNAL", message || "Something went wrong", { cause: error });
 }
+
+/**
+ * Some steps can't be done offline (report H23 journey 9): making a branch, opening a merge request, merging. They
+ * say that, instead of only "can't reach the server". @template T @param {string} what @param {Promise<T>} work
+ */
+export async function needsNetwork(what, work) {
+  try {
+    return await work;
+  } catch (error) {
+    if (error instanceof CliError && error.code === "OFFLINE") throw new CliError("OFFLINE", `${what} needs the network: ${error.message}`, { hint: "Try again when you're online; your files here are unchanged" });
+    throw error;
+  }
+}
+

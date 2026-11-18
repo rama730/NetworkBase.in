@@ -237,4 +237,26 @@ describe("nb branch: create, switch, push and pull on a branch, follow git", () 
     assert.equal(JSON.parse(status.stdout).data.branch, "feature-y");
     assert.equal(config().branch.name, "feature-y");
   });
+
+  it("offline (H23 journey 9): making a branch says it needs the network; a push queued on a branch waits for that branch", async () => {
+    const offline = { api: "http://127.0.0.1:9", env: { NB_RETRY_BUDGET_MS: "200" } };
+    const made = await nb(["branch", "create", "feature-y"], offline);
+    assert.notEqual(made.code, 0);
+    assert.match(made.stderr, /Making a branch needs the network/);
+    await nb(["branch", "create", "feature-x"]);
+    write("src/app.ts", "queued on the branch\n");
+    const queued = await nb(["push", "src/app.ts", "--yes"], offline);
+    assert.notEqual(queued.code, 0);
+    assert.ok(fs.existsSync(path.join(cwd, ".networkbase", "queue.json")), queued.stderr);
+    const q = JSON.parse(fs.readFileSync(path.join(cwd, ".networkbase", "queue.json"), "utf8"));
+    assert.equal(q.entries[0].branch.name, "feature-x", "the queue keeps its branch");
+    // Back on main, the queued push isn't sent to main.
+    q.entries[0].branch = { id: branch("feature-x").id, name: "feature-x" };
+    const cfg = config();
+    fs.writeFileSync(path.join(cwd, ".networkbase", "config.json"), JSON.stringify({ ...cfg, branch: null }));
+    const synced = await nb(["sync", "--yes"]);
+    assert.match(synced.stderr + synced.stdout, /queued on feature-x waits for this folder to be on it/);
+    const after = JSON.parse(fs.readFileSync(path.join(cwd, ".networkbase", "queue.json"), "utf8"));
+    assert.equal(after.entries.length, 1, "it stays queued for feature-x");
+  });
 });

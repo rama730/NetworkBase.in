@@ -91,6 +91,7 @@ type Filter = (typeof FILTERS)[number][0];
 function MergeRequestList({ projectId, onOpen }: { projectId: string; onOpen: (n: number) => void }) {
   const [filter, setFilter] = useState<Filter>("open");
   // One list per filter, so each chip shows its count (Trash's filters).
+  const client = useQueryClient();
   const lists = useQueries({ queries: FILTERS.map(([f]) => ({ queryKey: ["merge-requests", projectId, f], queryFn: () => unwrap(listMergeRequestsAction(projectId, f === "review" ? "open" : f, f === "review")), staleTime: 15_000 })) });
   const list = lists[FILTERS.findIndex(([f]) => f === filter)]!;
   const rows: MergeRequestSummary[] = list.data?.mergeRequests ?? [];
@@ -107,7 +108,16 @@ function MergeRequestList({ projectId, onOpen }: { projectId: string; onOpen: (n
           {list.isLoading ? <FolderListLoading /> : list.isError ? <FolderListError onRetry={() => void list.refetch()} /> : rows.length === 0 ? (
             <FolderListEmpty plain message={filter === "review" ? "Nothing waiting on you." : filter === "open" ? "No open merge requests. Open one from a branch’s bar, or nb merge-request create." : `No ${filter} merge requests.`} />
           ) : (
-            <div role="rowgroup">
+            <div role="rowgroup" aria-keyshortcuts="j k a" onKeyDown={(e) => {
+              // H23 journey 4: j/k move through the list, Enter opens, a approves one waiting on your review.
+              const buttons = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('button[aria-label^="Open merge request !"]')];
+              const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+              if (e.key === "j" || e.key === "k") { e.preventDefault(); buttons[Math.min(Math.max(at + (e.key === "j" ? 1 : -1), 0), buttons.length - 1)]?.focus(); }
+              else if (e.key === "a" && at >= 0) {
+                const m = rows.find((r) => r.number === Number(/!(\d+)/.exec(buttons[at]!.getAttribute("aria-label") ?? "")?.[1]));
+                if (m?.reviewRequested) { e.preventDefault(); void reviewMergeRequestAction(projectId, m.number, "approve", "").then((res) => { if (res.success) { toast.success(`Approved !${m.number}`); void client.invalidateQueries({ queryKey: ["merge-requests", projectId] }); } else toast.error(res.error); }); }
+              }
+            }}>
               {rows.map((m) => {
                 const shown = m.state === "open" && m.changesRequested ? "changes_requested" : m.state === "open" && m.approvals ? "approved" : m.state;
                 return (

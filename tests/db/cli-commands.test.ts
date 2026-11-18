@@ -97,3 +97,28 @@ test("workspace view, activity, sprints; attach a file; an agent's update waits 
   const held = await call(updates.POST, agentToken, "POST", `/api/v1/workspaces/${projectId}/updates`, { content: "Shipped the logo" }, ctx);
   assert.equal(held.status, 428, JSON.stringify(held.json));
 });
+
+test("H8: activity lists saves and merges per branch and deleted branches, for the workspace's people only", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  const { unprotect } = await import("./_helpers");
+  const saves = await loadAppModule(() => import("../../src/lib/domain/saves"));
+  const branches = await loadAppModule(() => import("../../src/lib/domain/branches"));
+  await saves.setBranchesEnabled({ user: { id: userId } }, projectId, true);
+  await unprotect(projectId);
+  const { branch } = await branches.createBranch({ user: { id: userId } }, projectId, { name: "feature-x" });
+  await branches.saveTextOnBranch({ user: { id: userId } }, branch.id, { path: "/a.md", text: "a\n", message: "First on the branch" });
+  const old = (await branches.createBranch({ user: { id: userId } }, projectId, { name: "old-idea" })).branch;
+  await sql`UPDATE branches SET status = 'deleted', deleted_at = now() WHERE id = ${old.id}`;
+  const ctx = { params: Promise.resolve({ id: projectId }) };
+  const a = await call(activity.GET, await pat(userId), "GET", `/api/v1/workspaces/${projectId}/activity`, undefined, ctx);
+  assert.equal(a.status, 200, JSON.stringify(a.json));
+  const items = a.json.data.items.filter((i: any) => i.kind === "branch");
+  assert.ok(items.some((i: any) => i.type === "save" && i.branch === "feature-x" && /First on the branch/.test(i.detail)), JSON.stringify(items));
+  assert.ok(items.some((i: any) => i.type === "deleted" && i.branch === "old-idea"));
+  // Someone outside the workspace (public reader) never sees branches.
+  await sql`UPDATE workspaces SET visibility = 'public' WHERE id = ${projectId}`;
+  const stranger = await sql.begin((tx) => createUser(tx));
+  const s = await call(activity.GET, await pat(stranger), "GET", `/api/v1/workspaces/${projectId}/activity`, undefined, ctx);
+  assert.ok(s.status !== 200 || !s.json.data.items.some((i: any) => i.kind === "branch"));
+});

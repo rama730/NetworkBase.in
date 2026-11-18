@@ -155,6 +155,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route("/api/v1/me"), read: null, agent: "self" },
   // Your security summary (report F5, nb whoami --security): the person's own terminal, never an agent.
   { pattern: route("/api/v1/me/security"), read: "workspace:read" },
+  // "My reviews" across workspaces (H23): not for tokens tied to one workspace.
+  { pattern: route("/api/v1/me/reviews"), read: "file:read" },
   // Your notification settings (report C4, nb inbox settings and mute): the person's own terminal, not agents.
   { pattern: route("/api/v1/me/notifications"), read: "workspace:read", write: "workspace:read" },
   { pattern: route("/api/v1/tasks/count"), read: "task:read", agent: "self" },

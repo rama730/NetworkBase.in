@@ -10,7 +10,7 @@ import { getProtection, protectedFromDb, setProtection, type Protection } from "
 import type { ProtectedChange } from "@/lib/domain/branches";
 import { ChangeSetError, type Actor } from "@/lib/domain/change-sets";
 import {
-  applySuggestion, commentOnMergeRequest, createMergeRequest, getMergeRequest, listMergeRequests, mergeMergeRequest, reviewMergeRequest, updateMergeRequest,
+  applySuggestion, commentOnMergeRequest, createMergeRequest, getMergeRequest, listMergeRequests, listMyReviews, mergeMergeRequest, reviewMergeRequest, updateMergeRequest,
 } from "@/lib/domain/merge-requests";
 import { personStepUp } from "@/lib/security/change-set-step-up";
 import { createClient } from "@/lib/supabase/server";
@@ -89,3 +89,5 @@ export const attachMergeResultAction = async (projectId: string, n: number, path
   return { path, task: mr.task.number };
 });
 
+/** "My reviews" across workspaces (H23), for the inbox tab. */
+export const myReviewsAction = async () => run((a) => listMyReviews(a));

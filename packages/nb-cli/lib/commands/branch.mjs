@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { readProjectConfig, writeProjectConfig } from "../config.mjs";
-import { CliError, EXIT } from "../errors.mjs";
+import { CliError, EXIT, needsNetwork } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { STATE_VERSION, writeState } from "../sync/state.mjs";
 import { downloadTo, fetchManifest } from "../sync/transfer.mjs";
@@ -185,7 +185,7 @@ export async function branchCreate(ctx) {
   if (!name) throw new CliError("USAGE", "Name the branch", { hint: "nb branch create ram/try-new-header" });
   let taskId = null;
   if (ctx.flags.task) taskId = (await (await import("./tasks.mjs")).resolveTask(ctx, String(ctx.flags.task), { brief: true })).id;
-  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${enc(ctx.requireWorkspace())}/branches`, { name, ...(ctx.flags.from ? { from: String(ctx.flags.from) } : {}), ...(taskId ? { taskId } : {}) }));
+  const res = /** @type {any} */ (await needsNetwork("Making a branch", ctx.api.post(`/api/v1/workspaces/${enc(ctx.requireWorkspace())}/branches`, { name, ...(ctx.flags.from ? { from: String(ctx.flags.from) } : {}), ...(taskId ? { taskId } : {}) })));
   const switched = ctx.root && !ctx.flags["no-switch"] ? await switchTo(ctx, res.branch, { carry: true }) : null;
   ctx.out.result("nb.branch.create/1", { branch: res.branch, switched }, (d) => [
     `${ctx.out.c.success(ctx.out.sym.done)} Created ${safe(d.branch.name)}${d.switched ? " and moved this folder onto it" : ""}`,

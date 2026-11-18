@@ -1,7 +1,7 @@
 // nb merge-request (report H6, phase H-3): open, list, view, review, comment, merge, close, reopen and mark ready.
 // Without a number, the commands use the open merge request of this folder's branch.
 
-import { CliError, EXIT } from "../errors.mjs";
+import { CliError, EXIT, needsNetwork } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { confirm } from "../tui/ask.mjs";
 
@@ -44,11 +44,11 @@ export async function create(ctx) {
   if (!source) throw new CliError("USAGE", "This folder is on main; open a merge request from a branch", { hint: "nb merge-request create --from feature-x" });
   let taskId = null;
   if (ctx.flags.task) taskId = (await (await import("./tasks.mjs")).resolveTask(ctx, String(ctx.flags.task), { brief: true })).id;
-  const res = /** @type {any} */ (await ctx.api.post(base(ctx), {
+  const res = /** @type {any} */ (await needsNetwork("Opening a merge request", ctx.api.post(base(ctx), {
     source, target: String(ctx.flags.into ?? "main"),
     ...(ctx.flags.title ? { title: String(ctx.flags.title) } : {}), ...(ctx.flags.message ? { description: String(ctx.flags.message) } : {}),
     ...(taskId ? { taskId } : {}), ...(ctx.flags.draft ? { draft: true } : {}), ...(ctx.flags.reviewer ? { reviewers: csv(ctx.flags.reviewer) } : {}),
-  }));
+  })));
   const m = res.mergeRequest;
   ctx.out.result("nb.merge-request.create/1", res, () => [
     `${ctx.out.c.success(ctx.out.sym.done)} Opened !${m.number} ${safe(m.title)}${m.state === "draft" ? " (draft)" : ""}`,
@@ -59,6 +59,8 @@ export async function create(ctx) {
 
 /** @param {Context} ctx */
 export async function list(ctx) {
+  // "My reviews" across every workspace (H23): --review-requested --all.
+  if (ctx.flags.all) return myReviews(ctx);
   const state = ctx.flags.merged ? "merged" : ctx.flags.closed ? "closed" : "open";
   const res = /** @type {any} */ (await ctx.api.get(base(ctx), { query: { state, ...(ctx.flags["review-requested"] ? { review: "1" } : {}), ...(ctx.flags.mine ? { mine: "1" } : {}) } }));
   const { c } = ctx.out;
@@ -71,6 +73,20 @@ export async function list(ctx) {
         { title: "", value: (m) => (m.reviewRequested ? c.brand("your review") : "") },
       ], d.mergeRequests)
     : state === "open" ? "No open merge requests" : `No ${state} merge requests`);
+  return EXIT.ok;
+}
+
+/** Open merge requests waiting on your review in all your workspaces (H23 "My reviews"). @param {Context} ctx */
+async function myReviews(ctx) {
+  const res = /** @type {any} */ (await ctx.api.get("/api/v1/me/reviews"));
+  ctx.out.result("nb.merge-request.reviews/1", res, (d) => d.reviews.length
+    ? ctx.out.table([
+        { title: "Workspace", value: (r) => safe(r.workspace.slug ?? r.workspace.title) },
+        { title: "", value: (r) => `!${r.number}` },
+        { title: "Title", value: (r) => safe(r.title), flex: true },
+        { title: "Branch", value: (r) => safe(r.source), optional: true },
+      ], d.reviews)
+    : "Nothing is waiting on your review");
   return EXIT.ok;
 }
 
@@ -144,7 +160,7 @@ export async function merge(ctx) {
   const method = ctx.flags.squash ? "squash" : "merge";
   const ok = await confirm(ctx, { key: "merge", question: `${method === "squash" ? "Squash and merge" : "Merge"} !${n} into main?`, yesLabel: "Merge", defaultYes: true });
   if (!ok) return EXIT.cancelled;
-  const res = /** @type {any} */ (await ctx.api.post(`${base(ctx)}/${n}/merge`, { method, ...(ctx.flags.confirm ? { confirmToken: String(ctx.flags.confirm) } : {}), ...(ctx.flags["confirm-secrets"] ? { confirmSecrets: true } : {}) }));
+  const res = /** @type {any} */ (await needsNetwork("Merging", ctx.api.post(`${base(ctx)}/${n}/merge`, { method, ...(ctx.flags.confirm ? { confirmToken: String(ctx.flags.confirm) } : {}), ...(ctx.flags["confirm-secrets"] ? { confirmSecrets: true } : {}) })));
   const { c } = ctx.out;
   if (res.outcome === "conflicts") {
     ctx.out.result("nb.merge-request.merge/1", res, () => [

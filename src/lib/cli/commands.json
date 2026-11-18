@@ -1040,11 +1040,15 @@
     {
       "name": "merge-request list",
       "summary": "Open merge requests (--review-requested: waiting on you)",
-      "usage": "nb merge-request list [--review-requested] [--mine] [--merged|--closed]",
+      "usage": "nb merge-request list [--review-requested [--all]] [--mine] [--merged|--closed]",
       "flags": {
         "review-requested": {
           "type": "boolean",
           "describe": "Waiting on your review"
+        },
+        "all": {
+          "type": "boolean",
+          "describe": "With --review-requested: every workspace (My reviews)"
         },
         "mine": {
           "type": "boolean",

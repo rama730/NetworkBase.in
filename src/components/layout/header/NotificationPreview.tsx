@@ -18,11 +18,13 @@ import type {
 } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MyReviewsList } from "@/components/notifications/MyReviewsList";
 import type { RealtimeHealthState } from "@/components/providers/RealtimeProvider";
 
 const FILTERS: Array<{ id: NotificationTrayFilter; label: string }> = [
     { id: "unread", label: "Unread" },
     { id: "all", label: "All" },
+    { id: "reviews", label: "My reviews" },
 ];
 
 type NotificationPreviewProps = {
@@ -218,7 +220,9 @@ export default function NotificationPreview(props: NotificationPreviewProps) {
                     </div>
                 </div>
                 <div id="notifications-filter-panel" role="tabpanel" aria-labelledby={`notifications-filter-${activeFilter}`} className="min-h-0 flex-1 overflow-y-auto overscroll-contain app-scroll app-scroll-y [overflow-anchor:none]">
-                    {isLoading ? (
+                    {activeFilter === "reviews" ? (
+                        <MyReviewsList />
+                    ) : isLoading ? (
                         <NotificationSkeleton />
                     ) : (
                         <NotificationList

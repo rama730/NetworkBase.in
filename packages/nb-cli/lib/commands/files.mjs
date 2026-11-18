@@ -343,7 +343,8 @@ export async function push(ctx) {
   const queueOffline = () => {
     if (ctx.flags["dry-run"]) return new CliError("OFFLINE", "Can't reach the server", { hint: "Try again when you're online" });
     const flags = Object.fromEntries(["task", "as", "message", "keep-both", "folder", "all"].filter((k) => ctx.flags[k] !== undefined).map((k) => [k, ctx.flags[k]]));
-    const n = enqueue(root, { id: keyBase, op: "push", paths: only, flags, queuedAt: new Date().toISOString(), reason: "the server couldn't be reached" });
+    // Tagged with the folder's branch (H23 journey 9): it is sent only while the folder is on that branch.
+    const n = enqueue(root, { id: keyBase, op: "push", paths: only, flags, queuedAt: new Date().toISOString(), reason: "the server couldn't be reached", branch: ctx.requireRoot().project.branch ?? null });
     return new CliError("OFFLINE", `Offline: queued this push${n > 1 ? ` (${n} waiting)` : ""}`, { hint: "It sends with your next nb sync; your files are unchanged" });
   };
   const release = ctx.flags["dry-run"] ? () => {} : await acquireLock(root, "nb push");
@@ -614,7 +615,13 @@ async function replayQueue(ctx) {
   if (fresh.length < entries.length) ctx.out.warn(`Dropped ${entries.length - fresh.length} queued push(es) older than 7 days; your files are unchanged, push them again`);
   writeQueue(root, fresh);
   for (const entry of fresh) {
-    ctx.out.note(ctx.out.c.muted(`Sending a push queued ${entry.queuedAt.slice(0, 16).replace("T", " ")}`));
+    // A push queued on another branch waits until the folder is on that branch again (its bases are that branch's).
+    const queuedOn = entry.branch === undefined ? null : entry.branch?.id ?? null;
+    if (entry.branch !== undefined && queuedOn !== (ctx.project?.branch?.id ?? null)) {
+      ctx.out.warn(`A push queued on ${entry.branch?.name ?? "main"} waits for this folder to be on it: nb branch switch ${entry.branch?.name ?? "main"}`);
+      continue;
+    }
+    ctx.out.note(ctx.out.c.muted(`Sending a push queued ${entry.queuedAt.slice(0, 16).replace("T", " ")}${entry.branch ? ` on ${entry.branch.name}` : ""}`));
     const ctx2 = /** @type {Context} */ ({ ...ctx, cwd: root, positionals: entry.paths, flags: { ...ctx.flags, ...entry.flags, done: false, wip: false }, queueId: entry.id });
     try {
       await push(ctx2);

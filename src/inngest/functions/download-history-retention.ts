@@ -3,6 +3,7 @@ import { purgeOrgVerificationDocuments } from "@/lib/organizations/verification-
 import { sweepSandboxes } from "@/lib/workspaces/sandbox";
 import { discardStaleChangeSets } from "@/lib/domain/change-sets";
 import { pruneTextIndex } from "@/lib/domain/change-set-fs";
+import { sweepBranches } from "@/lib/domain/branches";
 import { inngest } from "../client";
 
 const MAX_BATCHES = 200;
@@ -28,6 +29,9 @@ export const downloadHistoryRetention = inngest.createFunction(
     const changeSets = await step.run("stale-change-sets", () => discardStaleChangeSets());
     // The search index's text of content nothing refers to any more (report G14). A step here, not a job per save.
     const textIndex = await step.run("text-index", () => pruneTextIndex());
-    return { deleted: total, documents, sandboxes, changeSets, textIndex };
+    // Branches (report H26): merged ones go after 7 days, deleted ones' files after 30, and a 90-day-quiet branch
+    // asks its maker once. A step here, not a function of its own (Inngest's free plan).
+    const branchSweep = await step.run("branches", () => sweepBranches());
+    return { deleted: total, documents, sandboxes, changeSets, textIndex, branches: branchSweep };
   },
 );

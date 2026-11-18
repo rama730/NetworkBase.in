@@ -21,6 +21,8 @@ import {
 import type { BranchView, UpdateConflict } from "@/lib/domain/branches";
 import { downloadFile } from "@/lib/download";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 import MarkdownPreview from "../preview/MarkdownPreview";
@@ -99,6 +101,7 @@ export function BranchPicker({ projectId }: { projectId: string }) {
     setIntro(true);
     try { window.localStorage.setItem(NEW_KEY, "1"); } catch { /* private mode */ }
   }, [open, fresh]);
+  const phone = useMediaQuery("(max-width: 639px)") === true;
   if (!views?.historyEnabled) return null;
   // Main-only views keep the picker in its place, on main (design audit F6).
   const mainOnly = !BRANCH_VIEWS.includes(views.view);
@@ -115,67 +118,103 @@ export function BranchPicker({ projectId }: { projectId: string }) {
       views!.setBranch(res.data.branch.name);
     } finally { setBusy(false); }
   }
+  const trigger = (
+    <button
+      type="button"
+      aria-label={mainOnly ? `Branch: main. ${MAIN_ONLY_NOTE}` : `Branch: ${current ?? "main"}. Switch branch`}
+      title={mainOnly ? MAIN_ONLY_NOTE : "Switch branch (b)"}
+      disabled={mainOnly}
+      onClick={phone ? () => views.setPickerOpen(true) : undefined}
+      className={cn(
+        headerButton, "max-w-[13rem] font-mono",
+        onBranch && "border-[color-mix(in_srgb,var(--status-warning)_45%,transparent)] bg-[var(--status-warning-soft)] text-[var(--status-warning)] hover:bg-[var(--status-warning-soft)]",
+      )}
+    >
+      <GitBranch className="size-3.5 shrink-0" aria-hidden="true" />
+      <span className="truncate">{onBranch ? current : "main"}</span>
+      <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden="true" />
+      {fresh && !mainOnly ? <span className="size-1.5 shrink-0 rounded-full bg-[#D14E24]" role="img" aria-label="New" /> : null}
+    </button>
+  );
+  const introLine = intro ? <p className="px-2 pb-1.5 pt-1 text-xs text-muted-foreground">Branches let you try changes without touching main. Merge when you’re happy.</p> : null;
+  const search = (
+    <div className="px-1 pb-1 pt-0.5">
+      <label htmlFor="branch-picker-search" className="sr-only">Find or create a branch</label>
+      <input
+        id="branch-picker-search"
+        autoFocus
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        // The menu's own keys (type-ahead, arrows) stay out of the field; Enter creates when creating.
+        onKeyDown={(e) => { if (e.key !== "Escape" && e.key !== "ArrowDown") e.stopPropagation(); if (e.key === "Enter" && creating) void create(); }}
+        placeholder={creating ? "New branch name, like ram/try-header" : "Find a branch"}
+        className={cn(fieldClass, "w-full")}
+      />
+    </div>
+  );
+  const createForm = (
+    <div className="space-y-2 px-2 pb-2 pt-1">
+      <p className="text-xs text-muted-foreground">From <span className="font-mono text-foreground">{current ?? "main"}</span>: its files start as they are there.</p>
+      <div className="flex gap-2">
+        <button type="button" className={stripPrimary} disabled={busy || !query.trim()} onClick={() => void create()}>{busy ? "Creating…" : "Create branch"}</button>
+        <button type="button" className={stripButton} onClick={() => setCreating(false)}>Cancel</button>
+      </div>
+    </div>
+  );
+  const loading = list.isLoading ? <div role="status" aria-label="Loading branches" className="space-y-2 px-2 py-2">{[64, 44, 56].map((w) => <Skeleton key={w} className="h-3.5 rounded-[3px]" style={{ width: `${w}%` }} />)}</div> : null;
+  const none = <p className="px-2 py-2 text-xs text-muted-foreground">No branch matches{canEdit && query.trim() ? "; create it below" : ""}.</p>;
+  const isOn = (b: BranchView) => (b.isDefault ? !current : current?.toLowerCase() === b.name.toLowerCase());
+  const rowBody = (b: BranchView) => (
+    <>
+      <Check className={cn("mt-0.5 size-3.5 shrink-0", isOn(b) ? "opacity-100" : "opacity-0")} aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-mono">{b.name}</span>
+        <span className="block truncate font-mono text-[11px]">{b.isDefault ? "The workspace’s files" : aheadBehind(b)}</span>
+      </span>
+      {b.mergeRequest ? <StatusBadge tone="info">MR !{b.mergeRequest.number}</StatusBadge> : null}
+    </>
+  );
+  // On a phone the picker is a bottom sheet with search (H23 journey 8); the rows are plain buttons there.
+  if (phone) return (
+    <>
+      <ProtectedUploadOffer projectId={projectId} onBranch={(name) => { views.selectView("project"); views.setBranch(name); }} />
+      {trigger}
+      <Dialog open={open && !mainOnly} onOpenChange={(o) => views.setPickerOpen(o)}>
+        <DialogContent presentation="bottom-sheet" className="max-h-[80dvh] overflow-y-auto p-3">
+          <DialogTitle className="px-1 text-sm">Switch branch</DialogTitle>
+          <DialogDescription className="sr-only">Find a branch, switch to it, or make a new one.</DialogDescription>
+          {introLine}{search}
+          {creating ? createForm : (
+            <>
+              <div role="list" aria-label="Branches">
+                {loading ?? (shown.length === 0 ? none : shown.map((b) => (
+                  <button key={b.id} type="button" role="listitem" aria-current={isOn(b) || undefined} onClick={() => { views.setBranch(b.isDefault ? null : b.name); views.setPickerOpen(false); }}
+                    className="flex min-h-11 w-full items-start gap-2 rounded-[5px] px-2 py-1.5 text-left text-xs hover:bg-muted">{rowBody(b)}</button>
+                )))}
+              </div>
+              <div className="mt-2 flex flex-col gap-1 border-t border-border pt-2">
+                {canEdit ? <button type="button" className={cn(stripButton, "min-h-11 justify-start")} onClick={() => setCreating(true)}><Plus className="size-3.5" aria-hidden="true" />New branch…</button> : null}
+                <button type="button" className={cn(stripButton, "min-h-11 justify-start")} onClick={() => { views.setPickerOpen(false); views.selectView("branches"); }}><GitBranch className="size-3.5" aria-hidden="true" />View all branches</button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
   return (
     <>
     <ProtectedUploadOffer projectId={projectId} onBranch={(name) => { views.selectView("project"); views.setBranch(name); }} />
     <DropdownMenu modal={false} open={open && !mainOnly} onOpenChange={(o) => views.setPickerOpen(o)}>
-      <DropdownMenuTrigger asChild disabled={mainOnly}>
-        <button
-          type="button"
-          aria-label={mainOnly ? `Branch: main. ${MAIN_ONLY_NOTE}` : `Branch: ${current ?? "main"}. Switch branch`}
-          title={mainOnly ? MAIN_ONLY_NOTE : "Switch branch (b)"}
-          className={cn(
-            headerButton, "max-w-[13rem] font-mono",
-            onBranch && "border-[color-mix(in_srgb,var(--status-warning)_45%,transparent)] bg-[var(--status-warning-soft)] text-[var(--status-warning)] hover:bg-[var(--status-warning-soft)]",
-          )}
-        >
-          <GitBranch className="size-3.5 shrink-0" aria-hidden="true" />
-          <span className="truncate">{onBranch ? current : "main"}</span>
-          <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden="true" />
-          {fresh && !mainOnly ? <span className="size-1.5 shrink-0 rounded-full bg-[#D14E24]" role="img" aria-label="New" /> : null}
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild disabled={mainOnly}>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align="end" collisionPadding={8} role="dialog" aria-orientation={undefined} aria-label="Switch branch" className={cn(menuClass, "w-80 max-w-[calc(100vw-16px)]")}>
-        {intro ? <p className="px-2 pb-1.5 pt-1 text-xs text-muted-foreground">Branches let you try changes without touching main. Merge when you’re happy.</p> : null}
-        <div className="px-1 pb-1 pt-0.5">
-          <label htmlFor="branch-picker-search" className="sr-only">Find or create a branch</label>
-          <input
-            id="branch-picker-search"
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            // The menu's own keys (type-ahead, arrows) stay out of the field; Enter creates when creating.
-            onKeyDown={(e) => { if (e.key !== "Escape" && e.key !== "ArrowDown") e.stopPropagation(); if (e.key === "Enter" && creating) void create(); }}
-            placeholder={creating ? "New branch name, like ram/try-header" : "Find a branch"}
-            className={cn(fieldClass, "w-full")}
-          />
-        </div>
-        {creating ? (
-          <div className="space-y-2 px-2 pb-2 pt-1">
-            <p className="text-xs text-muted-foreground">From <span className="font-mono text-foreground">{current ?? "main"}</span>: its files start as they are there.</p>
-            <div className="flex gap-2">
-              <button type="button" className={stripPrimary} disabled={busy || !query.trim()} onClick={() => void create()}>{busy ? "Creating…" : "Create branch"}</button>
-              <button type="button" className={stripButton} onClick={() => setCreating(false)}>Cancel</button>
-            </div>
-          </div>
-        ) : (
+        {introLine}{search}
+        {creating ? createForm : (
           <>
             <div role="menu" aria-label="Branches" className="max-h-72 overflow-y-auto">
-              {list.isLoading ? <div role="status" aria-label="Loading branches" className="space-y-2 px-2 py-2">{[64, 44, 56].map((w) => <Skeleton key={w} className="h-3.5 rounded-[3px]" style={{ width: `${w}%` }} />)}</div> : shown.length === 0 ? (
-                <p className="px-2 py-2 text-xs text-muted-foreground">No branch matches{canEdit && query.trim() ? "; create it below" : ""}.</p>
-              ) : shown.map((b) => {
-                const on = b.isDefault ? !current : current?.toLowerCase() === b.name.toLowerCase();
-                return (
-                  <DropdownMenuItem key={b.id} onSelect={() => views.setBranch(b.isDefault ? null : b.name)} aria-current={on || undefined} className={cn(itemClass, "items-start gap-2 py-1.5")}>
-                    <Check className={cn("mt-0.5 size-3.5 shrink-0", on ? "opacity-100" : "opacity-0")} aria-hidden="true" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-mono">{b.name}</span>
-                      <span className="block truncate font-mono text-[11px]">{b.isDefault ? "The workspace’s files" : aheadBehind(b)}</span>
-                    </span>
-                    {b.mergeRequest ? <StatusBadge tone="info">MR !{b.mergeRequest.number}</StatusBadge> : null}
-                  </DropdownMenuItem>
-                );
-              })}
+              {loading ?? (shown.length === 0 ? none : shown.map((b) => (
+                <DropdownMenuItem key={b.id} onSelect={() => views.setBranch(b.isDefault ? null : b.name)} aria-current={isOn(b) || undefined} className={cn(itemClass, "items-start gap-2 py-1.5")}>{rowBody(b)}</DropdownMenuItem>
+              )))}
             </div>
             <DropdownMenuSeparator />
             <div role="menu" aria-label="Branch actions">

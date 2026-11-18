@@ -80,4 +80,13 @@ describe("nb merge-request", () => {
     assert.equal((await nb(["merge-request", "reopen", "!1"])).code, 0);
     assert.equal(state().mergeRequests[0].state, "open");
   });
+
+  it("My reviews (H23): --review-requested --all lists what waits on you in every workspace", async () => {
+    const other = await startFakeServer({ routes: { "GET /api/v1/me/reviews": () => ({ data: { reviews: [{ workspace: { id: "w2", slug: "site", title: "Site" }, number: 7, title: "New footer", source: "sam/footer", author: null, updatedAt: "2026-11-18T09:00:00Z", href: "/workspaces/site?tab=files&mr=7" }] } }) } });
+    try {
+      const listed = await runCli(["merge-request", "list", "--review-requested", "--all"], { api: other.url, home });
+      assert.equal(listed.code, 0, listed.stderr);
+      assert.match(listed.stdout, /site +!7 +New footer/);
+    } finally { other.close(); }
+  });
 });

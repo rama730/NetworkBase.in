@@ -267,3 +267,14 @@ test('H24: an old link to a deleted branch says when, with Restore and Go to mai
   await page.getByRole('button', { name: 'Go to main' }).click();
   await expect(page.getByText('Main’s files')).toBeVisible();
 });
+
+test('H23 journey 8: on a phone the branch picker is a bottom sheet with search', async ({ page }) => {
+  await open(page, { width: 390 });
+  await page.getByRole('button', { name: 'Branch: main. Switch branch' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Switch branch' });
+  await expect(sheet).toHaveAttribute('data-presentation', 'bottom-sheet');
+  await sheet.getByLabel('Find or create a branch').fill('try');
+  await sheet.getByRole('listitem').filter({ hasText: 'ram/try-header' }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Branch: ram/try-header. Switch branch' })).toBeVisible();
+});

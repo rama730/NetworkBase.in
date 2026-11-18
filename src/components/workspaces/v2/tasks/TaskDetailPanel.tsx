@@ -67,6 +67,7 @@ import TaskStatusBadge from "./badges/TaskStatusBadge";
 import { isAssignmentMaster } from "@/lib/workspaces/task-presentation";
 import { masterChip, MASTER_TAB_NOTES } from "@/lib/organizations/assignment-rules";
 import { OpenInIdeButton, OpenInIdeSheet } from "@/components/workspaces/v2/files-tab/OpenInIdeButton";
+import { StartWorkOnBranch } from "./StartWorkOnBranch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -398,6 +399,9 @@ export default function TaskDetailPanel({
 
               <div className="flex items-center gap-2 shrink-0">
                 {/* Mockup task 1: a main assignment is managed, not coded; its copies keep the editor. */}
+                {isAssignmentMaster(resource.task) ? null : (
+                  <StartWorkOnBranch projectId={projectId} task={resource.task} />
+                )}
                 {isAssignmentMaster(resource.task) ? null : (
                   <span className="hidden md:contents">
                     <OpenInIdeButton

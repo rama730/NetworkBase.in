@@ -284,3 +284,27 @@ test("audit F3: a merged branch that is deleted and restored comes back merged, 
   assert.equal(b!.status, "merged");
   await assert.rejects(branches.saveTextOnBranch(d, branch.id, { path: "/docs/n.md", text: "n\n", expectedHash: null }), { code: "BRANCH_DELETED" });
 });
+
+test("H23 journey 5: a person's review on an agent's merge request becomes an agent note on its task", async () => {
+  const { owner, dev, workspace, branch } = await setup();
+  await branches.saveTextOnBranch(actor(dev), branch.id, { path: "/src/a.ts", text: "a1\na2 by the agent\na3\na4\na5\na6\n", expectedHash: sha("a1\na2\na3\na4\na5\na6\n"), message: "Agent fix" });
+  const { mergeRequest: mr } = await mrs.createMergeRequest(actor(dev), workspace, { source: branch.name });
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, status) VALUES (${workspace}, 'Login bug', 'in_progress') RETURNING id`;
+  await sql`UPDATE merge_requests SET via = 'agent', agent_name = 'Claude Code', task_id = ${task!.id} WHERE workspace_id = ${workspace} AND number = ${mr.number}`;
+  await mrs.commentOnMergeRequest(actor(owner), workspace, mr.number, { body: "Use a constant here", path: "/src/a.ts", line: 2 });
+  await mrs.reviewMergeRequest(actor(owner), workspace, mr.number, { state: "request_changes", body: "Add a test" });
+  const notes = await sql`SELECT note, agent_name FROM task_agent_notes WHERE task_id = ${task!.id} ORDER BY created_at`;
+  assert.deepEqual(notes.map((n) => n.note), [`Review on !${mr.number}: /src/a.ts:2: Use a constant here`, `Review on !${mr.number}: changes requested: Add a test`]);
+  assert.equal(notes[0]!.agent_name, "Claude Code");
+});
+
+test("H23 journey 3: My reviews lists what waits on you across workspaces, and only while you're in them", async () => {
+  const { owner, dev, workspace, branch } = await setup();
+  await branches.saveTextOnBranch(actor(dev), branch.id, { path: "/src/a.ts", text: "a1\na2 again\na3\na4\na5\na6\n", expectedHash: sha("a1\na2\na3\na4\na5\na6\n"), message: "Again" });
+  const { mergeRequest: mr } = await mrs.createMergeRequest(actor(dev), workspace, { source: branch.name });
+  const mine = await mrs.listMyReviews(actor(owner));
+  assert.ok(mine.reviews.some((r) => r.number === mr.number && r.workspace.id === workspace && /mr=/.test(r.href)));
+  assert.equal((await mrs.listMyReviews(actor(dev))).reviews.length, 0, "the author isn't asked");
+  await mrs.reviewMergeRequest(actor(owner), workspace, mr.number, { state: "approve" });
+  assert.equal((await mrs.listMyReviews(actor(owner))).reviews.filter((r) => r.workspace.id === workspace).length, 0, "done once reviewed");
+});

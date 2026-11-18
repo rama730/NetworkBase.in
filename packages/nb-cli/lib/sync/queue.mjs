@@ -7,7 +7,7 @@ import { DIR_NAME, readJson, writeAtomic } from "../config.mjs";
 
 export const QUEUE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** @typedef {{ id: string, op: "push", paths: string[], flags: Record<string, any>, queuedAt: string, reason?: string }} QueueEntry */
+/** @typedef {{ id: string, op: "push", paths: string[], flags: Record<string, any>, queuedAt: string, reason?: string, branch?: { id: string, name: string } | null }} QueueEntry */
 
 /** @param {string} root */
 const file = (root) => path.join(root, DIR_NAME, "queue.json");

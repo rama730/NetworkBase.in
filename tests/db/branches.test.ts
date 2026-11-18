@@ -398,3 +398,58 @@ test("H24: an archived workspace's branches are read-only; someone removed shows
   await assert.rejects(branches.createBranch(actor(owner), workspace, { name: "late" }));
   assert.ok((await branches.listBranches(actor(owner), workspace)).branches.length >= 2, "still readable");
 });
+
+test("H15: 500 active branches per workspace; an agent sign-in works on at most 10", async () => {
+  const { owner, workspace } = await setup();
+  const o = actor(owner);
+  await sql`INSERT INTO branches (workspace_id, name, created_by) SELECT ${workspace}, 'bulk/' || i, ${owner} FROM generate_series(1, 500) i`;
+  await assert.rejects(branches.createBranch(o, workspace, { name: "one-more" }), { code: "BRANCH_LIMIT" });
+  await sql`UPDATE branches SET status = 'merged' WHERE workspace_id = ${workspace} AND name LIKE 'bulk/%'`;
+  assert.ok((await branches.createBranch(o, workspace, { name: "one-more" })).branch.id, "merged ones don't count");
+  // An agent sign-in: its change sets went to 10 active branches already.
+  const [session] = await sql`INSERT INTO extension_device_sessions (user_id, token_hash, token_prefix, device_name, client_version, expires_at, token_type, agent_name, workspace_id)
+    VALUES (${owner}, ${randomUUID()}, 'nb_agt_x', 'agent', '2.6.0', now() + interval '1 day', 'agent', 'Claude Code', ${workspace}) RETURNING id`;
+  for (let i = 0; i < 10; i++) {
+    const { branch } = await branches.createBranch(o, workspace, { name: `agent/${i}` });
+    await sql`INSERT INTO change_sets (workspace_id, author_id, title, branch_id, agent_session_id, via, status) VALUES (${workspace}, ${owner}, 'x', ${branch.id}, ${session!.id}, 'agent', 'applied')`;
+  }
+  const agent = { user: { id: owner }, tokenKind: "agent" as const, extensionSessionId: session!.id as string };
+  await assert.rejects(branches.createBranch(agent, workspace, { name: "agent/11" }), { code: "BRANCH_LIMIT" });
+  assert.ok((await branches.createBranch(o, workspace, { name: "person-still-can" })).branch.id, "people aren't held by the agent limit");
+});
+
+test("H2, H23, H26: the daily sweep deletes merged branches after 7 days, drops deleted ones' files after 30, asks once after 90 quiet days", async () => {
+  const { owner, workspace } = await setup();
+  const o = actor(owner);
+  const merged = (await branches.createBranch(o, workspace, { name: "merged-old" })).branch;
+  const recent = (await branches.createBranch(o, workspace, { name: "merged-new" })).branch;
+  const gone = (await branches.createBranch(o, workspace, { name: "deleted-long-ago" })).branch;
+  await branches.saveTextOnBranch(o, gone.id, { path: "/gone.md", text: "gone\n" });
+  const quiet = (await branches.createBranch(o, workspace, { name: "quiet" })).branch;
+  await sql`UPDATE branches SET status = 'merged', updated_at = now() - interval '8 days' WHERE id = ${merged.id}`;
+  await sql`UPDATE branches SET status = 'merged', updated_at = now() - interval '2 days' WHERE id = ${recent.id}`;
+  await sql`UPDATE branches SET status = 'deleted', deleted_at = now() - interval '31 days' WHERE id = ${gone.id}`;
+  await sql`UPDATE branches SET created_at = now() - interval '91 days' WHERE id = ${quiet.id}`;
+  sent.length = 0;
+  await branches.sweepBranches();
+  const status = async (id: string) => (await sql`SELECT status FROM branches WHERE id = ${id}`)[0]!.status;
+  assert.equal(await status(merged.id), "deleted");
+  assert.equal(await status(recent.id), "merged");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM branch_files WHERE branch_id = ${gone.id}`)[0]!.n, 0);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM save_changes sc JOIN saves s ON s.id = sc.save_id WHERE s.branch_id = ${gone.id}`)[0]!.n, 1, "its history stays");
+  const notes = sent.filter((n) => n.dedupeKey === `branch-stale:${quiet.id}`);
+  assert.equal(notes.length, 1);
+  assert.match(notes[0]!.title, /Archive or keep quiet\?/);
+  assert.equal(await status(quiet.id), "active", "nothing is deleted for being quiet");
+});
+
+test("H15, H23 journey 7: organizations and their workspaces (team workspaces, students' assignment copies) can't turn branches on", async () => {
+  const owner = await sql.begin((tx) => createUser(tx));
+  const org = await sql.begin((tx) => createProject(tx, owner));
+  await sql`UPDATE workspaces SET kind = 'organization' WHERE id = ${org}`;
+  const copy = await sql.begin((tx) => createProject(tx, owner));
+  await sql`UPDATE workspaces SET parent_id = ${org} WHERE id = ${copy}`;
+  await assert.rejects(saves.setBranchesEnabled(actor(owner), org, true), { code: "BRANCHES_OFF" });
+  await assert.rejects(saves.setBranchesEnabled(actor(owner), copy, true), { code: "BRANCHES_OFF" });
+  await assert.rejects(branches.createBranch(actor(owner), copy, { name: "try" }), { code: "BRANCHES_OFF" });
+});

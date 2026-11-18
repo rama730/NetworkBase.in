@@ -424,6 +424,7 @@ export async function reviewMergeRequest(actor: Actor, workspaceId: string, ref:
     return tx.insert(mergeRequestComments).values({ mergeRequestId: mr.id, authorId: userId, via: via.via, agentName: via.agentName, body, reviewState: state, saveId: source.headSaveId }).returning({ id: mergeRequestComments.id });
   });
   await notify(mr, state === "approved" ? "approved" : state === "changes_requested" ? "changes_requested" : "comment", userId, [mr.authorId], comment!.id);
+  if (state !== "approved") await noteForAgent(mr, userId, state === "changes_requested" ? `changes requested: ${body}` : body);
   return getMergeRequest(actor, workspaceId, mr.number);
 }
 
@@ -463,7 +464,19 @@ export async function commentOnMergeRequest(actor: Actor, workspaceId: string, r
   await db.update(mergeRequests).set({ updatedAt: new Date() }).where(eq(mergeRequests.id, mr.id));
   const reviewers = (await db.select({ id: mergeRequestReviews.reviewerId }).from(mergeRequestReviews).where(and(eq(mergeRequestReviews.mergeRequestId, mr.id), ne(mergeRequestReviews.state, "requested")))).map((r) => r.id);
   await notify(mr, "comment", userId, [mr.authorId, ...reviewers], row!.id);
+  if (!isAgent(actor)) await noteForAgent(mr, userId, path ? `${path}${line ? `:${line}${endLine && endLine !== line ? `-${endLine}` : ""}` : ""}: ${body}${suggestion != null ? ` (suggested: ${suggestion.slice(0, 500)})` : ""}` : body);
   return { comment: { id: row!.id } };
+}
+
+/**
+ * A person's review on an agent's merge request (H23 journey 5): the comment becomes an agent note on its task, so
+ * the agent's next session reads it and answers with new saves. Best effort: a note never undoes the comment.
+ */
+async function noteForAgent(mr: MergeRequest, userId: string, text: string) {
+  if (mr.via !== "agent" || !mr.taskId || !text.trim()) return;
+  const { addAgentNote } = await import("@/lib/domain/task-agent-notes");
+  await addAgentNote(userId, mr.taskId, { note: `Review on !${mr.number}: ${text}`.slice(0, 4000), agentName: mr.agentName, sessionId: null })
+    .catch((error: unknown) => logger.warn("merge_requests.agent_note_failed", { module: "merge-requests", error: error instanceof Error ? error.message : String(error) }));
 }
 
 /** Apply suggestion (H4): a save on the branch, only while the suggested lines are still as they were. */
@@ -677,4 +690,29 @@ export async function openMergeRequestsOf(branchIds: string[]) {
   const rows = await db.select({ branchId: mergeRequests.sourceBranchId, number: mergeRequests.number, state: mergeRequests.state }).from(mergeRequests)
     .where(and(inArray(mergeRequests.sourceBranchId, branchIds), inArray(mergeRequests.state, [...OPEN])));
   return new Map(rows.map((r) => [r.branchId, { number: r.number, state: r.state }]));
+}
+
+/**
+ * "My reviews" (H23 journey 3): every open merge request waiting on this person's review, across the workspaces they
+ * are still in, newest first. The inbox's My reviews tab and `nb merge-request list --review-requested --all`.
+ */
+export async function listMyReviews(actor: Actor) {
+  const me = actor.user?.id ?? fail("Sign in to continue", 401, "UNAUTHORIZED");
+  const rows = Array.from(await db.execute<{ workspace_id: string; slug: string | null; workspace: string; number: number; title: string; source: string; author_id: string | null; updated_at: string }>(sql`
+    SELECT m.workspace_id, w.slug, w.title AS workspace, m.number, m.title, b.name AS source, m.author_id, m.updated_at::text
+    FROM merge_request_reviews r
+    JOIN merge_requests m ON m.id = r.merge_request_id AND m.state = 'open'
+    JOIN workspaces w ON w.id = m.workspace_id AND w.deletion_scheduled_at IS NULL
+    JOIN branches b ON b.id = m.source_branch_id
+    WHERE r.reviewer_id = ${me} AND r.state = 'requested'
+      AND (w.owner_id = ${me} OR EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = m.workspace_id AND wm.user_id = ${me}))
+    ORDER BY m.updated_at DESC LIMIT 50`));
+  const people = await peopleById(rows.map((r) => r.author_id));
+  return {
+    reviews: rows.map((r) => ({
+      workspace: { id: r.workspace_id, slug: r.slug, title: r.workspace }, number: r.number, title: r.title, source: r.source,
+      author: r.author_id ? people.get(r.author_id) ?? null : null, updatedAt: new Date(r.updated_at).toISOString(),
+      href: `/workspaces/${r.slug ?? r.workspace_id}?tab=files&filesView=merge-requests&mr=${r.number}`,
+    })),
+  };
 }
