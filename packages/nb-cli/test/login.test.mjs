@@ -57,7 +57,7 @@ describe("nb login --device (report A3.1)", () => {
     assert.deepEqual([api.state.device.lastBody.type, api.state.device.lastBody.agentName], ["agent", "Claude Code"]);
     assert.match(r.stdout, /Claude Code connected · only Design Lab · small changes only · until \d+ \w+/);
     assert.match(r.stdout, /Try it: open Claude Code and ask "what should I do today\?"/);
-    assert.match(r.stderr, /Waiting for you to approve in the browser… ABCD-EFGH \(expires \d\d:\d\d\)/);
+    assert.match(r.stderr, /Waiting for you to approve in the browser… ABCD-EFGH \(expires in \d\d:\d\d\)/);
     const who = await runCli(["whoami"], { api: api.url, home, token: null });
     assert.match(who.stdout, /token +agent · .*only Design Lab/);
     assert.match(who.stdout, /access +Claude Code can work in Design Lab for 30 days/);

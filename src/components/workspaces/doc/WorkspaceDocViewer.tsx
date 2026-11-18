@@ -61,7 +61,7 @@ function DocEditButton({ projectId, docSlug, filename, content, fileHref }: { pr
                 queryClient.invalidateQueries({ queryKey: WORKSPACE_DOCS_QUERY_KEY(projectId) }),
                 queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),
             ]);
-            router.push(`${pathname}?tab=files&fileId=${encodeURIComponent(node.id)}`, { scroll: false });
+            router.push(`${pathname}?tab=files&fileId=${encodeURIComponent(node.id)}&edit=1`, { scroll: false });
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Couldn’t start the file", { action: { label: "Retry", onClick: () => void start() } });
         } finally {

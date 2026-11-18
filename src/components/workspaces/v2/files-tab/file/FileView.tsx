@@ -536,6 +536,18 @@ export function FileView({
       });
   }, [canEdit, textLike,fileLease]);
 
+  // ?edit=1 opens straight in the editor, once (a starter README's Edit, 0.8 #15; T16 live test: it opened the preview).
+  const editRequested = React.useRef(false);
+  React.useEffect(() => {
+    if (editRequested.current || !canEdit || !textLike) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("edit") !== "1") return;
+    editRequested.current = true;
+    params.delete("edit");
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params.toString()}`);
+    onEdit();
+  }, [canEdit, textLike, onEdit]);
+
   // ── Render ──────────────────────────────────────────────────────────
 
   return (

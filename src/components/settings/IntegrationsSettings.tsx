@@ -127,7 +127,10 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
     ? `${session.agentName?.trim() || "AI agent"} on ${session.deviceName?.trim() || "a computer"}`
     : isPending
       ? session.deviceName?.trim() || "Access token"
-      : session.editorName?.trim() || session.deviceName?.trim() || (isCliSession ? "NetworkBase CLI" : "Editor extension");
+      // A terminal says which computer it's on, so two sign-ins can be told apart (T16 live test).
+      : isCliSession && session.deviceName?.trim() && !session.deviceName.toLowerCase().includes("cli")
+        ? `NetworkBase CLI on ${session.deviceName.trim().replace(/\.local$/i, "")}`
+        : session.editorName?.trim() || session.deviceName?.trim() || (isCliSession ? "NetworkBase CLI" : "Editor extension");
 
   return (
     <div className="flex min-h-16 flex-col justify-center gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">

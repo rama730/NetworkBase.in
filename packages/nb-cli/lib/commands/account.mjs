@@ -121,7 +121,7 @@ export async function deviceLogin(ctx, agentName = /** @type {string | null} */ 
   const until = Date.now() + Number(start.expiresIn ?? 600) * 1000;
   const waiting = () => {
     const left = Math.max(0, Math.round((until - Date.now()) / 1000));
-    return `Waiting for you to approve in the browser… ${start.userCode} (expires ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")})`;
+    return `Waiting for you to approve in the browser… ${start.userCode} (expires in ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")})`;
   };
   // On a terminal the countdown updates in place; elsewhere it's printed once.
   const ticker = tty ? setInterval(() => ctx.out.stderr.write(`\r\x1b[2K${c.muted(waiting())}`), 1000) : null;

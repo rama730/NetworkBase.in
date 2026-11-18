@@ -119,7 +119,7 @@ describe("daily work (C2)", () => {
     const asked = await nb(["task", "assign", "1", "--json"]);
     assert.equal(asked.code, 6);
     const q = JSON.parse(asked.stderr || asked.stdout).error.details.questions[0];
-    assert.deepEqual(q.options.map((/** @type {any} */ o) => o.value), ["me", "@tester", "@sam", "none"]);
+    assert.deepEqual(q.options.map((/** @type {any} */ o) => o.value), ["me", "@sam", "none"], "you are Me, not listed again (T16 live test)");
     const picked = await nb(["task", "assign", "1", "--answer", "person=@sam"]);
     assert.equal(picked.code, 0, picked.stderr);
     assert.equal(api.state.tasks[0]?.assigneeUsername, "sam");

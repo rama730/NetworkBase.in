@@ -224,7 +224,6 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
     const results: WorkspaceDocListItem[] = [];
     for (const doc of base.docs) {
         const linkedAlive = Boolean(doc.linkedNodeId && doc.linkedNode && !doc.linkedNode.deletedAt);
-        if (!linkedAlive && !doc.publishedVersionId) continue;
         const permission = resolveWorkspaceDocPermission({
             actorUserId,
             projectVisibility: project.visibility,
@@ -236,6 +235,9 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
             isActiveMember: isOwner || Boolean(membership),
             hasPublishedReadme: true,
         });
+        // No file and nothing published: only a starter draft that never had a file, and only for its editors
+        // (T16 live test: the side list said 0 while a new workspace's README showed).
+        if (!linkedAlive && !doc.publishedVersionId && !(permission.canEdit && !doc.linkedNodeId && !doc.empty)) continue;
         // Report §37.4: an organization's draft is for those who can edit it; an empty one never reaches visitors (§7.4).
         if (!permission.canEdit && project.kind === "organization" && readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).lifecycle === "draft") continue;
         if (!permission.canEdit && !membership && !isOwner && doc.empty && (project.kind === "organization" || project.parentId)) continue;

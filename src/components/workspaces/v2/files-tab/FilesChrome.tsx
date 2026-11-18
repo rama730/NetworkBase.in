@@ -46,7 +46,7 @@ export function HeaderCrumbs({ items, after, label = "Breadcrumb" }: { items: Cr
             <span key={i} className="flex min-w-0 items-center">
               {i > 0 ? <span aria-hidden="true" className="mx-0.5 select-none text-muted-foreground/60">/</span> : null}
               {last || !c.onClick ? (
-                <span aria-current={last ? "page" : undefined} title={c.title} className={cn("max-w-[260px] truncate px-1.5 py-0.5", last ? "font-semibold text-foreground" : "text-muted-foreground", c.mono && "font-mono")}>{c.label}</span>
+                <span aria-current={last ? "page" : undefined} title={c.title} className={cn("flex max-w-[260px] items-center gap-1 truncate px-1.5 py-0.5", last ? "font-semibold text-foreground" : "text-muted-foreground", c.mono && "font-mono")}>{c.label}</span>
               ) : (
                 <button type="button" onClick={c.onClick} title={c.title} className={cn("flex max-w-[200px] items-center gap-1 truncate rounded-[4px] px-1.5 py-0.5 text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-[#D14E24]", c.mono && "font-mono")}>{c.label}</button>
               )}

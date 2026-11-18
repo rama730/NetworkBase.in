@@ -62,6 +62,11 @@ test('the picker: main ▾ is the app’s menu, lists branches with ahead, behin
   expect(page.url()).toContain('branch=ram%2Ftry-header');
   await expect(page.getByRole('status', { name: 'On branch' })).toContainText('2 saves ahead, 3 behind main');
   await expect(page.getByRole('navigation', { name: 'Branch breadcrumb' })).toContainText('ram/try-header');
+  // At the branch's top, its icon and name sit on one line (T16 live test: the name wrapped below the icon).
+  const crumb = page.getByRole('navigation', { name: 'Branch breadcrumb' }).locator('[aria-current="page"]');
+  const icon = (await crumb.locator('svg').boundingBox())!;
+  const name = (await crumb.getByText('ram/try-header').boundingBox())!;
+  expect(Math.abs((icon.y + icon.height / 2) - (name.y + name.height / 2))).toBeLessThan(6);
   await expect(page.getByRole('button', { name: 'Open README.md' })).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'README.md' })).toContainText('Changed');
   await page.getByRole('button', { name: 'Open folder src' }).click();

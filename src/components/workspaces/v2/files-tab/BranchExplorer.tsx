@@ -403,7 +403,8 @@ function BranchCrumbs({ branch, path, extra }: { branch: string; path: string; e
       <HeaderCrumbs
         label="Branch breadcrumb"
         items={[
-          { label: <><GitBranch className="size-3.5 shrink-0" aria-hidden="true" />{branch}</>, mono: true, onClick: () => views.openBranchPath("/") },
+          // Icon and name on one line, the name shortened when long (T16 live test: it wrapped at the branch's top).
+          { label: <><GitBranch className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{branch}</span></>, mono: true, onClick: () => views.openBranchPath("/") },
           ...parts.map((p, i) => ({ label: p, onClick: () => views.openBranchPath(`/${parts.slice(0, i + 1).join("/")}`) })),
           ...(extra ? [{ label: extra }] : []),
         ]}

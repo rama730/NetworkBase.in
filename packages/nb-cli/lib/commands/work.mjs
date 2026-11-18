@@ -93,9 +93,11 @@ export async function resolvePerson(ctx, who) {
 async function pickPerson(ctx) {
   const { members } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/members`));
   const { ask } = await import("../tui/ask.mjs");
+  const meId = ctx.profile?.user?.id ?? (/** @type {any} */ (await ctx.api.get("/api/v1/me").catch(() => null)))?.user?.id ?? null;
   return ask(ctx, { key: "person", header: "Assign to", question: "Who should do it?", options: [
     { value: "me", label: "Me", recommended: true },
-    ...members.filter((/** @type {any} */ m) => m.username).slice(0, 7).map((/** @type {any} */ m) => ({ value: `@${m.username}`, label: safe(m.fullName ?? m.username), description: `@${m.username}` })),
+    // You are "Me" already, so your own name isn't listed again (T16 live test).
+    ...members.filter((/** @type {any} */ m) => m.username && m.id !== meId).slice(0, 7).map((/** @type {any} */ m) => ({ value: `@${m.username}`, label: safe(m.fullName ?? m.username), description: `@${m.username}` })),
     { value: "none", label: "Nobody" },
   ] });
 }

@@ -51,3 +51,17 @@ test("Edit on a starter README attaches the new file to the same doc, once, and 
   assert.equal(again.success, false, "it already has a file");
   assert.equal((await sql`SELECT linked_node_id FROM workspace_documents WHERE id = ${readme!.id}`)[0]!.linked_node_id, node!.id);
 });
+
+test("a starter README with no file yet is in its editors' Documents list, not a viewer's (T16 live test: the list said 0)", async () => {
+  const [owner, viewer] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const ws = await sql.begin((tx) => createProject(tx, owner!));
+  await sql.begin(async (tx) => { await addMember(tx, ws, owner!, "owner"); await addMember(tx, ws, viewer!, "viewer"); });
+  await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings) VALUES (${ws}, 'readme', 'README.md', '{}'::jsonb)`;
+  viewerId = owner!;
+  const mine = await doc.listWorkspaceDocsAction(ws);
+  assert.equal(mine.success, true);
+  assert.deepEqual(mine.success && mine.docs.map((d) => d.slug), ["readme"]);
+  viewerId = viewer!;
+  const theirs = await doc.listWorkspaceDocsAction(ws);
+  assert.deepEqual(theirs.success && theirs.docs.map((d) => d.slug), [], "an unpublished draft stays with its editors");
+});

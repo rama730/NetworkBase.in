@@ -162,3 +162,13 @@ Re-running the agent jobs on the published 2.6.5 found two more:
 
 With both, 7/8 jobs pass; job 7 stopped at Claude Code's own permission prompt for `rm`/`mv` in headless mode (the
 same job passed in the earlier run). Ponytail's stray `/.mcp.json` and `/CLAUDE.md` from the runs are in Trash.
+
+### Polish from T16, fixed (2026-11-18)
+
+- The assign picker no longer lists you twice ("Me" and your name), by member id. Test: `daily-work.test.mjs`.
+- The sign-in countdown says "expires in 10:00". Test: `login.test.mjs`.
+- Settings' terminal cards name the computer ("NetworkBase CLI on Chs-MacBook-Pro").
+- The branch breadcrumb keeps the icon and name on one line. Test: `branches.spec.ts`.
+- A starter README's Edit opens the editor (`&edit=1`), not the preview.
+- The Documents side list includes a starter README for its editors (a viewer still doesn't see the draft). Test: `tests/db/doc-starter-edit.test.ts`.
+- The approval page's focus marks: not a defect. Links get the clay tint or an underline on keyboard focus; the earlier check only measured outlines.
