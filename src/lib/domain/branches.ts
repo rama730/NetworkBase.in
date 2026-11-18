@@ -83,6 +83,20 @@ function mayManage(actor: Actor, branch: Branch, isAdmin: boolean) {
  * deleted hidden. Main itself reads main at its head. Paged by path (5,000), or just `paths`.
  */
 export async function branchTree(branch: Branch, mainId: string, opts: { cursor?: string | null; path?: string | null; paths?: string[]; limit?: number } = {}) {
+  // H11, H21: a page of a branch's files is the same until its head (or base) moves, so repeated browsing reads it
+  // from memory. ponytail: per process, 24 pages (about 30 MB at 5,000 files a page); a shared cache if replicas grow.
+  const key = opts.paths?.length ? null : `${branch.id}:${branch.headSaveId ?? ""}:${branch.isDefault ? "" : branch.baseSaveId ?? ""}:${opts.cursor ?? ""}:${opts.path ?? ""}:${opts.limit ?? ""}`;
+  const hit = key ? treeCache.get(key) : undefined;
+  if (hit) { treeCache.delete(key!); treeCache.set(key!, hit); return hit; }
+  const page = await readBranchTree(branch, mainId, opts);
+  if (key) { treeCache.set(key, page); if (treeCache.size > TREE_CACHE_PAGES) treeCache.delete(treeCache.keys().next().value!); }
+  return page;
+}
+
+const TREE_CACHE_PAGES = 24;
+const treeCache = new Map<string, { files: TreeEntry[]; nextCursor: string | null }>();
+
+async function readBranchTree(branch: Branch, mainId: string, opts: { cursor?: string | null; path?: string | null; paths?: string[]; limit?: number }) {
   const limit = Math.min(opts.limit ?? SAVE_LIMITS.files, SAVE_LIMITS.files);
   const baseSeq = await seqOf(branch.isDefault ? branch.headSaveId : branch.baseSaveId);
   const ownId = branch.isDefault ? null : branch.id;

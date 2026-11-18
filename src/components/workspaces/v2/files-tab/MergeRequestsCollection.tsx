@@ -11,6 +11,7 @@ import {
 } from "@/app/actions/files/merge-requests";
 import { getSaveAction, revertSaveAction } from "@/app/actions/files/saves";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Virtuoso } from "react-virtuoso";
 import { useStepUp } from "@/components/trust/StepUp";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { mergeRequestHref, openRevertRequest } from "@/components/workspaces/v2/files-tab/SaveToBranch";
@@ -497,24 +498,24 @@ function FilesChanged({ projectId, detail, busy, act }: { projectId: string; det
     const res = await act("line-comment", () => commentMergeRequestAction(projectId, m.number, { body, path: current, line, endLine: end, suggestion: suggest ? suggestion : null }), suggest ? "Suggested an edit" : "Commented");
     if (res) { setBody(""); setSuggestion(""); setFrom(""); setTo(""); setSuggest(false); }
   }
+  const fileRow = (f: (typeof files)[number]) => (
+    <button type="button" onClick={() => setSelected(f.path)} aria-current={current === f.path} className={cn("flex min-h-12 w-full items-center gap-2.5 border-b border-border/60 px-3 text-left hover:bg-[#FAF8F5] dark:hover:bg-white/[0.02]", current === f.path && "bg-[#F3F0EA] dark:bg-white/[0.06]")}>
+      <FileTypeChip name={f.path.split("/").pop()!} mimeType={null} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-mono text-xs font-medium text-foreground">{f.path.split("/").pop()}</span>
+        <span className="block truncate font-mono text-[11px] text-muted-foreground">{f.path}</span>
+      </span>
+      {detail.comments.some((c) => c.path === f.path) ? <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" aria-label="Has comments" /> : null}
+      <StatusBadge tone={OP[f.op]?.tone ?? "neutral"}>{OP[f.op]?.label ?? f.op}</StatusBadge>
+    </button>
+  );
   return (
     <div className="flex min-h-full flex-col md:flex-row">
       <nav aria-label="Files changed" className="max-h-64 overflow-y-auto border-b border-border md:max-h-none md:w-80 md:border-b-0 md:border-r">
-        <ul>
-          {files.map((f) => (
-            <li key={f.path}>
-              <button type="button" onClick={() => setSelected(f.path)} aria-current={current === f.path} className={cn("flex min-h-12 w-full items-center gap-2.5 border-b border-border/60 px-3 text-left hover:bg-[#FAF8F5] dark:hover:bg-white/[0.02]", current === f.path && "bg-[#F3F0EA] dark:bg-white/[0.06]")}>
-                <FileTypeChip name={f.path.split("/").pop()!} mimeType={null} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-mono text-xs font-medium text-foreground">{f.path.split("/").pop()}</span>
-                  <span className="block truncate font-mono text-[11px] text-muted-foreground">{f.path}</span>
-                </span>
-                {detail.comments.some((c) => c.path === f.path) ? <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" aria-label="Has comments" /> : null}
-                <StatusBadge tone={OP[f.op]?.tone ?? "neutral"}>{OP[f.op]?.label ?? f.op}</StatusBadge>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {/* Up to 2,000 files (H25): past 200 only the rows in view are drawn. */}
+        {files.length > 200 ? (
+          <Virtuoso style={{ height: "70vh" }} data={files} computeItemKey={(_, f) => f.path} itemContent={(_, f) => fileRow(f)} />
+        ) : <ul>{files.map((f) => <li key={f.path}>{fileRow(f)}</li>)}</ul>}
       </nav>
       <section aria-label="Diff and comments" className="min-h-0 min-w-0 flex-1">
         {current ? <DiffView query={diff} label={`${current} · against main`} path={current} /> : null}
@@ -555,3 +556,4 @@ function FilesChanged({ projectId, detail, busy, act }: { projectId: string; det
 }
 
 export { LineCounts };
+

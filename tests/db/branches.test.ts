@@ -453,3 +453,30 @@ test("H15, H23 journey 7: organizations and their workspaces (team workspaces, s
   await assert.rejects(saves.setBranchesEnabled(actor(owner), copy, true), { code: "BRANCHES_OFF" });
   await assert.rejects(branches.createBranch(actor(owner), copy, { name: "try" }), { code: "BRANCHES_OFF" });
 });
+
+test("speed (H25, H11): 500 branches list fast for the picker; a branch's files come from memory until its head moves", async () => {
+  const { owner, workspace, mainId } = await setup();
+  const o = actor(owner);
+  await sql`INSERT INTO branches (workspace_id, name, created_by) SELECT ${workspace}, 'many/' || i, ${owner} FROM generate_series(1, 499) i`;
+  let t = performance.now();
+  const list = await branches.listBranches(o, workspace);
+  const listMs = Math.round(performance.now() - t);
+  assert.equal(list.branches.length, 500);
+  const { branch } = await branches.createBranch(o, workspace, { name: "cached" }).catch(async () => {
+    await sql`DELETE FROM branches WHERE workspace_id = ${workspace} AND name = 'many/499'`;
+    return branches.createBranch(o, workspace, { name: "cached" });
+  });
+  const [row] = await sql`SELECT * FROM branches WHERE id = ${branch.id}`;
+  const b = { id: row!.id, isDefault: false, headSaveId: row!.head_save_id, baseSaveId: row!.base_save_id } as never;
+  const first = await branches.branchTree(b, mainId);
+  t = performance.now();
+  const again = await branches.branchTree(b, mainId);
+  const cachedMs = performance.now() - t;
+  console.log(`bench: 500 branches listed in ${listMs} ms; cached branch files ${cachedMs.toFixed(2)} ms`);
+  assert.equal(again, first, "the same page object, from memory");
+  assert.ok(listMs < 1500, `listing 500 branches took ${listMs} ms`);
+  await branches.saveTextOnBranch(o, branch.id, { path: "/new.md", text: "n\n" });
+  const [moved] = await sql`SELECT head_save_id FROM branches WHERE id = ${branch.id}`;
+  const after = await branches.branchTree({ ...(b as object), headSaveId: moved!.head_save_id } as never, mainId);
+  assert.ok(after.files.some((f) => f.path === "/new.md"), "a new head reads fresh");
+});

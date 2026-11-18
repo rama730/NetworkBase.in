@@ -9,7 +9,7 @@ const P = (id: string, name: string, username: string) => ({ id, name, username 
 const RAM = P('u1', 'Ram', 'ram');
 const SAM = P('u2', 'Sam', 'sam');
 const summary = { id: 'm1', number: 3, title: 'New header', state: 'open', source: { id: 'b1', name: 'ram/try-header', status: 'active' }, author: RAM, madeWith: 'with Claude Code', task: null, approvals: 0, changesRequested: 0, comments: 2, reviewRequested: true, createdAt: '2026-11-17T08:00:00Z', updatedAt: '2026-11-17T09:00:00Z' };
-function detail(over: { state?: string; canReview?: boolean; merged?: boolean; needs?: string[] } = {}) {
+function detail(over: { state?: string; canReview?: boolean; merged?: boolean; needs?: string[]; manyFiles?: number } = {}) {
   const state = over.state ?? 'open';
   return {
     mergeRequest: {
@@ -22,7 +22,7 @@ function detail(over: { state?: string; canReview?: boolean; merged?: boolean; n
     },
     saves: [{ id: 's2', number: 2, kind: 'save', message: 'New header', author: RAM, madeWith: null, createdAt: '2026-11-17T09:00:00Z', added: 0, changed: 1, deleted: 0, renamed: 0 }],
     moreSaves: false,
-    files: over.merged ? null : { files: [{ path: '/README.md', op: 'change', size: 20 }], truncated: false },
+    files: over.merged ? null : { files: over.manyFiles ? Array.from({ length: over.manyFiles }, (_, i) => ({ path: `/bulk/f${String(i).padStart(4, '0')}.txt`, op: 'add', size: 5 })) : [{ path: '/README.md', op: 'change', size: 20 }], truncated: false },
     comments: [
       { id: 'c1', author: { ...SAM, former: true }, madeWith: null, body: 'Looks good, like !2', reviewState: 'approved', path: null, line: null, endLine: null, onEarlierSave: true, suggestion: null, original: null, appliedSaveId: null, resolved: false, createdAt: '2026-11-17T08:30:00Z', mine: false },
       { id: 'c2', author: SAM, madeWith: null, body: 'Shorter?', reviewState: null, path: '/README.md', line: 1, endLine: 1, onEarlierSave: false, suggestion: '# Header', original: '# The new header', appliedSaveId: null, resolved: false, createdAt: '2026-11-17T08:40:00Z', mine: false },
@@ -33,7 +33,7 @@ function detail(over: { state?: string; canReview?: boolean; merged?: boolean; n
   };
 }
 
-async function open(page: Page, { width = 1440, theme = 'light', path = '/', canReview = false, conflicts = false, needs }: { width?: number; theme?: string; path?: string; canReview?: boolean; conflicts?: boolean; needs?: string[] } = {}) {
+async function open(page: Page, { width = 1440, theme = 'light', path = '/', canReview = false, conflicts = false, needs, manyFiles }: { width?: number; theme?: string; path?: string; canReview?: boolean; conflicts?: boolean; needs?: string[]; manyFiles?: number } = {}) {
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript(({ summary, D, DM, conflicts }) => {
     const calls: unknown[] = [];
@@ -58,7 +58,7 @@ async function open(page: Page, { width = 1440, theme = 'light', path = '/', can
       attachMergeResultAction: async (...a: unknown[]) => { calls.push(['attach', ...a]); return { success: true, data: { path: a[2], task: 4 } }; },
       revertSaveAction: async (...a: unknown[]) => { calls.push(['revert', ...a]); return { success: true, data: { outcome: 'reverted' } }; },
     };
-  }, { summary, D: detail({ canReview, needs }), DM: detail({ state: 'merged', merged: true }), conflicts });
+  }, { summary, D: detail({ canReview, needs, manyFiles }), DM: detail({ state: 'merged', merged: true }), conflicts });
   await openApp(page, 'tests/browser/merge-requests.fixture.tsx', { path, head: theme === 'dark' ? "document.documentElement.classList.add('dark')" : '' });
 }
 
@@ -193,4 +193,14 @@ test('H23 journey 4: in the list, j and k move, and a approves one waiting on yo
   await expect(row).toBeFocused();
   await page.keyboard.press('a');
   await expect.poll(async () => (await page.evaluate(() => (window as any).__calls)).find((c: unknown[]) => c[0] === 'review')).toEqual(['review', 'p1', 3, 'approve', '']);
+});
+
+test('H25: a merge request with 600 files draws only the rows in view', async ({ page }) => {
+  await open(page, { path: '/?mr=3', manyFiles: 600 });
+  await page.getByRole('tab', { name: /Files changed/ }).click();
+  const nav = page.getByRole('navigation', { name: 'Files changed' });
+  await expect(nav.getByText('/bulk/f0000.txt')).toBeVisible();
+  const drawn = await nav.locator('button').count();
+  expect(drawn).toBeGreaterThan(5);
+  expect(drawn).toBeLessThan(120);
 });

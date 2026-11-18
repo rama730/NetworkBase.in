@@ -308,3 +308,24 @@ test("H23 journey 3: My reviews lists what waits on you across workspaces, and o
   await mrs.reviewMergeRequest(actor(owner), workspace, mr.number, { state: "approve" });
   assert.equal((await mrs.listMyReviews(actor(owner))).reviews.filter((r) => r.workspace.id === workspace).length, 0, "done once reviewed");
 });
+
+test("speed (H25): a 200-file merge request opens in under 2 s and merges in under 5 s", async () => {
+  const { owner, dev, workspace, branch } = await setup();
+  const changes = [];
+  for (let i = 0; i < 200; i++) {
+    const c = await content(workspace, dev, `file ${i}\n`);
+    changes.push({ op: "add" as const, path: `/bulk/f${i}.txt`, contentHash: c.hash, assetId: c.assetId, size: c.size, mimeType: "text/plain" });
+  }
+  await branches.writeBranch(branch.id, { changes, message: "200 files", authorId: dev });
+  let t = performance.now();
+  const made = await mrs.createMergeRequest(actor(dev), workspace, { source: branch.name });
+  await mrs.getMergeRequest(actor(owner), workspace, made.mergeRequest.number);
+  const openMs = Math.round(performance.now() - t);
+  t = performance.now();
+  const done = await mrs.mergeMergeRequest(actor(owner), request(), workspace, made.mergeRequest.number, { method: "merge" });
+  const mergeMs = Math.round(performance.now() - t);
+  console.log(`bench: 200-file merge request open ${openMs} ms, merge ${mergeMs} ms`);
+  assert.equal(done.outcome, "merged");
+  assert.ok(openMs < 2000, `open took ${openMs} ms`);
+  assert.ok(mergeMs < 5000, `merge took ${mergeMs} ms`);
+});

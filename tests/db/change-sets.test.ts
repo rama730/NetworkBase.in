@@ -818,3 +818,48 @@ test("agents on branches (H7): with Branches on, an agent's change starts on age
   const [b2] = await sql`SELECT b.name FROM change_sets c JOIN branches b ON b.id = c.branch_id WHERE c.id = ${again.json.data.changeSet.id}`;
   assert.equal(b2?.name, "agent/4-fix-the-login-bug");
 });
+
+test("end to end (H18, H27): an agent's 30-file change on agent/4 → merge request → review with a suggestion → check → merge, task done → revert", async () => {
+  const names = Array.from({ length: 30 }, (_, i) => `f${i}`);
+  const { owner, workspace } = await setup(names);
+  const saves = await loadAppModule(() => import("../../src/lib/domain/saves"));
+  const mrs = await loadAppModule(() => import("../../src/lib/domain/merge-requests"));
+  await saves.setBranchesEnabled({ user: { id: owner } }, workspace, true);
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, creator_id, status, task_number) VALUES (${workspace}, 'Login bug', ${owner}, 'in_progress', 4) RETURNING id`;
+  const agent = await token(owner, "agent", workspace, ["file:read", "file:write", "task:read", "task:write"]);
+  // 1. The agent works on agent/4-login-bug across 30 files.
+  const started = await call(ws.POST, agent, "POST", `/api/v1/workspaces/${workspace}/change-sets`, { title: "Fix the login bug", taskId: task!.id }, { params: Promise.resolve({ id: workspace }) });
+  assert.equal(started.status, 201, JSON.stringify(started.json));
+  const cs = started.json.data.changeSet.id as string;
+  const texts = names.map((n) => `${n} fixed\n`);
+  assert.equal((await call(items.PUT, agent, "PUT", `/api/v1/change-sets/${cs}/items`, { items: names.map((n, i) => ({ op: "change", path: `/${n}.txt`, contentHash: sha(texts[i]!), size: texts[i]!.length, mimeType: "text/plain" })) }, csCtx(cs))).status, 200);
+  assert.equal((await call(content.POST, agent, "POST", `/api/v1/change-sets/${cs}/content`, { files: texts.map((t) => ({ hash: sha(t), base64: Buffer.from(t).toString("base64") })) }, csCtx(cs))).status, 200);
+  const finished = await finishIt(agent, cs, { message: "- Fixed 30 files" });
+  // 2. Applying opens the merge request; main is untouched.
+  const applied = await applyIt(agent, cs, finished.json.data.confirmToken ? { confirmToken: finished.json.data.confirmToken } : {});
+  assert.equal(applied.status, 200, JSON.stringify(applied.json));
+  const number = applied.json.data.mergeRequest.number as number;
+  assert.equal(await textOf(workspace, "/f0.txt"), "f0 one\n");
+  // From here a person acts in the app: no agent token on the request.
+  headerValues = {};
+  const person = { user: { id: owner } };
+  // 3. The person reviews: a line comment with a suggested edit, applied as a save on the branch.
+  await mrs.commentOnMergeRequest(person, workspace, number, { body: "Say it plainly", path: "/f0.txt", line: 1, suggestion: "f0 fixed plainly" });
+  const view = await mrs.getMergeRequest(person, workspace, number);
+  const suggestion = view.comments.find((c) => c.suggestion)!;
+  await mrs.applySuggestion(person, workspace, number, suggestion.id);
+  // 4. A check posts and passes.
+  await mrs.postCheck(person, workspace, number, { name: "build", state: "passed" });
+  // 5. Merge: main has all 30 files, and the task is done.
+  const merged = await mrs.mergeMergeRequest(person, new Request("https://app.test/x", { method: "POST" }), workspace, number, { method: "merge" });
+  assert.equal(merged.outcome, "merged", JSON.stringify(merged));
+  assert.equal(await textOf(workspace, "/f0.txt"), "f0 fixed plainly\n");
+  assert.equal(await textOf(workspace, "/f29.txt"), "f29 fixed\n");
+  const [t] = await sql`SELECT status FROM tasks WHERE id = ${task!.id}`;
+  assert.ok(["done", "review"].includes(t!.status), t!.status);
+  // 6. Revert the merge: main is as it was.
+  const reverted = await saves.revertSave(person, new Request("https://app.test/x", { method: "POST" }), merged.save!.id);
+  assert.equal(reverted.outcome, "reverted", JSON.stringify(reverted));
+  assert.equal(await textOf(workspace, "/f0.txt"), "f0 one\n");
+  assert.equal(await textOf(workspace, "/f29.txt"), "f29 one\n");
+});
