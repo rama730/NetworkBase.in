@@ -1,298 +1,286 @@
 import type { Metadata } from "next";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { genericSharePreview, shareOrigin } from "@/lib/sharing/presentation";
 import { shareMetadata } from "@/lib/sharing/metadata";
-import Link from "next/link";
-import { ArrowRight, BarChart2, BarChart3, Bell, Code2, MapPin, FileText, FolderOpen, KeyRound, ListChecks, Lock, Megaphone, MessagesSquare, Download, ShieldCheck, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import Logo from "@/components/layout/header/Logo";
-import { LegalLinks } from "@/components/legal/LegalLinks";
 import { buildAuthPageHref } from "@/lib/auth/redirects";
-import { SkillIcon } from "@/components/skills/SkillIcon";
 import { findCatalogSkill } from "@/lib/skills/catalog";
-import { toSkillSummary } from "@/lib/skills/presentation";
+import { TRAIL, isLightHex } from "@/lib/grid-trail";
+import { parseReleaseNotes } from "@/lib/site/release-notes";
+import { WORKSPACE_MODULES } from "@/components/site/home/WorkspaceMocks";
+import { HomeEffects } from "@/components/site/home/HomeEffects";
+import "./home.css";
 
+// Home page redesign: docs/superpowers/plans/2026-11-18-marketing-redesign-concept.md (prototype U69rCV4KB2N8BomkYUZzKL v3).
 export const metadata: Metadata = {
-  ...shareMetadata(genericSharePreview({ kind: "application", identifier: "", url: shareOrigin() + "/" }, "ready")),
+  ...shareMetadata({
+    ...genericSharePreview({ kind: "application", identifier: "", url: shareOrigin() + "/" }, "ready"),
+    image: new URL("/og/home-card.png", shareOrigin()).href,
+    imageAlt: "NetworkBase: pixel wordmark and the line Find your people. Build something together.",
+  }),
   title: "NetworkBase — Find your people. Build something together.",
   description: "Discover workspaces, find people by skill, and bring tasks, files and conversations together.",
 };
 
-const anchors = [
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#people", label: "People" },
-  { href: "#workspace", label: "Workspace" },
-  { href: "#classes", label: "Classes" },
-];
+const SIX = TRAIL.colors;
+const onColor = (bg: string) => (isLightHex(bg) ? "#141A1E" : "#FAF8F4");
+const skillNames = (names: string[]) => names.map((name) => findCatalogSkill(name)?.name ?? name);
 
+const navLinks = [["#how", "How it works"], ["#people", "People"], ["#workspace", "Workspace"], ["#classes", "Classes"], ["#terminal", "Terminal"]] as const;
+
+const steps = [
+  { label: "01 / Discover", icon: "search", title: "Find work you want to be part of.", body: "Browse workspaces by skills and interests. See the idea, the team and the roles they still need.", href: buildAuthPageHref("/signup", "/discover"), action: "Explore workspaces" },
+  { label: "02 / Connect", icon: "people", title: "Meet people through what they do.", body: "Profiles are built around skills and contributions. Find people and start a conversation.", href: buildAuthPageHref("/signup", "/network"), action: "Meet people" },
+  { label: "03 / Build", icon: "blocks", title: "Give your workspace a place to grow.", body: "Tasks, sprints, documents, files and messages live together, with clear roles for everyone.", href: buildAuthPageHref("/signup", "/workspaces/new"), action: "Create a workspace" },
+] as const;
+
+// Example content only, labelled as such on the page; skill names come from the real catalog.
+const profiles = [
+  { initials: "AK", name: "Aisha K.", headline: "Frontend developer", location: "Bengaluru", skills: skillNames(["React", "TypeScript", "Accessibility testing"]), shared: 3, color: "#A7C3F0" },
+  { initials: "MR", name: "Marco R.", headline: "Product designer", location: "Lisbon", skills: skillNames(["Figma", "Design systems", "UX Research"]), shared: 5, color: "#EDBF85" },
+  { initials: "JS", name: "Jun S.", headline: "Data engineer", location: "Singapore", skills: skillNames(["Python", "SQL", "Apache Airflow"]), shared: 2, color: "#99CEAD" },
+  { initials: "LT", name: "Lena T.", headline: "Mobile developer", location: "Berlin", skills: skillNames(["Flutter", "Firebase", "Swift"]), shared: 4, color: "#F3A17E" },
+];
+const roles = [
+  { title: "Frontend developer", workspace: "Design Studio 101", hours: "6 h a week", skills: skillNames(["React", "Accessibility testing"]) },
+  { title: "Data engineer", workspace: "Campus Food Map", hours: "4 h a week", skills: skillNames(["Python", "SQL"]) },
+  { title: "Mobile developer", workspace: "Study Buddy", hours: "8 h a week", skills: skillNames(["Flutter", "Firebase"]) },
+];
 const classSteps = [
   { title: "Create an organization", body: "Pick the kind: a class, a company team, a club or a lab. It sets the words and starting choices." },
   { title: "Invite by code or email", body: "Share one code with the class, or paste their emails. Everyone gets their own workspace and channels." },
   { title: "Assign and review", body: "Give work to everyone or to groups, then approve or return each hand-in from one queue." },
 ];
-
-const steps = [
-  { label: "01 / Discover", title: "Find work you want to be part of.", body: "Browse workspaces by skills and interests. See the idea, the team and the roles they still need.", href: buildAuthPageHref("/signup", "/discover"), action: "Explore workspaces" },
-  { label: "02 / Connect", title: "Meet people through what they do.", body: "Profiles are built around skills and contributions. Find people and start a conversation.", href: buildAuthPageHref("/signup", "/network"), action: "Meet people" },
-  { label: "03 / Build", title: "Give your workspace a place to grow.", body: "Tasks, sprints, documents, files and messages live together, with clear roles for everyone.", href: buildAuthPageHref("/signup", "/workspaces/new"), action: "Create a workspace" },
+const terminal: [kind: "cmd" | "out" | "ok", text: string][] = [
+  ["cmd", "npm i -g @networkbase/cli"], ["out", "added 1 package in 3s"],
+  ["cmd", "nb login"], ["out", "Opening networkbase.in to approve this terminal…"], ["ok", "✓ Signed in"],
+  ["cmd", "nb init design-studio"], ["ok", "✓ Linked this folder to Design Studio"],
+  ["cmd", "nb status"], ["out", "2 tasks due this week · 1 overdue"],
+  ["cmd", "nb next"], ["out", "→ Review the week 12 hand-ins"],
 ];
 
-// Example content only: labelled as such on the page, never presented as real people or counts.
-// Drawn with the Network page's person card classes (components/network/PersonCardContent.tsx).
-const exampleProfiles = [
-  { initials: "AK", name: "Aisha K.", headline: "Frontend developer", location: "Bengaluru", skills: ["React", "TypeScript", "Accessibility testing"], shared: 3 },
-  { initials: "MR", name: "Marco R.", headline: "Product designer", location: "Lisbon", skills: ["Figma", "Design systems", "UX Research"], shared: 5 },
-  { initials: "JS", name: "Jun S.", headline: "Data engineer", location: "Singapore", skills: ["Python", "SQL", "Apache Airflow"], shared: 2 },
-  { initials: "LT", name: "Lena T.", headline: "Mobile developer", location: "Berlin", skills: ["Flutter", "Firebase", "Swift"], shared: 4 },
-].map((person) => ({
-  ...person,
-  skills: person.skills.flatMap((name) => {
-    const skill = findCatalogSkill(name);
-    return skill ? [toSkillSummary(skill)] : [];
-  }),
-}));
-
-const modules = [
-  { icon: ListChecks, title: "Tasks and sprints", body: "Plan the work, assign it, and see what moves each sprint." },
-  { icon: FileText, title: "Documents", body: "Specs, notes and decisions, written next to the work." },
-  { icon: FolderOpen, title: "Files", body: "One place for designs, code and assets, with previews." },
-  { icon: Megaphone, title: "Updates", body: "Share progress with your team and the people following along." },
-  { icon: MessagesSquare, title: "Messages", body: "Channels and direct messages for every workspace." },
-  { icon: BarChart3, title: "Dashboard", body: "Activity, progress and contributions at a glance." },
-  { icon: KeyRound, title: "Roles and permissions", body: "Decide who can view, edit and manage each workspace." },
-  { icon: Code2, title: "Editor sync", body: "Work on workspace files and tasks from VS Code, Cursor or Windsurf." },
-];
-
-const trust = [
-  { icon: Lock, title: "You choose who sees your profile", body: "Set your visibility and who can contact you." },
-  { icon: ShieldCheck, title: "Two-step verification", body: "Protect your account with an authenticator app." },
-  { icon: Download, title: "Your data stays yours", body: "Export it or delete your account at any time." },
-];
-
-function SectionHeading({ id, eyebrow, title, body }: { id: string; eyebrow: string; title: React.ReactNode; body?: string }) {
-  return (
-    <div className="mb-10 max-w-[60ch] space-y-4">
-      <p className="nb-micro">{eyebrow}</p>
-      <h2 id={id} className="text-[32px] font-semibold leading-tight tracking-[-0.015em] sm:text-[38px]">{title}</h2>
-      {body ? <p className="text-base leading-relaxed text-muted-foreground">{body}</p> : null}
-    </div>
-  );
+const ICONS = {
+  search: { map: [".###..", "#...#.", "#...#.", "#...#.", ".###..", "....##"], color: "#2563C9" },
+  people: { map: [".#..#.", "######", ".#..#.", "......", "##.##.", "##.##."], color: "#D14E24" },
+  blocks: { map: ["##.##.", "##.##.", "......", "##.##.", "##.##.", "......"], color: "#2F6B4F" },
+  lock: { map: [".###..", "#...#.", "#...#.", "#####.", "##.##.", "#####."], color: "#2563C9" },
+  shield: { map: ["######", "#....#", "#.##.#", "#.##.#", ".#..#.", "..##.."], color: "#D14E24" },
+  download: { map: ["..##..", "..##..", "######", ".####.", "..##..", "######"], color: "#2F6B4F" },
+} satisfies Record<string, { map: string[]; color: string }>;
+function PixelIcon({ name }: { name: keyof typeof ICONS }) {
+  const { map, color } = ICONS[name];
+  return <svg className="pxicon" viewBox="0 0 6 6" shapeRendering="crispEdges" aria-hidden="true">
+    {map.flatMap((row, y) => [...row].map((bit, x) => bit === "#" ? <rect key={`${x}-${y}`} x={x} y={y} width=".92" height=".92" fill={color} /> : null))}
+  </svg>;
 }
 
-// Same parts as the app’s workspace card (components/workspaces/WorkspaceCard.tsx), drawn statically and labelled as examples.
-const exampleProjects = [
-  { title: "Campus food-share app", body: "Helping students share leftover meals before they go to waste.", skills: ["Flutter", "Firebase", "TypeScript", "Figma"], team: ["RN", "SK", "PD"], openRoles: 3, views: 128, followers: 24 },
-  { title: "Open-source study planner", body: "A shared planner for study groups, with reminders and progress tracking.", skills: ["Next.js", "React", "PostgreSQL", "Tailwind CSS"], team: ["AM", "JT"], openRoles: 1, views: 64, followers: 11 },
-].map((project) => ({
-  ...project,
-  skills: project.skills.flatMap((name) => {
-    const skill = findCatalogSkill(name);
-    return skill ? [toSkillSummary(skill)] : [];
-  }),
-}));
-
-function ExampleProjects() {
-  return (
-    <div className="w-full space-y-3" role="img" aria-label="Example workspace cards: skills, team, open roles, views and followers">
-      <p className="nb-micro">Example workspaces</p>
-      {exampleProjects.map(({ title, body, skills, team, openRoles, views, followers }) => (
-        <div key={title} className="nb-project-card" aria-hidden="true">
-          <p className="nb-project-card-title">{title}</p>
-          <p className="-mt-[7px] text-sm leading-normal text-muted-foreground">{body}</p>
-          <div className="flex flex-wrap gap-1.5">
-            {skills.map((skill) => <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>)}
-          </div>
-          <div className="nb-project-card-footer">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex -space-x-1.5">
-                {team.map((initials) => <span key={initials} className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary text-[11px] font-semibold">{initials}</span>)}
-              </div>
-              <span className="nb-meta text-primary">{openRoles} open {openRoles === 1 ? "role" : "roles"}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="nb-meta flex items-center gap-1 px-1"><BarChart2 size={14} />{views}</span>
-              <span className="nb-icon-button gap-1 px-1.5 font-mono text-xs"><Bell size={16} />{followers}</span>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+// Release notes come from the CLI changelog when the page is built; the ticker hides if the file is missing.
+function releaseNotes() {
+  try { return parseReleaseNotes(readFileSync(join(process.cwd(), "packages/nb-cli/CHANGELOG.md"), "utf8")); } catch { return []; }
 }
 
 export default function HomePage() {
-  return <div className="min-h-dvh bg-background text-foreground">
+  const notes = releaseNotes();
+  const first = WORKSPACE_MODULES[0];
+  return <div className="nbh" id="nbh">
     <a href="#main-content" className="nb-skip-link">Skip to content</a>
-    <header className="nb-site-header">
-      <nav aria-label="Website navigation" className="nb-site-nav">
-        <Logo />
-        <div className="hidden items-center gap-6 text-sm md:flex">
-          {anchors.map(({ href, label }) => <a key={href} href={href} className="hover:text-primary">{label}</a>)}
+    {notes[0] ? <div className="announce"><a href="#terminal">CLI {notes[0].version} · {notes[0].text} <span aria-hidden="true">↗</span></a></div> : null}
+    <header className="nav" id="nbh-nav">
+      <div className="nav-in">
+        <a className="cell nav-logo" href="#main-content" aria-label="NetworkBase home"><span className="dot" aria-hidden="true" />NetworkBase</a>
+        <nav className="nav-links" aria-label="Sections">{navLinks.map(([href, label]) => <a key={href} className="cell" href={href}>{label}</a>)}</nav>
+        <span className="cell nav-count" aria-hidden="true"><b id="nbh-nav-n">01</b>&nbsp;/ 08 ·&nbsp;<span id="nbh-nav-sec">Start</span></span>
+        <div className="nav-right">
+          <a className="cell signin" href="/login">Sign in</a>
+          <a className="cell nav-cta" href="/signup">Get started <span aria-hidden="true">↗</span></a>
+          <button type="button" className="cell nav-menu" id="nbh-menu-btn" aria-expanded="false" aria-controls="nbh-menu">Menu</button>
         </div>
-        <div className="flex items-center gap-2 text-sm sm:gap-4">
-          <Link href="/login" className="inline-flex min-h-11 items-center px-2 hover:text-primary">Sign in</Link>
-          <Button asChild><Link href="/signup">Get started</Link></Button>
-        </div>
-      </nav>
+      </div>
+      <div className="menu-panel" id="nbh-menu" hidden>
+        {navLinks.map(([href, label]) => <a key={href} href={href}>{label}</a>)}<a href="/login">Sign in</a>
+      </div>
     </header>
 
-    <main id="main-content" tabIndex={-1}>
-      <section className="nb-grid-ground border-b border-border" aria-labelledby="hero-title">
-        <div className="nb-site-hero">
-          <div className="space-y-6">
-            <p className="nb-micro text-primary">A place for people who build</p>
-            <h1 id="hero-title" className="max-w-[12ch] text-[40px] font-semibold leading-[1.06] tracking-[-.03em] sm:text-6xl">Find your people.<br />Build something together.</h1>
-            <p className="max-w-[52ch] text-[17px] leading-relaxed text-muted-foreground">NetworkBase connects people who want to build with the workspaces that need them, then gives the team one place to plan, write, share and ship.</p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button size="lg" asChild><Link href="/signup">Get started <ArrowRight size={16} aria-hidden="true" /></Link></Button>
-              <Button variant="outline" size="lg" asChild><a href="#how-it-works">See how it works</a></Button>
+    <main className="frame" id="main-content" tabIndex={-1}>
+      <section className="hero grid-ground" id="start" data-grid-trail="hero" data-trail-script="$ nb login|nb init|nb status|nb next" aria-labelledby="hero-title">
+        <div className="wordmark" id="nbh-wordmark" aria-hidden="true" title="Click to retype">
+          {[..."NetworkBase"].map((ch, i) => <span key={i} className="wm-letter" style={{ ["--i" as string]: i }}>{ch}</span>)}<span className="wm-cursor" id="nbh-wm-cursor" />
+        </div>
+        <div className="hero-split">
+          <div className="hero-left">
+            <p className="eyebrow" data-decode data-load style={{ ["--d" as string]: "300ms" }} id="nbh-hero-eyebrow">A place for people who build</p>
+            <h1 className="hero-title serif" id="hero-title" data-load="clip" style={{ ["--d" as string]: "350ms" }}>Find your people. Build something together.</h1>
+          </div>
+          <div className="hero-right">
+            <p className="lead" data-load style={{ ["--d" as string]: "450ms" }}>NetworkBase connects people who want to build with the workspaces that need them, then gives the team one place to plan, write, share and ship.</p>
+            <div className="hero-actions" id="nbh-hero-ctas">
+              <div className="row cta" data-cta-row data-load style={{ ["--d" as string]: "530ms" }}>
+                <a className="btn primary" data-cta href="/signup">Get started <span aria-hidden="true">→</span></a>
+                <a className="btn outline" href="#how">See how it works <span aria-hidden="true">↓</span></a>
+              </div>
+              <a className="cta-hint" href="#terminal" data-load style={{ ["--d" as string]: "610ms" }}><span className="p">$</span> nb login <span className="m">· prefer the terminal?</span></a>
             </div>
           </div>
-          <ExampleProjects />
         </div>
       </section>
 
-      <section className="nb-site-section nb-site-anchor" id="how-it-works" aria-labelledby="how-title">
-        <SectionHeading id="how-title" eyebrow="How it works" title={<>The people, the workspace,<br />and the work in between.</>} />
-        <div className="grid gap-4 md:grid-cols-3">
-          {steps.map(({ label, title, body, href, action }) => (
-            <article key={label} className="nb-site-preview flex flex-col items-start gap-4 p-6">
-              <span className="nb-micro">{label}</span>
-              <h3 className="text-xl font-semibold leading-snug">{title}</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">{body}</p>
-              <Link href={href} className="mt-auto inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary hover:underline">{action} <ArrowRight size={14} aria-hidden="true" /></Link>
-            </article>
-          ))}
+      {/* LOCKED (18 Nov 2026): the pixel people band and its behaviour stay exactly as approved. */}
+      <div className="band" id="nbh-band">
+        <canvas id="nbh-band-canvas" aria-hidden="true" />
+        <span className="band-label" aria-hidden="true">People building on NetworkBase · illustration · click one</span>
+      </div>
+
+      <section className="sec grid-ground" id="how" data-grid-trail="subtle" data-trail-script="nb status|nb next" aria-labelledby="how-title">
+        <div className="sec-head">
+          <div data-reveal><p className="eyebrow" data-decode>How it works</p><h2 className="title" id="how-title">The people, the workspace, and the work in between.</h2></div>
+          <p className="lead" data-reveal style={{ ["--d" as string]: ".08s" }}>Three steps from an idea to a team that ships it together.</p>
+        </div>
+        <div className="cells c3">
+          {steps.map((s, i) => <article key={s.label} className="step" data-reveal style={{ ["--d" as string]: `${i * 0.08}s` }}>
+            <div className="step-top"><span className="step-label">{s.label}</span><PixelIcon name={s.icon} /></div>
+            <h3>{s.title}</h3>
+            <p>{s.body}</p>
+            <a className="alink" href={s.href}>{s.action} <span aria-hidden="true">↗</span></a>
+          </article>)}
         </div>
       </section>
 
-      <section className="nb-site-section nb-site-anchor !pt-0" id="people" aria-labelledby="people-title">
-        <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <div>
-            <SectionHeading id="people-title" eyebrow="Find people" title="Find people by what they can do." body="Every profile shows skills, experience, weekly availability and the workspaces someone has worked on. Search by skill, or post an open role and let the right people find you." />
-            <ul className="space-y-3 text-sm">
-              {["Search by skill, role and experience level", "See who is open to collaborate and how many hours they have", "Post open roles in your workspace", "Start a conversation from any profile"].map((point) => (
-                <li key={point} className="flex gap-3"><Users className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />{point}</li>
-              ))}
+      <section className="sec" id="people" aria-labelledby="people-title">
+        <div className="people">
+          <div className="people-copy" data-reveal>
+            <p className="eyebrow" data-decode>Find people</p>
+            <h2 className="title" id="people-title">Find people by what they can do.</h2>
+            <p className="lead">Every profile shows skills, experience, weekly availability and the workspaces someone has worked on. Search by skill, or post an open role and let the right people find you.</p>
+            <ul className="ticks">
+              {["Search by skill, role and experience level", "See who is open to collaborate and how many hours they have", "Post open roles in your workspace", "Start a conversation from any profile"].map((t) => <li key={t}>{t}</li>)}
             </ul>
+            <a className="alink" href={buildAuthPageHref("/signup", "/network")}>Meet people <span aria-hidden="true">↗</span></a>
           </div>
-          <div role="img" aria-label="Example profiles showing role, experience, weekly hours and skills">
-            <p className="nb-micro mb-3">Example profiles</p>
-            <div className="grid gap-3 sm:grid-cols-2" aria-hidden="true">
-              {exampleProfiles.map(({ initials, name, headline, location, skills, shared }) => (
-                <div key={initials} className="nb-person-card-host">
-                  <div className="nb-person-card">
-                    <div className="nb-person-identity">
-                      <span className="nb-person-avatar flex items-center justify-center rounded-md bg-secondary text-sm font-semibold">{initials}</span>
-                      <div className="nb-person-identity-text">
-                        <p className="nb-person-name-line"><span className="nb-person-name">{name}</span><span className="nb-person-collaboration">Open to collaboration</span></p>
-                        <div className="nb-person-subtitle"><span className="nb-compact block truncate text-muted-foreground">{headline}</span></div>
-                      </div>
-                    </div>
-                    <div className="nb-person-action"><button type="button" tabIndex={-1} className="nb-person-connect">Connect</button></div>
-                    <div className="nb-person-context"><span className="nb-meta nb-person-location"><MapPin className="size-3.5 shrink-0" /><span>{location}</span></span></div>
-                    <div className="nb-person-skills-row">
-                      <div className="nb-person-skill-strip">
-                        {/* Two skills and a "+N" chip, as the live strip shows when space runs out. */}
-                        {skills.slice(0, 2).map((skill) => <span key={skill.canonicalKey} className="nb-tag nb-person-skill"><SkillIcon skill={skill} size={14} /><span className="nb-person-skill-label">{skill.name}</span></span>)}
-                        {skills.length > 2 ? <span className="nb-tag nb-person-skill nb-person-more">+{skills.length - 2}</span> : null}
-                      </div>
-                    </div>
-                    <div className="nb-person-relationship"><span className="nb-meta nb-person-shared"><Users className="size-3 shrink-0" />{shared} mutual connections</span></div>
-                  </div>
-                </div>
-              ))}
+          <div className="profiles" aria-label="Example profiles">
+            <p className="profiles-head">Example profiles · not real people</p>
+            {profiles.map((p, i) => { const fill = SIX[(i * 2 + 1) % 6]!; return <article key={p.initials} className="pcard" data-reveal style={{ ["--d" as string]: `${i * 0.08}s`, ["--fill" as string]: fill, ["--on-fill" as string]: onColor(fill) }}>
+              <div className="pcard-body">
+                <div className="pcard-id"><span className="pav" style={{ background: p.color }} aria-hidden="true">{p.initials}</span><div><p className="pname">{p.name}</p><p className="pmeta">{p.headline}</p></div></div>
+                <span className="open">Open to collaboration</span>
+                <div className="chips">{p.skills.slice(0, 2).map((s) => <span key={s} className="chip">{s}</span>)}<span className="chip">+{p.skills.length - 2}</span></div>
+              </div>
+              <div className="pbar"><span>{p.location}</span><span>{p.shared} mutual</span></div>
+            </article>; })}
+            <div className="roles" data-reveal>
+              <p className="roles-head">Example open roles · in the app these come from public workspaces</p>
+              {roles.map((r) => <div key={r.title} className="role">
+                <span className="rt">{r.title}</span><span className="rm">{r.workspace} · {r.hours}</span>
+                <div className="chips">{r.skills.map((s) => <span key={s} className="chip">{s}</span>)}</div>
+                <a className="alink" href={buildAuthPageHref("/signup", "/discover")}>View role <span aria-hidden="true">↗</span></a>
+              </div>)}
             </div>
           </div>
         </div>
       </section>
 
-      <section className="nb-site-section nb-site-anchor border-t border-border" id="workspace" aria-labelledby="workspace-title">
-        <SectionHeading id="workspace-title" eyebrow="The workspace" title="Everything a workspace needs, in one place." body="When the team comes together, the work has somewhere to live. No more scattered links, chats and spreadsheets." />
-        <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-          {modules.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="space-y-2 bg-card p-5">
-              <Icon className="size-5 text-primary" aria-hidden="true" />
-              <h3 className="text-[15px] font-semibold">{title}</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">{body}</p>
-            </div>
-          ))}
+      <section className="sec" id="workspace" aria-labelledby="ws-title">
+        <div className="sec-head">
+          <div data-reveal><p className="eyebrow" data-decode>Inside a workspace</p><h2 className="title" id="ws-title">Everything a workspace needs, in one place.</h2></div>
+          <p className="lead" data-reveal style={{ ["--d" as string]: ".08s" }}>When the team comes together, the work has somewhere to live. No more scattered links, chats and spreadsheets.</p>
         </div>
-      </section>
-
-      {/* Report §45.8: the one way in for teachers and team leads. Visitors sign up first, then land on the wizard. */}
-      <section className="nb-site-section nb-site-anchor border-t border-border" id="classes" aria-labelledby="classes-title">
-        <SectionHeading id="classes-title" eyebrow="For classes and teams" title="Run a class or a team in one place." body="An organization holds your people, their workspaces and the work you give them." />
-        <div className="grid gap-4 md:grid-cols-3">
-          {classSteps.map(({ title, body }, index) => (
-            <article key={title} className="nb-site-preview flex flex-col items-start gap-3 p-6">
-              <span className="nb-micro">0{index + 1}</span>
-              <h3 className="text-lg font-semibold leading-snug">{title}</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">{body}</p>
-            </article>
-          ))}
-        </div>
-        <div className="mt-6 flex flex-wrap items-center gap-4">
-          <Button asChild><Link href={buildAuthPageHref("/signup", "/workspaces/new?start=organization")}>Create an organization <ArrowRight size={16} aria-hidden="true" /></Link></Button>
-          <Link href="/help/running-a-class" className="inline-flex min-h-11 items-center text-sm font-medium hover:text-primary">Running a class on NetworkBase</Link>
-        </div>
-      </section>
-
-      <section className="nb-site-section !pt-0" aria-labelledby="process-title">
-        <div className="nb-site-process nb-grid-ground grid gap-12 md:grid-cols-2">
-          <div className="space-y-5">
-            <p className="nb-micro nb-inverse-muted">A practical way to get going</p>
-            <h2 id="process-title" className="text-[32px] font-semibold leading-tight sm:text-[38px]">Make room for<br />your next idea.</h2>
-            <p className="nb-inverse-muted max-w-[36ch]">Start small, find the people who care about the same problem, and build your way forward.</p>
+        <div className="play" id="nbh-play" data-reveal>
+          <div className="plist" role="tablist" aria-label="Workspace tools" aria-orientation="vertical">
+            {WORKSPACE_MODULES.map((m, i) => <button key={m.key} type="button" className="pitem" role="tab" id={`nbh-tab-${m.key}`} data-key={m.key} aria-selected={i === 0} aria-controls="nbh-stage" tabIndex={i === 0 ? 0 : -1} style={{ ["--c" as string]: m.color }}>
+              <span className="sw" /><span className="n">{String(i + 1).padStart(2, "0")}</span><span><span className="t">{m.title}</span></span><span className="path">{m.key}</span><span className="prog" />
+            </button>)}
           </div>
-          <ol className="space-y-6">
-            {["Set up your profile and add your skills.", "Find a workspace or create one of your own.", "Invite members and agree on the next steps.", "Share your progress as the work takes shape."].map((text, index) => (
-              <li key={text} className="flex gap-4 border-b border-white/15 pb-5"><span className="font-mono text-sm text-[var(--accent-inverse)]">0{index + 1}</span><span>{text}</span></li>
-            ))}
+          <div className={`stage ${isLightHex(first.color) ? "dark-text" : "light-text"}`} id="nbh-stage" role="tabpanel" aria-labelledby={`nbh-tab-${first.key}`} aria-live="polite" tabIndex={0} style={{ ["--stage" as string]: first.color }}>
+            <div className="stage-top"><span id="nbh-stage-path">workspace / {first.key}</span><span className={`stage-ex${isLightHex(first.color) ? "" : " light"}`} id="nbh-stage-ex">Example</span></div>
+            {WORKSPACE_MODULES.map(({ key, Mock }, i) => <div key={key} className="mock" data-mock={key} hidden={i > 0}><Mock /></div>)}
+            <div className="stage-foot">
+              {WORKSPACE_MODULES.map((m, i) => <div key={m.key} data-foot={m.key} hidden={i > 0}><h3>{m.title}</h3><p>{m.body}</p></div>)}
+              <div className="stage-nav"><button type="button" className="sbtn" id="nbh-prev" aria-label="Previous tool">←</button><button type="button" className="sbtn" id="nbh-next" aria-label="Next tool">→</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {notes.length ? <section className="ticker ink" aria-label="Recent releases">
+        <div className="ticker-head">Release notes</div>
+        <div className="ticker-track" tabIndex={0} aria-label="Release notes, scrolling">
+          <div className="ticker-run" id="nbh-ticker">{notes.map((n, i) => <span key={n.version} className="tk" style={{ ["--c" as string]: SIX[(i * 2 + 1) % 6]! }}><b>{n.version}</b>{n.text}</span>)}</div>
+        </div>
+      </section> : null}
+
+      <section className="sec grid-ground" id="classes" data-grid-trail="hero" data-trail-script="nb assignment|nb review-class" aria-labelledby="classes-title">
+        <div className="sec-head">
+          <div data-reveal><p className="eyebrow" data-decode>For classes and teams</p><h2 className="title" id="classes-title">Run a class or a team in one place.</h2></div>
+          <p className="lead" data-reveal style={{ ["--d" as string]: ".08s" }}>An organization holds your people, their workspaces and the work you give them.</p>
+        </div>
+        <div className="cells c3">
+          {classSteps.map((s, i) => <article key={s.title} className="cstep" data-reveal style={{ ["--d" as string]: `${i * 0.08}s` }}><span className="cnum">0{i + 1}</span><h3>{s.title}</h3><p>{s.body}</p></article>)}
+        </div>
+        <div className="classes-cta">
+          <div className="row cta" data-cta-row>
+            <a className="btn primary" data-cta href={buildAuthPageHref("/signup", "/workspaces/new?start=organization")}>Create an organization <span aria-hidden="true">→</span></a>
+            <a className="alink" href="/help/running-a-class">Running a class on NetworkBase <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+      </section>
+
+      <section className="ink grid-ground term-sec" id="terminal" data-grid-trail="hero" data-trail-script="$ nb login|nb init|nb pull|nb push" aria-labelledby="term-title">
+        <div className="term-copy" data-reveal>
+          <p className="eyebrow" data-decode>nb · the NetworkBase CLI</p>
+          <h2 className="serif" id="term-title">Work from your terminal too.</h2>
+          <p className="lead">Sign in, link a folder to a workspace, and see what to work on next without leaving your editor.</p>
+          <div className="install"><span><span className="p">$</span> npm i -g @networkbase/cli</span>
+            <button type="button" className="copy" id="nbh-copy-install" aria-label="Copy the install command" title="Copy">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>
+            </button>
+          </div>
+        </div>
+        <div className="term-win" data-reveal style={{ ["--d" as string]: ".1s" }}>
+          <div className="term-bar"><span>~/design-studio</span><span>Example session</span></div>
+          <div className="term-body" id="nbh-term" aria-label="Example terminal session">
+            {terminal.map(([kind, text], i) => <span key={i} data-kind={kind}>{kind === "cmd" ? <><span className="p">$</span> {text}</> : <span className={kind === "ok" ? "k" : "o"}>{text}</span>}{i < terminal.length - 1 ? "\n" : ""}</span>)}
+            <span className="term-caret" aria-hidden="true" />
+          </div>
+        </div>
+      </section>
+
+      <section className="ink grid-ground" id="get-going" data-grid-trail="hero" data-trail-script="nb init|nb push" aria-labelledby="process-title">
+        <div className="process">
+          <div data-reveal><p className="eyebrow" data-decode>A practical way to get going</p><h2 className="serif" id="process-title" style={{ marginTop: 18 }}>Make room for your next idea.</h2><p className="lead" style={{ marginTop: 18 }}>Start small, find the people who care about the same problem, and build your way forward.</p></div>
+          <ol className="psteps" data-reveal style={{ ["--d" as string]: ".08s" }}>
+            {["Set up your profile and add your skills.", "Find a workspace or create one of your own.", "Invite members and agree on the next steps.", "Share your progress as the work takes shape."].map((t, i) => <li key={t}><b>0{i + 1}</b><span>{t}</span></li>)}
           </ol>
         </div>
       </section>
 
-      <section className="nb-site-section !pt-0" aria-labelledby="trust-title">
-        <h2 id="trust-title" className="sr-only">Privacy and security</h2>
-        <div className="grid gap-6 border-y border-border py-8 md:grid-cols-3">
-          {trust.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="flex gap-3">
-              <Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
-              <div><h3 className="text-[15px] font-semibold">{title}</h3><p className="text-sm text-muted-foreground">{body}</p></div>
-            </div>
-          ))}
+      <section className="sec" aria-labelledby="trust-title">
+        <h2 className="sr-only" id="trust-title">Privacy and security</h2>
+        <div className="trust">
+          {([["lock", "You choose who sees your profile", "Set your visibility and who can contact you."], ["shield", "Two-step verification", "Protect your account with an authenticator app."], ["download", "Your data stays yours", "Export it or delete your account at any time."]] as const).map(([icon, title, body], i) =>
+            <div key={title} data-reveal style={{ ["--d" as string]: `${i * 0.08}s` }}><PixelIcon name={icon} /><div><h3>{title}</h3><p>{body}</p></div></div>)}
         </div>
-        <p className="mt-4 text-sm text-muted-foreground">Read the <Link href="/privacy" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link> or <Link href="/security-reporting" className="font-medium text-foreground underline underline-offset-4">report a security issue</Link>.</p>
+        <p className="legal-line">Read the <a href="/privacy">Privacy Policy</a> or <a href="/security-reporting">report a security issue</a>.</p>
       </section>
 
-      <section className="nb-site-section text-center" aria-labelledby="cta-title">
-        <h2 id="cta-title" className="mx-auto max-w-[26ch] font-serif text-4xl font-normal leading-tight sm:text-5xl">Your work says more<br />when you build it together.</h2>
-        <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
-          <Button asChild size="lg"><Link href="/signup">Get started <ArrowRight size={16} aria-hidden="true" /></Link></Button>
-          <Link href="/login" className="inline-flex min-h-11 items-center text-sm font-medium hover:text-primary">Sign in</Link>
-        </div>
+      <section className="final grid-ground" id="join" data-grid-trail="hero" data-trail-script="nb init|nb push|nb next" aria-labelledby="final-title">
+        <h2 className="serif" id="final-title" data-reveal>Your work says more when you build it together.</h2>
+        <div className="row cta" data-cta-row data-reveal style={{ ["--d" as string]: ".1s" }}><a className="btn primary" data-cta href="/signup">Get started <span aria-hidden="true">→</span></a><a className="btn outline" href="/login">Sign in</a></div>
       </section>
     </main>
 
-    <footer className="border-t border-border bg-muted">
-      <div className="nb-site-section !py-10 grid gap-8 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="space-y-2">
-          <Logo />
-          <p className="max-w-[36ch] text-sm text-muted-foreground">Find people, join workspaces and work together.</p>
+    <footer className="ink grid-ground foot" data-grid-trail="hero" data-trail-script="cd ~|nb status" data-pixel-word="NETWORKBASE" data-word-align="center">
+      <div className="frame" style={{ borderColor: "var(--ink-line)" }}>
+        <div data-pixel-slot aria-hidden="true" />
+        <p className="foot-fallback" aria-hidden="true">NetworkBase</p>
+        <div className="foot-cols">
+          <div><span className="nav-logo" style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 600, fontSize: 17 }}><span className="dot" aria-hidden="true" />NetworkBase</span><p style={{ color: "var(--ink-muted)", maxWidth: "36ch" }}>Find people, join workspaces and work together.</p></div>
+          <nav aria-label="Product"><span className="h">Product</span>{navLinks.slice(0, 4).map(([href, label]) => <a key={href} href={href}>{label}</a>)}</nav>
+          <nav aria-label="Account"><span className="h">Account</span><a href="/login">Sign in</a><a href="/signup">Get started</a><a href="/docs/cli">Command-line tool</a></nav>
         </div>
-        <nav aria-label="Product" className="space-y-2 text-sm">
-          <p className="nb-micro">Product</p>
-          {anchors.map(({ href, label }) => <a key={href} href={href} className="block hover:text-primary pointer-coarse:min-h-11">{label}</a>)}
-        </nav>
-        <nav aria-label="Account" className="space-y-2 text-sm">
-          <p className="nb-micro">Account</p>
-          <Link href="/login" className="block hover:text-primary pointer-coarse:min-h-11">Sign in</Link>
-          <Link href="/signup" className="block hover:text-primary pointer-coarse:min-h-11">Get started</Link>
-        </nav>
-        <div className="border-t border-border pt-6 md:col-span-3">
-          <LegalLinks align="start" showCopyright />
-        </div>
+        <div className="foot-legal"><span>© 2026 NetworkBase</span><nav aria-label="Legal"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security-reporting">Security</a><a href="/cookies">Cookies</a></nav></div>
       </div>
     </footer>
+
+    <div className="mbar" id="nbh-mbar"><a className="btn primary" href="/signup">Get started <span aria-hidden="true">→</span></a><a className="mlink" href="/login">Sign in</a></div>
+    <HomeEffects />
   </div>;
 }
