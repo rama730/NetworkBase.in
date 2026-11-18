@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.6.0 (2026-11-18)
+
+### Added
+- On a branch folder, `nb file history <file>` lists the branch's saves that changed it, `nb file use <file> <save>` makes a new save on the branch with the file as that save left it, and `nb diff <file> --from <save> [--to <save>]` compares the branch's saves.
+- `nb init <workspace> --branch <name>` links a folder straight onto a branch.
+- On a branch folder, `nb fs list|read|search` read the branch's files.
+
+### Changed
+- A branch renamed elsewhere keeps your folder on it (folders keep the branch by id); the next command shows the new name.
+- When the branch a folder is on is deleted, the next command says so, and `nb branch switch main` works and keeps your edits.
+
 ## 2.5.0 (2026-11-18)
 
 ### Added
