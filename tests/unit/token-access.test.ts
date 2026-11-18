@@ -44,6 +44,9 @@ describe("token routes (report A3.7)", () => {
     assert.equal(tokenRouteScope("GET", "/api/v1/extension/workspace-tasks?projectId=x"), "task:read");
     assert.equal(tokenRouteScope("POST", "/api/v1/extension/fast-push"), "file:write");
     assert.equal(tokenRouteScope("PATCH", "/api/v1/extension/task-update"), "task:write");
+    // nb file use on a branch (C14b; the 2.6.0 live check found it refused) and a file at one of its saves.
+    assert.equal(tokenRouteScope("POST", "/api/v1/branches/c7ccbf90-94ef-4cd6-9d47-6912f593638f/use"), "file:write");
+    assert.equal(tokenRouteScope("GET", "/api/v1/branches/c7ccbf90-94ef-4cd6-9d47-6912f593638f/raw?path=%2Fa.md&save=1"), "file:read");
     assert.equal(tokenRouteScope("GET", "/api/v1/extension/session"), null);
     assert.equal(tokenRouteScope("POST", "/api/v1/files/abc/lock-renew"), "file:write");
   });

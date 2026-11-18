@@ -138,7 +138,7 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/branches`), read: "file:read", write: "file:write", agent: "path" },
   { pattern: route(`/api/v1/branches/${ID}`), read: "file:read", write: "file:write", agent: "route" },
   { pattern: route(`/api/v1/branches/${ID}/(files|changes|diff|raw|zip)`), read: "file:read", agent: "route" },
-  { pattern: route(`/api/v1/branches/${ID}/(restore|update)`), write: "file:write", agent: "route" },
+  { pattern: route(`/api/v1/branches/${ID}/(restore|update|use)`), write: "file:write", agent: "route" },
   // Merge requests (report H4, H14): list, open, read, change; reviews (people only), comments, suggestions, checks
   // and merging write like a change set. The number in the path is the workspace's ("!3").
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/merge-requests(/[0-9]+)?`), read: "file:read", write: "file:write", agent: "path" },
