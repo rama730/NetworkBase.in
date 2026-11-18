@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.8 (2026-11-18)
+
+### Fixed
+- Signing in with the browser names your computer, so Settings can tell your terminal sign-ins apart.
+
 ## 2.6.7 (2026-11-18)
 
 ### Fixed
