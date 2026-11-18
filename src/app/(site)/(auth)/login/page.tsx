@@ -5,6 +5,10 @@ export const metadata = buildRouteMetadata({
     title: 'Sign in · NetworkBase',
     description: 'Sign in to NetworkBase to reach your workspaces, people and messages.',
     path: '/login',
+    image: '/og/login-card.png',
+    imageAlt: 'NetworkBase sign in: Pick up where you left off.',
+    imageWidth: 1200,
+    imageHeight: 630,
 })
 
 type SearchParams = Record<string, string | string[] | undefined>

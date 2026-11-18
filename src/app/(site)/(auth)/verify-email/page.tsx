@@ -5,15 +5,10 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { AuthRouteProviders } from '@/components/providers/AuthRouteProviders'
 import { AUTH_LINK, AuthAlert, AuthShell, EmailCodeForm } from '@/components/auth/AuthShell'
+import { AUTH_PANELS } from '@/components/auth/auth-panels'
 import { toFriendlyAuthError } from '@/lib/auth/error-messages'
 import { loadBrowserSupabase, syncBrowserSessionToServer } from '@/lib/auth/browser-auth-actions'
 
-
-const VERIFY_PANEL = {
-    eyebrow: 'One last step',
-    title: 'Verified email keeps NetworkBase real.',
-    points: ['Keeps spam accounts out', 'Lets you recover your account', 'Unlocks messages and workspaces'],
-}
 
 function VerifyEmailPageInner() {
     const { user, signOut } = useAuth()
@@ -66,7 +61,7 @@ function VerifyEmailPageInner() {
         <AuthShell
             title="Verify your email"
             description={<>We sent a 6-digit code to <span className="font-medium text-foreground">{address || 'your email address'}</span>. Enter it here, or open the link in the email.</>}
-            panel={VERIFY_PANEL}
+            panel={AUTH_PANELS.verify}
             footer={<button type="button" className={AUTH_LINK} disabled={busy} onClick={() => void handleSignOut()}>{isSigningOut ? 'Signing out…' : 'Use a different account'}</button>}
         >
             <div className="space-y-4">
@@ -107,7 +102,7 @@ function VerifyEmailPageInner() {
 
 function VerifyEmailPageFallback() {
     return (
-        <AuthShell title="Verify your email" description="Checking your account…" panel={VERIFY_PANEL}>
+        <AuthShell title="Verify your email" description="Checking your account…" panel={AUTH_PANELS.verify}>
             <div className="h-11 animate-pulse rounded-md bg-muted" aria-busy="true" />
         </AuthShell>
     )

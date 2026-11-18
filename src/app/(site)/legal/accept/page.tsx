@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { AuthAlert, AuthShell } from "@/components/auth/AuthShell";
+import { AUTH_PANELS } from "@/components/auth/auth-panels";
 import { Button } from "@/components/ui/button";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 import { normalizeAuthNextPath } from "@/lib/auth/redirects";
@@ -57,9 +58,7 @@ export default function LegalAcceptancePage() {
     }
   }
 
-  const panel = isOAuthSignup
-    ? { eyebrow: "Almost there", title: "One agreement, then you’re in." }
-    : { eyebrow: "Updated terms", title: "What you agree to, in plain view." };
+  const panel = isOAuthSignup ? AUTH_PANELS.legalSignup : AUTH_PANELS.legal;
 
   if (checking) {
     return (

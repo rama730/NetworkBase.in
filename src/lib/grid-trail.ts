@@ -401,6 +401,12 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
 
   return {
     refresh: resize,
+    /** Draw the word again from data-pixel-word (after it changed): clear the trail, the dot flies in once more. */
+    replay() {
+      cells.clear(); outline = []; queue.length = 0; firstFill = true; cmdAt = 0;
+      if (!played) return; // the first view plays the intro by itself
+      resize(); layoutWord(!reduced); measureBlocked();
+    },
     destroy() {
       cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); unlisten.forEach((u) => u()); canvas.remove();
     },

@@ -5,6 +5,10 @@ export const metadata = buildRouteMetadata({
     title: 'Create your account · NetworkBase',
     description: 'Create a NetworkBase account to find people and work together in workspaces.',
     path: '/signup',
+    image: '/og/signup-card.png',
+    imageAlt: 'NetworkBase sign up: Your first workspace is three steps away.',
+    imageWidth: 1200,
+    imageHeight: 630,
 })
 
 type SearchParams = Record<string, string | string[] | undefined>

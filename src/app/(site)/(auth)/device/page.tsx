@@ -28,6 +28,7 @@ export default async function DevicePage({ searchParams }: { searchParams: Promi
     return (
         <DeviceClient
             viewerEmail={user?.email ?? null}
+            viewerName={typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null}
             viewerId={user?.id ?? null}
             code={code}
             pending={pending ? { ...pending, createdAt: pending.createdAt.toISOString(), expiresAt: pending.expiresAt.toISOString() } : null}

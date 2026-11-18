@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
-import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, RECOVERY_PANEL, AuthAlert, AuthField, AuthShell, EmailCodeForm, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, AuthAlert, AuthField, AuthShell, EmailCodeForm, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_PANELS } from '@/components/auth/auth-panels'
 import { loadBrowserSupabase, syncBrowserSessionToServer } from '@/lib/auth/browser-auth-actions'
 import { resolveAuthPageErrorMessage } from '@/lib/auth/error-messages'
 
@@ -76,7 +77,8 @@ export default function ForgotPasswordPage() {
             <AuthShell
                 title="Check your email"
                 description={<>If an account exists for <span className="font-medium text-foreground">{email.trim()}</span>, we sent a 6-digit code and a link. Both work on any device. Check spam too.</>}
-                panel={RECOVERY_PANEL}
+                panel={AUTH_PANELS.recovery}
+                step={[2, 3]}
                 footer={<button type="button" className={AUTH_LINK} onClick={() => { setSent(false); setError(null) }}>Use a different email</button>}
             >
                 <EmailCodeForm
@@ -103,7 +105,8 @@ export default function ForgotPasswordPage() {
         <AuthShell
             title="Reset your password"
             description="Enter your account email and we’ll send you a code to choose a new password."
-            panel={RECOVERY_PANEL}
+            panel={AUTH_PANELS.recovery}
+            step={[1, 3]}
             footer={<>Remembered it? <Link href="/login" className={AUTH_LINK}>Sign in</Link></>}
         >
             <form onSubmit={(event: FormEvent) => { event.preventDefault(); void sendCode() }} className="space-y-4" noValidate>

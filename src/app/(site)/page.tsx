@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { genericSharePreview, shareOrigin } from "@/lib/sharing/presentation";
 import { shareMetadata } from "@/lib/sharing/metadata";
+import { PIXEL_ICONS } from "@/lib/pixel-icons";
 import { buildAuthPageHref } from "@/lib/auth/redirects";
 import { findCatalogSkill } from "@/lib/skills/catalog";
 import { TRAIL, isLightHex } from "@/lib/grid-trail";
@@ -60,13 +61,13 @@ const terminal: [kind: "cmd" | "out" | "ok", text: string][] = [
 ];
 
 const ICONS = {
-  search: { map: [".###..", "#...#.", "#...#.", "#...#.", ".###..", "....##"], color: "#2563C9" },
-  people: { map: [".#..#.", "######", ".#..#.", "......", "##.##.", "##.##."], color: "#D14E24" },
-  blocks: { map: ["##.##.", "##.##.", "......", "##.##.", "##.##.", "......"], color: "#2F6B4F" },
-  lock: { map: [".###..", "#...#.", "#...#.", "#####.", "##.##.", "#####."], color: "#2563C9" },
-  shield: { map: ["######", "#....#", "#.##.#", "#.##.#", ".#..#.", "..##.."], color: "#D14E24" },
-  download: { map: ["..##..", "..##..", "######", ".####.", "..##..", "######"], color: "#2F6B4F" },
-} satisfies Record<string, { map: string[]; color: string }>;
+  search: { map: PIXEL_ICONS.search, color: "#2563C9" },
+  people: { map: PIXEL_ICONS.people, color: "#D14E24" },
+  blocks: { map: PIXEL_ICONS.blocks, color: "#2F6B4F" },
+  lock: { map: PIXEL_ICONS.lock, color: "#2563C9" },
+  shield: { map: PIXEL_ICONS.shield, color: "#D14E24" },
+  download: { map: PIXEL_ICONS.download, color: "#2F6B4F" },
+} satisfies Record<string, { map: readonly string[]; color: string }>;
 function PixelIcon({ name }: { name: keyof typeof ICONS }) {
   const { map, color } = ICONS[name];
   return <svg className="pxicon" viewBox="0 0 6 6" shapeRendering="crispEdges" aria-hidden="true">

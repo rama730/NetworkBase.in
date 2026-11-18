@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Bot, Clock, ExternalLink, Loader2, MapPin, ShieldCheck, Sparkles, Terminal, X } from 'lucide-react'
+import { ShieldCheck, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { decideDeviceCodeAction } from '@/app/actions/device-codes'
 import { AgentAccessPicker, agentAccessSentence, workspaceBlocked, type AgentAccessValue, type AgentWorkspaceOption } from '@/components/agents/AgentAccessPicker'
-import { AUTH_INPUT, AUTH_LINK, AuthAlert, AuthShell } from '@/components/auth/AuthShell'
+import { AUTH_INPUT, AUTH_LINK, AuthAlert, AuthShell, SignedInAs, usePasteAnywhere } from '@/components/auth/AuthShell'
+import { AUTH_PANELS } from '@/components/auth/auth-panels'
+import { TerminalMirror } from '@/components/auth/AuthPanel'
+import { PixelIcon, PixelSpinner } from '@/components/auth/pixel'
+import { formatGroupedCode } from '@/lib/auth/code-format'
 import SecurityStepUpDialog from '@/components/settings/SecurityStepUpDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,11 +39,7 @@ type Pending = {
 }
 type StepUpMethod = 'totp' | 'recovery_code' | 'password'
 
-const PANEL = {
-    eyebrow: 'Terminal sign-in',
-    title: 'Sign in a terminal that has no browser.',
-    points: ['Servers, containers and cloud agents', 'Agents reach only the workspaces you allow', 'Change or revoke any time in Settings'],
-}
+const PANEL = AUTH_PANELS.device
 const NEW_BANNER_KEY = 'nb-new-banner:one-click-agents'
 const TRY_PROMPTS = ['What should I do today?', 'Work on task 4']
 
@@ -60,7 +60,7 @@ function startingChoice(pending: Pending | null, workspaces: AgentWorkspaceOptio
 }
 
 /** The approval page (report A2, A3): a summary first and one click, with the options on request. */
-export default function DeviceClient({ viewerEmail, viewerId, code, pending, workspaces }: { viewerEmail: string | null; viewerId: string | null; code: string; pending: Pending | null; workspaces: AgentWorkspaceOption[] }) {
+export default function DeviceClient({ viewerEmail, viewerName = null, viewerId, code, pending, workspaces }: { viewerEmail: string | null; viewerName?: string | null; viewerId: string | null; code: string; pending: Pending | null; workspaces: AgentWorkspaceOption[] }) {
     const [type, setType] = useState<'device' | 'agent'>(pending?.viaOAuth ? 'agent' : pending?.requestedType ?? 'device')
     const [choice, setChoice] = useState<AgentAccessValue>(() => startingChoice(pending, workspaces))
     const [changing, setChanging] = useState(false)
@@ -71,6 +71,17 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
     const [stepUp, setStepUp] = useState<{ methods: StepUpMethod[]; factorId?: string } | null>(null)
     const [showNew, setShowNew] = useState(false)
     const router = useRouter()
+    // The code box groups as ABCD-EFGH while typing, takes a paste from anywhere on the page, and goes on when complete.
+    const [typed, setTyped] = useState(() => formatGroupedCode(code))
+    const codeFormRef = useRef<HTMLFormElement | null>(null)
+    const takeCode = (raw: string) => {
+        const next = formatGroupedCode(raw)
+        setTyped(next)
+        if (next.length === 9 && next !== typed) queueMicrotask(() => codeFormRef.current?.requestSubmit())
+    }
+    usePasteAnywhere((text) => { if (formatGroupedCode(text).length === 9) takeCode(text) }, !!viewerEmail && (!pending || expired) && !done)
+    const here = `/device${code ? `?code=${encodeURIComponent(code)}` : ''}`
+    const account = viewerEmail ? <SignedInAs email={viewerEmail} name={viewerName} next={here} /> : null
 
     const bannerKey = `${NEW_BANNER_KEY}:${viewerId ?? 'anon'}`
     useEffect(() => {
@@ -108,7 +119,7 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
                 setDone(result.decision)
                 return
             }
-            if (result.expired) return void setExpired(true)
+            if (result.expired) { setTyped(''); return void setExpired(true) }
             if (result.stepUpRequired) {
                 const response = await fetch('/api/v1/auth/security-step-up')
                 const payload = await response.json().catch(() => null)
@@ -127,10 +138,10 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
 
     const footer = <>Signed-in terminals and agents are listed in <Link href="/settings#settings-integrations" className={AUTH_LINK}>Settings → Integrations</Link>, where you can change or revoke them.</>
     const codeForm = (
-        <form method="get" action="/device" className="space-y-3">
+        <form ref={codeFormRef} method="get" action="/device" className="space-y-3">
             <label className="block space-y-1.5">
                 <span className="text-sm font-medium">Code</span>
-                <Input name="code" defaultValue={expired ? '' : code} autoComplete="off" autoCapitalize="characters" spellCheck={false} placeholder="ABCD-EFGH" className={`${AUTH_INPUT} font-mono tracking-widest uppercase`} required />
+                <Input name="code" value={typed} onChange={(event) => takeCode(event.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false} maxLength={9} placeholder="ABCD-EFGH" className={`${AUTH_INPUT} font-mono tracking-widest uppercase`} required />
             </label>
             <p className="text-xs text-muted-foreground">Paste it as it is: capitals and the dash don’t matter.</p>
             <Button type="submit" className="h-11 w-full font-medium">Continue</Button>
@@ -139,7 +150,15 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
 
     if (done === 'approve') {
         return (
-            <AuthShell title={type === 'agent' ? `${agentName} is connected` : 'Your terminal is signed in'} description="Go back to your terminal; it continues on its own." panel={PANEL} footer={footer}>
+            <AuthShell
+                title={type === 'agent' ? `${agentName} is connected` : 'Your terminal is signed in'}
+                description="Go back to your terminal; it continues on its own."
+                panel={PANEL}
+                footer={footer}
+                mark="check"
+                outcome={{ word: 'OK', title: type === 'agent' ? `${agentName} is connected.` : 'Your terminal is signed in.' }}
+                panelExtra={pending && !pending.viaOAuth && type === 'device' ? <TerminalMirror code={pending.userCode} done email={viewerEmail} /> : undefined}
+            >
                 {type === 'agent' ? (
                     <div className="space-y-3">
                         <p className="text-sm font-medium">Try asking it</p>
@@ -154,7 +173,7 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
     }
     if (done === 'deny') {
         return (
-            <AuthShell title="Sign-in denied" description="Nothing was signed in. Your terminal will say so." panel={PANEL} footer={footer}>
+            <AuthShell title="Sign-in denied" description="Nothing was signed in. Your terminal will say so." panel={PANEL} footer={footer} mark="cross" outcome={{ word: 'NO', title: 'Nothing was signed in.' }}>
                 <div className="space-y-4">
                     <AuthAlert tone="info">If you didn’t start this, someone tried to sign in as you{from ? ` from ${from}` : ''}. Secure your account:</AuthAlert>
                     <div className="grid gap-2.5 sm:grid-cols-2">
@@ -168,7 +187,7 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
     }
     if (!viewerEmail) {
         return (
-            <AuthShell title="Sign in to approve a terminal" description="Sign in, and you come straight back here with the code filled in." panel={PANEL} footer={footer}>
+            <AuthShell title="Sign in to approve a terminal" description="Sign in, and you come straight back here with the code filled in." panel={PANEL} footer={footer} step={[1, 2]}>
                 <div className="space-y-3">
                     <Button type="button" onClick={signIn} className="h-11 w-full font-medium"><ShieldCheck className="size-4" aria-hidden="true" />Sign in to continue</Button>
                     <p className="text-sm text-muted-foreground">Your terminal shows a code after <code className="whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-foreground">nb login --device</code>.</p>
@@ -178,7 +197,7 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
     }
     if (expired || (code && !pending)) {
         return (
-            <AuthShell title="This code has run out" description="It expired or was already used. Start the sign-in again in your terminal:" panel={PANEL} footer={footer}>
+            <AuthShell title="This code has run out" description="It expired or was already used. Start the sign-in again in your terminal:" panel={PANEL} footer={footer} mark="clock" outcome={{ word: 'OLD', title: 'Codes work once, then expire.' }}>
                 <div className="space-y-5">
                     <TerminalBlock variant="command" label="Terminal">{'$ nb login --device'}</TerminalBlock>
                     <p className="text-sm text-muted-foreground">Got a new code? Enter it here.</p>
@@ -189,8 +208,11 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
     }
     if (!pending) {
         return (
-            <AuthShell title="Enter the code from your terminal" description="Your terminal shows a code like ABCD-EFGH." panel={PANEL} footer={footer}>
-                {codeForm}
+            <AuthShell title="Enter the code from your terminal" description="Your terminal shows a code like ABCD-EFGH." panel={PANEL} footer={footer} step={[1, 2]}>
+                <div className="space-y-5">
+                    {account}
+                    {codeForm}
+                </div>
             </AuthShell>
         )
     }
@@ -198,7 +220,15 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
     const title = type === 'device' ? 'Sign in your terminal' : pending.renewal ? `Renew ${agentName}’s access` : `${agentName} wants to work with you on NetworkBase`
     const description = pending.viaOAuth ? `Approving sends you back to ${pending.returnTo}.` : 'Approve only if your terminal shows the same code.'
     return (
-        <AuthShell title={title} description={description} panel={PANEL} footer={footer}>
+        <AuthShell
+            title={title}
+            description={description}
+            panel={PANEL}
+            footer={footer}
+            step={[2, 2]}
+            mark="shield"
+            panelExtra={pending.viaOAuth ? undefined : <TerminalMirror code={pending.userCode} />}
+        >
             <div className="space-y-5" aria-busy={busy !== null}>
                 {showNew && type === 'agent' ? (
                     <div role="note" className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 p-3 text-sm">
@@ -210,9 +240,11 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
 
                 {pending.viaOAuth ? null : <p className="rounded-md border border-border bg-muted/40 p-3 text-center font-mono text-2xl tracking-[0.3em]" aria-label={`Code ${pending.userCode.split('').join(' ')}`}>{pending.userCode}</p>}
 
+                {account}
+
                 <section aria-label="Who is asking" className="divide-y divide-border rounded-md border border-border bg-card text-sm">
                     <div className="flex items-start gap-3 p-3">
-                        {type === 'agent' ? <Bot className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : <Terminal className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                        <PixelIcon name={type === 'agent' ? 'bot' : 'terminal'} className="mt-1 text-muted-foreground" />
                         <span className="min-w-0 break-words">
                             <span className="font-medium">{pending.clientName}</span>{pending.clientVersion ? <span className="text-muted-foreground"> {pending.clientVersion}</span> : null}
                             {pending.viaOAuth ? <span className="text-muted-foreground"> · editor</span> : <> · {pending.deviceName}{pending.platform ? <span className="text-muted-foreground"> · {pending.platform}</span> : null}</>}
@@ -220,23 +252,23 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
                     </div>
                     {pending.viaOAuth ? (
                         <div className="flex items-start gap-3 p-3">
-                            <ExternalLink className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            <PixelIcon name="arrow" className="mt-1 text-muted-foreground" />
                             <span className="min-w-0 break-words text-muted-foreground">Sends you back to <span className="font-medium text-foreground">{pending.returnTo}</span></span>
                         </div>
                     ) : null}
                     <div className="flex items-start gap-3 p-3">
-                        <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <PixelIcon name="pin" className="mt-1 text-muted-foreground" />
                         <span className="min-w-0 break-words">{from ? <>From {from}</> : 'Location unknown'}{pending.ipAddress ? <span className="text-xs text-muted-foreground"> · {pending.ipAddress}</span> : null}</span>
                     </div>
                     <div className="flex items-start gap-3 p-3">
-                        <Clock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        <span className="min-w-0 break-words text-muted-foreground">Asked at {new Date(pending.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · signed in as {viewerEmail}</span>
+                        <PixelIcon name="clock" className="mt-1 text-muted-foreground" />
+                        <span className="min-w-0 break-words text-muted-foreground">Asked at {new Date(pending.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                 </section>
 
                 {type === 'device' ? (
                     <div className="space-y-2 text-sm">
-                        <p className="rounded-md border border-border bg-card p-3 leading-relaxed">Your terminal can do what you can, in all your workspaces, for 90 days.</p>
+                        <p className="flex items-start gap-2.5 rounded-md border border-border bg-card p-3 leading-relaxed"><PixelIcon name="check" className="mt-1.5 text-[var(--status-success)]" />Your terminal can do what you can, in all your workspaces, for 90 days.</p>
                         {pending.viaOAuth ? null : <button type="button" className={`${AUTH_LINK} text-sm`} onClick={() => setType('agent')}>This is actually an AI agent</button>}
                     </div>
                 ) : agentsOffEverywhere ? (
@@ -264,10 +296,10 @@ export default function DeviceClient({ viewerEmail, viewerId, code, pending, wor
 
                 <div className="grid gap-2.5 sm:grid-cols-2">
                     <Button type="button" onClick={() => decide('approve')} disabled={busy !== null || agentBlocked} className="h-11 font-medium sm:order-2">
-                        {busy === 'approve' ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="size-4" aria-hidden="true" />}{pending.renewal && type === 'agent' ? 'Renew' : 'Approve'}
+                        {busy === 'approve' ? <PixelSpinner /> : <ShieldCheck className="size-4" aria-hidden="true" />}{pending.renewal && type === 'agent' ? 'Renew' : 'Approve'}
                     </Button>
                     <Button type="button" variant="outline" onClick={() => decide('deny')} disabled={busy !== null} className="h-11 font-medium sm:order-1">
-                        {busy === 'deny' ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}Not me
+                        {busy === 'deny' ? <PixelSpinner /> : null}Not me
                     </Button>
                 </div>
             </div>

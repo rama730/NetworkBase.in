@@ -5,27 +5,17 @@ import { TerminalBlock } from "@/components/ui/terminal-block";
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import {
-    ExternalLink,
-    Loader2,
-    Lock,
-    RefreshCw,
-    ShieldCheck,
-    Terminal,
-    UserCheck,
-} from 'lucide-react'
+import { ExternalLink, RefreshCw, ShieldCheck } from 'lucide-react'
 
 import { generateExtensionAuthCode } from '@/app/actions/extension-sessions'
 import { AUTH_LINK, AuthAlert, AuthShell } from '@/components/auth/AuthShell'
+import { AUTH_PANELS } from '@/components/auth/auth-panels'
+import { PixelIcon, PixelSpinner } from '@/components/auth/pixel'
 import { Button } from '@/components/ui/button'
 
 type ConnectionStatus = 'idle' | 'authorizing' | 'success' | 'error'
 
-const AUTHORIZE_PANEL = {
-    eyebrow: 'Editor sync',
-    title: 'Your work, inside your code editor.',
-    points: ['Open your workspaces and virtual files', 'Push tasks without leaving the editor', 'Disconnect any time from settings'],
-}
+const AUTHORIZE_PANEL = AUTH_PANELS.editor
 
 const EXTENSION_URI_AUTHORITY = 'nb-workspace.nb-vscode-sync'
 const AUTH_CALLBACK_PATH = '/auth-callback'
@@ -327,6 +317,8 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
             title={heading}
             description={subtitle}
             panel={AUTHORIZE_PANEL}
+            mark={!isValid ? 'alert' : status === 'success' ? 'check' : needsSignIn ? undefined : 'shield'}
+            outcome={!isValid ? { word: 'HALT', title: 'Only approve editors you opened yourself.' } : status === 'success' ? { word: 'OK', title: 'Your editor is connected.' } : undefined}
             footer={<>Disconnect an editor any time in <Link href="/settings?tab=integrations" className={AUTH_LINK}>Integrations settings</Link>.</>}
         >
             <div aria-busy={status === 'authorizing'} className="space-y-5">
@@ -373,7 +365,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                                 {editorIcon ? (
                                     <Image src={editorIcon} alt="" width={20} height={20} unoptimized className="size-5 object-contain" />
                                 ) : (
-                                    <Terminal className="size-4 text-muted-foreground" aria-hidden="true" />
+                                    <PixelIcon name="terminal" className="text-muted-foreground" />
                                 )}
                             </span>
                             <div className="min-w-0">
@@ -388,7 +380,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                     <div className="flex items-center justify-between gap-3 p-3.5">
                         <div className="flex min-w-0 items-center gap-3">
                             <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50 text-muted-foreground">
-                                <UserCheck className="size-4" aria-hidden="true" />
+                                <PixelIcon name="person" />
                             </span>
                             <div className="min-w-0">
                                 <p className="text-xs text-muted-foreground">Account</p>
@@ -403,7 +395,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                     </div>
                     <div className="flex items-center gap-3 p-3.5">
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50 text-muted-foreground">
-                            <Lock className="size-4" aria-hidden="true" />
+                            <PixelIcon name="lock" />
                         </span>
                         <div className="min-w-0">
                             <p className="text-xs text-muted-foreground">Access</p>
@@ -437,7 +429,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                     ) : (
                         <Button type="button" onClick={handleAuthorize} disabled={status === 'authorizing' || !isValid} className="h-11 w-full font-medium">
                             {status === 'authorizing' ? (
-                                <><Loader2 className="size-4 animate-spin" aria-hidden="true" />Connecting {editorName}…</>
+                                <><PixelSpinner />Connecting {editorName}…</>
                             ) : (
                                 <><ShieldCheck className="size-4" aria-hidden="true" />Connect {editorName}</>
                             )}

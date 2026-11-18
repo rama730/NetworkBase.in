@@ -1,24 +1,64 @@
 'use client'
 
-import { useEffect, useState, type ComponentProps, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
-import { AlertCircle, CheckCircle2, ExternalLink, Eye, EyeOff, Github, Info, Loader2, TriangleAlert } from 'lucide-react'
+import { useEffect, useRef, useState, type ComponentProps, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { ExternalLink, Eye, EyeOff, Github } from 'lucide-react'
 import Logo from '@/components/layout/header/Logo'
 import { LegalLinks } from '@/components/legal/LegalLinks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { startOAuthSignIn } from '@/lib/auth/browser-auth-actions'
+import { loadBrowserSupabase, startOAuthSignIn, syncBrowserSessionToServer } from '@/lib/auth/browser-auth-actions'
+import { buildAuthPageHref } from '@/lib/auth/redirects'
+import { formatCountdown } from '@/lib/auth/code-format'
+import { PASSWORD_MIN_LENGTH, type PasswordPolicyResult } from '@/lib/security/password-policy'
+import type { PixelIconName } from '@/lib/pixel-icons'
+import type { AuthPanelContent, PanelOutcome } from '@/components/auth/auth-panels'
+import { AuthPanel } from '@/components/auth/AuthPanel'
+import { PixelIcon, PixelSpinner } from '@/components/auth/pixel'
 import { clearSignInMarker, markSignIn } from '@/lib/auth/signin-flight'
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { mailAppFor, readSignInMethod, rememberSignInMethod, type SignInMethod } from '@/lib/auth/last-method'
 import { cn } from '@/lib/utils'
 
-export type AuthPanelContent = { eyebrow: string; title: string; points?: readonly string[] }
+type StatusMark = 'check' | 'cross' | 'clock' | 'alert' | 'shield'
+const MARK_TONE: Record<StatusMark, string> = { check: 'ok', cross: 'no', clock: 'wait', alert: 'no', shield: 'brand' }
+const GLITCH = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/<>-_=+*#'
 
-/** Forgot and reset password share one panel. */
-export const RECOVERY_PANEL: AuthPanelContent = {
-    eyebrow: 'Account recovery',
-    title: "We’ll get you back in.",
-    points: ['Reset links work once and expire', 'We never ask for your password by email', 'Only you choose the new password'],
+/** The marketing page's mono label: scrambles once and settles on the words. Plain text on the server and under reduced motion. */
+function Eyebrow({ text, step }: { text: string; step?: readonly [number, number] }) {
+    const ref = useRef<HTMLSpanElement | null>(null)
+    useEffect(() => {
+        const el = ref.current
+        if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+        let frame = 0, timer = 0
+        const tick = () => {
+            const shown = Math.floor((frame / 14) * text.length)
+            el.textContent = [...text].map((ch, i) => i < shown || ch === ' ' ? ch : GLITCH[Math.floor(Math.random() * GLITCH.length)]).join('')
+            if (frame++ < 14) timer = window.setTimeout(tick, 34)
+            else el.textContent = text
+        }
+        timer = window.setTimeout(tick, 80)
+        return () => { clearTimeout(timer); el.textContent = text }
+    }, [text])
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return (
+        <p className="nb-auth-eyebrow">
+            <span className="sr-only">{step ? `${text}, step ${step[0]} of ${step[1]}` : text}</span>
+            <span ref={ref} aria-hidden="true">{text}</span>
+            {step ? <span aria-hidden="true"> · <b>{pad(step[0])} / {pad(step[1])}</b></span> : null}
+        </p>
+    )
+}
+
+/**
+ * How the form enters: the CSS load sequence the first time, then sideways when the step moves (forward from the right,
+ * back from the left), or a fade. Read during render, recorded after commit, so StrictMode's second render agrees.
+ */
+function useEnter(key: string, step: number | undefined) {
+    const last = useRef<{ key: string; step: number | undefined; enter: string } | null>(null)
+    const prev = last.current
+    const enter = !prev ? 'load' : prev.key === key ? prev.enter : step !== undefined && prev.step !== undefined && step !== prev.step ? (step < prev.step ? 'back' : 'fwd') : 'fade'
+    useEffect(() => { last.current = { key, step, enter } })
+    return enter
 }
 
 /**
@@ -31,66 +71,62 @@ export function AuthShell({
     panel,
     footer,
     children,
+    step,
+    mark,
+    outcome,
+    panelRoute,
+    panelExtra,
 }: {
     title: ReactNode
     description?: ReactNode
     panel: AuthPanelContent | null
     footer?: ReactNode
     children?: ReactNode
+    /** Where this screen sits in its flow, shown as "· 02 / 03" after the label. */
+    step?: readonly [number, number]
+    /** A pixel status mark above the label on result and approve screens. */
+    mark?: StatusMark
+    /** A finished screen: the panel's word and headline change (OK, NO, OLD, HALT). */
+    outcome?: PanelOutcome
+    /** The panel's path when it is more than the page (join/K7M2QX). */
+    panelRoute?: string
+    /** Extra panel content under the headline (the terminal mirror). */
+    panelExtra?: ReactNode
 }) {
+    const enter = useEnter(typeof title === 'string' ? title : String(step?.[0] ?? ''), step?.[0])
     return (
         <main className="nb-auth" data-panel={panel ? 'true' : 'false'}>
             <div className="nb-auth-form">
-                <div className="nb-auth-column">
-                    <Logo />
-                    <div className="nb-auth-body">
-                        <div className="mb-6 space-y-1.5">
-                            <h1 className="text-[30px] font-semibold leading-tight tracking-[-0.015em]">{title}</h1>
-                            {description ? <p className="text-sm leading-relaxed text-muted-foreground">{description}</p> : null}
+                <header className="nb-auth-top"><div className="nb-auth-logo"><Logo /></div></header>
+                <div className="nb-auth-wrap">
+                    <div className="nb-auth-column">
+                        <div className="nb-auth-body" key={typeof title === 'string' ? title : undefined} data-enter={enter}>
+                            <div className="nb-auth-head mb-6 space-y-1.5">
+                                {mark ? <span className="nb-auth-mark" data-tone={MARK_TONE[mark]}><PixelIcon name={mark} size={24} /></span> : null}
+                                {panel ? <Eyebrow text={panel.eyebrow} step={step} /> : null}
+                                <h1 className="text-[30px] font-semibold leading-tight tracking-[-0.015em]">{title}</h1>
+                                {description ? <p className="text-sm leading-relaxed text-muted-foreground">{description}</p> : null}
+                            </div>
+                            {children}
                         </div>
-                        {children}
-                    </div>
-                    <div className="space-y-4 border-t border-border pt-5 text-center">
-                        {footer ? <p className="text-sm text-muted-foreground">{footer}</p> : null}
-                        <LegalLinks className="text-[11px]" showCopyright />
+                        <div className="nb-auth-foot space-y-4 border-t border-border pt-5 text-center">
+                            {footer ? <p className="text-sm text-muted-foreground">{footer}</p> : null}
+                            <LegalLinks className="text-[11px]" showCopyright />
+                        </div>
                     </div>
                 </div>
             </div>
-            {panel ? <AuthPanel {...panel} /> : null}
+            {panel ? <AuthPanel panel={panel} outcome={outcome} route={panelRoute} extra={panelExtra} /> : null}
         </main>
     )
 }
 
-function AuthPanel({ eyebrow, title, points }: AuthPanelContent) {
-    return (
-        <aside className="nb-auth-panel nb-grid-ground" aria-label="About NetworkBase">
-            <span className="nb-micro nb-inverse-muted">{eyebrow}</span>
-            <div className="space-y-6">
-                <div className="h-[9px] w-[9px] bg-[var(--nb-brand)]" aria-hidden="true" />
-                <p className="max-w-[20ch] font-serif text-[38px] leading-[1.12]">{title}</p>
-                {points?.length ? (
-                    <ol className="max-w-[36ch] space-y-3 text-sm">
-                        {points.map((point, index) => (
-                            <li key={point} className="flex gap-4 border-t border-white/15 pt-3">
-                                <span className="font-mono text-[var(--accent-inverse)]">0{index + 1}</span>
-                                <span className="nb-inverse-muted">{point}</span>
-                            </li>
-                        ))}
-                    </ol>
-                ) : null}
-            </div>
-            <span className="nb-inverse-muted font-mono text-xs">NetworkBase / Build together</span>
-        </aside>
-    )
-}
-
-const ALERT_ICON = { error: AlertCircle, success: CheckCircle2, warning: TriangleAlert, info: Info }
+const ALERT_ICON: Record<'error' | 'success' | 'warning' | 'info', PixelIconName> = { error: 'alert', success: 'check', warning: 'alert', info: 'info' }
 
 export function AuthAlert({ tone, title, children, className }: { tone: keyof typeof ALERT_ICON; title?: ReactNode; children?: ReactNode; className?: string }) {
-    const Icon = ALERT_ICON[tone]
     return (
         <div role={tone === 'error' ? 'alert' : 'status'} data-tone={tone} className={cn('nb-auth-alert', className)}>
-            <Icon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <PixelIcon name={ALERT_ICON[tone]} className="mt-1 shrink-0" />
             <div className="min-w-0 space-y-1">
                 {title ? <p className="font-medium">{title}</p> : null}
                 {children ? <div className="text-[13px] leading-relaxed">{children}</div> : null}
@@ -153,17 +189,41 @@ export function PasswordField({ className, onKeyDown, onKeyUp, onBlur, ...props 
     )
 }
 
+/**
+ * A paste anywhere on the page that is not into a field (the person copied the code from the email and pressed ⌘V)
+ * goes to this code instead of nowhere.
+ */
+export function usePasteAnywhere(onText: (text: string) => void, enabled = true) {
+    const handler = useRef(onText)
+    handler.current = onText
+    useEffect(() => {
+        if (!enabled) return
+        const onPaste = (event: ClipboardEvent) => {
+            if ((event.target as Element | null)?.closest?.('input, textarea, select, [contenteditable="true"]')) return
+            const text = event.clipboardData?.getData('text') ?? ''
+            if (!text.trim()) return
+            event.preventDefault()
+            handler.current(text)
+        }
+        document.addEventListener('paste', onPaste)
+        return () => document.removeEventListener('paste', onPaste)
+    }, [enabled])
+}
+
 /** A single field for 6-digit codes: native paste and OS one-time-code autofill work without per-digit boxes. */
 export function CodeInput({ value, onChange, onComplete, ...props }: Omit<ComponentProps<'input'>, 'value' | 'onChange'> & { value: string; onChange: (value: string) => void; onComplete?: (code: string) => void }) {
+    const take = (raw: string) => {
+        const code = raw.replace(/\D/g, '').slice(0, 6)
+        onChange(code)
+        if (code.length === 6 && code !== value) onComplete?.(code)
+    }
+    // Only a whole code: pasting a link or a sentence elsewhere on the page leaves the box alone.
+    usePasteAnywhere((text) => { if (text.replace(/\D/g, '').length >= 6) take(text) }, !props.disabled)
     return (
         <Input
             {...props}
             value={value}
-            onChange={(event) => {
-                const code = event.target.value.replace(/\D/g, '').slice(0, 6)
-                onChange(code)
-                if (code.length === 6 && code !== value) onComplete?.(code)
-            }}
+            onChange={(event) => take(event.target.value)}
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]*"
@@ -185,7 +245,7 @@ export function AuthDivider() {
 export function SubmitButton({ busy, busyLabel, children, ...props }: ComponentProps<typeof Button> & { busy: boolean; busyLabel: string }) {
     return (
         <Button type="submit" className="h-11 w-full font-medium" disabled={busy || props.disabled} aria-busy={busy || undefined} {...props}>
-            {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden="true" />{busyLabel}</> : children}
+            {busy ? <><PixelSpinner />{busyLabel}</> : children}
         </Button>
     )
 }
@@ -251,7 +311,7 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
             <div className="grid grid-cols-2 gap-3">
                 {(['google', 'github'] as const).map((provider) => (
                     <Button key={provider} type="button" variant="outline" className="relative h-11 w-full font-medium" onClick={() => void start(provider)} disabled={busy}>
-                        {loading === provider ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : provider === 'google' ? <GoogleIcon /> : <Github className="size-4" aria-hidden="true" />}
+                        {loading === provider ? <PixelSpinner /> : provider === 'google' ? <GoogleIcon /> : <Github className="size-4" aria-hidden="true" />}
                         <span className="truncate">{loading === provider ? 'Redirecting…' : provider === 'google' ? 'Google' : 'GitHub'}</span>
                         {lastUsed === provider && loading !== provider ? <LastUsedMarker place="edge" /> : null}
                     </Button>
@@ -305,11 +365,13 @@ export function EmailCodeForm({ id, email, label, submitLabel, onVerify, onResen
     const [message, setMessage] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [cooldown, setCooldown] = useState(RESEND_SECONDS)
+    // Said to screen readers once when the wait starts and once when it ends, never every second.
+    const [announce, setAnnounce] = useState(`You can send a new code in ${RESEND_SECONDS} seconds.`)
     const [resendToken, setResendToken] = useState<string | null>(null)
     const [resendKey, setResendKey] = useState(0)
     const requiresCaptcha = hasTurnstileSiteKey()
     useEffect(() => {
-        if (cooldown <= 0) return
+        if (cooldown <= 0) return setAnnounce('You can send a new code now.')
         const timer = setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000)
         return () => clearInterval(timer)
     }, [cooldown])
@@ -344,6 +406,7 @@ export function EmailCodeForm({ id, email, label, submitLabel, onVerify, onResen
             return
         }
         setCooldown(RESEND_SECONDS)
+        setAnnounce(`You can send a new code in ${RESEND_SECONDS} seconds.`)
         setMessage(`We sent a new code to ${email}.`)
     }
     return (
@@ -369,9 +432,56 @@ export function EmailCodeForm({ id, email, label, submitLabel, onVerify, onResen
                     disabled={cooldown > 0}
                     className="min-h-11 font-medium text-primary underline-offset-4 hover:underline disabled:font-normal disabled:text-muted-foreground disabled:no-underline"
                 >
-                    {cooldown > 0 ? `Send a new code in ${cooldown}s` : 'Send a new code'}
+                    {cooldown > 0 ? <>Send a new code in <span className="font-mono tabular-nums">{formatCountdown(cooldown)}</span></> : 'Send a new code'}
                 </button>
             </p>
+            <p className="sr-only" aria-live="polite">{announce}</p>
         </form>
+    )
+}
+
+/** The four rules a new password must meet, each ticking as it is met (beside the strength meter). */
+export function PasswordRules({ result }: { result: PasswordPolicyResult }) {
+    const rules = [
+        [`${PASSWORD_MIN_LENGTH} or more characters`, result.checks.minLength],
+        ['An upper case letter', result.checks.uppercase],
+        ['A lower case letter', result.checks.lowercase],
+        ['A number', result.checks.number],
+    ] as const
+    return (
+        <ul className="nb-auth-rules" aria-label="Password rules">
+            {rules.map(([label, met]) => (
+                <li key={label} data-met={met ? 'true' : 'false'}>
+                    {met ? <PixelIcon name="check" /> : <span className="nb-auth-rule-box" aria-hidden="true" />}
+                    {label}<span className="sr-only">{met ? ': done' : ': not yet'}</span>
+                </li>
+            ))}
+        </ul>
+    )
+}
+
+/** Sign out here and come back through sign in to the same page, as someone else. */
+export async function switchAccount(next: string) {
+    const supabase = await loadBrowserSupabase()
+    await supabase.auth.signOut().catch(() => null)
+    await syncBrowserSessionToServer(null).catch(() => null)
+    window.location.assign(buildAuthPageHref('/login', next))
+}
+
+/** Who is approving: square initials (like the app's avatars), the name and email, and a way to switch. */
+export function SignedInAs({ email, name, next }: { email: string; name?: string | null; next: string }) {
+    const [busy, setBusy] = useState(false)
+    const initials = (name || email).split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]!.toUpperCase()).join('')
+    return (
+        <div className="nb-auth-account">
+            <span className="nb-auth-avatar" aria-hidden="true">{initials}</span>
+            <span className="min-w-0 flex-1 leading-snug">
+                <span className="block truncate font-medium">Signed in as {name || email}</span>
+                {name ? <span className="block truncate text-muted-foreground">{email}</span> : null}
+            </span>
+            <button type="button" className="min-h-11 shrink-0 text-xs font-medium text-primary underline-offset-4 hover:underline" disabled={busy} onClick={() => { setBusy(true); void switchAccount(next) }}>
+                {busy ? 'Signing out…' : 'Not you? Switch'}
+            </button>
+        </div>
     )
 }

@@ -5,10 +5,11 @@ import type { FormEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
-import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PasswordStrengthMeter } from '@/components/settings/PasswordStrengthMeter'
-import { AUTH_EMAIL_HANDOFF_KEY, AUTH_LINK, RECOVERY_PANEL, AuthAlert, AuthField, AuthShell, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_EMAIL_HANDOFF_KEY, AUTH_LINK, AuthAlert, AuthField, AuthShell, PasswordField, PasswordRules, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_PANELS } from '@/components/auth/auth-panels'
+import { PixelIcon } from '@/components/auth/pixel'
 import { loadBrowserSupabase } from '@/lib/auth/browser-auth-actions'
 import { getPasswordPolicyResult, PASSWORD_MIN_LENGTH } from '@/lib/security/password-policy'
 
@@ -132,7 +133,10 @@ export default function ResetPasswordPage() {
         <AuthShell
             title={title}
             description={description}
-            panel={RECOVERY_PANEL}
+            panel={AUTH_PANELS.reset}
+            step={status === 'ready' ? [3, 3] : undefined}
+            mark={status === 'success' ? 'check' : status === 'invalid' ? 'clock' : undefined}
+            outcome={status === 'success' ? { word: 'OK', title: 'You’re back in.' } : status === 'invalid' ? { word: 'OLD', title: 'Links work once, then expire.' } : undefined}
             footer={status === 'ready' || status === 'loading' ? <>Changed your mind? <Link href="/login" className={AUTH_LINK}>Back to sign in</Link></> : undefined}
         >
             {status === 'loading' ? (
@@ -159,7 +163,7 @@ export default function ResetPasswordPage() {
             {status === 'ready' ? (
                 <form onSubmit={handleSubmit} className="nb-auth-step space-y-4" noValidate>
                     {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
-                    <AuthField id="new-password" label="New password" error={fieldErrors.password} note={<PasswordStrengthMeter password={newPassword} result={passwordPolicy} />}>
+                    <AuthField id="new-password" label="New password" error={fieldErrors.password} note={<div className="space-y-2"><PasswordStrengthMeter password={newPassword} result={passwordPolicy} /><PasswordRules result={passwordPolicy} /></div>}>
                         <PasswordField
                             id="new-password"
                             autoComplete="new-password"
@@ -175,7 +179,7 @@ export default function ResetPasswordPage() {
                         label="Confirm password"
                         error={fieldErrors.confirm}
                         note={confirmPassword && confirmPassword === newPassword ? (
-                            <p className="nb-auth-note inline-flex items-center gap-1 text-[var(--status-success)]" role="status"><Check className="size-3" aria-hidden="true" />Passwords match</p>
+                            <p className="nb-auth-note inline-flex items-center gap-1.5 text-[var(--status-success)]" role="status"><PixelIcon name="check" />Passwords match</p>
                         ) : null}
                     >
                         <PasswordField

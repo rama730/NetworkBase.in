@@ -5,7 +5,9 @@ import { getJoinPreviewAction } from '@/app/actions/organizations'
 import { JoinOrgButton, JoinRequestPending } from '@/components/organizations/JoinOrgButton'
 import { JoinReportLink } from '@/components/organizations/JoinReportLink'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
-import { AUTH_LINK, AuthShell } from '@/components/auth/AuthShell'
+import { AUTH_LINK, AuthShell, SignedInAs } from '@/components/auth/AuthShell'
+import { AUTH_PANELS } from '@/components/auth/auth-panels'
+import { PixelIcon } from '@/components/auth/pixel'
 import { Button } from '@/components/ui/button'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
@@ -13,13 +15,20 @@ import { hasOnboardingClaims } from '@/lib/onboarding/state'
 import { normalizeJoinCode } from '@/lib/organizations/join-rules'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
 
-export const metadata = buildRouteMetadata({
-    title: 'Join an organization · NetworkBase',
-    description: 'You have been invited to join an organization on NetworkBase.',
-    path: '/join',
-})
+export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
+    const code = normalizeJoinCode((await params).code)
+    return buildRouteMetadata({
+        title: 'Join an organization · NetworkBase',
+        description: 'You have been invited to join an organization on NetworkBase.',
+        path: '/join',
+        image: `/api/og/join/${code ?? 'none'}`,
+        imageAlt: 'Join an organization on NetworkBase',
+        imageWidth: 1200,
+        imageHeight: 630,
+    })
+}
 
-const JOIN_PANEL = { eyebrow: 'Organizations', title: 'Your class or team, in one place.' }
+const JOIN_PANEL = AUTH_PANELS.join
 
 /** Join preview (report §6.1, §29.1): the same page for a typed code, a shared link and a logged-out visitor. */
 export default async function JoinOrganizationPage({ params }: { params: Promise<{ code: string }> }) {
@@ -32,7 +41,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
     const result = code ? await getJoinPreviewAction(code) : null
     if (!result?.success) {
         return (
-            <AuthShell title={result?.error ?? "That code doesn’t work. Ask your organization for the current one."} description="Codes change when an organization makes a new one." panel={JOIN_PANEL}>
+            <AuthShell title={result?.error ?? "That code doesn’t work. Ask your organization for the current one."} description="Codes change when an organization makes a new one." panel={JOIN_PANEL} mark="cross" outcome={{ word: 'NO', title: 'Ask for the current code.' }} panelRoute={`join/${code ?? ''}`}>
                 <Button asChild variant="outline" className="h-11 w-full"><Link href="/join">Enter a code</Link></Button>
             </AuthShell>
         )
@@ -46,12 +55,16 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
 
     return (
         // Live-fix 49: the owner or a member is already in; only others are invited.
-        <AuthShell title={preview.title} description={preview.state === 'member' ? `You’re already in ${preview.title}.` : "Check the details before you join."} panel={JOIN_PANEL}>
+        <AuthShell title={preview.title} description={preview.state === 'member' ? `You’re already in ${preview.title}.` : "Check the details before you join."} panel={JOIN_PANEL} step={[2, 2]} panelRoute={`join/${code}`}>
             <div className="space-y-6">
                 <div className="flex items-center gap-3 rounded-md border border-border bg-card p-3.5">
-                    <WorkspaceAvatar project={{ title: preview.title, coverImage: preview.coverImage }} />
+                    {preview.coverImage
+                        ? <WorkspaceAvatar project={{ title: preview.title, coverImage: preview.coverImage }} />
+                        : <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground"><PixelIcon name="people" size={24} /></span>}
                     <p className="min-w-0 truncate text-sm text-muted-foreground">{facts || 'Organization'}</p>
                 </div>
+
+                {user?.email && preview.viewer !== 'member' ? <SignedInAs email={user.email} name={typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null} next={here} /> : null}
 
                 {!user ? (
                     <div className="space-y-3">

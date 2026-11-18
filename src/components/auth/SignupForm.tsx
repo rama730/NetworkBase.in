@@ -9,7 +9,8 @@ import { loadBrowserSupabase, signUpWithPassword as signUp, verifyEmailOtp as ve
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { GoogleOneTap } from '@/components/auth/GoogleOneTap'
-import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, MailAppLink, OAuthButtons, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, MailAppLink, OAuthButtons, PasswordField, PasswordRules, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_PANELS } from '@/components/auth/auth-panels'
 import { rememberSignInMethod } from '@/lib/auth/last-method'
 import { PasswordStrengthMeter } from '@/components/settings/PasswordStrengthMeter'
 import { buildAuthPageHref, resolveAuthRedirectPath } from '@/lib/auth/redirects'
@@ -25,17 +26,6 @@ const RESEND_COOLDOWN_SECONDS = 60
 const DRAFT_KEY = 'nb_signup_draft'
 /** The "Check your email" step survives a reload (switching to the mail app often reloads a phone's tab). */
 const VERIFY_STEP_KEY = 'nb_signup_verify'
-
-const SIGNUP_PANEL = {
-    eyebrow: 'Get started',
-    title: 'Your first workspace is three steps away.',
-    points: ['Add your skills', 'Find or start a workspace', 'Invite people and get going'],
-}
-const VERIFY_PANEL = {
-    eyebrow: 'One last step',
-    title: 'Verified email keeps NetworkBase real.',
-    points: ['Keeps spam accounts out', 'Lets you recover your account', 'Unlocks messages and workspaces'],
-}
 
 type FieldKey = 'fullName' | 'email' | 'password' | 'legal'
 
@@ -303,7 +293,8 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             <AuthShell
                 title="Check your email"
                 description={<>We sent a 6-digit code to <span className="font-medium text-foreground">{email}</span>. Enter it below or use the link in the email.</>}
-                panel={VERIFY_PANEL}
+                panel={AUTH_PANELS.verify}
+                step={[2, 2]}
                 footer={<>Already have an account? <Link href={loginHref} className={AUTH_LINK}>Sign in</Link></>}
             >
                 <form onSubmit={(event) => { event.preventDefault(); void handleVerifyOtp(otp) }} className="nb-auth-step space-y-4" noValidate>
@@ -370,7 +361,8 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
         <AuthShell
             title="Create your account"
             description="Find people and work together."
-            panel={SIGNUP_PANEL}
+            panel={AUTH_PANELS.signup}
+            step={[1, 2]}
             footer={<>Already have an account? <Link href={loginHref} className={AUTH_LINK}>Sign in</Link></>}
         >
             {inviteParam ? <AuthAlert tone="info" className="mb-5">You’ve been invited. Create your account to accept.</AuthAlert> : null}
@@ -452,7 +444,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                     />
                 </AuthField>
 
-                <AuthField id="password" label="Password" error={fieldErrors.password} note={<PasswordStrengthMeter password={password} result={passwordPolicy} />}>
+                <AuthField id="password" label="Password" error={fieldErrors.password} note={<div className="space-y-2"><PasswordStrengthMeter password={password} result={passwordPolicy} /><PasswordRules result={passwordPolicy} /></div>}>
                     <PasswordField
                         ref={(element) => { fieldRefs.current.password = element }}
                         id="password"

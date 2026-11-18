@@ -3,13 +3,15 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check } from 'lucide-react'
 import { adoptServerSessionIfMissing, loadBrowserSupabase, signInWithPassword as signIn, syncBrowserSessionToServer } from '@/lib/auth/browser-auth-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { GoogleOneTap } from '@/components/auth/GoogleOneTap'
-import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, EmailCodeForm, LastUsedMarker, OAuthButtons, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, EmailCodeForm, LastUsedMarker, OAuthButtons, PasswordField, SubmitButton, fieldError, switchAccount as signInAsSomeoneElse, usePasteAnywhere } from '@/components/auth/AuthShell'
+import { AUTH_PANELS } from '@/components/auth/auth-panels'
+import { PixelIcon } from '@/components/auth/pixel'
+import { formatGroupedCode } from '@/lib/auth/code-format'
 import { buildAuthPageHref, resolveAuthRedirectPath } from '@/lib/auth/redirects'
 import { resolveAuthPageErrorMessage, toFriendlyAuthError } from '@/lib/auth/error-messages'
 import { getTotpVerificationErrorMessage, needsSecondFactor } from '@/lib/auth/mfa-ui'
@@ -22,13 +24,6 @@ const LOGIN_REQUEST_TIMEOUT_MS = 25_000
 /** After this many wrong passwords in a row, the page offers a code or a reset instead. */
 const WRONG_PASSWORD_HELP_AFTER = 3
 
-const SIGN_IN_PANEL = {
-    eyebrow: 'Welcome back',
-    title: 'Pick up where you left off.',
-    points: ['Your workspaces and tasks', 'Conversations with your team', "People you’ve connected with"],
-}
-const MFA_PANEL = { eyebrow: 'Two-step verification', title: 'Two-step sign-in keeps your account yours.' }
-const CODE_PANEL = { eyebrow: 'Sign in with a code', title: 'No password needed. Just your inbox.' }
 
 type Step = 'password' | 'mfa' | 'email-code' | 'confirm-email'
 
@@ -83,6 +78,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
     const emailRef = useRef<HTMLInputElement | null>(null)
     const passwordRef = useRef<HTMLInputElement | null>(null)
     const codeRef = useRef<HTMLInputElement | null>(null)
+    usePasteAnywhere((text) => { if (formatGroupedCode(text).length === 9) { setRecoveryCode(formatGroupedCode(text)); setCodeError(null) } }, step === 'mfa' && recoveryMode && !busy)
 
     const queryError = queryErrorDismissed ? null : resolveAuthPageErrorMessage(error)
     const shownError = formError ?? queryError
@@ -332,10 +328,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
 
     const switchAccount = async () => {
         setBusy(true)
-        const supabase = await loadBrowserSupabase()
-        await supabase.auth.signOut().catch(() => null)
-        await syncBrowserSessionToServer(null).catch(() => null)
-        window.location.assign(buildAuthPageHref('/login', redirectPath))
+        await signInAsSomeoneElse(redirectPath)
     }
 
     const backToPassword = () => {
@@ -349,7 +342,8 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
             <AuthShell
                 title={confirming ? 'Confirm your email first' : 'Check your email'}
                 description={<>{confirming ? 'Your account isn’t confirmed yet. Enter the 6-digit code we sent to' : 'We sent a 6-digit sign-in code to'} <span className="font-medium text-foreground">{email.trim()}</span>{confirming ? '. Lost it? Send a new one below.' : '. It works once and expires within the hour.'}</>}
-                panel={CODE_PANEL}
+                panel={AUTH_PANELS.code}
+                step={[2, 2]}
                 footer={<button type="button" className={AUTH_LINK} onClick={backToPassword}>Back to sign in</button>}
             >
                 <EmailCodeForm
@@ -380,7 +374,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
     if (step === 'mfa') {
         if (recovered) {
             return (
-                <AuthShell title="You’re back in" description="Two-step verification is now off, and we emailed you about it. Set it up again with your new device to keep your account protected." panel={MFA_PANEL}>
+                <AuthShell title="You’re back in" description="Two-step verification is now off, and we emailed you about it. Set it up again with your new device to keep your account protected." panel={AUTH_PANELS.mfa} mark="check" outcome={{ word: 'OK', title: 'You’re back in.' }}>
                     <div className="nb-auth-step space-y-3">
                         <Button asChild className="h-11 w-full font-medium"><a href="/settings#settings-security">Set up two-step again</a></Button>
                         <Button asChild variant="ghost" className="h-11 w-full"><a href={redirectPath}>Later</a></Button>
@@ -394,7 +388,8 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                 description={recoveryMode
                     ? 'Enter one of the recovery codes you saved when you set up two-step verification. Each code works once.'
                     : 'Open your authenticator app and enter the 6-digit code for NetworkBase.'}
-                panel={MFA_PANEL}
+                panel={AUTH_PANELS.mfa}
+                step={[2, 2]}
                 footer={<>No recovery codes either? <a className={AUTH_LINK} href="mailto:support@networkbase.in">Contact support</a></>}
             >
                 {recoveryMode ? (
@@ -403,11 +398,11 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                             <Input
                                 id="recovery-code"
                                 value={recoveryCode}
-                                onChange={(event) => { setRecoveryCode(event.target.value); setCodeError(null) }}
+                                onChange={(event) => { setRecoveryCode(formatGroupedCode(event.target.value)); setCodeError(null) }}
                                 autoComplete="off"
-                                autoCapitalize="off"
+                                autoCapitalize="characters"
                                 spellCheck={false}
-                                placeholder="xxxx-xxxx"
+                                placeholder="XXXX-XXXX"
                                 className={`${AUTH_INPUT} font-mono`}
                                 disabled={busy}
                                 {...fieldError('recovery-code', codeError)}
@@ -458,7 +453,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
         <AuthShell
             title="Welcome back"
             description={redirect ? 'Sign in to continue where you left off.' : 'Sign in to your NetworkBase account.'}
-            panel={SIGN_IN_PANEL}
+            panel={AUTH_PANELS.signin}
             footer={<>New to NetworkBase? <Link className={AUTH_LINK} href={signupHref}>Create an account</Link></>}
         >
             {/* One check for every way in, out of sight unless Cloudflare needs a click. */}
@@ -535,7 +530,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                     </div>
                 ) : null}
                 <SubmitButton data-signin-submit="" busy={busy && !accepted} disabled={busy || accepted} busyLabel="Signing in…" className="relative h-11 w-full font-medium">
-                    {accepted ? <><Check className="size-4" aria-hidden="true" /><span className="sr-only">Signed in</span></> : <>Sign in{lastUsed === 'password' ? <LastUsedMarker place="edge" /> : null}</>}
+                    {accepted ? <><PixelIcon name="check" /><span className="sr-only">Signed in</span></> : <>Sign in{lastUsed === 'password' ? <LastUsedMarker place="edge" /> : null}</>}
                 </SubmitButton>
                 {showWrongPasswordHelp ? null : (
                     <Button type="button" variant="ghost" className="relative h-11 w-full" onClick={() => void startEmailCode()} disabled={busy}>

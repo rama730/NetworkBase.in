@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { normalizeJoinCode, ORG_JOIN_MESSAGES } from '@/lib/organizations/join-rules'
 import { AuthShell } from '@/components/auth/AuthShell'
+import { AUTH_PANELS } from '@/components/auth/auth-panels'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -12,8 +13,6 @@ export const metadata = buildRouteMetadata({
     path: '/join',
 })
 
-const JOIN_PANEL = { eyebrow: 'Organizations', title: 'Your class or team, in one place.' }
-
 /** "Have a code? Join an organization": a plain GET form, so it works before any script loads. */
 export default async function JoinWithCodePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
     const raw = (await searchParams).code
@@ -22,7 +21,7 @@ export default async function JoinWithCodePage({ searchParams }: { searchParams:
     if (code) redirect(`/join/${code}`)
 
     return (
-        <AuthShell title="Join an organization" description="Enter the 6-character code from your teacher or admin." panel={JOIN_PANEL}>
+        <AuthShell title="Join an organization" description="Enter the 6-character code from your teacher or admin." panel={AUTH_PANELS.join} step={[1, 2]}>
             <form action="/join" method="get" className="space-y-4">
                 <label htmlFor="join-code" className="text-sm font-medium">Join code</label>
                 <Input
