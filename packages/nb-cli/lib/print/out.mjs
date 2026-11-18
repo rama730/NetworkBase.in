@@ -144,7 +144,8 @@ export function createOutput(mode, io = {}) {
       const widths = cols.map((col, i) => Math.max(width(col.title), ...cells.map((r) => width(r[i] ?? ""))));
       const total = widths.reduce((a, b) => a + b, 0) + 2 * (cols.length - 1) + 2;
       const flex = cols.findIndex((col) => col.flex);
-      if (flex >= 0 && total > columns()) widths[flex] = Math.max(10, (widths[flex] ?? 10) - (total - columns()));
+      // Only a real terminal is narrow: plain output and pipes (screen readers, logs) keep whole paths (E2 GitHub walk).
+      if (flex >= 0 && total > columns() && !plain && stdout.isTTY) widths[flex] = Math.max(10, (widths[flex] ?? 10) - (total - columns()));
       const fit = (/** @type {string} */ s, /** @type {number} */ i) => {
         const w = widths[i] ?? 0;
         const cut = cols[i]?.path ? truncateMiddle(s, w, sym.ellipsis) : truncateEnd(s, w, sym.ellipsis);

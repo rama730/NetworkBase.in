@@ -30,6 +30,8 @@ describe("nb change (G7, G8)", () => {
       const started = await nb(["change", "start", "Redesign sign-in", "--json"]);
       assert.equal(started.code, 0, started.stderr);
       const id = JSON.parse(started.stdout).data.changeSet.id;
+      // nb status names the open change set (E2 walk).
+      assert.match((await nb(["status"])).stdout, /Change set [0-9a-f]{8} Redesign sign-in is open here/);
       fs.writeFileSync(path.join(cwd, "b.txt"), "b two\n");
       fs.writeFileSync(path.join(cwd, "new.txt"), "brand new\n");
       fs.rmSync(path.join(cwd, "c.txt"));

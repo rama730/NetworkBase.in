@@ -425,6 +425,8 @@ const mergeRequestRoutes = [
     if (req.params[2] === "merge") {
       if (state.mergeAnswer) return { data: state.mergeAnswer };
       m.state = "merged";
+      const merged = branchOf(state, m.sourceId);
+      if (merged) merged.status = "merged"; // like the server: its file list is refused from now on
       return { data: { outcome: "merged", method: req.body.method, save: { id: "s9", number: 9 }, undoToken: null, task: null, branch: { id: m.sourceId, name: branchOf(state, m.sourceId)?.name } } };
     }
     if (req.params[2] === "comments") { (m.comments ??= []).push({ id: crypto.randomUUID(), body: req.body.body, suggestion: req.body.suggestion ?? null, path: req.body.path ?? null, line: req.body.line ?? null, author: null }); return { status: 201, data: { comment: { id: m.comments.at(-1).id } } }; }
@@ -704,7 +706,7 @@ const patterns = [
     return { data: { deleted: req.body.id } };
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", role: "owner" }, { id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || `${m.username} ${m.fullName}`.toLowerCase().includes(String(req.query.get("q")).toLowerCase())) } })],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => branchOf(state, req.query.get("branch"))?.status === "deleted" ? fail(410, "BRANCH_DELETED", `The branch ${branchOf(state, req.query.get("branch")).name} was deleted`) : ({ data: { files: [...(branchOf(state, req.query.get("branch"))?.files ?? state.files).values()].map(meta), nextCursor: null, canWrite: state.canWrite, ...(branchOf(state, req.query.get("branch")) ? { branch: { id: branchOf(state, req.query.get("branch")).id, name: branchOf(state, req.query.get("branch")).name } } : {}), limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ["deleted", "merged"].includes(branchOf(state, req.query.get("branch"))?.status) ? fail(410, "BRANCH_DELETED", branchOf(state, req.query.get("branch")).status === "merged" ? "This branch was merged into main; start a new branch for more work" : `The branch ${branchOf(state, req.query.get("branch")).name} was deleted`) : ({ data: { files: [...(branchOf(state, req.query.get("branch"))?.files ?? state.files).values()].map(meta), nextCursor: null, canWrite: state.canWrite, ...(branchOf(state, req.query.get("branch")) ? { branch: { id: branchOf(state, req.query.get("branch")).id, name: branchOf(state, req.query.get("branch")).name } } : {}), limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: (d.nodePath && state.files.get(d.nodePath)?.nodeId) ?? null })) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {
     const doc = state.docs.find((d) => d.slug === req.params[1]);

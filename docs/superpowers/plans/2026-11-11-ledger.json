@@ -7807,9 +7807,9 @@
       "evidence": "H-5 live 2026-11-17: 760d995f7, 0100 in prod (sandbox table+column dropped; prod had 0 rows); tests/db/github-branches.test.ts, tests/unit/github-branch-mapping.test.ts; live sync check pending the user's GitHub access renewal"
     },
     {
-      "key": "H6.6c74aad3",
+      "key": "H6.e841067d",
       "section": "H6",
-      "text": "Merge requests and GitHub pull requests stay separate in this first set. Merging in NetworkBase pushes the merge result to GitHub main, and merging a pull reque",
+      "text": "Merge requests and GitHub pull requests stay separate in this first set. Both directions go through Repository sync, by hand (decided 2026-11-18): after a merge in NetworkBase, Push to GitHub sends the result to GitHub main; a pull request merged on GitHub arrives as a save on NetworkBase main with Pull into NetworkBase.",
       "kind": "build",
       "milestone": "M8",
       "status": "live",
@@ -9457,9 +9457,9 @@
       "evidence": "M9 A 2026-11-18: checked against the named test; shipped in H-5 760d995f7 (live, 0301b49a3); H-2 a7c32d122 (live, d85dacf48)"
     },
     {
-      "key": "H23.058f9273",
+      "key": "H23.34aca8e5",
       "section": "H23",
-      "text": "Merges in NetworkBase. The result goes to GitHub main.",
+      "text": "Merges in NetworkBase, then sends the result to GitHub main with Repository sync (by hand, decided 2026-11-18).",
       "kind": "build",
       "milestone": "M8",
       "status": "live",
@@ -10052,9 +10052,9 @@
       "text": "Branches and merge requests (once Part H is live): create a branch → save on it → a git folder switching branches → open a merge request → review with a suggest",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
+      "status": "tested",
+      "test": "packages/nb-cli/test/journeys.test.mjs; packages/nb-cli/test/merge-request.test.mjs",
+      "evidence": "walked 2026-11-18 on Ponytail with 2.6.3 (findings doc, third round): git branch → save → git switching → MR → suggested edit applied → merge → back on main; 4 findings fixed in 2.6.4 (local). moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E2.53959c1d",
@@ -10122,9 +10122,9 @@
       "text": "A heavy user: many branches, many open change sets, the terminal dashboard, bulk commands.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
+      "status": "tested",
+      "test": "packages/nb-cli/test/change.test.mjs; packages/nb-cli/test/branch.test.mjs",
+      "evidence": "walked 2026-11-18 on Ponytail: 13 branches, 5 open change sets, nb/status/lists under a second, bulk task move; 2 findings fixed in 2.6.4 (local). moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E2.c31d43c8",
@@ -10132,9 +10132,9 @@
       "text": "A GitHub user: a repository connected, working locally with git on several branches.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
+      "status": "tested",
+      "test": "packages/nb-cli/test/branch.test.mjs; packages/nb-cli/test/print.test.mjs",
+      "evidence": "walked 2026-11-18 on DeepScope AI with a clone of rama730/deepscope-ai, git kept local: two git branches with saves, MR, protected merge asks for approval; 3 findings fixed in 2.6.4 (local), incl. the protected-main push blocker. moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
     },
     {
       "key": "E3.ddaaf770",

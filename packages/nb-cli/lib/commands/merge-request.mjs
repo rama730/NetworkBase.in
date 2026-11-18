@@ -136,7 +136,11 @@ export async function comment(ctx) {
     body: String(ctx.flags.message ?? ""), ...(ctx.flags.file ? { path: String(ctx.flags.file) } : {}), ...(line ? { line, endLine: endLine ?? line } : {}),
     ...(ctx.flags.suggest != null ? { suggestion: String(ctx.flags.suggest) } : {}),
   }));
-  ctx.out.result("nb.merge-request.comment/1", res, () => `${ctx.out.c.success(ctx.out.sym.done)} Commented on !${n}`);
+  const id = res?.comment?.id ? String(res.comment.id).slice(0, 8) : null;
+  ctx.out.result("nb.merge-request.comment/1", res, () => [
+    `${ctx.out.c.success(ctx.out.sym.done)} ${ctx.flags.suggest != null ? "Suggested an edit on" : "Commented on"} !${n}`,
+    ...(ctx.flags.suggest != null && id ? [ctx.out.c.muted(`  The branch's author applies it with: nb merge-request apply ${n} ${id}`)] : []),
+  ]);
   return EXIT.ok;
 }
 

@@ -87,6 +87,8 @@ describe("journeys (M9 walkthrough: branches)", () => {
   let home = "";
   /** @param {string[]} args */
   const nb = (args) => runCli(args, { api: api.url, cwd, home });
+  // File downloads (GET /extension/file?transfer=raw, or a /raw path).
+  const downloads = () => api.requests.filter((r) => r.path.endsWith("/raw") || /transfer=raw/.test(String(r.query ?? ""))).length;
   before(async () => {
     api = await startFakeServer();
     /** @type {any} */ (api.state).branchesOn = true;
@@ -104,12 +106,14 @@ describe("journeys (M9 walkthrough: branches)", () => {
     const pushed = await nb(["push", "walk.md", "--yes", "-m", "Branch edit"]);
     assert.equal(pushed.code, 0, pushed.stderr);
     assert.match(pushed.stdout + pushed.stderr, /switching this folder to walk/);
-    assert.equal(api.requests.filter((r) => r.path.endsWith("/raw")).length, 0, "the 40 files this folder never pulled stay on the server");
+    assert.equal(downloads(), 0, "the 40 files this folder never pulled stay on the server");
     const made = await nb(["merge-request", "create", "--title", "Walk"]);
     assert.equal(made.code, 0, made.stderr);
     const merged = await nb(["merge-request", "merge", "--yes"]);
     assert.equal(merged.code, 0, merged.stderr);
     assert.match(merged.stdout, /this folder is on main again/);
+    // E1 walk on 2.6.3: going back to main after the merge fetched all 144 files of a docs/-only folder (97 s).
+    assert.ok(downloads() <= 1, "back on main brings down at most the merged file");
     const status = await nb(["status"]);
     assert.equal(status.code, 0, status.stderr);
     const reviews = await runCli(["merge-request", "list", "--review-requested", "--all"], { api: api.url, home });

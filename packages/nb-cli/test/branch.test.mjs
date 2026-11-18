@@ -55,6 +55,14 @@ describe("nb branch: create, switch, push and pull on a branch, follow git", () 
     const inGit = await nb(["push", "src/app.ts", "--yes"]);
     assert.notEqual(inGit.code, 0);
     assert.match(inGit.stderr, /git switch -c/);
+    // …and once git is on its own branch, the push follows it there (E2 GitHub walk: it still refused).
+    git("ref: refs/heads/feature-g");
+    const followed = await nb(["push", "src/app.ts", "--yes"]);
+    assert.equal(followed.code, 0, followed.stderr);
+    assert.match(followed.stdout + followed.stderr, /switching this folder to feature-g/);
+    assert.equal(config().branch.name, "feature-g");
+    git("ref: refs/heads/main");
+    assert.equal((await nb(["branch", "switch", "main"])).code, 0);
   });
 
   it("create moves the folder onto the branch; a push saves there and main is unchanged", async () => {
@@ -110,12 +118,16 @@ describe("nb branch: create, switch, push and pull on a branch, follow git", () 
     assert.equal(s1.code, 0, s1.stderr);
     assert.match(s1.stdout, /on branch feature-x/);
     assert.equal(read("src/app.ts"), "branch app\n");
-    // An unknown git branch: --json gets NEEDS_INPUT, never a guess; --yes creates it.
+    // An unknown git branch: nb status only says so (E1 walk); --json pull gets NEEDS_INPUT, never a guess; --yes creates it.
     git("ref: refs/heads/spike");
-    const asked = await nb(["status", "--json"]);
+    const looked = await nb(["status"]);
+    assert.equal(looked.code, 0, looked.stderr);
+    assert.match(looked.stdout + looked.stderr, /git is on spike, which NetworkBase doesn't have yet; nb push asks to create it/);
+    assert.equal(config().branch?.name ?? "main", "feature-x", "status creates nothing");
+    const asked = await nb(["pull", "--json"]);
     assert.equal(asked.code, 6, asked.stderr);
     assert.match(asked.stdout + asked.stderr, /Create NetworkBase branch spike/);
-    const yes = await nb(["status", "--yes"]);
+    const yes = await nb(["pull", "--yes"]);
     assert.equal(yes.code, 0, yes.stderr);
     assert.equal(config().branch.name, "spike");
     git("ref: refs/heads/master");
@@ -269,14 +281,44 @@ describe("nb branch: create, switch, push and pull on a branch, follow git", () 
     const before = api.requests.length;
     const made = await run(["branch", "create", "feature-p"]);
     assert.equal(made.code, 0, made.stderr);
-    const fetched = api.requests.slice(before).filter((r) => r.path.endsWith("/raw"));
+    const fetched = api.requests.slice(before).filter((r) => r.path.endsWith("/raw") || /transfer=raw/.test(String(r.query ?? "")));
     assert.deepEqual(fetched, [], "README.md and src/app.ts stay on the server");
     assert.ok(!fs.existsSync(path.join(partial, "README.md")));
     assert.equal(fs.readFileSync(path.join(partial, "note.md"), "utf8"), "mine\n");
   });
 
+  it("a folder kept to some folders (nb sync --only) switches without fetching new files outside them (E1 walk)", async () => {
+    const part = await tempDir("nb-only-");
+    const run = (/** @type {string[]} */ args) => runCli(args, { api: api.url, cwd: part, home });
+    assert.equal((await run(["init", "design-lab"])).code, 0);
+    assert.equal((await run(["sync", "--only", "docs/", "--yes"])).code, 0);
+    assert.equal((await run(["branch", "create", "feature-o"])).code, 0);
+    const files = branch("feature-o").files;
+    for (const p of ["/docs/new.md", "/lib/new.ts"]) files.set(p, { path: p, nodeId: `o-${p}`, version: 1, content: Buffer.from("new\n"), updatedAt: new Date().toISOString(), history: [] });
+    assert.equal((await run(["branch", "switch", "main"])).code, 0);
+    const switched = await run(["branch", "switch", "feature-o"]);
+    assert.equal(switched.code, 0, switched.stderr);
+    assert.ok(fs.existsSync(path.join(part, "docs", "new.md")), "new in docs/ comes down");
+    assert.ok(!fs.existsSync(path.join(part, "lib", "new.ts")), "outside docs/ stays on the server");
+  });
+
+  it("a file in conflict before a switch is still a conflict after it, never a plain edit (E2 GitHub walk)", async () => {
+    const clone = await tempDir("nb-clone-");
+    const run = (/** @type {string[]} */ args) => runCli(args, { api: api.url, cwd: clone, home });
+    assert.equal((await run(["init", "design-lab"])).code, 0);
+    fs.mkdirSync(path.join(clone, "src"), { recursive: true });
+    fs.writeFileSync(path.join(clone, "src", "app.ts"), "the clone's own app\n");
+    const before = JSON.parse((await run(["status", "--json"])).stdout).data.files.find((/** @type {any} */ f) => f.path === "/src/app.ts");
+    assert.equal(before.state, "conflict");
+    assert.equal((await run(["branch", "create", "feature-c"])).code, 0);
+    const after = JSON.parse((await run(["status", "--json"])).stdout).data.files.find((/** @type {any} */ f) => f.path === "/src/app.ts");
+    assert.equal(after.state, "conflict", "still asks which copy wins");
+    assert.equal(fs.readFileSync(path.join(clone, "src", "app.ts"), "utf8"), "the clone's own app\n");
+  });
+
   it("a merged branch can still be deleted by name (M9 walkthrough)", async () => {
-    await nb(["branch", "create", "feature-m", "--no-switch"]);
+    const made = await nb(["branch", "create", "feature-m", "--no-switch"]);
+    assert.match(made.stdout, /To work on it: nb branch switch feature-m/, "the hint fits a folder that stayed put (E2 walk)");
     branch("feature-m").status = "merged";
     const gone = await nb(["branch", "delete", "feature-m", "--yes"]);
     assert.equal(gone.code, 0, gone.stderr);

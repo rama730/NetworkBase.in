@@ -58,6 +58,7 @@ describe("nb merge-request", () => {
     const c = await nb(["mr", "comment", "1", "-m", "rename", "--file", "src/app.ts", "--line", "1-2", "--suggest", "better"]);
     assert.equal(c.code, 0, c.stderr);
     assert.deepEqual(state().mrPosts.at(-1).body, { body: "rename", path: "src/app.ts", line: 1, endLine: 2, suggestion: "better" });
+    assert.match(c.stdout, /Suggested an edit on !1\n.*nb merge-request apply 1 [0-9a-f]{8}/, "it says how to apply it (E1 walk)");
     const id = state().mergeRequests[0].comments[0].id.slice(0, 8);
     assert.equal((await nb(["mr", "apply", "1", id])).code, 0);
     assert.equal(state().mrPosts.at(-1).op, "suggestions");

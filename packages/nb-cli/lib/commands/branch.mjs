@@ -8,14 +8,14 @@ import { CliError, EXIT, needsNetwork } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { STATE_VERSION, writeState } from "../sync/state.mjs";
 import { downloadTo, fetchManifest } from "../sync/transfer.mjs";
-import { toRelative } from "../sync/local.mjs";
+import { toRelative, toRemote } from "../sync/local.mjs";
 import { ask, confirm } from "../tui/ask.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 
 const enc = encodeURIComponent;
 /** git names for the default branch: they follow NetworkBase's main. */
-const MAIN_NAMES = new Set(["main", "master", "trunk", "default"]);
+export const MAIN_NAMES = new Set(["main", "master", "trunk", "default"]);
 
 /**
  * git's current branch, read from .git/HEAD (worktrees too). Null when the folder isn't in a git repository.
@@ -65,10 +65,11 @@ function rememberGit(root, gitBranch) {
 /**
  * Follows git (report H6): when git's branch changed since the last command, the folder switches to the NetworkBase
  * branch of the same name (main for main and master). A git branch NetworkBase doesn't have asks once; --json and
- * agents get NEEDS_INPUT, never a guess. Workspaces without branches are left alone.
- * @param {Context} ctx
+ * agents get NEEDS_INPUT, never a guess; a read-only command (nb status) just says so. Workspaces without branches are
+ * left alone.
+ * @param {Context} ctx @param {{ readOnly?: boolean }} [opts]
  */
-export async function followGit(ctx) {
+export async function followGit(ctx, { readOnly = false } = {}) {
   const { root, project } = ctx.requireRoot();
   const head = readGitHead(root);
   if (!head?.branch || head.branch === project.gitBranch) return;
@@ -86,6 +87,11 @@ export async function followGit(ctx) {
     throw error;
   }
   let found = list.find((b) => (target === "main" ? b.isDefault : b.name.toLowerCase() === target.toLowerCase()));
+  if (!found && readOnly) {
+    // nb status only reads (E1 walk: it stopped with "needs input"): say so, and let the next push ask.
+    ctx.out.note(ctx.out.c.muted(`git is on ${want}, which NetworkBase doesn't have yet; nb push asks to create it`));
+    return;
+  }
   if (!found) {
     const choice = await ask(ctx, {
       key: "branch",
@@ -114,7 +120,9 @@ export async function switchTo(ctx, target, opts = {}) {
   const dirty = plan.items.filter((i) => ["push", "conflict", "delete-remote", "move", "keep-local"].includes(i.action));
   const branchId = target.isDefault ? null : target.id;
   const manifest = await fetchManifest(ctx.api, project.workspaceId, branchId);
-  const remote = new Map([...manifest.files].filter(([p]) => toRelative(project.remoteRoot, p) !== null));
+  // Only the part this folder is linked to, and only its nb sync --only folders (E1 walk: a docs/-only folder fetched 144 files).
+  const onlyPrefixes = (project.only ?? []).map((rel) => toRemote(project.remoteRoot, rel)).map((pre) => (pre.endsWith("/") ? pre : `${pre}/`));
+  const remote = new Map([...manifest.files].filter(([p]) => toRelative(project.remoteRoot, p) !== null && (!onlyPrefixes.length || onlyPrefixes.some((pre) => `${p}/`.startsWith(pre)))));
   // An edit to a file that is different on the other branch would mix the two: stop and say so.
   const blocking = dirty.filter((i) => (remote.get(i.path)?.hash ?? null) !== (i.base?.baseHash ?? i.remote?.hash ?? null));
   if (blocking.length && !opts.carry) {
@@ -138,6 +146,7 @@ export async function switchTo(ctx, target, opts = {}) {
   /** @type {import("../sync/state.mjs").SyncState} */
   const state = { schemaVersion: STATE_VERSION, workspaceId: project.workspaceId, files: {}, conflicts: {} };
   const keep = new Set(dirty.flatMap((i) => [i.path, ...(i.from ? [i.from] : [])]));
+  const conflicted = new Set(dirty.filter((i) => i.action === "conflict").map((i) => i.path));
   const localHash = new Map(plan.items.flatMap((i) => (i.local ? [[i.path, i.local.hash]] : [])));
   let downloaded = 0;
   let removed = 0;
@@ -147,10 +156,13 @@ export async function switchTo(ctx, target, opts = {}) {
   const before = plan.manifest.files;
   for (const [p, f] of remote) {
     const abs = localPathOf(root, project.remoteRoot, p);
-    if (!tracked.has(p) && before.has(p)) continue;
+    // Leaving a merged or deleted branch, its full list is unknown: anything untracked stays for nb pull.
+    if (!tracked.has(p) && (plan.leftGone || before.has(p))) continue;
     if (localHash.get(p) === f.hash) { recordBase(state, p, { nodeId: f.nodeId, version: f.version, hash: /** @type {string} */ (f.hash), abs }); continue; }
     if (keep.has(p)) {
-      if (!fs.existsSync(abs)) continue;
+      // A conflict (both sides differ, no common base) stays one: recording a base would make it a plain edit that
+      // nb push sends over the server's copy (E2 GitHub walk).
+      if (!fs.existsSync(abs) || conflicted.has(p)) continue;
       recordBase(state, p, { nodeId: f.nodeId, version: f.version, hash: /** @type {string} */ (f.hash), abs });
       // The base is the other branch's file, not this edit: hash it again next time, never trust its size and time.
       state.files[p] = { ...state.files[p], mtimeMs: 0, size: -1 };
@@ -252,7 +264,7 @@ export async function branchCreate(ctx) {
   const switched = ctx.root && !ctx.flags["no-switch"] ? await switchTo(ctx, res.branch, { carry: true }) : null;
   ctx.out.result("nb.branch.create/1", { branch: res.branch, switched }, (d) => [
     `${ctx.out.c.success(ctx.out.sym.done)} Created ${safe(d.branch.name)}${d.switched ? " and moved this folder onto it" : ""}`,
-    ctx.out.c.muted("  Save on it as usual (nb push); nb branch update brings main's newer work in."),
+    ctx.out.c.muted(d.switched ? "  Save on it as usual (nb push); nb branch update brings main's newer work in." : `  To work on it: nb branch switch ${safe(d.branch.name)}`),
   ]);
   return EXIT.ok;
 }

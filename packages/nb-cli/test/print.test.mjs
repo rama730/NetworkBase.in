@@ -37,3 +37,12 @@ it("links only in terminals that show them, only to the server's own pages", () 
   assert.equal(out.link("#4", "https://networkbase.in/w?task=4", "https://networkbase.in"), "\x1b]8;;https://networkbase.in/w?task=4\x1b\\#4\x1b]8;;\x1b\\");
   assert.equal(out.link("#4", "https://evil.example/x", "https://networkbase.in"), "#4");
 });
+
+it("a narrow terminal shortens long paths; plain output and pipes keep them whole (E2 GitHub walk)", () => {
+  const cols = [{ title: "State", value: (/** @type {any} */ r) => r.s }, { title: "Path", value: (/** @type {any} */ r) => r.p, flex: true, path: true }, { title: "Note", value: (/** @type {any} */ r) => r.n }];
+  const rows = [{ s: "conflict", p: "/CODE_QUALITY_IMPROVEMENTS.md", n: "a file with this name exists on the server with different content" }];
+  const term = (/** @type {boolean} */ isTTY, /** @type {any} */ mode) => createOutput(mode, { stdout: /** @type {any} */ ({ isTTY, columns: 60, write() { return true; } }), stderr: /** @type {any} */ ({ isTTY, columns: 60, write() { return true; } }), env: {} }).table(cols, rows).join("\n");
+  assert.doesNotMatch(term(true, {}), /CODE_QUALITY_IMPROVEMENTS\.md/, "a 60-column terminal shortens it");
+  assert.match(term(true, { plain: true }), /\/CODE_QUALITY_IMPROVEMENTS\.md/);
+  assert.match(term(false, {}), /\/CODE_QUALITY_IMPROVEMENTS\.md/);
+});

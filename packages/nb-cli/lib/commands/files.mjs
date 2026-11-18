@@ -7,6 +7,7 @@ import { DIR_NAME, readProjectConfig, readUserConfig, writeProjectConfig } from 
 import { CliError, EXIT, usage } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { scanLocal, toRelative, toRemote } from "../sync/local.mjs";
+import { currentChange, readJournal } from "../changes/capture.mjs";
 import { planSync, stateLabel } from "../sync/plan.mjs";
 import { enqueue, QUEUE_TTL_MS, readQueue, writeQueue } from "../sync/queue.mjs";
 import { acquireLock, pruneBaseCopies, readState, saveBaseCopy, writeState } from "../sync/state.mjs";
@@ -30,7 +31,7 @@ export function relativeArgs(ctx, root) {
 
 /**
  * Server, base and local side by side. Offline: the server side is the base, and status says so (A12.4).
- * @param {Context} ctx @param {{ only?: string[], noFollow?: boolean, leaving?: boolean }} [options]
+ * @param {Context} ctx @param {{ only?: string[], noFollow?: boolean, leaving?: boolean, readOnly?: boolean }} [options]
  */
 export async function buildPlan(ctx, options = {}) {
   // A copy that keeps only some folders (C3) plans just those, so status doesn't list the rest as server-only.
@@ -39,10 +40,12 @@ export async function buildPlan(ctx, options = {}) {
   // The folder follows its git branch first (report H6); offline it stays where it is.
   if (!options.noFollow) {
     const { followGit } = await import("./branch.mjs");
-    await followGit(ctx).catch((error) => { if (!(error instanceof CliError) || error.code !== "OFFLINE") throw error; });
+    await followGit(ctx, { readOnly: options.readOnly }).catch((error) => { if (!(error instanceof CliError) || error.code !== "OFFLINE") throw error; });
   }
   const state = readState(root, project.workspaceId);
   let offline = false;
+  // The branch being left is gone (merged or deleted): its file list is only what this folder kept.
+  let leftGone = false;
   /** @type {Awaited<ReturnType<typeof fetchManifest>>} */
   let manifest;
   try {
@@ -56,6 +59,7 @@ export async function buildPlan(ctx, options = {}) {
     if (!gone && error instanceof CliError && error.code === "BRANCH_DELETED" && /merged/.test(error.message)) throw new CliError("BRANCH_DELETED", error.message, { hint: "Its work is in main now: nb branch switch main (your edits here stay)" });
     if (!(error instanceof CliError) || (error.code !== "OFFLINE" && !gone)) throw error;
     offline = !gone;
+    leftGone = gone;
     manifest = { files: new Map(Object.entries(state.files).map(([p, b]) => [p, { path: p, nodeId: b.nodeId, version: b.baseVersion, hash: b.baseHash, size: b.size }])), canWrite: true, largestFileBytes: 0, branch: null };
   }
   // The folder keeps its branch by id; a rename elsewhere only changes the name it shows (H24).
@@ -71,7 +75,7 @@ export async function buildPlan(ctx, options = {}) {
     const prefixes = options.only.map((rel) => toRemote(project.remoteRoot, rel));
     items = items.filter((i) => prefixes.some((pre) => i.path === pre || i.path.startsWith(pre.endsWith("/") ? pre : `${pre}/`)));
   }
-  return { root, project, state, manifest, items, skipped, offline };
+  return { root, project, state, manifest, items, skipped, offline, leftGone };
 }
 
 /** @param {string} root @param {string} remoteRoot @param {string} remotePath */
@@ -99,7 +103,7 @@ export async function status(ctx) {
   // The day's counts ride along (C2 "a home screen in nb status"); offline or refused, status still works.
   const started = ctx.project?.startedTask?.id ?? null;
   const homeP = ctx.api.get("/api/v1/home", { query: started ? { task: started } : {} }).then((/** @type {any} */ h) => h, () => null);
-  const { root, project, items, skipped, offline, manifest } = await buildPlan(ctx);
+  const { root, project, items, skipped, offline, manifest } = await buildPlan(ctx, { readOnly: true });
   const home = /** @type {any} */ (await homeP);
   // The folder's own workspace's counts, shown under its name (M9 walkthrough: "1 overdue" came from another one).
   const mine = home ? (home.tasks.workspaces ?? []).find((/** @type {any} */ w) => w.id === project.workspaceId) : null;
@@ -120,6 +124,8 @@ export async function status(ctx) {
     offline,
     readOnly: !manifest.canWrite,
     queued: readQueue(root).length,
+    // This folder's open change set (E2 walk: nb status didn't mention it).
+    changeSet: ((id) => (id ? { id, title: readJournal(root, id).title } : null))(currentChange(root)),
     today,
     files: changed.map((i) => ({ path: i.path, state: i.state, action: i.action, ...(i.note ? { note: i.note } : {}), ...(i.remote ? { remoteVersion: i.remote.version } : {}) })),
     skipped,
@@ -129,6 +135,7 @@ export async function status(ctx) {
     const task = d.startedTask ? ` · #${d.startedTask.number ?? ""} ${safe(d.startedTask.title ?? "")}` : "";
     const head = `${c.brand(sym.brand)} ${safe(project.slug ?? project.workspaceId)}${project.branch ? ` · on branch ${c.accent(safe(project.branch.name))}` : ""}${task}${d.readOnly ? ` · ${c.warning("read only")}` : ""}${d.offline ? ` · ${c.warning("offline: server side not checked")}` : ""}`;
     const queued = d.queued ? [`  ${c.warning(`${d.queued} push(es) queued while offline: nb queue`)}`] : [];
+    if (d.changeSet) queued.push(`  Change set ${d.changeSet.id.slice(0, 8)}${d.changeSet.title ? ` ${safe(d.changeSet.title)}` : ""} is open here · ${c.muted("nb change status, nb change finish")}`);
     const t = d.today;
     const here = d.files.filter((f) => f.action === "push" || f.state === "conflict").length;
     const day = t ? [t.dueThisWeek && `${t.dueThisWeek} due this week`, t.overdue && c.warning(`${t.overdue} overdue`), t.unread && `${t.unread} unread`, here && `${here} ${here === 1 ? "file" : "files"} changed here`].filter(Boolean) : [];
@@ -285,8 +292,14 @@ async function pushToProtectedMain(ctx, root) {
   const rules = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(project.workspaceId)}/protection`).catch(() => null))?.rules;
   const agent = String(ctx.profile?.token ?? "").startsWith("nb_agt_");
   if (!rules || !(rules.requireMergeRequest || (agent && rules.agentsOnBranches))) return null;
-  const { readGitHead, switchTo } = await import("./branch.mjs");
-  if (readGitHead(root)) {
+  const { followGit, MAIN_NAMES, readGitHead, switchTo } = await import("./branch.mjs");
+  const head = readGitHead(root);
+  if (head) {
+    // git is already on its own branch (E2 GitHub walk: this refused before the folder could follow git).
+    if (head.branch && !MAIN_NAMES.has(head.branch.toLowerCase())) {
+      await followGit(ctx);
+      if (ctx.requireRoot().project.branch) return null;
+    }
     throw new CliError("BRANCH_PROTECTED", agent ? "Agents work on a branch here: main changes only through merge requests" : "main is protected: it changes only through merge requests", {
       hint: "git switch -c <you>/<what>, then nb push again (NetworkBase follows git and offers to make the branch)",
     });
