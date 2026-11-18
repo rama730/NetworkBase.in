@@ -1686,7 +1686,7 @@ The same rules can protect any other branch (for example `release`); main is pro
 - **Pushing** NetworkBase `feature-x` updates GitHub `feature-x`.
 - **Defaults:** main ↔ the repository's default branch (`github_default_branch`). Other branches sync when you turn them on per branch, or for all.
 - The existing per-branch baseline (`github_sync_files.branch`) is reused.
-- **Merge requests and GitHub pull requests stay separate in this first set.** Merging in NetworkBase pushes the merge result to GitHub main, and merging a pull request on GitHub arrives as a save on NetworkBase main through sync.
+- **Merge requests and GitHub pull requests stay separate in this first set.** Both directions go through Repository sync, by hand (decided 2026-11-18): after a merge in NetworkBase, Push to GitHub sends the result to GitHub main; a pull request merged on GitHub arrives as a save on NetworkBase main with Pull into NetworkBase.
 
 ## H7. Agents on branches
 
@@ -2020,7 +2020,7 @@ Until protection ships, agents keep Part G's behaviour (a draft change set and o
 **6. A GitHub user**
 1. Connects the repository. main ↔ the repository's default branch; other branches sync when turned on.
 2. Works locally with git on `feature-x`. `nb push` goes to NetworkBase `feature-x`, and GitHub sync keeps GitHub `feature-x` in step.
-3. Merges in NetworkBase. The result goes to GitHub main.
+3. Merges in NetworkBase, then sends the result to GitHub main with Repository sync (by hand, decided 2026-11-18).
 4. If they merge a pull request on GitHub instead, it arrives on NetworkBase main as a save "from GitHub".
 
 **7. A teacher in an organization's team workspace**
