@@ -2152,9 +2152,9 @@
       "text": "nb diff <file> (exists): gains comparing two server versions (--from v1 --to v3) as well as local against the server.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12; live 2026-11-16: in a folder linked to a remote folder the path missed the link, fixed in fb5a184fb (local, not deployed); check again after it ships"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): nb diff README.md --from v1 on ponytail. Before that: M4b, local main (9c4cb7836..), 2026-11-12; live 2026-11-16: in a folder linked to a remote folder the path missed the link, fixed in fb5a184fb (local, not deployed); check again after it ships"
     },
     {
       "key": "C3.cc4a4a81",
@@ -2202,9 +2202,9 @@
       "text": "Remembered partial pulls: nb pull <folder> works today but nothing remembers it, so the next nb pull brings everything. nb sync --only design/ docs/ saves the c",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): nb sync --only .agents, then nb pull pulled nothing outside it. Before that: M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "C3.2128f071",
@@ -2352,9 +2352,9 @@
       "text": "nb queue: shows the offline queue (what's waiting, since when, why), with nb queue retry and nb queue drop <n>. Today it's invisible.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/files.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): nb queue on ponytail. Before that: M4a, local main (e839d4584..), 2026-11-12"
     },
     {
       "key": "C6.1fdf84d5",
@@ -2412,9 +2412,9 @@
       "text": "Tested behind a proxy and on a company network with its own certificates.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/help-network.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12; proxy and ca-file config and re-exec tested; a real company network is checked in M4d with the Windows run"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): nb through a local slowing proxy (HTTPS_PROXY) worked; the proxy warning was fixed (finding 5). Before that: M4b, local main (9c4cb7836..), 2026-11-12; proxy and ca-file config and re-exec tested; a real company network is checked in M4d with the Windows run"
     },
     {
       "key": "C6.ec2d5b55",
@@ -2542,9 +2542,9 @@
       "text": "Clickable links in terminals that support them, with copy-friendly links otherwise (already partly in place; extended to every task, file and comment line).",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): nb inbox printed OSC 8 links with NB_LINKS=1. Before that: M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "C11.36b057ea",
@@ -2582,9 +2582,9 @@
       "text": "nb watch can show inbox events as they happen (\"Sam commented on #4\"). Turned on with --inbox; quiet otherwise. It follows notification settings and quiet hours",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): nb watch --inbox started on ponytail. Before that: M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "C14.16b59fcf",
@@ -2682,9 +2682,9 @@
       "text": "nb queue (C6)",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/files.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): nb queue on ponytail. Before that: M4a, local main (e839d4584..), 2026-11-12"
     },
     {
       "key": "C14b.68b85a10",
@@ -2712,9 +2712,9 @@
       "text": "Offline:",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/journeys.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): offline messages and queue (2.6.1) plus journeys.test.mjs. Before that: M4d, local main (a028e54af..), 2026-11-16"
     },
     {
       "key": "C14b.4aaaeb4e",
@@ -2842,9 +2842,9 @@
       "text": "file use, history, diff between versions · existing version routes, plus GET …/files/:node/versions/:a/diff/:b",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/files-more.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12; live 2026-11-16: in a folder linked to a remote folder the path missed the link, fixed in fb5a184fb (local, not deployed); check again after it ships"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): nb file history and nb diff --from on ponytail. Before that: M4b, local main (9c4cb7836..), 2026-11-12; live 2026-11-16: in a folder linked to a remote folder the path missed the link, fixed in fb5a184fb (local, not deployed); check again after it ships"
     },
     {
       "key": "C15.a8c68744",
@@ -3022,9 +3022,9 @@
       "text": "the live walkthrough steps for the terminal journey (E1) pass on CLI 2.1.0",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/journeys.test.mjs",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16; the live terminal journey runs at the M4 close"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): the terminal journey passed again on 2.6.1. Before that: M4d, local main (a028e54af..), 2026-11-16; the live terminal journey runs at the M4 close"
     },
     {
       "key": "C15.446357a5",
@@ -9992,9 +9992,9 @@
       "text": "When: after Parts A and B are live (CLI 2.0.4 and the new approval page). It walks what exists then; features not built yet are noted as \"planned in C/D/G\", not",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E0.3b3b9b9d",
@@ -10002,9 +10002,9 @@
       "text": "Who runs it:",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E0.a81e593c",
@@ -10012,9 +10012,9 @@
       "text": "Machines:",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E0.7e94a150",
@@ -10022,9 +10022,9 @@
       "text": "Where findings go: docs/superpowers/plans/<date>-walkthrough-findings.md, linked from this report as \"Part E results\".",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E1.2ee35f29",
@@ -10032,9 +10032,9 @@
       "text": "At the terminal: install → nb → sign in → link a folder → see tasks → work on one → push → hand in an assignment → see the review → undo a mistake.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E1.1a9985d7",
@@ -10042,9 +10042,9 @@
       "text": "Through an AI: nb agent setup → approve (one click) → \"what should I do today?\" → \"work on #4\" → questions → drafts → \"finish it\" → the yes → the reviewer's vie",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E1.7a97b241",
@@ -10062,9 +10062,9 @@
       "text": "A student: classes, hand-ins, take back, \"check my hand-in\".",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.e3353e6d",
@@ -10072,9 +10072,9 @@
       "text": "A teacher: review queue, batch return, class progress.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.9d6d1836",
@@ -10082,9 +10082,9 @@
       "text": "A team lead: planning a sprint, assigning, reviewing.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.a70bc713",
@@ -10092,9 +10092,9 @@
       "text": "A solo developer: files, git, nb watch, an agent on their own work.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.a0b004cf",
@@ -10102,9 +10102,9 @@
       "text": "An organization admin: agent policy, pausing agents, roles.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E2.b0aa4016",
@@ -10142,9 +10142,9 @@
       "text": "macOS, Windows and Linux.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E3.8df414c4",
@@ -10152,9 +10152,9 @@
       "text": "A server over SSH (no browser; QR approval from a phone, A4).",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E3.a7b70eaf",
@@ -10172,9 +10172,9 @@
       "text": "Behind a company proxy with its own certificates.",
       "kind": "build",
       "milestone": "M9",
-      "status": "todo",
-      "test": "",
-      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
+      "status": "tested",
+      "test": "packages/nb-cli/test/help-network.test.mjs",
+      "evidence": "2026-11-18: proxy walked live (finding 5 fixed); extra certificates covered by the test, not walked"
     },
     {
       "key": "E4.84f22fe0",
@@ -10182,9 +10182,9 @@
       "text": "Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E4.69482b6b",
@@ -10192,9 +10192,9 @@
       "text": "A cloud agent on hosted MCP (OAuth sign-in, no local folder).",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.2ef6aaea",
@@ -10202,9 +10202,9 @@
       "text": "Install to first push · under 3 minutes",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.06b293e3",
@@ -10212,9 +10212,9 @@
       "text": "Connecting an agent · 1 approval click",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.494f735a",
@@ -10222,9 +10222,9 @@
       "text": "The agent's first useful answer · under 60 seconds",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.6adb3ac1",
@@ -10232,9 +10232,9 @@
       "text": "Handing in an assignment · no help page needed",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E5.9ace04a9",
@@ -10242,9 +10242,9 @@
       "text": "Any error · says the next step without reading docs",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.2eb22cc7",
@@ -10252,9 +10252,9 @@
       "text": "The network drops in the middle of a push.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.f5b82771",
@@ -10262,9 +10262,9 @@
       "text": "The sign-in expires, or is revoked from Settings while in use.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.539f9f43",
@@ -10272,9 +10272,9 @@
       "text": "The workspace is paused, or the organization turns agents off.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.7a36cf71",
@@ -10282,9 +10282,9 @@
       "text": "A conflict with a teammate's change.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.869c1515",
@@ -10292,9 +10292,9 @@
       "text": "A 25 MB file.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E6.fc9b40be",
@@ -10302,9 +10302,9 @@
       "text": "A slow connection (throttled).",
       "kind": "build",
       "milestone": "M9",
-      "status": "todo",
-      "test": "",
-      "evidence": "moved from M3: not walkable until then (M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md)"
+      "status": "live",
+      "test": "live walkthrough (slow proxy) docs/superpowers/plans/2026-11-18-walkthrough-findings.md",
+      "evidence": "2026-11-18: through a local proxy adding 400 ms a chunk at about 64 KB/s, whoami 2.4 s and status 2.8 s worked"
     },
     {
       "key": "E7.15413bb7",
@@ -10332,9 +10332,9 @@
       "text": "Terminal recordings and agent transcripts, kept with the findings (secrets removed).",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E8.d13ad46f",
@@ -10342,9 +10342,9 @@
       "text": "Every finding with a severity: blocker, annoying, or polish.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E8.ba2e03a6",
@@ -10352,9 +10352,9 @@
       "text": "Every finding marked \"already planned in A–D/F\" or \"new\".",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E8.e54bd4b0",
@@ -10362,9 +10362,9 @@
       "text": "Times measured against E5.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "2026-11-18 LIVE: repeated on CLI 2.6.1 against networkbase.in (M9 walkthrough, docs/superpowers/plans/2026-11-18-walkthrough-findings.md). Before that: M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E9.6b2fedaf",
@@ -10372,9 +10372,9 @@
       "text": "The walkthrough becomes automated tests: the stable parts of each journey (scripted terminal steps against a seeded server, and the agent steps through the Part",
       "kind": "build",
       "milestone": "M9",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "packages/nb-cli/test/journeys.test.mjs (M9 walkthrough: branches)",
+      "evidence": "2026-11-18: the branch journey as walked runs in CI with every CLI change"
     },
     {
       "key": "E9.05a2ece6",
@@ -10382,9 +10382,9 @@
       "text": "Repeated after every minor release (2.1, 2.2), with the findings list updated.",
       "kind": "build",
       "milestone": "M9",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "docs/superpowers/plans/2026-11-18-walkthrough-findings.md",
+      "evidence": "2026-11-18: repeated on CLI 2.6.1 with the findings list updated (5 findings, all fixed locally)"
     },
     {
       "key": "E9.8d8945bf",
@@ -10632,9 +10632,9 @@
       "text": "\"What's new\": nb version says \"2.1.0 is out: what's new\", following the existing once-a-day notice rule.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/help-network.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "2026-11-18 LIVE (CLI 2.6.1, M9 walkthrough): nb version prints the version; the what's-new notice shows only when a newer release exists. Before that: M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "F8.dd2faaba",

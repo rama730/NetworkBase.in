@@ -259,4 +259,19 @@ describe("nb branch: create, switch, push and pull on a branch, follow git", () 
     const after = JSON.parse(fs.readFileSync(path.join(cwd, ".networkbase", "queue.json"), "utf8"));
     assert.equal(after.entries.length, 1, "it stays queued for feature-x");
   });
+
+  it("a folder that pulled only some files switches without fetching the rest (M9 walkthrough)", async () => {
+    const partial = await tempDir("nb-partial-");
+    const run = (/** @type {string[]} */ args) => runCli(args, { api: api.url, cwd: partial, home });
+    assert.equal((await run(["init", "design-lab"])).code, 0);
+    fs.writeFileSync(path.join(partial, "note.md"), "mine\n");
+    assert.equal((await run(["push", "note.md", "--yes"])).code, 0);
+    const before = api.requests.length;
+    const made = await run(["branch", "create", "feature-p"]);
+    assert.equal(made.code, 0, made.stderr);
+    const fetched = api.requests.slice(before).filter((r) => r.path.endsWith("/raw"));
+    assert.deepEqual(fetched, [], "README.md and src/app.ts stay on the server");
+    assert.ok(!fs.existsSync(path.join(partial, "README.md")));
+    assert.equal(fs.readFileSync(path.join(partial, "note.md"), "utf8"), "mine\n");
+  });
 });

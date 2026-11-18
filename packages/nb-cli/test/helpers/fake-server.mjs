@@ -128,6 +128,8 @@ const exact = {
     return { data: { user: { id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", email: "t@example.com" }, credential: { kind: "token", type: agent ? "agent" : String(req.headers.authorization ?? "").startsWith("Bearer nb_dev_") ? "device" : "pat", expiresAt: "2027-11-06T09:34:59.663Z", workspaceId: agent ? WORKSPACE_ID : null, scopes: ["file:read", "file:write", "task:read", "task:write", "workspace:read"] }, limits: { largestFileBytes: 10 * 1024 * 1024 }, access } };
   },
   "GET /api/v1/extension/workspaces": (_req, state) => ({ data: { workspaces: [state.workspace, ...(state.extraWorkspaces ?? [])] } }),
+  // "My reviews" across workspaces (H23): merge requests waiting on this person; none unless a test adds them.
+  "GET /api/v1/me/reviews": (_req, state) => ({ data: { reviews: /** @type {any} */ (state).myReviews ?? [] } }),
   "GET /api/v1/home": (req, state) => {
     const data = state.home ?? { tasks: { open: 0, byStatus: { todo: 0, in_progress: 0, blocked: 0, in_review: 0 }, overdue: 0, dueThisWeek: 0, workspaces: [] }, unread: 0, reviews: [], assignments: [] };
     const id = req.query.get("task");

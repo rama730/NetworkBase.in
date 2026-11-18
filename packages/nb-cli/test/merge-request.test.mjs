@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { putFile, startFakeServer } from "./helpers/fake-server.mjs";
@@ -67,7 +69,8 @@ describe("nb merge-request", () => {
     const done = await nb(["mr", "merge", "1", "--squash", "--yes"]);
     assert.equal(done.code, 0, done.stderr);
     assert.equal(state().mrPosts.at(-1).body.method, "squash");
-    assert.match(done.stdout, /Merged !1 into main \(save 9\)/);
+    assert.match(done.stdout, /Merged !1 into main \(save 9\); this folder is on main again/);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(cwd, ".networkbase", "config.json"), "utf8")).branch, null, "back on main (M9 walkthrough)");
   });
 
   it("close, reopen and ready send the change", async () => {

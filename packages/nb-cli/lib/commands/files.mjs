@@ -50,6 +50,8 @@ export async function buildPlan(ctx, options = {}) {
   } catch (error) {
     // Leaving a branch that was deleted or merged (H24): its side is what was last pulled, so edits still show.
     const gone = options.leaving && error instanceof CliError && error.code === "BRANCH_DELETED";
+    // A merged branch can't be restored; the way on is main.
+    if (!gone && error instanceof CliError && error.code === "BRANCH_DELETED" && /merged/.test(error.message)) throw new CliError("BRANCH_DELETED", error.message, { hint: "Its work is in main now: nb branch switch main (your edits here stay)" });
     if (!(error instanceof CliError) || (error.code !== "OFFLINE" && !gone)) throw error;
     offline = !gone;
     manifest = { files: new Map(Object.entries(state.files).map(([p, b]) => [p, { path: p, nodeId: b.nodeId, version: b.baseVersion, hash: b.baseHash, size: b.size }])), canWrite: true, largestFileBytes: 0, branch: null };
@@ -97,7 +99,9 @@ export async function status(ctx) {
   const homeP = ctx.api.get("/api/v1/home", { query: started ? { task: started } : {} }).then((/** @type {any} */ h) => h, () => null);
   const { root, project, items, skipped, offline, manifest } = await buildPlan(ctx);
   const home = /** @type {any} */ (await homeP);
-  const today = home ? { dueThisWeek: home.tasks.dueThisWeek, overdue: home.tasks.overdue, unread: home.unread } : null;
+  // The folder's own workspace's counts, shown under its name (M9 walkthrough: "1 overdue" came from another one).
+  const mine = home ? (home.tasks.workspaces ?? []).find((/** @type {any} */ w) => w.id === project.workspaceId) : null;
+  const today = home ? { dueThisWeek: mine?.dueThisWeek ?? 0, overdue: mine?.overdue ?? 0, unread: home.unread } : null;
   // A started task deleted elsewhere (or no longer yours to see) stops being this folder's task (found in M4a).
   if (started && home && home.currentTask === null) {
     writeProjectConfig(root, { ...project, startedTask: null });

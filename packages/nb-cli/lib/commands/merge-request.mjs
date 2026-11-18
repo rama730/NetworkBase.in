@@ -170,8 +170,16 @@ export async function merge(ctx) {
     ]);
     return EXIT.conflict;
   }
-  ctx.out.result("nb.merge-request.merge/1", res, () => [
-    `${c.success(ctx.out.sym.done)} Merged !${n} into main${res.save ? ` (save ${res.save.number})` : ""}`,
+  // A folder on the branch that just merged goes back to main, keeping any edits (M9 walkthrough: it stopped with
+  // "was merged into main" on the next command).
+  let backOnMain = false;
+  if (!res.branchMoved && ctx.root && ctx.project?.branch?.id && ctx.project.branch.id === res.branch?.id) {
+    const { switchTo } = await import("./branch.mjs");
+    await switchTo(ctx, { isDefault: true, name: "main" }, { carry: true });
+    backOnMain = true;
+  }
+  ctx.out.result("nb.merge-request.merge/1", { ...res, backOnMain }, () => [
+    `${c.success(ctx.out.sym.done)} Merged !${n} into main${res.save ? ` (save ${res.save.number})` : ""}${backOnMain ? "; this folder is on main again" : ""}`,
     ...(res.task && res.task.outcome !== "unchanged" ? [c.muted(`  Task #${res.task.number} ${res.task.outcome === "review" ? "went for review" : "is done"}`)] : []),
     res.branchMoved
       ? c.warning(`  Saves reached ${safe(res.branch.name)} while it merged; they aren't in main yet: open another merge request`)

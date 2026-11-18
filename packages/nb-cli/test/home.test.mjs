@@ -2,7 +2,7 @@ import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { startFakeServer } from "./helpers/fake-server.mjs";
+import { startFakeServer, WORKSPACE_ID } from "./helpers/fake-server.mjs";
 import { runCli, tempDir } from "./helpers/run-cli.mjs";
 
 // Report C1: nb on its own knows where you are; advice comes in the right order; nb init suggests by name.
@@ -60,7 +60,8 @@ describe("home screen (C1)", () => {
     const cwd = await tempDir("nb-home-linked-");
     const home = await tempDir("nb-home-h-");
     await runCli(["init", "design-lab"], { api: api.url, cwd, home });
-    api.state.home = { tasks: { open: 4, byStatus: { todo: 2, in_progress: 2, blocked: 0, in_review: 0 }, overdue: 1, dueThisWeek: 3 }, unread: 2 };
+    // Totals cover every workspace; the folder shows its own workspace's (M9 walkthrough).
+    api.state.home = { tasks: { open: 5, byStatus: { todo: 2, in_progress: 2, blocked: 0, in_review: 0 }, overdue: 2, dueThisWeek: 3, workspaces: [{ id: WORKSPACE_ID, title: "Design Lab", open: 4, overdue: 1, dueThisWeek: 3 }, { id: "other", title: "Other", open: 1, overdue: 1, dueThisWeek: 0 }] }, unread: 2 };
     const r = await runCli([], { api: api.url, cwd, home });
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, /3 due this week · 1 overdue · 2 unread/);

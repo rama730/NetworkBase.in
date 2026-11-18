@@ -22,6 +22,8 @@ export function networkEnv(config, env, nodeVersion) {
   if (proxy && proxyCapable(nodeVersion)) {
     if (config.proxy && env.HTTPS_PROXY !== config.proxy) { add.HTTPS_PROXY = String(config.proxy); add.HTTP_PROXY = String(config.proxy); }
     if (env.NODE_USE_ENV_PROXY !== "1") add.NODE_USE_ENV_PROXY = "1";
+    // Node calls its proxy support experimental and says so on every run (M9 walkthrough); nb's output stays clean.
+    if (!String(env.NODE_OPTIONS ?? "").includes("--disable-warning=UNDICI-EHPA")) add.NODE_OPTIONS = `${env.NODE_OPTIONS ?? ""} --disable-warning=UNDICI-EHPA`.trim();
   }
   return Object.keys(add).length ? { ...add, NB_NETWORK_APPLIED: "1" } : null;
 }

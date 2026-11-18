@@ -168,15 +168,16 @@ async function agentSignIns(ctx) {
 
 /** @param {Context} ctx */
 export async function status(ctx) {
-  const { root } = ctx.requireRoot();
-  const rows = agentRows(root, ctx.env);
+  // Outside a linked folder it still lists your signed-in agents (M9 walkthrough: it refused).
+  const rows = ctx.root ? agentRows(ctx.root, ctx.env) : [];
   const signIns = await agentSignIns(ctx);
   ctx.out.result("nb.agent.status/1", { agents: rows, signIns }, (d) => [
-    ctx.out.table([
+    ...(ctx.root ? [] : [ctx.out.c.muted("In a linked folder this also shows which agents are set up there.")]),
+    ...(!ctx.root ? [] : [ctx.out.table([
       { title: "Agent", value: (r) => r.name },
       { title: "MCP server", value: (r) => (r.server ? ctx.out.c.success("connected") : ctx.out.c.muted("—")) },
       { title: "Instructions", value: (r) => (r.instructions ? "added" : ctx.out.c.muted("—")) },
-    ], d.agents),
+    ], d.agents)]),
     ...(d.signIns.length ? ["", "Signed-in agents:", ...d.signIns.flatMap((/** @type {any} */ s) => [`  ${safe(s.agentName ?? "Agent")} on ${safe(s.device)}`, ctx.out.c.muted(`    ${safe(s.access ?? "")}`)])] : []),
   ]);
 }

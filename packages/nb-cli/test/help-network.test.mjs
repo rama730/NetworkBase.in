@@ -56,8 +56,10 @@ describe("help topics, upgrade, network settings", () => {
     assert.equal(proxyCapable("22.21.0"), true);
     assert.equal(proxyCapable("24.1.0"), true);
     assert.equal(networkEnv({}, {}, "22.22.0"), null, "nothing configured: no restart");
-    assert.deepEqual(networkEnv({ proxy: "http://p:8080" }, {}, "22.22.0"), { HTTPS_PROXY: "http://p:8080", HTTP_PROXY: "http://p:8080", NODE_USE_ENV_PROXY: "1", NB_NETWORK_APPLIED: "1" });
-    assert.deepEqual(networkEnv({}, { HTTPS_PROXY: "http://p" }, "22.22.0"), { NODE_USE_ENV_PROXY: "1", NB_NETWORK_APPLIED: "1" });
+    assert.deepEqual(networkEnv({ proxy: "http://p:8080" }, {}, "22.22.0"), { HTTPS_PROXY: "http://p:8080", HTTP_PROXY: "http://p:8080", NODE_USE_ENV_PROXY: "1", NODE_OPTIONS: "--disable-warning=UNDICI-EHPA", NB_NETWORK_APPLIED: "1" });
+    assert.deepEqual(networkEnv({}, { HTTPS_PROXY: "http://p" }, "22.22.0"), { NODE_USE_ENV_PROXY: "1", NODE_OPTIONS: "--disable-warning=UNDICI-EHPA", NB_NETWORK_APPLIED: "1" });
+    // Node's "experimental" proxy warning stays out of nb's output (M9 walkthrough); other options are kept.
+    assert.equal(networkEnv({}, { HTTPS_PROXY: "http://p", NODE_OPTIONS: "--max-old-space-size=512" }, "22.22.0")?.NODE_OPTIONS, "--max-old-space-size=512 --disable-warning=UNDICI-EHPA");
     assert.deepEqual(networkEnv({ "ca-file": "/etc/corp.pem" }, {}, "20.18.0"), { NODE_EXTRA_CA_CERTS: "/etc/corp.pem", NB_NETWORK_APPLIED: "1" });
     assert.equal(networkEnv({ proxy: "http://p" }, { NB_NETWORK_APPLIED: "1" }, "22.22.0"), null, "never restarts twice");
   });

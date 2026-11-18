@@ -128,8 +128,13 @@ export async function switchTo(ctx, target, opts = {}) {
   const localHash = new Map(plan.items.flatMap((i) => (i.local ? [[i.path, i.local.hash]] : [])));
   let downloaded = 0;
   let removed = 0;
+  // A file this folder never pulled from the old branch stays on the server (nb pull gets it); only what the folder
+  // keeps, and what's new on the other branch, comes down (M9 walkthrough: a one-file folder fetched 143 files).
+  const tracked = new Set(plan.items.flatMap((i) => (i.local || i.base ? [i.path] : [])));
+  const before = plan.manifest.files;
   for (const [p, f] of remote) {
     const abs = localPathOf(root, project.remoteRoot, p);
+    if (!tracked.has(p) && before.has(p)) continue;
     if (localHash.get(p) === f.hash) { recordBase(state, p, { nodeId: f.nodeId, version: f.version, hash: /** @type {string} */ (f.hash), abs }); continue; }
     if (keep.has(p)) {
       if (!fs.existsSync(abs)) continue;
