@@ -6984,7 +6984,7 @@
       "milestone": "M8",
       "status": "tested",
       "test": "tests/unit/branch-names.test.ts; tests/db/branches.test.ts",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): task panel Start work makes task/<n>-<title> from main, linked to the task (createBranch taskId), and opens Files on it; an existing one opens"
+      "evidence": "Deployed 2026-11-18 (723f7b896); live check waits for a task in a workspace with Branches on. M9 B3 2026-11-18 (local, not deployed): task panel Start work makes task/<n>-<title> from main, linked to the task (createBranch taskId), and opens Files on it; an existing one opens"
     },
     {
       "key": "H2.476ca938",
@@ -7102,9 +7102,9 @@
       "text": "After merging: offers to delete the branch, and deletes it automatically after 7 days. Its history stays in the merge.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (daily sweep); tests/browser/merge-requests.spec.ts",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): merged merge requests offer Delete branch; the daily sweep deletes merged branches after 7 days; saves stay in History"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): merged merge requests offer Delete branch; the daily sweep deletes merged branches after 7 days; saves stay in History"
     },
     {
       "key": "H2.17c61c1c",
@@ -7972,9 +7972,9 @@
       "text": "Activity and Discover · Activity shows saves and merges per branch. Discover and public pages show main only",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/cli-commands.test.ts (H8 activity)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): activity lists branch saves, merges into main and deleted branches, members only; Discover and public pages read main"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): activity lists branch saves, merges into main and deleted branches, members only; Discover and public pages read main"
     },
     {
       "key": "H8.49565d4c",
@@ -8692,9 +8692,9 @@
       "text": "Active branches per workspace · 500 (see H25; merged branches don't count)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (H15)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): 500 active branches per workspace; merged ones do not count"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): 500 active branches per workspace; merged ones do not count"
     },
     {
       "key": "H15.4931f8a9",
@@ -8712,9 +8712,9 @@
       "text": "Branches per agent sign-in per workspace · 10",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (H15)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): an agent sign-in works on at most 10 active branches (by its change sets)"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): an agent sign-in works on at most 10 active branches (by its change sets)"
     },
     {
       "key": "H15.dffdbd32",
@@ -8742,9 +8742,9 @@
       "text": "Assignment copies refuse branch creation (BRANCHESOFF).",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (H15, H23 journey 7)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): organization workspaces, including assignment copies, refuse branches (BRANCHES_OFF)"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): organization workspaces, including assignment copies, refuse branches (BRANCHES_OFF)"
     },
     {
       "key": "H16.8b1ad538",
@@ -8962,9 +8962,9 @@
       "text": "Task working files, final files and assignment copies stay main-only in this first set.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (H15, H23 journey 7)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): task files and assignment copies stay main-only"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): task files and assignment copies stay main-only"
     },
     {
       "key": "H20.d97c6e33",
@@ -9082,9 +9082,9 @@
       "text": "Storage growth from many branches · Content stored once by hash; limits; 7-day cleanup of merged branches",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (daily sweep); tests/db/branches.test.ts (H15)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): content by hash, 500-branch and per-agent limits, 7-day cleanup of merged branches"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): content by hash, 500-branch and per-agent limits, 7-day cleanup of merged branches"
     },
     {
       "key": "H21.cfa9c325",
@@ -9234,7 +9234,7 @@
       "milestone": "M8",
       "status": "tested",
       "test": "tests/unit/branch-names.test.ts; tests/db/branches.test.ts",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): Start work on the task panel"
+      "evidence": "Deployed 2026-11-18 (723f7b896); live check waits for a task in a workspace with Branches on. M9 B3 2026-11-18 (local, not deployed): Start work on the task panel"
     },
     {
       "key": "H23.c401a79c",
@@ -9332,9 +9332,9 @@
       "text": "\"My reviews\" (inbox filter, and the CLI command above) lists every merge request waiting on them, across all workspaces.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/merge-requests.test.ts (My reviews); packages/nb-cli/test/merge-request.test.mjs (My reviews)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): inbox tray tab My reviews and nb merge-request list --review-requested --all (GET /api/v1/me/reviews, personal sign-ins only)"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): inbox tray tab My reviews and nb merge-request list --review-requested --all (GET /api/v1/me/reviews, personal sign-ins only)"
     },
     {
       "key": "H23.c2e926db",
@@ -9362,9 +9362,9 @@
       "text": "Keyboard and CLI:",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/merge-requests.spec.ts (j, k, a); packages/nb-cli/test/branch.test.mjs",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): merge request list j/k/Enter/a; nb branch list --mine --stale and nb merge-request list --mine exist"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): merge request list j/k/Enter/a; nb branch list --mine --stale and nb merge-request list --mine exist"
     },
     {
       "key": "H23.d174be9d",
@@ -9372,9 +9372,9 @@
       "text": "Stale branches: after 30 days without saves, a branch shows \"Stale\". After 90 days its owner gets one inbox note: \"Archive or keep?\". Nothing is deleted without",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (daily sweep)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): Stale after 30 days (list flag), one Archive or keep? note per branch after 90 quiet days (dedupe branch-stale:<id>); nothing deleted"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): Stale after 30 days (list flag), one Archive or keep? note per branch after 90 quiet days (dedupe branch-stale:<id>); nothing deleted"
     },
     {
       "key": "H23.ba740055",
@@ -9422,9 +9422,9 @@
       "text": "The person reviews. Comments become agent notes, and the agent answers with new saves next session.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/merge-requests.test.ts (H23 journey 5)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): comments and change requests on an agent merge request with a task become agent notes"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): comments and change requests on an agent merge request with a task become agent notes"
     },
     {
       "key": "H23.3133e6b0",
@@ -9492,9 +9492,9 @@
       "text": "Students' assignment copies have no branches (H2). Their hand-ins work exactly as today.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (H15, H23 journey 7)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): assignment copies have no branches; hand-ins unchanged"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): assignment copies have no branches; hand-ins unchanged"
     },
     {
       "key": "H23.d090a9ac",
@@ -9502,9 +9502,9 @@
       "text": "The branch picker opens as a bottom sheet with search.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts (H23 journey 8)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): under 640 px the branch picker is a bottom sheet with search"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): under 640 px the branch picker is a bottom sheet with search"
     },
     {
       "key": "H23.3c10514b",
@@ -9912,9 +9912,9 @@
       "text": "Cleanup jobs (one daily background function, counted against the Inngest plan):",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (daily sweep)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): one daily step (download-history-retention): merged after 7 days, deleted branches files after 30 (assets kept while saves use them), 90-day note"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): one daily step (download-history-retention): merged after 7 days, deleted branches files after 30 (assets kept while saves use them), 90-day note"
     },
     {
       "key": "H26.f4f15888",
@@ -9922,9 +9922,9 @@
       "text": "Accessibility:",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/branches.spec.ts (accessibility, 4 views); tests/browser/merge-requests.spec.ts (j, k, a)",
-      "evidence": "M9 B3 2026-11-18 (local, not deployed): picker is a labelled dialog with a labelled search, the branch bar is a status region, diffs say added/removed line, merge request actions are buttons with keys"
+      "evidence": "2026-11-18 LIVE (723f7b896, Railway SUCCESS): on networkbase.in the notifications tray has My reviews (\"Nothing is waiting on your review.\"), and nb activity on ponytail lists branch saves and deleted branches; other B3 server rules are deployed and proven by the named tests (not triggered live). Before that: M9 B3 2026-11-18 (local, not deployed): picker is a labelled dialog with a labelled search, the branch bar is a status region, diffs say added/removed line, merge request actions are buttons with keys"
     },
     {
       "key": "H26.a364a0d8",
