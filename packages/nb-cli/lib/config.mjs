@@ -168,7 +168,7 @@ export function findRoot(cwd) {
 }
 
 /**
- * @typedef {{ workspaceId: string, slug?: string | null, title?: string | null, remoteRoot: string, startedTask?: { id: string, number?: number | null, title?: string | null } | null, profile?: string | null, linkedAt?: string, branch?: { id: string, name: string } | null, gitBranch?: string | null, only?: string[] }} ProjectConfig
+ * @typedef {{ workspaceId: string, slug?: string | null, title?: string | null, remoteRoot: string, startedTask?: { id: string, number?: number | null, title?: string | null } | null, profile?: string | null, linkedAt?: string, branch?: { id: string, name: string } | null, gitBranch?: string | null, only?: string[], knownBranches?: Record<string, string> }} ProjectConfig
  */
 
 /**
@@ -196,6 +196,9 @@ export function readProjectConfig(root, warn) {
     branch: raw.branch && typeof raw.branch.id === "string" ? { id: raw.branch.id, name: String(raw.branch.name ?? "") } : null,
     /** The git branch nb last followed, so it only acts when git's changes (H6). */
     gitBranch: typeof raw.gitBranch === "string" ? raw.gitBranch : null,
+    /** Branches this folder has been on, id → name, so switching back works offline (H23 journey 9). */
+    knownBranches: raw.knownBranches && typeof raw.knownBranches === "object"
+      ? Object.fromEntries(Object.entries(raw.knownBranches).filter(([id, n]) => /^[0-9a-f-]{36}$/i.test(id) && typeof n === "string")) : {},
   };
 }
 

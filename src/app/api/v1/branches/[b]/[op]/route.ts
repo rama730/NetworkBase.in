@@ -64,7 +64,7 @@ export async function POST(request: Request, context: Ctx) {
   const { b, op } = await context.params;
   if (op !== "restore" && op !== "update" && op !== "use") return jsonError("Not found", 404, "NOT_FOUND");
   return changeSetRoute(request, { limit: "apply", branchId: b }, async (auth, req) => {
-    if (op === "restore") return restoreBranch(auth, b);
+    if (op === "restore") return restoreBranch(auth, b, req);
     const body = await readJson(req);
     // nb file use on a branch (C14b): `{ path, save }`, the file as that save of the branch left it.
     if (op === "use") return useSaveOnBranch(auth, b, { path: String(body.path ?? ""), save: Number(body.save) });

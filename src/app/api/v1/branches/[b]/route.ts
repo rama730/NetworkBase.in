@@ -21,5 +21,5 @@ export async function PATCH(request: Request, context: Ctx) {
 /** Delete, restorable for 30 days. */
 export async function DELETE(request: Request, context: Ctx) {
   const { b } = await context.params;
-  return changeSetRoute(request, { limit: "other", branchId: b }, (auth) => deleteBranch(auth, b));
+  return changeSetRoute(request, { limit: "other", branchId: b }, (auth, req) => deleteBranch(auth, b, req));
 }

@@ -68,6 +68,8 @@ export interface SecurityActivityEntry {
     | "project_ownership_transferred_in"
     | "branch_protection_changed"
     | "merge_without_approval"
+    | "branch_deleted"
+    | "branch_restored"
     | "cli_verified"
     | "token_new_country";
   createdAt: string;

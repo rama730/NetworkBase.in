@@ -110,12 +110,21 @@ test("H8: activity lists saves and merges per branch and deleted branches, for t
   await branches.saveTextOnBranch({ user: { id: userId } }, branch.id, { path: "/a.md", text: "a\n", message: "First on the branch" });
   const old = (await branches.createBranch({ user: { id: userId } }, projectId, { name: "old-idea" })).branch;
   await sql`UPDATE branches SET status = 'deleted', deleted_at = now() WHERE id = ${old.id}`;
+  // Deleted and restored by a person: in their security log, and in activity with their name (H26).
+  const back = (await branches.createBranch({ user: { id: userId } }, projectId, { name: "comes-back" })).branch;
+  const req = new Request("https://app.test/x", { method: "POST" });
+  await branches.deleteBranch({ user: { id: userId } }, back.id, req);
+  await branches.restoreBranch({ user: { id: userId } }, back.id, req);
+  const logged = await sql`SELECT event_type FROM profile_audit_events WHERE user_id = ${userId} AND event_type LIKE 'branch_%' ORDER BY created_at`;
+  assert.deepEqual(logged.map((r) => r.event_type), ["branch_deleted", "branch_restored"]);
   const ctx = { params: Promise.resolve({ id: projectId }) };
   const a = await call(activity.GET, await pat(userId), "GET", `/api/v1/workspaces/${projectId}/activity`, undefined, ctx);
   assert.equal(a.status, 200, JSON.stringify(a.json));
   const items = a.json.data.items.filter((i: any) => i.kind === "branch");
   assert.ok(items.some((i: any) => i.type === "save" && i.branch === "feature-x" && /First on the branch/.test(i.detail)), JSON.stringify(items));
   assert.ok(items.some((i: any) => i.type === "branch_deleted" && i.detail === "old-idea"));
+  assert.ok(items.some((i: any) => i.type === "branch_restored" && i.detail === "comes-back" && i.by), JSON.stringify(items));
+  assert.ok(items.some((i: any) => i.type === "branch_deleted" && i.detail === "comes-back" && i.by));
   // Someone outside the workspace (public reader) never sees branches.
   await sql`UPDATE workspaces SET visibility = 'public' WHERE id = ${projectId}`;
   const stranger = await sql.begin((tx) => createUser(tx));

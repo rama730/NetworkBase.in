@@ -1,5 +1,7 @@
 "use server";
 
+import { headers } from "next/headers";
+
 import { ChangeSetError, type Actor } from "@/lib/domain/change-sets";
 import {
   beginUploadOnBranch, branchChanges, branchFileDiff, branchFileText, branchFolder, branchPaths, createBranch, deleteBranch, deleteOnBranch, findBranch, finishUploadOnBranch, getBranch,
@@ -35,8 +37,10 @@ export const createBranchAction = async (projectId: string, name: string, from?:
 /** A branch by its name (the address carries the name, H2). */
 export const branchByNameAction = async (projectId: string, name: string) => run(async (a) => getBranch(a, (await findBranch(a, projectId, name)).id));
 export const renameBranchAction = async (branchId: string, name: string) => run((a) => renameBranch(a, branchId, name));
-export const deleteBranchAction = async (branchId: string) => run((a) => deleteBranch(a, branchId));
-export const restoreBranchAction = async (branchId: string) => run((a) => restoreBranch(a, branchId));
+/** The request the security log reads (address, browser), for deleting and restoring a branch (H26). */
+const appRequest = async () => new Request("https://app.local/branches", { headers: new Headers(Object.fromEntries((await headers()).entries())) });
+export const deleteBranchAction = async (branchId: string) => run(async (a) => deleteBranch(a, branchId, await appRequest()));
+export const restoreBranchAction = async (branchId: string) => run(async (a) => restoreBranch(a, branchId, await appRequest()));
 export const updateBranchAction = async (branchId: string, resolutions?: Record<string, "branch" | "main">) => run((a) => updateFromMain(a, branchId, { resolutions }));
 export const branchChangesAction = async (branchId: string) => run((a) => branchChanges(a, branchId));
 export const branchDiffAction = async (branchId: string, path: string) => run((a) => branchFileDiff(a, branchId, path));

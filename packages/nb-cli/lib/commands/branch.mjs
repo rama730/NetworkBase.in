@@ -48,8 +48,12 @@ async function findBranch(ctx, name) {
   const list = await branchesOf(ctx);
   const want = String(name).toLowerCase();
   const found = list.find((/** @type {any} */ b) => b.id === name || b.name.toLowerCase() === want || (want === "main" && b.isDefault));
-  if (!found) throw new CliError("BRANCH_NOT_FOUND", `No branch ${name} here`, { hint: `nb branch create ${name}, or nb branch list` });
-  return found;
+  if (found) return found;
+  // A merged branch isn't in the active list, but can still be deleted or looked at by name (M9 walkthrough).
+  const merged = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${enc(ctx.requireWorkspace())}/branches`, { query: { status: "merged" } })).branches
+    .find((/** @type {any} */ b) => b.id === name || b.name.toLowerCase() === want);
+  if (merged) return merged;
+  throw new CliError("BRANCH_NOT_FOUND", `No branch ${name} here`, { hint: `nb branch create ${name}, or nb branch list` });
 }
 
 /** Remembers which git branch was followed, so nothing happens again until git's changes. @param {string} root @param {string | null} gitBranch */
@@ -106,7 +110,7 @@ export async function switchTo(ctx, target, opts = {}) {
   const { root, project } = ctx.requireRoot();
   const { buildPlan, localPathOf, moveToLocalTrash, recordBase } = await import("./files.mjs");
   const plan = await buildPlan(ctx, { noFollow: true, leaving: true });
-  if (plan.offline) throw new CliError("OFFLINE", "Switching branches needs the network", { hint: "Try again when you're online" });
+  if (plan.offline) return switchOffline(ctx, plan, target, opts);
   const dirty = plan.items.filter((i) => ["push", "conflict", "delete-remote", "move", "keep-local"].includes(i.action));
   const branchId = target.isDefault ? null : target.id;
   const manifest = await fetchManifest(ctx.api, project.workspaceId, branchId);
@@ -119,7 +123,16 @@ export async function switchTo(ctx, target, opts = {}) {
       details: { files: blocking.map((i) => i.path) },
     });
   }
-  const next = { ...readProjectConfig(root), ...project, branch: branchId ? { id: target.id, name: target.name } : null };
+  // Before files change, keep a copy of each unchanged text file of this branch, so switching back offline works.
+  const { readBaseCopy, saveBaseCopy } = await import("../sync/state.mjs");
+  for (const i of plan.items) {
+    if (!i.local || !i.base || i.local.hash !== i.base.baseHash || (i.local.size ?? 0) > 1024 * 1024 || readBaseCopy(root, i.base.baseHash)) continue;
+    try { saveBaseCopy(root, i.base.baseHash, fs.readFileSync(i.local.abs)); } catch { /* unreadable: switching back will need the network */ }
+  }
+  const prior = readProjectConfig(root);
+  // The branches this folder has been on, by id, so a switch back works offline (H23 journey 9).
+  const known = { ...(prior?.knownBranches ?? {}), ...(project.branch ? { [project.branch.id]: project.branch.name } : {}), ...(branchId ? { [target.id]: target.name } : {}) };
+  const next = { ...prior, ...project, branch: branchId ? { id: target.id, name: target.name } : null, knownBranches: known };
   writeProjectConfig(root, next);
   project.branch = next.branch;
   /** @type {import("../sync/state.mjs").SyncState} */
@@ -155,6 +168,51 @@ export async function switchTo(ctx, target, opts = {}) {
   }
   writeState(root, state);
   return { branch: target.isDefault ? "main" : target.name, downloaded, removed, carried: dirty.length };
+}
+
+/**
+ * Offline (H23 journey 9): a switch to a branch this folder had before works from what it kept: that branch's base list
+ * and the text copies of its files. Anything it can't rebuild here (a file it never kept a copy of) needs the network.
+ * @param {Context} ctx @param {any} plan @param {any} target @param {{ carry?: boolean }} opts
+ */
+async function switchOffline(ctx, plan, target, opts) {
+  const { root, project } = ctx.requireRoot();
+  const { localPathOf, moveToLocalTrash } = await import("./files.mjs");
+  const { readBranchState, readBaseCopy } = await import("../sync/state.mjs");
+  const branchId = target.isDefault ? null : target.id;
+  const name = target.isDefault ? "main" : target.name;
+  const saved = readBranchState(root, branchId);
+  if (!saved || saved.workspaceId !== project.workspaceId) throw new CliError("OFFLINE", `Switching to ${name} needs the network: this folder hasn't had its files`, { hint: "Try again when you're online" });
+  const dirty = plan.items.filter((/** @type {any} */ i) => ["push", "conflict", "delete-remote", "move", "keep-local"].includes(i.action));
+  const keep = new Set(dirty.flatMap((/** @type {any} */ i) => [i.path, ...(i.from ? [i.from] : [])]));
+  const localHash = new Map(plan.items.flatMap((/** @type {any} */ i) => (i.local ? [[i.path, i.local.hash]] : [])));
+  const blocking = dirty.filter((/** @type {any} */ i) => (saved.files[i.path]?.baseHash ?? null) !== (i.base?.baseHash ?? null));
+  if (blocking.length && !opts.carry) throw new CliError("LOCAL_CHANGES", `${blocking.length} file(s) changed here are different on ${name}`, { hint: `Push or discard them first, or nb branch switch ${name} --carry`, details: { files: blocking.map((/** @type {any} */ i) => i.path) } });
+  /** @type {Array<{ abs: string, content: Buffer }>} */
+  const writes = [];
+  const missing = [];
+  for (const [p, b] of Object.entries(saved.files)) {
+    if (keep.has(p) || localHash.get(p) === b.baseHash) continue;
+    const content = readBaseCopy(root, b.baseHash);
+    if (!content) { missing.push(p); continue; }
+    writes.push({ abs: localPathOf(root, project.remoteRoot, p), content });
+  }
+  if (missing.length) throw new CliError("OFFLINE", `Switching to ${name} needs the network: ${missing.length} of its files aren't kept here (only text files up to 1 MB are)`, { hint: "Try again when you're online", details: { files: missing.slice(0, 20) } });
+  for (const w of writes) { fs.mkdirSync(path.dirname(w.abs), { recursive: true }); fs.writeFileSync(w.abs, w.content); }
+  // Files the other branch doesn't have go to .networkbase/trash (kept 30 days), never your edits.
+  let removed = 0;
+  for (const i of plan.items) {
+    if (!i.base || saved.files[i.path] || keep.has(i.path) || !i.local || i.local.hash !== i.base.baseHash) continue;
+    moveToLocalTrash(root, i.local.abs);
+    removed++;
+  }
+  const next = { ...readProjectConfig(root), ...project, branch: branchId ? { id: target.id, name: target.name } : null };
+  writeProjectConfig(root, next);
+  project.branch = next.branch;
+  // The other branch's base stays as it was saved; its files are hashed again next time.
+  for (const p of Object.keys(saved.files)) saved.files[p] = { ...saved.files[p], mtimeMs: 0, size: -1 };
+  writeState(root, saved);
+  return { branch: name, downloaded: writes.length, removed, carried: dirty.length, offline: true };
 }
 
 // ───────────────────────────────── commands
@@ -203,10 +261,18 @@ export async function branchCreate(ctx) {
 export async function branchSwitch(ctx) {
   const name = ctx.positionals[0];
   if (!name) throw new CliError("USAGE", "Which branch?", { hint: "nb branch list shows them" });
-  const target = await findBranch(ctx, name);
+  const target = await findBranch(ctx, name).catch((error) => {
+    // Offline: a branch this folder has been on (or main) is found from what the folder remembers.
+    if (!(error instanceof CliError) || error.code !== "OFFLINE") throw error;
+    /** @type {any} */ (ctx).knownOffline = true;
+    if (String(name).toLowerCase() === "main") return { id: null, name: "main", isDefault: true, status: "active" };
+    const known = Object.entries(/** @type {Record<string, string>} */ (ctx.project?.knownBranches ?? {})).find(([, n]) => n.toLowerCase() === String(name).toLowerCase());
+    if (!known) throw new CliError("OFFLINE", `Switching to ${name} needs the network: this folder hasn't been on it`, { hint: "Try again when you're online" });
+    return { id: known[0], name: known[1], isDefault: false, status: "active" };
+  });
   if (target.status !== "active") throw new CliError("BRANCH_DELETED", `${target.name} was ${target.status}`, { hint: "Restore it in the Files tab, or pick another branch" });
   const done = await switchTo(ctx, target, { carry: Boolean(ctx.flags.carry) });
-  ctx.out.result("nb.branch.switch/1", done, (d) => `${ctx.out.c.success(ctx.out.sym.done)} On ${safe(d.branch)} · ${d.downloaded} file(s) updated${d.removed ? `, ${d.removed} set aside in .networkbase/trash` : ""}${d.carried ? `, ${d.carried} edit(s) kept` : ""}`);
+  ctx.out.result("nb.branch.switch/1", done, (d) => `${ctx.out.c.success(ctx.out.sym.done)} On ${safe(d.branch)}${/** @type {any} */ (d).offline ? ` ${ctx.out.c.warning("(offline)")}` : ""} · ${d.downloaded} file(s) updated${d.removed ? `, ${d.removed} set aside in .networkbase/trash` : ""}${d.carried ? `, ${d.carried} edit(s) kept` : ""}`);
   return EXIT.ok;
 }
 

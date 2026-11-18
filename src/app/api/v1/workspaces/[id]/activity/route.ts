@@ -31,7 +31,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const since = q.since ? new Date(q.since) : undefined;
     const before = q.before ? new Date(q.before) : undefined;
     // Branches (report H8): saves and merges per branch, and deletions, for the workspace's people only; the public
-    // sees main's files only. ponytail: restoring a branch isn't listed (nothing records it yet).
+    // sees main's files only.
     const member = access.isOwner || access.isMember || access.isInheritedAdmin;
     const branchLog = !q.task && member && canReadWorkspaceTab(access, "files");
     const [taskRows, fileRows, branchRows, deletedRows] = await Promise.all([
@@ -47,11 +47,20 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         .from(saves).innerJoin(branches, eq(branches.id, saves.branchId))
         .where(and(eq(saves.workspaceId, id), sql`${saves.kind} <> 'start'`, sql`(NOT ${branches.isDefault} OR ${saves.kind} = 'merge')`, since ? gte(saves.createdAt, since) : undefined, before ? lt(saves.createdAt, before) : undefined))
         .orderBy(desc(saves.createdAt)).limit(q.limit),
-      !branchLog ? Promise.resolve([]) : db.select({ at: branches.deletedAt, branch: branches.name })
-        .from(branches).where(and(eq(branches.workspaceId, id), eq(branches.status, "deleted"), since ? gte(branches.deletedAt, since) : undefined, before ? lt(branches.deletedAt, before) : undefined))
-        .orderBy(desc(branches.deletedAt)).limit(q.limit),
+      // Deleted and restored, by whom (the security log, H26); deletions by the daily sweep have no person and come
+      // from the branch itself.
+      !branchLog ? Promise.resolve([]) : db.execute<{ at: string; type: string; branch: string; actor_id: string | null }>(sql`
+        SELECT * FROM (
+          SELECT e.created_at::text AS at, e.event_type AS type, e.metadata->>'branch' AS branch, e.user_id AS actor_id FROM profile_audit_events e
+          WHERE e.event_type IN ('branch_deleted', 'branch_restored') AND e.metadata->>'workspaceId' = ${id}
+          UNION ALL
+          SELECT b.deleted_at::text, 'branch_deleted', b.name, NULL FROM branches b
+          WHERE b.workspace_id = ${id} AND b.status = 'deleted' AND NOT EXISTS (SELECT 1 FROM profile_audit_events e WHERE e.event_type = 'branch_deleted' AND e.metadata->>'branchId' = b.id::text AND e.created_at >= b.deleted_at - interval '1 minute')
+        ) x WHERE (${since?.toISOString() ?? null}::timestamptz IS NULL OR x.at::timestamptz >= ${since?.toISOString() ?? null}::timestamptz)
+          AND (${before?.toISOString() ?? null}::timestamptz IS NULL OR x.at::timestamptz < ${before?.toISOString() ?? null}::timestamptz)
+        ORDER BY x.at::timestamptz DESC LIMIT ${q.limit}`).then((r) => Array.from(r)),
     ]);
-    const actorIds = [...new Set([...taskRows, ...fileRows, ...branchRows].map((r) => r.actorId).filter((x): x is string => Boolean(x)))];
+    const actorIds = [...new Set([...taskRows, ...fileRows, ...branchRows, ...deletedRows.map((r) => ({ actorId: r.actor_id }))].map((r) => r.actorId).filter((x): x is string => Boolean(x)))];
     const actors = actorIds.length ? await db.select({ id: profiles.id, username: profiles.username, name: profiles.fullName }).from(profiles).where(inArray(profiles.id, actorIds)) : [];
     const who = new Map(actors.map((a) => [a.id, a.username ?? a.name ?? null]));
     // "with Claude Code" only where the workspace owner's setting allows this viewer to see it (report Part B).
@@ -64,7 +73,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       ...fileRows.map((r) => ({ at: r.at.toISOString(), kind: "file" as const, type: r.type, by: r.actorId ? who.get(r.actorId) ?? null : null, path: r.path ?? null, ...visibleViaOfPayload(fileScope, r.metadata, r.actorId), detail: null })),
       ...branchRows.map((r) => ({ at: r.at.toISOString(), kind: "branch" as const, type: r.kind === "merge" && r.isMain ? "merged" : r.kind, by: r.actorId ? who.get(r.actorId) ?? null : null, branch: r.branch,
         ...visibleViaOfPayload(fileScope, { via: r.via, agentName: r.agentName }, r.actorId), detail: `${r.isMain ? "main" : r.branch} save ${r.number}: ${(r.message ?? "").slice(0, 120)}` })),
-      ...deletedRows.flatMap((r) => (r.at ? [{ at: r.at.toISOString(), kind: "branch" as const, type: "branch_deleted", by: null, branch: r.branch, via: null, agentName: null, detail: r.branch }] : [])),
+      ...deletedRows.map((r) => ({ at: new Date(r.at).toISOString(), kind: "branch" as const, type: r.type, by: r.actor_id ? who.get(r.actor_id) ?? null : null, branch: r.branch, via: null, agentName: null, detail: r.branch })),
     ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, q.limit);
     return jsonSuccess({ items, nextBefore: items.length === q.limit ? items.at(-1)!.at : null }, undefined, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {

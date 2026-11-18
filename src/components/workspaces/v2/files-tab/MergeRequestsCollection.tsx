@@ -266,6 +266,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
           {conflicts ? (
             <FilesStrip role="region" label="Can’t merge yet" tone="warning">
               <span className="min-w-0 flex-1 text-xs">Can’t merge yet: {conflicts.length} file{conflicts.length === 1 ? "" : "s"} changed on both the branch and main (<span className="font-mono">{conflicts.map((c) => c.path).join(", ")}</span>).</span>
+              <span className="w-full text-[11px] text-muted-foreground sm:hidden">Settling them is easier on a larger screen; on the branch you can still keep the branch’s or main’s copy of each file.</span>
               <button type="button" className={stripButton} onClick={() => toBranch(m.source.name)}>Update the branch from main</button>
             </FilesStrip>
           ) : null}
@@ -278,6 +279,12 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
           <div className="min-h-0 flex-1 overflow-y-auto">
             {tab === "conversation" ? <Conversation projectId={projectId} detail={d} busy={busy} act={act} /> : tab === "saves" ? <SavesList detail={d} /> : <FilesChanged projectId={projectId} detail={d} busy={busy} act={act} />}
           </div>
+          {/* On a phone (H23 journey 8), Merge is a full-width button at the bottom. */}
+          {m.state === "open" && d.viewer.canMerge ? (
+            <div className="border-t border-border bg-card p-3 sm:hidden">
+              <button type="button" className={cn(headerPrimary, "h-11 w-full justify-center")} disabled={Boolean(busy) || d.protection.needs.length > 0} onClick={() => void merge()}><GitMerge className="size-4" aria-hidden="true" />{busy === "merge" ? "Merging…" : method === "squash" ? "Squash and merge" : "Merge"}</button>
+            </div>
+          ) : null}
         </>
       )}
       {stepUpDialog}
@@ -410,7 +417,7 @@ function Conversation({ projectId, detail, busy, act }: { projectId: string; det
         <form className="space-y-2 px-4 pt-4" onSubmit={(e) => { e.preventDefault(); void send("comment"); }}>
           <label htmlFor="mr-comment" className="sr-only">Comment</label>
           <textarea id="mr-comment" value={text} onChange={(e) => setText(e.target.value)} placeholder="Leave a comment" rows={3} className="w-full rounded-[5px] border border-border bg-background p-2 text-sm text-foreground focus:border-[#D14E24] focus:outline-none" />
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 max-sm:flex-col max-sm:items-stretch [&>button]:max-sm:h-11 [&>button]:max-sm:w-full [&>button]:max-sm:justify-center">
             <button type="submit" className={stripButton} disabled={Boolean(busy) || !text.trim()}><MessageSquare className="size-3.5" aria-hidden="true" />Comment</button>
             {detail.viewer.canReview ? <button type="button" className={stripPrimary} disabled={Boolean(busy)} onClick={() => void send("approve")}><Check className="size-3.5" aria-hidden="true" />Approve</button> : null}
             {detail.viewer.canReview ? <button type="button" className={stripButton} disabled={Boolean(busy) || !text.trim()} onClick={() => void send("request_changes")}><CircleDot className="size-3.5" aria-hidden="true" />Request changes</button> : null}
@@ -511,13 +518,15 @@ function FilesChanged({ projectId, detail, busy, act }: { projectId: string; det
   );
   return (
     <div className="flex min-h-full flex-col md:flex-row">
-      <nav aria-label="Files changed" className="max-h-64 overflow-y-auto border-b border-border md:max-h-none md:w-80 md:border-b-0 md:border-r">
+      {/* On a phone (H23 journey 8): the list, then one file at a time with a way back. */}
+      <nav aria-label="Files changed" className={cn("max-h-64 overflow-y-auto border-b border-border md:max-h-none md:w-80 md:border-b-0 md:border-r max-sm:max-h-none", selected && "max-sm:hidden")}>
         {/* Up to 2,000 files (H25): past 200 only the rows in view are drawn. */}
         {files.length > 200 ? (
           <Virtuoso style={{ height: "70vh" }} data={files} computeItemKey={(_, f) => f.path} itemContent={(_, f) => fileRow(f)} />
         ) : <ul>{files.map((f) => <li key={f.path}>{fileRow(f)}</li>)}</ul>}
       </nav>
-      <section aria-label="Diff and comments" className="min-h-0 min-w-0 flex-1">
+      <section aria-label="Diff and comments" className={cn("min-h-0 min-w-0 flex-1", !selected && "max-sm:hidden")}>
+        {selected ? <button type="button" className={cn(stripButton, "m-3 sm:hidden")} onClick={() => setSelected(null)}>← All {files.length} files</button> : null}
         {current ? <DiffView query={diff} label={`${current} · against main`} path={current} /> : null}
         {comments.length ? (
           <ol className="border-t border-border/60">

@@ -353,7 +353,10 @@ const branchRoutes = [
   [/^\/api\/v1\/workspaces\/([^/]+)\/branches$/, "GET", (/** @type {any} */ _req, /** @type {any} */ state) => {
     // Like most workspaces: no branches unless a test turns them on.
     if (!state.branchesOn || state.branchesOff) return fail(403, "BRANCHES_OFF", "History isn't turned on for this workspace");
-    return { data: { branches: [{ ...branchOut({ id: MAIN_BRANCH_ID, name: "main" }), isDefault: true }, ...(state.branches ?? []).filter((/** @type {any} */ b) => b.status !== "deleted").map(branchOut)] } };
+    // Like the server: active ones by default (main first), or one status (merged, deleted).
+    const want = _req.query.get("status") ?? "active";
+    const of = (/** @type {any} */ b) => (b.status ?? "active") === (want === "stale" ? "active" : want);
+    return { data: { branches: [...(want === "active" || want === "stale" ? [{ ...branchOut({ id: MAIN_BRANCH_ID, name: "main" }), isDefault: true }] : []), ...(state.branches ?? []).filter(of).map(branchOut)] } };
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/branches$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
     if (branchOf(state, req.body.name)) return fail(409, "BRANCH_EXISTS", `A branch named ${req.body.name} already exists`);

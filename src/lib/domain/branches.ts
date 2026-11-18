@@ -282,10 +282,19 @@ export async function renameBranch(actor: Actor, branchId: string, rawName: stri
 }
 
 /** Deleted branches can be restored for 30 days (H2); open change sets on it are discarded. */
-export async function deleteBranch(actor: Actor, branchId: string) {
+/** Deleting and restoring a branch go in the person's security log, which the activity feed also reads (H26). */
+async function logBranch(actor: Actor, request: Request | undefined, eventType: "branch_deleted" | "branch_restored", branch: Branch) {
+  if (!request || !actor.user) return;
+  const { recordSecurityEvent } = await import("@/lib/security/audit");
+  await recordSecurityEvent({ userId: actor.user.id, eventType, request, metadata: { workspaceId: branch.workspaceId, branchId: branch.id, branch: branch.name } })
+    .catch((error: unknown) => logger.warn("branches.security_log_failed", { module: "branches", error: error instanceof Error ? error.message : String(error) }));
+}
+
+export async function deleteBranch(actor: Actor, branchId: string, request?: Request) {
   const { branch, isAdmin } = await loadBranch(actor, branchId, { write: true });
   mayManage(actor, branch, isAdmin);
   if (branch.status === "deleted") return { deleted: true };
+  await logBranch(actor, request, "branch_deleted", branch);
   const now = new Date();
   await db.transaction(async (tx) => {
     await tx.update(branches).set({ status: "deleted", deletedAt: now, updatedAt: now }).where(eq(branches.id, branch.id));
@@ -297,7 +306,7 @@ export async function deleteBranch(actor: Actor, branchId: string) {
   return { deleted: true, savesNotInMain: branch.status === "merged" ? 0 : ahead, restoreUntil: new Date(now.getTime() + BRANCH_LIMITS.restoreDays * 86_400_000).toISOString() };
 }
 
-export async function restoreBranch(actor: Actor, branchId: string) {
+export async function restoreBranch(actor: Actor, branchId: string, request?: Request) {
   const { branch, isAdmin } = await loadBranch(actor, branchId, { write: true });
   mayManage(actor, branch, isAdmin);
   if (branch.status !== "deleted") return getBranch(actor, branch.id);
@@ -311,6 +320,7 @@ export async function restoreBranch(actor: Actor, branchId: string) {
     throw error;
   }
   await (await import("@/lib/domain/merge-requests")).reopenForRestoredBranch(branch.id, userOf(actor), branch.deletedAt).catch(() => 0);
+  await logBranch(actor, request, "branch_restored", branch);
   return getBranch(actor, branch.id);
 }
 

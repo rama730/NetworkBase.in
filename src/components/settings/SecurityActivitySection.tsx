@@ -48,6 +48,8 @@ const EVENT_LABELS: Record<SecurityActivityEntry["eventType"], string> = {
   project_ownership_transferred_in: "Workspace ownership received",
   branch_protection_changed: "Main's protection changed",
   merge_without_approval: "Merged into main without approval",
+  branch_deleted: "Branch deleted",
+  branch_restored: "Branch restored",
   cli_verified: "Terminal verified for risky actions",
   token_new_country: "Sign-in used from a new country",
 };

@@ -274,4 +274,32 @@ describe("nb branch: create, switch, push and pull on a branch, follow git", () 
     assert.ok(!fs.existsSync(path.join(partial, "README.md")));
     assert.equal(fs.readFileSync(path.join(partial, "note.md"), "utf8"), "mine\n");
   });
+
+  it("a merged branch can still be deleted by name (M9 walkthrough)", async () => {
+    await nb(["branch", "create", "feature-m", "--no-switch"]);
+    branch("feature-m").status = "merged";
+    const gone = await nb(["branch", "delete", "feature-m", "--yes"]);
+    assert.equal(gone.code, 0, gone.stderr);
+    assert.equal(branch("feature-m").status, "deleted");
+  });
+
+  it("offline (H23 journey 9): switching back to a branch this folder had works from what it kept, labelled offline", async () => {
+    await nb(["branch", "create", "feature-x"]);
+    write("src/app.ts", "branch app\n");
+    assert.equal((await nb(["push", "src/app.ts", "--yes"])).code, 0);
+    assert.equal((await nb(["branch", "switch", "main"])).code, 0);
+    assert.equal(read("src/app.ts"), "main app\n");
+    const offline = { api: "http://127.0.0.1:9", env: { NB_RETRY_BUDGET_MS: "200" } };
+    const back = await nb(["branch", "switch", "feature-x"], offline);
+    assert.equal(back.code, 0, back.stderr);
+    assert.match(back.stdout, /On feature-x \(offline\)/);
+    assert.equal(read("src/app.ts"), "branch app\n");
+    assert.equal(config().branch.name, "feature-x");
+    const main = await nb(["branch", "switch", "main"], offline);
+    assert.equal(main.code, 0, main.stderr);
+    assert.equal(read("src/app.ts"), "main app\n");
+    const never = await nb(["branch", "switch", "feature-z"], offline);
+    assert.notEqual(never.code, 0);
+    assert.match(never.stderr, /needs the network/);
+  });
 });

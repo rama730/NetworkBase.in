@@ -16,7 +16,7 @@ const LABEL: Record<string, string> = {
   recovery_codes_regenerated: "Recovery codes made again", recovery_code_used: "A recovery code was used", recovery_code_redemption_failed: "A recovery code was tried and failed",
   password_set: "Password set", password_changed: "Password changed", other_sessions_revoked: "Other sessions signed out", sign_in_method_linked: "Sign-in method connected",
   sign_in_method_unlinked: "Sign-in method disconnected", editor_token_created: "Editor token made", editor_token_revoked: "Token revoked from the CLI", agent_access_changed: "AI agent access changed",
-  account_data_exported: "Account data exported", branch_protection_changed: "Main's protection changed", merge_without_approval: "Merged into main without approval",
+  account_data_exported: "Account data exported", branch_protection_changed: "Main's protection changed", merge_without_approval: "Merged into main without approval", branch_deleted: "Branch deleted", branch_restored: "Branch restored",
   cli_verified: "Terminal verified for risky actions", token_new_country: "Sign-in used from a new country",
 };
 

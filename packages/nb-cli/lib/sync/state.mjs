@@ -119,7 +119,12 @@ export function readBaseCopy(root, hash) {
 export function pruneBaseCopies(root, state, capBytes = 200 * 1024 * 1024) {
   const dir = path.join(root, DIR_NAME, "base");
   if (!fs.existsSync(dir)) return;
+  // Every branch's base counts (state.json and state.<id>.json), so switching offline still has them (H23 journey 9).
   const live = new Set(Object.values(state.files).map((f) => f.baseHash));
+  for (const name of fs.readdirSync(path.join(root, DIR_NAME))) {
+    if (!/^state(\.[0-9a-f-]{36})?\.json$/i.test(name)) continue;
+    for (const f of Object.values(/** @type {any} */ (readJson(path.join(root, DIR_NAME, name)))?.files ?? {})) live.add(/** @type {any} */ (f).baseHash);
+  }
   const kept = [];
   for (const name of fs.readdirSync(dir)) {
     const file = path.join(dir, name);
@@ -142,3 +147,9 @@ export function hashFile(file) {
     fs.createReadStream(file).on("data", (d) => hash.update(d)).on("error", reject).on("end", () => resolve(hash.digest("hex")));
   });
 }
+
+/** One branch's saved base (state.json for main, state.<id>.json for a branch), or null when the folder never had it. @param {string} root @param {string | null} branchId */
+export function readBranchState(root, branchId) {
+  return /** @type {SyncState | null} */ (readJson(path.join(root, DIR_NAME, branchId ? `state.${branchId}.json` : "state.json")));
+}
+

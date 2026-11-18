@@ -131,6 +131,8 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.getByText('Looks good')).toBeVisible();
       expect(await axeViolations(page)).toEqual([]);
       await page.getByRole('tab', { name: /Files changed/ }).click();
+      // On a phone the list comes first; a file opens on its own (H23 journey 8).
+      if (width < 640) await page.getByRole('navigation', { name: 'Files changed' }).getByRole('button').first().click();
       await expect(page.getByRole('region', { name: 'Diff and comments' })).toContainText('new in');
       expect(await axeViolations(page)).toEqual([]);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -203,4 +205,20 @@ test('H25: a merge request with 600 files draws only the rows in view', async ({
   const drawn = await nav.locator('button').count();
   expect(drawn).toBeGreaterThan(5);
   expect(drawn).toBeLessThan(120);
+});
+
+test('H23 journey 8: on a phone, files open one at a time, and Merge is a full-width button at the bottom', async ({ page }) => {
+  await open(page, { path: '/?mr=3', width: 390 });
+  const mergeButton = page.getByRole('button', { name: 'Merge', exact: true }).last();
+  await expect(mergeButton).toBeVisible();
+  const box = (await mergeButton.boundingBox())!;
+  expect(box.width).toBeGreaterThan(330);
+  await page.getByRole('tab', { name: /Files changed/ }).click();
+  await expect(page.getByRole('navigation', { name: 'Files changed' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Diff and comments' })).toBeHidden();
+  await page.getByRole('navigation', { name: 'Files changed' }).getByRole('button').first().click();
+  await expect(page.getByRole('navigation', { name: 'Files changed' })).toBeHidden();
+  await expect(page.getByText('new in /README.md')).toBeVisible();
+  await page.getByRole('button', { name: /All 1 files/ }).click();
+  await expect(page.getByRole('navigation', { name: 'Files changed' })).toBeVisible();
 });

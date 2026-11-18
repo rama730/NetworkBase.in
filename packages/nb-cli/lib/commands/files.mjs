@@ -46,6 +46,8 @@ export async function buildPlan(ctx, options = {}) {
   /** @type {Awaited<ReturnType<typeof fetchManifest>>} */
   let manifest;
   try {
+    // Already found offline in this command (an offline branch switch): don't wait out the retries again.
+    if (/** @type {any} */ (ctx).knownOffline) throw new CliError("OFFLINE", "Offline");
     manifest = await fetchManifest(ctx.api, project.workspaceId, project.branch?.id ?? null);
   } catch (error) {
     // Leaving a branch that was deleted or merged (H24): its side is what was last pulled, so edits still show.
