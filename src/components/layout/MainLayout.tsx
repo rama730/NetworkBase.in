@@ -8,6 +8,7 @@ import { PendingDeletionNotice } from './PendingDeletionNotice'
 import { MyWorkDrawerHost } from '@/components/my-work/MyWorkDrawerHost'
 import { CREATE_WORKSPACE_PATH, rememberCreateWorkspaceReturnPath } from '@/components/workspaces/create-wizard/create-workspace-return'
 import { stampEntry } from '@/lib/navigation/in-app-history'
+import { rememberRecentPage } from '@/lib/navigation/recent-pages'
 import { useScrollMemory } from '@/hooks/useScrollMemory'
 
 /** Stamps each history entry (unified back A7): in-app Back knows exactly what sits behind this page. */
@@ -16,7 +17,9 @@ function HistoryStamp() {
     const search = useSearchParams()?.toString() ?? ''
     // Before paint, so a page you come back to is already at its remembered place in its first frame.
     useLayoutEffect(() => {
-        stampEntry(window)
+        const entry = stampEntry(window)
+        // The page just left joins "Recently visited", which a 404 offers (404 report idea 7).
+        if (entry.from) rememberRecentPage(entry.from)
     }, [pathname, search])
     return null
 }

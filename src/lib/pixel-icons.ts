@@ -18,6 +18,7 @@ export const PIXEL_ICONS = {
   arrow: ['...#..', '....#.', '######', '....#.', '...#..', '......'],
   person: ['..##..', '..##..', '......', '.####.', '######', '##..##'],
   bot: ['..##..', '######', '#.##.#', '######', '.####.', '.#..#.'],
+  question: ['.####.', '#....#', '....#.', '...#..', '......', '...#..'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type PixelIconName = keyof typeof PIXEL_ICONS;

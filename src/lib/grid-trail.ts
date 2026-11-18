@@ -19,11 +19,17 @@ export const TRAIL = {
 
 export type TrailPreset = keyof typeof TRAIL.presets;
 
-// 5x7 digits for the big 404.
+// 5x7 digits for the big 404 and 500.
 const FONT7: Record<string, string[]> = {
   '0': ['.###.', '#...#', '#..##', '#.#.#', '##..#', '#...#', '.###.'],
   '4': ['...#.', '..##.', '.#.#.', '#..#.', '#####', '...#.', '...#.'],
+  '5': ['#####', '#....', '####.', '....#', '....#', '#...#', '.###.'],
 };
+export const glyph7 = (ch: string) => FONT7[ch] ?? [];
+/** The orange piece of a big code: where the 4's bar crosses its stem, or the 5's lower-left corner. */
+export const isMissingPiece = (first: string, x: number, y: number) => (first === '4' && y === 4 && x === 3) || (first === '5' && y === 5 && x === 0);
+/** How long the orange piece takes to fly in: by the clock, so a busy page skips frames instead of crawling. */
+const FLY_MS = 420;
 // 4x5 letters for pixel words (M N T W Y are five wide, I is three).
 const FONT5: Record<string, string[]> = {
   A: ['.##.', '#..#', '####', '#..#', '#..#'], B: ['###.', '#..#', '###.', '#..#', '###.'], C: ['.###', '#...', '#...', '#...', '.###'],
@@ -68,7 +74,7 @@ export function ringCells(bi: number, bj: number, wc: number, hc: number): [numb
 }
 
 type Cell = { i: number; j: number; t0: number; life: number; free: boolean; color: string; glyph: string; glyphColor: string };
-type WordPixel = { kind: 'letter' | 'dot'; hi: number; hj: number; x: number; y: number; start: number; last: number; color: string | null; scatterUntil: number; sx: number; sy: number };
+type WordPixel = { kind: 'letter' | 'dot'; hi: number; hj: number; x: number; y: number; fx: number; fy: number; start: number; last: number; color: string | null; scatterUntil: number; sx: number; sy: number };
 
 export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
   const p = TRAIL.presets[presetName];
@@ -89,6 +95,8 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
   let blocked = new Set<string>(), solid = new Map<string, Element | null>(), outline: Cell[] = [];
   const queue: (string | null)[] = [];
   let firstFill = true, cmdAt = 0;
+  let ink = '#FAF8F4', inkAt = -Infinity;
+  let introDone = false; // the word is drawn only once its intro has started, so a resize before then draws nothing
   const key = (i: number, j: number) => i + ',' + j;
   const inGrid = (i: number, j: number) => i >= 0 && j >= 0 && i < cols && j < rows;
   const toCell = (x: number, y: number): [number, number] => [Math.floor((x - ox) / c), Math.floor((y - oy) / c)];
@@ -162,12 +170,12 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
     wsi = si; wsj = sj;
     const now = performance.now();
     const pixel = (kind: WordPixel['kind'], hi: number, hj: number, x = hi, y = hj, start = 0) =>
-      word.push({ kind, hi, hj, x, y, start, last: 0, color: null, scatterUntil: 0, sx: 0, sy: 0 });
+      word.push({ kind, hi, hj, x, y, fx: x, fy: y, start, last: 0, color: null, scatterUntil: 0, sx: 0, sy: 0 });
     let piece: [number, number][] = [];
     if (big) {
       [...text].forEach((ch, n) => (FONT7[ch] ?? []).forEach((row, y) => [...row].forEach((bit, x) => {
         if (bit !== '#') return;
-        const hole = n === 0 && ch === '4' && y === 4 && x === 3; // where the bar crosses the stem
+        const hole = n === 0 && isMissingPiece(ch, x, y);
         for (let sx = 0; sx < sc; sx++) for (let sy = 0; sy < sc; sy++) {
           const hi = si + (n * 6 + x) * sc + sx, hj = sj + y * sc + sy;
           if (hole) piece.push([hi, hj]); else pixel('letter', hi, hj);
@@ -186,7 +194,7 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
       ? pixel('dot', hi, hj, hi + 6 + Math.round(Math.random() * 6), hj - 4 - Math.round(Math.random() * 6), now + 200 + n * 110)
       : pixel('dot', hi, hj));
     wordBox = { i0: si - 2, j0: sj - 2, i1: si + width + 2, j1: sj + tall + 2 };
-    wordAnimEnd = animateDot ? now + 200 + piece.length * 110 + 20 * TRAIL.stepMs : 0;
+    wordAnimEnd = animateDot ? now + 200 + piece.length * 110 + FLY_MS : 0;
     addWordBlocked();
     kick();
   };
@@ -204,6 +212,11 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
     let busy = false;
     for (const px of word) {
       if (now < px.start) { busy = true; continue; }
+      if (px.kind === 'dot' && px.start && now - px.start < FLY_MS) {
+        const e = ease((now - px.start) / FLY_MS);
+        px.x = Math.round(px.fx + (px.hi - px.fx) * e); px.y = Math.round(px.fy + (px.hj - px.fy) * e);
+        busy = true; continue;
+      }
       let tx = px.hi, ty = px.hj, pushed = false;
       if (px.scatterUntil > now) { tx += px.sx; ty += px.sy; busy = true; }
       else if (px.kind === 'letter' && ptr?.inside) {
@@ -251,7 +264,7 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
     dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (played) { if (word.length && performance.now() < wordAnimEnd) followWord(); else layoutWord(false); }
+    if (introDone) { if (word.length && performance.now() < wordAnimEnd) followWord(); else layoutWord(false); }
     alignCtas();
     measureBlocked();
     kick();
@@ -341,6 +354,7 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
   };
 
   const unlisten: (() => void)[] = [];
+  let gone = false;
   const on = <K extends keyof HTMLElementEventMap>(target: HTMLElement, type: K, fn: (e: HTMLElementEventMap[K]) => void) => {
     target.addEventListener(type, fn); unlisten.push(() => target.removeEventListener(type, fn));
   };
@@ -353,7 +367,13 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
   // ---- pause off screen; the dot flies in the first time the grid is seen
   const io = new IntersectionObserver(([entry]) => {
     visible = !!entry?.isIntersecting;
-    if (visible && !played && entry!.intersectionRatio >= 0.35) { played = true; layoutWord(!reduced); }
+    if (visible && !played && entry!.intersectionRatio >= 0.35) {
+      played = true;
+      // The word and its flying piece wait for the first quiet moment after the page has loaded (at most 900ms),
+      // so the animation never competes with the page setting itself up.
+      const intro = () => { if (gone || introDone) return; introDone = true; layoutWord(!reduced); };
+      if ('requestIdleCallback' in window) window.requestIdleCallback(intro, { timeout: 900 }); else setTimeout(intro, 200);
+    }
     if (visible) kick(); else { cancelAnimationFrame(raf); raf = 0; }
   }, { threshold: [0, 0.35] });
   io.observe(el);
@@ -372,7 +392,8 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
     ctx.globalAlpha = 1;
     if (word.length) {
       if (updateWord(now)) moving = true;
-      const ink = getComputedStyle(el).getPropertyValue('--nb-grid-word-ink').trim() || '#FAF8F4';
+      // Read the word's colour at most twice a second: a style read every frame forces work while the page is busy.
+      if (now - inkAt > 500) { ink = getComputedStyle(el).getPropertyValue('--nb-grid-word-ink').trim() || '#FAF8F4'; inkAt = now; }
       for (const px of word) {
         if (now < px.start) continue;
         ctx.fillStyle = px.color || (px.kind === 'dot' ? TRAIL.brand : ink);
@@ -405,9 +426,11 @@ export function attachGridTrail(el: HTMLElement, presetName: TrailPreset) {
     replay() {
       cells.clear(); outline = []; queue.length = 0; firstFill = true; cmdAt = 0;
       if (!played) return; // the first view plays the intro by itself
+      introDone = true;
       resize(); layoutWord(!reduced); measureBlocked();
     },
     destroy() {
+      gone = true;
       cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); unlisten.forEach((u) => u()); canvas.remove();
     },
   };

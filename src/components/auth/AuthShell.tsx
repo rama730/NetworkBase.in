@@ -29,14 +29,17 @@ function Eyebrow({ text, step }: { text: string; step?: readonly [number, number
     useEffect(() => {
         const el = ref.current
         if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return
-        let frame = 0, timer = 0
+        // By the clock (480ms), not by frames: on a busy first load it settles on time instead of hanging half-scrambled.
+        let timer = 0
+        const t0 = performance.now()
         const tick = () => {
-            const shown = Math.floor((frame / 14) * text.length)
+            const progress = (performance.now() - t0) / 480
+            if (progress >= 1) { el.textContent = text; return }
+            const shown = Math.floor(progress * text.length)
             el.textContent = [...text].map((ch, i) => i < shown || ch === ' ' ? ch : GLITCH[Math.floor(Math.random() * GLITCH.length)]).join('')
-            if (frame++ < 14) timer = window.setTimeout(tick, 34)
-            else el.textContent = text
+            timer = window.setTimeout(tick, 34)
         }
-        timer = window.setTimeout(tick, 80)
+        tick()
         return () => { clearTimeout(timer); el.textContent = text }
     }, [text])
     const pad = (n: number) => String(n).padStart(2, '0')

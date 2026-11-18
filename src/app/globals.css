@@ -1183,6 +1183,67 @@ svg.lucide { stroke-width:1.75; }
 @keyframes nb-auth-in-fwd { from { opacity:0; transform:translateX(16px); } }
 @keyframes nb-auth-in-back { from { opacity:0; transform:translateX(-16px); } }
 @keyframes nb-auth-pixel { from { opacity:0; } }
+/* 404 and error pages (prototype 18oAc8rbMB6hRsYTj2dxDy): the sign-in logo bar over one hero grid; in the app, a quiet card. */
+.nb-err { min-height:100dvh; display:flex; flex-direction:column; background:var(--background); color:var(--foreground); }
+.nb-err-back { display:grid; place-items:center; width:56px; border-right:1px solid var(--border); }
+.nb-err-stage { position:relative; isolation:isolate; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:40px 24px 56px; text-align:center; --nb-grid-cell:16px; --nb-grid-line:rgb(33 42 48 / 11%); --nb-grid-word-ink:#374349; }
+.dark .nb-err-stage { --nb-grid-line:rgb(255 255 255 / 8%); --nb-grid-word-ink:#8E9AA1; }
+.nb-err-stage::before { content:""; position:absolute; z-index:-1; pointer-events:none; left:var(--gx,0px); top:var(--gy,0px); width:var(--gw,100%); height:var(--gh,100%); background-size:var(--nb-grid-cell) var(--nb-grid-cell); background-image:linear-gradient(to right,var(--nb-grid-line) 1px,transparent 1px),linear-gradient(to bottom,var(--nb-grid-line) 1px,transparent 1px); -webkit-mask-image:radial-gradient(ellipse 85% 90% at 50% 45%,#000 55%,transparent 100%); mask-image:radial-gradient(ellipse 85% 90% at 50% 45%,#000 55%,transparent 100%); }
+.nb-err-stage > .nb-grid-canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+.nb-err-stage > :not(canvas) { position:relative; z-index:1; }
+.nb-err-path { max-width:100%; min-height:20px; font:13px/1.5 var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); }
+.nb-err-path b { font-weight:500; color:var(--foreground); white-space:pre; }
+.nb-err-fixed { color:var(--status-success); }
+.nb-err-slot { width:100%; height:calc(var(--nb-grid-cell) * 15); }
+.nb-err-slot[data-hidden] { height:0; }
+.nb-err-title { max-width:20ch; font:400 38px/1.12 var(--font-instrument-serif),serif; }
+.nb-err-title:focus { outline:none; }
+.nb-err-lead { max-width:46ch; color:var(--muted-foreground); }
+.nb-err-suggest { display:inline-flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:4px 8px; max-width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--card); font-size:14px; }
+.nb-err-suggest-path { font:500 13px/1.5 var(--font-jetbrains-mono),monospace; color:var(--primary); overflow-wrap:anywhere; }
+.nb-err-suggest-place { display:inline-flex; align-items:center; gap:8px; font-weight:500; color:var(--primary); }
+.nb-err-suggest a:hover { text-decoration:underline; text-underline-offset:4px; }
+.nb-err-mark { display:grid; place-items:center; width:22px; height:22px; flex:none; border-radius:var(--radius-md); background:var(--secondary); color:var(--foreground); font:600 10px var(--font-instrument-sans),sans-serif; }
+/* the main button is 3 grid cells tall, so the pixel ring sits one empty cell away on all four sides */
+.nb-err-actions { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:40px; margin-top:34px; }
+.nb-err-primary { height:calc(var(--nb-grid-cell) * 3); padding-inline:18px; font-weight:500; }
+.nb-err-kbd { display:inline-flex; align-items:center; gap:6px; font:11px/1 var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); }
+.nb-err-kbd kbd { padding:3px 6px; border:1px solid var(--border); border-bottom-width:2px; border-radius:4px; background:var(--card); font:inherit; color:var(--foreground); }
+.nb-err-recent { display:grid; justify-items:center; gap:6px; margin-top:12px; }
+.nb-err-label { font:500 11px/1.2 var(--font-jetbrains-mono),monospace; letter-spacing:.12em; text-transform:uppercase; color:var(--muted-foreground); }
+.nb-err-recent ul { display:flex; flex-wrap:wrap; justify-content:center; gap:6px 8px; }
+.nb-err-recent a { display:inline-flex; align-items:center; gap:4px; max-width:280px; padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--card); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:background-color var(--nb-dur-base) var(--nb-ease); }
+.nb-err-recent a:hover { background:var(--secondary); }
+.nb-err-recent a span { color:var(--muted-foreground); }
+/* until the 404 knows whether you're signed in, its line and buttons keep their space but stay hidden (no flicker) */
+[data-ready="false"] .nb-err-wait { visibility:hidden; }
+.nb-err-ref { font:11px/1.4 var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); }
+.nb-err-foot { display:flex; justify-content:center; gap:16px; padding:14px 24px; border-top:1px solid var(--border); font-size:11px; color:var(--muted-foreground); }
+.nb-err-foot a:hover { color:var(--foreground); }
+.nb-err-inline { min-height:min(70vh,640px); display:grid; place-content:center; justify-items:center; gap:8px; padding:32px 24px; text-align:center; }
+.nb-err-inline .nb-auth-eyebrow { margin-bottom:0; }
+.nb-err-inline h1:focus { outline:none; }
+.nb-err-inline-mark { margin-bottom:6px; color:var(--muted-foreground); }
+.nb-err-inline-mark[data-tone="danger"] { color:var(--status-danger); }
+.nb-err-inline-text { max-width:42ch; font-size:13px; color:var(--muted-foreground); }
+.nb-err-inline-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:10px; }
+.nb-err-inline .nb-err-recent { margin-top:18px; }
+@media (prefers-reduced-motion:no-preference) {
+  .nb-err .nb-auth-top > * { animation:nb-auth-drop var(--nb-dur-moment) var(--nb-ease) both; }
+  /* the slot and the button row only fade: the grid engine measures them and places the ring by transform */
+  .nb-err-stage > :not(canvas):not(.nb-err-slot):not(.nb-err-actions), .nb-err-inline > * { animation:nb-auth-rise var(--nb-dur-moment) var(--nb-ease) both; }
+  .nb-err-stage > .nb-err-actions { animation:nb-auth-fade var(--nb-dur-moment) var(--nb-ease) 240ms both; }
+  .nb-err-stage > :nth-child(3), .nb-err-inline > :nth-child(2) { animation-delay:60ms; }
+  .nb-err-stage > :nth-child(4), .nb-err-inline > :nth-child(3) { animation-delay:120ms; }
+  .nb-err-stage > :nth-child(5), .nb-err-inline > :nth-child(4) { animation-delay:180ms; }
+  .nb-err-stage > :nth-child(n+6), .nb-err-inline > :nth-child(n+5) { animation-delay:240ms; }
+  .nb-err-inline-mark .nb-px rect { animation:nb-auth-pixel 360ms steps(1) both; animation-delay:calc(var(--i) * 14ms + 120ms); }
+}
+@media (max-width:639px) {
+  .nb-err-title { font-size:30px; }
+  .nb-err-stage { padding:28px 16px 44px; }
+  .nb-err-kbd { display:none; }
+}
 @media (max-width:1023px) {
   .nb-auth { grid-template-columns:minmax(0,1fr); }
   .nb-auth-panel { display:none; }

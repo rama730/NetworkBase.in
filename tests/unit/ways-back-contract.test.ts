@@ -6,9 +6,12 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
 
 // Unified back A1: the installed app has no browser back, so every page outside the top bar has its own.
 test("pages without the top bar have a way back", () => {
+  // The 404s share one page whose top bar has the back button: Discover when signed in, the home page otherwise.
+  for (const file of ["src/app/(site)/not-found.tsx", "src/app/global-not-found.tsx"]) assert.match(read(file), /<NotFoundPage\b/, file);
+  const errorPages = read("src/components/errors/ErrorPages.tsx");
+  assert.match(errorPages, /<BackButton fallback=\{fallback\} \/>/);
+  assert.match(errorPages, /const mainHref = signedIn \? '\/discover' : '\/'/);
   for (const [file, fallback] of [
-    ["src/app/(site)/not-found.tsx", "/discover"],
-    ["src/app/global-not-found.tsx", "/discover"],
     ["src/components/legal/LegalDocumentPage.tsx", "/"],
     ["src/app/(site)/admin/notifications/page.tsx", "/admin/trust"],
   ]) {
@@ -23,5 +26,8 @@ test("pages without the top bar have a way back", () => {
 test("offline errors say so instead of a generic failure (R9)", () => {
   const src = read("src/app/(site)/(main)/error.tsx");
   assert.match(src, /useOnlineStatus\(\)/);
-  assert.match(src, /You’re offline\. Pages you opened still work when you go back\./);
+  assert.match(src, /offline=\{!online\}/);
+  const card = read("src/components/errors/ErrorPages.tsx");
+  assert.match(card, /'You’re offline'/);
+  assert.match(card, /'Pages you opened still work when you go back\.'/);
 });
