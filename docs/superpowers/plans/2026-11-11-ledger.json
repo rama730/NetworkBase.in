@@ -8232,9 +8232,9 @@
       "text": "Caching: the resolved list for a branch head is cached by (branchid, headsaveid), so repeated browsing doesn't rebuild it.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (speed H25, H11)",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): branch tree pages cached in memory by branch, head and base; a new head reads fresh"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): branch tree pages cached in memory by branch, head and base; a new head reads fresh"
     },
     {
       "key": "H12.a5e205b2",
@@ -8852,9 +8852,9 @@
       "text": "End to end:",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts (end to end H18, H27)",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): agent change on agent/4 over 30 files, merge request, suggestion applied, check passed, merge with the task done, revert"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): agent change on agent/4 over 30 files, merge request, suggestion applied, check passed, merge with the task done, revert"
     },
     {
       "key": "H18.13762259",
@@ -8862,9 +8862,9 @@
       "text": "Speed:",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/saves.test.ts (speed); tests/db/branches.test.ts (speed); tests/db/merge-requests.test.ts (speed H25)",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): 5,000-file branch under 1 s, History page under 500 ms, 200-file merge request opens in 45 ms and merges in 804 ms"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): 5,000-file branch under 1 s, History page under 500 ms, 200-file merge request opens in 45 ms and merges in 804 ms"
     },
     {
       "key": "H19.81fabb79",
@@ -9042,9 +9042,9 @@
       "text": "Rebuilding old trees gets slow · Checkpoints every 100 saves and at branch starts; head caching",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/saves.test.ts (checkpoint every 100 saves); tests/db/branches.test.ts (speed H25, H11)",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): checkpoints every 100 saves (H-1) plus head caching"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): checkpoints every 100 saves (H-1) plus head caching"
     },
     {
       "key": "H21.a241f6a2",
@@ -9802,9 +9802,9 @@
       "text": "Files changed in one merge request · Part G limit (2,000); the Files changed tab is virtualised",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/merge-requests.spec.ts (H25: 600 files)",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): Files changed draws only the rows in view past 200 files (react-virtuoso)"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): Files changed draws only the rows in view past 200 files (react-virtuoso)"
     },
     {
       "key": "H25.0e742014",
@@ -9832,9 +9832,9 @@
       "text": "Branch picker · instant for 500 branches (served from one cached list per workspace)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts (speed H25, H11)",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): 500 branches list in about 22 ms; the app keeps one list per workspace (react-query)"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): 500 branches list in about 22 ms; the app keeps one list per workspace (react-query)"
     },
     {
       "key": "H25.fa1d30ee",
@@ -9952,9 +9952,9 @@
       "text": "every step names its screen or command, what the person sees, and what the server does",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts (end to end H18, H27); scripts/plan/report-items.ts",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): the journeys are walked step by step in the end-to-end test; the ledger check keeps every built row tied to a test"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): the journeys are walked step by step in the end-to-end test; the ledger check keeps every built row tied to a test"
     },
     {
       "key": "H27.eb7e63f6",
@@ -9962,9 +9962,9 @@
       "text": "every situation in H24 has a defined outcome",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/branches.test.ts; packages/nb-cli/test/branch.test.mjs; tests/browser/branches.spec.ts",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): each H24 situation has its row and test (renames, deletions, archived, former members, protected main, many saves)"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): each H24 situation has its row and test (renames, deletions, archived, former members, protected main, many saves)"
     },
     {
       "key": "H27.a1f1f0fe",
@@ -9972,9 +9972,9 @@
       "text": "every rule has its place in the architecture (H9–H16, H26)",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "scripts/plan/report-items.ts",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): every rule row is tied to its code and test in the ledger"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): every rule row is tied to its code and test in the ledger"
     },
     {
       "key": "H27.3830425a",
@@ -9982,9 +9982,9 @@
       "text": "every promise has a test in H18, extended by the H23 journeys as end-to-end tests",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/change-sets.test.ts (end to end H18, H27); scripts/plan/report-items.ts",
-      "evidence": "M9 B4 2026-11-18 (local, not deployed): the H18 promises have tests; the journeys run end to end"
+      "evidence": "2026-11-18 LIVE (1620db0ad, Railway SUCCESS): on ponytail a test branch m9-b4-check with one save listed its files twice through nb fs list (about 0.6 s each, mostly CLI start-up); activity read \"branch deleted m9-b4-check\"; no 200-file merge request exists to see the virtual list live. Before that: M9 B4 2026-11-18 (local, not deployed): the H18 promises have tests; the journeys run end to end"
     },
     {
       "key": "E0.91c34ca1",
