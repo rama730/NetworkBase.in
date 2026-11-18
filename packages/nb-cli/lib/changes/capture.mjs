@@ -66,7 +66,10 @@ export function setCurrentChange(root, id) {
  */
 export async function draftItems(root, project) {
   const state = readState(root, project.workspaceId);
-  const { files: local, skipped } = await scanLocal({ root, remoteRoot: project.remoteRoot, base: state.files, maxFileBytes: FILE_LIMIT });
+  // A folder kept to some folders (nb sync --only) changes only those, as nb push does (T16 live test: an agent's
+  // change set took .mcp.json and CLAUDE.md from the folder's top level into the workspace).
+  const only = project.only?.length ? project.only : undefined;
+  const { files: local, skipped } = await scanLocal({ root, remoteRoot: project.remoteRoot, base: state.files, maxFileBytes: FILE_LIMIT, only });
   /** @type {DraftItem[]} */
   const items = [];
   for (const [p, base] of Object.entries(state.files)) {

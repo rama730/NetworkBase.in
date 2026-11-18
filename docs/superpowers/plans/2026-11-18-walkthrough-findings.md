@@ -150,3 +150,15 @@ test sign-in).
 Polish noted, not fixed: the assign picker lists you twice ("Me" and your name); the device code countdown reads
 like a clock ("expires 10:00"); Settings' terminal cards don't show the computer name; the branch breadcrumb wraps.
 The agent harness now uses the folder's workspace and `nb api` (it assumed the seeded server).
+
+### After 2.6.5: the agent job re-runs
+
+Re-running the agent jobs on the published 2.6.5 found two more:
+
+| # | Severity | Finding | Fix (CLI 2.6.6, local) |
+|---|---|---|---|
+| 10 | annoying | An agent's change set (live capture) took files outside the folder's `nb sync --only` folders: the `.mcp.json` and `CLAUDE.md` that `nb agent setup` writes reached Ponytail's top level, and agents discarded their change sets to keep them out. | Capture honours the `--only` folders, like push and status. Test: `change.test.mjs`. |
+| 11 | annoying | `nb push` with a change set open in the folder went around it: the files were saved directly and the change set was left empty. | It refuses and says to finish and apply (or discard). Test: `change.test.mjs`. |
+
+With both, 7/8 jobs pass; job 7 stopped at Claude Code's own permission prompt for `rm`/`mv` in headless mode (the
+same job passed in the earlier run). Ponytail's stray `/.mcp.json` and `/CLAUDE.md` from the runs are in Trash.

@@ -339,6 +339,12 @@ async function pushToProtectedMain(ctx, root) {
 export async function push(ctx) {
   oldStatusFlags(ctx);
   const { root } = ctx.requireRoot();
+  // An open change set already holds this folder's saves: a push would go around it and leave it empty (T16 live test:
+  // an agent started one, pushed, and finished nothing). Dry runs and queued replays still go through.
+  const open = currentChange(root);
+  if (open && !ctx.flags["dry-run"] && !(/** @type {any} */ (ctx).queueId)) {
+    throw new CliError("CONFLICT", `Change set ${open.slice(0, 8)} is open in this folder; your saved files go into it`, { hint: "nb change finish, then nb change apply (or nb change discard to push files on their own)" });
+  }
   // --from-git: what the last commit changed, its subject as the message, its NetworkBase-Task trailer as the task.
   if (ctx.flags["from-git"]) {
     const { filesFromLastCommit } = await import("./extras.mjs");

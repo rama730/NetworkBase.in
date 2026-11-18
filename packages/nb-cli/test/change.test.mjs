@@ -180,6 +180,30 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("a folder kept to some folders (nb sync --only) puts only those in its change set (T16 live test: .mcp.json and CLAUDE.md went in)", async () => {
+    const api = await startFakeServer();
+    try {
+      putFile(api.state, "/src/app.ts", Buffer.from("app one\n"));
+      const cwd = await tempDir("nb-change-only-");
+      const home = await tempDir("nb-change-only-h-");
+      const nb = (/** @type {string[]} */ args) => runCli(args, { api: api.url, cwd, home });
+      assert.equal((await nb(["init", "design-lab"])).code, 0);
+      assert.equal((await nb(["sync", "--only", "src/", "--yes"])).code, 0);
+      assert.equal((await nb(["change", "start", "Only src"])).code, 0);
+      fs.writeFileSync(path.join(cwd, "src", "app.ts"), "app two\n");
+      fs.writeFileSync(path.join(cwd, ".mcp.json"), "{}\n");
+      fs.writeFileSync(path.join(cwd, "CLAUDE.md"), "# notes\n");
+      const status = await nb(["change", "status", "--json"]);
+      assert.equal(status.code, 0, status.stderr);
+      const paths = JSON.parse(status.stdout).data.items.map((/** @type {any} */ i) => i.path).sort();
+      assert.deepEqual(paths, ["/src/app.ts"]);
+      // With a change set open, nb push doesn't go around it (T16 live test: an agent's change set was left empty).
+      const around = await nb(["push", "src/app.ts", "--yes"]);
+      assert.notEqual(around.code, 0);
+      assert.match(around.stderr, /is open in this folder; your saved files go into it/);
+    } finally { await api.close(); }
+  });
+
   it("a big push stopped midway carries on in the same change set next time, leaving no draft behind (T16 live test)", async () => {
     const api = await startFakeServer();
     try {
