@@ -174,7 +174,7 @@ describe("Ponytail memory (RAM) resource contracts", () => {
     // What the server imports from the CLI package deploys (a diff fix in packages/nb-cli/lib/sync was skipped once).
     const imported = execSync("git grep -hoE 'packages/nb-cli/[A-Za-z0-9_./-]+' -- src", { encoding: "utf8" }).split("\n").filter(Boolean);
     for (const file of new Set(imported)) {
-      assert.ok(patterns.some((p) => p.endsWith("/**") && file.startsWith(p.slice(0, -2))), `${file} is used by the server but not in watchPatterns`);
+      assert.ok(patterns.some((p) => p === file || (p.endsWith("/**") && file.startsWith(p.slice(0, -2)))), `${file} is used by the server but not in watchPatterns`);
     }
     assert.equal(railwayJson.deploy?.healthcheckPath, "/api/v1/live");
 

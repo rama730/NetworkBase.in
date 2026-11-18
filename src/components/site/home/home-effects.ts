@@ -1,6 +1,7 @@
 // Home page behaviour (prototype U69rCV4KB2N8BomkYUZzKL v3). The markup is complete without it; this only adds motion
 // and interaction, and every piece stops with the cleanup it returns.
 import { attachGridTrail, isLightHex, randomColor, type TrailPreset } from "@/lib/grid-trail";
+import { COPY_FAILED, copyText } from "@/lib/clipboard";
 
 const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/<>-_=+*#";
 const SECTIONS: [id: string, label: string][] = [["start", "Start"], ["how", "How it works"], ["people", "People"], ["workspace", "Workspace"], ["classes", "Classes"], ["terminal", "Terminal"], ["get-going", "Get going"], ["join", "Join"]];
@@ -233,7 +234,7 @@ export function setupHome(root: HTMLElement) {
   on($("nbh-copy-install"), "click", (e) => {
     const btn = e.currentTarget as HTMLElement;
     const done = (label: string) => { btn.title = label; btn.setAttribute("aria-label", label); btn.style.background = "rgb(153 206 173 / 35%)"; later(() => { btn.style.background = ""; btn.title = "Copy"; btn.setAttribute("aria-label", "Copy the install command"); }, 1600); };
-    navigator.clipboard?.writeText("npm i -g @networkbase/cli").then(() => done("Copied"), () => done("Select and copy the command"));
+    copyText("npm i -g @networkbase/cli").then(() => done("Copied"), () => done(COPY_FAILED));
   });
 
   // ---- the grids (locked engine)
