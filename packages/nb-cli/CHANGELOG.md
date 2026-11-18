@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.6.5 (2026-11-18)
+
+Fixes from testing every built item live.
+
+### Added
+- `nb config unset <key>` puts a setting back to its default.
+
+### Fixed
+- Large pushes show their progress again, and a push stopped with Ctrl+C carries on next time instead of starting over (and leaves no draft behind).
+- `nb edit <file>` and `nb pull <file>` bring back a file you deleted in the folder.
+- `nb open --code` opens VS Code or Cursor on a Mac even when their `code`/`cursor` command isn't on PATH.
+- A company proxy's certificate error says how to trust it (`nb config set ca-file <file.pem>`).
+- `nb uninstall` also removes your sign-ins from the macOS Keychain.
+- Agents asked to apply several files find the change-set tools.
+
 ## 2.6.4 (2026-11-18)
 
 Fixes from the E1 and E2 walks on 2.6.3.
