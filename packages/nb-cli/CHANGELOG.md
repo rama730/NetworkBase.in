@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.7 (2026-11-18)
+
+### Fixed
+- The assign picker lists you once, as "Me".
+- The sign-in countdown reads "expires in 10:00".
+
 ## 2.6.6 (2026-11-18)
 
 ### Fixed

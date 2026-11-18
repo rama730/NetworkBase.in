@@ -1,6 +1,6 @@
 {
   "name": "@networkbase/cli",
-  "version": "2.6.6",
+  "version": "2.6.7",
   "description": "NetworkBase in your terminal: sync files, work on tasks, edit docs",
   "type": "module",
   "homepage": "https://networkbase.in",
