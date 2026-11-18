@@ -2732,9 +2732,9 @@
       "text": "nb file use on a branch makes a save there",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/branch.test.mjs; tests/db/branches.test.ts (C14b)",
-      "evidence": "2026-11-18 live check: refused for terminal sign-ins (route missing from the token list); fixed in deb371d26, not deployed. M9 B2 2026-11-18 (local, not deployed): POST /branches/:b/use; nb file use <path> <save> makes a save on the branch"
+      "evidence": "2026-11-18 LIVE (deb371d26 deployed, CLI 2.6.0): on ponytail branch m9-use-check, saves 1 and 2 of m9-use.md, nb file use m9-use.md 1 made save 3 with \"use one\" (nb fs read confirmed); test branch deleted. 2026-11-18 live check: refused for terminal sign-ins (route missing from the token list); fixed in deb371d26, not deployed. M9 B2 2026-11-18 (local, not deployed): POST /branches/:b/use; nb file use <path> <save> makes a save on the branch"
     },
     {
       "key": "C14b.e85d8d25",
