@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.1 (2026-11-18)
+
+### Added
+- `nb merge-request list --review-requested --all`: "My reviews", every open merge request waiting on your review across your workspaces.
+
+### Changed
+- A push queued while offline remembers the branch it was made on, and is sent only while the folder is on that branch.
+- Making a branch, opening a merge request and merging say they need the network when you're offline.
+
 ## 2.6.0 (2026-11-18)
 
 ### Added
