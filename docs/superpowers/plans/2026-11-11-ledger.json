@@ -7812,9 +7812,9 @@
       "text": "Merge requests and GitHub pull requests stay separate in this first set. Merging in NetworkBase pushes the merge result to GitHub main, and merging a pull reque",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": "partial (H-5): MRs and PRs stay separate; a NetworkBase merge is pushed to GitHub through a reviewed push, not automatically"
+      "status": "live",
+      "test": "live run 2026-11-18 (deepscope-ai ↔ rama730/deepscope-ai); tests/unit/git-sync-worker-contract.test.ts; tests/db/github-branches.test.ts",
+      "evidence": "LIVE 2026-11-18. Note: both directions go through Repository sync (Pull into NetworkBase / Push to GitHub, reviewed, direct commit or pull request); a merge in NetworkBase does not push to GitHub by itself.  on deepscope-ai ↔ rama730/deepscope-ai: GitHub PR #12 merged on GitHub arrived as NB save 2 (c8916a5); MR !1 merged in NB (without approval, owner) then Repository sync direct commit c97c254c removed m9-github-check.md on GitHub main (404 after). partial (H-5): MRs and PRs stay separate; a NetworkBase merge is pushed to GitHub through a reviewed push, not automatically"
     },
     {
       "key": "H7.f13b9f66",
@@ -9462,9 +9462,9 @@
       "text": "Merges in NetworkBase. The result goes to GitHub main.",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live run 2026-11-18 (deepscope-ai ↔ rama730/deepscope-ai); tests/unit/git-sync-worker-contract.test.ts; tests/db/github-branches.test.ts",
+      "evidence": "LIVE 2026-11-18. Note: both directions go through Repository sync (Pull into NetworkBase / Push to GitHub, reviewed, direct commit or pull request); a merge in NetworkBase does not push to GitHub by itself.  on deepscope-ai ↔ rama730/deepscope-ai: GitHub PR #12 merged on GitHub arrived as NB save 2 (c8916a5); MR !1 merged in NB (without approval, owner) then Repository sync direct commit c97c254c removed m9-github-check.md on GitHub main (404 after). "
     },
     {
       "key": "H23.fe817d73",
@@ -9472,9 +9472,9 @@
       "text": "If they merge a pull request on GitHub instead, it arrives on NetworkBase main as a save \"from GitHub\".",
       "kind": "build",
       "milestone": "M8",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "live run 2026-11-18 (deepscope-ai ↔ rama730/deepscope-ai); tests/unit/git-sync-worker-contract.test.ts; tests/db/github-branches.test.ts",
+      "evidence": "LIVE 2026-11-18 on deepscope-ai ↔ rama730/deepscope-ai: GitHub PR #12 merged on GitHub arrived as NB save 2 (c8916a5); MR !1 merged in NB (without approval, owner) then Repository sync direct commit c97c254c removed m9-github-check.md on GitHub main (404 after). "
     },
     {
       "key": "H23.4d8cbce5",
