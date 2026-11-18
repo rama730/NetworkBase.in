@@ -115,7 +115,7 @@ test("H8: activity lists saves and merges per branch and deleted branches, for t
   assert.equal(a.status, 200, JSON.stringify(a.json));
   const items = a.json.data.items.filter((i: any) => i.kind === "branch");
   assert.ok(items.some((i: any) => i.type === "save" && i.branch === "feature-x" && /First on the branch/.test(i.detail)), JSON.stringify(items));
-  assert.ok(items.some((i: any) => i.type === "deleted" && i.branch === "old-idea"));
+  assert.ok(items.some((i: any) => i.type === "branch_deleted" && i.detail === "old-idea"));
   // Someone outside the workspace (public reader) never sees branches.
   await sql`UPDATE workspaces SET visibility = 'public' WHERE id = ${projectId}`;
   const stranger = await sql.begin((tx) => createUser(tx));

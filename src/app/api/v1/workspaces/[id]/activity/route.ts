@@ -64,7 +64,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       ...fileRows.map((r) => ({ at: r.at.toISOString(), kind: "file" as const, type: r.type, by: r.actorId ? who.get(r.actorId) ?? null : null, path: r.path ?? null, ...visibleViaOfPayload(fileScope, r.metadata, r.actorId), detail: null })),
       ...branchRows.map((r) => ({ at: r.at.toISOString(), kind: "branch" as const, type: r.kind === "merge" && r.isMain ? "merged" : r.kind, by: r.actorId ? who.get(r.actorId) ?? null : null, branch: r.branch,
         ...visibleViaOfPayload(fileScope, { via: r.via, agentName: r.agentName }, r.actorId), detail: `${r.isMain ? "main" : r.branch} save ${r.number}: ${(r.message ?? "").slice(0, 120)}` })),
-      ...deletedRows.flatMap((r) => (r.at ? [{ at: r.at.toISOString(), kind: "branch" as const, type: "deleted", by: null, branch: r.branch, via: null, agentName: null, detail: `${r.branch} deleted` }] : [])),
+      ...deletedRows.flatMap((r) => (r.at ? [{ at: r.at.toISOString(), kind: "branch" as const, type: "branch_deleted", by: null, branch: r.branch, via: null, agentName: null, detail: r.branch }] : [])),
     ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, q.limit);
     return jsonSuccess({ items, nextBefore: items.length === q.limit ? items.at(-1)!.at : null }, undefined, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
