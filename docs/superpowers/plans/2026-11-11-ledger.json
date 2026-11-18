@@ -6532,9 +6532,9 @@
       "text": "Agent test (D22): gains coding jobs: multi-file refactors, renames, conflicts mid-session, resuming the next day, and a cloud agent using fs only.",
       "kind": "build",
       "milestone": "M5",
-      "status": "tested",
+      "status": "live",
       "test": "tests/agents/requests.yaml (changes-1..8); scripts/agents/eval-setup.mjs",
-      "evidence": "T16 2026-11-18 on 2.6.5 re-runs: 2 more fixes (capture honours --only, push refuses around an open change set) in 2.6.6; then 7/8 (job 7 stopped at Claude Code's own rm/mv permission prompt). T16 live with Claude Code: 7/8, 8/8 after the push description fix (local). 2026-11-17 Claude Code run on an isolated local copy: 8/8 coding jobs (redesign+apply, status, undo, discard, resume, conflict update+finish, rename+apply, review comments); found and fixed 4 CLI issues (be70a4ac0, d486d02d6, 916200c76)"
+      "evidence": "LIVE 2026-11-18 on CLI 2.6.6 (npm latest): Claude Code over nb mcp on Ponytail, coding jobs 7/8 (job 7 stopped at Claude Code's own rm/mv permission prompt; it passed in the run before); capture keeps to --only folders and push won't go around an open change set, both checked live. T16 2026-11-18 on 2.6.5 re-runs: 2 more fixes (capture honours --only, push refuses around an open change set) in 2.6.6; then 7/8 (job 7 stopped at Claude Code's own rm/mv permission prompt). T16 live with Claude Code: 7/8, 8/8 after the push description fix (local). 2026-11-17 Claude Code run on an isolated local copy: 8/8 coding jobs (redesign+apply, status, undo, discard, resume, conflict update+finish, rename+apply, review comments); found and fixed 4 CLI issues (be70a4ac0, d486d02d6, 916200c76)"
     },
     {
       "key": "G23.41516eab",
