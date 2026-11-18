@@ -209,7 +209,9 @@ test('H25: a merge request with 600 files draws only the rows in view', async ({
 
 test('H23 journey 8: on a phone, files open one at a time, and Merge is a full-width button at the bottom', async ({ page }) => {
   await open(page, { path: '/?mr=3', width: 390 });
-  const mergeButton = page.getByRole('button', { name: 'Merge', exact: true }).last();
+  const mergeButtons = page.getByRole('button', { name: 'Merge', exact: true });
+  await expect(mergeButtons).toHaveCount(1); // the header one is hidden on phones
+  const mergeButton = mergeButtons.first();
   await expect(mergeButton).toBeVisible();
   const box = (await mergeButton.boundingBox())!;
   expect(box.width).toBeGreaterThan(330);
@@ -219,6 +221,6 @@ test('H23 journey 8: on a phone, files open one at a time, and Merge is a full-w
   await page.getByRole('navigation', { name: 'Files changed' }).getByRole('button').first().click();
   await expect(page.getByRole('navigation', { name: 'Files changed' })).toBeHidden();
   await expect(page.getByText('new in /README.md')).toBeVisible();
-  await page.getByRole('button', { name: /All 1 files/ }).click();
+  await page.getByRole('button', { name: /All files \(1\)/ }).click();
   await expect(page.getByRole('navigation', { name: 'Files changed' })).toBeVisible();
 });

@@ -237,7 +237,7 @@ function MergeRequestPage({ projectId, number, onBack }: { projectId: string; nu
                       <option value="merge">Merge</option>
                       <option value="squash">Squash and merge</option>
                     </select>
-                    <button type="button" className={headerPrimary} disabled={Boolean(busy) || d!.protection.needs.length > 0} title={d!.protection.needs.length ? `main is protected: ${d!.protection.needs.join("; ")}` : undefined} onClick={() => void merge()}><GitMerge className="size-3.5" aria-hidden="true" />{busy === "merge" ? "Merging…" : method === "squash" ? "Squash and merge" : "Merge"}</button>
+                    <button type="button" className={cn(headerPrimary, "max-sm:hidden")} disabled={Boolean(busy) || d!.protection.needs.length > 0} title={d!.protection.needs.length ? `main is protected: ${d!.protection.needs.join("; ")}` : undefined} onClick={() => void merge()}><GitMerge className="size-3.5" aria-hidden="true" />{busy === "merge" ? "Merging…" : method === "squash" ? "Squash and merge" : "Merge"}</button>
                   </>
                 ) : null}
               </>
@@ -526,7 +526,7 @@ function FilesChanged({ projectId, detail, busy, act }: { projectId: string; det
         ) : <ul>{files.map((f) => <li key={f.path}>{fileRow(f)}</li>)}</ul>}
       </nav>
       <section aria-label="Diff and comments" className={cn("min-h-0 min-w-0 flex-1", !selected && "max-sm:hidden")}>
-        {selected ? <button type="button" className={cn(stripButton, "m-3 sm:hidden")} onClick={() => setSelected(null)}>← All {files.length} files</button> : null}
+        {selected ? <button type="button" className={cn(stripButton, "m-3 sm:hidden")} onClick={() => setSelected(null)}>← All files ({files.length})</button> : null}
         {current ? <DiffView query={diff} label={`${current} · against main`} path={current} /> : null}
         {comments.length ? (
           <ol className="border-t border-border/60">
