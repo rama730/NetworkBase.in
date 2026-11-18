@@ -180,6 +180,27 @@ describe("nb change (G7, G8)", () => {
     } finally { await api.close(); }
   });
 
+  it("a big push stopped midway carries on in the same change set next time, leaving no draft behind (T16 live test)", async () => {
+    const api = await startFakeServer();
+    try {
+      for (let i = 0; i < 60; i += 1) putFile(api.state, `/s${i}.txt`, Buffer.from(`one ${i}\n`));
+      const { cwd, nb } = await linked(api);
+      for (let i = 0; i < 60; i += 1) fs.writeFileSync(path.join(cwd, `s${i}.txt`), `stop ${i}\n`);
+      let down = true;
+      /** @type {any} */ (api.state).failContent = () => down;
+      const stopped = await nb(["push", "--all", "--no-task", "--yes", "--json"]);
+      assert.notEqual(stopped.code, 0, "the first push stops");
+      down = false;
+      const again = await nb(["push", "--all", "--no-task", "--yes"]);
+      assert.equal(again.code, 0, again.stderr);
+      assert.match(again.stderr + again.stdout, /Carrying on with the push that was stopped/);
+      assert.match(again.stdout, /Pushed 60 files as one change set/);
+      const made = api.requests.filter((q) => q.method === "POST" && /\/workspaces\/[^/]+\/change-sets$/.test(q.path)).length;
+      assert.equal(made, 1, "one change set, not one per try");
+      assert.ok(!fs.existsSync(path.join(cwd, ".networkbase", "changes", "push.json")), "nothing pending after it applied");
+    } finally { await api.close(); }
+  });
+
   it("sign-in expires mid-work: capture keeps the journal, and after signing in again it carries on (G20)", async () => {
     const api = await startFakeServer();
     try {

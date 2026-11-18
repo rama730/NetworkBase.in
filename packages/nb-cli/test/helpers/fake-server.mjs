@@ -468,6 +468,7 @@ const changeSetRoutes = [
   [/^\/api\/v1\/change-sets\/([^/]+)\/items$/, "DELETE", (/** @type {any} */ req, /** @type {any} */ state) => { sets(state).get(req.params[0])?.items.delete(req.query.get("path")); return { data: { ok: true } }; }],
   [/^\/api\/v1\/change-sets\/([^/]+)\/content$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
     const cs = sets(state).get(req.params[0]);
+    if (state.failContent?.()) return fail(503, "STORAGE_UNAVAILABLE", "Storage is busy");
     const held = [];
     for (const f of req.body.files ?? []) {
       const bytes = Buffer.from(f.base64, "base64");

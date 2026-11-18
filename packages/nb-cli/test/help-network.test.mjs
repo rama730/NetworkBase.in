@@ -1,5 +1,7 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { TOPICS } from "../lib/help-topics.mjs";
 import { parseFlags, resolveCommand } from "../lib/args.mjs";
 import { networkEnv, proxyCapable } from "../lib/network.mjs";
@@ -62,5 +64,25 @@ describe("help topics, upgrade, network settings", () => {
     assert.equal(networkEnv({}, { HTTPS_PROXY: "http://p", NODE_OPTIONS: "--max-old-space-size=512" }, "22.22.0")?.NODE_OPTIONS, "--max-old-space-size=512 --disable-warning=UNDICI-EHPA");
     assert.deepEqual(networkEnv({ "ca-file": "/etc/corp.pem" }, {}, "20.18.0"), { NODE_EXTRA_CA_CERTS: "/etc/corp.pem", NB_NETWORK_APPLIED: "1" });
     assert.equal(networkEnv({ proxy: "http://p" }, { NB_NETWORK_APPLIED: "1" }, "22.22.0"), null, "never restarts twice");
+  });
+
+  it("nb config set, then unset, puts a setting back to its default (T16 live test)", async () => {
+    const { runCli, tempDir } = await import("./helpers/run-cli.mjs");
+    const home = await tempDir("nb-config-");
+    const pem = path.join(home, "corp.pem");
+    fs.writeFileSync(pem, "-----BEGIN CERTIFICATE-----\n");
+    assert.equal((await runCli(["config", "set", "ca-file", pem], { home })).code, 0);
+    assert.equal((await runCli(["config", "get", "ca-file"], { home })).stdout.trim(), pem);
+    const off = await runCli(["config", "unset", "ca-file"], { home });
+    assert.equal(off.code, 0, off.stderr);
+    assert.match(off.stdout, /ca-file is back to its default/);
+    assert.equal((await runCli(["config", "get", "ca-file"], { home })).stdout.trim(), "");
+  });
+
+  it("a company proxy's own certificate says how to trust it, whichever way Node names it (T16 live test)", async () => {
+    const { describeNetworkError } = await import("../lib/api.mjs");
+    for (const code of ["UNABLE_TO_VERIFY_LEAF_SIGNATURE", "SELF_SIGNED_CERT_IN_CHAIN", "UNABLE_TO_GET_ISSUER_CERT_LOCALLY"]) {
+      assert.match(describeNetworkError({ cause: { code } }, 1000), /nb config set ca-file <file\.pem>/, code);
+    }
   });
 });

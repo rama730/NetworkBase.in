@@ -47,12 +47,8 @@ function open() {
 async function comment() {
   open();
   const id = JSON.parse(fs.readFileSync(".networkbase/changes/current.json", "utf8")).id;
-  const res = await fetch(`${process.env.NETWORKBASE_API_URL}/api/v1/change-sets/${id}/comments`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${process.env.NETWORKBASE_TOKEN}`, "content-type": "application/json" },
-    body: JSON.stringify({ path: "/src/api/client.ts", line: 3, body: "Include the response body in the error, not just the status." }),
-  });
-  if (!res.ok) throw new Error(`comment: ${res.status} ${await res.text()}`);
+  // Through nb api, so it works with any sign-in (an env token on the seeded server, the Keychain on a live run).
+  nb(["api", "POST", `/api/v1/change-sets/${id}/comments`, "--data", JSON.stringify({ path: "/src/api/client.ts", line: 3, body: "Include the response body in the error, not just the status." }), "--yes"]);
 }
 
 function applied() {
@@ -68,7 +64,9 @@ function conflict() {
   open();
   const other = fs.mkdtempSync(path.join(os.tmpdir(), "nb-eval-teammate-"));
   try {
-    nb(["init", "design-lab", "--yes"], other);
+    // The teammate works in the same workspace as this folder (design-lab on the seeded server; any on a live run).
+    const slug = JSON.parse(fs.readFileSync(path.join(".networkbase", "config.json"), "utf8")).slug ?? "design-lab";
+    nb(["init", slug, "--yes"], other);
     nb(["pull", "src/api/client.ts"], other);
     write("src/api/client.ts", "export async function get(path: string) {\n  const res = await fetch(path, { credentials: 'include' });\n  return res.json();\n}\n", other);
     nb(["push", "src/api/client.ts", "--no-task", "-m", "Send cookies"], other);

@@ -96,7 +96,7 @@ export const COMMANDS = [
   { group: "Account and setup", name: "prompt", summary: "Workspace and task for your shell prompt", usage: "nb prompt", module: "misc", fn: "prompt", hidden: true },
   { group: "Account and setup", name: "feedback", summary: "A report to send with a problem (no tokens or paths)", usage: "nb feedback [--include-paths]", module: "misc", fn: "feedback",
     flags: { "include-paths": { type: "boolean", describe: "Keep folder paths in the report" } } },
-  { group: "Account and setup", name: "config", summary: "Show or change settings", usage: "nb config list | get <key> | set <key> <value>", module: "misc", fn: "config" },
+  { group: "Account and setup", name: "config", summary: "Show or change settings", usage: "nb config list | get <key> | set <key> <value> | unset <key>", module: "misc", fn: "config" },
 
   // Files
   { group: "Files", name: "undo", summary: "Undo your last change from this machine (24 hours)", usage: "nb undo [n|token] [--list]", module: "undo", fn: "undo",

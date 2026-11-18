@@ -47,6 +47,11 @@ describe("C10–C14", () => {
     assert.equal(api.state.files.get("/notes.md")?.version, 2);
     const same = await nb(["edit", "notes.md"], { NB_EDITOR: process.platform === "win32" ? "cmd /c rem" : "true" });
     assert.match(same.stdout, /No changes/);
+    // A file deleted here comes back when named: nb edit (and nb pull <file>) open it again (T16 live test).
+    fs.rmSync(path.join(cwd, "notes.md"));
+    const back = await nb(["edit", "notes.md"], { NB_EDITOR: editor });
+    assert.equal(back.code, 0, back.stderr);
+    assert.equal(api.state.files.get("/notes.md")?.content.toString(), "old edited edited");
   });
 
   it("nb open --code opens the file in Cursor or VS Code from PATH", async () => {
@@ -60,7 +65,21 @@ describe("C10–C14", () => {
     assert.match(r.stdout, /Opened a\.md in VS Code/);
     for (let i = 0; i < 50 && !fs.existsSync(log); i++) await new Promise((res) => setTimeout(res, 50));
     assert.match(fs.readFileSync(log, "utf8"), /a\.md/);
-    assert.match((await nb(["open", "a.md", "--code"], { PATH: bin.replace(/nb-code-.*/, "nowhere") })).stderr, /Neither VS Code nor Cursor/);
+    const noApps = await tempDir("nb-noapps-");
+    assert.match((await nb(["open", "a.md", "--code"], { PATH: bin.replace(/nb-code-.*/, "nowhere"), NB_APP_DIRS: noApps })).stderr, /Neither VS Code nor Cursor/);
+    // On a Mac, an installed app without its `code` command opens through `open -a` (T16 live test).
+    if (process.platform === "darwin") {
+      const apps = await tempDir("nb-apps-");
+      fs.mkdirSync(path.join(apps, "Visual Studio Code.app"));
+      const openBin = await tempDir("nb-open-");
+      const openLog = path.join(openBin, "open.txt");
+      fs.writeFileSync(path.join(openBin, "open"), `#!/bin/sh\necho "$@" > "${openLog}"\n`, { mode: 0o755 });
+      const viaApp = await nb(["open", "a.md", "--code"], { PATH: `${openBin}${path.delimiter}/usr/bin${path.delimiter}/bin`, NB_APP_DIRS: apps });
+      assert.equal(viaApp.code, 0, viaApp.stderr);
+      assert.match(viaApp.stdout, /Opened a\.md in VS Code/);
+      for (let i = 0; i < 50 && !fs.existsSync(openLog); i++) await new Promise((res) => setTimeout(res, 50));
+      assert.match(fs.readFileSync(openLog, "utf8"), /-a .*Visual Studio Code\.app .*a\.md/);
+    }
   });
 
   it("nb commit adds the current task as a trailer", async () => {
@@ -101,5 +120,21 @@ describe("C10–C14", () => {
     assert.ok(!fs.existsSync(path.join(h, ".networkbase")));
     assert.doesNotMatch(fs.readFileSync(path.join(h, ".zshrc"), "utf8"), /nb completion|nb prompt|NetworkBase CLI/);
     assert.match(r.stdout, /Last step: Remove nb the way you installed it|npm rm -g @networkbase\/cli/);
+  });
+
+  it("nb uninstall takes the sign-in out of the macOS Keychain too (T16 live test)", async () => {
+    if (process.platform !== "darwin") return;
+    const h = await tempDir("nb-uninstall-kc-");
+    const bin = await tempDir("nb-security-");
+    const log = path.join(bin, "security.log");
+    // A stand-in for macOS's `security`, so the real Keychain is never touched.
+    fs.writeFileSync(path.join(bin, "security"), `#!/bin/sh\necho "$1 $@" >> "${log}"\n[ "$1" = "find-generic-password" ] && echo "nb_dev_test"\nexit 0\n`, { mode: 0o755 });
+    const env = { HOME: h, NB_CREDENTIAL_STORE: "", PATH: `${bin}${path.delimiter}${process.env.PATH}` };
+    const signedIn = await runCli(["login", "--with-token"], { api: api.url, token: null, home: h, env, input: "nb_pat_test0123456789abcdef\n" });
+    assert.equal(signedIn.code, 0, signedIn.stderr);
+    assert.match(fs.readFileSync(log, "utf8"), /add-generic-password/);
+    const r = await runCli(["uninstall", "--yes"], { api: api.url, token: null, home: h, env });
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(fs.readFileSync(log, "utf8"), /delete-generic-password/, "the Keychain entry is removed");
   });
 });

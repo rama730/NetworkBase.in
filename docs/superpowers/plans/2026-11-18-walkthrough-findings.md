@@ -109,3 +109,44 @@ Not fixed (noted): `nb task move … doing` isn't accepted (the error lists `in_
   and task lists under a second; a bulk task move with one Undo.
 - GitHub user: a clone of the connected repository links, shows where NetworkBase and GitHub differ, follows two git
   branches with saves on each, opens a merge request, and protected main asks for an approval before merging.
+
+# Fourth round: the 16 built-but-never-live items (T16), 18 Nov 2026
+
+Tested live on networkbase.in with CLI 2.6.4 (terminal parts in a real pty), Chrome signed in as the owner, and
+Claude Code over `nb mcp`. Test objects removed afterwards (task #7, its branch, test files, change sets, `/src`, the
+test sign-in).
+
+| Item | Result |
+|---|---|
+| C2 pickers in a real terminal | passed; scripts still get the exact question with `--answer` choices |
+| C3 large uploads: progress, Ctrl+C, resume | **broken since M5** (finding 1); fixed |
+| C10 `nb edit` | passed (in a folder and outside one); finding 3 fixed |
+| C10 `nb open --code` | **refused with VS Code installed** (finding 4); fixed |
+| E3 proxy with its own certificates | passed through an intercepting proxy with `NODE_EXTRA_CA_CERTS` and `nb config set ca-file`; findings 5, 6 fixed |
+| 0.8 #6 Retry on error toasts | **partly built** (finding 7): Retry on 12 of 467 error toasts; added to editor save and task move |
+| H2 / H23 Start work → branch | passed: one click made `task/7-t16-picker-check`, linked to #7 |
+| E7 approval page, keyboard and screen reader | passed: heading, labelled code and "Who is asking", every control reachable; four stops show no focus mark (the no-focus-ring choice) |
+| C6/C15 renew a sign-in | passed: a second `nb login` on the same sign-in kept 2 active, not 3 (the 7-day warning can't be triggered live; tests only) |
+| C14 `nb uninstall` | passed (revoked, folder gone, your own sign-in untouched); finding 8 fixed |
+| G22 agent coding jobs (Claude Code, live) | 8/8 after finding 9; 7/8 before |
+| F3 `nb workspace create` (found on the way) | **failed for everyone** (finding 2); fixed on the server |
+| 0.8 #15 starter README Edit | waits for finding 2's deploy (a throwaway workspace) |
+| C4/C15 `nb review` diff and bulk approve | need a hand-in from the student account (`ch_rama`) |
+
+## Findings
+
+| # | Severity | Finding | Fix (local) |
+|---|---|---|---|
+| 1 | blocker | Since change sets (M5), a push over 4 MB goes up as a change set: no progress line, and each Ctrl+C left an open "Push of 1 file" draft while the next push started over. | Progress in the change-set upload; a stopped push carries on in its own change set (`.networkbase/changes/push.json`). Test: `change.test.mjs`. |
+| 2 | blocker | `nb workspace create` always failed: "Custom workspace type is required when Other is selected". | The CLI create sends a type name ("General"). Test: `tests/unit/workspace-cli-create.test.ts`. |
+| 3 | annoying | `nb edit` / `nb pull <file>` of a file deleted in the folder said "No file … in the workspace" / "Up to date". | A file named on its own comes back. Test: `c10-c14.test.mjs`. |
+| 4 | annoying | `nb open --code` refused on a Mac with VS Code installed but `code` not on PATH. | Opens the installed app (`open -a`). Test: `c10-c14.test.mjs`. |
+| 5 | annoying | A company proxy's certificate showed as "UNABLE_TO_VERIFY_LEAF_SIGNATURE / Check your connection". | "your network's certificate isn't trusted… nb config set ca-file <file.pem>" for every certificate code. Test: `help-network.test.mjs`. |
+| 6 | polish | A setting couldn't be taken off (`nb config set ca-file ""` refused). | `nb config unset <key>`. Test: `help-network.test.mjs`. |
+| 7 | annoying | Retry on error toasts is wired in 12 of 467 places; the board's "Couldn't move task" and the editor's "Couldn't save version" had none, and the "check your connection" step is lost where callers replace the error text. | Retry on editor save and task move. **The rest is a sweep for the user to decide.** |
+| 8 | annoying | `nb uninstall` left the token in the macOS Keychain. | Each saved sign-in is removed from the keychain too. Test: `c10-c14.test.mjs` (a stand-in `security`). |
+| 9 | annoying | With tools loaded on demand, Claude Code found only file tools and pushed "as draft" when asked to apply. | `networkbase_file_push` names `networkbase_change_start` / `networkbase_change_apply` (tools/list stays under 4,000 tokens). Live rerun passed. |
+
+Polish noted, not fixed: the assign picker lists you twice ("Me" and your name); the device code countdown reads
+like a clock ("expires 10:00"); Settings' terminal cards don't show the computer name; the branch breadcrumb wraps.
+The agent harness now uses the folder's workspace and `nb api` (it assumed the seeded server).

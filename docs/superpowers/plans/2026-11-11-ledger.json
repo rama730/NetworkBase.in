@@ -364,7 +364,7 @@
       "milestone": "M4",
       "status": "tested",
       "test": "tests/unit/feedback-store.test.ts",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "T16 live: Retry on 12 of 467 error toasts; editor save + task move added locally; sweep is the user's call. M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "0.8.5aae6250",
@@ -454,7 +454,7 @@
       "milestone": "M4",
       "status": "tested",
       "test": "tests/db/doc-starter-edit.test.ts",
-      "evidence": "M4d, local main (a028e54af..), 2026-11-16; live check needs a signed-in browser (the in-app browser is signed out), and the only README without a file is unpublished (Team Falcon), so it needs a published starter README"
+      "evidence": "T16: waits for the nb workspace create fix (a throwaway workspace). M4d, local main (a028e54af..), 2026-11-16; live check needs a signed-in browser (the in-app browser is signed out), and the only README without a file is unpublished (Team Falcon), so it needs a published starter README"
     },
     {
       "key": "0.8.0afea991",
@@ -2022,9 +2022,9 @@
       "text": "Pickers when something is left out, only in a real terminal: nb task assign 4 → choose a person. Scripts and agents still get the exact error.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/daily-work.test.mjs",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "LIVE 2026-11-18 (T16): pty picker on Ponytail; scripts get NEEDS_INPUT with --answer choices. M4a, local main (e839d4584..), 2026-11-12"
     },
     {
       "key": "C2.d8d9b523",
@@ -2214,7 +2214,7 @@
       "milestone": "M4",
       "status": "tested",
       "test": "packages/nb-cli/test/reliability.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12; progress per big file; Ctrl+C then the next push sends the file whole (ponytail: no byte-level resume, files ≤25 MB)"
+      "evidence": "T16 live: no progress and a draft left per Ctrl+C since M5 change sets; fixed locally (2.6.5). M4b, local main (9c4cb7836..), 2026-11-12; progress per big file; Ctrl+C then the next push sends the file whole (ponytail: no byte-level resume, files ≤25 MB)"
     },
     {
       "key": "C3.4029e26d",
@@ -2304,7 +2304,7 @@
       "milestone": "M4",
       "status": "tested",
       "test": "packages/nb-cli/test/together.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "T16: needs a hand-in from the student account. M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "C5.3da4adbb",
@@ -2362,9 +2362,9 @@
       "text": "Token expiry: a warning 7 days before a sign-in expires, and nb login renews the same sign-in instead of making a second one.",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/login.test.mjs; tests/db/device-codes.test.ts; tests/db/extension-auth-code-pkce.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "LIVE 2026-11-18 (T16): renew checked live (2 active before and after); the 7-day warning is tests only. M4a, local main (e839d4584..), 2026-11-12"
     },
     {
       "key": "C6.b02beeef",
@@ -2492,9 +2492,9 @@
       "text": "nb edit <file>: pulls the file, opens it in your editor, and saves a new version when the editor closes, with the same conflict rules as nb push. Works for any ",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "LIVE 2026-11-18 (T16): nb edit in a folder (v2) and outside one (v3) on Ponytail; deleted-file case fixed locally. M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "C10.8695b1ad",
@@ -2504,7 +2504,7 @@
       "milestone": "M4",
       "status": "tested",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "T16 live: refused with VS Code installed off PATH; fixed locally (2.6.5). M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "C10.dc645585",
@@ -2592,9 +2592,9 @@
       "text": "nb uninstall: signs out (revoking the sign-in), wipes local NetworkBase data and caches, removes shell additions it made (completions, prompt), and prints the c",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/c10-c14.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "LIVE 2026-11-18 (T16): test sign-in revoked (Settings 1 active), folder gone, own sign-in untouched; Keychain leftover fixed locally. M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "C14b.bd271bcb",
@@ -2922,9 +2922,9 @@
       "text": "Token expiry, renew · /api/v1/me already returns expiry; nb login sends renewSessionId, so the device flow updates the same session",
       "kind": "build",
       "milestone": "M4",
-      "status": "tested",
+      "status": "live",
       "test": "tests/db/device-codes.test.ts; tests/db/extension-auth-code-pkce.test.ts",
-      "evidence": "M4a, local main (e839d4584..), 2026-11-12"
+      "evidence": "LIVE 2026-11-18 (T16): second nb login on the same sign-in: Settings 2 active before and after. M4a, local main (e839d4584..), 2026-11-12"
     },
     {
       "key": "C15.83bd492e",
@@ -2934,7 +2934,7 @@
       "milestone": "M4",
       "status": "tested",
       "test": "packages/nb-cli/test/together.test.mjs",
-      "evidence": "M4b, local main (9c4cb7836..), 2026-11-12"
+      "evidence": "T16: needs a hand-in from the student account. M4b, local main (9c4cb7836..), 2026-11-12"
     },
     {
       "key": "C15.d5191f2a",
@@ -6534,7 +6534,7 @@
       "milestone": "M5",
       "status": "tested",
       "test": "tests/agents/requests.yaml (changes-1..8); scripts/agents/eval-setup.mjs",
-      "evidence": "2026-11-17 Claude Code run on an isolated local copy: 8/8 coding jobs (redesign+apply, status, undo, discard, resume, conflict update+finish, rename+apply, review comments); found and fixed 4 CLI issues (be70a4ac0, d486d02d6, 916200c76)"
+      "evidence": "T16 live with Claude Code: 7/8, 8/8 after the push description fix (local). 2026-11-17 Claude Code run on an isolated local copy: 8/8 coding jobs (redesign+apply, status, undo, discard, resume, conflict update+finish, rename+apply, review comments); found and fixed 4 CLI issues (be70a4ac0, d486d02d6, 916200c76)"
     },
     {
       "key": "G23.41516eab",
@@ -6982,9 +6982,9 @@
       "text": "From a task: \"Start work on #4\" offers Create branch task/4-login-bug, linked to the task.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/unit/branch-names.test.ts; tests/db/branches.test.ts",
-      "evidence": "Deployed 2026-11-18 (723f7b896); live check waits for a task in a workspace with Branches on. M9 B3 2026-11-18 (local, not deployed): task panel Start work makes task/<n>-<title> from main, linked to the task (createBranch taskId), and opens Files on it; an existing one opens"
+      "evidence": "LIVE 2026-11-18 (T16): Start work on #7 made task/7-t16-picker-check linked to the task. Deployed 2026-11-18 (723f7b896); live check waits for a task in a workspace with Branches on. M9 B3 2026-11-18 (local, not deployed): task panel Start work makes task/<n>-<title> from main, linked to the task (createBranch taskId), and opens Files on it; an existing one opens"
     },
     {
       "key": "H2.476ca938",
@@ -9232,9 +9232,9 @@
       "text": "On task #4, clicks Start work → Create branch task/4-login-bug.",
       "kind": "build",
       "milestone": "M8",
-      "status": "tested",
+      "status": "live",
       "test": "tests/unit/branch-names.test.ts; tests/db/branches.test.ts",
-      "evidence": "Deployed 2026-11-18 (723f7b896); live check waits for a task in a workspace with Branches on. M9 B3 2026-11-18 (local, not deployed): Start work on the task panel"
+      "evidence": "LIVE 2026-11-18 (T16): Start work on #7 → branch task/7-t16-picker-check, Files opened on it. Deployed 2026-11-18 (723f7b896); live check waits for a task in a workspace with Branches on. M9 B3 2026-11-18 (local, not deployed): Start work on the task panel"
     },
     {
       "key": "H23.c401a79c",
@@ -10172,9 +10172,9 @@
       "text": "Behind a company proxy with its own certificates.",
       "kind": "build",
       "milestone": "M9",
-      "status": "tested",
+      "status": "live",
       "test": "packages/nb-cli/test/help-network.test.mjs",
-      "evidence": "2026-11-18: proxy walked live (finding 5 fixed); extra certificates covered by the test, not walked"
+      "evidence": "LIVE 2026-11-18 (T16): intercepting proxy with its own CA: works with NODE_EXTRA_CA_CERTS and nb config set ca-file; error text fixed locally. 2026-11-18: proxy walked live (finding 5 fixed); extra certificates covered by the test, not walked"
     },
     {
       "key": "E4.84f22fe0",
@@ -10322,9 +10322,9 @@
       "text": "The approval page with a screen reader and keyboard only.",
       "kind": "build",
       "milestone": "M3",
-      "status": "tested",
+      "status": "live",
       "test": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md",
-      "evidence": "M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
+      "evidence": "LIVE 2026-11-18 (T16): device page: heading, labelled code and Who is asking, all controls by Tab; no focus mark on 4 stops (no-focus-ring choice). M3 walkthrough 2026-11-12: docs/superpowers/plans/2026-11-12-walkthrough-findings.md"
     },
     {
       "key": "E8.5ebd454c",

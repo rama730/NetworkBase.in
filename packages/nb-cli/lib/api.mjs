@@ -164,13 +164,15 @@ export function createApi({ origin, token, version, fetchImpl = fetch, onRetry, 
 }
 
 /** @param {unknown} error @param {number} timeoutMs */
-function describeNetworkError(error, timeoutMs) {
+export function describeNetworkError(error, timeoutMs) {
   const e = /** @type {any} */ (error);
   if (e?.name === "TimeoutError" || e?.name === "AbortError") return `no answer after ${Math.round(timeoutMs / 1000)} s`;
   const code = e?.cause?.code ?? e?.code;
   if (code === "ENOTFOUND") return "the server name doesn't resolve";
   if (code === "ECONNREFUSED") return "connection refused";
-  if (code === "UNABLE_TO_GET_ISSUER_CERT_LOCALLY" || code === "SELF_SIGNED_CERT_IN_CHAIN") return "your network's certificate isn't trusted (set NODE_EXTRA_CA_CERTS)";
+  // A company proxy that opens HTTPS signs with its own certificate; Node names that several ways (T16 live test:
+  // UNABLE_TO_VERIFY_LEAF_SIGNATURE showed raw).
+  if (["UNABLE_TO_GET_ISSUER_CERT_LOCALLY", "SELF_SIGNED_CERT_IN_CHAIN", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "DEPTH_ZERO_SELF_SIGNED_CERT", "CERT_UNTRUSTED", "UNABLE_TO_GET_ISSUER_CERT"].includes(code)) return "your network's certificate isn't trusted. Ask IT for its certificate file, then: nb config set ca-file <file.pem>";
   return code ? String(code) : e?.message ?? "network error";
 }
 

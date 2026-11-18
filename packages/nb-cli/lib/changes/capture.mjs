@@ -5,6 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 
+import { Readable } from "node:stream";
+
 import { DIR_NAME, readJson, writeAtomic } from "../config.mjs";
 import { scanLocal } from "../sync/local.mjs";
 import { readState } from "../sync/state.mjs";
@@ -22,6 +24,15 @@ const PARALLEL = process.platform === "win32" ? 4 : 8;
  */
 
 const dir = (/** @type {string} */ root) => path.join(root, DIR_NAME, "changes");
+
+/** The change set a plain push opened and hasn't applied yet (stopped with Ctrl+C): the next push carries it on. @param {string} root */
+export const pendingPush = (root) => /** @type {string | null} */ (readJson(path.join(dir(root), "push.json"))?.id ?? null);
+/** @param {string} root @param {string | null} id */
+export function setPendingPush(root, id) {
+  fs.mkdirSync(dir(root), { recursive: true });
+  if (id) writeAtomic(path.join(dir(root), "push.json"), `${JSON.stringify({ id })}\n`);
+  else fs.rmSync(path.join(dir(root), "push.json"), { force: true });
+}
 
 /** @param {string} root @param {string} id @returns {Journal} */
 export function readJournal(root, id) {
@@ -100,7 +111,7 @@ const wire = (i) => ({ op: i.op, path: i.path, ...(i.fromPath ? { fromPath: i.fr
  * @param {{ confirmSecrets?: boolean }} [opts] the person says files that look like they hold a key are safe to send
  * @returns {Promise<{ sent: number, dropped: number, uploaded: number, pending: number, held: string[] }>}
  */
-export async function syncDraft(api, root, id, items, { confirmSecrets = false } = {}) {
+export async function syncDraft(api, root, id, items, { confirmSecrets = false, onBytes = /** @type {((path: string, sent: number, total: number) => void) | undefined} */ (undefined) } = {}) {
   const journal = readJournal(root, id);
   const now = new Map(items.map((i) => [i.path, i]));
   const renamedFrom = new Set(items.flatMap((i) => (i.fromPath ? [i.fromPath] : [])));
@@ -121,13 +132,16 @@ export async function syncDraft(api, root, id, items, { confirmSecrets = false }
     delete journal.sent[p];
     writeJournal(root, journal);
   }
-  const uploaded = await uploadMissing(api, root, journal, items, confirmSecrets);
+  const uploaded = await uploadMissing(api, root, journal, items, confirmSecrets, onBytes);
   const held = Object.values(journal.held ?? {});
   return { sent: toSend.length, dropped, uploaded, pending: journal.missing.length, held };
 }
 
-/** @param {import("../api.mjs").Api} api @param {string} root @param {Journal} journal @param {DraftItem[]} items @param {boolean} confirmSecrets */
-async function uploadMissing(api, root, journal, items, confirmSecrets) {
+/**
+ * @param {import("../api.mjs").Api} api @param {string} root @param {Journal} journal @param {DraftItem[]} items @param {boolean} confirmSecrets
+ * @param {(path: string, sent: number, total: number) => void} [onBytes] progress of each big file (C3)
+ */
+async function uploadMissing(api, root, journal, items, confirmSecrets, onBytes) {
   /** @type {Map<string, DraftItem>} */
   const byHash = new Map();
   for (const i of items) if (i.contentHash && i.abs) byHash.set(i.contentHash, i);
@@ -180,7 +194,11 @@ async function uploadMissing(api, root, journal, items, confirmSecrets) {
     const first = /** @type {any} */ (await api.post(`/api/v1/change-sets/${enc}/content`, { hash, ...extra }));
     let last = first;
     if (first.upload) {
-      const put = await fetch(first.upload.url, { method: "PUT", body: b, headers: { "content-type": first.upload.contentType ?? "application/octet-stream" } });
+      // In 1 MB pieces, so a terminal shows how far it got (C3; T16 live test: a 24 MB push showed nothing for 9 s).
+      const name = byHash.get(hash)?.path ?? hash;
+      let sent = 0;
+      const body = Readable.from((function* () { for (let o = 0; o < b.length; o += 1 << 20) { const piece = b.subarray(o, o + (1 << 20)); sent += piece.length; onBytes?.(name, sent, b.length); yield piece; } })());
+      const put = await fetch(first.upload.url, /** @type {RequestInit} */ ({ method: "PUT", body: /** @type {any} */ (body), duplex: "half", headers: { "content-type": first.upload.contentType ?? "application/octet-stream", "content-length": String(b.length) } }));
       if (!put.ok) throw new Error(`Upload of a large file failed (${put.status})`);
       last = await api.post(`/api/v1/change-sets/${enc}/content`, { hash, ...extra });
     }

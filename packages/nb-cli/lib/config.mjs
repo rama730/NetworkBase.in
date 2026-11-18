@@ -120,6 +120,9 @@ export function currentProfile(ctx = {}) {
   return { name, origin, token: null, profile: null };
 }
 
+/** Every saved sign-in's name, so nb uninstall can take each one out of the OS keychain too. @param {NodeJS.ProcessEnv} [env] */
+export const profileNames = (env = process.env) => Object.keys(readCredentialFile(env).profiles ?? {});
+
 /** @param {string} name @param {Profile | null} profile @param {NodeJS.ProcessEnv} [env] */
 export function saveProfile(name, profile, env = process.env) {
   const file = path.join(globalDir(env), "credentials.json");

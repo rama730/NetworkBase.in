@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { currentChange, draftItems, readJournal, setCurrentChange, syncDraft, writeJournal } from "../changes/capture.mjs";
+import { currentChange, draftItems, pendingPush, readJournal, setCurrentChange, setPendingPush, syncDraft, writeJournal } from "../changes/capture.mjs";
 import { CliError, EXIT } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
 import { toRelative, toRemote } from "../sync/local.mjs";
@@ -436,16 +436,28 @@ export async function pushAsChangeSet(ctx, root, project, items, extra = /** @ty
   const { mimeFor } = await import("../sync/transfer.mjs");
   const count = items.length + (extra.moves?.length ?? 0) + (extra.deletions?.length ?? 0);
   const title = String(ctx.flags.message ?? `Push of ${count} file${count === 1 ? "" : "s"}`).slice(0, 120);
-  /** @type {any} */
-  let started;
-  try {
-    started = await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title, ...(extra.branchId ? { branchId: extra.branchId } : {}) });
-  } catch (error) {
-    if (error instanceof CliError && error.code === "CHANGE_SETS_OFF") return null;
-    throw error;
+  // A push stopped midway (Ctrl+C) carries on in its own change set: what reached the server isn't sent again, and no
+  // draft is left behind (T16 live test: each stop left an open "Push of 1 file").
+  const earlier = pendingPush(root);
+  const reopened = earlier ? /** @type {any} */ (await ctx.api.get(`/api/v1/change-sets/${enc(earlier)}`).catch(() => null)) : null;
+  /** @type {string} */
+  let id;
+  if (earlier && reopened?.changeSet?.status === "open" && (reopened.changeSet.branchId ?? null) === (extra.branchId ?? null)) {
+    id = earlier;
+    ctx.out.note(ctx.out.c.muted("Carrying on with the push that was stopped"));
+  } else {
+    /** @type {any} */
+    let started;
+    try {
+      started = await ctx.api.post(`/api/v1/workspaces/${enc(project.workspaceId)}/change-sets`, { title, ...(extra.branchId ? { branchId: extra.branchId } : {}) });
+    } catch (error) {
+      if (error instanceof CliError && error.code === "CHANGE_SETS_OFF") return null;
+      throw error;
+    }
+    id = started.changeSet.id;
+    writeJournal(root, { id, title, sent: {}, missing: [] });
+    setPendingPush(root, id);
   }
-  const id = started.changeSet.id;
-  writeJournal(root, { id, title, sent: {}, missing: [] });
   /** @type {import("../changes/capture.mjs").DraftItem[]} */
   const draft = [
     ...items.map((i) => ({
@@ -456,11 +468,16 @@ export async function pushAsChangeSet(ctx, root, project, items, extra = /** @ty
     ...(extra.moves ?? []).map((m) => ({ op: /** @type {"rename"} */ ("rename"), fromPath: m.from, path: m.path, abs: m.local.abs, contentHash: m.local.hash, size: m.local.size, mimeType: mimeFor(m.path), ...(m.base ? { baseHash: m.base.baseHash } : {}) })),
     ...(extra.deletions ?? []).map((d) => ({ op: /** @type {"delete"} */ ("delete"), path: d.path, ...(d.base ? { baseHash: d.base.baseHash } : {}) })),
   ];
-  const sync = await syncDraft(ctx.api, root, id, draft, { confirmSecrets: Boolean(ctx.flags["confirm-secrets"]) });
+  const onBytes = ctx.out.interactive && !ctx.out.json ? (/** @type {string} */ p, /** @type {number} */ sent, /** @type {number} */ total) => {
+    const mb = (/** @type {number} */ n) => (n / 1024 / 1024).toFixed(1);
+    ctx.out.stderr.write(`\r\x1b[2K${ctx.out.c.muted(`Uploading ${safe(p)} ${mb(sent)} of ${mb(total)} MB`)}${sent >= total ? "\n" : ""}`);
+  } : undefined;
+  const sync = await syncDraft(ctx.api, root, id, draft, { confirmSecrets: Boolean(ctx.flags["confirm-secrets"]), onBytes });
   if (sync.held.length) throw new CliError("SECRET_DETECTED", `Not pushed: ${sync.held.join(", ")} ${sync.held.length === 1 ? "looks" : "look"} like ${sync.held.length === 1 ? "it holds" : "they hold"} a password or key`, { hint: "Remove the key, or push with --confirm-secrets if it's safe to share" });
   if (sync.pending) throw new CliError("CONTENT_MISSING", `${plural(sync.pending, "file")} couldn't be uploaded`, { hint: `Run nb push again; nb change status ${id.slice(0, 8)} shows what's left` });
   await ctx.api.post(`/api/v1/change-sets/${enc(id)}/finish`, { ...(ctx.flags.message ? { message: ctx.flags.message } : {}), ...(ctx.flags["confirm-secrets"] ? { confirmSecrets: true } : {}) });
   const res = /** @type {any} */ (await ctx.api.post(`/api/v1/change-sets/${enc(id)}/apply`, {}));
+  setPendingPush(root, null);
   return { changeSet: res.changeSet, applied: res.applied ?? [] };
 }
 

@@ -532,12 +532,13 @@ export function TextViewer({
           offerBranch({ title: `Changed ${node.name}`, what: `edit-${node.name}`, change: { kind: "text", path: node.path, text: content, baseHash }, onDone: () => setContent(savedContent) });
         } else {
           setSaveError(result.error || "Couldn’t save version");
-          toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));
+          // Retry saves the same text again (0.8 #6; T16 live test: the editor's save toast had none).
+          toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"), { retry: () => void handleRevisionOptionSelected(choice) });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         setSaveError(message);
-        toast.error('Couldn’t save the file');
+        toast.error('Couldn’t save the file', { retry: () => void handleRevisionOptionSelected(choice) });
       } finally {
         setIsSaving(false);
       }

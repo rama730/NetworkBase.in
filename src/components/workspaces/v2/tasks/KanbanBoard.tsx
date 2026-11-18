@@ -837,7 +837,8 @@ export default function KanbanBoard({
         void queryClient.invalidateQueries({
           queryKey: queryKeys.project.detail.tasksRoot(projectId),
         });
-        toast.error(feedbackError("Couldn’t move task: " + result.error, "Couldn’t move task: "));
+        // Retry makes the same move again (0.8 #6; T16 live test: this toast had none).
+        toast.error(feedbackError("Couldn’t move task: " + result.error, "Couldn’t move task"), { retry: () => void commitTaskMove(taskId, target, options) });
         return;
       }
       syncTaskCompletionPolicy(queryClient, projectId, result);
@@ -878,6 +879,7 @@ export default function KanbanBoard({
       });
       toast.error(
         feedbackError(error instanceof Error ? error.message : "Couldn’t move task", "Couldn’t move task"),
+        { retry: () => void commitTaskMove(taskId, target, options) },
       );
     } finally {
       taskMovePendingRef.current = false;

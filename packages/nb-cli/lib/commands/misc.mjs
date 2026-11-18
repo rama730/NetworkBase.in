@@ -171,8 +171,14 @@ export async function config(ctx) {
   }
   if (!key || !SETTINGS[key]) throw usage(`Unknown setting ${key ?? ""}`.trim(), `Settings: ${Object.keys(SETTINGS).join(", ")}`);
   if (action === "get") return ctx.out.result("nb.config.value/1", { key, value: current[key] ?? null }, (d) => String(d.value ?? ""));
-  if (action !== "set" || value === undefined) throw usage("nb config set <key> <value>");
-  if (!SETTINGS[key].check(value)) throw usage(`${value} isn't a valid value for ${key}`, SETTINGS[key].describe);
+  // Back to the default (T16 live test: a ca-file or proxy, once set, couldn't be taken off).
+  if (action === "unset") {
+    const { [key]: _dropped, ...rest } = current;
+    writeUserConfig(rest, ctx.env);
+    return ctx.out.result("nb.config.value/1", { key, value: null }, (d) => `${d.key} is back to its default`);
+  }
+  if (action !== "set" || value === undefined) throw usage("nb config set <key> <value>, or nb config unset <key>");
+  if (!SETTINGS[key].check(value)) throw usage(`${value} isn't a valid value for ${key}`, `${SETTINGS[key].describe}. Back to the default: nb config unset ${key}`);
   writeUserConfig({ ...current, [key]: value }, ctx.env);
   ctx.out.result("nb.config.value/1", { key, value }, (d) => `Set ${d.key} to ${d.value}`);
 }
@@ -199,11 +205,20 @@ export async function open(ctx) {
   ctx.out.result("nb.open/1", { url, opened }, (d) => (d.opened ? `Opened ${d.url}` : `Open ${d.url}`));
 }
 
-/** Which of Cursor and VS Code is on PATH (Cursor first: it's the one people pick when they have both). @param {NodeJS.ProcessEnv} env */
+/**
+ * Which of Cursor and VS Code is on PATH (Cursor first: it's the one people pick when they have both). On a Mac, an
+ * installed app works too, without its shell command (T16 live test: VS Code installed, `code` not on PATH).
+ * @param {NodeJS.ProcessEnv} env @returns {{ cmd: string, pre: string[], name: string } | null}
+ */
 function codeEditor(env) {
   const dirs = String(env.PATH ?? "").split(path.delimiter).filter(Boolean);
   const names = process.platform === "win32" ? ["cursor.cmd", "code.cmd"] : ["cursor", "code"];
-  for (const name of names) for (const dir of dirs) if (fs.existsSync(path.join(dir, name))) return path.join(dir, name);
+  for (const name of names) for (const dir of dirs) if (fs.existsSync(path.join(dir, name))) return { cmd: path.join(dir, name), pre: [], name: name.replace(/\.cmd$/, "") };
+  if (process.platform !== "darwin") return null;
+  const appDirs = env.NB_APP_DIRS ? env.NB_APP_DIRS.split(path.delimiter) : [path.join(env.HOME ?? "", "Applications"), "/Applications"];
+  for (const [app, name] of [["Cursor", "cursor"], ["Visual Studio Code", "code"]]) {
+    for (const dir of appDirs) if (fs.existsSync(path.join(dir, `${app}.app`))) return { cmd: "open", pre: ["-a", path.join(dir, `${app}.app`)], name };
+  }
   return null;
 }
 
@@ -211,13 +226,15 @@ function codeEditor(env) {
 async function openInCode(ctx, target) {
   const { root } = ctx.requireRoot();
   const editor = codeEditor(ctx.env);
-  if (!editor) throw new CliError("NOT_FOUND", "Neither VS Code nor Cursor is on your PATH", { hint: "In VS Code: Command Palette → \"Shell Command: Install 'code' command in PATH\"" });
+  if (!editor) throw new CliError("NOT_FOUND", "Neither VS Code nor Cursor is installed or on your PATH", { hint: "In VS Code: Command Palette → \"Shell Command: Install 'code' command in PATH\"" });
   const file = target ? path.resolve(ctx.cwd, target) : root;
   if (target && !path.relative(root, file).split(path.sep).every((s) => s !== "..")) throw usage(`${target} is outside the linked folder ${root}`);
   const { spawn } = await import("node:child_process");
   // The folder too, so the editor opens in this workspace's window.
-  spawn(editor, target ? [root, file] : [root], { detached: true, stdio: "ignore", shell: process.platform === "win32" }).unref();
-  ctx.out.result("nb.open.code/1", { editor: path.basename(editor).replace(/\.cmd$/, ""), path: file }, (d) => `Opened ${safe(path.relative(root, d.path) || ".")} in ${d.editor === "cursor" ? "Cursor" : "VS Code"}`);
+  const child = spawn(editor.cmd, [...editor.pre, ...(target ? [root, file] : [root])], { detached: true, stdio: "ignore", shell: process.platform === "win32" });
+  child.on("error", () => {});
+  child.unref();
+  ctx.out.result("nb.open.code/1", { editor: editor.name, path: file }, (d) => `Opened ${safe(path.relative(root, d.path) || ".")} in ${d.editor === "cursor" ? "Cursor" : "VS Code"}`);
 }
 
 /**
@@ -228,13 +245,15 @@ async function openInCode(ctx, target) {
  */
 export async function uninstall(ctx) {
   const { confirm } = await import("../tui/ask.mjs");
-  const { globalDir } = await import("../config.mjs");
+  const { globalDir, profileNames, saveProfile } = await import("../config.mjs");
   const dir = globalDir(ctx.env);
   if (!(await confirm(ctx, { key: "uninstall", question: `Sign out and delete ${dir} (sign-ins, caches, settings)?`, yesLabel: "Uninstall", defaultYes: false }))) return 130;
   let signedOut = false;
   if (ctx.profile.token && ctx.profile.profile?.source !== "env") {
     signedOut = await ctx.api.post("/api/v1/extension/session", {}).then(() => true, () => false);
   }
+  // The tokens kept in the OS keychain go too, not only the folder (T16 live test: they stayed behind).
+  for (const name of profileNames(ctx.env)) { try { saveProfile(name, null, ctx.env); } catch { /* already gone */ } }
   fs.rmSync(dir, { recursive: true, force: true });
   /** @type {string[]} */
   const cleaned = [];

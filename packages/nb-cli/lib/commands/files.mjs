@@ -179,6 +179,10 @@ export async function pull(ctx, options = {}) {
     if (plan.offline) throw new CliError("OFFLINE", "Can't reach the server to pull", { hint: "Try again when you're online" });
     const { project, state } = plan;
     let todo = plan.items.filter((i) => ["pull", "restore", "adopt", "remove-local", "conflict"].includes(i.action));
+    // A file named on its own that you deleted here comes back: you asked for it (T16 live test: nb edit and nb pull of
+    // it said "Up to date" / "No file"). Pulling a folder or everything still keeps your deletions.
+    const named = new Set(only.map((rel) => toRemote(project.remoteRoot, rel)));
+    todo.push(...plan.items.filter((i) => i.action === "delete-remote" && i.remote && named.has(i.path)).map((i) => ({ ...i, action: /** @type {const} */ ("restore") })));
     // On disks that ignore letter case (macOS, Windows), Report.md and report.md would be one file: the first one
     // wins and the other is skipped with a note, never overwritten (A1.16).
     /** @type {Array<{ path: string, reason: string }>} */
@@ -449,7 +453,7 @@ export async function push(ctx) {
         }
         writeState(root, state);
         return ctx.out.result("nb.push/1", { files: done.applied, changeSet: { id: done.changeSet.id, title: done.changeSet.title } }, (d) => [
-          `${ctx.out.c.success(ctx.out.sym.done)} Pushed ${d.files.length} files as one change set: ${safe(d.changeSet.title)}`,
+          `${ctx.out.c.success(ctx.out.sym.done)} Pushed ${d.files.length} ${d.files.length === 1 ? "file" : "files"} as one change set: ${safe(d.changeSet.title)}`,
           ctx.out.c.muted(`  Undo all of it: nb change undo ${d.changeSet.id.slice(0, 8)}`),
         ]);
       }

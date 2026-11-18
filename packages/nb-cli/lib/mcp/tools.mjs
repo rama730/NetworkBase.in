@@ -150,7 +150,7 @@ export const TOOLS = [
   { name: "networkbase_file_push", title: "Push files", tier: "small",
     props: { paths: { type: "array", items: { type: "string" }, description: "Files here" }, message: { type: "string", description: "What changed" }, task: { type: "string" }, as: { type: "string", enum: ["reference", "draft", "final"] }, folder: { type: "string" }, keepBoth: { type: "boolean", description: "Name taken: save as name (2).ext" }, workspace: workspaceProp },
     required: ["paths", "message"],
-    description: "Upload files from this folder; the same path becomes a new version. Check networkbase_status first unless the user named the files. Draft unless the user says final; final needs a yes.",
+    description: "Upload; same path = new version. networkbase_status first unless files are named. Draft unless told final (asks). Apply as one change: networkbase_change_start, then networkbase_change_apply.",
     needsYes: (a) => (a.as === "final" ? `Push ${a.paths.slice(0, 3).join(", ")}${a.paths.length > 3 ? ` and ${a.paths.length - 3} more` : ""} as ${a.paths.length === 1 ? "the final file" : "final files"}${a.task ? ` on #${String(a.task).replace(/^#/, "")}` : ""}` : null),
     run: (nb, a) => {
       if (!String(a.message ?? "").trim()) throw new CliError("USAGE", "Say what changed in message");

@@ -4,6 +4,7 @@ import "server-only";
  * unlink docs. Each reuses the app's action, so the rules, limits and notifications are the same.
  */
 import { and, eq, isNull } from "drizzle-orm";
+import { cliWorkspaceInput } from "@/lib/validations/workspace";
 
 import { linkWorkspaceDocAction, unlinkWorkspaceDocAction } from "@/app/actions/workspace/doc";
 import { db } from "@/lib/db";
@@ -20,7 +21,7 @@ export async function createWorkspaceFromCli(input: { title: string; description
   const title = input.title.trim();
   const description = input.description?.trim() || `A workspace for ${title}.`;
   if (description.length < 20) fail("A description needs at least 20 characters (-m \"…\")", 400, "BAD_REQUEST");
-  const res = await createWorkspaceAction({ title, description, project_type: "other", visibility: input.visibility ?? "private" } as never);
+  const res = await createWorkspaceAction(cliWorkspaceInput(title, description, input.visibility ?? "private") as never);
   if (!res.success) fail(res.error ?? "Couldn't create the workspace", 400, "BAD_REQUEST");
   const made = res as unknown as { project?: { id: string; slug: string; title: string }; projectId?: string; slug?: string };
   return { workspace: made.project ?? { id: made.projectId, slug: made.slug, title } };

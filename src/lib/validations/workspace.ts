@@ -330,3 +330,7 @@ export function validateAndSanitizeLifecycleStages(rawStages: string[]): string[
 
     return sanitizedStages;
 }
+
+/** What `nb workspace create` sends to the app's create: "Other" needs its own type name (T16 live test: every create failed). */
+export const cliWorkspaceInput = (title: string, description: string, visibility: "public" | "private") =>
+    ({ title, description, project_type: "other", custom_project_type: "General", visibility });
