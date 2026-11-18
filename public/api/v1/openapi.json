@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "NetworkBase API (CLI and agents)",
-    "version": "2.6.2",
+    "version": "2.6.3",
     "description": "Routes the NetworkBase CLI, its MCP server and AI agents write to. Tokens: `Authorization: Bearer nb_dev_… | nb_agt_… | nb_pat_…`."
   },
   "components": {

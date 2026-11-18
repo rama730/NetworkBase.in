@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.3 (2026-11-18)
+
+### Added
+- `nb branch switch` works offline for a branch this folder already had (main or one it switched to before); it rebuilds the files from the copies kept on your computer and says "(offline)". A branch it never had still needs the network.
+
+### Fixed
+- `nb branch delete <name>` finds a branch that was already merged, so you can delete it before the daily cleanup does.
+
 ## 2.6.2 (2026-11-18)
 
 Fixes from the walkthrough on 2.6.1.
