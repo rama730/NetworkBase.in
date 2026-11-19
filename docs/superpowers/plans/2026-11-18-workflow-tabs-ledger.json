@@ -98,9 +98,9 @@
       "text": "A0.10 Item panel: type section, Shows in, Stage menu (38.4 F3 S4; 38.2 S7)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "LIVE 2026-11-19 f1839e0a4 (pushed f3605359c) + fixes dced5dc73 (finishing stage needs task:complete, security review) and 94bb319fb (no Section off the board). Chrome + CLI + MCP on wt-test-a10 (deleted)."
     },
     {
       "key": "A0.11",
@@ -5288,9 +5288,9 @@
       "text": "A bug walks onto the board and off again",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "2026-11-19 Chrome: Confirmed -> Fixing opened \"Bug joins Tasks at Fixing\" with Add to Week 47 ticked; Move put it In progress in Week 47; back to Confirmed left the board, history added_to_sprint/joined_from_workflow then removed_from_sprint/moved_back."
     },
     {
       "key": "38.2.W5",
@@ -5298,9 +5298,9 @@
       "text": "Dragging a bug card on the board",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "2026-11-19: Blocked keeps Fixing, card \"Bug · Fixing · Blocked\"; --stage fixed -> Completed, card \"Bug · Fixed\"."
     },
     {
       "key": "38.2.W6",
@@ -5368,9 +5368,9 @@
       "text": "An agent through MCP",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "2026-11-19 MCP: networkbase_task_list type bug stage new; networkbase_task_stage (planning pack) moved #3 to confirmed; nb task move --stage fixing joined the running sprint; no tool adds or removes workflows."
     },
     {
       "key": "38.2.call1",
@@ -5419,8 +5419,8 @@
       "kind": "call",
       "milestone": "A0",
       "status": "live",
-      "test": "tests/unit/workflow-rules.test.ts; tests/db/workflow-stages.test.ts (7 journeys)",
-      "evidence": "live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing→Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors ; bug hunt 2026-11-19: prod logs clean, catalog parity with prod OK; FOUND a status change on an off-board item (panel/bulk/undo/CLI/GitHub) left it half on the board, and a done stage chosen off the board waited for review off the board — fixed de8ab31ea (tests first), redeployed, rechecked live on wt-test-a0-1b via nb task move/done + Chrome approve (deleted after); 2nd pass clean (no other direct status writes; copies are plain tasks)"
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "2026-11-19: board edges kept the stage (Blocked) and Completed took Fixed."
     },
     {
       "key": "38.2.call6",
@@ -5428,9 +5428,9 @@
       "text": "The Join-board sheet remembers each person's sprint tick for 24 hours. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-display.test.ts",
+      "evidence": "2026-11-19: Join-board tick remembered 24 h in the browser (spec)."
     },
     {
       "key": "38.2.call7",
@@ -5458,9 +5458,9 @@
       "text": "The CLI and MCP get type and stage on list, create and move, plus a read-only workflow list; adding and removing stay in the app. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "2026-11-19: CLI task list/create --type --stage, task move --stage [--backlog], nb workflows; MCP type/stage + networkbase_task_stage + networkbase_workflow_list."
     },
     {
       "key": "38.2.call10",
@@ -5748,9 +5748,9 @@
       "text": "Opening an item",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "2026-11-19 Chrome: panel shows \"Shows in: Tasks · In progress / Bugs · Fixing\" and the Stage menu; type section (Bug details) with A2.1."
     },
     {
       "key": "38.4.W7",
@@ -8078,9 +8078,9 @@
       "text": "A0.10 (2026-11-19): \"Shows in\" names the places as plain text until the own tabs exist (Bugs in A2.1); the Stage menu and Join-board sheet sit under the panel h",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "2026-11-19: Shows in as text; Stage menu under the header."
     },
     {
       "key": "38.2.call20",
@@ -8090,7 +8090,7 @@
       "milestone": "A0",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "with A2.1 (fields) and A1.3 (Work tab)."
     },
     {
       "key": "38.2.call21",
@@ -8098,9 +8098,9 @@
       "text": "A0.10: MCP stage moves are a pack tool, networkbasetaskstage (planning pack), and networkbaseworkflowlist is in that pack too: the core set was at its 4,000-tok",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "2026-11-19: core MCP list 3,999 tokens; pack tools checked live."
     },
     {
       "key": "38.2.call22",
@@ -8108,9 +8108,9 @@
       "text": "A0.10: nb task move <n> --stage x (and the API's stage kind) joins the running sprint unless --backlog or a sprint is named; moving to a closing stage (Won't fi",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "2026-11-19: --stage fixing joined Week 47; finishing stages need task:complete (dced5dc73)."
     }
   ]
 }
