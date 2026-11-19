@@ -48,9 +48,9 @@
       "text": "A0.5 Live task-rows block + Insert menu (38.3 F2 S3, S5, S6)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/doc-rows.test.ts",
-      "evidence": "ec8ede438 + 771436f76 live 2026-11-19 (0106/0107 prod, index valid). Server journeys live via CLI/MCP on wt-test-a05; signed-in screen journeys wait for Chrome sign-in. revisit 2026-11-20"
+      "evidence": "LIVE 2026-11-19: ec8ede438, 771436f76 (org read filter), 345d4669d, d3ba881e0 (live-check fixes). 0106/0107 prod. Screens checked in Chrome on wt-test-a05 (deleted after)."
     },
     {
       "key": "A0.6",
@@ -5498,9 +5498,9 @@
       "text": "Adding an action item in a meeting",
       "kind": "journey",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19 Chrome: Add action item with 1 week due -> #4 added, form stays, Esc closes."
     },
     {
       "key": "38.3.W4",
@@ -5508,9 +5508,9 @@
       "text": "Ticking from the document",
       "kind": "journey",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19 Chrome: tick shows at once + Undo toast; nb task done 4 ticked the open page within seconds (live refresh)."
     },
     {
       "key": "38.3.W5",
@@ -5520,7 +5520,7 @@
       "milestone": "A0",
       "status": "tested",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "tests/db/doc-rows.test.ts (leaders-only doc, member ticks own, viewer neither); live needs a second account, revisit 2026-11-20."
     },
     {
       "key": "38.3.W6",
@@ -5538,9 +5538,9 @@
       "text": "Inserting a live block while editing",
       "kind": "journey",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19 Chrome: Files editor Edit -> Insert -> Checklist wrote one line with fresh key 4hmm; Save version; Documents shows empty Checklist."
     },
     {
       "key": "38.3.W8",
@@ -5548,9 +5548,9 @@
       "text": "Reordering and removing rows",
       "kind": "journey",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19 Chrome: row menu Move up reordered; Open task opened the panel with From: Weekly; link returns to the document."
     },
     {
       "key": "38.3.W9",
@@ -5568,9 +5568,9 @@
       "text": "A block's line is deleted from the text",
       "kind": "journey",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19 Chrome: deleting the Action items line -> \"3 items from a removed list · Show\", no Add."
     },
     {
       "key": "38.3.W11",
@@ -5588,9 +5588,9 @@
       "text": "Public reader",
       "kind": "journey",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19 signed-out browser: Tasks private -> \"Items in this list are visible to members.\"; Tasks public -> rows read-only, no names, WT-5; phone 375 px fine."
     },
     {
       "key": "38.3.W13",
@@ -7928,9 +7928,9 @@
       "text": "A0.5 (2026-11-19): rows are reordered from the row ⋯ menu (Move up, Move down); no drag in this release, so phones and keyboards get the same path. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19: menu reorder, inline add on phone."
     },
     {
       "key": "38.3.call13",
@@ -7938,9 +7938,9 @@
       "text": "A0.5: adding a row does not check that the key is in the published text; a key that is not there is shown under \"items from a removed list\", which never offers ",
       "kind": "call",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19: removed-list note without Add."
     },
     {
       "key": "38.3.call14",
@@ -7948,9 +7948,9 @@
       "text": "A0.5: the task's \"From\" line names the document only (not the list), and links to it. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19: From: Weekly links to the document."
     },
     {
       "key": "38.3.call15",
@@ -7958,9 +7958,9 @@
       "text": "A0.5: ticking a row moves the task through the usual transition (review where required) and the box ticks at once; Undo stays 10 seconds. Agents adding rows cou",
       "kind": "call",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19: optimistic tick, Undo; MCP add small + undo."
     },
     {
       "key": "38.3.call16",
@@ -7968,9 +7968,9 @@
       "text": "Found while building A0.5: the Files editor's text area had no accessible name; it is now \"Edit <file name>\". [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
-      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
+      "evidence": "live 2026-11-19: editor content labelled \"Edit Weekly.md\"."
     }
   ]
 }
