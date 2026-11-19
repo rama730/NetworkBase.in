@@ -95,7 +95,7 @@ const KEPT: Array<[RegExp, RegExp]> = [
   [/src\/(?:lib|components\/workspaces)\/workflows\//, /\b(?:Project planner|Projects view)\b|^Projects?$/],
   [/src\/components\/workspaces\/v2\/tasks\/PlannerParts\.tsx$/, /\bprojects?\b/i],
   [/src\/(?:app\/actions\/task|lib\/workspaces\/server\/tasks|components\/workspaces\/v2\/(?:TasksTab|tasks\/TaskStageControl))\.tsx?$/,
-    /^(?:Projects|Name the project|Couldn’t make the project|Couldn’t load projects|The project is completed either way\.|Part of must be a project in this workspace|A project can’t be Part of another project)$/],
+    /^(?:Projects|Name the project|Couldn’t make the project|Couldn’t load projects|The project is completed either way\.|Part of must be a project in this workspace|A project can’t be Part of another project|Projects aren’t available in organizations|Assignments can’t be Part of a project)$/],
   [/./, /^(?:Apache Airflow|John Doe|Office Online|Excel Online|Android Studio|Samsung Internet|Claude Code|Instrument Sans)$/],
 ];
 

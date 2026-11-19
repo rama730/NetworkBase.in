@@ -1201,6 +1201,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       return { success: false, error: "The start date is after the due date" };
     }
     if (validated.partOfId) {
+      if (access.project.kind === "organization") return { success: false, error: "Projects aren’t available in organizations" };
       if (!canBePartOf(itemType)) return { success: false, error: "A project can’t be Part of another project" };
       const [parent] = await db.select({ itemType: tasks.itemType }).from(tasks)
         .where(and(eq(tasks.id, validated.partOfId), eq(tasks.projectId, validated.projectId), isNull(tasks.deletedAt))).limit(1);

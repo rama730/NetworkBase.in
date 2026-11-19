@@ -5,7 +5,7 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { reassignBlock, type AssignmentWrite } from "@/lib/organizations/assignment-rules";
-import { assertAssignmentWrite, orgTaskReadFilter } from "@/lib/organizations/assignments";
+import { assertAssignmentWrite } from "@/lib/organizations/assignments";
 import { reviewAssignmentCopyAction } from "@/app/actions/assignments";
 import { db } from "@/lib/db";
 import { wakeEmailWorker } from "@/lib/email/outbox";
@@ -498,15 +498,18 @@ export async function setPartOfAction(input: z.infer<typeof partOfSchema>) {
     const { projectId, taskIds, partOfId } = partOfSchema.parse(input);
     const user = await requireTaskWriter();
     if (!user) return { success: false as const, error: "Sign in to continue" };
-    if (partOfId) {
-      const [parent] = await db.select({ itemType: tasks.itemType }).from(tasks).where(and(eq(tasks.id, partOfId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);
-      if (!parent || !canBeParent(parent.itemType)) return { success: false as const, error: "Part of must be a project in this workspace" };
-    }
+    // Call 11 (A1.1): organizations keep the board only, so their work never joins a project.
+    if ((await getWorkspaceAccessById(projectId, user.id)).project?.kind === "organization") return { success: false as const, error: "Projects aren’t available in organizations" };
     await db.transaction(async (tx) => {
+      if (partOfId) {
+        const [parent] = await tx.select({ itemType: tasks.itemType }).from(tasks).where(and(eq(tasks.id, partOfId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1).for("share");
+        if (!parent || !canBeParent(parent.itemType)) throw new Error("Part of must be a project in this workspace");
+      }
       for (const taskId of taskIds) {
         const locked = await lockTaskForWrite(tx, taskId, user.id);
         if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
-        const [row] = await tx.select({ itemType: tasks.itemType, onBoard: tasks.onBoard }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        const [row] = await tx.select({ itemType: tasks.itemType, kind: tasks.kind }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        if (row?.kind === "assignment") throw new Error("Assignments can’t be Part of a project");
         if (partOfId && (!row || !canBePartOf(row.itemType) || taskId === partOfId)) throw new Error("A project can’t be Part of another project");
         await tx.update(tasks).set({ partOfId, updatedAt: new Date() }).where(eq(tasks.id, taskId));
       }
@@ -534,11 +537,11 @@ export async function readProjectWorkAction(projectId: string, projectTaskId: st
     if (!z.string().uuid().safeParse(projectId).success || !z.string().uuid().safeParse(projectTaskId).success) return { success: false as const, error: "Not found" };
     const { user } = await requireAuthenticatedUser();
     const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
-    if (!access.project || !canReadWorkspaceTab(access, "tasks")) return { success: false as const, error: "Not found" };
+    if (!access.project || access.project.kind === "organization" || !canReadWorkspaceTab(access, "tasks")) return { success: false as const, error: "Not found" };
     const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
     const work = await db.select({ id: tasks.id, taskNumber: tasks.taskNumber, title: tasks.title, status: tasks.status, stage: tasks.stage, itemType: tasks.itemType, dueDate: tasks.dueDate, assigneeId: tasks.assigneeId, sprintId: tasks.sprintId })
-      .from(tasks).where(and(eq(tasks.partOfId, projectTaskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt), orgTaskReadFilter(access, user?.id ?? null))).orderBy(tasks.taskNumber).limit(200);
-    const [project] = await db.select({ typeFields: tasks.typeFields }).from(tasks).where(and(eq(tasks.id, projectTaskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);
+      .from(tasks).where(and(eq(tasks.partOfId, projectTaskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).orderBy(tasks.taskNumber).limit(200);
+    const [project] = await db.select({ typeFields: tasks.typeFields }).from(tasks).where(and(eq(tasks.id, projectTaskId), eq(tasks.projectId, projectId), eq(tasks.itemType, "project"), isNull(tasks.deletedAt))).limit(1);
     if (!project) return { success: false as const, error: "Not found" };
     const [subs] = await db.execute<{ done: number; total: number }>(sql`SELECT count(*) FILTER (WHERE completed)::int AS done, count(*)::int AS total FROM task_subtasks WHERE task_id = ${projectTaskId}`);
     const override = typeof project?.typeFields?.completionOverride === "number" ? (project.typeFields.completionOverride as number) : null;
@@ -558,7 +561,7 @@ export async function readProjectsAction(projectId: string) {
     if (!z.string().uuid().safeParse(projectId).success) return { success: false as const, error: "Not found" };
     const { user } = await requireAuthenticatedUser();
     const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
-    if (!access.project || !(access.isOwner || access.isMember)) return { success: false as const, error: "Not found" };
+    if (!access.project || access.project.kind === "organization" || !(access.isOwner || access.isMember)) return { success: false as const, error: "Not found" };
     const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
     const rows = await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; status: string; start_date: Date | null; due_date: Date | null; assignee_id: string | null; done: number; total: number; override: number | null }>(sql`
       SELECT p.id, p.task_number, p.title, p.stage, p.status, p.start_date, p.due_date, p.assignee_id,

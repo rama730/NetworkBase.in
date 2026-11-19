@@ -101,6 +101,16 @@ test("a member can't make a project without the Project planner; Part of refuses
   assert.equal((await taskActions.setPartOfAction({ projectId: t.ws, taskIds: [await make(t.ws, "Mine")], partOfId: foreign })).success, false);
   // Reading another workspace's project through your own workspace finds nothing (no counts, no override).
   assert.deepEqual(await taskActions.readProjectWorkAction(t.ws, foreign), { success: false, error: "Not found" });
+  // Assignment work never joins a project; organizations keep the board only (call 11).
+  const own = await make(t.ws, "Ours", { itemType: "project" });
+  const work = await make(t.ws, "Hand-in");
+  await sql`UPDATE tasks SET kind = 'assignment' WHERE id = ${work}`;
+  assert.equal((await taskActions.setPartOfAction({ projectId: t.ws, taskIds: [work], partOfId: own })).error, "Assignments can’t be Part of a project");
+  await sql`UPDATE workspaces SET kind = 'organization' WHERE id = ${t.ws}`;
+  assert.equal((await taskActions.setPartOfAction({ projectId: t.ws, taskIds: [await make(t.ws, "Plain")], partOfId: own })).error, "Projects aren’t available in organizations");
+  assert.deepEqual(await taskActions.readProjectWorkAction(t.ws, own), { success: false, error: "Not found" });
+  assert.equal((await taskActions.readProjectsAction(t.ws)).success, false);
+  await sql`UPDATE workspaces SET kind = 'workspace' WHERE id = ${t.ws}`;
   await sql`UPDATE workspace_workflows SET hidden_at = now() WHERE workspace_id = ${t.ws}`;
   const hidden = await tasksServer.createTaskAction({ projectId: t.ws, title: "P", status: "todo", priority: "medium", itemType: "project" } as never);
   assert.equal((hidden as { error?: string }).error, "Project planner was removed from this workspace");
