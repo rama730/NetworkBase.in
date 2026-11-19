@@ -24,9 +24,19 @@ export function useDocumentTitlePrefix(prefix: string | null | undefined, separa
             const next = normalizeTitle(`${text}${separator}${current}`);
             if (next !== current) document.title = next;
         };
+        // Next streams <title> into <body> on some loads; then the head never changes when the page sets its title, so
+        // the element itself (and its parent, in case it's replaced) is watched too, and re-found after each change.
+        const watch = () => {
+            observer.disconnect();
+            observer.observe(document.head, { subtree: true, childList: true, characterData: true });
+            const title = document.querySelector('title');
+            if (!title || document.head.contains(title)) return;
+            observer.observe(title, { subtree: true, childList: true, characterData: true });
+            if (title.parentNode) observer.observe(title.parentNode, { childList: true });
+        };
+        const observer = new MutationObserver(() => { apply(); watch(); });
         apply();
-        const observer = new MutationObserver(apply);
-        observer.observe(document.head, { subtree: true, childList: true, characterData: true });
+        watch();
         return () => {
             observer.disconnect();
             const current = document.title;

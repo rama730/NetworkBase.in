@@ -14,15 +14,22 @@ const hookCode = ts.transpileModule(readFileSync('src/hooks/useDocumentTitlePref
 /** Execute the production effect with document.title's HTML whitespace semantics.
  * Observer deliveries are bounded so the original freeze fails without hanging the test process.
  */
-function titleHarness(initialTitle = 'Messages · NetworkBase') {
+function titleHarness(initialTitle = 'Messages · NetworkBase', titleIn: 'head' | 'body' = 'head') {
     const observers = new Set<HeadObserver>();
     const pending = new Set<HeadObserver>();
     let rawTitle = initialTitle;
     let writes = 0;
     let effect: (() => Cleanup) | undefined;
-    const mutateHead = () => observers.forEach(observer => pending.add(observer));
+    // Next streams <title> into <body> on some pages; a change to it is seen only by observers watching where it is.
+    const body = {};
+    const head = { contains: (node: unknown) => node === titleEl && titleIn === 'head' };
+    const titleEl = { parentNode: titleIn === 'head' ? head : body };
+    const sees = (observer: HeadObserver, node: unknown) => observer.targets.has(node);
+    const mutateHead = () => observers.forEach(observer => { if (sees(observer, head)) pending.add(observer); });
+    const mutateTitle = () => observers.forEach(observer => { if (sees(observer, titleIn === 'head' ? head : titleEl)) pending.add(observer); });
     const document = {
-        head: {},
+        head,
+        querySelector: (selector: string) => (selector === 'title' ? titleEl : null),
         get title() {
             // HTML's title getter strips and collapses ASCII whitespace, not NBSP.
             return rawTitle.replace(/[\t\n\f\r ]+/g, ' ').replace(/^ | $/g, '');
@@ -30,13 +37,14 @@ function titleHarness(initialTitle = 'Messages · NetworkBase') {
         set title(value: string) {
             rawTitle = value;
             writes += 1;
-            mutateHead();
+            mutateTitle();
         },
     };
     class HeadObserver {
+        readonly targets = new Set<unknown>();
         constructor(readonly callback: () => void) {}
-        observe() { observers.add(this); }
-        disconnect() { observers.delete(this); pending.delete(this); }
+        observe(target: unknown) { this.targets.add(target); observers.add(this); }
+        disconnect() { this.targets.clear(); observers.delete(this); pending.delete(this); }
     }
     const exports = {} as { useDocumentTitlePrefix: PrefixHook };
     vm.runInNewContext(hookCode, {
@@ -49,6 +57,8 @@ function titleHarness(initialTitle = 'Messages · NetworkBase') {
     return {
         document,
         mutateHead,
+        /** The page (Next) sets its own title, as on a route's first load. */
+        setPageTitle(value: string) { rawTitle = value; mutateTitle(); },
         get writes() { return writes; },
         get observers() { return observers.size; },
         mount(prefix: string | null | undefined, separator?: string) {
@@ -176,4 +186,16 @@ test('non-ASCII whitespace and Unicode names remain intact', () => {
     assert.equal(harness.document.title, 'Équipe\u00a0—\u00a0研究 · Messages · NetworkBase');
     cleanup();
     assert.equal(harness.document.title, 'Messages · NetworkBase');
+});
+
+test('a <title> streamed into <body> keeps the prefix when the page sets its title after the panel opened', () => {
+    const harness = titleHarness('NetworkBase', 'body');
+    const cleanup = harness.mount('Inserted directly');
+    harness.flush();
+    harness.setPageTitle('Tasks · wt-test-link · NetworkBase');
+    harness.flush();
+    assert.equal(harness.document.title, 'Inserted directly · Tasks · wt-test-link · NetworkBase');
+    cleanup();
+    assert.equal(harness.document.title, 'Tasks · wt-test-link · NetworkBase');
+    assert.equal(harness.observers, 0);
 });
