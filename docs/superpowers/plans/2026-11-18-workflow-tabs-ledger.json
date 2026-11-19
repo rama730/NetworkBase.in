@@ -108,9 +108,9 @@
       "text": "A0.11 Filter chip row + Type filter (38.4 F3 S5; 38.2 S6)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/filter-chips.spec.ts",
+      "evidence": "LIVE 2026-11-20 c5938dbfe (pushed d1b7fee3e) + layout fix 20defcac0. Chrome on wt-test-a11 (deleted): Type chip with counts (Task 2, Bug 1), Type: Bug narrowed to the bug and wrote type=bug; a link with assignee=me&type=bug&due=today reopened all three chips with Clear all; organization board shows Assigned to/Due/+ Filter. Real page checked on localhost before the push (keys cleared on leaving Tasks)."
     },
     {
       "key": "A1.1",
@@ -5308,9 +5308,9 @@
       "text": "Filtering Tasks by type",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/filter-chips.spec.ts",
+      "evidence": "2026-11-20 Chrome: Type chip only with more than one type (absent on the organization board)."
     },
     {
       "key": "38.2.W7",
@@ -5758,9 +5758,9 @@
       "text": "Filtering with chips",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/filter-chips.spec.ts",
+      "evidence": "2026-11-20 Chrome: chips, set chip text, Clear all from two, address keeps filters and reopens them."
     },
     {
       "key": "38.4.W8",
@@ -5778,9 +5778,9 @@
       "text": "Phone",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/filter-chips.spec.ts",
+      "evidence": "Phone Filters sheet (spec, chromium+webkit, axe clean); the module sheet from A0.8."
     },
     {
       "key": "38.4.W10",
@@ -5848,9 +5848,9 @@
       "text": "The chip row is one shared part; filters live in the URL; no saved views. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/filter-chip-row-design-contract.test.ts",
+      "evidence": "2026-11-20: one shared FilterChipRow; filters in the address; nothing saved."
     },
     {
       "key": "38.4.call7",
@@ -8118,9 +8118,9 @@
       "text": "A0.11 (2026-11-20): the chips narrow the board already loaded, like the Team filter, so a long board may need \"load more\" before a filter sees older work; the c",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/task-filters.test.ts",
+      "evidence": "2026-11-20: taskSprint key; chips on their own row."
     },
     {
       "key": "38.4.call15",
@@ -8130,7 +8130,7 @@
       "milestone": "A0",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "Labels when cards carry labels; own-tab chips with their units."
     }
   ]
 }
