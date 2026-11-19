@@ -148,9 +148,9 @@
       "text": "A1.4 Projects → Timeline — Build: Timeline part (timelineRange, barGeometry, conflicts, dependentsToShift), drawing + S6 quick-create bubble, setTaskDatesAction",
       "kind": "unit",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-timeline.spec.ts",
+      "evidence": "LIVE 2026-11-20 42aa16e62 (pushed 4d3f6042d), live fixes b4fe81eb4 + 43f5cafce (bubble clipped by the grid, name squeezed by the warning, lowercase zoom names, bubble past the right edge). No migration. Chrome on wt-test-a1-4 (deleted): drew two projects, arrow Design system -> Website relaunch, reverse refused with the loop message, stretched the blocker 5 days -> \"Move 1 project that depends on this by 5 days?\" -> Move them (dependent moved 5 days), ] nudge + Undo, Calendar spans on each day."
     },
     {
       "key": "A1.5",
@@ -5878,9 +5878,9 @@
       "text": "Drawing a project on the timeline",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-timeline.spec.ts",
+      "evidence": "2026-11-20 Chrome: drag across the empty row, bubble with the dates, Enter made a Not started project assigned to me; Esc made nothing. More details in the spec."
     },
     {
       "key": "38.5.W3",
@@ -5898,9 +5898,9 @@
       "text": "Dependencies and moving a blocker",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/planner-work.test.ts",
+      "evidence": "2026-11-20 Chrome: arrow by end dot, loop refused, blocker moved later -> shift dialog -> Move them; Leave them shows the warning arrow and \"Starts before … ends\"."
     },
     {
       "key": "38.5.W5",
@@ -8178,9 +8178,9 @@
       "text": "A1.4 (2026-11-20): the Timeline zooms Week (±3 weeks), Month (±2 months, the default) and Quarter (±6 months) and opens with Today a quarter of the way in. Proj",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/planner-calendar.test.ts",
+      "evidence": "2026-11-20: zoom ranges, Timeline · All until A1.5, bubble without icon, one toast and Undo for move + shift, row ⋯ Blocked by, [ ] keys, Calendar spans."
     }
   ]
 }
