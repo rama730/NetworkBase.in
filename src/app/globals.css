@@ -980,9 +980,6 @@ button.nb-cell-conn:hover { background:var(--status-warning-soft); }
 .nb-crumb-sep { margin:0 4px; }
 .nb-path-pic { width:18px; height:18px; flex:none; margin-right:10px; border-radius:4px; object-fit:cover; }
 .nb-path-pic[data-org] { box-shadow:0 0 0 1px var(--background), 0 0 0 2px var(--border); }
-.nb-path-copy { display:inline-flex; align-items:center; gap:4px; height:22px; margin-left:10px; padding:0 7px; border:1px solid var(--border); border-radius:5px; background:var(--card); font:11px var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); opacity:0; transition:opacity 160ms; cursor:pointer; }
-.nb-shell-path:hover .nb-path-copy, .nb-path-copy:focus-visible { opacity:1; }
-.nb-shell-path[data-typing] .nb-path-copy { opacity:0; }
 .nb-shell-path--phone { display:flex; align-items:center; gap:8px; min-width:0; font:13px/1 var(--font-jetbrains-mono),monospace; }
 .nb-shell-path--phone b { overflow:hidden; text-overflow:ellipsis; font-weight:500; }
 .nb-shell-path--phone .nb-path-pic { margin-right:0; }

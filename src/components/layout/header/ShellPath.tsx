@@ -4,14 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { Check, ChevronDown, Copy, Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { useTypedPath } from "@/components/auth/AuthPanel";
 import { WorkspaceAvatar } from "@/components/workspaces/WorkspaceAvatar";
 import { useSidebarWorkspacesQuery } from "@/components/layout/AppSidebar";
 import { placeForPath, sidebarPlaces, type SidebarPlace } from "@/components/layout/SidebarWorkspaces";
 import { readRecentPages } from "@/lib/navigation/recent-pages";
 import { coverThumbUrl } from "@/lib/workspaces/cover-thumb";
-import { copyText } from "@/lib/clipboard";
 import { shellPathFor } from "@/lib/navigation/shell-path";
 
 /** Where a breadcrumb part goes. Workspaces and organizations have no index page, so they open the switcher instead. */
@@ -62,7 +61,7 @@ function Switcher({ label, places, current }: { label: string; places: SidebarPl
 /**
  * The top bar's "you are here" (shell redesign): `networkbase / workspaces/alpha-app` in mono. It types itself in when
  * you move, the way the sign-in address does, then each part becomes a link; the workspace part opens a quick switcher.
- * The place's own picture sits before it (never a default up here), and hovering shows a copy-link chip.
+ * The place's own picture sits before it (never a default up here).
  */
 export function ShellPath({ phone = false }: { phone?: boolean }) {
     const pathname = usePathname() ?? "/";
@@ -72,12 +71,6 @@ export function ShellPath({ phone = false }: { phone?: boolean }) {
     const { data } = useSidebarWorkspacesQuery();
     const place = useMemo(() => placeForPath(data, pathname), [data, pathname]);
     const places = useMemo(() => sidebarPlaces(data), [data]);
-    const [copied, setCopied] = useState<"idle" | "done" | "failed">("idle");
-    useEffect(() => {
-        if (copied === "idle") return;
-        const timer = setTimeout(() => setCopied("idle"), 1500);
-        return () => clearTimeout(timer);
-    }, [copied]);
 
     if (phone) {
         return (
@@ -108,15 +101,6 @@ export function ShellPath({ phone = false }: { phone?: boolean }) {
                     return <span key={index}>{sep}{href ? <Link href={href} className="nb-crumb">{part}</Link> : <span className="nb-crumb nb-crumb-quiet">{part}</span>}</span>;
                 })}
             </nav>
-            <button
-                type="button"
-                className="nb-path-copy"
-                aria-label={copied === "done" ? "Link copied" : "Copy link to this page"}
-                onClick={() => void copyText(window.location.href).then(() => setCopied("done"), () => setCopied("failed"))}
-            >
-                {copied === "done" ? <Check className="size-3" aria-hidden="true" /> : <Copy className="size-3" aria-hidden="true" />}
-                {copied === "done" ? "copied" : copied === "failed" ? "couldn’t copy" : "copy link"}
-            </button>
         </div>
     );
 }
