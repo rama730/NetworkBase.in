@@ -48,9 +48,9 @@
       "text": "A0.5 Live task-rows block + Insert menu (38.3 F2 S3, S5, S6)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/doc-rows.test.ts",
+      "evidence": "ec8ede438 + 771436f76 live 2026-11-19 (0106/0107 prod, index valid). Server journeys live via CLI/MCP on wt-test-a05; signed-in screen journeys wait for Chrome sign-in. revisit 2026-11-20"
     },
     {
       "key": "A0.6",
@@ -5498,9 +5498,9 @@
       "text": "Adding an action item in a meeting",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.W4",
@@ -5508,9 +5508,9 @@
       "text": "Ticking from the document",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.W5",
@@ -5518,9 +5518,9 @@
       "text": "Someone who can't edit the document",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.W6",
@@ -5538,9 +5538,9 @@
       "text": "Inserting a live block while editing",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.W8",
@@ -5548,9 +5548,9 @@
       "text": "Reordering and removing rows",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.W9",
@@ -5568,9 +5568,9 @@
       "text": "A block's line is deleted from the text",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.W11",
@@ -5588,9 +5588,9 @@
       "text": "Public reader",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.W13",
@@ -5598,9 +5598,9 @@
       "text": "An agent through MCP",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/doc-rows.test.ts",
+      "evidence": "2026-11-19 live: networkbase_doc_rows_add added #3 (small tier, undo token), networkbase_undo removed it; nb task done 1 ticked a row; rows show [x]."
     },
     {
       "key": "38.3.call1",
@@ -5608,9 +5608,9 @@
       "text": "Rows belong to a document and a block key (sourcedocid, sourceblock), so adding or ticking never writes the document text (B8), and copies start empty. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/doc-rows.test.ts",
+      "evidence": "2026-11-19 live: rows are tasks with source_doc_id/block/position; 0 document versions after add and tick."
     },
     {
       "key": "38.3.call2",
@@ -5648,9 +5648,9 @@
       "text": "A block holds up to 200 rows. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/db/doc-rows.test.ts",
+      "evidence": "200-row cap in addDocRowAction; tests/db/doc-rows.test.ts."
     },
     {
       "key": "38.3.call6",
@@ -7928,9 +7928,9 @@
       "text": "A0.5 (2026-11-19): rows are reordered from the row ⋯ menu (Move up, Move down); no drag in this release, so phones and keyboards get the same path. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.call13",
@@ -7938,9 +7938,9 @@
       "text": "A0.5: adding a row does not check that the key is in the published text; a key that is not there is shown under \"items from a removed list\", which never offers ",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.call14",
@@ -7948,9 +7948,9 @@
       "text": "A0.5: the task's \"From\" line names the document only (not the list), and links to it. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.call15",
@@ -7958,9 +7958,9 @@
       "text": "A0.5: ticking a row moves the task through the usual transition (review where required) and the box ticks at once; Undo stays 10 seconds. Agents adding rows cou",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     },
     {
       "key": "38.3.call16",
@@ -7968,9 +7968,9 @@
       "text": "Found while building A0.5: the Files editor's text area had no accessible name; it is now \"Edit <file name>\". [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "A0.5 local: tests/browser/doc-live-rows.spec.ts (chromium+webkit) + tests/db/doc-rows.test.ts; live screen check pending sign-in (revisit 2026-11-20)."
     }
   ]
 }
