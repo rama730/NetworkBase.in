@@ -267,6 +267,8 @@ export default function TasksTab({
   const isTaskPanelClosingRef = useRef(false);
   const openingTaskIdRef = useRef<string | null>(null);
   const workflowRefreshQueuedRef = useRef(false);
+  // Leaving the tab retires a linked task's pending fetch, so its answer can't open the panel or rewrite the URL elsewhere.
+  useEffect(() => () => { loadingInitialOpenTaskRef.current = null; }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -716,6 +718,8 @@ export default function TasksTab({
 
     const localTask = sprintAwareTasks.find(matchesInitialTask);
     if (localTask) {
+      // An older link's fetch may still be in flight; it must not open over this one.
+      loadingInitialOpenTaskRef.current = null;
       setInitialTaskLoadError(null);
       handledInitialOpenTaskRef.current = initialOpenTaskId;
       openTask(localTask, initialPanelTab, true);
@@ -723,7 +727,6 @@ export default function TasksTab({
       return;
     }
 
-    let cancelled = false;
     loadingInitialOpenTaskRef.current = initialOpenTaskId;
     const reportInitialTaskLoadFailure = (reason: unknown) => {
       const detail =
@@ -743,9 +746,11 @@ export default function TasksTab({
       toast.error(feedbackError(message, "Action couldn’t finish"));
     };
 
+    // The board's list arriving re-runs this effect while the fetch is in flight, so the answer is kept for as long as
+    // this link is still the one loading (not dropped by the effect's cleanup); a new link or a close replaces it.
     void getWorkspaceTaskDetailAction(projectId, initialOpenTaskId)
       .then((result) => {
-        if (cancelled || isTaskPanelClosingRef.current) return;
+        if (loadingInitialOpenTaskRef.current !== initialOpenTaskId || isTaskPanelClosingRef.current) return;
         if (!result.success || !result.task) {
           reportInitialTaskLoadFailure(result.error || "Task was not returned");
           return;
@@ -762,7 +767,7 @@ export default function TasksTab({
         onInitialTaskOpened?.();
       })
       .catch((error) => {
-        if (cancelled || isTaskPanelClosingRef.current) return;
+        if (loadingInitialOpenTaskRef.current !== initialOpenTaskId || isTaskPanelClosingRef.current) return;
         reportInitialTaskLoadFailure(error);
       })
       .finally(() => {
@@ -770,10 +775,6 @@ export default function TasksTab({
           loadingInitialOpenTaskRef.current = null;
         }
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [
     initialOpenTaskId,
     initialPanelTab,
