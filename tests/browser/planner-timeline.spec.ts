@@ -104,6 +104,7 @@ test('W2: drawing across the empty row opens the bubble; Enter creates a project
   const frame = (await page.getByTestId('timeline-grid').boundingBox())!;
   const create = (await bubble.getByRole('button', { name: 'Create' }).boundingBox())!;
   expect(create.y + create.height).toBeLessThanOrEqual(frame.y + frame.height);
+  expect(create.x + create.width).toBeLessThanOrEqual(frame.x + frame.width);
   await bubble.getByLabel('Project name').fill('Launch party');
   await page.keyboard.press('Enter');
   await expect.poll(() => calls(page)).toEqual([['create', 'Launch party', 'project', '2026-11-26', '2026-11-30', 'u1']]);

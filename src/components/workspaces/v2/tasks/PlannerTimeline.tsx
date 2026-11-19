@@ -265,7 +265,7 @@ export function PlannerTimeline({ projectId, canEdit, sprints, viewerId, onOpen,
                       onPointerDown={(e) => { const day = Math.floor((e.clientX - grid.current!.getBoundingClientRect().left + grid.current!.scrollLeft) / px); setDraw({ from: day, to: day, done: false }); }}>
                       {drawSpan ? <div className="absolute top-1.5 h-6 rounded-[4px] border border-dashed border-primary bg-primary/10" style={{ left: drawSpan.from * px, width: (drawSpan.to - drawSpan.from + 1) * px }} /> : null}
                       {draw?.done && drawSpan ? (
-                        <QuickCreate left={drawSpan.from * px} start={addDayKeys(range.start, drawSpan.from)} end={addDayKeys(range.start, drawSpan.to)} projectId={projectId} viewerId={viewerId}
+                        <QuickCreate left={Math.max(0, Math.min(drawSpan.from * px, (grid.current?.scrollLeft ?? 0) + (grid.current?.clientWidth ?? Infinity) - 296))} start={addDayKeys(range.start, drawSpan.from)} end={addDayKeys(range.start, drawSpan.to)} projectId={projectId} viewerId={viewerId}
                           onDone={() => { setDraw(null); void refresh(); }} onMore={(d) => { setDraw(null); onMoreDetails(d); }} />
                       ) : null}
                     </div>
