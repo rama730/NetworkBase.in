@@ -60,6 +60,7 @@
     "check:runtime-boundaries": "tsx scripts/check-runtime-boundaries.ts",
     "check:api-versioning-contract": "tsx scripts/check-api-versioning-contract.ts",
     "check:plan-ledger": "tsx scripts/plan/report-items.ts check",
+    "check:workflow-ledger": "tsx scripts/plan/workflow-ledger.ts check",
     "check:api-envelope-contract": "tsx scripts/check-api-envelope-contract.ts",
     "freeze:route-baseline": "tsx scripts/freeze-route-baseline.ts",
     "check:route-baseline-regression": "tsx scripts/check-route-baseline-regression.ts",
