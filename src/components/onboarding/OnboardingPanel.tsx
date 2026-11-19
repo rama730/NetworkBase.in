@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useTypedPath } from '@/components/auth/AuthPanel'
 import { PixelIcon } from '@/components/auth/pixel'
 import { PixelPerson } from '@/components/ui/PixelPerson'
+import { SkillIcon } from '@/components/skills/SkillIcon'
+import { resolveClientSkill, useSkillCatalog } from '@/lib/skills/client'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { VISIBILITY_CHOICES } from '@/lib/onboarding/contracts'
 import type { OnboardingData } from '@/lib/onboarding/form-data'
@@ -60,6 +62,7 @@ const labelOf = (options: ReadonlyArray<{ value: string; label: string }>, value
 export function OnboardingCard({ data, identityKey }: { data: CardData; identityKey: string }) {
     const live = useRef(false)
     useEffect(() => { live.current = true }, [])
+    useSkillCatalog() // the tags carry the same skill icons as everywhere else
     const skills = data.skills.slice(0, 6)
     const leaving = useLeaving(skills)
     const shell = data.visibility === 'private'
@@ -96,8 +99,8 @@ export function OnboardingCard({ data, identityKey }: { data: CardData; identity
                             {skills.length === 0 && leaving.length === 0
                                 ? <Settle key="ghosts"><Ghost width={48} /> <Ghost width={64} /> <Ghost width={40} /></Settle>
                                 : null}
-                            {skills.map((skill) => <Settle key={skill} className="nb-onb-card-tag">{skill}</Settle>)}
-                            {leaving.map((skill) => <span key={`gone:${skill}`} className="nb-onb-card-tag nb-onb-leave">{skill}</span>)}
+                            {skills.map((skill) => <Settle key={skill} className="nb-onb-card-tag"><span className="nb-onb-card-ico"><SkillIcon skill={resolveClientSkill(skill)} size={12} /></span>{skill}</Settle>)}
+                            {leaving.map((skill) => <span key={`gone:${skill}`} className="nb-onb-card-tag nb-onb-leave"><span className="nb-onb-card-ico"><SkillIcon skill={resolveClientSkill(skill)} size={12} /></span>{skill}</span>)}
                         </div>
                         <Settle key={`${data.visibility}:${data.messagePrivacy}`} as="div" className="nb-onb-card-act">
                             {data.visibility === 'connections' ? (
