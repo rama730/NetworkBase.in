@@ -20,5 +20,6 @@ export const isPlacePath = (pathname: string) => PLACE.test(pathname);
 export function shellPartsFor(pathname: string, name: string | null | undefined): string[] {
     const parts = shellPathFor(pathname).split("/");
     if (!isPlacePath(pathname)) return parts;
-    return name ? [parts[0]!, name] : [parts[0]!];
+    const shown = name?.trim();
+    return shown ? [parts[0]!, shown] : [parts[0]!];
 }

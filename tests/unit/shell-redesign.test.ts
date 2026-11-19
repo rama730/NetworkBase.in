@@ -30,6 +30,8 @@ test('a workspace or organization shows its real name in the path, never its add
     assert.deepEqual(shellPartsFor('/org/iit-madras', 'IIT Madras'), ['org', 'IIT Madras'])
     // A name with a slash stays one part.
     assert.deepEqual(shellPartsFor('/workspaces/acme-billing', 'Acme / Billing'), ['workspaces', 'Acme / Billing'])
+    // Stray spaces in a saved name don't show.
+    assert.deepEqual(shellPartsFor('/workspaces/network-for-builders', 'Network for builders '), ['workspaces', 'Network for builders'])
     // Until the name is known, the address is not shown.
     assert.deepEqual(shellPartsFor('/workspaces/network-for-builders', null), ['workspaces'])
     // Not a place: unchanged.
