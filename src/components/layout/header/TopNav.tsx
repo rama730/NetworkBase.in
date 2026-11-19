@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
-import { LogOut, Menu, Plus, Search, ShieldCheck, Smile, UserRound } from "lucide-react";
+import { Laptop, LogOut, Menu, Moon, Plus, Search, ShieldCheck, Smile, Sun, UserRound } from "lucide-react";
 import Logo from "./Logo";
 import { BackLogoSwap, BackSlot } from "./BackButton";
 import { arrivedByTraverse, subscribeEntry } from "@/lib/navigation/in-app-history";
@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
 
-import ThemeToggle from "./ThemeToggle";
+import { useTheme } from "@/components/providers/theme-provider";
+import { ShellPath } from "./ShellPath";
 // Dynamic Imports for heavy interactive components
 import dynamic from "next/dynamic";
 const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false });
@@ -57,6 +58,7 @@ export default function TopNav() {
     const { user, isAuthenticated: isSignedIn, isLoading: authLoading, profile, signOut } = useAuth();
 
     const notifications = useNotifications();
+    const { theme, setThemeWithTransition } = useTheme();
     const { connectionHealth } = useRealtime();
     const { badge: chatUnread } = useChatShell();
 
@@ -162,73 +164,76 @@ export default function TopNav() {
         return () => window.removeEventListener("open-command-palette", handleOpenCommandPalette as EventListener);
     }, [openGlobalSearch]);
 
+    const menuItem = "nb-touch-target flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground";
+    const themeOrder = ["system", "light", "dark"] as const;
+    const themeLabel = { system: "System", light: "Light", dark: "Dark" } as const;
+    const currentTheme = (themeOrder as readonly string[]).includes(String(theme)) ? (theme as (typeof themeOrder)[number]) : "system";
+
+    // Shell redesign (prototype N2XKz5wG4oEvp4cXtEJ5iD): the top bar is a row of bordered cells on the logo cell's line.
+    // Desktop: back · where you are · search | live updates · New workspace · bell · you. Phone: menu · where · search · bell.
     return (
-        <header
-            className="nb-topbar shrink-0 border-b border-border bg-card"
-        >
-            <div className="px-4 sm:px-5 flex min-w-0 items-center justify-between gap-3 h-[var(--ui-topnav-height)]">
-                <div className="flex shrink-0 items-center gap-1 md:gap-4">
-                    {authUiState === "signed-in" && (
+        <header className="nb-topbar shrink-0 border-b border-border bg-card">
+            <div className="nb-topbar-cells h-[var(--ui-topnav-height)]">
+                {authUiState === "signed-in" ? (
+                    <>
                         <button
                             ref={mobileMenuTriggerRef}
                             onClick={() => setShowMobileMenu(true)}
                             data-welcome-slot-mobile=""
-                            className="nb-mobile-menu-trigger relative -ml-2 inline-flex size-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted focus:outline-none md:hidden"
+                            className="nb-mobile-menu-trigger nb-cell nb-cell-icon relative md:hidden"
                             aria-label={chatUnread ? "Open mobile menu, unread messages" : "Open mobile menu"}
                             aria-expanded={showMobileMenu}
                             aria-controls="mobile-menu"
                         >
                             <Menu className="size-5" aria-hidden="true" />
                             {connectionHealth !== "healthy" ? (
-                                <span aria-hidden="true" className="absolute right-2 top-2 size-2 rounded-full bg-[var(--status-warning)]" />
+                                <span aria-hidden="true" className="absolute right-3 top-3 size-2 bg-[var(--status-warning)]" />
                             ) : null}
-                            {/* Unread chat: a dot here, the count on Messages inside the menu. */}
-                            {chatUnread ? <span aria-hidden="true" data-testid="mobile-menu-chat-dot" className="absolute left-2 top-2 size-2 rounded-full bg-primary ring-2 ring-card" /> : null}
+                            {/* Unread chat: a square here, the count on Messages inside the menu. */}
+                            {chatUnread ? <span aria-hidden="true" data-testid="mobile-menu-chat-dot" className="absolute left-3 top-3 size-1.5 bg-[var(--nb-brand)]" /> : null}
                         </button>
-                    )}
-                    <div className="md:hidden">
-                        {authUiState === "signed-in"
-                            ? <BackLogoSwap logo={<Logo href={ROUTES.DISCOVER} />} />
-                            : <Logo href={ROUTES.HOME} />}
-                    </div>
-                </div>
+                        <div className="nb-cell nb-cell-where min-w-0 flex-1 md:hidden">
+                            <BackLogoSwap logo={<span className="nb-path-dot" aria-hidden="true" />} />
+                            <ShellPath phone />
+                        </div>
+                        <div className="nb-cell-back hidden md:flex"><BackSlot /></div>
+                        <div className="hidden min-w-0 md:contents"><ShellPath /></div>
+                        <div className="nb-cell nb-cell-search hidden min-w-0 flex-1 md:flex">
+                            <Suspense fallback={<div className="h-[var(--ui-control-height)] w-60 shrink-0 rounded-md bg-muted" />}>
+                                <GlobalSearch
+                                    condensed={false}
+                                    cell
+                                    onOpenCommandPalette={openGlobalSearch}
+                                />
+                            </Suspense>
+                        </div>
+                    </>
+                ) : (
+                    <div className="nb-cell flex-1"><Logo href={ROUTES.HOME} /></div>
+                )}
 
-                <div className="hidden min-w-0 flex-1 items-center md:flex">
-                    {authUiState === "signed-in" && <BackSlot />}
+                <div className="nb-topbar-right">
                     {authUiState === "signed-in" && (
-                        <Suspense fallback={<div className="h-[var(--ui-control-height)] w-60 shrink-0 rounded-md bg-muted" />}>
-                            <GlobalSearch
-                                condensed={false}
-                                onOpenCommandPalette={openGlobalSearch}
-                            />
-                        </Suspense>
+                        <span className="hidden md:contents"><ConnectionStatusIndicator /></span>
                     )}
-                </div>
-
-                <div className="flex shrink-0 items-center gap-2">
                     {authUiState === "signed-in" && (
-                        // Project creation is its own page (spec §18), not a modal. On that page the button reads as "you are here".
+                        // Project creation is its own page (spec §18), not a modal. On that page the cell reads as "you are here";
+                        // on a workspace or organization page the page has its own main action, so this one is outlined (§7.1).
                         <Link
                             href="/workspaces/new"
                             aria-current={isCreateProjectRoute ? 'page' : undefined}
-                            className={`nb-ui-label hidden h-[var(--ui-control-height)] items-center gap-2 rounded-md border px-4 transition-[background-color,border-color,color,transform] duration-150 ease-in-out active:translate-y-px md:inline-flex ${isCreateProjectRoute
-                                ? 'pointer-events-none border-border bg-muted text-muted-foreground'
-                                : isProjectDetailRoute
-                                ? 'border-border bg-card text-foreground hover:border-input hover:bg-muted'
-                                : 'border-primary bg-primary text-primary-foreground hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:border-[var(--primary-active)] active:bg-[var(--primary-active)]'}`}
+                            data-quiet={isProjectDetailRoute || isCreateProjectRoute || undefined}
+                            className="nb-cell nb-cell-cta nb-ui-label hidden md:flex"
                         >
                             <Plus className="size-4" aria-hidden="true" />
                             New workspace
                         </Link>
                     )}
                     {authUiState === "signed-in" && (
-                        <span className="hidden md:contents"><ConnectionStatusIndicator /></span>
-                    )}
-                    {authUiState === "signed-in" && (
                         <button
                             type="button"
                             onClick={() => openGlobalSearch()}
-                            className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+                            className="nb-cell nb-cell-icon md:hidden"
                             aria-label="Search"
                         >
                             <Search className="size-5" aria-hidden="true" />
@@ -258,98 +263,92 @@ export default function TopNav() {
                         />
                     )}
 
-                    <span className="hidden md:contents"><ThemeToggle /></span>
-
                     {authUiState === "loading" ? (
-                        <div className="ml-1 hidden border-l border-border pl-3 md:block">
-                            <div className="size-[34px] rounded-md bg-muted" />
+                        <div className="nb-cell nb-cell-me hidden md:flex">
+                            <div className="size-9 rounded-md bg-muted" />
                         </div>
-                    ) : (
-                        <div className={`relative ml-1 border-l border-border pl-3 ${authUiState === "signed-in" ? "hidden md:block" : ""}`}>
-                            {authUiState === "signed-in" ? (
-                                <DropdownMenu open={isProfileMenuOpen} onOpenChange={setIsProfileMenuOpen}>
-                                    <DropdownMenuTrigger asChild>
-                                        <button
-                                            ref={profileMenuTriggerRef}
-                                            type="button"
-                                            className="group inline-flex size-10 items-center justify-center rounded-[5px] transition-colors hover:bg-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
-                                            aria-label="User menu"
-                                            data-testid="topnav-profile-menu-trigger"
-                                        >
-                                            <span className="relative inline-flex" data-welcome-slot="">
-                                                <ProfileAvatar profile={profile} size={32} priority />
-                                                <PersonPresenceBadge userId={user?.id} live size={16} statusSize={20} className="absolute" style={{ right: -2, bottom: -2 }} />
-                                            </span>
-                                        </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        side="bottom"
-                                        align="end"
-                                        sideOffset={12}
-                                        alignOffset={0}
-                                        collisionPadding={12}
-                                        className="w-48 overflow-hidden rounded-[8px] border border-border bg-popover p-1 text-popover-foreground shadow-lg duration-[180ms] data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100"
-                                    >
-                                        <div className="px-2 py-1.5">
-                                            <p className="truncate text-xs font-semibold text-foreground">
-                                                {profile?.fullName || profile?.username || "Account"}
-                                            </p>
-                                            {profile?.username ? (
-                                                <p className="truncate font-mono text-[11px] text-muted-foreground">
-                                                    @{profile.username}
-                                                </p>
-                                            ) : user?.email ? (
-                                                <p className="truncate font-mono text-[11px] text-muted-foreground">
-                                                    {user.email}
-                                                </p>
-                                            ) : null}
-                                        </div>
-                                        <DropdownMenuSeparator className="-mx-1 my-1 bg-border" />
-                                        <StatusMenuItem userId={user?.id ?? null} />
-                                        <DropdownMenuItem asChild>
-                                            <Link
-                                                href={ROUTES.MY_PROFILE}
-                                               
-                                                className="nb-touch-target flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
-                                            >
-                                                <UserRound className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                                                <span>My profile</span>
-                                            </Link>
-                                        </DropdownMenuItem>
-                                        {staffBadge ? (
-                                            <DropdownMenuItem asChild>
-                                                <Link
-                                                    href="/admin/trust"
-                                                    className="nb-touch-target flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
-                                                >
-                                                    <ShieldCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                                                    <span>Trust and safety</span>
-                                                    {staffBadge.count > 0 ? <span className="nb-nav-count" aria-label={`${staffBadge.count} urgent or overdue`}>{staffBadge.count}</span> : null}
-                                                </Link>
-                                            </DropdownMenuItem>
-                                        ) : null}
-                                        <DropdownMenuItem
-                                            variant="destructive"
-                                            onSelect={() => setShowSignOutConfirm(true)}
-                                            className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors"
-                                        >
-                                            <LogOut className="size-4 shrink-0" aria-hidden="true" />
-                                            <span>Sign out</span>
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            ) : (
-                                <Link
-                                    href={ROUTES.LOGIN}
-                                    className="nb-ui-label inline-flex h-[var(--ui-control-height)] items-center rounded-md border border-border bg-card px-4 transition-colors duration-[130ms] hover:bg-muted focus:outline-none"
+                    ) : authUiState === "signed-in" ? (
+                        <DropdownMenu open={isProfileMenuOpen} onOpenChange={setIsProfileMenuOpen}>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    ref={profileMenuTriggerRef}
+                                    type="button"
+                                    className="nb-cell nb-cell-me group hidden md:flex"
+                                    aria-label="User menu"
+                                    data-testid="topnav-profile-menu-trigger"
                                 >
-                                    Sign in
-                                </Link>
-                            )}
-                        </div>
+                                    <span className="relative inline-flex" data-welcome-slot="">
+                                        <ProfileAvatar profile={profile} size={36} priority />
+                                        <PersonPresenceBadge userId={user?.id} live size={16} statusSize={20} className="absolute" style={{ right: -3, bottom: -3 }} />
+                                    </span>
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                                side="bottom"
+                                align="end"
+                                sideOffset={8}
+                                alignOffset={0}
+                                collisionPadding={12}
+                                className="w-56 overflow-hidden rounded-[8px] border border-border bg-popover p-1 text-popover-foreground shadow-lg duration-[180ms] data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100"
+                            >
+                                <div className="flex items-center gap-2.5 px-2 py-1.5">
+                                    <ProfileAvatar profile={profile} size={36} />
+                                    <span className="min-w-0">
+                                        <span className="block truncate text-xs font-semibold text-foreground">
+                                            {profile?.fullName || profile?.username || "Account"}
+                                        </span>
+                                        {profile?.username ? (
+                                            <span className="block truncate font-mono text-[11px] text-muted-foreground">@{profile.username}</span>
+                                        ) : user?.email ? (
+                                            <span className="block truncate font-mono text-[11px] text-muted-foreground">{user.email}</span>
+                                        ) : null}
+                                    </span>
+                                </div>
+                                <DropdownMenuSeparator className="-mx-1 my-1 bg-border" />
+                                <StatusMenuItem userId={user?.id ?? null} />
+                                <DropdownMenuItem asChild>
+                                    <Link href={ROUTES.MY_PROFILE} className={menuItem}>
+                                        <UserRound className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                        <span>My profile</span>
+                                    </Link>
+                                </DropdownMenuItem>
+                                {/* Theme lives here now (one less cell in the top bar); it cycles and the menu stays open. */}
+                                <DropdownMenuItem
+                                    className={menuItem}
+                                    onSelect={(event) => {
+                                        event.preventDefault();
+                                        void setThemeWithTransition(themeOrder[(themeOrder.indexOf(currentTheme) + 1) % themeOrder.length]!);
+                                    }}
+                                >
+                                    {currentTheme === "dark" ? <Moon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : currentTheme === "light" ? <Sun className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : <Laptop className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                                    <span>Theme</span>
+                                    <span className="ml-auto font-mono text-[11px] uppercase tracking-[.06em] text-muted-foreground">{themeLabel[currentTheme]}</span>
+                                </DropdownMenuItem>
+                                {staffBadge ? (
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/admin/trust" className={menuItem}>
+                                            <ShieldCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                            <span>Trust and safety</span>
+                                            {staffBadge.count > 0 ? <span className="nb-nav-count nb-nav-count--hot" aria-label={`${staffBadge.count} urgent or overdue`}>{staffBadge.count}</span> : null}
+                                        </Link>
+                                    </DropdownMenuItem>
+                                ) : null}
+                                <DropdownMenuSeparator className="-mx-1 my-1 bg-border" />
+                                <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={() => setShowSignOutConfirm(true)}
+                                    className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors"
+                                >
+                                    <LogOut className="size-4 shrink-0" aria-hidden="true" />
+                                    <span>Sign out</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    ) : (
+                        <Link href={ROUTES.LOGIN} className="nb-cell nb-ui-label">
+                            Sign in
+                        </Link>
                     )}
-
-
                 </div>
 
                 {shareApplication ? <ResourceShareDialog kind="application" path="/" returnFocusElement={shareReturnFocus} onClose={() => setShareApplication(false)} /> : null}

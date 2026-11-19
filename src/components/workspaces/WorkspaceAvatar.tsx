@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Camera } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { PixelPlace } from "@/components/ui/PixelPerson";
+import type { PixelPlaceKind } from "@/lib/ui/avatar";
 import type { Workspace } from "@/types/discover";
 
 export function getWorkspaceAvatarUrl(project: Partial<Workspace> | null | undefined): string | null {
@@ -40,8 +42,19 @@ interface ProjectAvatarProps {
     isOwner?: boolean;
     slugOrId?: string;
     priority?: boolean;
-    /** Keep the slot without an image: initials, or for the owner a way to add one. */
+    /** Kept for callers; every workspace without a picture now shows its default pixel avatar. */
     placeholder?: boolean;
+    /** The organization a child workspace sits in: it draws the desk under that org's roof, in the org's colours. */
+    parentId?: string | null;
+    /** Force the figure when the project object doesn't say (an org's own row, an invite to an org). */
+    kind?: PixelPlaceKind;
+}
+
+/** Which default figure a place without a picture gets, and whose colours. */
+export function workspacePixelFigure(project: Partial<Workspace>, parentId?: string | null, kind?: PixelPlaceKind) {
+    const figure: PixelPlaceKind = kind ?? (project.kind === "organization" ? "organization" : parentId ? "child" : "workspace");
+    const key = figure === "child" && parentId ? parentId : String(project.id ?? project.slug ?? project.title ?? "workspace");
+    return { figure, key };
 }
 
 export function WorkspaceAvatar({
@@ -51,7 +64,8 @@ export function WorkspaceAvatar({
     isOwner = false,
     slugOrId,
     priority,
-    placeholder = false,
+    parentId = null,
+    kind,
 }: ProjectAvatarProps) {
     const avatarUrl = getWorkspaceAvatarUrl(project);
     const [hasError, setHasError] = useState(false);
@@ -60,10 +74,9 @@ export function WorkspaceAvatar({
         setHasError(false);
     }, [avatarUrl]);
 
+    // No picture: the default pixel avatar for its kind (shell redesign: headers, cards, lists and search always show one).
     const hasImage = Boolean(avatarUrl) && !hasError;
-    if (!hasImage && !placeholder) {
-        return null;
-    }
+    const pixel = workspacePixelFigure(project, parentId, kind);
 
     const isDetail = size === "detail";
     const dimensionClasses = isDetail ? "size-[72px] rounded-lg" : size === "row" ? "size-[26px] rounded-md" : "size-11 rounded-md";
@@ -78,23 +91,23 @@ export function WorkspaceAvatar({
                     "group/avatar relative shrink-0 overflow-hidden border border-border/80 bg-muted/40 ring-1 ring-inset ring-black/5 dark:ring-white/10 transition-all duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
                     dimensionClasses,
                     !isDetail && "group-hover:border-foreground/25 group-hover:shadow-xs",
-                    !hasImage && "flex items-center justify-center",
-                    !hasImage && isOwner && slugOrId && "border-dashed",
+                    !hasImage && "flex items-center justify-center border-transparent ring-0",
                     className
                 )}
             >
-                {!hasImage ? (isOwner && slugOrId ? (
-                    <Link
-                        href={`/workspaces/${slugOrId}?tab=settings#project-settings-general`}
-                        aria-label={project.kind === "organization" ? "Add organization image" : "Add workspace avatar"}
-                        title={project.kind === "organization" ? "Add organization image" : "Add workspace avatar"}
-                        className="flex size-full items-center justify-center text-muted-foreground transition-colors duration-[180ms] hover:bg-muted hover:text-foreground"
-                    >
-                        <Camera className="size-5" aria-hidden="true" />
-                    </Link>
-                ) : (
-                    <span className={cn("font-semibold text-muted-foreground", size === "row" ? "text-[11px]" : "text-lg max-md:text-sm")} aria-hidden="true">{(project.title || "").slice(0, 2).toUpperCase()}</span>
-                )) : <>
+                {!hasImage ? <>
+                    <PixelPlace kind={pixel.figure} identityKey={pixel.key} size={isDetail ? 72 : size === "row" ? 26 : 44} className="size-full" />
+                    {isOwner && slugOrId ? (
+                        <Link
+                            href={`/workspaces/${slugOrId}?tab=settings#project-settings-general`}
+                            aria-label={project.kind === "organization" ? "Add organization image" : "Add workspace avatar"}
+                            title={project.kind === "organization" ? "Add organization image" : "Add workspace avatar"}
+                            className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 backdrop-blur-[2px] transition-opacity duration-[180ms] hover:opacity-100 focus:opacity-100 focus:outline-none"
+                        >
+                            <Camera className={cn("text-white drop-shadow-xs", isDetail ? "size-4" : "size-3.5")} aria-hidden="true" />
+                        </Link>
+                    ) : null}
+                </> : <>
                 <Image
                     src={avatarUrl!}
                     // On a card the title sits right beside it: a decorative image, not a second title.

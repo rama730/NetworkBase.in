@@ -87,7 +87,7 @@ test('The side column keeps its height before the updated line loads', async ({ 
     expect((await box(page, side)).height).toBe(before.height);
 });
 
-test('The icon slot holds its place: image, add for the owner, initials for a visitor', async ({ page }) => {
+test('The icon slot holds its place: image, add for the owner, the default pixel avatar for a visitor', async ({ page }) => {
     await open(page, 'image');
     const image = await box(page, page.getByTestId('project-avatar'));
     const name = await box(page, page.locator('h1'));
@@ -100,7 +100,9 @@ test('The icon slot holds its place: image, add for the owner, initials for a vi
     await expect(page.getByText('Add image')).toHaveCount(0);
 
     await open(page, 'visitor');
-    await expect(page.getByTestId('project-avatar')).toHaveText('PO');
+    // Shell redesign: no picture shows the workspace's default pixel figure (a desk), never initials.
+    await expect(page.getByTestId('project-avatar').locator('[data-slot="pixel-place"]')).toHaveCount(1);
+    await expect(page.getByTestId('project-avatar')).toHaveText('');
     await expect(page.getByRole('link', { name: 'Add workspace avatar' })).toHaveCount(0);
     expect((await box(page, page.locator('h1'))).x).toBe(name.x);
 });

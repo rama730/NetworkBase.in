@@ -48,7 +48,7 @@ export default function MobileMenu(props: {
                     showCloseButton={false}
                     onClick={closeOnNavigate}
                     style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
-                    className="left-0 right-auto top-0 flex h-dvh max-h-dvh! w-[min(320px,calc(100vw-32px))] max-w-none translate-x-0 translate-y-0 flex-col gap-3 rounded-none border-0 border-r border-border bg-sidebar p-4 md:hidden"
+                    className="nb-mobile-drawer left-0 right-auto top-0 flex h-dvh max-h-dvh! w-[min(320px,calc(100vw-32px))] max-w-none translate-x-0 translate-y-0 flex-col gap-3 overflow-y-auto overflow-x-hidden rounded-none border-0 border-r border-border bg-sidebar p-4 md:hidden"
                 >
                 <DialogTitle className="sr-only">Mobile navigation</DialogTitle>
                 <DialogDescription className="sr-only">Navigate your workspace or sign out.</DialogDescription>
@@ -90,6 +90,7 @@ export default function MobileMenu(props: {
                 <SidebarNav />
 
                 <nav aria-label="Settings and account" className="space-y-1 border-t border-border pt-3">
+                    <h2 className="nb-sidebar-sub" aria-hidden="true">Account</h2>
                     <button
                         type="button"
                         className="nb-nav-link w-full"

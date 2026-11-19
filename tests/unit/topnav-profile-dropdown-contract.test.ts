@@ -16,14 +16,17 @@ test("top-nav profile picture opens accessible dropdown with My profile and Sign
   assert.match(topNav, /data-testid="topnav-profile-menu-trigger"/);
   assert.match(topNav, /ref=\{profileMenuTriggerRef\}/);
   assert.match(topNav, /aria-label="User menu"/);
-  assert.match(topNav, /<ProfileAvatar profile=\{profile\} size=\{32\} priority \/>/);
+  // Shell redesign: a 36px pixel-person avatar in its own cell (whole 4px pixel cells).
+  assert.match(topNav, /<ProfileAvatar profile=\{profile\} size=\{36\} priority \/>/);
   assert.match(topNav, /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{16\}/);
 
   // Dropdown content matches design specification popover geometry
-  assert.match(topNav, /<DropdownMenuContent[^>]*side="bottom"[^>]*align="end"[^>]*sideOffset=\{12\}[^>]*alignOffset=\{0\}[^>]*collisionPadding=\{12\}/);
-  assert.match(topNav, /className="w-48[^\"]*rounded-\[8px\]/);
-  assert.doesNotMatch(topNav, /className="w-56[^\"]*rounded-\[8px\]/);
-  assert.match(topNav, /<div className="px-2 py-1\.5">/);
+  assert.match(topNav, /<DropdownMenuContent[^>]*side="bottom"[^>]*align="end"[^>]*sideOffset=\{8\}[^>]*alignOffset=\{0\}[^>]*collisionPadding=\{12\}/);
+  assert.match(topNav, /className="w-56[^\"]*rounded-\[8px\]/);
+  assert.doesNotMatch(topNav, /className="w-48[^\"]*rounded-\[8px\]/);
+  // The menu opens with you: your avatar, name and handle (shell redesign), and holds Theme now.
+  assert.match(topNav, /<div className="flex items-center gap-2\.5 px-2 py-1\.5">\s*<ProfileAvatar profile=\{profile\} size=\{36\} \/>/);
+  assert.match(topNav, /<span>Theme<\/span>/);
   assert.match(topNav, /bg-popover/);
   assert.match(topNav, /border-border/);
 

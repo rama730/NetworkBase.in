@@ -68,18 +68,20 @@ test('§2: the group — the name lines up with every other workspace name, the 
     expect(await name.boundingBox()).toEqual(rest);
     expect(await row.locator('.nb-nav-count').boundingBox()).toEqual(count);
     const kids = page.getByRole('list', { name: 'Workspaces in CSE 3B · Data Structures 2026' });
-    expect(await kids.evaluate((el) => getComputedStyle(el).borderLeftWidth)).toBe('1px');
-    expect((await kids.boundingBox())!.x).toBeGreaterThan((await row.boundingBox())!.x + 10);
+    // Shell redesign: the thread is drawn per row (a line, a tick, a square end) and the names sit one step in.
+    await expect(kids.locator('.nb-ln-tick')).toHaveCount(5);
+    expect((await kids.getByRole('link', { name: /Team Osprey/ }).boundingBox())!.x).toBeGreaterThan((await name.boundingBox())!.x + 10);
     const fontOf = (l: ReturnType<Page['locator']>) => l.evaluate((el) => getComputedStyle(el.closest('.nb-nav-link')!).fontSize);
     expect(await fontOf(kids.getByRole('link', { name: /Team Osprey/ }))).toBe(await fontOf(list(page).getByRole('link', { name: 'Ponytail' })));
-    await expect(kids.getByRole('listitem')).toHaveCount(6, { timeout: 2000 });
-    await expect(kids.getByRole('link', { name: 'All workspaces · 2 more' })).toHaveAttribute('href', '/org/cse-3b?tab=projects');
+    await expect(kids.getByRole('listitem')).toHaveCount(5, { timeout: 2000 });
+    // "All workspaces" sits under the thread, outside the list, so the tree ends at the last real workspace.
+    await expect(page.getByRole('link', { name: 'All workspaces · 2 more' })).toHaveAttribute('href', '/org/cse-3b?tab=projects');
     await chevron.click();
     await expect(kids).toHaveCount(0);
     await page.reload();
     await expect(page.getByRole('list', { name: 'Workspaces in CSE 3B · Data Structures 2026' })).toHaveCount(0, { timeout: 3000 });
     await expect(page.locator('[data-org-row]').first().getByRole('button', { name: /Show CSE 3B/ })).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.getByRole('list', { name: 'Workspaces in Quiet Org' }).getByRole('link', { name: 'All workspaces' })).toBeVisible();
+    await expect(page.locator('[data-org-group]', { has: page.getByRole('list', { name: 'Workspaces in Quiet Org' }) }).getByRole('link', { name: 'All workspaces', exact: true })).toBeVisible();
 });
 
 test('G2: the workspace you\'re on shows and its group opens, even past the first five and when remembered closed', async ({ page }) => {
@@ -88,7 +90,7 @@ test('G2: the workspace you\'re on shows and its group opens, even past the firs
     await page.reload();
     const kids = page.getByRole('list', { name: 'Workspaces in CSE 3B · Data Structures 2026' });
     await expect(kids.getByRole('link', { name: 'Team Owl' })).toHaveAttribute('aria-current', 'page');
-    await expect(kids.getByRole('link', { name: 'All workspaces · 1 more' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'All workspaces · 1 more' })).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('nb:sidebar-org:org'))).toBe('closed');
 });
 
@@ -137,10 +139,12 @@ test('equal distances between organizations and workspaces; G10: nested lists; k
     // The user, 5 Nov: the same distance everywhere — after an organization's group as between two workspaces.
     const box = async (name: RegExp | string) => (await list(page).getByRole('link', { name }).locator('xpath=ancestor::li[1]').boundingBox())!;
     const gap = (a: { y: number; height: number }, b: { y: number }) => Math.round(b.y - (a.y + a.height));
-    const quietGroup = (await page.getByRole('list', { name: 'Workspaces in Quiet Org' }).boundingBox())!;
+    // The whole group (its row, its thread and its "All workspaces" link) to the next row.
+    const quietGroup = (await page.locator('[data-org-group]', { has: page.getByRole('list', { name: 'Workspaces in Quiet Org' }) }).boundingBox())!;
     expect(gap(quietGroup, await box(/Robotics Club/))).toBe(gap(await box('Ponytail'), await box(/^Caveman/)));
     await page.getByRole('button', { name: 'Hide Quiet Org’s workspaces' }).click();
-    expect(gap((await page.locator('[data-org-row]').nth(1).boundingBox())!, await box(/Robotics Club/))).toBe(gap(await box('Ponytail'), await box(/^Caveman/)));
+    // Closing folds the thread up (160ms), then the distance is the same again.
+    await expect.poll(async () => gap((await page.locator('[data-org-row]').nth(1).boundingBox())!, await box(/Robotics Club/))).toBe(gap(await box('Ponytail'), await box(/^Caveman/)));
     // Every name, organization and Archived alike, starts at the same place.
     const left = async (l: ReturnType<Page['locator']>) => Math.round((await l.boundingBox())!.x);
     const ponytailLeft = await left(list(page).getByRole('link', { name: 'Ponytail' }));

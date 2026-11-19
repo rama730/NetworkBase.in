@@ -853,6 +853,154 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-sidebar[data-collapsed="true"] [data-org-row] .nb-nav-count { right:4px; top:2px; }
 .nb-sidebar[data-collapsed="true"] [data-org-row] .nb-nav-dot { right:12px; top:9px; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-workspace { display:none; }
+/* ---- Shell redesign (prototype N2XKz5wG4oEvp4cXtEJ5iD): the marketing nav's cells and hairlines, mono labels, the orange
+   square and pixel marks, on the app's own rows and controls. The logo cell shares one hairline with the top bar. */
+.nb-sidebar-brand { border-bottom:1px solid var(--border); }
+.nb-sidebar-logo { display:inline-flex; align-items:baseline; gap:5px; min-width:0; font:600 20px/1 var(--font-instrument-sans),sans-serif; letter-spacing:-.012em; color:var(--foreground); white-space:nowrap; }
+.nb-sidebar-logo-dot { position:relative; z-index:1; display:inline-block; width:8px; height:8px; flex:none; background:var(--nb-brand); transform-origin:left bottom; }
+.nb-sidebar-logo-word { display:inline-flex; }
+.nb-sidebar-logo-word > span { display:inline-block; transform-origin:50% 100%; transition:transform 160ms var(--nb-ease); }
+.nb-sidebar-logo-term { display:inline-flex; align-items:center; gap:3px; font:500 17px/1 var(--font-jetbrains-mono),monospace; letter-spacing:0; }
+.nb-sidebar-logo-term i { display:inline-block; width:.55em; height:1.05em; background:var(--nb-brand); animation:nb-auth-blink 1s steps(1) infinite; }
+.nb-sidebar-logo-word[hidden], .nb-sidebar-logo-term[hidden] { display:none; }
+.nb-sidebar[data-collapsed="true"] .nb-sidebar-logo-word, .nb-sidebar[data-collapsed="true"] .nb-sidebar-logo-term { display:none; }
+.nb-sidebar-scroll { overflow-x:hidden; }
+/* counts: unread messages, staff urgents and an org's "needs you" are the orange chip; a changed count settles in once */
+.nb-nav-count--hot { background:var(--nb-brand); color:#FAF8F4; }
+.nb-sidebar-counter { font:500 11px/1.2 var(--font-jetbrains-mono),monospace; letter-spacing:.04em; color:var(--foreground); font-variant-numeric:tabular-nums; }
+.nb-sidebar-sub { padding:6px 10px 2px; font:500 11px/1.2 var(--font-jetbrains-mono),monospace; letter-spacing:.1em; text-transform:uppercase; color:var(--muted-foreground); }
+.nb-sidebar-sep { height:1px; margin:6px 10px; background:var(--border); }
+.nb-tag-requested { margin-left:auto; padding:1px 6px; border:1px dashed var(--border); border-radius:3px; font:500 10px/1.5 var(--font-jetbrains-mono),monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted-foreground); }
+.nb-unseen { display:inline-block; width:6px; height:6px; flex:none; background:var(--nb-brand); }
+/* the workspace's own picture, 16px; an organization's has a thin frame. No picture: nothing at all. */
+.nb-ws-pic { width:16px; height:16px; flex:none; border-radius:4px; object-fit:cover; }
+.nb-ws-pic[data-org] { box-shadow:0 0 0 1px var(--sidebar), 0 0 0 2px var(--border); }
+/* the organization thread: a hairline 18px into the row (under the org's picture spot), ticks, a square end; the path
+   to the workspace you're on is ink. Children start where the org's name does when it has a picture; 30px rows; the
+   highlight starts after the tick. */
+.nb-tree-open { display:grid; grid-template-rows:1fr; transition:grid-template-rows 160ms var(--nb-ease), opacity 160ms var(--nb-ease); }
+.nb-tree-open[data-open="false"] { grid-template-rows:0fr; opacity:0; }
+.nb-tree-inner { min-height:0; overflow:hidden; }
+.nb-tree-kids { display:grid; margin:0; padding:0; list-style:none; }
+.nb-tree-kid { position:relative; display:flex; min-width:0; }
+.nb-tree-kid > .nb-nav-link { flex:1; min-width:0; min-height:30px; margin-left:28px; padding-left:4px; }
+.nb-ln { position:absolute; pointer-events:none; background:var(--border); }
+.nb-ln[data-ink] { background:var(--foreground); }
+.nb-ln-up, .nb-ln-dn, .nb-ln-stem { left:18px; width:1px; }
+.nb-ln-up { top:0; height:50%; }
+.nb-ln-dn { top:50%; bottom:0; }
+.nb-ln-tick { left:18px; top:50%; width:8px; height:1px; }
+.nb-ln-stem { top:calc(50% + 10px); bottom:0; transition:opacity 160ms; }
+.nb-ln-stem[data-open="false"] { opacity:0; }
+.nb-tree-more { display:block; margin:2px 0 2px 32px; padding:4px 6px; border-radius:5px; font:11px/1.4 var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); }
+.nb-tree-more:hover { background:var(--muted); color:var(--foreground); }
+/* loading: the onboarding card's dashed ghost lines. Empty: the pixel desk and the two ways in. */
+.nb-ghost-row { display:flex; align-items:center; min-height:var(--ui-nav-item-height); padding:0 10px; }
+.nb-ghost { display:inline-block; height:9px; border-radius:3px; background:repeating-linear-gradient(90deg,var(--border) 0 6px,transparent 6px 10px); }
+.nb-sidebar-empty { display:flex; align-items:center; gap:10px; padding:6px 10px; font-size:12px; line-height:1.45; }
+.nb-sidebar-empty-pic { width:26px; height:26px; flex:none; overflow:hidden; border-radius:5px; }
+.nb-sidebar-empty a { color:var(--primary); }
+.nb-sidebar-empty a:hover { text-decoration:underline; text-underline-offset:3px; }
+/* the footer: two cells under a hairline, Settings and the collapse button */
+.nb-sidebar-footer { height:52px; margin:0 -12px -16px; padding:0; gap:0; border-top:1px solid var(--border); }
+.nb-sidebar-footer > .nb-nav-link:first-child { flex:1; width:auto; height:100%; border-radius:0; padding:0 22px; }
+.nb-sidebar-footer > .nb-sidebar-toggle { width:52px; min-width:52px; height:100%; border-left:1px solid var(--border); border-radius:0; }
+.nb-sidebar-footer[data-layout="stacked"] { height:auto; }
+.nb-sidebar-footer[data-layout="stacked"] > .nb-nav-link { height:48px; min-height:48px; padding:0; justify-content:center; border-radius:0; }
+.nb-sidebar-footer[data-layout="stacked"] > .nb-sidebar-toggle { width:100%; border-left:0; border-top:1px solid var(--border); }
+.nb-sidebar[data-collapsed="true"] .nb-sidebar-footer { margin:0 -6px -12px; }
+/* collapsed: counts become pixel squares; the name shows as a mono label on hover or focus */
+.nb-sidebar[data-collapsed="true"] .nb-nav-count { top:8px; right:8px; width:6px; height:6px; padding:0; font-size:0; border-radius:0; background:var(--nb-brand); }
+.nb-sidebar-workspaces-rail .nb-ws-pic { width:18px; height:18px; }
+.nb-sidebar-tip { position:fixed; z-index:70; transform:translateY(-50%); padding:5px 8px; border-radius:4px; background:var(--foreground); color:var(--background); font:500 11px/1 var(--font-jetbrains-mono),monospace; letter-spacing:.06em; text-transform:uppercase; white-space:pre; pointer-events:none; }
+#my-work-launcher[aria-expanded="true"] > svg:first-child { color:var(--nb-brand); }
+@media (prefers-reduced-motion:no-preference) {
+  .nb-sidebar-brand, .nb-topbar-cells > * { animation:nb-auth-drop var(--nb-dur-moment) var(--nb-ease) both; }
+  .nb-topbar-cells > :nth-child(2) { animation-delay:40ms; } .nb-topbar-cells > :nth-child(3) { animation-delay:80ms; } .nb-topbar-cells > :nth-child(n+4) { animation-delay:120ms; }
+  .nb-nav-count[data-settle], .nb-topbar-badge[data-settle] { animation:nb-count-settle 240ms var(--nb-ease) both; }
+  .nb-ghost { animation:nb-ghost 1.4s ease-in-out infinite; }
+}
+@media (prefers-reduced-motion:reduce) { .nb-tree-open, .nb-ln-stem, .nb-sidebar-logo-word > span { transition:none; } .nb-sidebar-logo-term i { animation:none; } }
+@keyframes nb-count-settle { from { opacity:0; transform:scale(.7); } }
+@keyframes nb-ghost { 50% { opacity:.45; } }
+@media (min-width:768px) and (max-width:1023px) {
+  .nb-sidebar:not([data-collapsed]) .nb-sidebar-logo-word, .nb-sidebar:not([data-collapsed]) .nb-sidebar-logo-term { display:none; }
+  .nb-sidebar:not([data-collapsed]) .nb-nav-count { top:8px; right:8px; width:6px; height:6px; padding:0; font-size:0; border-radius:0; background:var(--nb-brand); }
+  .nb-sidebar:not([data-collapsed]) .nb-sidebar-footer { margin:0 -6px -12px; }
+}
+@media (hover:none) { .nb-tree-kid > .nb-nav-link { min-height:44px; } }
+/* the phone drawer scrolls as one page; its workspace list is never a small box of its own */
+.nb-mobile-drawer .nb-sidebar-scroll { flex:none; min-height:auto; overflow:visible; }
+.nb-cell-where { gap:6px; }
+/* phone: on deeper pages the back arrow takes the dot's place and the path moves over for it */
+.nb-cell-where .nb-back-swap { width:8px; transition:width 220ms cubic-bezier(.2, 0, 0, 1); }
+.nb-cell-where .nb-back-swap[data-show="true"] { width:34px; margin-left:-12px; }
+
+/* In the components layer, so a utility on the same element (hidden, md:flex) still wins. */
+@layer components {
+/* ---- Shell redesign: the top bar as bordered cells on the logo cell's line (prototype N2XKz5wG4oEvp4cXtEJ5iD) */
+.nb-topbar-cells { display:flex; align-items:stretch; min-width:0; }
+.nb-cell { position:relative; display:flex; align-items:center; gap:8px; padding:0 16px; border:0; border-right:1px solid var(--border); background:none; color:var(--foreground); white-space:nowrap; transition:background-color var(--nb-dur-base) var(--nb-ease), color var(--nb-dur-base) var(--nb-ease); }
+.nb-topbar-right { margin-left:auto; display:flex; align-items:stretch; }
+.nb-topbar-right .nb-cell { border-right:0; border-left:1px solid var(--border); }
+:is(a, button).nb-cell:hover { background:var(--secondary); }
+.nb-cell-icon { width:56px; justify-content:center; padding:0; color:var(--muted-foreground); }
+.nb-cell-icon:hover { color:var(--foreground); }
+/* an open menu, and keyboard focus, both get the marketing nav's orange underline */
+.nb-cell[data-state="open"], .nb-cell[aria-expanded="true"], .nb-topbar-cells .nb-cell:focus-visible { outline:none; box-shadow:inset 0 -2px var(--nb-brand); background:var(--secondary); }
+.nb-cell-back { display:flex; align-items:stretch; }
+.nb-cell-back:has(.nb-back-slot[data-show="true"]) { border-right:1px solid var(--border); }
+.nb-topbar-cells .nb-back-slot { height:100%; justify-content:center; }
+.nb-topbar-cells .nb-back-slot[data-show="true"] { width:56px; }
+.nb-cell-search { max-width:520px; padding:0 16px; }
+.nb-search-in > button { height:100%; font-size:13px; }
+.nb-search-in > button > div > span { font-size:13px; }
+.nb-cell-cta { padding:0 20px; background:var(--primary); color:var(--primary-foreground); }
+:is(a).nb-cell-cta:hover { background:var(--primary-hover); }
+:is(a).nb-cell-cta:active { background:var(--primary-active); }
+.nb-cell-cta[data-quiet] { background:none; color:var(--foreground); }
+:is(a).nb-cell-cta[data-quiet]:hover { background:var(--secondary); }
+.nb-cell-cta[aria-current="page"] { color:var(--muted-foreground); pointer-events:none; }
+.nb-cell-me { padding:0 14px; }
+.nb-topbar-badge { position:absolute; top:11px; right:10px; min-width:16px; height:16px; padding:0 4px; background:var(--nb-brand); color:#FAF8F4; font:500 10px/16px var(--font-jetbrains-mono),monospace; text-align:center; }
+.nb-topbar-badge--dot { top:15px; right:16px; min-width:0; width:7px; height:7px; padding:0; }
+.nb-cell-conn { font:500 11px/1 var(--font-jetbrains-mono),monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--status-warning); background:var(--status-warning-soft); }
+button.nb-cell-conn:hover { background:var(--status-warning-soft); }
+.nb-cell-conn-retry { margin-left:4px; padding:4px 8px; border:1px solid currentColor; border-radius:4px; }
+/* where you are: a mono path that types itself, then a breadcrumb; the place's own picture before it */
+.nb-shell-path { min-width:0; flex:0 1 auto; gap:0; font:13px/1 var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); }
+.nb-shell-path-pre { white-space:pre; }
+.nb-shell-path b { font-weight:500; color:var(--foreground); white-space:pre; }
+.nb-shell-path-crumbs { display:flex; align-items:center; min-width:0; overflow:hidden; }
+.nb-shell-caret { display:inline-block; width:.55em; height:1.05em; margin-left:2px; background:var(--nb-brand); vertical-align:-.18em; }
+.nb-crumb { padding:2px 1px; border:0; background:none; font:inherit; color:var(--muted-foreground); }
+:is(a).nb-crumb:hover, :is(a).nb-crumb:focus-visible { color:var(--foreground); text-decoration:underline; text-underline-offset:4px; }
+.nb-crumb-switch { display:inline-flex; align-items:center; gap:3px; padding:2px 4px; border-radius:4px; color:var(--foreground); font-weight:500; cursor:pointer; }
+.nb-crumb-switch:hover, .nb-crumb-switch[data-state="open"] { background:var(--secondary); }
+.nb-crumb-sep { margin:0 4px; }
+.nb-path-pic { width:18px; height:18px; flex:none; margin-right:10px; border-radius:4px; object-fit:cover; }
+.nb-path-pic[data-org] { box-shadow:0 0 0 1px var(--background), 0 0 0 2px var(--border); }
+.nb-path-copy { display:inline-flex; align-items:center; gap:4px; height:22px; margin-left:10px; padding:0 7px; border:1px solid var(--border); border-radius:5px; background:var(--card); font:11px var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); opacity:0; transition:opacity 160ms; cursor:pointer; }
+.nb-shell-path:hover .nb-path-copy, .nb-path-copy:focus-visible { opacity:1; }
+.nb-shell-path[data-typing] .nb-path-copy { opacity:0; }
+.nb-shell-path--phone { display:flex; align-items:center; gap:8px; min-width:0; font:13px/1 var(--font-jetbrains-mono),monospace; }
+.nb-shell-path--phone b { overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+.nb-shell-path--phone .nb-path-pic { margin-right:0; }
+.nb-path-dot { width:8px; height:8px; flex:none; background:var(--nb-brand); }
+.nb-cell-where { padding:0 14px; }
+/* the quick switcher */
+.nb-shell-pop { padding:6px; border:1px solid var(--border); border-radius:8px; background:var(--popover); color:var(--popover-foreground); box-shadow:0 16px 40px rgb(20 26 30 / 14%); }
+.nb-shell-pop-label { display:flex; justify-content:space-between; padding:8px 10px 6px; font:500 11px/1.2 var(--font-jetbrains-mono),monospace; letter-spacing:.1em; text-transform:uppercase; color:var(--muted-foreground); }
+.nb-shell-pop-row { display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px; border:0; border-radius:5px; background:none; font-size:12.5px; text-align:left; color:var(--foreground); }
+.nb-shell-pop-row:hover, .nb-shell-pop-row:focus-visible { background:var(--muted); outline:none; }
+.nb-shell-pop-path { display:block; font:11px var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); }
+.nb-shell-pop-more { margin-top:4px; border-top:1px solid var(--border); border-radius:0 0 5px 5px; }
+/* account deletion pending: under the top bar */
+.nb-delbar { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; padding:10px 20px; background:var(--status-warning-soft); color:var(--foreground); font-size:13px; }
+.nb-delbar-eyebrow { display:inline-flex; align-items:center; gap:6px; font:500 11px/1 var(--font-jetbrains-mono),monospace; letter-spacing:.1em; text-transform:uppercase; color:var(--status-warning); }
+@media (max-width:1099px) { .nb-shell-path-pre { display:none; } }
+@media (max-width:767px) { .nb-delbar { padding:10px 16px; } .nb-cell-icon { width:52px; } }
+}
 /* Keep the keyboard skip link out of view-transition snapshots until it is
    intentionally reached with the keyboard. Transform-based hiding can be
    briefly composited at the start of a theme view transition. */
@@ -1126,6 +1274,9 @@ svg.lucide { stroke-width:1.75; }
 .nb-auth-account { display:flex; align-items:center; gap:12px; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--card); font-size:13px; }
 .nb-auth-avatar { display:block; width:36px; height:36px; flex:none; overflow:hidden; border-radius:var(--radius-md); }
 .nb-pixel-person { display:block; width:100%; height:100%; }
+/* Pixel avatars on the ink tile keep a 1px inner edge in dark mode, so they don't sink into dark surfaces. */
+.nb-pixel-edge { stroke:transparent; }
+.dark .nb-pixel-edge { stroke:rgb(255 255 255 / 24%); }
 /* pixel icons and the pixel spinner */
 .nb-px { display:block; flex:none; }
 .nb-px-spin { display:block; flex:none; }

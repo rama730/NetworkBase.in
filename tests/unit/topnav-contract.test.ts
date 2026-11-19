@@ -212,15 +212,16 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(topNav, /\[data-messages-surface\]/);
   assert.doesNotMatch(topNav, /OPEN_MESSAGES_SEARCH_EVENT|open-messages-local-search/);
   assert.match(source("src/components/layout/AppSidebar.tsx"), /MAIN_NAV_ITEMS/);
-  assert.match(topNav, /hidden min-w-0 flex-1 items-center md:flex/);
-  // Phones: the logo, which a back arrow replaces on detail pages (unified back §7.2).
-  assert.match(topNav, /<div className="md:hidden">\s*\{authUiState === "signed-in"\s*\? <BackLogoSwap logo=\{<Logo/);
+  // Shell redesign: the top bar is bordered cells; search has its own cell on desktop.
+  assert.match(topNav, /className="nb-cell nb-cell-search hidden min-w-0 flex-1 md:flex"/);
+  // Phones: the bar's dot, which a back arrow replaces on detail pages (unified back §7.2), then where you are.
+  assert.match(topNav, /className="nb-cell nb-cell-where[^"]*md:hidden">\s*<BackLogoSwap logo=\{<span className="nb-path-dot"[^>]*\/>\} \/>\s*<ShellPath phone \/>/);
   // The label also says when there are unread messages (the dot alone isn't heard; round 3 #92).
   assert.match(topNav, /className="nb-mobile-menu-trigger[^\"]*md:hidden"\s+aria-label=\{chatUnread \? "Open mobile menu, unread messages" : "Open mobile menu"\}/);
   assert.match(globals, /@media \(min-width:768px\) \{[\s\S]*?\.nb-mobile-menu-trigger \{ display:none; \}/);
   assert.doesNotMatch(topNav, /createProject=1/);
   assert.match(topNav, /href="\/workspaces\/new"/);
-  assert.match(topNav, /className="flex shrink-0 items-center gap-2"/);
+  assert.match(topNav, /className="nb-topbar-right"/);
   assert.match(topNav, /recentSearchOwnerId=\{user\?\.id\}/);
   assert.match(mobileMenu, /<Dialog open=\{props\.isOpen\}/);
   assert.match(mobileMenu, /p-4 md:hidden/);
@@ -230,7 +231,9 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(source("src/components/layout/AppSidebar.tsx"), /<SidebarNav \/>/);
   assert.match(notifications, /href=\{settingsTabHref\("notifications"\)\}/);
   assert.match(notifications, /onItemsViewed/);
-  assert.match(notifications, /data-\[state=open\]/);
+  // The bell is a top-bar cell; an open menu gets the orange underline (globals.css).
+  assert.match(notifications, /className="nb-cell nb-cell-icon nb-topbar-bell/);
+  assert.match(globals, /\.nb-cell\[data-state="open"\]/);
   assert.doesNotMatch(notifications, /Mark all read/);
   assert.match(runtime, /<NetworkNotificationsProvider>/);
   assert.doesNotMatch(runtime, /PresencePublisher|startPresenceHeartbeat/);

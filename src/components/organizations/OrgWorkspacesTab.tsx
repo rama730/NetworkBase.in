@@ -458,7 +458,7 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
                             <div key={r.id} role="row" data-workspace-row={r.id} className={cn('grid min-h-14 items-center gap-3 border-b border-border px-3 py-1.5 text-[13px] last:border-b-0', highlight === r.id && 'bg-muted')} style={{ gridTemplateColumns: LIST_GRID }}>
                                 <span role="cell">{canAct ? <input type="checkbox" className="nb-check" aria-label={`Select ${r.title}`} checked={selected.has(r.id)} onClick={(e) => pick(r, (e.target as HTMLInputElement).checked, e.shiftKey)} onChange={() => undefined} /> : null}</span>
                                 <span role="cell" className="flex min-w-0 items-center gap-2.5">
-                                    <WorkspaceAvatar project={{ title: r.title, coverImage: r.coverImage }} size="row" placeholder />
+                                    <WorkspaceAvatar project={{ id: r.id, title: r.title, coverImage: r.coverImage }} size="row" parentId={orgId} />
                                     <span className="min-w-0">
                                         <span className="flex min-w-0 items-center gap-1.5"><Link href={href(r)} className="truncate font-medium hover:underline">{r.title}</Link>{titleChip(r)}</span>
                                         <span className="block truncate text-[12px] text-muted-foreground">{r.status === 'archived' && r.archivedBy ? toCard(r).shortDescription : r.description ?? '—'}<span className="lg:hidden">{orgLine(r) ? ` · ${orgLine(r)}` : ''}</span><span className="xl:hidden"> · <WorkspaceLastUpdate projectId={r.id} timeOnly /></span></span>
@@ -599,7 +599,7 @@ function RequestsPanel({ requests, onClose, onDone }: { requests: OrgWorkspaceRe
                     {open.map((r) => (
                         <li key={r.id} className="space-y-2 px-6 py-3 text-sm">
                             <p className="flex items-center gap-2.5">
-                                <WorkspaceAvatar project={{ title: r.title, coverImage: null }} size="row" placeholder />
+                                <WorkspaceAvatar project={{ title: r.title, coverImage: null }} size="row" kind="child" />
                                 <span className="min-w-0">
                                     <span className="block truncate font-medium">{r.title}</span>
                                     <span className="block text-[12px] text-muted-foreground">{r.kind === 'move_in' ? 'Asks to join' : 'Asks to leave'} · {r.lead}, workspace lead · {people(r.members)}</span>

@@ -17,9 +17,11 @@ import {
 interface GlobalSearchProps {
     onOpenCommandPalette: (initialQuery?: string, context?: GlobalSearchContext) => void;
     condensed?: boolean;
+    /** In the top bar's search cell (shell redesign): no box of its own; the cell is the field. */
+    cell?: boolean;
 }
 
-export default function GlobalSearch({ onOpenCommandPalette, condensed = false }: GlobalSearchProps) {
+export default function GlobalSearch({ onOpenCommandPalette, condensed = false, cell = false }: GlobalSearchProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
@@ -73,7 +75,7 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
 
     return (
         <div
-            className={`
+            className={cell ? `nb-search-in group relative flex h-full min-w-0 flex-1 items-center gap-2 ${query ? "is-filled" : ""}` : `
                 hidden md:flex items-center rounded-[5px]
                 border bg-card
                 transition-colors duration-[130ms] group relative overflow-hidden shadow-none

@@ -50,6 +50,22 @@ export const PIXEL_PERSON_PAIRS: ReadonlyArray<readonly [string, string]> = [
     ...PIXEL_PALE.map((figure) => [figure, '#212A30'] as const),
 ];
 
+/**
+ * Default avatars for places, on the pixel person's own grid (7 wide, 8 tall, standing on the bottom edge), so a person,
+ * the building they belong to and their desk read as one pixel world. Organization: a building with windows and a
+ * door. Workspace: a desk with a screen. Child workspace (inside an organization): the same desk under its org's roof,
+ * drawn in the org's colours so an org and its workspaces look like one family.
+ */
+export const PIXEL_PLACES = {
+    organization: ['...#...', '..###..', '.#####.', '#######', '#.#.#.#', '#######', '##.#.##', '##.#.##'],
+    workspace: ['.#####.', '.#...#.', '.#...#.', '.#####.', '...#...', '#######', '.#...#.', '.#...#.'],
+    child: ['...#...', '..#.#..', '.#...#.', '.#####.', '.#...#.', '#######', '.#...#.', '.#...#.'],
+} as const;
+export type PixelPlaceKind = keyof typeof PIXEL_PLACES;
+
+/** The ink tile: in dark mode it gets a 1px inner edge so it doesn't sink into dark surfaces. */
+export const PIXEL_INK_TILE = '#212A30';
+
 export function pixelPersonPair(identityKey: string): readonly [string, string] {
     return PIXEL_PERSON_PAIRS[identityHash(identityKey) % PIXEL_PERSON_PAIRS.length]!;
 }

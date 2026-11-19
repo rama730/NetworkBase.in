@@ -51,7 +51,9 @@ test("WorkspaceAvatar enforces inset ring framing, 80px detail size, presence do
     assert.match(avatarSource, /size-\[72px\] rounded-lg/, "Detail size is the spec's 72px avatar with 8px corners");
     assert.match(avatarSource, /size-11 rounded-md/, "Card size must be 44px");
     assert.doesNotMatch(avatarSource, /[Pp]resence/, "A workspace has no presence");
-    assert.match(avatarSource, /if \(!hasImage && !placeholder\) \{\s*return null;\s*\}/, "Must return null with no image unless the slot is kept");
+    // Shell redesign: no picture means the default pixel figure for its kind (organization, workspace, child), never nothing.
+    assert.match(avatarSource, /<PixelPlace kind=\{pixel\.figure\} identityKey=\{pixel\.key\}/, "No picture: the default pixel avatar");
+    assert.doesNotMatch(avatarSource, /if \(!hasImage[^)]*\) \{\s*return null;/, "Every workspace shows an avatar");
     assert.match(avatarSource, /tab=settings#project-settings-general/, "Owner edit overlay must deep link to general settings");
 });
 

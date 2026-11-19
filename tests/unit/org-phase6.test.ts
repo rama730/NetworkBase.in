@@ -8,7 +8,8 @@ const source = (path: string) => readFileSync(path, "utf8");
 test("live-fix 38: workspace rows have an avatar and ⋯ says Detach", () => {
   // The Workspaces tab moved to its own file (workspaces report); the List keeps the avatar, ⋯ keeps Detach.
   const overview = source("src/components/organizations/OrgWorkspacesTab.tsx");
-  assert.match(overview, /<WorkspaceAvatar project=\{\{ title: r\.title, coverImage: r\.coverImage \}\}/);
+  // A child workspace's avatar: its picture, or the desk under its org's roof in the org's colours (shell redesign).
+  assert.match(overview, /<WorkspaceAvatar project=\{\{ id: r\.id, title: r\.title, coverImage: r\.coverImage \}\} size="row" parentId=\{orgId\} \/>/);
   assert.match(overview, />Detach<\/DropdownMenuItem>/);
   assert.match(overview, /`Detach \$\{first\?\.title\}\?`/);
   assert.doesNotMatch(overview, /Remove from the organization<\/DropdownMenuItem>/);

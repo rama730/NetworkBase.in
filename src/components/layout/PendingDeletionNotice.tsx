@@ -13,8 +13,9 @@ export function PendingDeletionNotice() {
     const { data } = useAccountDeletionStatus()
     if (!data?.pending || !data.hardDeleteAt || pathname === '/settings') return null
     return (
-        <div className="border-b border-border bg-background px-4">
+        <div className="border-b border-border">
             <PendingDeletionBanner
+                shell
                 hardDeleteAt={data.hardDeleteAt}
                 onCancelled={() => queryClient.setQueryData(queryKeys.settings.accountDeletion(), { pending: false })}
             />

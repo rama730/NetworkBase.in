@@ -33,6 +33,7 @@ export default function MyWorkIndicator() {
             aria-expanded={isMyWorkOpen}
             aria-haspopup="dialog"
             title="My work"
+            data-tip="My work"
             aria-label={`${isMyWorkOpen ? "Close" : "Open"} My work${hasAction ? `, ${actionCount} item${actionCount === 1 ? "" : "s"} need attention` : ""}`}
             className={cn(
                 "nb-nav-link w-full",

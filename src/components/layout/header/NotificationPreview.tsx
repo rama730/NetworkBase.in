@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, type KeyboardEvent } from "react";
 import { Bell, Settings } from "lucide-react";
+import { useChanged } from "@/hooks/useChanged";
 
 import { NotificationList } from "@/components/notifications/NotificationList";
 import {
@@ -116,21 +117,23 @@ export default function NotificationPreview(props: NotificationPreviewProps) {
         filterRefs.current[nextIndex]?.focus();
     };
 
+    const badgeChanged = useChanged(unreadImportantCount);
     return (
         <DropdownMenu modal={false} open={isOpen} onOpenChange={onOpenChange}>
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
                     aria-label={isRealtimeHealthy ? label : `${label} (${connectionNotice})`}
-                    className="nb-touch-target group relative inline-flex h-[var(--ui-control-height)] w-[var(--ui-control-height)] items-center justify-center rounded-md border border-transparent text-muted-foreground transition-[background-color,border-color,color,transform] duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground active:translate-y-px outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 data-[state=open]:border-primary/30 data-[state=open]:bg-accent data-[state=open]:text-primary"
+                    // A top-bar cell (shell redesign): a 20px bell, the count as an orange square that settles in once.
+                    className="nb-cell nb-cell-icon nb-topbar-bell group relative outline-none"
                 >
-                    <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
+                    <Bell className="size-5" strokeWidth={1.65} aria-hidden="true" />
                     {unreadImportantCount > 0 ? (
-                        <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-sm bg-destructive px-1 font-mono text-[11px] font-medium leading-none text-white ring-2 ring-background">
+                        <span key={unreadImportantCount} data-settle={badgeChanged || undefined} className="nb-topbar-badge">
                             {unreadImportantCount > 9 ? "9+" : unreadImportantCount}
                         </span>
                     ) : unreadCount > 0 ? (
-                        <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-[2px] bg-primary ring-2 ring-background" />
+                        <span className="nb-topbar-badge nb-topbar-badge--dot" />
                     ) : null}
                     {!isRealtimeHealthy ? (
                         <span

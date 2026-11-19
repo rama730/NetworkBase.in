@@ -196,5 +196,5 @@ export function OrgNewMenu({ onNew }: { onNew: (kind: OrgNewKind) => void }) {
 
 /** The child's compact bar on phones: the org's small mark before the workspace name (report §18.7). */
 export function OrgCompactMark({ parentOrg }: { parentOrg: ParentOrgLink }) {
-    return <span title={parentOrg.title} aria-hidden="true" className="shrink-0"><WorkspaceAvatar project={{ title: parentOrg.title, coverImage: parentOrg.coverImage }} size="row" placeholder className="size-5" /></span>
+    return <span title={parentOrg.title} aria-hidden="true" className="shrink-0"><WorkspaceAvatar project={{ title: parentOrg.title, coverImage: parentOrg.coverImage }} size="row" kind="organization" className="size-5" /></span>
 }

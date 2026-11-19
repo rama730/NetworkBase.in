@@ -47,7 +47,7 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
                     <ul className={list}>
                         {invites.map((invite) => (
                             <li key={invite.id} className={row}>
-                                <WorkspaceAvatar project={{ title: invite.orgTitle, coverImage: null }} size="row" placeholder />
+                                <WorkspaceAvatar project={{ title: invite.orgTitle, coverImage: null }} size="row" kind="organization" />
                                 <span className="min-w-0 flex-1"><span className="block truncate font-medium text-foreground">{invite.orgTitle}</span><span className="block truncate text-muted-foreground">Invited as {invite.roleLabel}{invite.title ? ` · ${invite.title}` : ''}</span></span>
                                 <Button size="sm" disabled={answer.pending} onClick={() => answer.accept(invite)}>Accept</Button>
                                 <Button size="sm" variant="outline" disabled={answer.pending} onClick={() => answer.decline(invite)}>Decline</Button>
@@ -62,7 +62,7 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
                     <ul className={list}>
                         {data.mine.map((r) => (
                             <li key={r.orgId} className={row}>
-                                <WorkspaceAvatar project={{ title: r.title, coverImage: null }} size="row" placeholder />
+                                <WorkspaceAvatar project={{ id: r.orgId, title: r.title, coverImage: null }} size="row" kind="organization" />
                                 <span className="min-w-0 flex-1"><Link href={`/org/${encodeURIComponent(r.slug ?? r.orgId)}`} onClick={onNavigate} className="block truncate font-medium text-foreground hover:underline">{r.title}</Link><span className="nb-status mt-1" data-tone="info">Requested</span></span>
                                 <Button size="sm" variant="outline" onClick={async () => {
                                     const result = await cancelJoinRequestAction(r.orgId)

@@ -41,7 +41,7 @@ export function ProfileOrganizationsSection({ contributions, isOwner }: { contri
             const body = (
               <>
                 {/* Live-fix 56: the organization's logo, initials when it has none. */}
-                <WorkspaceAvatar project={{ title: c.projectTitle, coverImage: c.projectCoverImage }} size="row" placeholder />
+                <WorkspaceAvatar project={{ title: c.projectTitle, coverImage: c.projectCoverImage }} size="row" kind="organization" />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-foreground">{c.projectTitle}</span>
                   <span className="block truncate text-[12px] text-muted-foreground">
@@ -118,7 +118,7 @@ function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolean; onOp
                   <button type="button" aria-label={`Move ${row.title} up`} disabled={pending || index === 0} onClick={() => move(index, -1)} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30"><ArrowUp className="size-3.5" /></button>
                   <button type="button" aria-label={`Move ${row.title} down`} disabled={pending || index === rows.length - 1} onClick={() => move(index, 1)} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30"><ArrowDown className="size-3.5" /></button>
                 </span>
-                <WorkspaceAvatar project={{ title: row.title, coverImage: row.coverImage }} size="row" placeholder />
+                <WorkspaceAvatar project={{ id: row.orgId, title: row.title, coverImage: row.coverImage }} size="row" kind="organization" />
                 <span className="min-w-0 flex-1"><span className="block truncate font-medium">{row.title}</span><span className="text-[12px] text-muted-foreground">{row.role}</span></span>
                 <label className="flex items-center gap-1.5 text-[13px]">
                   <input type="checkbox" role="switch" checked={row.showOnProfile} disabled={pending} onChange={() => toggle(row)} aria-label={`Show ${row.title} on my profile`} />

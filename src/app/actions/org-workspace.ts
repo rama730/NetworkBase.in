@@ -35,21 +35,24 @@ async function viewer() {
     return userId;
 }
 
-/** A workspace row in the sidebar: names only (sidebar report §1); `unseen` is the new-updates dot (G5). */
-export type SidebarRow = { id: string; title: string; slug: string | null; unseen: boolean };
+/**
+ * A workspace row in the sidebar: the name (sidebar report §1), its own picture when it has one (shell redesign: the
+ * sidebar shows real pictures only, never a default), and `unseen`, the new-updates dot (G5).
+ */
+export type SidebarRow = { id: string; title: string; slug: string | null; unseen: boolean; coverImage?: string | null };
 export type SidebarOrg = {
-    id: string; title: string; slug: string | null; isAdmin: boolean; canCreate: boolean;
+    id: string; title: string; slug: string | null; isAdmin: boolean; canCreate: boolean; coverImage?: string | null;
     needsYou: number; unseenAnnouncement: boolean;
     /** Every workspace of the org you're in, by your own visits; the list shows 5 plus the one you're on (G2). */
     children: SidebarRow[];
 };
 export type SidebarWorkspaces = {
     orgs: SidebarOrg[];
-    requested: Array<{ id: string; title: string; slug: string | null }>;
+    requested: Array<{ id: string; title: string; slug: string | null; coverImage?: string | null }>;
     outside: Array<SidebarRow & { orgTitle: string }>;
     /** Up to 50; the list shows 12, then More (N) (G3). */
     personal: SidebarRow[];
-    archived: Array<{ id: string; title: string; slug: string | null; kind: string }>;
+    archived: Array<{ id: string; title: string; slug: string | null; kind: string; coverImage?: string | null }>;
     /** Pinned to the top, in the order they were pinned (G9). */
     pinned: string[];
 };
@@ -64,8 +67,8 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
     if (!userId) return null;
     // G4: ordered by your own visits (0065), never by other people's edits. G5: a workspace (not an org; orgs keep their
     // announcement rule) has unseen updates when someone else posted after you last opened it.
-    const mine = await ROWS<{ id: string; title: string; slug: string | null; kind: string; status: string | null; parent_id: string | null; role: string; opened: string | null; last_seen: string | null; settings: unknown; org_title: string | null; in_org: boolean; unseen: boolean }>(sql`
-        SELECT p.id, p.title, p.slug, p.kind, p.status, p.parent_id,
+    const mine = await ROWS<{ id: string; title: string; slug: string | null; kind: string; status: string | null; parent_id: string | null; role: string; opened: string | null; last_seen: string | null; settings: unknown; org_title: string | null; in_org: boolean; unseen: boolean; cover: string | null }>(sql`
+        SELECT p.id, p.title, p.slug, p.kind, p.status, p.parent_id, nullif(btrim(p.cover_image), '') AS cover,
           CASE WHEN p.owner_id = ${userId}::uuid THEN 'owner' ELSE pm.role END AS role,
           coalesce(pm.last_opened_at, pm.joined_at, p.created_at)::text AS opened, pm.last_seen_updates_at::text AS last_seen, p.org_settings AS settings,
           (p.kind <> 'organization' AND EXISTS (SELECT 1 FROM workspace_updates u WHERE u.workspace_id = p.id AND u.deleted_at IS NULL
@@ -97,23 +100,23 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
         ]);
         const rules = readOrgRules(org.settings);
         return {
-            id: org.id, title: org.title, slug: org.slug, isAdmin,
+            id: org.id, title: org.title, slug: org.slug, isAdmin, coverImage: org.cover,
             canCreate: !access.writeBlocked && org.role !== 'viewer' && (isAdmin || rules.childCreation === 'members'),
             needsYou: needs.length,
             unseenAnnouncement: Boolean(latest?.at && (!org.last_seen || latest.at > org.last_seen)),
-            children: kids.slice(0, 50).map((c) => ({ id: c.id, title: c.title, slug: c.slug, unseen: Boolean(c.unseen) })),
+            children: kids.slice(0, 50).map((c) => ({ id: c.id, title: c.title, slug: c.slug, unseen: Boolean(c.unseen), coverImage: c.cover })),
         };
     }));
     const pins = (await db.select({ id: sidebarPins.workspaceId }).from(sidebarPins).where(eq(sidebarPins.userId, userId)).orderBy(sidebarPins.pinnedAt)).map((p) => p.id);
-    const requested = await ROWS<{ id: string; title: string; slug: string | null }>(sql`
-        SELECT p.id, p.title, p.slug FROM role_applications a JOIN workspaces p ON p.id = a.workspace_id AND p.kind = 'organization' AND p.deleted_at IS NULL
+    const requested = await ROWS<{ id: string; title: string; slug: string | null; coverImage: string | null }>(sql`
+        SELECT p.id, p.title, p.slug, nullif(btrim(p.cover_image), '') AS "coverImage" FROM role_applications a JOIN workspaces p ON p.id = a.workspace_id AND p.kind = 'organization' AND p.deleted_at IS NULL
         WHERE a.applicant_id = ${userId}::uuid AND a.role_id IS NULL AND a.status = 'pending' ORDER BY a.created_at DESC LIMIT 10`);
     return {
         orgs,
         requested,
-        outside: mine.filter((r) => r.parent_id && !r.in_org && r.org_title && r.status !== 'archived').map((r) => ({ id: r.id, title: r.title, slug: r.slug, orgTitle: r.org_title!, unseen: Boolean(r.unseen) })),
-        personal: mine.filter((r) => r.kind === 'workspace' && !r.parent_id && r.status !== 'archived').slice(0, 50).map((r) => ({ id: r.id, title: r.title, slug: r.slug, unseen: Boolean(r.unseen) })),
-        archived: mine.filter((r) => r.status === 'archived' && (r.kind === 'organization' || !r.parent_id)).map((r) => ({ id: r.id, title: r.title, slug: r.slug, kind: r.kind })),
+        outside: mine.filter((r) => r.parent_id && !r.in_org && r.org_title && r.status !== 'archived').map((r) => ({ id: r.id, title: r.title, slug: r.slug, orgTitle: r.org_title!, unseen: Boolean(r.unseen), coverImage: r.cover })),
+        personal: mine.filter((r) => r.kind === 'workspace' && !r.parent_id && r.status !== 'archived').slice(0, 50).map((r) => ({ id: r.id, title: r.title, slug: r.slug, unseen: Boolean(r.unseen), coverImage: r.cover })),
+        archived: mine.filter((r) => r.status === 'archived' && (r.kind === 'organization' || !r.parent_id)).map((r) => ({ id: r.id, title: r.title, slug: r.slug, kind: r.kind, coverImage: r.cover })),
         pinned: pins.filter((id) => mine.some((r) => r.id === id && r.status !== 'archived')),
     };
 }

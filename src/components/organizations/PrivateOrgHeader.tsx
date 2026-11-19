@@ -22,7 +22,7 @@ export function PrivateOrgHeader({ orgId, title, coverImage, state = { kind: 'no
     return (
         <div className="flex min-h-[60vh] items-center justify-center px-4 py-12">
             <div className="flex w-full max-w-sm flex-col items-center gap-3 text-center">
-                <WorkspaceAvatar project={{ title, coverImage }} size="detail" placeholder />
+                <WorkspaceAvatar project={{ title, coverImage }} size="detail" kind="organization" />
                 <h1 className="nb-page-title text-foreground">{title}</h1>
                 <p className="text-[13px] text-muted-foreground">Private organization</p>
                 {line && action !== 'cancel' ? <p role="status" className="text-[13px] text-foreground">{line}</p> : null}

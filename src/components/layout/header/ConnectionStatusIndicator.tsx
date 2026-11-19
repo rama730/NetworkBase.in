@@ -2,10 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import { toast } from "@/lib/feedback";
-import { RefreshCw, WifiOff } from "lucide-react";
+import { PixelIcon, PixelSpinner } from "@/components/auth/pixel";
 
 import { useRealtime } from "@/components/providers/RealtimeProvider";
-import { cn } from "@/lib/utils";
 
 export function ConnectionStatusIndicator() {
     const { connectionHealth, retryRealtime } = useRealtime();
@@ -38,24 +37,19 @@ export function ConnectionStatusIndicator() {
             ? "Live updates are unavailable. Retry connection."
             : "Live updates are reconnecting. Retry connection.";
 
+    // A warning cell in the top bar (shell redesign): RECONNECTING with the pixel spinner, or OFFLINE with Retry.
     return (
         <button
             type="button"
             title={label}
             aria-label={label}
             onClick={retryRealtime}
-            className={cn(
-                "inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed",
-                isOffline || isUnavailable
-                    ? "border-border bg-transparent text-[var(--status-warning)]"
-                    : "border-border bg-transparent text-muted-foreground",
-            )}
+            className="nb-cell nb-cell-conn"
+            data-tone={isOffline || isUnavailable ? "off" : "re"}
         >
-            {isOffline || isUnavailable ? (
-                <WifiOff className="h-4 w-4" aria-hidden="true" />
-            ) : (
-                <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-            )}
+            {isOffline || isUnavailable ? <PixelIcon name="cross" /> : <PixelSpinner />}
+            <span>{isOffline ? "Offline" : isUnavailable ? "Unavailable" : "Reconnecting"}</span>
+            {isOffline || isUnavailable ? <span className="nb-cell-conn-retry" aria-hidden="true">Retry</span> : null}
         </button>
     );
 }
