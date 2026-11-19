@@ -7,3 +7,18 @@ export function shellPathFor(pathname: string): string {
     const parts = pathname.split("/").filter(Boolean).map((part) => { try { return decodeURIComponent(part); } catch { return part; } }).filter((part) => !ID.test(part));
     return parts.slice(0, 2).join("/") || "discover";
 }
+
+const PLACE = /^\/(workspaces|org)\/(?!new(?:\/|$))[^/]+/;
+
+/** A workspace or organization page (not /workspaces/new). */
+export const isPlacePath = (pathname: string) => PLACE.test(pathname);
+
+/**
+ * The path's parts, with a place's address swapped for its real name (`workspaces / Network for builders`). Until the
+ * name is known only `workspaces` shows, so the dashed address never flashes before the name types in.
+ */
+export function shellPartsFor(pathname: string, name: string | null | undefined): string[] {
+    const parts = shellPathFor(pathname).split("/");
+    if (!isPlacePath(pathname)) return parts;
+    return name ? [parts[0]!, name] : [parts[0]!];
+}

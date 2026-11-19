@@ -11,7 +11,8 @@ import { useSidebarWorkspacesQuery } from "@/components/layout/AppSidebar";
 import { placeForPath, sidebarPlaces, type SidebarPlace } from "@/components/layout/SidebarWorkspaces";
 import { readRecentPages } from "@/lib/navigation/recent-pages";
 import { coverThumbUrl } from "@/lib/workspaces/cover-thumb";
-import { shellPathFor } from "@/lib/navigation/shell-path";
+import { isPlacePath, shellPartsFor } from "@/lib/navigation/shell-path";
+import { usePlaceName } from "@/lib/navigation/place-name";
 
 /** Where a breadcrumb part goes. Workspaces and organizations have no index page, so they open the switcher instead. */
 const CRUMB_HREF: Record<string, string> = { settings: "/settings", messages: "/messages", u: "/network", admin: "/admin/trust", network: "/network", discover: "/discover" };
@@ -36,8 +37,8 @@ function Switcher({ label, places, current }: { label: string; places: SidebarPl
     return (
         <Popover.Root open={open} onOpenChange={setOpen}>
             <Popover.Trigger asChild>
-                <button type="button" className="nb-crumb nb-crumb-switch" aria-label={`${label}, switch workspace`}>
-                    {label}<ChevronDown className="size-3" aria-hidden="true" />
+                <button type="button" className="nb-crumb nb-crumb-switch" aria-label={`${label}, switch workspace`} title={label}>
+                    <span className="nb-crumb-name">{label}</span><ChevronDown className="size-3" aria-hidden="true" />
                 </button>
             </Popover.Trigger>
             <Popover.Portal>
@@ -59,31 +60,33 @@ function Switcher({ label, places, current }: { label: string; places: SidebarPl
 }
 
 /**
- * The top bar's "you are here" (shell redesign): `networkbase / workspaces/alpha-app` in mono. It types itself in when
+ * The top bar's "you are here" (shell redesign): `networkbase / workspaces / Alpha app` in mono, a place by its real name. It types itself in when
  * you move, the way the sign-in address does, then each part becomes a link; the workspace part opens a quick switcher.
  * The place's own picture sits before it (never a default up here).
  */
 export function ShellPath({ phone = false }: { phone?: boolean }) {
     const pathname = usePathname() ?? "/";
-    const target = shellPathFor(pathname);
-    const shown = useTypedPath(target, 22);
-    const typing = shown !== target;
     const { data } = useSidebarWorkspacesQuery();
     const place = useMemo(() => placeForPath(data, pathname), [data, pathname]);
+    // The page's own name is freshest (a rename, a place you only visit); the sidebar's shows before the page loads.
+    const pageName = usePlaceName(pathname);
+    const parts = shellPartsFor(pathname, pageName ?? place?.title);
+    const target = parts.join("/");
+    const shown = useTypedPath(target, 22);
+    const typing = shown !== target;
     const places = useMemo(() => sidebarPlaces(data), [data]);
 
     if (phone) {
         return (
-            <span className="nb-shell-path nb-shell-path--phone" aria-label={`You are here: ${target}`}>
+            <span className="nb-shell-path nb-shell-path--phone" aria-label={`You are here: ${parts.join(" / ")}`}>
                 {/* The dot before it is the bar's logo (it turns into the back arrow on deeper pages); a picture shows here. */}
                 <PlacePic place={place} size={18} />
-                <b>{target.split("/").pop()}</b>
+                <b>{parts[parts.length - 1]}</b>
             </span>
         );
     }
 
-    const parts = target.split("/");
-    const onPlace = Boolean(place) || pathname.startsWith("/workspaces/") || pathname.startsWith("/org/");
+    const onPlace = isPlacePath(pathname);
     return (
         <div className="nb-cell nb-shell-path" data-typing={typing || undefined}>
             <PlacePic place={place} />
@@ -95,7 +98,7 @@ export function ShellPath({ phone = false }: { phone?: boolean }) {
                     const last = index === parts.length - 1;
                     const sep = index ? <span className="nb-crumb-sep" aria-hidden="true">/</span> : null;
                     if (last && onPlace) return <span key={index}>{sep}<Switcher label={part} places={places} current={place} /></span>;
-                    if (last) return <span key={index}>{sep}<b aria-current="page">{part}</b></span>;
+                    if (last) return <span key={index}>{sep}<b aria-current="page" className="nb-crumb-name" title={part}>{part}</b></span>;
                     if (part === "workspaces" || part === "org") return <span key={index}>{sep}<span className="nb-crumb nb-crumb-quiet">{part}</span></span>;
                     const href = CRUMB_HREF[part];
                     return <span key={index}>{sep}{href ? <Link href={href} className="nb-crumb">{part}</Link> : <span className="nb-crumb nb-crumb-quiet">{part}</span>}</span>;

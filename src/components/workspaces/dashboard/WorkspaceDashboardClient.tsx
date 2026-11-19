@@ -71,6 +71,7 @@ import type { WorkspaceRecentActivityItem } from '@/lib/workspaces/recent-activi
 import type { RoleApplicationCounts } from '@/app/actions/applications/internal';
 import { keepStamp } from '@/lib/navigation/in-app-history';
 import { WORKSPACE_TAB_LABELS } from '@/lib/copy/terms';
+import { setPlaceName } from '@/lib/navigation/place-name';
 
 const EditWorkspaceModal = dynamic(() => import('@/components/workspaces/EditWorkspaceModal'), { ssr: false, loading: () => null });
 
@@ -318,6 +319,10 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const organization = project.organization ?? null;
     const isOrganization = Boolean(organization);
     const canonicalProjectHref = useMemo(() => `${isOrganization ? '/org' : '/workspaces'}/${project.slug || project.id}`, [isOrganization, project.id, project.slug]);
+    // The top bar's path shows this place by its real name, under any address it was opened at (slug or id).
+    useEffect(() => {
+        setPlaceName(['/workspaces', '/org'].flatMap((base) => [project.slug, project.id].filter(Boolean).map((key) => `${base}/${key}`)), project.title);
+    }, [project.id, project.slug, project.title]);
     const publicTabVisibility = useMemo(() => normalizeWorkspacePublicTabVisibility(project.publicTabVisibility ?? project.public_tab_visibility), [project]);
     const isOwnerOrMember = isOwner || isMember;
     // Org admins read every tab of their org's child projects and manage its org link (report §29.4);
