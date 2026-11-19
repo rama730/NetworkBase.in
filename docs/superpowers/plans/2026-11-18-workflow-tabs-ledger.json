@@ -138,9 +138,9 @@
       "text": "A1.3 Project type + Part of + Work tab — Goal: projects group work tasks. Build: migration tasks.startdate, tasks.partofid; project type/stages; setPartOfAction",
       "kind": "unit",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-work.spec.ts",
+      "evidence": "LIVE 2026-11-20 57df406a4 + d992425fe (pushed 53769be8d), live fixes f875af259 (Tasks crashed: New menu named a project join stage) and 496614d6d; 0109/0110 in prod, tasks_part_of_idx valid. Chrome on wt-test-a1-3 (deleted): New ▾ Project with start/end, Projects list, Work tab Add existing with Undo, Completed with open work -> Move to the Backlog, Part of chip on the board."
     },
     {
       "key": "A1.4",
@@ -5868,9 +5868,9 @@
       "text": "Adding the Project planner",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-work.spec.ts",
+      "evidence": "2026-11-20 Chrome: Projects grouped To do · In progress · Complete with dates and completion; a new project shows at once."
     },
     {
       "key": "38.5.W2",
@@ -5888,9 +5888,9 @@
       "text": "Adding work to a project",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/planner-work.test.ts",
+      "evidence": "2026-11-20 Chrome: Work tab lists work with completion, Add existing adds with Undo, New task carries Part of (spec). Orgs and assignments refused (db test)."
     },
     {
       "key": "38.5.W4",
@@ -5908,9 +5908,9 @@
       "text": "Running and completing",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-work.spec.ts",
+      "evidence": "2026-11-20 Chrome: Completed with 2 open tasks asked Leave them / Move them to the Backlog; project moved to Complete."
     },
     {
       "key": "38.5.W6",
@@ -8168,9 +8168,9 @@
       "text": "A1.3 (2026-11-20): until the Timeline lands (A1.4) the Projects view is a list grouped To do · In progress · Complete, with dates and completion. A project's st",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/create-rules.test.ts",
+      "evidence": "2026-11-20: Projects list until the Timeline (A1.4); Part of chip not a link; Group into project waits for A1.6."
     }
   ]
 }
