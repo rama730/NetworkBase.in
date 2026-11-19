@@ -13,13 +13,12 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { formatTaskId } from "@/lib/workspace-key";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
-import { agendaDays, calendarCells, daysBetween, dueOn, mondayOf, monthOf, monthRange, shiftMonth, weekCells, type CalendarDay } from "@/lib/workflows/planner";
+import { agendaDays, calendarCells, daysBetween, dueOn, localDayKey, mondayOf, monthOf, monthRange, shiftMonth, weekCells, type CalendarDay } from "@/lib/workflows/planner";
 import { matchesFilters, setCount, type TaskFilters } from "@/lib/workspaces/task-filters";
 import { taskDueDateKey } from "@/lib/workspaces/task-presentation";
 
 type Item = { id: string; taskNumber: number | null; title: string; status: string; dueDate: string | null; startDate?: string | null; itemType?: string; assigneeId: string | null; priority: string; sprintId: string | null };
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const monthTitle = (month: string) => new Date(`${month}-01T00:00:00Z`).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
 const dayTitle = (key: string) => new Date(`${key}T00:00:00Z`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 const addDays = (key: string, n: number) => new Date(Date.parse(`${key}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
@@ -35,7 +34,7 @@ export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, on
 }) {
   const queryClient = useQueryClient();
   const phone = useMediaQuery("(max-width: 639px)");
-  const today = todayKey();
+  const today = localDayKey();
   const [mode, setMode] = useState<"month" | "week" | "agenda">("month");
   const [month, setMonth] = useState(monthOf(today));
   const [weekStart, setWeekStart] = useState(mondayOf(today));

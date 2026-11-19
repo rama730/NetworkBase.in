@@ -14,7 +14,7 @@ import { FilterChipRow, type FilterChip } from "@/components/ui/FilterChipRow";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { TasksCalendar } from "@/components/workspaces/v2/tasks/TasksCalendar";
 import { TasksMatrix } from "@/components/workspaces/v2/tasks/TasksMatrix";
-import { ProjectsList } from "@/components/workspaces/v2/tasks/PlannerParts";
+import { ProjectsTable } from "@/components/workspaces/v2/tasks/PlannerParts";
 import { PlannerTimeline } from "@/components/workspaces/v2/tasks/PlannerTimeline";
 import { EMPTY_FILTERS, filtersFromUrl, filtersToUrl, matchesFilters, setCount, type DueFilter, type TaskFilters as ChipFilters } from "@/lib/workspaces/task-filters";
 import { workflowType } from "@/lib/workflows/types";
@@ -255,12 +255,15 @@ export default function TasksTab({
   const [createPartOf, setCreatePartOf] = useState<{ id: string; title: string } | null>(null);
   // A1.4: "More details" from the Timeline's bubble opens New on Project with the drawn dates.
   const [createDraft, setCreateDraft] = useState<{ title: string; startDate: string } | null>(null);
-  // Report 38.5 S2: Projects has Timeline · All (A1.5 adds Active); the choice is remembered per workspace.
-  const [projectsView, setProjectsView] = useState<"timeline" | "all">("timeline");
+  // Report 38.5 S2 and part 13: Projects has Timeline · Active · All, remembered per workspace; a phone starts on Active.
+  const [projectsView, setProjectsView] = useState<"timeline" | "active" | "all">("timeline");
   useEffect(() => {
-    try { if (localStorage.getItem(`nb:projects-view:${projectId}`) === "all") setProjectsView("all"); } catch { /* private window */ }
+    let saved: string | null = null;
+    try { saved = localStorage.getItem(`nb:projects-view:${projectId}`); } catch { /* private window */ }
+    if (saved === "timeline" || saved === "active" || saved === "all") setProjectsView(saved);
+    else if (window.matchMedia("(max-width: 767px)").matches) setProjectsView("active");
   }, [projectId]);
-  const pickProjectsView = (v: "timeline" | "all") => { setProjectsView(v); try { localStorage.setItem(`nb:projects-view:${projectId}`, v); } catch { /* private window */ } };
+  const pickProjectsView = (v: "timeline" | "active" | "all") => { setProjectsView(v); try { localStorage.setItem(`nb:projects-view:${projectId}`, v); } catch { /* private window */ } };
   // Report 38.5 S1 (A1.1): Board · Calendar for people in the workspace (B11: never the public); ?view= and remembered.
   const viewKey = `nb:tasks-view:${projectId}`;
   const [tasksView, setTasksView] = useState<"board" | "projects" | "calendar" | "matrix">(() => {
@@ -1135,12 +1138,13 @@ export default function TasksTab({
         ) : currentView === "projects" ? (
           <div id="tasks-view-panel-projects" role="tabpanel" aria-labelledby="tasks-view-tab-projects">
             <UnderlineTabs label="Projects view" idPrefix="projects-view" value={projectsView} onChange={pickProjectsView} className="mb-3 min-h-9"
-              tabs={[{ key: "timeline" as const, label: "Timeline" }, { key: "all" as const, label: "All" }]} />
+              tabs={[{ key: "timeline" as const, label: "Timeline" }, { key: "active" as const, label: "Active" }, { key: "all" as const, label: "All" }]} />
             {projectsView === "timeline" ? (
               <PlannerTimeline projectId={projectId} canEdit={canEditTasks} sprints={sprintOptions} viewerId={currentUserId ?? null} onOpen={openTaskById}
                 onMoreDetails={(d) => { setCreateDraft({ title: d.title, startDate: d.startDate }); setCreateDue(d.dueDate); openCreate("project"); }} />
             ) : (
-              <ProjectsList projectId={projectId} canCreate={canCreateTasks} onOpen={openTaskById} onNew={() => openCreate("project")} />
+              <ProjectsTable projectId={projectId} mode={projectsView} canEdit={canEditTasks} canPlanSprints={isOwner || canManageWorkflow} members={assignable}
+                onOpen={openTaskById} onNew={() => openCreate("project")} />
             )}
           </div>
         ) : currentView === "matrix" ? (

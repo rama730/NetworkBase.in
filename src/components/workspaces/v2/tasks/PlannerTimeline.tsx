@@ -14,7 +14,7 @@ import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { formatTaskId } from "@/lib/workspace-key";
-import { addDayKeys, barGeometry, conflicts, daysBetween, dueOn, timelineRange, ZOOM_DAY_PX, type Zoom } from "@/lib/workflows/planner";
+import { addDayKeys, barGeometry, conflicts, daysBetween, dueOn, localDayKey, timelineRange, ZOOM_DAY_PX, type Zoom } from "@/lib/workflows/planner";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { formatTaskDueDate, taskDueDateKey, type SprintOption } from "@/lib/workspaces/task-presentation";
 
@@ -28,7 +28,6 @@ type Drag = { id: string; mode: "move" | "start" | "end"; x0: number; delta: num
 const ROW = 36;
 const HEAD = 48;
 const ZOOMS: Zoom[] = ["week", "month", "quarter"];
-const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const stageLabel = (stage: string | null) => WORKFLOW_TYPES.project!.stages.find((s) => s.key === stage)?.label ?? "Not started";
 const short = (key: string) => formatTaskDueDate(dueOn(key));
 const remembered = (key: string, fallback: string) => { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } };
@@ -42,7 +41,7 @@ export function PlannerTimeline({ projectId, canEdit, sprints, viewerId, onOpen,
   const key = [...queryKeys.project.detail.tasksRoot(projectId), "projects"];
   const query = useQuery({ queryKey: key, queryFn: () => readProjectsAction(projectId) });
   const data = query.data?.success ? query.data : null;
-  const today = todayKey();
+  const today = localDayKey();
   const [zoom, setZoomState] = useState<Zoom>("month");
   const [showSprints, setShowSprints] = useState(false);
   useEffect(() => {

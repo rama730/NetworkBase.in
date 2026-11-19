@@ -36,7 +36,7 @@ test("week, agenda, month range and month stepping", () => {
   assert.deepEqual([shiftMonth("2026-12", 1), shiftMonth("2026-01", -1)], ["2027-01", "2025-12"]);
 });
 
-import { canBeParent, canBePartOf, completion } from "../../src/lib/workflows/planner";
+import { canBeParent, canBePartOf, completion, projectEnds, projectsSummary } from "../../src/lib/workflows/planner";
 import { footerLine, startingStages } from "../../src/lib/workflows/create-rules";
 import { showsIn } from "../../src/lib/workflows/display";
 
@@ -100,4 +100,19 @@ test("calendar spans (call 8, A1.4): an item with a start shows on each of its d
   const days = weeks.flat().filter((d) => d.items.length).map((d) => d.key);
   assert.deepEqual(days, ["2026-11-28", "2026-11-29", "2026-11-30", "2026-12-01"]);
   assert.equal(new Set(weeks.filter((w) => w.some((d) => d.items.length)).map((w) => w[0]!.key)).size, 2);
+});
+
+test("projectEnds (A1.5): today, tomorrow, a weekday this week; nothing when past or further out", () => {
+  assert.equal(projectEnds("2026-11-20", "2026-11-20"), "Ends today");
+  assert.equal(projectEnds("2026-11-21", "2026-11-20"), "Ends tomorrow");
+  assert.equal(projectEnds("2026-11-25", "2026-11-20"), "Ends Wednesday");
+  assert.equal(projectEnds("2026-11-27", "2026-11-20"), null);
+  assert.equal(projectEnds("2026-11-19", "2026-11-20"), null);
+});
+
+test("projectsSummary (A1.5): in progress, ending this week, overdue, and the next to end; closed ones left out", () => {
+  const p = (stage: string, due: string | null) => ({ stage, dueDate: due ? `${due}T00:00:00.000Z` : null, title: `${stage} ${due}` });
+  const s = projectsSummary([p("in_progress", "2026-11-25"), p("planning", "2026-11-18"), p("not_started", "2026-12-20"), p("completed", "2026-11-21"), p("paused", null)], "2026-11-20");
+  assert.deepEqual([s.inProgress, s.endsThisWeek, s.overdue, s.next?.title, s.line], [3, 1, 1, "in_progress 2026-11-25", "3 in progress · 1 ends this week · 1 overdue"]);
+  assert.equal(projectsSummary([], "2026-11-20").line, "0 in progress");
 });

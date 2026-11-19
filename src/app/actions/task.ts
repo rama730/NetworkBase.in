@@ -564,8 +564,8 @@ export async function readProjectsAction(projectId: string) {
     const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
     if (!access.project || access.project.kind === "organization" || !(access.isOwner || access.isMember)) return { success: false as const, error: "Not found" };
     const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
-    const rows = await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; status: string; start_date: Date | null; due_date: Date | null; assignee_id: string | null; done: number; total: number; override: number | null }>(sql`
-      SELECT p.id, p.task_number, p.title, p.stage, p.status, p.start_date, p.due_date, p.assignee_id,
+    const rows = await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; status: string; priority: string; start_date: Date | null; due_date: Date | null; assignee_id: string | null; done: number; total: number; override: number | null }>(sql`
+      SELECT p.id, p.task_number, p.title, p.stage, p.status, p.priority, p.start_date, p.due_date, p.assignee_id,
         (SELECT count(*) FILTER (WHERE w.status = 'done')::int FROM tasks w WHERE w.part_of_id = p.id AND w.deleted_at IS NULL AND w.stage IS DISTINCT FROM 'cancelled') AS done,
         (SELECT count(*)::int FROM tasks w WHERE w.part_of_id = p.id AND w.deleted_at IS NULL AND w.stage IS DISTINCT FROM 'cancelled') AS total,
         (p.type_fields->>'completionOverride')::int AS override
@@ -574,7 +574,7 @@ export async function readProjectsAction(projectId: string) {
     return {
       success: true as const, projectKey: ws?.key ?? null, deps: await projectDeps(projectId),
       projects: Array.from(rows).map((r) => ({
-        id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, status: r.status, assigneeId: r.assignee_id,
+        id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, status: r.status, priority: r.priority, assigneeId: r.assignee_id,
         startDate: r.start_date ? new Date(r.start_date).toISOString() : null, dueDate: r.due_date ? new Date(r.due_date).toISOString() : null,
         completion: completion(Array.from({ length: Number(r.total) }, (_, i) => ({ status: i < Number(r.done) ? "done" : "todo" })), { done: 0, total: 0 }, r.override),
       })),

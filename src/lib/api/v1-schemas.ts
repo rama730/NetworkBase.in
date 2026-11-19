@@ -64,6 +64,9 @@ export const createTaskSchema = z.object({
   // Report 38.2 F1 (nb task create --type bug --stage new): the type and where it starts; checked by createTaskAction.
   itemType: z.string().regex(/^[a-z_]{1,40}$/).optional(),
   stage: z.string().regex(/^[a-z_]{1,40}$/).optional(),
+  // Report 38.5 W12 (A1.5): a project's start, and the project a task is Part of.
+  startDate: taskDueDateSchema.nullable().optional(),
+  partOfId: z.string().uuid().nullable().optional(),
 });
 
 // extension/task-subtask
@@ -165,6 +168,7 @@ export const taskUpdateSchema = z.discriminatedUnion("kind", [
   // running sprint unless a sprint or the Backlog is named.
   z.object({ kind: z.literal("stage"), projectId: z.string().uuid(), taskId: z.string().uuid(), stage: z.string().regex(/^[a-z_]{1,40}$/), sprintId: z.string().uuid().nullable().optional(), backlog: z.boolean().optional() }),
   z.object({ kind: z.literal("delete"), projectId: z.string().uuid(), taskId: z.string().uuid() }),
+  z.object({ kind: z.literal("part_of"), projectId: z.string().uuid(), taskId: z.string().uuid(), partOfId: z.string().uuid().nullable() }),
   z.object({ kind: z.literal("subtask_edit"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid(), title: z.string().trim().min(1).max(500) }),
   z.object({ kind: z.literal("subtask_delete"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid() }),
   z.object({ kind: z.literal("subtask_move"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid(), position: z.number().int().min(0).max(1000) }),

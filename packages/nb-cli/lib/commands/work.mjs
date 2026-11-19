@@ -36,7 +36,18 @@ export async function taskEdit(ctx) {
   const list = (/** @type {unknown} */ v) => (v === undefined ? [] : /** @type {string[]} */ ([v].flat()).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean));
   const labelAdd = list(ctx.flags.label).map((l) => l.toLowerCase()), labelRemove = list(ctx.flags.unlabel).map((l) => l.toLowerCase()), blockAdd = list(ctx.flags["blocked-by"]), blockRemove = list(ctx.flags["not-blocked-by"]), linkAdd = list(ctx.flags.link);
   const metaWanted = labelAdd.length || labelRemove.length || blockAdd.length || blockRemove.length || linkAdd.length;
-  if (!changes.length && !metaWanted) throw usage("nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none] [--label bug] [--blocked-by 7] [--link url]");
+  // Report 38.5 W12 (A1.5): --part-of 40 puts it in project #40; --part-of none takes it out.
+  const partOf = ctx.flags["part-of"] === undefined ? undefined : String(ctx.flags["part-of"]);
+  if (partOf !== undefined) {
+    if (ctx.positionals.length > 1) throw usage("--part-of changes one task at a time");
+    const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]), { brief: true });
+    const project = partOf === "none" ? null : await resolveTask(ctx, partOf, { brief: true });
+    await update(ctx, { kind: "part_of", taskId: task.id, partOfId: project?.id ?? null });
+    for (const [field, value] of changes) await update(ctx, { kind: "edit", taskId: task.id, field, value });
+    return ctx.out.result("nb.task.edit/1", { number: task.taskNumber, changed: [...changes.map(([f]) => f), "partOf"], partOf: project?.taskNumber ?? null }, (d) =>
+      `${ctx.out.c.success(ctx.out.sym.done)} ${d.partOf ? `#${d.number} is now Part of #${d.partOf}` : `#${d.number} is out of its project`}`);
+  }
+  if (!changes.length && !metaWanted) throw usage("nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none] [--label bug] [--blocked-by 7] [--link url] [--part-of 40|none]");
   if (metaWanted) {
     if (ctx.positionals.length > 1) throw usage("Labels, blocked-by and links change one task at a time");
     const task = await resolveTask(ctx, taskRef(ctx, ctx.positionals[0]), { brief: true });

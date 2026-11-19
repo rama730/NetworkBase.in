@@ -26,7 +26,7 @@ import {
   afterTaskTransition,
 } from "@/lib/workspaces/task-transition-service";
 import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
-import { approveTaskReviewAction, assignTaskAction, requestTaskChangesAction, resubmitTaskReviewAction, setTaskStageAction, updateTaskFieldAction } from "@/app/actions/task";
+import { approveTaskReviewAction, assignTaskAction, requestTaskChangesAction, resubmitTaskReviewAction, setPartOfAction, setTaskStageAction, updateTaskFieldAction } from "@/app/actions/task";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { deleteSubtaskAction, updateSubtaskAction } from "@/app/actions/subtask";
 import { deleteTaskAs } from "@/lib/workspaces/server/tasks";
@@ -78,6 +78,7 @@ async function handlePatch(request: Request) {
     const what =
       input.kind === "status" ? (input.status === "done" ? `Finish ${label}` : `Move ${label} to ${input.status.replace("_", " ")}`)
       : input.kind === "stage" ? `Move ${label} to ${input.stage.replace(/_/g, " ")}`
+      : input.kind === "part_of" ? (input.partOfId ? `Put ${label} in a project` : `Take ${label} out of its project`)
       : input.kind === "subtask" ? `${input.completed ? "Tick" : "Untick"} a subtask`
       : input.kind === "edit" ? `Change the ${input.field} of ${label}`
       : input.kind === "assign" ? (input.assigneeId ? `Assign ${label} to ${auth.tokenKind === "agent" ? await personLabel(input.assigneeId) : "someone"}` : `Unassign ${label}`)
@@ -110,6 +111,11 @@ async function handlePatch(request: Request) {
     const limit = await consumeRateLimit(`task:${user.id}`, 60, 60);
     if (!limit.allowed)
       return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
+    if (input.kind === "part_of") {
+      // Report 38.5 W12 (A1.5): nb task edit NB-12 --part-of NB-40 (or --part-of none).
+      const result = await setPartOfAction({ projectId: input.projectId, taskIds: [input.taskId], partOfId: input.partOfId });
+      return result.success ? jsonSuccess(result) : jsonError(result.error, 400, "BAD_REQUEST");
+    }
     if (input.kind === "stage") {
       // W12: no sprint named and not --backlog: the running sprint, as the Join-board sheet ticks it.
       const [running] = input.sprintId || input.backlog ? [] : await db.select({ id: workspaceSprints.id }).from(workspaceSprints)

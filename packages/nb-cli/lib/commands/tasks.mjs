@@ -93,7 +93,7 @@ export async function list(ctx) {
   applySavedFilter(ctx);
   const workspaceId = ctx.requireWorkspace();
   // A label or your stars pick tasks on their own, so they look at everyone's (M4b live check).
-  const scope = ctx.flags.all || ctx.flags.to || ctx.flags.label || ctx.flags.starred || ctx.flags.type || ctx.flags.stage ? "all" : "mine";
+  const scope = ctx.flags.all || ctx.flags.to || ctx.flags.label || ctx.flags.starred || ctx.flags.type || ctx.flags.stage || ctx.flags["part-of"] ? "all" : "mine";
   const wanted = ctx.flags.status ? new Set(String(ctx.flags.status).split(",").map((s) => s.trim())) : null;
   const limit = ctx.flags.limit ? Number(ctx.flags.limit) : 50;
   // Filters run on the server (C2), so open work never falls off a page of done tasks.
@@ -116,11 +116,14 @@ export async function list(ctx) {
   // Report 38.2 call 9: one type, or one stage of it (off-board items too).
   if (ctx.flags.type) query.type = String(ctx.flags.type).toLowerCase();
   if (ctx.flags.stage) query.stage = String(ctx.flags.stage).toLowerCase();
+  // Report 38.5 W12 (A1.5): a project's work.
+  if (ctx.flags["part-of"]) query.partOf = (await resolveTask(ctx, String(ctx.flags["part-of"]), { brief: true })).id;
   const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query }));
   let rows = tasks.filter((/** @type {any} */ t) => (wanted ? wanted.has(t.status) || (wanted.has("review") && t.reviewStatus === "pending") : true));
   const more = Math.max(0, rows.length - limit);
   rows = rows.slice(0, limit);
-  const data = { scope, tasks: rows.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus ?? null, priority: t.priority ?? null, dueDate: t.dueDate ?? null, assignee: t.assigneeUsername ?? t.assigneeName ?? null, labels: t.labels ?? [], subtasks: t.subtaskSummary ?? null, ...(t.type ? { type: t.type, stage: t.stage ?? null, onBoard: t.onBoard ?? true } : {}) })), more };
+  const data = { scope, tasks: rows.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus ?? null, priority: t.priority ?? null, dueDate: t.dueDate ?? null, assignee: t.assigneeUsername ?? t.assigneeName ?? null, labels: t.labels ?? [], subtasks: t.subtaskSummary ?? null, ...(t.type ? { type: t.type, stage: t.stage ?? null, onBoard: t.onBoard ?? true } : {}),
+    ...(t.startDate ? { startDate: t.startDate } : {}), ...(t.partOfId ? { partOfId: t.partOfId } : {}), ...(t.completion !== undefined ? { completion: t.completion } : {}) })), more };
   ctx.out.result("nb.task.list/1", data, (d) => {
     if (!d.tasks.length) return scope === "mine" ? "No open tasks assigned to you · nb task list --all for everyone's" : "No open tasks";
     const started = ctx.project?.startedTask?.id;
@@ -317,7 +320,11 @@ export async function create(ctx) {
   const { resolvePerson } = await import("./work.mjs");
   const assigneeId = ctx.flags.to === undefined ? undefined : await resolvePerson(ctx, String(ctx.flags.to));
   const sprintId = ctx.flags.sprint === undefined ? undefined : await resolveSprint(ctx, String(ctx.flags.sprint));
-  const res = /** @type {any} */ (await ctx.api.post("/api/v1/extension/create-task", { projectId, title, ...(ctx.flags.message ? { description: ctx.flags.message } : {}), ...(priority ? { priority } : {}),
+  // Report 38.5 W12 (A1.5): a project's start, and the project a task is Part of.
+  const startDate = ctx.flags.start === undefined ? undefined : parseDate(String(ctx.flags.start));
+  if (startDate === null) throw usage(`--start ${ctx.flags.start} isn't a date I know`, "Try today, friday, next week, or 2026-12-01");
+  const partOfId = ctx.flags["part-of"] === undefined ? undefined : (await resolveTask(ctx, String(ctx.flags["part-of"]), { brief: true })).id;
+  const res = /** @type {any} */ (await ctx.api.post("/api/v1/extension/create-task", { projectId, title, ...(startDate ? { startDate } : {}), ...(partOfId ? { partOfId } : {}), ...(ctx.flags.message ? { description: ctx.flags.message } : {}), ...(priority ? { priority } : {}),
     ...(dueDate ? { dueDate } : {}), ...(assigneeId !== undefined ? { assigneeId } : {}), ...(sprintId ? { sprintId } : {}),
     ...(ctx.flags.type ? { itemType: String(ctx.flags.type).toLowerCase() } : {}), ...(ctx.flags.stage ? { stage: String(ctx.flags.stage).toLowerCase() } : {}) }));
   const task = res.task ?? res;

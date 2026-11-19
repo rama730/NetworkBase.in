@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useDeferredValue, useRef } from "react";
+import { localDayKey, projectEnds } from "@/lib/workflows/planner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -25,6 +26,7 @@ import { TASK_STATUS_PRESENTATION, type TaskWorkflowStatus } from "@/lib/workspa
 import {
     normalizeTaskSurfaceRecord,
     calculateTaskTimeHealth,
+    taskDueDateKey,
 } from "@/lib/workspaces/task-presentation";
 import { formatTaskId } from "@/lib/workspace-key";
 import { format, parseISO } from "@/lib/utils/date";
@@ -144,7 +146,10 @@ function TaskRow({
                         )}
                     >
                         <Calendar className="size-3" />
-                        {format(dueDate!, "MMM d")}
+                        {/* A1.5: a project of yours says when it ends ("Ends Friday" this week). */}
+                        {taskRecord.itemType === "project"
+                            ? projectEnds(taskDueDateKey(taskRecord.dueDate)!, localDayKey()) ?? `Ends ${format(dueDate!, "MMM d")}`
+                            : format(dueDate!, "MMM d")}
                     </div>
                 )}
 

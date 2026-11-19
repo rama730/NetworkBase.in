@@ -1700,6 +1700,11 @@
           "describe": "A stage of that type, like new, confirmed or fixing",
           "valueName": "stage"
         },
+        "part-of": {
+          "type": "string",
+          "describe": "Work in that project (its number)",
+          "valueName": "project"
+        },
         "save": {
           "type": "string",
           "describe": "Save these filters under a name (nb task list @name)",
@@ -1710,7 +1715,9 @@
         "nb task list --due week --sort due",
         "nb task list --all --status blocked --save stuck",
         "nb task list @stuck",
-        "nb task list --type bug --stage confirmed"
+        "nb task list --type bug --stage confirmed",
+        "nb task list --type project",
+        "nb task list --part-of 40"
       ],
       "exitCodes": [
         0,
@@ -1764,7 +1771,7 @@
     {
       "name": "task create",
       "summary": "Create a task (yours unless --to says otherwise)",
-      "usage": "nb task create \"<title>\" [-m description] [--priority high] [--due friday] [--to @sam] [--sprint current] [--type bug --stage new]",
+      "usage": "nb task create \"<title>\" [-m description] [--priority high] [--due friday] [--to @sam] [--sprint current] [--type bug --stage new] [--start date] [--part-of 40]",
       "flags": {
         "message": {
           "type": "string",
@@ -1776,6 +1783,16 @@
           "type": "string",
           "describe": "A type: bug, request or content (nb workflows lists them)",
           "valueName": "type"
+        },
+        "start": {
+          "type": "string",
+          "describe": "A project's start date",
+          "valueName": "date"
+        },
+        "part-of": {
+          "type": "string",
+          "describe": "The project it belongs to (its number)",
+          "valueName": "project"
         },
         "stage": {
           "type": "string",
@@ -1952,7 +1969,7 @@
     {
       "name": "task edit",
       "summary": "Change a task's title, description, priority or due date",
-      "usage": "nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none] [--label bug] [--blocked-by 7] [--link url]",
+      "usage": "nb task edit <task…> [--title text] [-m description] [--priority high] [--due friday|none] [--label bug] [--blocked-by 7] [--link url] [--part-of 40|none]",
       "flags": {
         "title": {
           "type": "string",
@@ -2004,11 +2021,17 @@
           "multiple": true,
           "describe": "Add a link, like a pull request (https://…)",
           "valueName": "url"
+        },
+        "part-of": {
+          "type": "string",
+          "describe": "Put it in a project (its number), or none",
+          "valueName": "project"
         }
       },
       "examples": [
         "nb task edit 4 --label bug --blocked-by 7",
-        "nb task edit 4 --link https://github.com/acme/app/pull/42"
+        "nb task edit 4 --link https://github.com/acme/app/pull/42",
+        "nb task edit 12 --part-of 40"
       ],
       "exitCodes": [
         0,

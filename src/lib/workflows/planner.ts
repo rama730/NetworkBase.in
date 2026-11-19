@@ -185,3 +185,30 @@ export function dependentsToShift(id: string, deps: Dep[]) {
   }
   return out;
 }
+
+/** Report 38.5 part 8 (A1.5): My Work's line for a project of yours ending this week ("Ends Friday"). */
+export function projectEnds(dueKey: string, today: string) {
+  const days = daysBetween(today, dueKey);
+  if (days < 0 || days > 6) return null;
+  if (days === 0) return "Ends today";
+  if (days === 1) return "Ends tomorrow";
+  return `Ends ${new Date(`${dueKey}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" })}`;
+}
+
+/** The viewer's own calendar day (YYYY-MM-DD): "today" is local, due dates are calendar days. */
+export const localDayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/**
+ * Report 38.5 part 8 (A1.5): the Overview's Projects card: "3 in progress · 1 ends this week · 1 overdue" and the next
+ * open project to end. Completed and cancelled projects are left out of all three.
+ */
+export function projectsSummary<T extends { stage: string | null; dueDate: string | null }>(projects: T[], today: string) {
+  const open = projects.filter((p) => p.stage !== "completed" && p.stage !== "cancelled");
+  const dueKey = (p: T) => taskDueDateKey(p.dueDate);
+  const inProgress = open.filter((p) => p.stage === "planning" || p.stage === "in_progress" || p.stage === "paused").length;
+  const endsThisWeek = open.filter((p) => { const d = dueKey(p); return d !== null && d >= today && daysBetween(today, d) <= 6; }).length;
+  const overdue = open.filter((p) => { const d = dueKey(p); return d !== null && d < today; }).length;
+  const next = open.filter((p) => { const d = dueKey(p); return d !== null && d >= today; }).sort((a, b) => dueKey(a)!.localeCompare(dueKey(b)!))[0] ?? null;
+  const line = [`${inProgress} in progress`, endsThisWeek ? `${endsThisWeek} ${endsThisWeek === 1 ? "ends" : "end"} this week` : "", overdue ? `${overdue} overdue` : ""].filter(Boolean).join(" · ");
+  return { inProgress, endsThisWeek, overdue, next, line };
+}

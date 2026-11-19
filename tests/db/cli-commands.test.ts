@@ -18,7 +18,11 @@ let activity: typeof import("../../src/app/api/v1/workspaces/[id]/activity/route
 let sprints: typeof import("../../src/app/api/v1/workspaces/[id]/sprints/route");
 let updates: typeof import("../../src/app/api/v1/workspaces/[id]/updates/route");
 let taskFiles: typeof import("../../src/app/api/v1/tasks/[taskId]/files/route");
+let listTasks: typeof import("../../src/app/api/v1/extension/workspace-tasks/route");
+let createTask: typeof import("../../src/app/api/v1/extension/create-task/route");
 before(async () => {
+  listTasks = await loadAppModule(() => import("../../src/app/api/v1/extension/workspace-tasks/route"));
+  createTask = await loadAppModule(() => import("../../src/app/api/v1/extension/create-task/route"));
   taskUpdate = await loadAppModule(() => import("../../src/app/api/v1/extension/task-update/route"));
   undo = await loadAppModule(() => import("../../src/app/api/v1/undo/[id]/route"));
   view = await loadAppModule(() => import("../../src/app/api/v1/workspaces/[id]/route"));
@@ -130,4 +134,28 @@ test("H8: activity lists saves and merges per branch and deleted branches, for t
   const stranger = await sql.begin((tx) => createUser(tx));
   const s = await call(activity.GET, await pat(stranger), "GET", `/api/v1/workspaces/${projectId}/activity`, undefined, ctx);
   assert.ok(s.status !== 200 || !s.json.data.items.some((i: any) => i.kind === "branch"));
+});
+
+test("W12 (A1.5): a project with dates over the API, Part of through task-update, and the list's partOf and completion", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const projectId = await sql.begin((tx) => createProject(tx, userId));
+  await sql`UPDATE workspaces SET workflows_enabled = true WHERE id = ${projectId}`;
+  await sql`INSERT INTO workspace_workflows (workspace_id, workflow, added_by) VALUES (${projectId}, 'project_planner', ${userId})`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${projectId}, ${userId}, 'owner') ON CONFLICT DO NOTHING`;
+  const token = await pat(userId);
+  const made = await call(createTask.POST, token, "POST", "/api/v1/extension/create-task", { projectId, title: "Website relaunch", itemType: "project", startDate: "2026-12-02", dueDate: "2026-12-20" });
+  assert.equal(made.status, 200, JSON.stringify(made.json));
+  const project = made.json.data.task.id as string;
+  const work = await call(createTask.POST, token, "POST", "/api/v1/extension/create-task", { projectId, title: "Copy", partOfId: project });
+  const second = await call(createTask.POST, token, "POST", "/api/v1/extension/create-task", { projectId, title: "Hero" });
+  const moved = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", { kind: "part_of", projectId, taskId: second.json.data.task.id, partOfId: project });
+  assert.equal(moved.status, 200, JSON.stringify(moved.json));
+  await sql`UPDATE tasks SET status = 'done' WHERE id = ${work.json.data.task.id}`;
+  const list = async (query: string) => (await call(listTasks.GET, token, "GET", `/api/v1/extension/workspace-tasks?projectId=${projectId}&scope=all&${query}`)).json.data.tasks;
+  const projects = await list("type=project");
+  assert.deepEqual(projects.map((t: any) => [t.title, t.startDate?.slice(0, 10), t.dueDate?.slice(0, 10), t.completion]), [["Website relaunch", "2026-12-02", "2026-12-20", 50]]);
+  assert.deepEqual((await list(`partOf=${project}`)).map((t: any) => t.title).sort(), ["Copy", "Hero"]);
+  const out = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", { kind: "part_of", projectId, taskId: second.json.data.task.id, partOfId: null });
+  assert.equal(out.status, 200);
+  assert.deepEqual((await list(`partOf=${project}`)).map((t: any) => t.title), ["Copy"]);
 });

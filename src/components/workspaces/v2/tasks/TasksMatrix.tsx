@@ -15,13 +15,12 @@ import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { formatTaskId } from "@/lib/workspace-key";
-import { dueOn, MATRIX_BOXES, matrixBox, matrixMove, matrixOrder, pushedPast, urgentChoices, type MatrixBox } from "@/lib/workflows/planner";
+import { dueOn, localDayKey, MATRIX_BOXES, matrixBox, matrixMove, matrixOrder, pushedPast, urgentChoices, type MatrixBox } from "@/lib/workflows/planner";
 import { formatTaskDueDate, isTaskOverdue, taskDueDateKey, type TaskSurfaceRecord } from "@/lib/workspaces/task-presentation";
 
 const ICON = { do: Flame, schedule: CalendarClock, delegate: UserPlus, drop: Archive };
 const EMPTY = { do: "Nothing urgent and important. Good.", schedule: "Nothing here.", delegate: "Nothing here.", drop: "Nothing here." };
 const RULE = { do: "important and urgent", schedule: "important, not urgent", delegate: "urgent, not important", drop: "neither" };
-const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const SHOW = 50;
 type Pending = { task: TaskSurfaceRecord; to: MatrixBox; kind: "pick" | "clear-or-push"; priority: string | null };
 
@@ -36,7 +35,7 @@ export function TasksMatrix({ projectId, tasks, members, canEdit, canPlanSprints
 }) {
   const queryClient = useQueryClient();
   const phone = useMediaQuery("(max-width: 639px)");
-  const today = todayKey();
+  const today = localDayKey();
   const [pending, setPending] = useState<Pending | null>(null);
   const [pickDay, setPickDay] = useState("");
   const [selected, setSelected] = useState<string[]>([]);

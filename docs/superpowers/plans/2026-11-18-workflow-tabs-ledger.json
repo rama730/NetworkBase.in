@@ -8181,6 +8181,16 @@
       "status": "live",
       "test": "tests/unit/planner-calendar.test.ts",
       "evidence": "2026-11-20: zoom ranges, Timeline · All until A1.5, bubble without icon, one toast and Undo for move + shift, row ⋯ Blocked by, [ ] keys, Calendar spans."
+    },
+    {
+      "key": "38.5.call15",
+      "section": "38.5",
+      "text": "A1.5 (2026-11-20): Active lists Planning and In progress (Paused shows in All); its Stage cell is the panel's Stage menu, so completing with open work asks the ",
+      "kind": "call",
+      "milestone": "A1",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }
