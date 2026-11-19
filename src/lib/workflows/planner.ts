@@ -109,3 +109,19 @@ export const urgentChoices = (today: string) => [
   { label: "Today", key: today }, { label: "Tomorrow", key: addDays(today, 1) }, { label: "In 3 days", key: addDays(today, 3) },
 ];
 export const pushedPast = (today: string, urgentDays = 3) => addDays(today, urgentDays + 4);
+
+/**
+ * Report 38.5 T1 part 7 (plan A1.3): a project's completion. Completed work ÷ all work, cancelled ignored; with no work,
+ * its subtasks; a hand-set number wins.
+ */
+export function completion(work: Array<{ status: string; stage?: string | null }>, subtasks: { done: number; total: number }, override: number | null) {
+  if (override !== null && override !== undefined) return { percent: Math.max(0, Math.min(100, Math.round(override))), source: "hand" as const };
+  const counted = work.filter((w) => w.stage !== "cancelled");
+  if (counted.length) return { percent: Math.round((100 * counted.filter((w) => w.status === "done").length) / counted.length), source: "work" as const };
+  if (subtasks.total) return { percent: Math.round((100 * subtasks.done) / subtasks.total), source: "subtasks" as const };
+  return { percent: 0, source: "none" as const };
+}
+
+/** Part of: work goes into projects; projects don't nest in this release. */
+export const canBePartOf = (type: string) => type !== "project";
+export const canBeParent = (type: string) => type === "project";

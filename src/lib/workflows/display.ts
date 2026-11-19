@@ -8,6 +8,8 @@ import { WORKFLOW_TYPES, type TaskStatus } from "@/lib/workflows/types";
 const STATUS_WORD: Record<TaskStatus, string> = { todo: "To do", in_progress: "In progress", blocked: "Blocked", done: "Completed" };
 const stageLabel = (type: string, stage: string | null | undefined) => WORKFLOW_TYPES[type]?.stages.find((s) => s.key === stage)?.label ?? null;
 export const ownTabOf = (type: string) => WORKFLOW_CATALOG.find((w) => w.types.includes(type) && w.tab) ?? null;
+/** Where a type's items list: its own tab, or a view inside Tasks (projects: Projects). */
+const placeOf = (type: string) => { const own = ownTabOf(type); return own?.tab ? { tab: own.tab, name: own.name } : type === "project" ? { tab: "projects", name: "Projects" } : null; };
 
 /** S5: "Bug · Fixing", with "· Blocked" while blocked on the board (B2). Null for a plain task. */
 export function typeChip(type: string | undefined, stage: string | null | undefined, status: string) {
@@ -22,10 +24,10 @@ export function typeChip(type: string | undefined, stage: string | null | undefi
 export function showsIn(type: string | undefined, stage: string | null | undefined, status: string) {
   const t = type ? WORKFLOW_TYPES[type] : null;
   if (!t || !t.stages.length) return [];
-  const own = ownTabOf(type!);
+  const own = placeOf(type!);
   return [
     ...(isOnBoard(type!, stage ?? null) ? [{ tab: "tasks", label: `Tasks · ${STATUS_WORD[status as TaskStatus] ?? "To do"}` }] : []),
-    ...(own?.tab ? [{ tab: own.tab, label: `${own.name} · ${stageLabel(type!, stage) ?? ""}`.trim() }] : []),
+    ...(own ? [{ tab: own.tab, label: `${own.name} · ${stageLabel(type!, stage) ?? ""}`.trim() }] : []),
   ];
 }
 

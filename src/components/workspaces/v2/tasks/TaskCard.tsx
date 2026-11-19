@@ -280,6 +280,12 @@ export const TaskCard = memo(function TaskCard({
             <TaskPriorityBadge priority={taskRecord.priority} />
           </div>
           {chip ? <span data-testid="type-chip" className="shrink-0 rounded-[3px] border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] font-semibold text-muted-foreground">{chip}</span> : null}
+          {/* Report 38.5 S9: the project this is Part of, one line, truncated. */}
+          {taskRecord.partOf ? (
+            <span data-testid="partof-chip" title={`Part of ${taskRecord.partOf.title}`} className="inline-flex min-w-0 max-w-[12rem] shrink items-center gap-1 rounded-[3px] border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+              {createElement(workflowIcon("FolderKanban"), { "aria-hidden": true, className: "size-3 shrink-0" })}<span className="truncate">{taskRecord.partOf.title}</span>
+            </span>
+          ) : null}
           {taskRecord.reviewStatus === "pending" && !ownChip && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground">
               <Lock className="size-3" />

@@ -58,6 +58,9 @@ export const taskEditorDraftSchema = z.object({
   // Report 38.4: the type and its starting stage; a plain task leaves them out.
   itemType: z.string().regex(/^[a-z_]{1,40}$/).optional(),
   stage: z.string().regex(/^[a-z_]{1,40}$/).nullable().optional(),
+  // Report 38.5 (A1.3): a project's start, and the project a task is Part of.
+  startDate: optionalDate.optional(),
+  partOfId: optionalUuid.optional(),
 });
 
 export type TaskEditorDraft = z.infer<typeof taskEditorDraftSchema>;
@@ -83,6 +86,8 @@ export function buildTaskSubmitPayload(input: {
     dueDate: input.draft.dueDate,
     storyPoints: input.draft.storyPoints ?? null,
     ...(input.draft.itemType ? { itemType: input.draft.itemType, stage: input.draft.stage ?? null } : {}),
+    ...(input.draft.startDate ? { startDate: input.draft.startDate } : {}),
+    ...(input.draft.partOfId ? { partOfId: input.draft.partOfId } : {}),
     attachmentNodeIds: input.attachments.map((attachment) => attachment.id),
     subtasks: input.subtasks
       .map((subtask) => ({ title: subtask.title.trim(), completed: false }))

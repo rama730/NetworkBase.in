@@ -2462,6 +2462,9 @@ export const tasks = pgTable(
     sourceDocId: uuid("source_doc_id").references((): AnyPgColumn => workspaceDocuments.id, { onDelete: "set null" }),
     sourceBlock: text("source_block"),
     sourcePosition: doublePrecision("source_position"),
+    /** Report 38.5 T1 (0109): a start date (never after the due date) and the project this task is Part of. */
+    startDate: timestamp("start_date", { withTimezone: true }),
+    partOfId: uuid("part_of_id").references((): AnyPgColumn => tasks.id, { onDelete: "set null" }),
     workflowColumnId: uuid("workflow_column_id").references(
       () => workspaceWorkflowColumns.id,
       { onDelete: "set null" },

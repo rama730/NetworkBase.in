@@ -36,6 +36,14 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
       s("in_review", "In review", "in_progress", true), s("delivered", "Delivered", "done", true), s("declined", "Declined", "done", false, true),
     ],
   },
+  // Report 38.5 T1 part 5 (A1.3): projects group work and never sit on the board.
+  project: {
+    id: "project", label: "Project", icon: "FolderKanban", joinStage: null, doneStage: "completed",
+    stages: [
+      s("not_started", "Not started", "todo", false), s("planning", "Planning", "in_progress", false), s("in_progress", "In progress", "in_progress", false),
+      s("paused", "Paused", "in_progress", false), s("completed", "Completed", "done", false, true), s("cancelled", "Canceled", "done", false, true),
+    ],
+  },
   content: {
     id: "content", label: "Content", icon: "PenLine", joinStage: "drafting", doneStage: "scheduled",
     stages: [

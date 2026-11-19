@@ -63,7 +63,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     emptyTitle: "Tasks will appear here…",
     emptyDescription: "Finished work will appear here. Drag and drop your tasks here.",
     badgeClassName:
-      "border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      "border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
     accentClassName: "emerald",
   },
 };

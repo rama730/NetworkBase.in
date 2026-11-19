@@ -45,7 +45,8 @@ export function boardMove(type: string, stage: string | null, toStatus: TaskStat
 export function defaultStageFor(type: string, openedFrom: "tasks" | "own"): string | null {
   const t = workflowType(type);
   if (!t.stages.length) return null;
-  return openedFrom === "tasks" ? t.joinStage : t.stages[0]!.key;
+  // A type never on the board (a project) starts at its first stage either way.
+  return openedFrom === "tasks" && t.joinStage ? t.joinStage : t.stages[0]!.key;
 }
 
 type WorkflowRow = { workflow: string; hiddenAt: Date | null; pushToChildren: boolean };

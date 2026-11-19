@@ -2,6 +2,7 @@ import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter, readAssign
 import { assignmentWriteBlock, type AssignmentTarget } from "@/lib/organizations/assignment-rules";
 import { WORKFLOW_CATALOG } from "@/lib/workflows/catalog";
 import { startingStages, typeFieldsSchema } from "@/lib/workflows/create-rules";
+import { canBeParent, canBePartOf } from "@/lib/workflows/planner";
 import { defaultStageFor, isOnBoard, statusForStage } from "@/lib/workflows/rules";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { orgCan, orgRoleOf } from "@/lib/organizations/permissions";
@@ -384,6 +385,8 @@ async function fetchProjectTasksForActor(
           workflowColumnId: true,
           itemType: true,
           stage: true,
+          partOfId: true,
+          startDate: true,
           title: true,
           assignmentId: true,
           teamName: true,
@@ -534,6 +537,9 @@ async function fetchProjectTasksForActor(
       };
       const defaultColumns = masters.length === 0 ? new Map<string, string>() : new Map((await db.execute<{ status: string; id: string }>(sql`
         SELECT DISTINCT ON (status) status, id FROM workspace_workflow_columns WHERE workspace_id = ${projectId} AND is_default ORDER BY status, position`)).map((r) => [r.status, r.id]));
+      // Report 38.5 S9 (A1.3): the project each card is Part of, for its chip.
+      const parentIds = [...new Set(limitedTasks.map((t) => t.partOfId).filter((id): id is string => Boolean(id)))];
+      const parents = new Map(parentIds.length ? (await db.select({ id: tasks.id, title: tasks.title }).from(tasks).where(and(inArray(tasks.id, parentIds), eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))).map((r) => [r.id, r.title]) : []);
       const normalizedTasks = limitedTasks.map((task) => {
         const counts = countsByTaskId.get(task.id);
         const isMaster = task.kind === "assignment" && !task.assignmentId;
@@ -557,6 +563,7 @@ async function fetchProjectTasksForActor(
           subtaskCount: Number(counts?.subtask_count ?? 0),
           completedSubtaskCount: Number(counts?.completed_subtask_count ?? 0),
           newSubtaskCount: Number(counts?.new_subtask_count ?? 0),
+          partOf: task.partOfId && parents.has(task.partOfId) ? { id: task.partOfId, title: parents.get(task.partOfId)! } : null,
           fileCount: Number(counts?.file_count ?? 0),
           newFileCount: Number(counts?.new_file_count ?? 0),
           commentCount: Number(counts?.comment_count ?? 0),
@@ -899,6 +906,8 @@ export async function getWorkspaceTaskDetailAction(
         onBoard: true,
         itemType: true,
         stage: true,
+        partOfId: true,
+        startDate: true,
         sourceDocId: true,
         sourceBlock: true,
         title: true,
@@ -1122,6 +1131,9 @@ const createTaskSchema = baseCreateTaskSchema.extend({
   itemType: z.string().regex(/^[a-z_]{1,40}$/).optional(),
   stage: z.string().regex(/^[a-z_]{1,40}$/).nullable().optional(),
   typeFields: z.record(z.string(), z.unknown()).optional(),
+  // Report 38.5 T1 (A1.3): a start date and the project this is Part of.
+  startDate: z.string().max(40).refine((v) => Number.isFinite(Date.parse(v)), "Pick a valid start date").nullish(),
+  partOfId: z.string().uuid().nullish(),
 });
 
 const orList = (words: string[]) => (words.length > 1 ? `${words.slice(0, -1).join(", ")} or ${words.at(-1)}` : words[0] ?? "");
@@ -1184,6 +1196,16 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       if (!isOnBoard(itemType, stage)) validated.sprintId = null;
     }
     const onBoard = itemType === "task" || isOnBoard(itemType, stage);
+    // Report 38.5 part 5: start never after due; Part of only into a project here, and projects don't nest.
+    if (validated.startDate && validated.dueDate && Date.parse(validated.startDate) > Date.parse(validated.dueDate)) {
+      return { success: false, error: "The start date is after the due date" };
+    }
+    if (validated.partOfId) {
+      if (!canBePartOf(itemType)) return { success: false, error: "A project can’t be Part of another project" };
+      const [parent] = await db.select({ itemType: tasks.itemType }).from(tasks)
+        .where(and(eq(tasks.id, validated.partOfId), eq(tasks.projectId, validated.projectId), isNull(tasks.deletedAt))).limit(1);
+      if (!parent || !canBeParent(parent.itemType)) return { success: false, error: "Part of must be a project in this workspace" };
+    }
     // Decision 146 and report 38.4 call 3: owners and admins plan sprints; a member's pick goes to the Backlog instead.
     let backlogged = false;
     if (validated.sprintId && !ownerOrAdmin) {
@@ -1277,6 +1299,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
           creatorId: user.id,
           storyPoints: validated.storyPoints,
           dueDate: validated.dueDate ? new Date(validated.dueDate) : null,
+          ...(validated.startDate ? { startDate: new Date(validated.startDate) } : {}),
+          ...(validated.partOfId ? { partOfId: validated.partOfId } : {}),
           taskNumber: nextTaskNumber,
           ...(itemType !== "task" ? { itemType, stage, typeFields, onBoard } : {}),
         })
@@ -1412,6 +1436,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         workflowColumnId: true,
         itemType: true,
         stage: true,
+        partOfId: true,
+        startDate: true,
         title: true,
         description: true,
         status: true,

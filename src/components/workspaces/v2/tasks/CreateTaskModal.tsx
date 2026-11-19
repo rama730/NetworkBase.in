@@ -81,6 +81,8 @@ interface CreateTaskModalProps {
   fromLine?: string;
   /** Report 38.5 W8: + on a Calendar day opens New with that due date (YYYY-MM-DD). */
   initialDueDate?: string;
+  /** Report 38.5 W3: + New task in a project's Work tab; shown read-only under Basics. */
+  partOf?: { id: string; title: string } | null;
 }
 
 function getTodayDateString(): string {
@@ -126,6 +128,7 @@ export default function CreateTaskModal({
   initialTitle = "",
   fromLine,
   initialDueDate = "",
+  partOf = null,
 }: CreateTaskModalProps) {
   // Board/review report §4: an organization's New has two tabs, Task and Assignment; what's typed carries across.
   const startKind = initialType && types.includes(initialType) ? initialType : renderMany ? initialKind : "task";
@@ -238,6 +241,8 @@ export default function CreateTaskModal({
         dueDate: dueDate.trim() || null,
         storyPoints: storyPoints.trim() ? Number.parseInt(storyPoints, 10) : null,
         ...(typed ? { itemType: kind, stage } : {}),
+        ...(sectionsFor(kind).startDate && formData.get("startDate") ? { startDate: String(formData.get("startDate")) } : {}),
+        ...(partOf && kind !== "project" ? { partOfId: partOf.id } : {}),
       };
 
       const parsed = taskEditorDraftSchema.safeParse(draft);
@@ -372,6 +377,7 @@ export default function CreateTaskModal({
                   />
                 </Field>
                 {fromLine ? <p className="text-xs text-muted-foreground" data-testid="create-from-line">From: <span className="font-medium text-foreground">{fromLine}</span></p> : null}
+                {partOf ? <p className="text-xs text-muted-foreground" data-testid="create-partof-line">Part of: <span className="font-medium text-foreground">{partOf.title}</span></p> : null}
 
                 <Field
                   label="Description"
@@ -550,9 +556,14 @@ export default function CreateTaskModal({
 
               {/* Section 3: Schedule & Estimate */}
               <div className="space-y-3.5">
-                <SectionDivider title="Schedule" />
+                <SectionDivider title={sectionsFor(kind).startDate ? "Start and end" : "Schedule"} />
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  {sectionsFor(kind).startDate ? (
+                    <Field label="Start date" htmlFor="task-start-date">
+                      <input id="task-start-date" name="startDate" type="date" className={inputClassName(false)} />
+                    </Field>
+                  ) : null}
                   <Field
                     label={sectionsFor(kind).dueLabel}
                     htmlFor="task-due-date"

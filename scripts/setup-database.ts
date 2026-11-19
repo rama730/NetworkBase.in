@@ -36,7 +36,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const DRY_RUN = process.argv.includes("--dry-run") || process.env.MIGRATION_DRY_RUN === "1";
 const JOURNAL_TABLE = "app_migration_journal";
 const MIGRATION_LOCK_KEY = "nb-s3:migration-setup";
-const NON_TRANSACTIONAL_MIGRATIONS = new Set<string>(["0027_drop_redundant_indexes", "0068_org_hot_path_indexes", "0104_task_types_index", "0107_doc_live_rows_index", "0108_decision_numbers"]);
+const NON_TRANSACTIONAL_MIGRATIONS = new Set<string>(["0027_drop_redundant_indexes", "0068_org_hot_path_indexes", "0104_task_types_index", "0107_doc_live_rows_index", "0108_decision_numbers", "0110_project_planner_index"]);
 
 if (!DATABASE_URL && !DRY_RUN) {
   console.error("❌ DATABASE_URL not found in .env.local");

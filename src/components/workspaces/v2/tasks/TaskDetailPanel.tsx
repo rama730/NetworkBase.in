@@ -28,6 +28,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { queryKeys } from "@/lib/query-keys";
 import { TaskStageControl } from "@/components/workspaces/v2/tasks/TaskStageControl";
+import { ProjectWork } from "@/components/workspaces/v2/tasks/PlannerParts";
 import { removeTaskFromWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
 import { formatTaskId } from "@/lib/workspace-key";
 import { cn } from "@/lib/utils";
@@ -100,6 +101,10 @@ interface TaskDetailPanelProps {
   isOwner?: boolean;
   /** Owners and admins plan sprints (decision 146): the Join-board sheet offers the running sprint to them. */
   canPlanSprints?: boolean;
+  /** Report 38.5 W3: a project's Work tab adds existing tasks from these and opens New with Part of filled. */
+  projectCandidates?: TaskSurfaceRecord[];
+  onNewInProject?: (project: { id: string; title: string }) => void;
+  onOpenTaskById?: (taskId: string) => void;
   sprints?: any[];
   members?: any[];
   projectId: string;
@@ -123,6 +128,9 @@ export default function TaskDetailPanel({
   canManageFiles = false,
   isOwner = false,
   canPlanSprints = isOwner,
+  projectCandidates = [],
+  onNewInProject,
+  onOpenTaskById,
   sprints = [],
   members = [],
   projectId,
@@ -268,7 +276,10 @@ export default function TaskDetailPanel({
     () => [
       ...(showAssignmentTab ? [{ id: "assignment" as const, label: "Assignment", icon: Users }] : []),
       { id: "details" as const, label: "Details", icon: CheckSquare },
-      {
+      // Report 38.5 S5: a project's work replaces its subtasks.
+      resource.task.itemType === "project"
+        ? { id: "subtasks" as const, label: "Work", icon: CheckCircle2, count: undefined }
+        : {
         id: "subtasks" as const,
         label: "Subtasks",
         icon: CheckCircle2,
@@ -287,7 +298,7 @@ export default function TaskDetailPanel({
         count: resource.counts.files,
       },
     ],
-    [resource.counts.comments, resource.counts.files, resource.counts.subtasks, showAssignmentTab],
+    [resource.counts.comments, resource.counts.files, resource.counts.subtasks, showAssignmentTab, resource.task.itemType],
   );
   const completedSubtaskCount = resource.counts.completedSubtasks;
 
@@ -661,6 +672,10 @@ export default function TaskDetailPanel({
                 hidden={activeTab !== "subtasks"}
               >
                 {MASTER_TAB_NOTE("subtasks")}
+                {resource.task.itemType === "project" ? (
+                  <ProjectWork projectId={projectId} project={{ id: resource.task.id, title: resource.task.title }} canEdit={canEditTask} candidates={projectCandidates}
+                    onNewTask={() => onNewInProject?.({ id: resource.task.id, title: resource.task.title })} onOpenTask={(id) => onOpenTaskById?.(id)} />
+                ) : (
                 <SubtasksTab
                   subtasks={resource.subtasks}
                   totalCount={resource.counts.subtasks}
@@ -680,6 +695,7 @@ export default function TaskDetailPanel({
                     return m ? m.fullName || m.username || null : null;
                   }}
                 />
+                )}
               </div>
             ) : null}
 

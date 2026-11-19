@@ -39,6 +39,10 @@ export type TaskSurfaceRecord = {
   /** Report 38.2 F1: the item's type (absent for a plain task) and its stage. */
   itemType?: string;
   stage?: string | null;
+  /** Report 38.5 (A1.3): the project this is Part of (S9 chip), and a start date. */
+  partOf?: { id: string; title: string } | null;
+  partOfId?: string | null;
+  startDate?: string | null;
   /** Report 38.3 S6: the document list this task is a row of. */
   source?: { docSlug: string; docTitle: string; block: string | null } | null;
   title: string;
@@ -309,6 +313,9 @@ export function normalizeTaskSurfaceRecord(value: any): TaskSurfaceRecord {
     title: asTrimmedString(value?.title) ?? "Untitled task",
     ...((value?.onBoard ?? value?.on_board) === false && { onBoard: false }),
     ...((value?.itemType ?? value?.item_type) && (value?.itemType ?? value?.item_type) !== "task" && { itemType: String(value?.itemType ?? value?.item_type), stage: asTrimmedString(value?.stage) }),
+    ...(value?.partOf && typeof value.partOf.id === "string" && { partOf: { id: value.partOf.id, title: String(value.partOf.title ?? "") } }),
+    ...((value?.partOfId ?? value?.part_of_id) && { partOfId: String(value?.partOfId ?? value?.part_of_id) }),
+    ...((value?.startDate ?? value?.start_date) && { startDate: asIsoString(value?.startDate ?? value?.start_date) }),
     ...(value?.source && typeof value.source.docSlug === "string" && { source: { docSlug: value.source.docSlug, docTitle: String(value.source.docTitle ?? value.source.docSlug), block: value.source.block ?? null } }),
     description: asTrimmedString(value?.description),
     status: isTaskWorkflowStatus(rawStatus) ? rawStatus : "todo",

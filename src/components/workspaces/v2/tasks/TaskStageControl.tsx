@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, X } from "lucide-react";
 import { useState } from "react";
 
-import { setTaskStageAction } from "@/app/actions/task";
+import { completeProjectAction, readProjectWorkAction, setTaskStageAction } from "@/app/actions/task";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
@@ -35,6 +35,7 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
   const [joining, setJoining] = useState<string | null>(null);
   const [tick, setTick] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [openWork, setOpenWork] = useState<number | null>(null);
   const type = task.itemType ? WORKFLOW_TYPES[task.itemType] : null;
   if (!type || !type.stages.length) return null;
   const running = sprints.find((s) => s.status === "active") ?? null;
@@ -57,8 +58,26 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
     toast(`Moved to ${type!.stages.find((s) => s.key === stage)?.label ?? stage}`);
   }
 
-  function pick(stage: string) {
+  async function completeProject(openTasks: "leave" | "backlog") {
+    setBusy(true);
+    const result = await completeProjectAction({ projectId, projectTaskId: task.id, openTasks });
+    setBusy(false);
+    setOpenWork(null);
+    if (!result.success) return void toast.error(result.error);
+    onMoved({ stage: "completed", status: "done", onBoard: false, sprintId: null });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
+    toast(openTasks === "backlog" ? "Completed · open work moved to the Backlog" : "Completed");
+  }
+
+  async function pick(stage: string) {
     if (stage === task.stage) return;
+    // Report 38.5 W5.3: completing a project with open work asks what happens to it.
+    if (task.itemType === "project" && stage === "completed") {
+      const work = await readProjectWorkAction(projectId, task.id);
+      const open = work.success ? work.work.filter((w) => w.status !== "done").length : 0;
+      if (open) return setOpenWork(open);
+      return void completeProject("leave");
+    }
     if (stageMove(task.itemType!, task.stage ?? null, stage).joins) {
       setTick(readTick(projectId));
       return setJoining(stage);
@@ -83,7 +102,7 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
                 {gi ? <DropdownMenuSeparator /> : null}
                 <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{group.label}</DropdownMenuLabel>
                 {group.stages.map((s) => (
-                  <DropdownMenuItem key={s.key} onSelect={() => pick(s.key)}>
+                  <DropdownMenuItem key={s.key} onSelect={() => void pick(s.key)}>
                     <Check aria-hidden="true" className={s.key === task.stage ? "size-4" : "size-4 opacity-0"} />{s.label}
                   </DropdownMenuItem>
                 ))}
@@ -92,6 +111,18 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
+      <Dialog open={openWork !== null} onOpenChange={(open) => { if (!open && !busy) setOpenWork(null); }}>
+        <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="complete-project-dialog">
+          <div className="border-b border-border px-6 py-4">
+            <DialogTitle className="text-base font-semibold text-foreground">{openWork} {openWork === 1 ? "task is" : "tasks are"} still open</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">The project is completed either way.</DialogDescription>
+          </div>
+          <div className={FORM_FOOTER_CLASS}>
+            <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => void completeProject("leave")}>Leave them</button>
+            {canPlanSprints ? <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy} onClick={() => void completeProject("backlog")}>Move them to the Backlog</button> : null}
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={joining !== null} onOpenChange={(open) => { if (!open && !busy) setJoining(null); }}>
         <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="join-board-sheet">
           <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">

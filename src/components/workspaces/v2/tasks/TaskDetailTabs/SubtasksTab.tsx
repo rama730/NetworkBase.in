@@ -344,7 +344,7 @@ export default function SubtasksTab({
               {hasMore ? (completedTotal ?? completedCount) : completedCount}/{hasMore ? (totalCount ?? subtasks.length) : subtasks.length}
             </span>
             {!hasMore && completedCount === subtasks.length && subtasks.length > 0 ? (
-              <span className="inline-flex h-4 items-center rounded-[3px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+              <span className="inline-flex h-4 items-center rounded-[3px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
                 Complete
               </span>
             ) : null}

@@ -14,6 +14,7 @@ import { FilterChipRow, type FilterChip } from "@/components/ui/FilterChipRow";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { TasksCalendar } from "@/components/workspaces/v2/tasks/TasksCalendar";
 import { TasksMatrix } from "@/components/workspaces/v2/tasks/TasksMatrix";
+import { ProjectsList } from "@/components/workspaces/v2/tasks/PlannerParts";
 import { EMPTY_FILTERS, filtersFromUrl, filtersToUrl, matchesFilters, setCount, type DueFilter, type TaskFilters as ChipFilters } from "@/lib/workspaces/task-filters";
 import { stageOf, workflowType } from "@/lib/workflows/types";
 import {
@@ -250,20 +251,23 @@ export default function TasksTab({
   const [createType, setCreateType] = useState<string | undefined>(undefined);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [createDue, setCreateDue] = useState<string>("");
+  const [createPartOf, setCreatePartOf] = useState<{ id: string; title: string } | null>(null);
   // Report 38.5 S1 (A1.1): Board · Calendar for people in the workspace (B11: never the public); ?view= and remembered.
   const viewKey = `nb:tasks-view:${projectId}`;
-  const [tasksView, setTasksView] = useState<"board" | "calendar" | "matrix">(() => {
+  const [tasksView, setTasksView] = useState<"board" | "projects" | "calendar" | "matrix">(() => {
     if (typeof window === "undefined") return "board";
     const fromUrl = new URLSearchParams(window.location.search).get("view");
     let saved: string | null = null;
     try { saved = window.localStorage.getItem(viewKey); } catch { /* storage off */ }
     const v = fromUrl ?? saved;
-    return v === "calendar" || v === "matrix" ? v : "board";
+    return v === "calendar" || v === "matrix" || v === "projects" ? v : "board";
   });
   const showViews = isProjectMember && !orgId;
-  const currentView = showViews ? tasksView : "board";
+  // Projects only with the Project planner (report 38.5 S1).
+  const hasProjects = itemTypes.includes("project");
+  const currentView = showViews && (tasksView !== "projects" || hasProjects) ? tasksView : "board";
   useUrlMirror({ view: currentView === "board" ? null : currentView });
-  const pickView = (next: "board" | "calendar" | "matrix") => {
+  const pickView = (next: "board" | "projects" | "calendar" | "matrix") => {
     setTasksView(next);
     // Report 11.7: a matrix is for personal prioritising, so it starts at Mine.
     if (next === "matrix" && scope === "all") setScope("mine");
@@ -560,6 +564,13 @@ export default function TasksTab({
     },
     [withSprintContext, router],
   );
+  // A project (or any item off the board) opens from its id: its detail is read, the board's cache is left alone.
+  const openTaskById = useCallback((taskId: string) => {
+    void getWorkspaceTaskDetailAction(projectId, taskId).then((result) => {
+      if (result.success && result.task) openTask(withSprintContext(normalizeTaskSurfaceRecord(result.task)));
+      else toast.error(result.error || "Couldn’t open it");
+    });
+  }, [openTask, projectId, withSprintContext]);
 
   const closeTaskPanel = useCallback(() => {
     // Dialog close events and the close button can arrive in the same commit.
@@ -906,7 +917,7 @@ export default function TasksTab({
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className={cn("flex items-center gap-2.5", reviewing && "hidden")}>
             <h2 className="text-[20px] font-semibold tracking-tight text-foreground">
-              {currentView === "calendar" ? "Calendar" : currentView === "matrix" ? "Matrix" : "Board"}
+              {currentView === "calendar" ? "Calendar" : currentView === "matrix" ? "Matrix" : currentView === "projects" ? "Projects" : "Board"}
             </h2>
             {currentView === "calendar" ? null : <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
               {/* Board view dropdown §3 (D4): the view's real total; while searching or narrowing to a team, what's shown. */}
@@ -1039,7 +1050,7 @@ export default function TasksTab({
           {showViews && !reviewing ? (
             <div className="basis-full">
               <UnderlineTabs label="Tasks view" idPrefix="tasks-view" value={currentView} onChange={pickView} className="min-h-10"
-                tabs={[{ key: "board", label: "Board" }, { key: "calendar", label: "Calendar" }, { key: "matrix", label: "Matrix" }] as const} />
+                tabs={[{ key: "board" as const, label: "Board" }, ...(hasProjects ? [{ key: "projects" as const, label: "Projects" }] : []), { key: "calendar" as const, label: "Calendar" }, { key: "matrix" as const, label: "Matrix" }]} />
             </div>
           ) : null}
           {/* Report 38.4 S5: the chip row gets its own line, so setting chips never pushes New task down. */}
@@ -1109,6 +1120,10 @@ export default function TasksTab({
               </button>
             ) : null}
           </div>
+        ) : currentView === "projects" ? (
+          <div id="tasks-view-panel-projects" role="tabpanel" aria-labelledby="tasks-view-tab-projects">
+            <ProjectsList projectId={projectId} canCreate={canCreateTasks} onOpen={openTaskById} onNew={() => openCreate("project")} />
+          </div>
         ) : currentView === "matrix" ? (
           <div id="tasks-view-panel-matrix" role="tabpanel" aria-labelledby="tasks-view-tab-matrix">
             <TasksMatrix projectId={projectId} tasks={filteredTasks} members={assignable} canEdit={canEditTasks} canPlanSprints={isOwner || canManageWorkflow}
@@ -1160,7 +1175,8 @@ export default function TasksTab({
             <AssignmentFields key={reuseFrom ?? "new"} orgId={orgId} timeZone={orgTimeZone} reuseFrom={reuseFrom} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId, dueDate }} onDraft={onDraft} onDone={onDone}
               onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
           ) : undefined}
-          onClose={() => { setShowCreateModal(false); setReuseFrom(null); setCreateKind("task"); setCreateType(undefined); setCreateDue(""); }}
+          onClose={() => { setShowCreateModal(false); setReuseFrom(null); setCreateKind("task"); setCreateType(undefined); setCreateDue(""); setCreatePartOf(null); }}
+          partOf={createPartOf}
           initialDueDate={createDue}
           types={itemTypes}
           initialType={createType}
@@ -1306,6 +1322,9 @@ export default function TasksTab({
           canManageFiles={canManageFiles}
           isOwner={isOwner}
           canPlanSprints={isOwner || canManageWorkflow}
+          projectCandidates={sprintAwareTasks}
+          onNewInProject={(project) => { setCreatePartOf(project); openCreate(); }}
+          onOpenTaskById={openTaskById}
           members={members}
           sprints={sprintOptions}
           currentUserId={currentUserId}

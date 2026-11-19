@@ -35,3 +35,33 @@ test("week, agenda, month range and month stepping", () => {
   assert.deepEqual(monthRange("2026-11"), { from: "2026-10-26", to: "2026-12-06" });
   assert.deepEqual([shiftMonth("2026-12", 1), shiftMonth("2026-01", -1)], ["2027-01", "2025-12"]);
 });
+
+import { canBeParent, canBePartOf, completion } from "../../src/lib/workflows/planner";
+import { footerLine, startingStages } from "../../src/lib/workflows/create-rules";
+import { showsIn } from "../../src/lib/workflows/display";
+
+// Report 38.5 T1 part 7 (completion, canBePartOf, canBeParent) and part 5's project stages (plan A1.3).
+test("completion: completed ÷ all, cancelled ignored; subtasks when no work; a hand-set number wins", () => {
+  const w = (status: string, stage?: string) => ({ status, stage: stage ?? null });
+  assert.deepEqual(completion([w("done"), w("done"), w("todo"), w("in_progress")], { done: 0, total: 0 }, null), { percent: 50, source: "work" });
+  assert.deepEqual(completion([w("done"), w("todo"), w("done", "cancelled")], { done: 0, total: 0 }, null), { percent: 50, source: "work" });
+  assert.deepEqual(completion([], { done: 1, total: 2 }, null), { percent: 50, source: "subtasks" });
+  assert.deepEqual(completion([w("done")], { done: 0, total: 0 }, 30), { percent: 30, source: "hand" });
+  assert.deepEqual(completion([], { done: 0, total: 0 }, null), { percent: 0, source: "none" });
+});
+
+test("Part of: tasks, bugs, requests and content can be; projects can't; only a project is a parent", () => {
+  assert.deepEqual(["task", "bug", "request", "content", "project"].map(canBePartOf), [true, true, true, true, false]);
+  assert.deepEqual([canBeParent("project"), canBeParent("task")], [true, false]);
+});
+
+test("a project starts Not started, Planning or In progress; never on the board; shows in Projects", () => {
+  assert.deepEqual(startingStages("project").map((s) => s.key), ["not_started", "planning", "in_progress"]);
+  assert.equal(footerLine("project", "not_started", true), "Shows in Projects");
+  assert.deepEqual(showsIn("project", "in_progress", "in_progress"), [{ tab: "projects", label: "Projects · In progress" }]);
+});
+
+import { defaultStageFor } from "../../src/lib/workflows/rules";
+test("a project's default stage is Not started from Tasks too", () => {
+  assert.equal(defaultStageFor("project", "tasks"), "not_started");
+});

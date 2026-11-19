@@ -8161,6 +8161,16 @@
       "status": "live",
       "test": "tests/unit/planner-matrix.test.ts",
       "evidence": "2026-11-20: Matrix reads the loaded board, starts at Mine, 3-day window, Move to Backlog for leaders."
+    },
+    {
+      "key": "38.5.call13",
+      "section": "38.5",
+      "text": "A1.3 (2026-11-20): until the Timeline lands (A1.4) the Projects view is a list grouped To do · In progress · Complete, with dates and completion. A project's st",
+      "kind": "call",
+      "milestone": "A1",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

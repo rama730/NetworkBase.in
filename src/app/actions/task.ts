@@ -5,7 +5,7 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { reassignBlock, type AssignmentWrite } from "@/lib/organizations/assignment-rules";
-import { assertAssignmentWrite } from "@/lib/organizations/assignments";
+import { assertAssignmentWrite, orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { reviewAssignmentCopyAction } from "@/app/actions/assignments";
 import { db } from "@/lib/db";
 import { wakeEmailWorker } from "@/lib/email/outbox";
@@ -46,6 +46,7 @@ import {
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { childGrant, orgCan } from "@/lib/organizations/permissions";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
+import { canBeParent, canBePartOf, completion } from "@/lib/workflows/planner";
 import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition, MAIN_ASSIGNMENT_NOT_REVIEWED } from "@/lib/workspaces/task-transition-service";
 import { viaPayload } from "@/lib/server/request-via";
 import { boardMove, stageMove } from "@/lib/workflows/rules";
@@ -483,6 +484,117 @@ export async function setTaskStageAction(input: z.infer<typeof stageMoveSchema>)
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t move this item" };
   }
+}
+
+// ---- Projects (report 38.5 T1, plan A1.3) ----
+const partOfSchema = z.object({ projectId: z.string().uuid(), taskIds: z.array(z.string().uuid()).min(1).max(100), partOfId: z.string().uuid().nullable() });
+
+/**
+ * W3: put tasks into a project (or take them out). Every task passes the usual write check; projects and off-board
+ * items can't be Part of; the parent must be a project in the same workspace.
+ */
+export async function setPartOfAction(input: z.infer<typeof partOfSchema>) {
+  try {
+    const { projectId, taskIds, partOfId } = partOfSchema.parse(input);
+    const user = await requireTaskWriter();
+    if (!user) return { success: false as const, error: "Sign in to continue" };
+    if (partOfId) {
+      const [parent] = await db.select({ itemType: tasks.itemType }).from(tasks).where(and(eq(tasks.id, partOfId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);
+      if (!parent || !canBeParent(parent.itemType)) return { success: false as const, error: "Part of must be a project in this workspace" };
+    }
+    await db.transaction(async (tx) => {
+      for (const taskId of taskIds) {
+        const locked = await lockTaskForWrite(tx, taskId, user.id);
+        if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
+        const [row] = await tx.select({ itemType: tasks.itemType, onBoard: tasks.onBoard }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        if (partOfId && (!row || !canBePartOf(row.itemType) || taskId === partOfId)) throw new Error("A project can’t be Part of another project");
+        await tx.update(tasks).set({ partOfId, updatedAt: new Date() }).where(eq(tasks.id, taskId));
+      }
+    });
+    return { success: true as const, count: taskIds.length };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t change Part of" };
+  }
+}
+
+/** W3.4: Group into a project: a new project (Not started) holding the chosen tasks. */
+export async function groupIntoProjectAction(input: { projectId: string; taskIds: string[]; name: string }) {
+  const name = String(input?.name ?? "").trim().slice(0, 200);
+  if (!name) return { success: false as const, error: "Name the project" };
+  const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
+  const created = await createTaskAction({ projectId: input.projectId, title: name, status: "todo", priority: "medium", itemType: "project", stage: "not_started" });
+  if (!created.success || !("task" in created) || !created.task) return { success: false as const, error: created.error ?? "Couldn’t make the project" };
+  const linked = await setPartOfAction({ projectId: input.projectId, taskIds: input.taskIds, partOfId: created.task.id });
+  return linked.success ? { success: true as const, id: created.task.id } : linked;
+}
+
+/** W3 and W5: a project's work, its completion and subtask counts, for the panel's Work tab. */
+export async function readProjectWorkAction(projectId: string, projectTaskId: string) {
+  try {
+    if (!z.string().uuid().safeParse(projectId).success || !z.string().uuid().safeParse(projectTaskId).success) return { success: false as const, error: "Not found" };
+    const { user } = await requireAuthenticatedUser();
+    const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
+    if (!access.project || !canReadWorkspaceTab(access, "tasks")) return { success: false as const, error: "Not found" };
+    const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+    const work = await db.select({ id: tasks.id, taskNumber: tasks.taskNumber, title: tasks.title, status: tasks.status, stage: tasks.stage, itemType: tasks.itemType, dueDate: tasks.dueDate, assigneeId: tasks.assigneeId, sprintId: tasks.sprintId })
+      .from(tasks).where(and(eq(tasks.partOfId, projectTaskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt), orgTaskReadFilter(access, user?.id ?? null))).orderBy(tasks.taskNumber).limit(200);
+    const [project] = await db.select({ typeFields: tasks.typeFields }).from(tasks).where(and(eq(tasks.id, projectTaskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);
+    if (!project) return { success: false as const, error: "Not found" };
+    const [subs] = await db.execute<{ done: number; total: number }>(sql`SELECT count(*) FILTER (WHERE completed)::int AS done, count(*)::int AS total FROM task_subtasks WHERE task_id = ${projectTaskId}`);
+    const override = typeof project?.typeFields?.completionOverride === "number" ? (project.typeFields.completionOverride as number) : null;
+    return {
+      success: true as const, projectKey: ws?.key ?? null,
+      work: work.map((w) => ({ ...w, dueDate: w.dueDate ? w.dueDate.toISOString() : null })),
+      completion: completion(work, { done: subs?.done ?? 0, total: subs?.total ?? 0 }, override),
+    };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t load the work" };
+  }
+}
+
+/** W1 (A1.3): the workspace's projects with dates, stage and completion worked out in SQL from their work. */
+export async function readProjectsAction(projectId: string) {
+  try {
+    if (!z.string().uuid().safeParse(projectId).success) return { success: false as const, error: "Not found" };
+    const { user } = await requireAuthenticatedUser();
+    const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
+    if (!access.project || !(access.isOwner || access.isMember)) return { success: false as const, error: "Not found" };
+    const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+    const rows = await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; status: string; start_date: Date | null; due_date: Date | null; assignee_id: string | null; done: number; total: number; override: number | null }>(sql`
+      SELECT p.id, p.task_number, p.title, p.stage, p.status, p.start_date, p.due_date, p.assignee_id,
+        (SELECT count(*) FILTER (WHERE w.status = 'done')::int FROM tasks w WHERE w.part_of_id = p.id AND w.deleted_at IS NULL AND w.stage IS DISTINCT FROM 'cancelled') AS done,
+        (SELECT count(*)::int FROM tasks w WHERE w.part_of_id = p.id AND w.deleted_at IS NULL AND w.stage IS DISTINCT FROM 'cancelled') AS total,
+        (p.type_fields->>'completionOverride')::int AS override
+      FROM tasks p WHERE p.workspace_id = ${projectId}::uuid AND p.item_type = 'project' AND p.deleted_at IS NULL
+      ORDER BY p.start_date NULLS LAST, p.task_number`);
+    return {
+      success: true as const, projectKey: ws?.key ?? null,
+      projects: Array.from(rows).map((r) => ({
+        id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, status: r.status, assigneeId: r.assignee_id,
+        startDate: r.start_date ? new Date(r.start_date).toISOString() : null, dueDate: r.due_date ? new Date(r.due_date).toISOString() : null,
+        completion: completion(Array.from({ length: Number(r.total) }, (_, i) => ({ status: i < Number(r.done) ? "done" : "todo" })), { done: 0, total: 0 }, r.override),
+      })),
+    };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t load projects" };
+  }
+}
+
+/**
+ * W5.3: complete a project. Its open work stays where it is, or goes to the Backlog (out of its sprint; owners and
+ * admins, who plan sprints).
+ */
+export async function completeProjectAction(input: { projectId: string; projectTaskId: string; openTasks: "leave" | "backlog" }) {
+  const moved = await setTaskStageAction({ taskId: input.projectTaskId, projectId: input.projectId, stage: "completed", toBacklog: true });
+  if (!moved.success || input.openTasks !== "backlog") return moved;
+  const user = await requireTaskWriter();
+  const access = user ? await getWorkspaceAccessById(input.projectId, user.id) : null;
+  if (!access || !(access.isOwner || access.memberRole === "admin")) return { ...moved, warnings: ["Only owners and admins move work to the Backlog"] };
+  // Through the usual sprint change, so sprint history records each one leaving.
+  const open = await db.select({ id: tasks.id }).from(tasks)
+    .where(and(eq(tasks.partOfId, input.projectTaskId), eq(tasks.projectId, input.projectId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`, sql`${tasks.sprintId} IS NOT NULL`));
+  for (const t of open) await updateTaskFieldAction(t.id, "sprintId", null, input.projectId);
+  return moved;
 }
 
 export async function moveTaskToWorkflowColumnAction(
