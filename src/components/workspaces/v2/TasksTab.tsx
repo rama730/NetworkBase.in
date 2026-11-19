@@ -921,7 +921,6 @@ export default function TasksTab({
 
             {/* Filter */}
             <TaskFilters scope={scope} setScope={setScope} organization={Boolean(orgId)} sprintLabel={runningOnBoard?.label} counts={boardCounts} />
-            <FilterChipRow chips={filterChips} onClearAll={() => setChipFilters(EMPTY_FILTERS)} />
             {units.length ? (
               <select aria-label="Team" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}
                 className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-2 text-[13px] text-foreground max-md:h-11">
@@ -1014,6 +1013,8 @@ export default function TasksTab({
             </>}
             <OpenInIdeSheet open={ideSheetOpen} onOpenChange={setIdeSheetOpen} projectId={projectId} projectSlug={projectSlug} taskId={editingTask?.id} />
           </div>
+          {/* Report 38.4 S5: the chip row gets its own line, so setting chips never pushes New task down. */}
+          {!reviewing ? <div className="basis-full"><FilterChipRow chips={filterChips} onClearAll={() => setChipFilters(EMPTY_FILTERS)} /></div> : null}
         </div>
       </div>
 
