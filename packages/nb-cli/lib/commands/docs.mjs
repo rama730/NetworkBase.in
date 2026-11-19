@@ -336,7 +336,7 @@ export async function rows(ctx) {
   const res = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/docs/${encodeURIComponent(slug)}/rows?key=${encodeURIComponent(String(ctx.flags.list))}`));
   ctx.out.result("nb.doc.rows/1", { slug, list: String(ctx.flags.list), rows: res.rows, hidden: res.hidden }, (d) => {
     if (!d.rows.length) return d.hidden ? `${d.hidden} items you can't see` : "No items yet";
-    return d.rows.map((/** @type {any} */ r) => `  ${r.status === "done" ? "[x]" : "[ ]"} ${ctx.out.c.muted(`#${r.number ?? "?"}`)} ${safe(r.title)}${r.assignee ? ctx.out.c.muted(`  ${safe(r.assignee.name ?? "")}`) : ""}`);
+    return d.rows.map((/** @type {any} */ r) => `  ${r.status === "done" ? "[x]" : "[ ]"} ${ctx.out.c.muted(`#${r.number ?? "?"}`)} ${safe(r.title)}${r.assignee ? ctx.out.c.muted(`  ${safe(r.assignee.name ?? "")}`) : ""}${r.dueDate ? ctx.out.c.muted(`  due ${String(r.dueDate).slice(0, 10)}`) : ""}`);
   });
 }
 

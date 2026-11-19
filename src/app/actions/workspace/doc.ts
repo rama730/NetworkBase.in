@@ -1295,7 +1295,7 @@ export async function addDocRowAction(projectId: string, input: unknown) {
         const userId = await requireUserId();
         const data = addRowSchema.parse(input);
         const context = await getDocProjectContext(projectId, userId, data.docSlug);
-        if (!context.readme) return { success: false as const, error: "That document isn’t here any more." };
+        if (!context.readme) return { success: false as const, error: `No document “${data.docSlug}” in this workspace.` };
         if (!canAddRows(context.permission)) return { success: false as const, error: "Only people who can edit this document add items here." };
         const [count] = await db.select({ n: sql<number>`count(*)::int`, last: sql<number | null>`max(${tasks.sourcePosition})` }).from(tasks)
             .where(and(eq(tasks.sourceDocId, context.readme.id), eq(tasks.sourceBlock, data.blockKey), isNull(tasks.deletedAt)));
@@ -1317,7 +1317,7 @@ const rowSchema = z.object({ docSlug: docSlugSchema, taskId: z.string().uuid() }
 async function editableRow(projectId: string, userId: string, input: unknown) {
     const data = rowSchema.parse(input);
     const context = await getDocProjectContext(projectId, userId, data.docSlug);
-    if (!context.readme) throw new Error("That document isn’t here any more.");
+    if (!context.readme) throw new Error(`No document “${data.docSlug}” in this workspace.`);
     if (!canAddRows(context.permission)) throw new Error("Only people who can edit this document change its lists.");
     const [row] = await db.select({ id: tasks.id, block: tasks.sourceBlock, position: tasks.sourcePosition }).from(tasks)
         .where(and(eq(tasks.id, data.taskId), eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt),
