@@ -18,9 +18,9 @@
       "text": "A0.2 Add workflow dialog, tab row, Settings → Workflows (38.2 F1 S1–S3, S8)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean ; Add + Undo through the dialog need a built workflow: re-run live at A1.3 (Project planner) — revisit 2026-11-20"
     },
     {
       "key": "A0.3",
@@ -5258,9 +5258,9 @@
       "text": "An admin adds Bugs (desktop, first time)",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "dialog + tab row live; adding needs a built workflow ; Add + Undo through the dialog need a built workflow: re-run live at A1.3 (Project planner) — revisit 2026-11-20"
     },
     {
       "key": "38.2.W2",
@@ -5268,9 +5268,9 @@
       "text": "Undo right after adding",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "Undo proven in tests/db + browser spec ; Add + Undo through the dialog need a built workflow: re-run live at A1.3 (Project planner) — revisit 2026-11-20"
     },
     {
       "key": "38.2.W3",
@@ -5278,9 +5278,9 @@
       "text": "A member opens the workspace after Bugs was added",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "live update across tabs on hide; d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
     },
     {
       "key": "38.2.W4",
@@ -5318,9 +5318,9 @@
       "text": "Removing a workflow (hide)",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
     },
     {
       "key": "38.2.W8",
@@ -5348,9 +5348,9 @@
       "text": "Phone",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "browser spec 375 px dark, touch height = tabs; live phone check at A1.3 — revisit 2026-11-20"
     },
     {
       "key": "38.2.W11",
@@ -5358,9 +5358,9 @@
       "text": "Viewer and the public",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "db test: outsiders and the public get nothing; viewers see tabs"
     },
     {
       "key": "38.2.W12",
@@ -5398,9 +5398,9 @@
       "text": "A workspace's workflows are rows in workspaceworkflows; an organization pushes with pushtochildren. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
     },
     {
       "key": "38.2.call4",
@@ -5408,9 +5408,9 @@
       "text": "Remove means Hide only for now. Decision 2's \"delete items through Trash\" waits, because tasks have no Trash today (they're soft-deleted with an undo window; th",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
     },
     {
       "key": "38.2.call5",
@@ -5438,9 +5438,9 @@
       "text": "Undo after adding lasts 10 seconds and only while no item exists. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "tests/db Undo window"
     },
     {
       "key": "38.2.call8",
@@ -5448,9 +5448,9 @@
       "text": "Adding, hiding and pushing workflows notify no one; they go into activity. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
     },
     {
       "key": "38.2.call9",
@@ -7848,9 +7848,9 @@
       "text": "Correction (A0.2, 2026-11-19): owners have no ⋯ menu on a workspace (it's the report menu for others), so on phones + Add workflow stays the last item of the sc",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
     },
     {
       "key": "38.2.call14",
@@ -7858,9 +7858,9 @@
       "text": "Undo is checked by who added it and when (10 seconds, no item made since), not by a token; Settings → Workflows sits right after \"Stages and workflow\" as its ow",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
     },
     {
       "key": "38.2.call15",
@@ -7868,9 +7868,9 @@
       "text": "Workflow activity (\"Asha added Bugs\", \"hid Bugs\") comes from the workspaceworkflows rows themselves and shows only to people inside the workspace; workflow name",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
     },
     {
       "key": "38.2.call16",
@@ -7878,9 +7878,9 @@
       "text": "Opening a workflow tab straight from a link (?tab=bugs) arrives with that tab's round (T3 for Bugs); in A0.2 tabs switch in the page. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
+      "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
     }
   ]
 }
