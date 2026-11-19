@@ -8171,6 +8171,16 @@
       "status": "live",
       "test": "tests/unit/create-rules.test.ts",
       "evidence": "2026-11-20: Projects list until the Timeline (A1.4); Part of chip not a link; Group into project waits for A1.6."
+    },
+    {
+      "key": "38.5.call14",
+      "section": "38.5",
+      "text": "A1.4 (2026-11-20): the Timeline zooms Week (±3 weeks), Month (±2 months, the default) and Quarter (±6 months) and opens with Today a quarter of the way in. Proj",
+      "kind": "call",
+      "milestone": "A1",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

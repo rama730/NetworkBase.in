@@ -15,6 +15,7 @@ import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { TasksCalendar } from "@/components/workspaces/v2/tasks/TasksCalendar";
 import { TasksMatrix } from "@/components/workspaces/v2/tasks/TasksMatrix";
 import { ProjectsList } from "@/components/workspaces/v2/tasks/PlannerParts";
+import { PlannerTimeline } from "@/components/workspaces/v2/tasks/PlannerTimeline";
 import { EMPTY_FILTERS, filtersFromUrl, filtersToUrl, matchesFilters, setCount, type DueFilter, type TaskFilters as ChipFilters } from "@/lib/workspaces/task-filters";
 import { workflowType } from "@/lib/workflows/types";
 import {
@@ -252,6 +253,14 @@ export default function TasksTab({
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [createDue, setCreateDue] = useState<string>("");
   const [createPartOf, setCreatePartOf] = useState<{ id: string; title: string } | null>(null);
+  // A1.4: "More details" from the Timeline's bubble opens New on Project with the drawn dates.
+  const [createDraft, setCreateDraft] = useState<{ title: string; startDate: string } | null>(null);
+  // Report 38.5 S2: Projects has Timeline · All (A1.5 adds Active); the choice is remembered per workspace.
+  const [projectsView, setProjectsView] = useState<"timeline" | "all">("timeline");
+  useEffect(() => {
+    try { if (localStorage.getItem(`nb:projects-view:${projectId}`) === "all") setProjectsView("all"); } catch { /* private window */ }
+  }, [projectId]);
+  const pickProjectsView = (v: "timeline" | "all") => { setProjectsView(v); try { localStorage.setItem(`nb:projects-view:${projectId}`, v); } catch { /* private window */ } };
   // Report 38.5 S1 (A1.1): Board · Calendar for people in the workspace (B11: never the public); ?view= and remembered.
   const viewKey = `nb:tasks-view:${projectId}`;
   const [tasksView, setTasksView] = useState<"board" | "projects" | "calendar" | "matrix">(() => {
@@ -1125,7 +1134,14 @@ export default function TasksTab({
           </div>
         ) : currentView === "projects" ? (
           <div id="tasks-view-panel-projects" role="tabpanel" aria-labelledby="tasks-view-tab-projects">
-            <ProjectsList projectId={projectId} canCreate={canCreateTasks} onOpen={openTaskById} onNew={() => openCreate("project")} />
+            <UnderlineTabs label="Projects view" idPrefix="projects-view" value={projectsView} onChange={pickProjectsView} className="mb-3 min-h-9"
+              tabs={[{ key: "timeline" as const, label: "Timeline" }, { key: "all" as const, label: "All" }]} />
+            {projectsView === "timeline" ? (
+              <PlannerTimeline projectId={projectId} canEdit={canEditTasks} sprints={sprintOptions} viewerId={currentUserId ?? null} onOpen={openTaskById}
+                onMoreDetails={(d) => { setCreateDraft({ title: d.title, startDate: d.startDate }); setCreateDue(d.dueDate); openCreate("project"); }} />
+            ) : (
+              <ProjectsList projectId={projectId} canCreate={canCreateTasks} onOpen={openTaskById} onNew={() => openCreate("project")} />
+            )}
           </div>
         ) : currentView === "matrix" ? (
           <div id="tasks-view-panel-matrix" role="tabpanel" aria-labelledby="tasks-view-tab-matrix">
@@ -1178,9 +1194,11 @@ export default function TasksTab({
             <AssignmentFields key={reuseFrom ?? "new"} orgId={orgId} timeZone={orgTimeZone} reuseFrom={reuseFrom} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId, dueDate }} onDraft={onDraft} onDone={onDone}
               onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
           ) : undefined}
-          onClose={() => { setShowCreateModal(false); setReuseFrom(null); setCreateKind("task"); setCreateType(undefined); setCreateDue(""); setCreatePartOf(null); }}
+          onClose={() => { setShowCreateModal(false); setReuseFrom(null); setCreateKind("task"); setCreateType(undefined); setCreateDue(""); setCreatePartOf(null); setCreateDraft(null); }}
           partOf={createPartOf}
           initialDueDate={createDue}
+          initialTitle={createDraft?.title}
+          initialStartDate={createDraft?.startDate}
           types={itemTypes}
           initialType={createType}
           openedFrom="tasks"

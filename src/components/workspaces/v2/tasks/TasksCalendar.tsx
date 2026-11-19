@@ -5,7 +5,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { createElement, useMemo, useState } from "react";
 
 import { readCalendarAction } from "@/app/actions/workspace";
-import { updateTaskFieldAction } from "@/app/actions/task";
+import { setTaskDatesAction, updateTaskFieldAction } from "@/app/actions/task";
 import { workflowIcon } from "@/components/workspaces/workflows/workflow-icons";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { toast } from "@/lib/feedback";
@@ -13,11 +13,11 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { formatTaskId } from "@/lib/workspace-key";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
-import { agendaDays, calendarCells, dueOn, mondayOf, monthOf, monthRange, shiftMonth, weekCells, type CalendarDay } from "@/lib/workflows/planner";
+import { agendaDays, calendarCells, daysBetween, dueOn, mondayOf, monthOf, monthRange, shiftMonth, weekCells, type CalendarDay } from "@/lib/workflows/planner";
 import { matchesFilters, setCount, type TaskFilters } from "@/lib/workspaces/task-filters";
 import { taskDueDateKey } from "@/lib/workspaces/task-presentation";
 
-type Item = { id: string; taskNumber: number | null; title: string; status: string; dueDate: string | null; itemType?: string; assigneeId: string | null; priority: string; sprintId: string | null };
+type Item = { id: string; taskNumber: number | null; title: string; status: string; dueDate: string | null; startDate?: string | null; itemType?: string; assigneeId: string | null; priority: string; sprintId: string | null };
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const monthTitle = (month: string) => new Date(`${month}-01T00:00:00Z`).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
@@ -59,13 +59,27 @@ export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, on
       await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
       return r;
     };
+    // Call 8 (A1.4): a spanning item keeps its length; its start moves with the due day.
+    const from = taskDueDateKey(item.startDate);
+    const due = taskDueDateKey(item.dueDate);
+    if (day && from && due) {
+      const dates = async (startDate: string, dueDate: string) => {
+        const r = await setTaskDatesAction({ projectId, taskId: item.id, startDate, dueDate });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
+        return r;
+      };
+      const r = await dates(dueOn(addDays(from, daysBetween(due, day))), dueOn(day));
+      if (!r.success) return void toast.error(r.error ?? "Couldn’t move it.");
+      return void toast(`Due ${dayTitle(day)}`, { duration: 10_000, action: { label: "Undo", onClick: () => void dates(item.startDate!, item.dueDate!) } });
+    }
     const result = await set(day ? dueOn(day) : null);
     if (!result.success) return void toast.error(result.error ?? "Couldn’t move it.");
     toast(day ? `Due ${dayTitle(day)}` : "No date", { duration: 10_000, action: { label: "Undo", onClick: () => void set(item.dueDate) } });
   }
 
-  const chip = (item: Item) => (
-    <button key={item.id} type="button" draggable={editable} onDragStart={(e) => { e.dataTransfer.setData("text/plain", item.id); e.dataTransfer.effectAllowed = "move"; }}
+  // A spanning item shows on each of its days; days before its due day say it carries on.
+  const chip = (item: Item, day?: string) => (
+    <button key={item.id} aria-label={day && item.dueDate && taskDueDateKey(item.dueDate) !== day ? `${item.title}, continues until ${dayTitle(taskDueDateKey(item.dueDate)!)}` : undefined} type="button" draggable={editable} onDragStart={(e) => { e.dataTransfer.setData("text/plain", item.id); e.dataTransfer.effectAllowed = "move"; }}
       onClick={() => onOpenTask(item)} data-testid="calendar-item"
       className={cn("flex w-full min-w-0 items-center gap-1 rounded-[3px] border border-border bg-card px-1.5 py-0.5 text-left text-[11px] hover:border-foreground/30", editable && "cursor-grab", item.status === "done" && "text-muted-foreground line-through")}>
       {item.itemType && WORKFLOW_TYPES[item.itemType] ? createElement(workflowIcon(WORKFLOW_TYPES[item.itemType]!.icon), { "aria-label": WORKFLOW_TYPES[item.itemType]!.label, className: "size-3 shrink-0 text-muted-foreground" }) : null}
@@ -89,7 +103,7 @@ export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, on
           </button>
         ) : null}
       </div>
-      {d.items.map(chip)}
+      {d.items.map((i) => chip(i, d.key))}
       {d.more ? <button type="button" onClick={() => { setWeekStart(mondayOf(d.key)); setMode("week"); }} className="text-left text-[11px] font-medium text-primary hover:underline">+{d.more} more</button> : null}
     </div>
   );
@@ -122,7 +136,7 @@ export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, on
                 {agendaDays(range.from, range.to, items).filter((d) => monthOf(d.key) === month).map((d) => (
                   <li key={d.key} {...drop(d.key)}>
                     <h4 className={cn("mb-1 font-mono text-[11px] uppercase tracking-wide", d.key === today ? "text-primary" : "text-muted-foreground")}>{dayTitle(d.key)}</h4>
-                    <div className="space-y-1">{d.items.map(chip)}</div>
+                    <div className="space-y-1">{d.items.map((i) => chip(i, d.key))}</div>
                   </li>
                 ))}
                 {!query.isLoading && !agendaDays(range.from, range.to, items).some((d) => monthOf(d.key) === month) ? <li className="text-[13px] text-muted-foreground">Nothing due in {monthTitle(month)}</li> : null}
@@ -144,7 +158,7 @@ export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, on
               <ChevronDown aria-hidden="true" className={cn("size-3.5 transition-transform duration-[180ms]", !trayOpen && "-rotate-90")} />
               No date <span className="font-mono text-[11px] text-muted-foreground">{data?.noDateCount ?? 0}</span>
             </button>
-            {trayOpen ? <div className="mt-1 space-y-1">{noDate.map(chip)}{!noDate.length && !query.isLoading ? <p className="text-[12px] text-muted-foreground">Everything here has a date</p> : null}</div> : null}
+            {trayOpen ? <div className="mt-1 space-y-1">{noDate.map((i) => chip(i))}{!noDate.length && !query.isLoading ? <p className="text-[12px] text-muted-foreground">Everything here has a date</p> : null}</div> : null}
           </aside>
         </div>
       )}

@@ -4,7 +4,7 @@ import { taskDueDateKey } from "@/lib/workspaces/task-presentation";
  * Report 38.5 T1 part 7 (plan A1.1): the Calendar's grid (the shared B2 part; Content and Meetings reuse it). Days are
  * calendar keys (YYYY-MM-DD); a due date is a calendar day stored at UTC midnight, so it never moves with time zones.
  */
-export type CalendarItem = { id: string; dueDate?: string | null };
+export type CalendarItem = { id: string; dueDate?: string | null; startDate?: string | null };
 export type CalendarDay<T> = { key: string; day: number; inMonth: boolean; weekend: boolean; isToday: boolean; items: T[]; more: number };
 
 const addDays = (key: string, n: number) => new Date(Date.parse(`${key}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
@@ -21,7 +21,14 @@ function byDay<T extends CalendarItem>(items: T[]) {
   const map = new Map<string, T[]>();
   for (const item of items) {
     const key = taskDueDateKey(item.dueDate);
-    if (key) map.set(key, [...(map.get(key) ?? []), item]);
+    if (!key) continue;
+    // Call 8 (A1.4): an item with a start spans its days (capped at a year); others sit on their due day.
+    const from = taskDueDateKey(item.startDate);
+    const span = from && from < key ? Math.min(366, Math.round((Date.parse(`${key}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)) : 0;
+    for (let i = span; i >= 0; i--) {
+      const d = addDays(key, -i);
+      map.set(d, [...(map.get(d) ?? []), item]);
+    }
   }
   return map;
 }
@@ -125,3 +132,56 @@ export function completion(work: Array<{ status: string; stage?: string | null }
 /** Part of: work goes into projects; projects don't nest in this release. */
 export const canBePartOf = (type: string) => type !== "project";
 export const canBeParent = (type: string) => type === "project";
+
+/**
+ * Report 38.5 S3 and part 7 (plan A1.4): the Timeline. Month shows ±2 months around today, Week ±3 weeks from this
+ * Monday, Quarter ±6 months. Bars are measured in days from the range start.
+ */
+export type Zoom = "week" | "month" | "quarter";
+export const ZOOM_DAY_PX: Record<Zoom, number> = { week: 40, month: 18, quarter: 6 };
+export const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+export { addDays as addDayKeys };
+
+export function timelineRange(zoom: Zoom, today: string) {
+  const monday = mondayOf(today);
+  const n = zoom === "month" ? 2 : 6;
+  const start = zoom === "week" ? addDays(monday, -21) : `${shiftMonth(monthOf(today), -n)}-01`;
+  const end = zoom === "week" ? addDays(monday, 27) : addDays(`${shiftMonth(monthOf(today), n + 1)}-01`, -1);
+  return { start, end, days: daysBetween(start, end) + 1 };
+}
+export type TimelineRange = ReturnType<typeof timelineRange>;
+
+/** Where a bar sits; out of range it's an edge marker ("‹ Mar 12"); one day is at least one day wide. */
+export type Bar = { left: number; width: number } | { edge: "before" | "after"; date: string };
+export function barGeometry(start: string | null, end: string | null, range: TimelineRange): Bar | null {
+  const s = start ?? end;
+  const e = end ?? start;
+  if (!s || !e) return null;
+  if (e < range.start) return { edge: "before", date: e };
+  if (s > range.end) return { edge: "after", date: s };
+  const left = Math.max(0, daysBetween(range.start, s));
+  const right = Math.min(range.days - 1, daysBetween(range.start, e));
+  return { left, width: Math.max(1, right - left + 1) };
+}
+
+export type Dep = { taskId: string; blockedById: string };
+/** Blocked projects that start before their blocker ends (ending and starting on the same day is fine). */
+export function conflicts(projects: Array<{ id: string; start: string | null; end: string | null }>, deps: Dep[]) {
+  const byId = new Map(projects.map((p) => [p.id, p]));
+  return deps.flatMap((d) => {
+    const blocker = byId.get(d.blockedById);
+    const blocked = byId.get(d.taskId);
+    return blocker?.end && blocked?.start && blocked.start < blocker.end ? [{ blocker: d.blockedById, blocked: d.taskId }] : [];
+  });
+}
+
+/** Everything that waits on this project, directly or through others, once each (S7: they move together). */
+export function dependentsToShift(id: string, deps: Dep[]) {
+  const out: string[] = [];
+  const queue = [id];
+  while (queue.length) {
+    const current = queue.shift()!;
+    for (const d of deps) if (d.blockedById === current && d.taskId !== id && !out.includes(d.taskId)) { out.push(d.taskId); queue.push(d.taskId); }
+  }
+  return out;
+}

@@ -127,3 +127,32 @@ test("W1: the Projects list with stage, dates and completion from their work", a
   assert.ok(list.success);
   assert.deepEqual(list.projects.map((x) => [x.title, x.stage, x.startDate, x.completion.percent]), [["Relaunch", "not_started", "2026-12-02T00:00:00.000Z", 50]]);
 });
+
+test("W4 (A1.4): arrows with the loop check, a later blocker reports conflicts, and shifting moves the chain with an undo", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const a = await make(t.ws, "Design system", { itemType: "project", startDate: "2026-12-01T00:00:00Z", dueDate: "2026-12-05T00:00:00Z" });
+  const b = await make(t.ws, "Website relaunch", { itemType: "project", startDate: "2026-12-06T00:00:00Z", dueDate: "2026-12-10T00:00:00Z" });
+  const c = await make(t.ws, "Launch party", { itemType: "project", startDate: "2026-12-12T00:00:00Z", dueDate: "2026-12-12T00:00:00Z" });
+  assert.deepEqual(await taskActions.setBlockedByAction({ projectId: t.ws, taskId: b, blockedById: a }), { success: true });
+  assert.deepEqual(await taskActions.setBlockedByAction({ projectId: t.ws, taskId: c, blockedById: b }), { success: true });
+  assert.deepEqual(await taskActions.setBlockedByAction({ projectId: t.ws, taskId: a, blockedById: b }),
+    { success: false, error: "That would make a loop: Website relaunch is blocked by Design system" });
+  assert.deepEqual((await taskActions.readProjectsAction(t.ws)).success && (await taskActions.readProjectsAction(t.ws) as { deps: unknown[] }).deps.length, 2);
+
+  assert.equal((await taskActions.setTaskDatesAction({ projectId: t.ws, taskId: a, startDate: "2026-12-09T00:00:00Z" })).error, "The start date is after the due date");
+  const later = await taskActions.setTaskDatesAction({ projectId: t.ws, taskId: a, dueDate: "2026-12-08T00:00:00Z" });
+  assert.ok(later.success);
+  assert.deepEqual([later.conflicts, later.toShift.map((x) => x.title).sort(), later.days], [[b], ["Launch party", "Website relaunch"], 3]);
+
+  assert.deepEqual(await taskActions.shiftDependentsAction({ projectId: t.ws, taskId: a, days: 3 }), { success: true, count: 2 });
+  const dates = async () => (await sql`SELECT title, start_date::date::text AS s, due_date::date::text AS d FROM tasks WHERE id IN (${b}, ${c}) ORDER BY title`).map((r) => [r.title, r.s, r.d]);
+  assert.deepEqual(await dates(), [["Launch party", "2026-12-15", "2026-12-15"], ["Website relaunch", "2026-12-09", "2026-12-13"]]);
+  await taskActions.shiftDependentsAction({ projectId: t.ws, taskId: a, days: -3 });
+  assert.deepEqual(await dates(), [["Launch party", "2026-12-12", "2026-12-12"], ["Website relaunch", "2026-12-06", "2026-12-10"]]);
+
+  // Through another workspace's id, its projects aren't found.
+  viewerId = t.member;
+  const other = await workspace();
+  assert.equal((await taskActions.setBlockedByAction({ projectId: other.ws, taskId: b, blockedById: a })).success, false);
+});

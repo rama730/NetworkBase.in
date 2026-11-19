@@ -430,4 +430,17 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Couldn’t resume notifications": { "title": "Couldn’t resume notifications" },
   "This browser doesn’t support web push": { "title": "This browser doesn’t support web push", "type": "warning" },
   "Couldn’t change push notifications": { "title": "Couldn’t change push notifications" },
+  // Workflow tabs A1.3–A1.4 (report 38.5): projects, Part of and the Timeline.
+  "Part of must be a project in this workspace": { "title": "Part of must be a project in this workspace" },
+  "A project can’t be Part of another project": { "title": "A project can’t be Part of another project" },
+  "Projects aren’t available in organizations": { "title": "Projects aren’t available in organizations", "type": "warning" },
+  "Assignments can’t be Part of a project": { "title": "Assignments can’t be Part of a project", "type": "warning" },
+  "Couldn’t change Part of": { "title": "Couldn’t change Part of" },
+  "The start date is after the due date": { "title": "The start date is after the due date", "type": "warning" },
+  "That would make a loop: {blocker} is blocked by {blocked}": { "title": "That would make a loop: {blocker} is blocked by {blocked}", "type": "warning" },
+  "Couldn’t change the dates": { "title": "Couldn’t change the dates" },
+  "Couldn’t move them": { "title": "Couldn’t move them" },
+  "Couldn’t change what it waits on": { "title": "Couldn’t change what it waits on" },
+  "Couldn’t create the project": { "title": "Couldn’t create the project" },
+  "Couldn’t move it.": { "title": "Couldn’t move it" },
 };

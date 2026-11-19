@@ -88,7 +88,7 @@ export function ProjectWork({ projectId, project, canEdit, candidates, onNewTask
   );
 }
 
-const GROUPS = [
+export const GROUPS = [
   { id: "todo", name: "To do", stages: ["not_started"] },
   { id: "doing", name: "In progress", stages: ["planning", "in_progress", "paused"] },
   { id: "done", name: "Complete", stages: ["completed", "cancelled"] },

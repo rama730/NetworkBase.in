@@ -81,6 +81,8 @@ interface CreateTaskModalProps {
   fromLine?: string;
   /** Report 38.5 W8: + on a Calendar day opens New with that due date (YYYY-MM-DD). */
   initialDueDate?: string;
+  /** A1.4: a project drawn on the Timeline brings its start. */
+  initialStartDate?: string;
   /** Report 38.5 W3: + New task in a project's Work tab; shown read-only under Basics. */
   partOf?: { id: string; title: string } | null;
 }
@@ -128,6 +130,7 @@ export default function CreateTaskModal({
   initialTitle = "",
   fromLine,
   initialDueDate = "",
+  initialStartDate = "",
   partOf = null,
 }: CreateTaskModalProps) {
   // Board/review report §4: an organization's New has two tabs, Task and Assignment; what's typed carries across.
@@ -561,7 +564,7 @@ export default function CreateTaskModal({
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   {sectionsFor(kind).startDate ? (
                     <Field label="Start date" htmlFor="task-start-date">
-                      <input id="task-start-date" name="startDate" type="date" className={inputClassName(false)} />
+                      <input id="task-start-date" name="startDate" type="date" defaultValue={initialStartDate} className={inputClassName(false)} />
                     </Field>
                   ) : null}
                   <Field

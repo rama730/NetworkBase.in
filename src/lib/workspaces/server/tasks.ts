@@ -228,14 +228,14 @@ export async function readCalendarAction(projectId: string, input: unknown) {
     if (!access.project || !(access.isOwner || access.isMember)) return { success: false as const, error: "Workspace not found" };
     const base = and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), orgTaskReadFilter(access, actorId, range.scope), scopeWhere(range.scope, actorId));
     const columns = { id: tasks.id, taskNumber: tasks.taskNumber, title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus, priority: tasks.priority,
-      dueDate: tasks.dueDate, assigneeId: tasks.assigneeId, sprintId: tasks.sprintId, itemType: tasks.itemType, stage: tasks.stage, onBoard: tasks.onBoard };
+      dueDate: tasks.dueDate, startDate: tasks.startDate, assigneeId: tasks.assigneeId, sprintId: tasks.sprintId, itemType: tasks.itemType, stage: tasks.stage, onBoard: tasks.onBoard };
     const [items, noDate, [noDateCount], [ws]] = await Promise.all([
-      db.select(columns).from(tasks).where(and(base, sql`${tasks.dueDate} >= ${range.from}::date AND ${tasks.dueDate} < (${range.to}::date + 1)`)).orderBy(asc(tasks.dueDate), asc(tasks.taskNumber)).limit(500),
+      db.select(columns).from(tasks).where(and(base, sql`${tasks.dueDate} >= ${range.from}::date AND coalesce(${tasks.startDate}, ${tasks.dueDate}) < (${range.to}::date + 1)`)).orderBy(asc(tasks.dueDate), asc(tasks.taskNumber)).limit(500),
       db.select(columns).from(tasks).where(and(base, isNull(tasks.dueDate), sql`${tasks.status} <> 'done'`)).orderBy(desc(tasks.updatedAt)).limit(100),
       db.select({ n: sql<number>`count(*)::int` }).from(tasks).where(and(base, isNull(tasks.dueDate), sql`${tasks.status} <> 'done'`)),
       db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1),
     ]);
-    const shape = (r: (typeof items)[number]) => ({ ...r, dueDate: r.dueDate ? r.dueDate.toISOString() : null, ...(r.itemType === "task" ? { itemType: undefined } : {}) });
+    const shape = (r: (typeof items)[number]) => ({ ...r, dueDate: r.dueDate ? r.dueDate.toISOString() : null, startDate: r.startDate ? r.startDate.toISOString() : null, ...(r.itemType === "task" ? { itemType: undefined } : {}) });
     return { success: true as const, projectKey: ws?.key ?? null, items: items.map(shape), noDate: noDate.map(shape), noDateCount: noDateCount?.n ?? 0, canEdit: access.isOwner || (access.isMember && access.memberRole !== "viewer") };
   } catch (error) {
     console.error("Failed to read the calendar:", error);

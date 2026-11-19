@@ -21,6 +21,7 @@ import {
   workspaceWorkflowColumns,
   taskActivityEvents,
   taskNodeLinks,
+  taskDependencies,
   tasks,
 } from "@/lib/db/schema";
 import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
@@ -46,7 +47,7 @@ import {
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { childGrant, orgCan } from "@/lib/organizations/permissions";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
-import { canBeParent, canBePartOf, completion } from "@/lib/workflows/planner";
+import { canBeParent, canBePartOf, completion, conflicts, daysBetween, dependentsToShift, type Dep } from "@/lib/workflows/planner";
 import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition, MAIN_ASSIGNMENT_NOT_REVIEWED } from "@/lib/workspaces/task-transition-service";
 import { viaPayload } from "@/lib/server/request-via";
 import { boardMove, stageMove } from "@/lib/workflows/rules";
@@ -571,7 +572,7 @@ export async function readProjectsAction(projectId: string) {
       FROM tasks p WHERE p.workspace_id = ${projectId}::uuid AND p.item_type = 'project' AND p.deleted_at IS NULL
       ORDER BY p.start_date NULLS LAST, p.task_number`);
     return {
-      success: true as const, projectKey: ws?.key ?? null,
+      success: true as const, projectKey: ws?.key ?? null, deps: await projectDeps(projectId),
       projects: Array.from(rows).map((r) => ({
         id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, status: r.status, assigneeId: r.assignee_id,
         startDate: r.start_date ? new Date(r.start_date).toISOString() : null, dueDate: r.due_date ? new Date(r.due_date).toISOString() : null,
@@ -598,6 +599,120 @@ export async function completeProjectAction(input: { projectId: string; projectT
     .where(and(eq(tasks.partOfId, input.projectTaskId), eq(tasks.projectId, input.projectId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`, sql`${tasks.sprintId} IS NOT NULL`));
   for (const t of open) await updateTaskFieldAction(t.id, "sprintId", null, input.projectId);
   return moved;
+}
+
+// ---- Timeline (report 38.5 S3, S7, W4; plan A1.4) ----
+const dayKey = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+const dateInput = z.string().max(40).refine((v) => Number.isFinite(Date.parse(v)), "Pick a valid date").nullable().optional();
+const datesSchema = z.object({ projectId: z.string().uuid(), taskId: z.string().uuid(), startDate: dateInput, dueDate: dateInput });
+
+/** Project-to-project waits in a workspace (the arrows), both ends live projects. */
+async function projectDeps(projectId: string): Promise<Dep[]> {
+  const rows = await db.execute<{ task_id: string; blocked_by_task_id: string }>(sql`
+    SELECT d.task_id, d.blocked_by_task_id FROM task_dependencies d
+    JOIN tasks a ON a.id = d.task_id AND a.workspace_id = ${projectId}::uuid AND a.item_type = 'project' AND a.deleted_at IS NULL
+    JOIN tasks b ON b.id = d.blocked_by_task_id AND b.item_type = 'project' AND b.deleted_at IS NULL`);
+  return Array.from(rows).map((r) => ({ taskId: r.task_id, blockedById: r.blocked_by_task_id }));
+}
+
+/**
+ * S3: dragging or stretching a bar (and the Calendar keeping a span's length). Task edit rights; the start never after
+ * the due date. Returns the projects that would now start before this one ends, with everything that would move with
+ * them, so the page can ask (S7); nothing else moves here.
+ */
+export async function setTaskDatesAction(input: z.infer<typeof datesSchema>) {
+  try {
+    const { projectId, taskId, startDate, dueDate } = datesSchema.parse(input);
+    const user = await requireTaskWriter();
+    if (!user) return { success: false as const, error: "Sign in to continue" };
+    const moved = await db.transaction(async (tx) => {
+      const locked = await lockTaskForWrite(tx, taskId, user.id);
+      if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
+      await assertAssignmentWrite(tx, taskId, { role: locked.orgRole, isHolder: locked.isHolder, onOrgBoard: locked.onOrgBoard }, "dueDate");
+      const [row] = await tx.select({ startDate: tasks.startDate, dueDate: tasks.dueDate }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+      const next = {
+        startDate: startDate === undefined ? row?.startDate ?? null : startDate ? new Date(startDate) : null,
+        dueDate: dueDate === undefined ? row?.dueDate ?? null : dueDate ? new Date(dueDate) : null,
+      };
+      if (next.startDate && next.dueDate && next.startDate > next.dueDate) throw new Error("The start date is after the due date");
+      await tx.update(tasks).set({ ...next, updatedAt: new Date() }).where(eq(tasks.id, taskId));
+      await tx.insert(taskActivityEvents).values({ taskId, projectId, sprintId: locked.previousSprintId, actorId: user.id, eventType: "field_updated",
+        payload: { ...(await viaPayload()), version: 1, field: "dueDate", taskTitle: locked.title, taskNumber: locked.taskNumber, taskStatus: locked.currentStatus } });
+      return { before: dayKey(row?.dueDate ?? null), after: dayKey(next.dueDate) };
+    });
+    const deps = await projectDeps(projectId);
+    const direct = deps.filter((d) => d.blockedById === taskId).map((d) => d.taskId);
+    if (!direct.length || !moved.after) return { success: true as const, conflicts: [], toShift: [], days: 0 };
+    const rows = await db.select({ id: tasks.id, title: tasks.title, startDate: tasks.startDate, dueDate: tasks.dueDate }).from(tasks)
+      .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), inArray(tasks.id, [taskId, ...dependentsToShift(taskId, deps)])));
+    const late = conflicts(rows.map((r) => ({ id: r.id, start: dayKey(r.startDate), end: dayKey(r.dueDate) })), deps.filter((d) => d.blockedById === taskId));
+    const shift = late.length ? dependentsToShift(taskId, deps) : [];
+    return {
+      success: true as const,
+      conflicts: late.map((c) => c.blocked),
+      toShift: rows.filter((r) => shift.includes(r.id)).map((r) => ({ id: r.id, title: r.title })),
+      days: moved.before ? daysBetween(moved.before, moved.after) : 0,
+    };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t change the dates" };
+  }
+}
+
+const shiftSchema = z.object({ projectId: z.string().uuid(), taskId: z.string().uuid(), days: z.number().int().min(-3660).max(3660) });
+
+/** S7: move every project waiting on this one (through others too) by the same days, in one transaction. Undo is -days. */
+export async function shiftDependentsAction(input: z.infer<typeof shiftSchema>) {
+  try {
+    const { projectId, taskId, days } = shiftSchema.parse(input);
+    const user = await requireTaskWriter();
+    if (!user) return { success: false as const, error: "Sign in to continue" };
+    const ids = dependentsToShift(taskId, await projectDeps(projectId));
+    if (!ids.length || !days) return { success: true as const, count: 0 };
+    await db.transaction(async (tx) => {
+      for (const id of ids) {
+        const locked = await lockTaskForWrite(tx, id, user.id);
+        if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
+        await assertAssignmentWrite(tx, id, { role: locked.orgRole, isHolder: locked.isHolder, onOrgBoard: locked.onOrgBoard }, "dueDate");
+        await tx.update(tasks).set({
+          startDate: sql`${tasks.startDate} + make_interval(days => ${days})`,
+          dueDate: sql`${tasks.dueDate} + make_interval(days => ${days})`,
+          updatedAt: new Date(),
+        }).where(eq(tasks.id, id));
+      }
+      const [blocker] = await tx.select({ title: tasks.title, taskNumber: tasks.taskNumber, status: tasks.status }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+      await tx.insert(taskActivityEvents).values({ taskId, projectId, actorId: user.id, eventType: "field_updated",
+        payload: { ...(await viaPayload()), version: 1, field: "dueDate", shifted: ids.length, days, taskTitle: blocker?.title ?? "", taskNumber: blocker?.taskNumber ?? null, taskStatus: blocker?.status ?? "todo" } });
+    });
+    return { success: true as const, count: ids.length };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t move them" };
+  }
+}
+
+const arrowSchema = z.object({ projectId: z.string().uuid(), taskId: z.string().uuid(), blockedById: z.string().uuid(), remove: z.boolean().optional() });
+
+/** W4: an arrow from one project's end to another: the second is blocked by the first (task_dependencies, loop-checked). */
+export async function setBlockedByAction(input: z.infer<typeof arrowSchema>) {
+  try {
+    const { projectId, taskId, blockedById, remove } = arrowSchema.parse(input);
+    const user = await requireTaskWriter();
+    if (!user) return { success: false as const, error: "Sign in to continue" };
+    const names = new Map((await db.select({ id: tasks.id, title: tasks.title }).from(tasks)
+      .where(and(eq(tasks.projectId, projectId), inArray(tasks.id, [taskId, blockedById]), isNull(tasks.deletedAt)))).map((r) => [r.id, r.title]));
+    if (names.size !== 2) return { success: false as const, error: "Both must be in this workspace" };
+    const { updateTaskMeta, TaskMetaError } = await import("@/lib/domain/task-meta");
+    try {
+      await updateTaskMeta(user.id, taskId, { blockedBy: remove ? { remove: [blockedById] } : { add: [blockedById] } });
+    } catch (error) {
+      if (error instanceof TaskMetaError && /waits on this task/.test(error.message)) {
+        return { success: false as const, error: `That would make a loop: ${names.get(blockedById)} is blocked by ${names.get(taskId)}` };
+      }
+      throw error;
+    }
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t change what it waits on" };
+  }
 }
 
 export async function moveTaskToWorkflowColumnAction(
