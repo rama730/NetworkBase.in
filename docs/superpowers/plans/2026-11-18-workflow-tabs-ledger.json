@@ -8111,6 +8111,26 @@
       "status": "live",
       "test": "tests/browser/task-stage.spec.ts",
       "evidence": "2026-11-19: --stage fixing joined Week 47; finishing stages need task:complete (dced5dc73)."
+    },
+    {
+      "key": "38.4.call14",
+      "section": "38.4",
+      "text": "A0.11 (2026-11-20): the chips narrow the board already loaded, like the Team filter, so a long board may need \"load more\" before a filter sees older work; the c",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.4.call15",
+      "section": "38.4",
+      "text": "A0.11: + Filter offers Priority and Sprint; Labels joins when cards carry their labels. Own tabs add their chips (Severity in Bugs) with their units. [call]",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

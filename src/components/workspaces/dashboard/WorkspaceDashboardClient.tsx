@@ -1,5 +1,6 @@
 'use client';
 
+import { TASK_FILTER_KEYS } from '@/lib/workspaces/task-filters';
 import { runningSprint, sprintPath } from '@/lib/workspaces/sprint-plan';
 import { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -112,7 +113,8 @@ function clearProjectDetailScopedParams(params: URLSearchParams, activeTab: stri
     let changed = false;
 
     if (resetActiveTab || activeTab !== 'tasks') {
-        for (const key of ['drawerType', 'drawerId', 'panelTab']) {
+        // Report 38.4 W7: the Tasks filter chips stay with Tasks.
+        for (const key of ['drawerType', 'drawerId', 'panelTab', ...TASK_FILTER_KEYS]) {
             changed = deleteParam(params, key) || changed;
         }
     }

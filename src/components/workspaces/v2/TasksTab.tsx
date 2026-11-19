@@ -10,6 +10,8 @@ import { Plus, Check, Search, X, MoreHorizontal, Laptop, ChevronDown } from "luc
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { workflowIcon } from "@/components/workspaces/workflows/workflow-icons";
 import { addedTypes } from "@/lib/workflows/create-rules";
+import { FilterChipRow, type FilterChip } from "@/components/ui/FilterChipRow";
+import { EMPTY_FILTERS, filtersFromUrl, filtersToUrl, matchesFilters, setCount, type DueFilter, type TaskFilters as ChipFilters } from "@/lib/workspaces/task-filters";
 import { stageOf, workflowType } from "@/lib/workflows/types";
 import {
   DropdownMenu,
@@ -716,7 +718,26 @@ export default function TasksTab({
   const [teamTaskOpen, setTeamTaskOpen] = useState(false);
   const unitMembers = units.find((unit) => unit.id === unitFilter)?.memberIds;
   const inRunning = scope === "sprint" && runningOnBoard ? sprintAwareTasks.filter((task) => Boolean(task.sprintId && runningOnBoard.ids.has(task.sprintId))) : sprintAwareTasks;
-  const filteredTasks = unitMembers ? inRunning.filter((task) => Boolean(task.assigneeId && unitMembers.includes(task.assigneeId))) : inRunning;
+  const byTeam = unitMembers ? inRunning.filter((task) => Boolean(task.assigneeId && unitMembers.includes(task.assigneeId))) : inRunning;
+  // Report 38.4 S5, W7 (A0.11): the chip row's filters live in the address, so a copied link opens the same view.
+  const [chipFilters, setChipFilters] = useState<ChipFilters>(() => (typeof window === "undefined" ? EMPTY_FILTERS : filtersFromUrl(new URLSearchParams(window.location.search))));
+  useUrlMirror(filtersToUrl(chipFilters));
+  const chipsSet = setCount(chipFilters);
+  const filteredTasks = chipsSet ? byTeam.filter((task) => matchesFilters(task, chipFilters, currentUserId ?? null)) : byTeam;
+  const assignable = useMemo(() => normalizeAssignableMembers(members ?? []), [members]);
+  const filterChips: FilterChip[] = [
+    { key: "assignee", name: "Assigned to", multi: true, selected: chipFilters.assignee, onChange: (assignee) => setChipFilters((f) => ({ ...f, assignee })),
+      options: [{ value: "me", label: "Me" }, ...assignable.filter((m) => m.id !== currentUserId).map((m) => ({ value: m.id, label: m.label })), { value: "none", label: "Unassigned" }] },
+    // The Type chip only when more than one type exists here (report 38.2 S6).
+    ...(itemTypes.length ? [{ key: "type", name: "Type", multi: true, selected: chipFilters.type, onChange: (type: string[]) => setChipFilters((f) => ({ ...f, type })),
+      options: ["task", ...itemTypes].map((t) => ({ value: t, label: t === "task" ? "Task" : workflowType(t).label, count: byTeam.filter((task) => (task.itemType ?? "task") === t).length })) }] : []),
+    { key: "due", name: "Due", multi: false, selected: chipFilters.due ? [chipFilters.due] : [], onChange: (v) => setChipFilters((f) => ({ ...f, due: (v[0] as DueFilter) ?? null })),
+      options: [{ value: "overdue", label: "Overdue" }, { value: "today", label: "Today" }, { value: "week", label: "This week" }, { value: "none", label: "No date" }] },
+    { key: "priority", name: "Priority", multi: true, extra: true, selected: chipFilters.priority, onChange: (priority) => setChipFilters((f) => ({ ...f, priority })),
+      options: [{ value: "urgent", label: "Urgent" }, { value: "high", label: "High" }, { value: "medium", label: "Medium" }, { value: "low", label: "Low" }] },
+    { key: "sprint", name: "Sprint", multi: true, extra: true, selected: chipFilters.sprint, onChange: (sprint) => setChipFilters((f) => ({ ...f, sprint })),
+      options: [...sprintOptions.map((sp) => ({ value: sp.id, label: sp.name })), { value: "none", label: "Backlog" }] },
+  ];
 
   useEffect(() => {
     if (isTaskPanelClosingRef.current) return;
@@ -866,7 +887,7 @@ export default function TasksTab({
             </h2>
             <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
               {/* Board view dropdown §3 (D4): the view's real total; while searching or narrowing to a team, what's shown. */}
-              {boardCounts && !taskSearchQuery && !unitMembers ? boardCounts[scope].total : `${filteredTasks.length}${hasNextPage ? "+" : ""}`}
+              {boardCounts && !taskSearchQuery && !unitMembers && !chipsSet ? boardCounts[scope].total : `${filteredTasks.length}${hasNextPage ? "+" : ""}`}
             </span>
             {taskSearchQuery ? (
               <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
@@ -900,6 +921,7 @@ export default function TasksTab({
 
             {/* Filter */}
             <TaskFilters scope={scope} setScope={setScope} organization={Boolean(orgId)} sprintLabel={runningOnBoard?.label} counts={boardCounts} />
+            <FilterChipRow chips={filterChips} onClearAll={() => setChipFilters(EMPTY_FILTERS)} />
             {units.length ? (
               <select aria-label="Team" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}
                 className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-2 text-[13px] text-foreground max-md:h-11">
