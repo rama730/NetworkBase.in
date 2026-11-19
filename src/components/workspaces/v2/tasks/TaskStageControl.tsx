@@ -23,10 +23,12 @@ const saveTick = (projectId: string, tick: boolean) => { try { window.localStora
  * Report 38.2 F1 S7 and S4: a typed item's page says where it shows and moves between stages. A move onto the board asks
  * which sprint (ticked: the running one, remembered 24 hours); members' items go to the Backlog (decision 146).
  */
-export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, sprints, onMoved }: {
+export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, sprints, onMoved, compact = false }: {
   projectId: string;
   task: { id: string; itemType?: string; stage?: string | null; status: string; sprintId?: string | null };
   canEdit: boolean;
+  /** A table cell (Projects' Active and All): the Stage menu without the "Shows in" line. */
+  compact?: boolean;
   canPlanSprints: boolean;
   sprints: Array<{ id: string; name: string; status: string }>;
   onMoved: (moved: Moved) => void;
@@ -88,7 +90,7 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
   const joinLabel = joining ? type.stages.find((s) => s.key === joining)?.label : "";
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground" data-testid="task-stage-control">
-      {where.length ? <span>Shows in: {where.map((w, i) => <span key={w.tab}>{i ? " / " : ""}<span className="font-medium text-foreground">{w.label}</span></span>)}</span> : null}
+      {where.length && !compact ? <span>Shows in: {where.map((w, i) => <span key={w.tab}>{i ? " / " : ""}<span className="font-medium text-foreground">{w.label}</span></span>)}</span> : null}
       {canEdit ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

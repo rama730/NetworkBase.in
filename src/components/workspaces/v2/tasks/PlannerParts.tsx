@@ -172,7 +172,7 @@ export function ProjectsTable({ projectId, mode, canEdit, canPlanSprints, member
                         </button>
                       </td>
                       <td className={cell}>
-                        {canEdit ? <TaskStageControl projectId={projectId} task={{ id: p.id, itemType: "project", stage: p.stage, status: p.status }} canEdit canPlanSprints={canPlanSprints} sprints={[]} onMoved={() => void refresh()} />
+                        {canEdit ? <TaskStageControl projectId={projectId} task={{ id: p.id, itemType: "project", stage: p.stage, status: p.status }} canEdit canPlanSprints={canPlanSprints} sprints={[]} compact onMoved={() => void refresh()} />
                           : <span className="text-[12px] text-muted-foreground">{stageLabel(p.stage)}</span>}
                       </td>
                       <td className={cell}>

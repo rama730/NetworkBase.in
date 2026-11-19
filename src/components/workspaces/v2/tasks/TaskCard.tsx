@@ -5,7 +5,8 @@ import { markMoveSeen, moveSeen } from "@/lib/organizations/move-seen";
 import { useSprintPath } from "@/components/workspaces/v2/tasks/SprintPathContext";
 import { AssignmentIcon, audienceLabel, cardLine, copyChip, copyStageLine, publishLine, StageBar } from "@/components/workspaces/tabs/sprint/AssignmentStages";
 import { assignmentChip } from "@/lib/organizations/assignment-chip";
-import { formatTaskDueDate } from "@/lib/workspaces/task-presentation";
+import { formatTaskDueDate, taskDueDateKey } from "@/lib/workspaces/task-presentation";
+import { localDayKey, projectEnds } from "@/lib/workflows/planner";
 import {
   Calendar,
   CheckSquare,
@@ -159,7 +160,9 @@ export const TaskCard = memo(function TaskCard({
   const typeHidden = Boolean(known && ownTab && !known.includes(ownTab.id));
   const sprintPath = useSprintPath(taskRecord.sprint?.id, taskRecord.sprint?.name ?? "");
   const titlePresentation = getTaskTitlePresentation(taskRecord);
-  const dueDateLabel = formatTaskDueDate(taskRecord.dueDate);
+  // A1.5: a project says when it ends ("Ends Friday" this week), in My Work and lists.
+  const dueKey = taskDueDateKey(taskRecord.dueDate);
+  const dueDateLabel = taskRecord.itemType === "project" && dueKey ? projectEnds(dueKey, localDayKey()) ?? `Ends ${formatTaskDueDate(taskRecord.dueDate)}` : formatTaskDueDate(taskRecord.dueDate);
   // Board view dropdown §6a: an assignment card is a task card — title, then where everyone is, then the task card's
   // chips and footer, with who it's for where a task shows its assignee.
   const master = taskRecord.assignmentProgress ?? null;
@@ -384,7 +387,7 @@ export const TaskCard = memo(function TaskCard({
             {deadlineLabel && (
               <div
                 data-deadline={fixByLabel ? "fix-by" : "due"}
-                title={fixByLabel ? `Fix by ${fixByLabel}` : `Due ${deadlineLabel}`}
+                title={fixByLabel ? `Fix by ${fixByLabel}` : taskRecord.itemType === "project" ? deadlineLabel : `Due ${deadlineLabel}`}
                 className={cn(
                   "flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 font-mono text-[11px] font-semibold",
                   fixByLabel || timing === "overdue" || timing === "overtime"
