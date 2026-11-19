@@ -124,3 +124,19 @@ test("Organizations: a member sees only their own rows (others' copies are count
   const [others] = await sql`SELECT id FROM tasks WHERE title = 'Owner''s' AND workspace_id = ${t.ws}`;
   assert.match(errorOf(await docs.detachDocRowAction(t.ws, { docSlug: "weekly", taskId: others!.id })), /isn’t in this list/);
 });
+
+test("A0.9 W5: More details adds a full task to the list (description, priority, sprint for a leader) with its From", async () => {
+  const t = await meeting("members");
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status) VALUES (${t.ws}, ${t.owner}, 'Sprint 1', now() - interval '1 day', now() + interval '7 days', 'active') RETURNING id`;
+  viewerId = t.owner;
+  assert.equal((await rows(t.ws)).canPlanSprints, true);
+  const r = await docs.addDocRowAction(t.ws, { docSlug: "weekly", blockKey: "k7f3", title: "Book the venue", description: "Two rooms", priority: "high", status: "in_progress", sprintId: sprint!.id, subtasks: [{ title: "Call them" }] });
+  assert.equal(r.success, true, JSON.stringify(r));
+  const [task] = await sql`SELECT status, description, priority, sprint_id, source_block, (SELECT count(*)::int FROM task_subtasks s WHERE s.task_id = tasks.id) AS subs FROM tasks WHERE id = ${r.success ? r.id : ""}`;
+  assert.deepEqual([task!.status, task!.description, task!.priority, task!.sprint_id, task!.source_block, task!.subs], ["in_progress", "Two rooms", "high", sprint!.id, "k7f3", 1]);
+  viewerId = t.member;
+  assert.equal((await rows(t.ws)).canPlanSprints, false);
+  const m = await docs.addDocRowAction(t.ws, { docSlug: "weekly", blockKey: "k7f3", title: "Print badges", sprintId: sprint!.id });
+  const [mine] = await sql`SELECT sprint_id FROM tasks WHERE id = ${m.success ? m.id : ""}`;
+  assert.equal(mine!.sprint_id, null, "a member's sprint goes to the Backlog (38.4 call 3)");
+});

@@ -13,17 +13,18 @@ async function open(page: Page, { canAdd = true, canSeeTasks = true, member = tr
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
-      listWorkspaceDocsAction: async () => ({ success: true, docs: [{ id: 'd1', slug: 'weekly', filename: 'Weekly.md', linkedNodeId: 'n1' }] }),
+      listWorkspaceDocsAction: async () => ({ success: true, docs: [{ id: 'd1', slug: 'weekly', filename: 'Weekly.md', linkedNodeId: 'n1', section: 'meetings', date: '2026-11-12' }] }),
+      fetchWorkspaceSprintsAction: async () => ({ success: true, sprints: [{ id: '5f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f', name: 'Sprint 4', status: 'active' }] }),
       getWorkspaceMembersAction: async () => ({ success: true, members: [{ id: 'u1', fullName: 'Asha', membershipRole: 'member' }, { id: 'u2', fullName: 'Vic', membershipRole: 'viewer' }], hasMore: false }),
-      readDocRowsAction: async () => ({ success: true, hidden: canSeeTasks ? 0 : rows.length, canAdd, canSeeTasks, member, projectKey: 'WT', rows: canSeeTasks ? rows.map((r) => ({ ...r })) : [] }),
+      readDocRowsAction: async () => ({ success: true, hidden: canSeeTasks ? 0 : rows.length, canAdd, canSeeTasks, member, canPlanSprints: true, projectKey: 'WT', rows: canSeeTasks ? rows.map((r) => ({ ...r })) : [] }),
       readDocRowKeysAction: async () => ({ success: true, keys: [{ key: 'k7f3', count: 2 }, { key: 'old1', count: 1 }] }),
       updateTaskStatusAction: async (id: string, status: string) => {
         calls.push(['status', id, status]);
         Object.assign(rows.find((r) => r.id === id)!, { status, completedAt: status === 'done' ? new Date().toISOString() : null });
         return { success: true, outcome: 'updated' };
       },
-      addDocRowAction: async (_p: string, input: { title: string; assigneeId: string | null; dueDate: string | null }) => {
-        calls.push(['add', input.title, input.assigneeId]);
+      addDocRowAction: async (_p: string, input: { title: string; assigneeId: string | null; dueDate: string | null; description?: string; sprintId?: string | null }) => {
+        calls.push(input.description || input.sprintId ? ['add+', input.title, input.description ?? null, input.sprintId ?? null] : ['add', input.title, input.assigneeId]);
         rows.push(row(`n${rows.length}`, input.title, rows.length));
         return { success: true, id: 'x', number: 99 };
       },
@@ -120,4 +121,21 @@ test('W10 + phone dark: removed-list note shows the orphaned rows; no accessibil
   await expect(note.getByRole('button', { name: /^Add/ })).toHaveCount(0);
   await page.screenshot({ path: 'test-results/doc-live-rows/phone-dark.png', fullPage: true });
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('A0.9 W5: More details opens the full module with the title and From, and adds the row with its details', async ({ page }) => {
+  await open(page);
+  await block(page).getByRole('button', { name: 'Add action item' }).click();
+  await block(page).getByLabel('New action item').fill('Book the venue');
+  await block(page).getByRole('button', { name: 'More details' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('#task-title')).toHaveValue('Book the venue');
+  await expect(dialog.getByTestId('create-from-line')).toHaveText('From: Weekly · Nov 12');
+  await dialog.getByLabel('Description').fill('Two rooms');
+  await dialog.getByLabel('Sprint').selectOption('5f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f');
+  await page.screenshot({ path: 'test-results/doc-live-rows/more-details.png' });
+  await dialog.getByRole('button', { name: 'Create task', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(block(page).getByRole('link', { name: 'Book the venue' })).toBeVisible();
+  expect(await calls(page)).toEqual([['add+', 'Book the venue', 'Two rooms', '5f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f']]);
 });

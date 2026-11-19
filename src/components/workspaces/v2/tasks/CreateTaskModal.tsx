@@ -76,6 +76,9 @@ interface CreateTaskModalProps {
   /** Opened from Tasks (types start where they join the board) or a type's own tab (its first stage). */
   openedFrom?: "tasks" | "own";
   initialType?: string;
+  /** Report 38.4 W5: opened from a quick-add line, the typed title carries in and where it came from shows read-only. */
+  initialTitle?: string;
+  fromLine?: string;
 }
 
 function getTodayDateString(): string {
@@ -118,6 +121,8 @@ export default function CreateTaskModal({
   types = [],
   openedFrom = "tasks",
   initialType,
+  initialTitle = "",
+  fromLine,
 }: CreateTaskModalProps) {
   // Board/review report §4: an organization's New has two tabs, Task and Assignment; what's typed carries across.
   const startKind = initialType && types.includes(initialType) ? initialType : renderMany ? initialKind : "task";
@@ -126,7 +131,7 @@ export default function CreateTaskModal({
   const typed = kind !== "task" && kind !== "assignment";
   const [stage, setStage] = React.useState<string | null>(typed ? defaultStageFor(kind, openedFrom) : null);
   const typeLabel = kind === "task" ? "Task" : kind === "assignment" ? "Assignment" : workflowType(kind).label;
-  const [carry, setCarry] = React.useState({ title: "", description: "", sprintId: "", dueDate: "" });
+  const [carry, setCarry] = React.useState({ title: initialTitle, description: "", sprintId: "", dueDate: "" });
   const formRef = React.useRef<HTMLFormElement>(null);
   const switchKind = (next: string) => {
     if (next === kind) return;
@@ -363,6 +368,7 @@ export default function CreateTaskModal({
                     autoFocus
                   />
                 </Field>
+                {fromLine ? <p className="text-xs text-muted-foreground" data-testid="create-from-line">From: <span className="font-medium text-foreground">{fromLine}</span></p> : null}
 
                 <Field
                   label="Description"

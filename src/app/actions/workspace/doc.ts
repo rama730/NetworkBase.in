@@ -1314,7 +1314,7 @@ export async function readDocRowsAction(projectId: string, docSlug: string, bloc
         const { rows, hidden: tabHidden } = visibleRows(readable, { canSeeTasks });
         const hidden = tabHidden + all.length - readable.length;
         return {
-            success: true as const, hidden, canAdd: canAddRows(context.permission), canSeeTasks, projectKey: context.project.key ?? null, member: insider,
+            success: true as const, hidden, canAdd: canAddRows(context.permission), canSeeTasks, projectKey: context.project.key ?? null, member: insider, canPlanSprints: leader,
             rows: rows.map((r): DocRow => ({
                 id: r.id, number: r.number, title: r.title, status: r.status, reviewStatus: r.reviewStatus, itemType: r.itemType,
                 dueDate: r.dueDate ? r.dueDate.toISOString() : null, completedAt: r.completedAt ? r.completedAt.toISOString() : null, position: r.position,
@@ -1334,7 +1334,15 @@ const addRowSchema = z.object({
     blockKey: blockKeySchema,
     title: z.string().trim().min(1, "Add a title").max(200),
     assigneeId: z.string().uuid().nullish(),
-    dueDate: z.string().datetime().nullish(),
+    dueDate: z.string().max(40).refine((v) => Number.isFinite(Date.parse(v)), "Pick a valid date").nullish(),
+    // Report 38.4 W5 (plan A0.9): More details sends the full module's fields; createTaskAction checks them as usual.
+    description: z.string().max(20000).optional(),
+    priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+    status: z.enum(["todo", "in_progress", "blocked", "done"]).optional(),
+    sprintId: z.string().uuid().nullish(),
+    storyPoints: z.number().int().min(0).max(100).nullish(),
+    subtasks: z.array(z.object({ title: z.string().trim().min(1).max(500) })).max(100).optional(),
+    attachmentNodeIds: z.array(z.string().uuid()).max(100).optional(),
 });
 
 /**
@@ -1352,7 +1360,12 @@ export async function addDocRowAction(projectId: string, input: unknown) {
             .where(and(eq(tasks.sourceDocId, context.readme.id), eq(tasks.sourceBlock, data.blockKey), isNull(tasks.deletedAt)));
         if ((count?.n ?? 0) >= MAX_BLOCK_ROWS) return { success: false as const, error: `A list holds up to ${MAX_BLOCK_ROWS} items.` };
         const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
-        const created = await createTaskAction({ projectId, title: data.title, status: "todo", priority: "medium", assigneeId: data.assigneeId ?? null, dueDate: data.dueDate ?? null });
+        const created = await createTaskAction({
+            projectId, title: data.title, status: data.status ?? "todo", priority: data.priority ?? "medium", assigneeId: data.assigneeId ?? null, dueDate: data.dueDate ?? null,
+            ...(data.description ? { description: data.description } : {}), ...(data.sprintId ? { sprintId: data.sprintId } : {}),
+            ...(data.storyPoints != null ? { storyPoints: data.storyPoints } : {}), ...(data.attachmentNodeIds?.length ? { attachmentNodeIds: data.attachmentNodeIds } : {}),
+            ...(data.subtasks?.length ? { subtasks: data.subtasks.map((st) => ({ title: st.title, completed: false })) } : {}),
+        });
         if (!created.success || !("task" in created) || !created.task) return { success: false as const, error: ("error" in created && created.error) || "Couldn’t add the item." };
         await db.update(tasks).set({ sourceDocId: context.readme.id, sourceBlock: data.blockKey, sourcePosition: (count?.last ?? 0) + 1 }).where(eq(tasks.id, created.task.id));
         return { success: true as const, id: created.task.id, number: created.task.taskNumber ?? null };

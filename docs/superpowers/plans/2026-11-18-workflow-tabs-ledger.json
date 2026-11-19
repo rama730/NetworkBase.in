@@ -8051,6 +8051,26 @@
       "status": "todo",
       "test": "",
       "evidence": "CLI/MCP --type/--stage with A0.10."
+    },
+    {
+      "key": "38.4.call12",
+      "section": "38.4",
+      "text": "A0.9 (2026-11-19): More details sits in a document list's add row (always shown, left of Cancel, since that row is already a small form with Assigned to and Due",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.4.call13",
+      "section": "38.4",
+      "text": "A0.9: the shared one-line quick-add (S3) is built with its second user, the own-tab \"+ New bug\" line in A2.1; Part of joins the read-only lines with A1.3. [call",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

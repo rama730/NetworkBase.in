@@ -2,19 +2,26 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, MoreHorizontal, Plus } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { addDocRowAction, detachDocRowAction, moveDocRowAction, readDocRowKeysAction, readDocRowsAction, type DocRow } from "@/app/actions/workspace/doc";
 import { updateTaskStatusAction } from "@/app/actions/task";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, QuickChips, inputClassName, selectClassName } from "@/components/workspaces/v2/tasks/form-parts";
 import { useWorkspaceMembers } from "@/hooks/workspaces/useWorkspaceMembers";
+import { useWorkspaceDocList } from "@/hooks/workspaces/useWorkspaceDocData";
+import { useWorkspaceSprints } from "@/hooks/workspaces/useWorkspaceTasksData";
+import { docTitle } from "@/lib/organizations/doc-rules";
+import { buildTaskSubmitPayload } from "@/lib/workspaces/task-draft";
 import { toast } from "@/lib/feedback";
 import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
 import { liveTopics } from "@/lib/realtime/subscriptions";
 import { cn } from "@/lib/utils";
 import { formatTaskId } from "@/lib/workspace-key";
 import { orderRows } from "@/lib/workspaces/doc-live-blocks";
+
+// The full module loads only when someone asks for More details (report 38.4 W5).
+const CreateTaskModal = lazy(() => import("@/components/workspaces/v2/tasks/CreateTaskModal"));
 
 const rowsKey = (projectId: string, docSlug: string, blockKey: string) => ["doc-rows", projectId, docSlug, blockKey] as const;
 const addWord = (label: string) => (/action item/i.test(label) ? "action item" : /checklist|step/i.test(label) ? "step" : "item");
@@ -30,6 +37,7 @@ export function WorkspaceDocLiveBlock({ projectId, projectSlug, docSlug, blockKe
   const key = rowsKey(projectId, docSlug, blockKey);
   const query = useQuery({ queryKey: key, queryFn: () => readDocRowsAction(projectId, docSlug, blockKey), staleTime: 15_000 });
   const [adding, setAdding] = useState(false);
+  const [details, setDetails] = useState<string | null>(null);
   const [showFolded, setShowFolded] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
   // W4: a tick on the board or in another tab shows here too. Members only (the topic is private); bursts are batched.
@@ -98,14 +106,46 @@ export function WorkspaceDocLiveBlock({ projectId, projectSlug, docSlug, blockKe
             ) : null}
             {data.hidden ? <p className="px-2 py-1 text-[12px] text-muted-foreground">{data.hidden} more {data.hidden === 1 ? "item" : "items"} you can’t see</p> : null}
             {removed ? null : data.canAdd ? (adding
-              ? <AddRow projectId={projectId} onCancel={() => setAdding(false)} word={word}
+              ? <AddRow projectId={projectId} onCancel={() => setAdding(false)} word={word} onMoreDetails={(title) => { setAdding(false); setDetails(title); }}
                   onAdd={async (row) => { const r = await addDocRowAction(projectId, { docSlug, blockKey, ...row }); if (!r.success) { toast.error(r.error); return false; } await refresh(); return true; }} />
               : <button type="button" onClick={() => setAdding(true)} className="nb-touch-target flex items-center gap-1.5 px-2 py-2 text-[13px] text-muted-foreground hover:text-foreground"><Plus aria-hidden="true" className="size-3.5" />Add {word}</button>)
               : data.member ? <p className="px-2 py-1.5 text-[12px] text-muted-foreground">Only people who can edit this document add items here.</p> : null}
           </>
         )}
       </div>
+      {details !== null && data ? (
+        <MoreDetails projectId={projectId} docSlug={docSlug} title={details} canPlanSprints={Boolean(data.canPlanSprints)} onClose={() => setDetails(null)}
+          onCreate={async (row) => {
+            const r = await addDocRowAction(projectId, { docSlug, blockKey, ...row });
+            if (r.success) await refresh();
+            return r.success ? { success: true } : { success: false, error: r.error };
+          }} />
+      ) : null}
     </section>
+  );
+}
+
+/** W5: the full New module for one row, opened with what was typed and a read-only From line. */
+function MoreDetails({ projectId, docSlug, title, canPlanSprints, onClose, onCreate }: {
+  projectId: string; docSlug: string; title: string; canPlanSprints: boolean; onClose: () => void;
+  onCreate: (row: Record<string, unknown> & { title: string }) => Promise<{ success: boolean; error?: string }>;
+}) {
+  const { data: docs = [] } = useWorkspaceDocList(projectId);
+  const doc = docs.find((d) => d.slug === docSlug);
+  const from = doc ? [docTitle(doc.filename), doc.date ? shortDate(`${doc.date}T00:00:00Z`) : null].filter(Boolean).join(" · ") : undefined;
+  const members = useWorkspaceMembers(projectId, [], { enabled: true });
+  const people = (members.data?.pages ?? []).flatMap((p: { members?: unknown[] }) => p.members ?? []);
+  const sprints = useWorkspaceSprints(projectId, [], canPlanSprints);
+  return (
+    <Suspense fallback={null}>
+      <CreateTaskModal isOpen projectId={projectId} onClose={onClose} initialTitle={title} fromLine={from} canAssignSprint={canPlanSprints}
+        members={people} sprints={sprints.data ?? []}
+        onCreate={async ({ draft, subtasks, attachments }) => {
+          const p = buildTaskSubmitPayload({ draft, projectId, subtasks, attachments });
+          return onCreate({ title: p.title, description: p.description || undefined, priority: p.priority, status: p.status, sprintId: p.sprintId ?? null, assigneeId: p.assigneeId ?? null,
+            dueDate: p.dueDate ?? null, storyPoints: p.storyPoints ?? null, subtasks: p.subtasks.map((st) => ({ title: st.title })), attachmentNodeIds: p.attachmentNodeIds });
+        }} />
+    </Suspense>
   );
 }
 
@@ -143,7 +183,7 @@ function Row({ row, taskKey, projectSlug, canEdit, first, last, onTick, onMove, 
   );
 }
 
-function AddRow({ projectId, word, onAdd, onCancel }: { projectId: string; word: string; onAdd: (row: { title: string; assigneeId: string | null; dueDate: string | null }) => Promise<boolean>; onCancel: () => void }) {
+function AddRow({ projectId, word, onAdd, onCancel, onMoreDetails }: { projectId: string; word: string; onAdd: (row: { title: string; assigneeId: string | null; dueDate: string | null }) => Promise<boolean>; onCancel: () => void; onMoreDetails: (title: string) => void }) {
   const [title, setTitle] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [due, setDue] = useState<string | null>(null);
@@ -176,7 +216,9 @@ function AddRow({ projectId, word, onAdd, onCancel }: { projectId: string; word:
         ]} />
         <input type="date" aria-label="Pick a date" className={cn(inputClassName(false), "h-8 w-auto text-[13px]")} onChange={(e) => setDue(e.target.value ? new Date(`${e.target.value}T00:00:00Z`).toISOString() : null)} />
       </div>
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-end gap-2">
+        {/* S3: the full module, with what's typed carried in. */}
+        <button type="button" className="mr-auto text-[13px] text-primary underline-offset-2 hover:underline" onClick={() => onMoreDetails(title.trim())}>More details</button>
         <button type="button" className={FORM_SECONDARY_CLASS} onClick={onCancel}>Cancel</button>
         <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy} onClick={() => void submit()}>Add</button>
       </div>

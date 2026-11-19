@@ -15825,6 +15825,8 @@ F3 is how people make and open every item type F1 defines: **one New module** (2
 9. **A0.8:** Starts at takes the place of Status for typed items (the stage sets the status); Sprint shows only while the chosen stage is on the board, and an off-board item never keeps a sprint, on the server too. **[call]**
 10. **A0.8:** no type has its own fields yet, so "[Type] details" and the carry-over of type-only fields (call 5) arrive with each type's unit (Bug details in A2.1); the server already refuses fields a type doesn't have, naming them. **[call]**
 11. **A0.8:** the CLI and MCP `--type`/`--stage` come with A0.10 (as the plan lists); the server rule they will share (call 3: a member's sprint goes to the Backlog, `backlogged: true` in the result) is live now. **[call]**
+12. **A0.9 (2026-11-19):** More details sits in a document list's add row (always shown, left of Cancel, since that row is already a small form with Assigned to and Due); it opens the New module with the typed title and a read-only "From: Weekly · Nov 12", and the module's Create makes the row with every field (status, description, priority, sprint for owners and admins, estimate, subtasks, files). **[call]**
+13. **A0.9:** the shared one-line quick-add (S3) is built with its second user, the own-tab "+ New bug" line in A2.1; Part of joins the read-only lines with A1.3. **[call]**
 
 ### 38.5 T1 · Project planner and the Timeline, Calendar and Matrix views (agreed 2026-11-17)
 
