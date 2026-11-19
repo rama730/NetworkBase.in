@@ -852,6 +852,7 @@ export async function getWorkspaceTaskDetailAction(
         assigneeId: true,
         creatorId: true,
         workflowColumnId: true,
+        onBoard: true,
         title: true,
         description: true,
         status: true,

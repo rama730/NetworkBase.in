@@ -33,10 +33,19 @@ function buildTask(
     },
     creator: overrides.creator ?? null,
     sprint: overrides.sprint ?? null,
+    ...(overrides.onBoard !== undefined && { onBoard: overrides.onBoard }),
   };
 }
 
 describe("task cache patching", () => {
+  it("never puts an off-board item (a bug at New) on a board list, and takes one off when it leaves", () => {
+    const existing = { pages: [{ tasks: [buildTask()] }], pageParams: [null] };
+    const opened = patchTaskQueryData(existing, buildTask({ id: "task-2", onBoard: false }), "all") as typeof existing;
+    assert.deepEqual(opened.pages[0]!.tasks.map((t) => t.id), ["task-1"]);
+    const left = patchTaskQueryData(existing, buildTask({ onBoard: false }), "all") as typeof existing;
+    assert.deepEqual(left.pages[0]!.tasks.map((t) => t.id), []);
+  });
+
   it("preserves related objects when scalar updates arrive without expanded relations", () => {
     const existing = {
       pages: [

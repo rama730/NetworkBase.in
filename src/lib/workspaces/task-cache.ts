@@ -82,6 +82,9 @@ export function patchTaskQueryData(
   incoming: TaskSurfaceRecord,
   scope: TaskScope,
 ): unknown {
+  // Task lists are board lists, which never hold an item at an off-board stage (report 38.2): opening one from a link,
+  // or moving one off the board, takes it out instead of adding it.
+  if (incoming.onBoard === false) return removeTaskFromQueryData(existing, incoming.id);
   if (Array.isArray(existing)) {
     return patchTaskList(
       existing.map(normalizeTaskSurfaceRecord),

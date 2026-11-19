@@ -34,6 +34,8 @@ export type TaskSurfaceRecord = {
   id: string;
   projectId: string | null;
   workflowColumnId?: string | null;
+  /** False for an item at an off-board stage (report 38.2); absent means on the board. */
+  onBoard?: boolean;
   title: string;
   description?: string | null;
   status: TaskWorkflowStatus;
@@ -300,6 +302,7 @@ export function normalizeTaskSurfaceRecord(value: any): TaskSurfaceRecord {
       asTrimmedString(value?.workflowColumnId) ??
       asTrimmedString(value?.workflow_column_id),
     title: asTrimmedString(value?.title) ?? "Untitled task",
+    ...((value?.onBoard ?? value?.on_board) === false && { onBoard: false }),
     description: asTrimmedString(value?.description),
     status: isTaskWorkflowStatus(rawStatus) ? rawStatus : "todo",
     reviewSubmittedAt: asIsoString(value?.reviewSubmittedAt ?? value?.review_submitted_at),
