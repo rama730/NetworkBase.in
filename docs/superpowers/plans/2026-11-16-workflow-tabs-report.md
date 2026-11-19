@@ -16028,6 +16028,7 @@ T1 turns 11.3's own-tab planner into **views inside Tasks**: a **Projects** view
 9. The organization portfolio stays with Organizations (K3), not T1. **[call]**
 10. **A1.1 (2026-11-20):** the Calendar shows off-board items too (a bug at New due Friday is due Friday); the scope menu and the chips apply. Today is a filled 4 px square, the board's badge shape (the design contract keeps task parts free of round shapes). Phones offer Agenda · Week. **[call]**
 11. **A1.1:** organizations keep the board only (their Sprints tab has its own calendar); spans across days wait for start dates (A1.3). **[call]**
+12. **A1.2 (2026-11-20):** the Matrix reads the board already loaded (its scope menu and chips), choosing Matrix moves the scope to Mine; the urgent window is fixed at 3 days for now (the admin setting in Tasks ⋯ comes later), and Drop offers Move to Backlog (owners and admins, who plan sprints) but no Cancel, since tasks have no cancelled state yet. Every move has the card ⋯ "Move to box…" path. **[call]**
 
 ### 38.6 T3 · Bugs (agreed 2026-11-18)
 

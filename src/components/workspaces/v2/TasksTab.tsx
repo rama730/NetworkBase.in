@@ -13,6 +13,7 @@ import { addedTypes } from "@/lib/workflows/create-rules";
 import { FilterChipRow, type FilterChip } from "@/components/ui/FilterChipRow";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { TasksCalendar } from "@/components/workspaces/v2/tasks/TasksCalendar";
+import { TasksMatrix } from "@/components/workspaces/v2/tasks/TasksMatrix";
 import { EMPTY_FILTERS, filtersFromUrl, filtersToUrl, matchesFilters, setCount, type DueFilter, type TaskFilters as ChipFilters } from "@/lib/workspaces/task-filters";
 import { stageOf, workflowType } from "@/lib/workflows/types";
 import {
@@ -251,17 +252,23 @@ export default function TasksTab({
   const [createDue, setCreateDue] = useState<string>("");
   // Report 38.5 S1 (A1.1): Board · Calendar for people in the workspace (B11: never the public); ?view= and remembered.
   const viewKey = `nb:tasks-view:${projectId}`;
-  const [tasksView, setTasksView] = useState<"board" | "calendar">(() => {
+  const [tasksView, setTasksView] = useState<"board" | "calendar" | "matrix">(() => {
     if (typeof window === "undefined") return "board";
     const fromUrl = new URLSearchParams(window.location.search).get("view");
     let saved: string | null = null;
     try { saved = window.localStorage.getItem(viewKey); } catch { /* storage off */ }
-    return (fromUrl ?? saved) === "calendar" ? "calendar" : "board";
+    const v = fromUrl ?? saved;
+    return v === "calendar" || v === "matrix" ? v : "board";
   });
   const showViews = isProjectMember && !orgId;
   const currentView = showViews ? tasksView : "board";
   useUrlMirror({ view: currentView === "board" ? null : currentView });
-  const pickView = (next: "board" | "calendar") => { setTasksView(next); try { window.localStorage.setItem(viewKey, next); } catch { /* storage off */ } };
+  const pickView = (next: "board" | "calendar" | "matrix") => {
+    setTasksView(next);
+    // Report 11.7: a matrix is for personal prioritising, so it starts at Mine.
+    if (next === "matrix" && scope === "all") setScope("mine");
+    try { window.localStorage.setItem(viewKey, next); } catch { /* storage off */ }
+  };
   const openCreate = useCallback((type?: string) => { setCreateType(type); setShowCreateModal(true); }, []);
   // W10: N opens New on Task, Shift + N opens New ▾ (not while typing).
   useEffect(() => {
@@ -899,7 +906,7 @@ export default function TasksTab({
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className={cn("flex items-center gap-2.5", reviewing && "hidden")}>
             <h2 className="text-[20px] font-semibold tracking-tight text-foreground">
-              {currentView === "calendar" ? "Calendar" : "Board"}
+              {currentView === "calendar" ? "Calendar" : currentView === "matrix" ? "Matrix" : "Board"}
             </h2>
             {currentView === "calendar" ? null : <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
               {/* Board view dropdown §3 (D4): the view's real total; while searching or narrowing to a team, what's shown. */}
@@ -1032,7 +1039,7 @@ export default function TasksTab({
           {showViews && !reviewing ? (
             <div className="basis-full">
               <UnderlineTabs label="Tasks view" idPrefix="tasks-view" value={currentView} onChange={pickView} className="min-h-10"
-                tabs={[{ key: "board", label: "Board" }, { key: "calendar", label: "Calendar" }] as const} />
+                tabs={[{ key: "board", label: "Board" }, { key: "calendar", label: "Calendar" }, { key: "matrix", label: "Matrix" }] as const} />
             </div>
           ) : null}
           {/* Report 38.4 S5: the chip row gets its own line, so setting chips never pushes New task down. */}
@@ -1101,6 +1108,11 @@ export default function TasksTab({
                 <Plus className="size-3.5" aria-hidden="true" />New task
               </button>
             ) : null}
+          </div>
+        ) : currentView === "matrix" ? (
+          <div id="tasks-view-panel-matrix" role="tabpanel" aria-labelledby="tasks-view-tab-matrix">
+            <TasksMatrix projectId={projectId} tasks={filteredTasks} members={assignable} canEdit={canEditTasks} canPlanSprints={isOwner || canManageWorkflow}
+              hasMore={Boolean(hasNextPage)} onOpenTask={(task) => openTask(task)} />
           </div>
         ) : currentView === "calendar" ? (
           <div id="tasks-view-panel-calendar" role="tabpanel" aria-labelledby="tasks-view-tab-calendar">

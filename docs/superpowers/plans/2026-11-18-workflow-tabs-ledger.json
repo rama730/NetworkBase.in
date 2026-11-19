@@ -8151,6 +8151,16 @@
       "status": "live",
       "test": "tests/db/calendar.test.ts",
       "evidence": "2026-11-20: A1.1 calls checked live (off-board items shown, square today, organizations board only)."
+    },
+    {
+      "key": "38.5.call12",
+      "section": "38.5",
+      "text": "A1.2 (2026-11-20): the Matrix reads the board already loaded (its scope menu and chips), choosing Matrix moves the scope to Mine; the urgent window is fixed at ",
+      "kind": "call",
+      "milestone": "A1",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

@@ -63,3 +63,49 @@ export function monthRange(month: string) {
 
 /** Moving an item to another day keeps the time of day it was stored with (UTC midnight for date-only). */
 export const dueOn = (key: string) => `${key}T00:00:00.000Z`;
+
+/**
+ * Report 11.7 and 38.5 T1 part 7 (plan A1.2): the Matrix. Important = High or Urgent priority; urgent = due within
+ * `urgentDays` days or overdue (a calendar day); no date is never urgent. Done items and projects sit in no box.
+ */
+export type MatrixBox = "do" | "schedule" | "delegate" | "drop";
+export const MATRIX_BOXES: Array<{ id: MatrixBox; name: string; important: boolean; urgent: boolean }> = [
+  { id: "do", name: "Do first", important: true, urgent: true },
+  { id: "schedule", name: "Schedule", important: true, urgent: false },
+  { id: "delegate", name: "Delegate", important: false, urgent: true },
+  { id: "drop", name: "Drop", important: false, urgent: false },
+];
+type MatrixTask = { status: string; priority?: string | null; dueDate?: string | null; itemType?: string };
+
+export function matrixBox(task: MatrixTask, today: string, urgentDays = 3): MatrixBox | null {
+  if (task.status === "done" || task.itemType === "project") return null;
+  const important = task.priority === "high" || task.priority === "urgent";
+  const due = taskDueDateKey(task.dueDate);
+  const urgent = due !== null && due <= addDays(today, urgentDays);
+  return MATRIX_BOXES.find((b) => b.important === important && b.urgent === urgent)!.id;
+}
+
+/** Inside a box: soonest due first (no date last), then the higher priority. */
+export function matrixOrder<T extends MatrixTask>(tasks: T[]) {
+  const rank = (p?: string | null) => ["urgent", "high", "medium", "low"].indexOf(p ?? "medium");
+  return [...tasks].sort((a, b) => (taskDueDateKey(a.dueDate) ?? "9999").localeCompare(taskDueDateKey(b.dueDate) ?? "9999") || rank(a.priority) - rank(b.priority));
+}
+
+/**
+ * What moving a task from one box to another changes (11.7 part 5): up or down sets priority (High / Medium); into the
+ * urgent column needs a due date (the picker); out of it, the date is cleared or pushed past the urgent window.
+ */
+export function matrixMove(from: MatrixBox, to: MatrixBox) {
+  const a = MATRIX_BOXES.find((b) => b.id === from)!;
+  const b = MATRIX_BOXES.find((x) => x.id === to)!;
+  return {
+    priority: a.important === b.important ? null : b.important ? "high" : "medium",
+    due: a.urgent === b.urgent ? null : b.urgent ? ("pick" as const) : ("clear-or-push" as const),
+  };
+}
+
+/** The date picker's quick choices and "push" for leaving the urgent column. */
+export const urgentChoices = (today: string) => [
+  { label: "Today", key: today }, { label: "Tomorrow", key: addDays(today, 1) }, { label: "In 3 days", key: addDays(today, 3) },
+];
+export const pushedPast = (today: string, urgentDays = 3) => addDays(today, urgentDays + 4);
