@@ -13,10 +13,11 @@ import { toast } from "@/lib/feedback";
 import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
 import { liveTopics } from "@/lib/realtime/subscriptions";
 import { cn } from "@/lib/utils";
+import { formatTaskId } from "@/lib/workspace-key";
 import { orderRows } from "@/lib/workspaces/doc-live-blocks";
 
 const rowsKey = (projectId: string, docSlug: string, blockKey: string) => ["doc-rows", projectId, docSlug, blockKey] as const;
-const addWord = (label: string) => (/action item/i.test(label) ? "action item" : /step/i.test(label) ? "step" : "item");
+const addWord = (label: string) => (/action item/i.test(label) ? "action item" : /checklist|step/i.test(label) ? "step" : "item");
 const dayIso = (offsetDays: number) => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); d.setUTCDate(d.getUTCDate() + offsetDays); return d.toISOString(); };
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 
@@ -78,12 +79,12 @@ export function WorkspaceDocLiveBlock({ projectId, projectSlug, docSlug, blockKe
         ) : !data ? (
           <p className="p-2 text-[13px] text-muted-foreground">Couldn’t load these items · <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => void refresh()}>Try again</button></p>
         ) : !data.canSeeTasks ? (
-          <p className="p-2 text-[13px] text-muted-foreground">{label} are visible to members.</p>
+          <p className="p-2 text-[13px] text-muted-foreground">Items in this list are visible to members.</p>
         ) : (
           <>
-            {data.rows.length === 0 && !adding ? <p className="px-2 py-2 text-[13px] text-muted-foreground">No {label.toLowerCase()} yet</p> : null}
+            {data.rows.length === 0 && !adding ? <p className="px-2 py-2 text-[13px] text-muted-foreground">No {word}s yet</p> : null}
             <ul>
-              {shown.map((row, i) => <Row key={row.id} row={row} projectSlug={projectSlug} canEdit={data.canAdd} first={i === 0} last={i === shown.length - 1}
+              {shown.map((row, i) => <Row key={row.id} row={row} taskKey={formatTaskId(data.projectKey, row.number)} projectSlug={projectSlug} canEdit={data.canAdd} first={i === 0} last={i === shown.length - 1}
                 onTick={() => void tick(row)} onMove={(direction) => void act(() => moveDocRowAction(projectId, { docSlug, taskId: row.id, direction }))}
                 onDetach={() => void act(() => detachDocRowAction(projectId, { docSlug, taskId: row.id }))} />)}
             </ul>
@@ -92,7 +93,7 @@ export function WorkspaceDocLiveBlock({ projectId, projectSlug, docSlug, blockKe
                 <button type="button" aria-expanded={showFolded} onClick={() => setShowFolded(!showFolded)} className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground">
                   <ChevronDown aria-hidden="true" className={cn("size-3 transition-transform duration-[180ms]", !showFolded && "-rotate-90")} />Completed ({folded.length})
                 </button>
-                {showFolded ? <ul>{folded.map((row) => <Row key={row.id} row={row} projectSlug={projectSlug} canEdit={false} first last onTick={() => void tick(row)} onMove={() => undefined} onDetach={() => undefined} />)}</ul> : null}
+                {showFolded ? <ul>{folded.map((row) => <Row key={row.id} row={row} taskKey={formatTaskId(data.projectKey, row.number)} projectSlug={projectSlug} canEdit={false} first last onTick={() => void tick(row)} onMove={() => undefined} onDetach={() => undefined} />)}</ul> : null}
               </div>
             ) : null}
             {data.hidden ? <p className="px-2 py-1 text-[12px] text-muted-foreground">{data.hidden} more {data.hidden === 1 ? "item" : "items"} you can’t see</p> : null}
@@ -100,7 +101,7 @@ export function WorkspaceDocLiveBlock({ projectId, projectSlug, docSlug, blockKe
               ? <AddRow projectId={projectId} onCancel={() => setAdding(false)} word={word}
                   onAdd={async (row) => { const r = await addDocRowAction(projectId, { docSlug, blockKey, ...row }); if (!r.success) { toast.error(r.error); return false; } await refresh(); return true; }} />
               : <button type="button" onClick={() => setAdding(true)} className="nb-touch-target flex items-center gap-1.5 px-2 py-2 text-[13px] text-muted-foreground hover:text-foreground"><Plus aria-hidden="true" className="size-3.5" />Add {word}</button>)
-              : <p className="px-2 py-1.5 text-[12px] text-muted-foreground">Only people who can edit this document add items here.</p>}
+              : data.member ? <p className="px-2 py-1.5 text-[12px] text-muted-foreground">Only people who can edit this document add items here.</p> : null}
           </>
         )}
       </div>
@@ -108,8 +109,8 @@ export function WorkspaceDocLiveBlock({ projectId, projectSlug, docSlug, blockKe
   );
 }
 
-function Row({ row, projectSlug, canEdit, first, last, onTick, onMove, onDetach }: {
-  row: DocRow; projectSlug: string; canEdit: boolean; first: boolean; last: boolean; onTick: () => void; onMove: (direction: "up" | "down") => void; onDetach: () => void;
+function Row({ row, taskKey, projectSlug, canEdit, first, last, onTick, onMove, onDetach }: {
+  row: DocRow; taskKey: string; projectSlug: string; canEdit: boolean; first: boolean; last: boolean; onTick: () => void; onMove: (direction: "up" | "down") => void; onDetach: () => void;
 }) {
   const href = `/workspaces/${encodeURIComponent(projectSlug)}?tab=tasks&drawerType=task&drawerId=${row.id}`;
   const done = row.status === "done";
@@ -120,7 +121,7 @@ function Row({ row, projectSlug, canEdit, first, last, onTick, onMove, onDetach 
         onChange={onTick} aria-label={`${done ? "Mark as not done" : "Complete"}: ${row.title}`} />
       <a href={href} className={cn("min-w-0 flex-1 truncate text-[13px] text-foreground hover:underline", done && !inReview && "text-muted-foreground line-through")}>{row.title}</a>
       {inReview ? <span className="text-[11px] text-muted-foreground">In review</span> : null}
-      {row.number ? <span className="font-mono text-[11px] text-muted-foreground">#{row.number}</span> : null}
+      {taskKey || row.number ? <span className="font-mono text-[11px] text-muted-foreground">{taskKey || `#${row.number}`}</span> : null}
       {row.assignee ? <span className="max-w-[8rem] truncate text-[12px] text-muted-foreground">{row.assignee.name ?? "Someone"}</span> : null}
       {row.dueDate ? <span className="font-mono text-[11px] text-muted-foreground">{shortDate(row.dueDate)}</span> : null}
       {canEdit ? (

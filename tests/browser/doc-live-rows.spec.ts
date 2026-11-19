@@ -5,9 +5,9 @@ import { axeViolations } from './axe';
 
 // Report 38.3 F2 (plan A0.5): rows are tasks; ticking changes the task, never the text; editors add, move and detach;
 // readers without Tasks see the frame only; the Insert menu writes one block line with a fresh key.
-async function open(page: Page, { canAdd = true, canSeeTasks = true, width = 1280, theme = 'light' } = {}) {
+async function open(page: Page, { canAdd = true, canSeeTasks = true, member = true, width = 1280, theme = 'light' } = {}) {
   await page.setViewportSize({ width, height: 900 });
-  await page.addInitScript(({ canAdd, canSeeTasks }) => {
+  await page.addInitScript(({ canAdd, canSeeTasks, member }) => {
     const row = (id: string, title: string, position: number, extra = {}) => ({ id, number: position + 10, title, status: 'todo', reviewStatus: 'none', dueDate: null, completedAt: null, position, itemType: 'task', assignee: null, canTick: true, ...extra });
     const rows = [row('a', 'Send the deck', 0, { assignee: { id: 'u1', name: 'Asha', avatarUrl: null }, dueDate: '2026-11-26T00:00:00.000Z' }), row('b', 'Book the room', 1)];
     const calls: unknown[] = [];
@@ -15,7 +15,7 @@ async function open(page: Page, { canAdd = true, canSeeTasks = true, width = 128
     (window as any).__actions = {
       listWorkspaceDocsAction: async () => ({ success: true, docs: [{ id: 'd1', slug: 'weekly', filename: 'Weekly.md', linkedNodeId: 'n1' }] }),
       getWorkspaceMembersAction: async () => ({ success: true, members: [{ id: 'u1', fullName: 'Asha', membershipRole: 'member' }, { id: 'u2', fullName: 'Vic', membershipRole: 'viewer' }], hasMore: false }),
-      readDocRowsAction: async () => ({ success: true, hidden: canSeeTasks ? 0 : rows.length, canAdd, canSeeTasks, rows: canSeeTasks ? rows.map((r) => ({ ...r })) : [] }),
+      readDocRowsAction: async () => ({ success: true, hidden: canSeeTasks ? 0 : rows.length, canAdd, canSeeTasks, member, projectKey: 'WT', rows: canSeeTasks ? rows.map((r) => ({ ...r })) : [] }),
       readDocRowKeysAction: async () => ({ success: true, keys: [{ key: 'k7f3', count: 2 }, { key: 'old1', count: 1 }] }),
       updateTaskStatusAction: async (id: string, status: string) => {
         calls.push(['status', id, status]);
@@ -40,7 +40,7 @@ async function open(page: Page, { canAdd = true, canSeeTasks = true, width = 128
         return { success: true };
       },
     };
-  }, { canAdd, canSeeTasks });
+  }, { canAdd, canSeeTasks, member });
   await openApp(page, 'tests/browser/doc-live-rows.fixture.tsx', { head: theme === 'dark' ? "document.documentElement.classList.add('dark')" : '' });
 }
 const block = (page: Page) => page.getByRole('region', { name: 'Action items' });
@@ -51,6 +51,7 @@ test('S3 + W4: rows show who and when; ticking completes the task with Undo, the
   await expect(block(page)).toContainText('2 open · 0 completed');
   await expect(block(page)).toContainText('Asha');
   await expect(block(page)).toContainText('Nov 26');
+  await expect(block(page)).toContainText('WT-10');
   await page.screenshot({ path: 'test-results/doc-live-rows/block-light.png' });
   await block(page).getByRole('checkbox', { name: 'Complete: Send the deck' }).click();
   await expect(block(page).getByRole('checkbox', { name: 'Mark as not done: Send the deck' })).toBeChecked();
@@ -94,8 +95,11 @@ test('B9 + W12: a reader who can’t edit gets no Add; Tasks private shows the f
   await expect(block(page)).toContainText('Only people who can edit this document add items here.');
   await expect(block(page).getByRole('button', { name: /Options for/ })).toHaveCount(0);
   await open(page, { canSeeTasks: false });
-  await expect(block(page)).toContainText('Action items are visible to members.');
+  await expect(block(page)).toContainText('Items in this list are visible to members.');
   await expect(block(page).getByRole('checkbox')).toHaveCount(0);
+  await open(page, { canAdd: false, member: false });
+  await expect(block(page)).toContainText('Send the deck');
+  await expect(block(page).getByText(/Only people who can edit/)).toHaveCount(0);
 });
 
 test('S5: Insert → Action items writes one block line with a fresh 4–6 character key', async ({ page }) => {

@@ -1263,7 +1263,7 @@ export async function readDocRowsAction(projectId: string, docSlug: string, bloc
         const { rows, hidden: tabHidden } = visibleRows(readable, { canSeeTasks });
         const hidden = tabHidden + all.length - readable.length;
         return {
-            success: true as const, hidden, canAdd: canAddRows(context.permission), canSeeTasks,
+            success: true as const, hidden, canAdd: canAddRows(context.permission), canSeeTasks, projectKey: context.project.key ?? null, member: insider,
             rows: rows.map((r): DocRow => ({
                 id: r.id, number: r.number, title: r.title, status: r.status, reviewStatus: r.reviewStatus, itemType: r.itemType,
                 dueDate: r.dueDate ? r.dueDate.toISOString() : null, completedAt: r.completedAt ? r.completedAt.toISOString() : null, position: r.position,
