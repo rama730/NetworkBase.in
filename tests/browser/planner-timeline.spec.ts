@@ -100,6 +100,10 @@ test('W2: drawing across the empty row opens the bubble; Enter creates a project
   await page.mouse.up();
   const bubble = page.getByRole('dialog', { name: 'New project' });
   await expect(bubble).toContainText('Nov 26 → Nov 30');
+  // The bubble sits inside the grid's frame, never clipped by it.
+  const frame = (await page.getByTestId('timeline-grid').boundingBox())!;
+  const create = (await bubble.getByRole('button', { name: 'Create' }).boundingBox())!;
+  expect(create.y + create.height).toBeLessThanOrEqual(frame.y + frame.height);
   await bubble.getByLabel('Project name').fill('Launch party');
   await page.keyboard.press('Enter');
   await expect.poll(() => calls(page)).toEqual([['create', 'Launch party', 'project', '2026-11-26', '2026-11-30', 'u1']]);

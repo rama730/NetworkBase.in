@@ -174,7 +174,7 @@ export function PlannerTimeline({ projectId, canEdit, sprints, viewerId, onOpen,
         <div role="group" aria-label="Zoom" className="inline-flex rounded-[5px] border border-border p-0.5">
           {ZOOMS.map((z) => (
             <button key={z} type="button" aria-pressed={zoom === z} onClick={() => setZoom(z)}
-              className={cn("h-7 rounded-[3px] px-2.5 text-xs capitalize", zoom === z ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>{z}</button>
+              className={cn("h-7 rounded-[3px] px-2.5 text-xs", zoom === z ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>{z[0]!.toUpperCase() + z.slice(1)}</button>
           ))}
         </div>
         <div className="inline-flex items-center">
@@ -226,7 +226,7 @@ export function PlannerTimeline({ projectId, canEdit, sprints, viewerId, onOpen,
           </div>
 
           <div ref={grid} className="relative min-w-0 flex-1 overflow-x-auto" data-testid="timeline-grid">
-            <div className="relative" style={{ width: range.days * px, height: HEAD + height }}>
+            <div className="relative" style={{ width: range.days * px, height: HEAD + height + (draw?.done ? 112 : 0) }}>
               {weekends.map((i) => <div key={i} aria-hidden="true" className="absolute bottom-0 bg-muted/50" style={{ left: i * px, width: px, top: HEAD }} />)}
               <div className="sticky top-0 h-12 border-b border-border" aria-hidden="true">
                 {months.map((k) => <span key={k} className="absolute top-1 whitespace-nowrap pl-1 text-[11px] font-semibold text-foreground" style={{ left: xOf(k) }}>{new Date(`${k}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" })}</span>)}
@@ -297,9 +297,9 @@ export function PlannerTimeline({ projectId, canEdit, sprints, viewerId, onOpen,
                           void saveDates(p, p.startDate && !endOnly ? addDayKeys(d.s, n) : null, addDayKeys(d.e, n));
                         }}
                         className={cn("relative flex h-full items-center gap-1.5 overflow-hidden rounded-[4px] border bg-card px-2 text-[12px] shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring", canEdit && "cursor-grab", startsEarly ? "border-amber-600" : "border-border", drag?.id === p.id && "cursor-grabbing opacity-90")}>
-                        <span className="min-w-0 truncate font-medium">{p.title}</span>
-                        {startsEarly ? <span className="shrink-0 truncate text-[11px] text-amber-700 dark:text-amber-400">Starts before {titleOf(startsEarly.blocker)} ends</span>
-                          : waiting && p.stage === "in_progress" ? <span className="shrink-0 truncate text-[11px] text-amber-700 dark:text-amber-400">Blocked by {waiting.title}</span> : null}
+                        <span className="min-w-[40%] truncate font-medium">{p.title}</span>
+                        {startsEarly ? <span className="min-w-0 truncate text-[11px] text-amber-700 dark:text-amber-400">Starts before {titleOf(startsEarly.blocker)} ends</span>
+                          : waiting && p.stage === "in_progress" ? <span className="min-w-0 truncate text-[11px] text-amber-700 dark:text-amber-400">Blocked by {waiting.title}</span> : null}
                         <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">{p.completion.percent}%</span>
                         <span aria-hidden="true" className="absolute bottom-0 left-0 h-0.5 bg-primary" style={{ width: `${p.completion.percent}%` }} />
                         {canEdit ? <>
