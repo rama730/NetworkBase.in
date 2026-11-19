@@ -56,6 +56,6 @@ test("moves between custom sections in the same status remain auditable", () => 
     "assignTaskAction",
   );
   assert.match(moveColumn, /columnId: workflowColumnId/);
-  assert.match(transition, /locked\.currentWorkflowColumnId !== \(column\?\.id \?\? null\)/);
+  assert.match(transition, /locked\.currentWorkflowColumnId !== \(onBoard \? column\?\.id \?\? null : null\)/);
   assert.match(transition, /"workflow_column_changed"/);
 });

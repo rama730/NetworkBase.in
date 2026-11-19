@@ -20,7 +20,7 @@ import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
 import { assertAssignmentWrite } from "@/lib/organizations/assignments";
 import { viaPayload } from "@/lib/server/request-via";
 import { stageOf } from "@/lib/workflows/types";
-import { boardMove, isOnBoard } from "@/lib/workflows/rules";
+import { boardMove, isOnBoard, reviewStage } from "@/lib/workflows/rules";
 
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
 export function taskActorSnapshot(user: {
@@ -335,16 +335,18 @@ export async function transitionTaskTx(
   const updatedAt = new Date();
   // Call 5, B2, B3: the stage changes only at the board's edges, and a done stage waits for approval.
   const stage = !typed ? undefined
-    : outcome === "submitted" ? locked.stage
+    : outcome === "submitted" ? reviewStage(locked.itemType, locked.stage)
     : target ? target.key
     : boardMove(locked.itemType, locked.stage, status, false).stage;
+  // An item whose stage is off the board has no column, whatever status it was given.
+  const onBoard = stage === undefined || isOnBoard(locked.itemType, stage);
   await tx
     .update(tasks)
     .set({
-      workflowColumnId: column?.id ?? null,
+      workflowColumnId: onBoard ? column?.id ?? null : null,
       status,
       reviewStatus,
-      ...(stage !== undefined && { stage, onBoard: isOnBoard(locked.itemType, stage) }),
+      ...(stage !== undefined && { stage, onBoard }),
       ...(outcome === "submitted" && {
         reviewSubmittedAt: updatedAt,
         reviewContentHash,
@@ -371,7 +373,7 @@ export async function transitionTaskTx(
     .where(eq(tasks.id, input.taskId));
 
   const statusChanged = locked.currentStatus !== status;
-  const columnChanged = locked.currentWorkflowColumnId !== (column?.id ?? null);
+  const columnChanged = locked.currentWorkflowColumnId !== (onBoard ? column?.id ?? null : null);
   const stageChanged = stage !== undefined && stage !== locked.stage;
   let activityEventId: string | null = null;
   if (statusChanged || columnChanged || stageChanged || input.resubmit || outcome === "changes_requested") {

@@ -152,6 +152,37 @@ test("with review on, Completed waits: the stage stays Fixing until approval, th
   assert.deepEqual([(await row(id)).stage, (await row(id)).review_status], ["fixed", "none"]);
 });
 
+test("a status change on an off-board item (opened from a link) puts it on a real stage, never half on the board", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const id = await bug(t.ws, t.owner);
+  assert.equal((await actions.updateTaskStatusAction(id, "in_progress", t.ws)).success, true);
+  const moved = await row(id);
+  assert.deepEqual([moved.status, moved.stage, moved.on_board, Boolean(moved.workflow_column_id)], ["in_progress", "fixing", true, true]);
+  assert.ok((await boardIds(t.ws)).includes(id));
+
+  const stays = await bug(t.ws, t.owner);
+  assert.equal((await actions.updateTaskStatusAction(stays, "todo", t.ws)).success, true);
+  assert.deepEqual(await row(stays), { status: "todo", stage: "new", on_board: false, workflow_column_id: null, sprint_id: null, review_status: "none" });
+});
+
+test("with review on, a done stage chosen from off the board waits on the board, where reviewers see it", async () => {
+  const t = await workspace({ review: true });
+  viewerId = t.owner;
+  const id = await bug(t.ws, t.owner, "confirmed");
+  assert.equal((await actions.setTaskStageAction({ taskId: id, projectId: t.ws, stage: "fixed" })).success, true);
+  const waiting = await row(id);
+  assert.deepEqual([waiting.status, waiting.stage, waiting.on_board, waiting.review_status, Boolean(waiting.workflow_column_id)], ["done", "fixing", true, "pending", true]);
+  assert.ok((await boardIds(t.ws)).includes(id));
+  assert.equal((await actions.approveTaskReviewAction(id, t.ws)).success, true);
+  assert.equal((await row(id)).stage, "fixed");
+
+  const other = await bug(t.ws, t.owner);
+  assert.equal((await actions.updateTaskStatusAction(other, "done", t.ws)).success, true);
+  const sent = await row(other);
+  assert.deepEqual([sent.stage, sent.on_board, sent.review_status], ["fixing", true, "pending"]);
+});
+
 test("closing stages finish off the board without review; unknown stages and workspaces without workflows are refused", async () => {
   const t = await workspace({ review: true });
   viewerId = t.owner;

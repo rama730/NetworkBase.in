@@ -47,6 +47,19 @@ test("boardMove changes the stage only at the edges (call 5, B2, B3)", () => {
   assert.deepEqual(boardMove("task", null, "done", true), { stage: null, status: "done", review: true });
 });
 
+test("boardMove from an off-board stage (a status change from the panel, bulk, undo or GitHub) lands on a real stage", () => {
+  assert.deepEqual(boardMove("bug", "new", "in_progress", false), { stage: "fixing", status: "in_progress", review: false });
+  assert.deepEqual(boardMove("bug", "confirmed", "blocked", false), { stage: "fixing", status: "blocked", review: false });
+  assert.deepEqual(boardMove("bug", "new", "done", false), { stage: "fixed", status: "done", review: false });
+  assert.deepEqual(boardMove("bug", "new", "done", true), { stage: "fixing", status: "done", review: true });
+  assert.deepEqual(boardMove("bug", "new", "todo", false), { stage: "new", status: "todo", review: false });
+  assert.deepEqual(boardMove("bug", "wont_fix", "in_progress", false), { stage: "fixing", status: "in_progress", review: false });
+  assert.deepEqual(boardMove("request", "new", "todo", false), { stage: "accepted", status: "todo", review: false });
+  assert.deepEqual(boardMove("request", "new", "in_progress", false), { stage: "in_progress", status: "in_progress", review: false });
+  assert.deepEqual(boardMove("content", "idea", "in_progress", false), { stage: "drafting", status: "in_progress", review: false });
+  assert.deepEqual(boardMove("content", "idea", "todo", false), { stage: "idea", status: "todo", review: false });
+});
+
 test("defaultStageFor: Tasks opens at the join stage, the own tab at the first", () => {
   assert.equal(defaultStageFor("bug", "tasks"), "fixing");
   assert.equal(defaultStageFor("bug", "own"), "new");
