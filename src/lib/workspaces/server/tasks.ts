@@ -1,5 +1,9 @@
 import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter, readAssignmentStages, readCopyMoves, readMasterProgress } from "@/lib/organizations/assignments";
 import { assignmentWriteBlock, type AssignmentTarget } from "@/lib/organizations/assignment-rules";
+import { WORKFLOW_CATALOG } from "@/lib/workflows/catalog";
+import { startingStages, typeFieldsSchema } from "@/lib/workflows/create-rules";
+import { defaultStageFor, isOnBoard, statusForStage } from "@/lib/workflows/rules";
+import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { orgCan, orgRoleOf } from "@/lib/organizations/permissions";
 import { assignmentPeopleOf, notifyAssignmentRemoved } from "@/lib/organizations/assignment-notify";
 import { logger } from "@/lib/logger";
@@ -14,7 +18,7 @@ const LIST_SCOPES: TaskListScope[] = ["backlog", "sprint", "review", "assignment
 import { type WorkspaceAccess, getWorkspaceAccessById, canReadWorkspaceTab, WorkspaceTabForbiddenError, getWorkspaceAccessByIdentifier, assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { normalizeSearchQuery, containsLikePattern, escapeLikePattern, tokenizeSearchQuery } from "@/lib/search/query";
 import { sql, eq, and, or, isNull, isNotNull, ilike, desc, inArray, type SQL } from "drizzle-orm";
-import { tasks, taskReadReceipts, workspaceDocuments, workspaces, workspaceMembers, roleApplications, workspaceOpenRoles, workspaceSprints, workspaceWorkflowColumns, sprintTaskMemberships, taskActivityEvents, workspaceNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
+import { tasks, taskReadReceipts, workspaceDocuments, workspaceWorkflows, workspaces, workspaceMembers, roleApplications, workspaceOpenRoles, workspaceSprints, workspaceWorkflowColumns, sprintTaskMemberships, taskActivityEvents, workspaceNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { db } from "@/lib/db";
@@ -1072,7 +1076,39 @@ const createTaskSchema = baseCreateTaskSchema.extend({
     .max(100)
     .optional(),
   attachmentNodeIds: z.array(z.string().uuid()).max(100).optional(),
+  // Report 38.4 part 6: one create for every type (F1); a plain task leaves these out.
+  itemType: z.string().regex(/^[a-z_]{1,40}$/).optional(),
+  stage: z.string().regex(/^[a-z_]{1,40}$/).nullable().optional(),
+  typeFields: z.record(z.string(), z.unknown()).optional(),
 });
+
+const orList = (words: string[]) => (words.length > 1 ? `${words.slice(0, -1).join(", ")} or ${words.at(-1)}` : words[0] ?? "");
+
+/**
+ * Report 38.4 part 6, in order: the type's workflow is added and not hidden (F1); the stage is one people may start at;
+ * the fields are the type's. A hidden type says so, so the module can offer Create as task (W8).
+ */
+async function checkNewItemType(projectId: string, userId: string, type: string, stage: string | null, fields: Record<string, unknown>) {
+  const t = WORKFLOW_TYPES[type];
+  if (!t) return { error: `There’s no “${type}” type. Use one of: ${Object.keys(WORKFLOW_TYPES).join(", ")}` } as const;
+  const entry = WORKFLOW_CATALOG.find((w) => w.types.includes(type));
+  const name = entry?.name ?? t.label;
+  const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+  if (!entry || !(await readWorkspaceWorkflows(projectId, userId)).added.some((w) => w.workflow === entry.id)) {
+    const [hidden] = entry ? await db.select({ id: workspaceWorkflows.id }).from(workspaceWorkflows)
+      .where(and(eq(workspaceWorkflows.workspaceId, projectId), eq(workspaceWorkflows.workflow, entry.id), isNotNull(workspaceWorkflows.hiddenAt))).limit(1) : [];
+    return hidden ? { error: `${name} was removed from this workspace`, code: "type_removed" } as const : { error: `${name} isn’t in this workspace` } as const;
+  }
+  const starts = startingStages(type);
+  const chosen = stage ?? defaultStageFor(type, "tasks");
+  if (!chosen || !starts.some((s) => s.key === chosen)) return { error: `A new ${t.label.toLowerCase()} starts at ${orList(starts.map((s) => s.label))}` } as const;
+  const parsed = typeFieldsSchema(type).safeParse(fields);
+  if (!parsed.success) {
+    const keys = parsed.error.issues.flatMap((i) => ("keys" in i ? (i.keys as string[]) : i.path.map(String)));
+    return { error: `${t.label} has no field ${keys.map((k) => `“${k}”`).join(", ") || "like that"}` } as const;
+  }
+  return { stage: chosen, fields: parsed.data } as const;
+}
 
 
 export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
@@ -1093,9 +1129,24 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     if (access.project.kind === "organization" && !orgCan(orgRoleOf(access.memberRole, access.isOwner), "create_org_tasks")) {
       throw new Error("Only owners and admins add tasks here.");
     }
-    // Decision 146: owners and admins plan sprints.
+    const itemType = validated.itemType ?? "task";
+    let stage: string | null = null;
+    let typeFields: Record<string, unknown> = {};
+    if (itemType !== "task") {
+      const placed = await checkNewItemType(validated.projectId, user.id, itemType, validated.stage ?? null, validated.typeFields ?? {});
+      if ("error" in placed) return { success: false, error: placed.error, ...("code" in placed ? { code: placed.code } : {}) };
+      stage = placed.stage;
+      typeFields = placed.fields;
+      // The stage sets the status; a sprint only means something on the board.
+      validated.status = statusForStage(itemType, stage);
+      if (!isOnBoard(itemType, stage)) validated.sprintId = null;
+    }
+    const onBoard = itemType === "task" || isOnBoard(itemType, stage);
+    // Decision 146 and report 38.4 call 3: owners and admins plan sprints; a member's pick goes to the Backlog instead.
+    let backlogged = false;
     if (validated.sprintId && !ownerOrAdmin) {
-      throw new Error("Only owners and admins can add tasks to a sprint");
+      validated.sprintId = null;
+      backlogged = true;
     }
 
     if (validated.assigneeId) {
@@ -1185,6 +1236,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
           storyPoints: validated.storyPoints,
           dueDate: validated.dueDate ? new Date(validated.dueDate) : null,
           taskNumber: nextTaskNumber,
+          ...(itemType !== "task" ? { itemType, stage, typeFields, onBoard } : {}),
         })
         .returning({ id: tasks.id });
 
@@ -1400,7 +1452,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       );
     }
 
-    return { success: true, task: normalizeTaskSurfaceRecord(hydratedTask) };
+    return { success: true, task: normalizeTaskSurfaceRecord(hydratedTask), ...(backlogged ? { backlogged } : {}) };
   } catch (error) {
     console.error("Failed to create task:", error);
     const message =

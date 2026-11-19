@@ -37,7 +37,8 @@ describe("sprint lifecycle and history integrity contract", () => {
 
   // Decision 146: owners and admins both plan sprints, in organizations and normal workspaces.
   it("keeps Sprint assignment and lifecycle mutations on the same owner-and-admin boundary", () => {
-    assert.match(projectActions, /Only owners and admins can add tasks to a sprint/);
+    // Report 38.4 call 3: a member's sprint pick goes to the Backlog instead of failing; owners and admins keep it.
+    assert.match(projectActions, /if \(validated\.sprintId && !ownerOrAdmin\) \{\s*validated\.sprintId = null;\s*backlogged = true;/);
     assert.match(taskActions, /Only owners and admins can change sprint assignments/);
     assert.match(projectActions, /eq\(workspaceSprints\.status, "active"\)/);
   });

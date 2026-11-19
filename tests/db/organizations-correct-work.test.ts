@@ -314,7 +314,7 @@ test("decision 87 and problem 31: only owners and admins add tasks to an organiz
   assert.equal(made.success, true, JSON.stringify(made));
 });
 
-test("decision 146 guard (41.6): in a normal workspace an admin adds a task to a sprint; a member still can't", async () => {
+test("decision 146 guard (41.6): in a normal workspace an admin adds a task to a sprint; a member's goes to the Backlog", async () => {
   const [owner, admin, member] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
   const project = await sql.begin((tx) => createProject(tx, owner!));
   created.push(project);
@@ -324,7 +324,11 @@ test("decision 146 guard (41.6): in a normal workspace an admin adds a task to a
   const made = await tasks.createTaskAction({ projectId: project, title: "Ship it", status: "todo", priority: "medium", sprintId: sprint!.id });
   assert.equal(made.success, true, JSON.stringify(made));
   viewerId = member!;
-  assert.equal((await tasks.createTaskAction({ projectId: project, title: "Mine", status: "todo", priority: "medium", sprintId: sprint!.id })).success, false);
+  // Report 38.4 call 3: a member's sprint pick lands in the Backlog instead of failing.
+  const mine = await tasks.createTaskAction({ projectId: project, title: "Mine", status: "todo", priority: "medium", sprintId: sprint!.id });
+  assert.deepEqual([mine.success, (mine as { backlogged?: boolean }).backlogged], [true, true]);
+  const [placed] = await sql`SELECT sprint_id FROM tasks WHERE workspace_id = ${project} AND title = 'Mine'`;
+  assert.equal(placed!.sprint_id, null);
   assert.equal((await tasks.createTaskAction({ projectId: project, title: "Mine", status: "todo", priority: "medium" })).success, true, "members still add tasks to a normal board");
 });
 

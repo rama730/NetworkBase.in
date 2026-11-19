@@ -6,7 +6,11 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { readWorkspaceUnitsAction } from "@/app/actions/child-units";
 import { TeamTaskDialog } from "@/components/organizations/TeamTaskDialog";
-import { Plus, Check, Search, X, MoreHorizontal, Laptop } from "lucide-react";
+import { Plus, Check, Search, X, MoreHorizontal, Laptop, ChevronDown } from "lucide-react";
+import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
+import { workflowIcon } from "@/components/workspaces/workflows/workflow-icons";
+import { addedTypes } from "@/lib/workflows/create-rules";
+import { stageOf, workflowType } from "@/lib/workflows/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -236,6 +240,26 @@ export default function TasksTab({
   const sprintPaths = useMemo(() => new Map(normalizeSprintOptions(sprints as never[]).map((s) => [s.id, s.name])), [sprints]);
   // Kept apart from startCreateKind: onCreateStarted clears the intent, which would flip New → Assignment back to Task.
   const [createKind, setCreateKind] = useState<"task" | "assignment">("task");
+  // Report 38.4 S1: the types the workspace's workflows add; New ▾ lists them and the module shows them as tabs.
+  const itemTypes = addedTypes(useAddedWorkflows());
+  const [createType, setCreateType] = useState<string | undefined>(undefined);
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const openCreate = useCallback((type?: string) => { setCreateType(type); setShowCreateModal(true); }, []);
+  // W10: N opens New on Task, Shift + N opens New ▾ (not while typing).
+  useEffect(() => {
+    if (!canCreateTasks) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.key.toLowerCase() !== "n") return;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (document.querySelector("[role=dialog]")) return;
+      event.preventDefault();
+      if (event.shiftKey && itemTypes.length) setNewMenuOpen(true);
+      else openCreate();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canCreateTasks, itemTypes.length, openCreate]);
   useEffect(() => {
     if (!startCreate) return;
     if (canCreateTasks) { setCreateKind(startCreateKind); setShowCreateModal(true); }
@@ -788,17 +812,18 @@ export default function TasksTab({
   ]);
 
   const handleCreateTask = useCallback(
-    async (data: any): Promise<{ success: boolean; error?: string }> => {
+    async (data: any): Promise<{ success: boolean; error?: string; code?: string }> => {
       try {
         const result = await createTaskAction(data);
+        const created = result.success && "task" in result ? result.task : null;
 
-        if (!result.success || !result.task) {
+        if (!created) {
           const error = result.error || "Couldn’t create task";
-          return { success: false, error };
+          return { success: false, error, ...("code" in result && result.code ? { code: result.code } : {}) };
         }
 
         const normalizedCreatedTask = withSprintContext(
-          normalizeTaskSurfaceRecord(result.task),
+          normalizeTaskSurfaceRecord(created),
         );
         patchWorkspaceTaskCaches(queryClient, projectId, normalizedCreatedTask);
         if (normalizedCreatedTask.sprintId) {
@@ -924,14 +949,44 @@ export default function TasksTab({
             </DropdownMenu>
             {/* New Task */}
             {canCreateTasks ? (
+              <div className="inline-flex">
               <button
                 type="button"
-                onClick={() => setShowCreateModal(true)}
-                className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:h-11"
+                onClick={() => openCreate()}
+                aria-keyshortcuts="N"
+                className={cn("nb-touch-target inline-flex h-[34px] items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:h-11", itemTypes.length > 0 && "rounded-r-none")}
               >
                 <Plus className="size-3.5" />
                 <span>New task</span>
               </button>
+              {itemTypes.length ? (
+                // Report 38.4 S1: the arrow lists every type with where it lands.
+                <DropdownMenu open={newMenuOpen} onOpenChange={setNewMenuOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" aria-label="New: choose a type" aria-keyshortcuts="Shift+N" data-testid="new-type-menu"
+                      className="nb-touch-target inline-flex h-[34px] items-center rounded-r-[5px] border-l border-primary-foreground/25 bg-primary px-2 text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:h-11">
+                      <ChevronDown className="size-3.5" aria-hidden="true" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[220px]">
+                    <DropdownMenuItem onSelect={() => openCreate()}>
+                      <Plus className="size-4" aria-hidden="true" />
+                      <span className="flex flex-col"><span className="text-[13px] font-medium">Task</span><span className="text-[11px] text-muted-foreground">On the Tasks board</span></span>
+                    </DropdownMenuItem>
+                    {itemTypes.map((type) => {
+                      const t = workflowType(type);
+                      const Icon = workflowIcon(t.icon);
+                      return (
+                        <DropdownMenuItem key={type} onSelect={() => openCreate(type)}>
+                          <Icon className="size-4" aria-hidden="true" />
+                          <span className="flex flex-col"><span className="text-[13px] font-medium">{t.label}</span><span className="text-[11px] text-muted-foreground">Joins Tasks at {stageOf(type, t.joinStage!).label}</span></span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+              </div>
             ) : null}
 
             </>}
@@ -1043,7 +1098,10 @@ export default function TasksTab({
             <AssignmentFields key={reuseFrom ?? "new"} orgId={orgId} timeZone={orgTimeZone} reuseFrom={reuseFrom} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId, dueDate }} onDraft={onDraft} onDone={onDone}
               onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
           ) : undefined}
-          onClose={() => { setShowCreateModal(false); setReuseFrom(null); setCreateKind("task"); }}
+          onClose={() => { setShowCreateModal(false); setReuseFrom(null); setCreateKind("task"); setCreateType(undefined); }}
+          types={itemTypes}
+          initialType={createType}
+          openedFrom="tasks"
           onCreate={async (value) => {
             const payload = buildTaskSubmitPayload({
               draft: value.draft,

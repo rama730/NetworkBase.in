@@ -15821,6 +15821,10 @@ F3 is how people make and open every item type F1 defines: **one New module** (2
 5. Type-only fields are kept while switching tabs and dropped only on create. **[call]**
 6. The chip row is one shared part; filters live in the URL; no saved views. **[call]**
 7. Shortcuts: `N` new task, `Shift + N` the type menu, ⌘/Ctrl + Enter create. **[call]**
+8. **A0.8 (2026-11-19):** a type tab shows for each added workflow whose type the registry defines (Bug, Request, Content today); Project and Roadmap item join when their units define them. A new item may start at its stages up to the one where it joins the board (a bug: New, Confirmed, Fixing), never at a closing one. **[call]**
+9. **A0.8:** Starts at takes the place of Status for typed items (the stage sets the status); Sprint shows only while the chosen stage is on the board, and an off-board item never keeps a sprint, on the server too. **[call]**
+10. **A0.8:** no type has its own fields yet, so "[Type] details" and the carry-over of type-only fields (call 5) arrive with each type's unit (Bug details in A2.1); the server already refuses fields a type doesn't have, naming them. **[call]**
+11. **A0.8:** the CLI and MCP `--type`/`--stage` come with A0.10 (as the plan lists); the server rule they will share (call 3: a member's sprint goes to the Backlog, `backlogged: true` in the result) is live now. **[call]**
 
 ### 38.5 T1 · Project planner and the Timeline, Calendar and Matrix views (agreed 2026-11-17)
 

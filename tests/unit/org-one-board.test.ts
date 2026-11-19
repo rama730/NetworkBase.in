@@ -25,7 +25,9 @@ test("live-fix 3: drafts are published, scheduled, sent back or deleted from the
 test("board/review report §4: New has Task and Assignment tabs; Assigned to is people only in an organization", () => {
   const modal = source("src/components/workspaces/v2/tasks/CreateTaskModal.tsx");
   assert.match(modal, /<UnderlineTabs label="What are you creating\?"/);
-  assert.match(modal, /tabs=\{\[\{ key: "task", label: "Task" \}, \{ key: "assignment", label: "Assignment" \}\] as const\}/);
+  // Report 38.4 S2: the tabs are Task, the added types, then Assignment in an organization (moduleTabs).
+  assert.match(modal, /const tabKeys = moduleTabs\(types, \{ assignment: Boolean\(renderMany\) \}\);/);
+  assert.match(modal, /key === "assignment" \? "Assignment"/);
   assert.match(modal, /const choice = renderMany \? undefined : manyOptions\.find/);
   assert.match(modal, /\{manyOptions\.length && !renderMany \? \(/);
   assert.doesNotMatch(source("src/components/workspaces/v2/TasksTab.tsx"), /<AssignmentComposer/);

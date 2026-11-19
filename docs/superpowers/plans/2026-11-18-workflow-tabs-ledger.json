@@ -8011,6 +8011,46 @@
       "status": "todo",
       "test": "",
       "evidence": "deferred to A4.1 (attendee notice) and A4.2 (agent decisions CLI)."
+    },
+    {
+      "key": "38.4.call8",
+      "section": "38.4",
+      "text": "A0.8 (2026-11-19): a type tab shows for each added workflow whose type the registry defines (Bug, Request, Content today); Project and Roadmap item join when th",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.4.call9",
+      "section": "38.4",
+      "text": "A0.8: Starts at takes the place of Status for typed items (the stage sets the status); Sprint shows only while the chosen stage is on the board, and an off-boar",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.4.call10",
+      "section": "38.4",
+      "text": "A0.8: no type has its own fields yet, so \"[Type] details\" and the carry-over of type-only fields (call 5) arrive with each type's unit (Bug details in A2.1); th",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.4.call11",
+      "section": "38.4",
+      "text": "A0.8: the CLI and MCP --type/--stage come with A0.10 (as the plan lists); the server rule they will share (call 3: a member's sprint goes to the Backlog, backlo",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

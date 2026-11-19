@@ -10,6 +10,9 @@ import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHea
 import { cn } from "@/lib/utils";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
+import { footerLine, moduleTabs, sectionsFor, sprintApplies, startingStages } from "@/lib/workflows/create-rules";
+import { defaultStageFor } from "@/lib/workflows/rules";
+import { workflowType } from "@/lib/workflows/types";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +51,7 @@ interface CreateTaskModalProps {
     draft: TaskEditorDraft;
     subtasks: TaskEditorSubtaskDraft[];
     attachments: WorkspaceNode[];
-  }) => Promise<{ success: boolean; error?: string }>;
+  }) => Promise<{ success: boolean; error?: string; code?: string }>;
   members?: any[];
   sprints?: any[];
   projectId: string;
@@ -68,6 +71,11 @@ interface CreateTaskModalProps {
   renderMany?: (many: { choice: string; title: string; description: string; sprintId: string; dueDate: string; onDraft: (carry: { title: string; description: string; sprintId: string; dueDate: string }) => void; onDone: () => void }) => React.ReactNode;
   /** Opens on this tab (+ New → Assignment). */
   initialKind?: "task" | "assignment";
+  /** Report 38.4 S2: item types the workspace's workflows add (bug, request, content); each becomes a tab. */
+  types?: string[];
+  /** Opened from Tasks (types start where they join the board) or a type's own tab (its first stage). */
+  openedFrom?: "tasks" | "own";
+  initialType?: string;
 }
 
 function getTodayDateString(): string {
@@ -107,22 +115,38 @@ export default function CreateTaskModal({
   onAssignMany,
   renderMany,
   initialKind = "task",
+  types = [],
+  openedFrom = "tasks",
+  initialType,
 }: CreateTaskModalProps) {
   // Board/review report §4: an organization's New has two tabs, Task and Assignment; what's typed carries across.
-  const [kind, setKind] = React.useState<"task" | "assignment">(renderMany ? initialKind : "task");
+  const startKind = initialType && types.includes(initialType) ? initialType : renderMany ? initialKind : "task";
+  const [kind, setKind] = React.useState<string>(startKind);
+  // A typed item (bug, request, content) starts at a stage; the stage sets where it shows (report 38.4 S2).
+  const typed = kind !== "task" && kind !== "assignment";
+  const [stage, setStage] = React.useState<string | null>(typed ? defaultStageFor(kind, openedFrom) : null);
+  const typeLabel = kind === "task" ? "Task" : kind === "assignment" ? "Assignment" : workflowType(kind).label;
   const [carry, setCarry] = React.useState({ title: "", description: "", sprintId: "", dueDate: "" });
   const formRef = React.useRef<HTMLFormElement>(null);
-  const switchKind = (next: "task" | "assignment") => {
+  const switchKind = (next: string) => {
     if (next === kind) return;
+    // Title, description, assignee, due, sprint and files stay (W3): the same form keeps them; only the stage resets.
+    setStage(next !== "task" && next !== "assignment" ? defaultStageFor(next, openedFrom) : null);
+    setTypeRemoved(false);
     if (next === "assignment" && formRef.current) {
       const read = (name: string) => String((formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "");
       setCarry({ title: read("title"), description: read("description"), sprintId: read("sprintId"), dueDate });
     }
     // Assignment form redesign: the due day comes back too.
-    if (next === "task") setDueDate(carry.dueDate);
+    if (kind === "assignment") setDueDate(carry.dueDate);
     setKind(next);
   };
-  React.useEffect(() => { if (isOpen) setKind(renderMany ? initialKind : "task"); }, [isOpen, initialKind, renderMany]);
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setKind(startKind);
+    setStage(startKind !== "task" && startKind !== "assignment" ? defaultStageFor(startKind, openedFrom) : null);
+  }, [isOpen]);
+  const [typeRemoved, setTypeRemoved] = React.useState(false);
   const many = renderMany && kind === "assignment";
   const completionPolicy = useTaskCompletionPolicy(projectId ?? "");
   const plainContentHeadings = usePlainContentHeadings();
@@ -205,6 +229,7 @@ export default function CreateTaskModal({
         description: (formData.get("description") as string) || "",
         dueDate: dueDate.trim() || null,
         storyPoints: storyPoints.trim() ? Number.parseInt(storyPoints, 10) : null,
+        ...(typed ? { itemType: kind, stage } : {}),
       };
 
       const parsed = taskEditorDraftSchema.safeParse(draft);
@@ -230,6 +255,8 @@ export default function CreateTaskModal({
       });
       if (!result.success) {
         setSubmitError(result.error || "Couldn’t create task");
+        // W8: the type was hidden while the module was open; offer to make it a task instead.
+        setTypeRemoved(result.code === "type_removed");
         return;
       }
 
@@ -244,7 +271,7 @@ export default function CreateTaskModal({
     <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
       <DialogHeader className="space-y-0.5 text-left">
         <DialogTitle className="text-base font-semibold text-foreground">
-          {renderMany ? "New" : "Create task"}
+          {renderMany && !typed ? "New" : `Create ${typeLabel.toLowerCase()}`}
         </DialogTitle>
         {/* Student check 19: screen readers hear what an assignment does (the header stays caption-free). */}
         <DialogDescription className="sr-only">
@@ -262,13 +289,15 @@ export default function CreateTaskModal({
     </div>
   );
 
-  const kindTabs = renderMany ? (
+  const tabKeys = moduleTabs(types, { assignment: Boolean(renderMany) });
+  const kindTabs = tabKeys.length > 1 ? (
     <div className="shrink-0 px-6">
       <UnderlineTabs label="What are you creating?" idPrefix="new-kind" controls={false} value={kind} onChange={switchKind}
-        tabs={[{ key: "task", label: "Task" }, { key: "assignment", label: "Assignment" }] as const} />
-      <p className="pt-2 text-[13px] text-muted-foreground">{kind === "task" ? "One piece of work for one person." : "Everyone it goes to gets their own copy to hand in."}</p>
+        tabs={tabKeys.map((key) => ({ key, label: key === "task" ? "Task" : key === "assignment" ? "Assignment" : workflowType(key).label }))} />
+      {renderMany && !typed ? <p className="pt-2 text-[13px] text-muted-foreground">{kind === "task" ? "One piece of work for one person." : "Everyone it goes to gets their own copy to hand in."}</p> : null}
     </div>
   ) : null;
+  const footer = typed ? footerLine(kind, stage, canAssignSprint) : null;
 
   return (
     <>
@@ -296,6 +325,8 @@ export default function CreateTaskModal({
           <form
             ref={formRef}
             onSubmit={handleSubmit}
+            // Report 38.4 W10: ⌘/Ctrl + Enter creates from any field.
+            onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); formRef.current?.requestSubmit(); } }}
             className="flex min-h-0 w-full flex-col"
           >
             {header}
@@ -317,7 +348,7 @@ export default function CreateTaskModal({
                 <SectionDivider title="Basics" />
 
                 <Field
-                  label="Task title"
+                  label={`${typeLabel} title`}
                   htmlFor="task-title"
                   required
                   error={fieldErrors.title}
@@ -357,6 +388,7 @@ export default function CreateTaskModal({
                 <SectionDivider title="Sprint and assignee" />
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  {sprintApplies(kind, stage) ? (
                   <Field
                     label="Sprint"
                     htmlFor="task-sprint"
@@ -399,6 +431,7 @@ export default function CreateTaskModal({
                       </p>
                     )}
                   </Field>
+                  ) : null}
 
                   <Field
                     label="Assigned to"
@@ -440,6 +473,19 @@ export default function CreateTaskModal({
                     </div>
                   </Field>
 
+                  {typed ? (
+                    <Field label="Starts at" htmlFor="task-stage">
+                      <div className="relative">
+                        <select id="task-stage" name="stage" value={stage ?? ""} onChange={(e) => setStage(e.target.value)}
+                          className={cn(inputClassName(false), "appearance-none pl-3 pr-9 cursor-pointer font-medium")}>
+                          {startingStages(kind).map((option) => (
+                            <option key={option.key} value={option.key}>{option.label}{option.onBoard ? " · on the board" : ""}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      </div>
+                    </Field>
+                  ) : (
                   <Field
                     label="Status"
                     htmlFor="task-status"
@@ -464,6 +510,7 @@ export default function CreateTaskModal({
                       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     </div>
                   </Field>
+                  )}
 
                   <Field
                     label="Priority"
@@ -498,7 +545,7 @@ export default function CreateTaskModal({
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <Field
-                    label="Due date"
+                    label={sectionsFor(kind).dueLabel}
                     htmlFor="task-due-date"
                     error={fieldErrors.dueDate}
                   >
@@ -738,6 +785,12 @@ export default function CreateTaskModal({
 
             {/* Modal Footer */}
             <div className={FORM_FOOTER_CLASS}>
+              {footer ? <p className="mr-auto min-w-0 truncate text-xs text-muted-foreground" data-testid="create-footer-line">{footer}</p> : null}
+              {typeRemoved ? (
+                <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => { switchKind("task"); requestAnimationFrame(() => formRef.current?.requestSubmit()); }}>
+                  Create as task
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={onClose}
@@ -751,7 +804,7 @@ export default function CreateTaskModal({
                 disabled={isSubmitting}
                 className={FORM_PRIMARY_CLASS}
               >
-                {isSubmitting ? "Creating..." : "Create task"}
+                {isSubmitting ? "Creating…" : `Create ${typeLabel.toLowerCase()}`}
               </button>
             </div>
           </form>
