@@ -38,9 +38,9 @@
       "text": "A0.4 Document sections in the rail (38.3 F2 S1, S2)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-sections.test.ts; tests/unit/workspace-doc-draft-visibility.test.ts (viewer); tests/db/doc-sections.test.ts; tests/browser/doc-sections.spec.ts (chromium+webkit)",
+      "evidence": "2a5089823 live 2026-11-19; checked in Chrome: a real workspace's Documents unchanged (flat, no ⋯); test workspace with Meetings added (seeded) shows Pages/Meetings/Decisions with + New meeting / + Record a decision; Move to section moved Plan to Meetings ('Nov 19 · Plan', settings only, 0 versions); Meetings + created Weekly straight into Meetings; hiding Meetings falls back to a flat rail with both docs; deleted after; logs clean"
     },
     {
       "key": "A0.5",
@@ -5478,9 +5478,9 @@
       "text": "Sections appear when a workflow is added",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-sections.test.ts; tests/unit/workspace-doc-draft-visibility.test.ts (viewer); tests/db/doc-sections.test.ts; tests/browser/doc-sections.spec.ts (chromium+webkit)",
+      "evidence": "2a5089823 live 2026-11-19; checked in Chrome: a real workspace's Documents unchanged (flat, no ⋯); test workspace with Meetings added (seeded) shows Pages/Meetings/Decisions with + New meeting / + Record a decision; Move to section moved Plan to Meetings ('Nov 19 · Plan', settings only, 0 versions); Meetings + created Weekly straight into Meetings; hiding Meetings falls back to a flat rail with both docs; deleted after; logs clean"
     },
     {
       "key": "38.3.W2",
@@ -5488,9 +5488,9 @@
       "text": "Moving an existing document into a section",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-sections.test.ts; tests/unit/workspace-doc-draft-visibility.test.ts (viewer); tests/db/doc-sections.test.ts; tests/browser/doc-sections.spec.ts (chromium+webkit)",
+      "evidence": "2a5089823 live 2026-11-19; checked in Chrome: a real workspace's Documents unchanged (flat, no ⋯); test workspace with Meetings added (seeded) shows Pages/Meetings/Decisions with + New meeting / + Record a decision; Move to section moved Plan to Meetings ('Nov 19 · Plan', settings only, 0 versions); Meetings + created Weekly straight into Meetings; hiding Meetings falls back to a flat rail with both docs; deleted after; logs clean"
     },
     {
       "key": "38.3.W3",
@@ -5578,9 +5578,9 @@
       "text": "Phone",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/doc-sections.test.ts; tests/unit/workspace-doc-draft-visibility.test.ts (viewer); tests/db/doc-sections.test.ts; tests/browser/doc-sections.spec.ts (chromium+webkit)",
+      "evidence": "browser spec: phone Section menu 375 px dark ; sections of a built document workflow re-run live at A3.1/A4.1 — revisit 2026-11-20"
     },
     {
       "key": "38.3.W12",
@@ -5668,9 +5668,9 @@
       "text": "Section, kind and date live in the document's settings; moving a document writes no version. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-sections.test.ts; tests/unit/workspace-doc-draft-visibility.test.ts (viewer); tests/db/doc-sections.test.ts; tests/browser/doc-sections.spec.ts (chromium+webkit)",
+      "evidence": "2a5089823 live 2026-11-19; checked in Chrome: a real workspace's Documents unchanged (flat, no ⋯); test workspace with Meetings added (seeded) shows Pages/Meetings/Decisions with + New meeting / + Record a decision; Move to section moved Plan to Meetings ('Nov 19 · Plan', settings only, 0 versions); Meetings + created Weekly straight into Meetings; hiding Meetings falls back to a flat rail with both docs; deleted after; logs clean"
     },
     {
       "key": "38.3.call8",
@@ -5688,9 +5688,9 @@
       "text": "Organization documents keep their own groups; sections are for workspaces in this release. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-sections.test.ts; tests/unit/workspace-doc-draft-visibility.test.ts (viewer); tests/db/doc-sections.test.ts; tests/browser/doc-sections.spec.ts (chromium+webkit)",
+      "evidence": "orgs keep groups (railSections skipped in org mode); 2a5089823 live 2026-11-19; checked in Chrome: a real workspace's Documents unchanged (flat, no ⋯); test workspace with Meetings added (seeded) shows Pages/Meetings/Decisions with + New meeting / + Record a decision; Move to section moved Plan to Meetings ('Nov 19 · Plan', settings only, 0 versions); Meetings + created Weekly straight into Meetings; hiding Meetings falls back to a flat rail with both docs; deleted after; logs clean"
     },
     {
       "key": "38.4.W1",
@@ -7908,9 +7908,9 @@
       "text": "Correction (A0.4, 2026-11-19): no section index migration: a workspace's documents already load together, so the index would never be used. Section, kind and da",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-sections.test.ts; tests/unit/workspace-doc-draft-visibility.test.ts (viewer); tests/db/doc-sections.test.ts; tests/browser/doc-sections.spec.ts (chromium+webkit)",
+      "evidence": "2a5089823 live 2026-11-19; checked in Chrome: a real workspace's Documents unchanged (flat, no ⋯); test workspace with Meetings added (seeded) shows Pages/Meetings/Decisions with + New meeting / + Record a decision; Move to section moved Plan to Meetings ('Nov 19 · Plan', settings only, 0 versions); Meetings + created Weekly straight into Meetings; hiding Meetings falls back to a flat rail with both docs; deleted after; logs clean"
     },
     {
       "key": "38.3.call11",
@@ -7918,9 +7918,9 @@
       "text": "Found while building A0.4: viewers could edit and publish documents whose edit policy is \"members\" (the shared document permission counted them as members). Fix",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/doc-sections.test.ts; tests/unit/workspace-doc-draft-visibility.test.ts (viewer); tests/db/doc-sections.test.ts; tests/browser/doc-sections.spec.ts (chromium+webkit)",
+      "evidence": "viewer can't edit: unit + db tests"
     }
   ]
 }
