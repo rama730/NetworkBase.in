@@ -88,9 +88,9 @@
       "text": "A0.9 Quick add + More details (38.4 F3 S3)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "LIVE 2026-11-19 e8210d0fc (pushed 5dfde1abf): Chrome on wt-test-a09 (deleted): typed \"Book the venue\" in Action items -> More details -> module with title + \"From: Weekly\"; Sprint 1, High, description -> WT-1 in the list with every field stored. Speed same as a plain create (CLI timing 1.2-2.9 s)."
     },
     {
       "key": "A0.10",
@@ -5738,9 +5738,9 @@
       "text": "Quick add, then More details",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/doc-rows.test.ts",
+      "evidence": "2026-11-19 Chrome: Enter in a list makes a To do task with From (A0.5); More details opens the module with title and From, Create keeps every field. Own-tab lists with A2.1; Part of with A1.3."
     },
     {
       "key": "38.4.W6",
@@ -8058,9 +8058,9 @@
       "text": "A0.9 (2026-11-19): More details sits in a document list's add row (always shown, left of Cancel, since that row is already a small form with Assigned to and Due",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "2026-11-19: More details in the add row, full fields stored."
     },
     {
       "key": "38.4.call13",
@@ -8070,7 +8070,7 @@
       "milestone": "A0",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "shared quick-add with A2.1; Part of with A1.3."
     }
   ]
 }
