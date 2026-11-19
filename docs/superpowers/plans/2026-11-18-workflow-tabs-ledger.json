@@ -68,9 +68,9 @@
       "text": "A0.7 Sprint permission fix (38.4 F3 call 4) — standalone, ships first in Wave 0 if wanted",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/browser/create-task-sprint.spec.ts",
+      "evidence": "LIVE 2026-11-19 27bb8181e: owner created \"Plan the release\" in Sprint 1 from New in Chrome (wt-test-a07, deleted). Admin picker and member Backlog line need a second account: browser spec only. revisit 2026-11-20"
     },
     {
       "key": "A0.8",
@@ -5728,9 +5728,9 @@
       "text": "A member and the sprint",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/create-task-sprint.spec.ts",
+      "evidence": "Step 1 (module shows \"Goes to the Backlog · owners and admins plan sprints\") built in A0.7 and tested; steps 2-3 (Starts at, Join-board sheet) come with A0.8/A0.10."
     },
     {
       "key": "38.4.W5",
@@ -5828,9 +5828,9 @@
       "text": "Fix the module to offer Sprint to owners and admins, as the server already allows (decision 146). [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/browser/create-task-sprint.spec.ts",
+      "evidence": "27bb8181e: TasksTab passes canAssignSprint for owner or admin; owner path checked live; admin needs a 2nd account. revisit 2026-11-20"
     },
     {
       "key": "38.4.call5",
