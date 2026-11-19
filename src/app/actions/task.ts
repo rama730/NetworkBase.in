@@ -16,6 +16,7 @@ import {
   workspaceMembers,
   workspaceNodes,
   workspaceSprints,
+  workspaces,
   sprintTaskMemberships,
   workspaceWorkflowColumns,
   taskActivityEvents,
@@ -47,6 +48,7 @@ import { childGrant, orgCan } from "@/lib/organizations/permissions";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
 import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition, MAIN_ASSIGNMENT_NOT_REVIEWED } from "@/lib/workspaces/task-transition-service";
 import { viaPayload } from "@/lib/server/request-via";
+import { boardMove, stageMove } from "@/lib/workflows/rules";
 
 type Priority = "low" | "medium" | "high" | "urgent";
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
@@ -416,6 +418,71 @@ export async function updateTaskStatusAction(
   }
 }
 
+const stageMoveSchema = z.object({
+  taskId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  stage: z.string().min(1).max(40),
+  /** Joining the board (B5): the sprint to add it to; none or toBacklog sends it to the Backlog. */
+  sprintId: z.string().uuid().nullish(),
+  toBacklog: z.boolean().optional(),
+  expectedUpdatedAt: z.string().datetime().nullish(),
+});
+
+/**
+ * Report 38.2 F1: move a typed item (bug, request, content) to a stage. The stage sets the status and whether it's on
+ * the board, through the one transition (review gating included). Joining the board takes the sprint the mover picks;
+ * only owners and admins plan sprints (decision 146), so a member's item goes to the Backlog (F3 call 3). Leaving the
+ * board takes it out of its sprint and keeps that in the sprint's history as "moved back" (B7).
+ */
+export async function setTaskStageAction(input: z.infer<typeof stageMoveSchema>) {
+  try {
+    const parsed = stageMoveSchema.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Invalid stage move" };
+    const { taskId, projectId, stage, sprintId, toBacklog } = parsed.data;
+    const user = await requireTaskWriter();
+    if (!user) return { success: false as const, error: "Sign in to continue" };
+    const expectedVersion = parseExpectedVersion(parsed.data.expectedUpdatedAt);
+
+    const { locked, result } = await db.transaction(async (tx) => {
+      const locked = await lockTaskForWrite(tx, taskId, user.id);
+      if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
+      if (expectedVersion && new Date(locked.currentUpdatedAt).getTime() !== expectedVersion.getTime())
+        throw new Error("This task changed elsewhere. Reload and try again.");
+      const [ws] = await tx.select({ on: workspaces.workflowsEnabled }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+      if (!ws?.on) throw new Error("Workflows aren’t on in this workspace.");
+      const move = stageMove(locked.itemType, locked.stage, stage);
+      const result = await transitionTaskTx(tx, locked, { taskId, userId: user.id, stage });
+      const now = new Date();
+      const via = await viaPayload();
+      const sprintEvent = (eventType: string, sprint: string, payload: Record<string, unknown>) => tx.insert(taskActivityEvents).values({
+        taskId, projectId, sprintId: sprint, actorId: user.id, eventType,
+        payload: { ...via, version: 1, taskTitle: locked.title, taskNumber: locked.taskNumber, taskStatus: result.status, ...payload },
+      });
+      const joinSprint = move.joins && locked.isLeader && !toBacklog ? sprintId ?? null : null;
+      if (joinSprint) {
+        const [sprint] = await tx.select({ status: workspaceSprints.status }).from(workspaceSprints)
+          .where(and(eq(workspaceSprints.id, joinSprint), eq(workspaceSprints.projectId, projectId))).limit(1);
+        if (!sprint) throw new Error("Sprint must belong to this workspace");
+        if (sprint.status !== "planning" && sprint.status !== "active") throw new Error("Tasks can only be added to Planning or Active sprints");
+        await tx.update(tasks).set({ sprintId: joinSprint, ...(!locked.timelineOriginSprintId && { timelineOriginSprintId: joinSprint, timelineOriginAt: now }) }).where(eq(tasks.id, taskId));
+        await tx.insert(sprintTaskMemberships).values({ projectId, sprintId: joinSprint, taskId, addedBy: user.id });
+        await sprintEvent("added_to_sprint", joinSprint, { reason: "joined_from_workflow", stage });
+      }
+      if (move.leaves && locked.previousSprintId) {
+        await tx.update(tasks).set({ sprintId: null }).where(eq(tasks.id, taskId));
+        await tx.update(sprintTaskMemberships).set({ removedAt: now, removedBy: user.id })
+          .where(and(eq(sprintTaskMemberships.taskId, taskId), isNull(sprintTaskMemberships.removedAt)));
+        await sprintEvent("removed_from_sprint", locked.previousSprintId, { reason: "moved_back", toStage: stage, itemType: locked.itemType, nextSprintId: null });
+      }
+      return { locked, result };
+    });
+    const warnings = await afterTaskTransition(user, locked, taskId, result);
+    return { success: true as const, updatedAt: result.updatedAt.toISOString(), status: result.status, reviewStatus: result.reviewStatus, outcome: result.outcome, warnings };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t move this item" };
+  }
+}
+
 export async function moveTaskToWorkflowColumnAction(
   taskId: string,
   projectId: string,
@@ -735,6 +802,8 @@ export async function approveTaskReviewAction(
           completedAt: updatedAt,
           completedBy: user.id,
           completionSource: "review",
+          // B3: a typed item takes its done stage (Fixed, Delivered, Scheduled) only now.
+          ...(locked.itemType !== "task" && locked.stage && { stage: boardMove(locked.itemType, locked.stage, "done", false).stage }),
           updatedAt,
         })
         .where(eq(tasks.id, taskId));

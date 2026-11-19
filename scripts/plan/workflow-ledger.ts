@@ -76,7 +76,7 @@ export function extractReportItems(report: string): Item[] {
 export function sync(rows: Row[], items: Item[]): Row[] {
   const byKey = new Map(rows.map((r) => [r.key, r]));
   const keys = new Set(items.map((i) => i.key));
-  const out = rows.map((r) => (keys.has(r.key) ? { ...r, orphan: undefined } : { ...r, orphan: true }));
+  const out: Row[] = rows.map((r) => (keys.has(r.key) ? { ...r, orphan: undefined } : { ...r, orphan: true }));
   for (const item of items) if (!byKey.has(item.key)) out.push({ ...item, status: "todo", test: "", evidence: "" });
   return out;
 }

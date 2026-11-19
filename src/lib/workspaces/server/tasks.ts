@@ -167,7 +167,8 @@ export async function readBoardCounts(access: WorkspaceAccess, actorId: string |
     mineNeed: view("mine", taskNeedsYou),
   // Audit N79: in an organization no count needs other people's copies (an admin's In review is the queue below),
   // so the scan skips them instead of filtering thousands of copy rows in every count.
-  }).from(tasks).where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), org ? sql`(${tasks.assignmentId} IS NULL OR ${own})` : undefined));
+  // Report 38.2: items at an off-board stage (a bug at New, a request at New) live in their own tab, not on the board.
+  }).from(tasks).where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), eq(tasks.onBoard, true), org ? sql`(${tasks.assignmentId} IS NULL OR ${own})` : undefined));
   const n = (v: unknown) => Number(v ?? 0);
   // An organization admin's In review is the review queue (readReviewQueueAction): the hand-ins of this organization's
   // assignments wherever they were handed in (team workspaces' group work too), and its own tasks waiting.
@@ -296,6 +297,8 @@ async function fetchProjectTasksForActor(
           return and(
             eq(t.projectId, projectId),
             isNull(t.deletedAt),
+            // Report 38.2: off-board stages live in their own tab.
+            eq(t.onBoard, true),
             searchPattern
               ? or(
                   ilike(t.title, searchPattern),

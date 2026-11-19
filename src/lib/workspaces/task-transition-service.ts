@@ -19,6 +19,8 @@ import { projectTaskHref } from "@/lib/workspaces/task-presentation";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
 import { assertAssignmentWrite } from "@/lib/organizations/assignments";
 import { viaPayload } from "@/lib/server/request-via";
+import { stageOf } from "@/lib/workflows/types";
+import { boardMove, isOnBoard } from "@/lib/workflows/rules";
 
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
 export function taskActorSnapshot(user: {
@@ -82,6 +84,9 @@ export async function lockTaskForWrite(
   isTeamMember: boolean;
   /** An organization's main assignment (decision 14): no state of its own, never reviewed. */
   isMaster: boolean;
+  /** Workflow type and stage (0103, report 38.2). */
+  itemType: string;
+  stage: string | null;
 }> {
   const rows = await tx.execute<{
     id: string;
@@ -112,6 +117,8 @@ export async function lockTaskForWrite(
     org_role: string | null;
     project_kind: string | null;
     parent_org_admin: boolean;
+    item_type: string;
+    stage: string | null;
   }>(sql`
         SELECT
             t.id, t.workspace_id AS project_id, t.assignee_id, t.sprint_id, t.workflow_column_id,
@@ -119,7 +126,7 @@ export async function lockTaskForWrite(
             t.status, t.review_status, t.review_content_hash, t.updated_at, t.deleted_at AS task_deleted_at,
             p.owner_id, p.slug, p.key, p.deleted_at, p.task_review_required, p.task_completion_policy_version,
             m.role as member_role,
-            t.assignment_id, t.kind,
+            t.assignment_id, t.kind, t.item_type, t.stage,
             mt.assignment_settings AS master_settings,
             EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}) AS in_team,
             -- The actor's role in the organization the work belongs to: a copy's assignment's org, or this org's board.
@@ -201,6 +208,8 @@ export async function lockTaskForWrite(
     isHolder: row.assignee_id === userId || Boolean(row.in_team) || (isCopy && row.project_kind !== "organization" && Boolean(row.member_role)),
     onOrgBoard: row.project_kind === "organization",
     isMaster: row.kind === "assignment" && !row.assignment_id,
+    itemType: row.item_type ?? "task",
+    stage: row.stage ?? null,
   };
 }
 
@@ -238,9 +247,15 @@ export async function transitionTaskTx(
     reviewReason?: string;
     /** Assignment flow decision 6: what's in the way, kept on a move to Blocked. */
     note?: string;
+    /** A workflow stage move (report 38.2): the stage decides the status and whether the item stays on the board. */
+    stage?: string;
   },
 ): Promise<TaskTransitionResult> {
-  const column = await tx.query.workspaceWorkflowColumns.findFirst({
+  const typed = (locked.itemType ?? "task") !== "task";
+  if (input.stage !== undefined && !typed) throw new Error("Plain tasks have no stage. Change the status instead.");
+  const target = input.stage !== undefined ? stageOf(locked.itemType, input.stage) : null;
+  // An off-board stage (New, Confirmed, Won't fix…) has no column.
+  const column = target && !target.onBoard ? null : await tx.query.workspaceWorkflowColumns.findFirst({
     where: input.columnId
       ? and(
           eq(workspaceWorkflowColumns.id, input.columnId),
@@ -248,18 +263,18 @@ export async function transitionTaskTx(
         )
       : and(
           eq(workspaceWorkflowColumns.projectId, locked.projectId),
-          eq(workspaceWorkflowColumns.status, input.status!),
+          eq(workspaceWorkflowColumns.status, target?.status ?? input.status!),
           eq(workspaceWorkflowColumns.isDefault, true),
         ),
     columns: { id: true, status: true, title: true },
   });
-  if (!column)
+  if (column === undefined)
     throw new Error(
       input.columnId
         ? "Section not found"
         : "Default workflow section is unavailable",
     );
-  const status = column.status as TaskStatus;
+  const status = (column?.status ?? target!.status) as TaskStatus;
 
   if (
     !locked.isLeader &&
@@ -292,6 +307,10 @@ export async function transitionTaskTx(
       );
     reviewStatus = "rejected";
     outcome = "changes_requested";
+  } else if (status === "done" && !column) {
+    // Closing stages (Won't fix, Duplicate, Declined) are decisions off the board, never reviewed (B3 gates done stages).
+    reviewStatus = "none";
+    outcome = "completed";
   } else if (
     status === "done" &&
     (locked.currentStatus !== "done" || input.resubmit)
@@ -310,12 +329,18 @@ export async function transitionTaskTx(
       ? await taskReviewSnapshot(tx, input.taskId, true)
       : undefined;
   const updatedAt = new Date();
+  // Call 5, B2, B3: the stage changes only at the board's edges, and a done stage waits for approval.
+  const stage = !typed ? undefined
+    : outcome === "submitted" ? locked.stage
+    : target ? target.key
+    : boardMove(locked.itemType, locked.stage, status, false).stage;
   await tx
     .update(tasks)
     .set({
-      workflowColumnId: column.id,
+      workflowColumnId: column?.id ?? null,
       status,
       reviewStatus,
+      ...(stage !== undefined && { stage, onBoard: isOnBoard(locked.itemType, stage) }),
       ...(outcome === "submitted" && {
         reviewSubmittedAt: updatedAt,
         reviewContentHash,
@@ -342,9 +367,10 @@ export async function transitionTaskTx(
     .where(eq(tasks.id, input.taskId));
 
   const statusChanged = locked.currentStatus !== status;
-  const columnChanged = locked.currentWorkflowColumnId !== column.id;
+  const columnChanged = locked.currentWorkflowColumnId !== (column?.id ?? null);
+  const stageChanged = stage !== undefined && stage !== locked.stage;
   let activityEventId: string | null = null;
-  if (statusChanged || columnChanged || input.resubmit || outcome === "changes_requested") {
+  if (statusChanged || columnChanged || stageChanged || input.resubmit || outcome === "changes_requested") {
     const via = await viaPayload();
     const [event] = await tx
       .insert(taskActivityEvents)
@@ -374,6 +400,7 @@ export async function transitionTaskTx(
                 }),
                 ...(input.note && status === "blocked" && { note: input.note }),
                 ...(reviewContentHash && { reviewContentHash }),
+                ...(stageChanged && { fromStage: locked.stage, toStage: stage }),
                 taskTitle: locked.title,
                 taskNumber: locked.taskNumber,
                 taskStatus: status,
@@ -386,8 +413,9 @@ export async function transitionTaskTx(
                 taskTitle: locked.title,
                 taskNumber: locked.taskNumber,
                 fromColumnId: locked.currentWorkflowColumnId,
-                toColumnId: column.id,
-                toColumnTitle: column.title,
+                toColumnId: column?.id ?? null,
+                toColumnTitle: column?.title ?? null,
+                ...(stageChanged && { fromStage: locked.stage, toStage: stage }),
               },
       })
       .returning({ id: taskActivityEvents.id });

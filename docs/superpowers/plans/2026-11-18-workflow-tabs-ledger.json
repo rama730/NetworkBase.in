@@ -7821,6 +7821,26 @@
       "status": "todo",
       "test": "",
       "evidence": ""
+    },
+    {
+      "key": "38.2.call11",
+      "section": "38.2",
+      "text": "Correction (A0.1, 2026-11-19): sprint history lives in taskactivityevents (addedtosprint, removedfromsprint) and sprinttaskmemberships, not workspacesprintevent",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.2.call12",
+      "section": "38.2",
+      "text": "Closing stages (Won’t fix, Duplicate, Can’t reproduce, Declined) finish off the board and are never reviewed; B3 gates only the on-board done stages. itemtype h",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

@@ -15414,6 +15414,8 @@ F1 is the floor every other round stands on: a task can have a **type** and a **
 8. Adding, hiding and pushing workflows notify no one; they go into activity. **[call]**
 9. The CLI and MCP get type and stage on list, create and move, plus a read-only workflow list; adding and removing stay in the app. **[call]**
 10. A per-workspace flag `workflows_enabled` controls everything until each round ships. **[call]**
+11. **Correction (A0.1, 2026-11-19):** sprint history lives in `task_activity_events` (`added_to_sprint`, `removed_from_sprint`) and `sprint_task_memberships`, not `workspace_sprint_events` (read only for "created"). Joining writes `added_to_sprint` with `reason: "joined_from_workflow"`; moving back writes `removed_from_sprint` with `reason: "moved_back"` and closes the membership. **[call]**
+12. Closing stages (Won’t fix, Duplicate, Can’t reproduce, Declined) finish off the board and are never reviewed; B3 gates only the on-board done stages. `item_type` has no SQL check (plan section 3). **[call]**
 
 ### 38.3 F2 · Document sections and live blocks (agreed 2026-11-17)
 

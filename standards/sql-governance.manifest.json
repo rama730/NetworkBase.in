@@ -105,7 +105,9 @@
     "drizzle/0099_branch_protection.sql",
     "drizzle/0100_drop_task_sandbox.sql",
     "drizzle/0101_cli_step_up.sql",
-    "drizzle/0102_branch_names.sql"
+    "drizzle/0102_branch_names.sql",
+    "drizzle/0103_task_types.sql",
+    "drizzle/0104_task_types_index.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

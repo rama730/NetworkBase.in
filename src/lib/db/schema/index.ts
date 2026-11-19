@@ -813,6 +813,10 @@ export const workspaces = pgTable(
     changeSetsEnabled: boolean("change_sets_enabled").default(false).notNull(),
     /** Branches and saves are on for this workspace (0096, report H16). */
     branchesEnabled: boolean("branches_enabled").default(false).notNull(),
+    /** Workflow tabs are on for this workspace (0103, report 38.2 F1 call 10). */
+    workflowsEnabled: boolean("workflows_enabled").default(false).notNull(),
+    /** Workflow rounds' settings: meetings, goals, docs, assets, path (0103). */
+    workflowSettings: jsonb("workflow_settings").$type<Record<string, unknown>>(),
     /** Who sees "with Claude Code" on work here (0086, report Part B): everyone, only the person, or no one. */
     agentLabelVisibility: text("agent_label_visibility").$type<"everyone" | "person" | "none">().default("everyone").notNull(),
     termStart: date("term_start"),
@@ -2426,6 +2430,14 @@ export const tasks = pgTable(
     projectId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** Workflow type (0103, report 38.2): 'task', 'bug', 'request', 'content', … checked in the server. */
+    itemType: text("item_type").default("task").notNull(),
+    /** The type's stage; null for plain tasks (their stage is their status). */
+    stage: text("stage"),
+    /** Each type's own fields (severity, steps, …). */
+    typeFields: jsonb("type_fields").$type<Record<string, unknown>>().default({}).notNull(),
+    /** Written from the stage on every change; off-board items have no column and no sprint. */
+    onBoard: boolean("on_board").default(true).notNull(),
     workflowColumnId: uuid("workflow_column_id").references(
       () => workspaceWorkflowColumns.id,
       { onDelete: "set null" },
