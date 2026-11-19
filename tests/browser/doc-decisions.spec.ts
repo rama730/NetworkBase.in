@@ -59,6 +59,14 @@ test('W6: Record a decision asks for one line, makes the document and files it a
   expect(await page.evaluate(() => (window as any).__calls)).toEqual([['record', 'ship-friday', 'weekly']]);
 });
 
+test('W6: a decision\'s page says D-002 · Decided · date · From: the meeting, which opens it', async ({ page }) => {
+  await open(page);
+  const meta = page.getByTestId('decision-meta');
+  await expect(meta).toContainText(/D-002\s*Decided\s*Nov 12\s*From: Weekly/);
+  await meta.getByRole('button', { name: 'Weekly' }).click();
+  expect(await page.evaluate(() => (window as any).__pushed)).toContain('doc=weekly');
+});
+
 test("the rail's Decisions + records a decision (not an unnumbered page)", async ({ page }) => {
   await open(page);
   await rail(page).getByRole('button', { name: 'Add to Decisions' }).click();

@@ -21,6 +21,7 @@ import { buildWorkspaceDocViewModel } from "@/lib/workspaces/doc-view-model";
 import { WorkspaceDocRail, WorkspaceDocMobileBar, useDocRail } from "@/components/workspaces/doc/WorkspaceDocRail";
 import { OrgDocHeader, uploadWorkspaceFile, useOrgDocs } from "@/components/organizations/OrgDocParts";
 import { MoveToSectionMenu } from "@/components/workspaces/doc/MoveToSectionMenu";
+import { DecisionMetaLine } from "@/components/workspaces/doc/DocDecisions";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { docSectionOf } from "@/lib/workspaces/doc-sections";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
@@ -381,6 +382,7 @@ export function WorkspaceDocViewer({
                             {listed ? <MoveToSectionMenu projectId={project.id} docSlug={normalizedDocSlug} current={docSectionOf(listed, addedWorkflows)} date={listed.date} /> : null}
                         </div>
                     ) : null}
+                    {listed?.decisionNumber ? <DecisionMetaLine projectId={project.id} doc={listed} /> : null}
                     {renderer}
                 </div>
                 <WorkspaceDocRail

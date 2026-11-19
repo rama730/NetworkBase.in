@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, Field, inputClassName } from "@/components/workspaces/v2/tasks/form-parts";
 import { WORKSPACE_DOC_LIST_QUERY_KEY, WORKSPACE_DOCS_QUERY_KEY, useWorkspaceDocList } from "@/hooks/workspaces/useWorkspaceDocData";
+import type { WorkspaceDocListItem } from "@/lib/workspaces/doc";
 import { toast } from "@/lib/feedback";
 import { docFileName, docTitle } from "@/lib/organizations/doc-rules";
 import { decisionLabel } from "@/lib/workspaces/doc-sections";
@@ -89,7 +90,7 @@ export function RecordDecisionDialog({ projectId, fromDocSlug, open, onOpenChang
     if (!decision) return setError("Write the decision in one line");
     setBusy(true);
     try {
-      const body = `# ${decision}\n\n## Decision\n\n${decision}\n${context.trim() ? `\n## Context\n\n${context.trim()}\n` : ""}`;
+      const body = `# ${decision}\n${context.trim() ? `\n## Context\n\n${context.trim()}\n` : ""}`;
       const created = await createDocFile(projectId, docFileName(decision), body);
       const { recordDecisionAction, unlinkWorkspaceDocAction } = await import("@/app/actions/workspace/doc");
       const result = await recordDecisionAction(projectId, { docSlug: created.slug, ...(fromDocSlug ? { fromDocSlug } : {}) });
@@ -141,5 +142,21 @@ export function RecordDecisionDialog({ projectId, fromDocSlug, open, onOpenChang
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** W6: a decision's own page says which decision it is: D-001 · Decided · date · From: the meeting it was recorded in. */
+export function DecisionMetaLine({ projectId, doc }: { projectId: string; doc: WorkspaceDocListItem }) {
+  const { data: docs = [] } = useWorkspaceDocList(projectId);
+  const openDoc = useOpenDoc();
+  const from = doc.fromDocId ? docs.find((d) => d.id === doc.fromDocId) : null;
+  if (!doc.decisionNumber) return null;
+  return (
+    <p className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground" data-testid="decision-meta">
+      <span className="font-mono text-[11px] text-foreground">{decisionLabel(doc.decisionNumber)}</span>
+      <StatusBadge state={doc.decisionStatus ?? "decided"}>{STATUS_WORD[doc.decisionStatus ?? "decided"]}</StatusBadge>
+      {doc.date ? <span className="font-mono text-[11px]">{shortDate(doc.date)}</span> : null}
+      {from ? <span>From: <button type="button" onClick={() => openDoc(from.slug)} className="font-medium text-foreground underline-offset-2 hover:underline">{docTitle(from.filename)}</button></span> : null}
+    </p>
   );
 }

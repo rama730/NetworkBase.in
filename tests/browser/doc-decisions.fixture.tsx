@@ -4,7 +4,7 @@ import { EditorView } from '@codemirror/view';
 import { useEffect, useRef, useState } from 'react';
 
 import { Toaster } from '@/components/ui/sonner';
-import { DocDecisionsBlock } from '@/components/workspaces/doc/DocDecisions';
+import { DecisionMetaLine, DocDecisionsBlock } from '@/components/workspaces/doc/DocDecisions';
 import { DocInsertMenu } from '@/components/workspaces/doc/DocInsertMenu';
 import { WorkspaceDocRail } from '@/components/workspaces/doc/WorkspaceDocRail';
 import { AddedWorkflowsContext } from '@/components/workspaces/workflows/useWorkspaceWorkflows';
@@ -37,6 +37,7 @@ createRoot(document.getElementById('root')!).render(
           <Editor />
           <h1 className="nb-section-title">Weekly</h1>
           <DocDecisionsBlock projectId="w1" docSlug="weekly" canEdit />
+          <DecisionMetaLine projectId="w1" doc={{ id: 'd2', slug: 'use-postgres', filename: 'Use Postgres.md', linkedNodeId: 'n2', section: 'decisions', date: '2026-11-12', decisionNumber: 2, decisionStatus: 'decided', fromDocId: 'w-id' }} />
         </div>
         <WorkspaceDocRail projectId="w1" activeSlug="weekly" canEdit />
       </main>
