@@ -73,3 +73,4 @@ export function removalSummary(items: Array<{ status: string; onBoard: boolean }
 /** What a viewer gets about a workspace's workflows (the page, the dialog, Settings). */
 export type AddedWorkflow = { workflow: string; locked: boolean; by: string | null; addedAt: string | null; addedBy: string | null };
 export type WorkspaceWorkflows = { enabled: boolean; canManage: boolean; added: AddedWorkflow[] };
+export type OrgWorkflows = { enabled: boolean; canManage: boolean; workspaces: number; rows: Array<{ workflow: string; pushed: boolean }> };

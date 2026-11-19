@@ -85,6 +85,7 @@ test('W7: Remove shows what Bugs holds, then hides the tab', async ({ page }) =>
   await page.waitForTimeout(400);
   await page.screenshot({ path: 'test-results/workflow-tabs/remove-light-1440.png' });
   await remove.getByRole('button', { name: 'Hide Bugs' }).click();
+  for (let i = 0; i < 5; i++) { await expect(page.getByText('Remove ?')).toHaveCount(0); await page.waitForTimeout(40); }
   await expect(remove).toHaveCount(0);
   await expect(page.getByRole('tab', { name: 'Bugs' })).toHaveCount(0);
 });

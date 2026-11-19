@@ -15420,6 +15420,8 @@ F1 is the floor every other round stands on: a task can have a **type** and a **
 14. Undo is checked by who added it and when (10 seconds, no item made since), not by a token; Settings → Workflows sits right after "Stages and workflow" as its own section without a separate nav entry. **[call]**
 15. Workflow activity ("Asha added Bugs", "hid Bugs") comes from the `workspace_workflows` rows themselves and shows only to people inside the workspace; workflow names use "and", never "&" (terms rule), e.g. "Meetings and decisions". **[call]**
 16. Opening a workflow tab straight from a link (`?tab=bugs`) arrives with that tab's round (T3 for Bugs); in A0.2 tabs switch in the page. **[call]**
+17. **Correction (A0.3, 2026-11-19):** the wizard's ticked workflows are added right after the workspace is made (like its starter doc), not in the create transaction; a failure only warns ("Add them from + Add workflow"). Ticking any switches workflows on for that workspace. The Workflows block sits inside the wizard's "Stages and workflow" section under Journey stages, so the step's numbered index doesn't change. **[call]**
+18. Section 6's old tab names are read as the workflows they blended into (Bug tracker → Bugs, Roadmap & launches → Roadmap, …); parked ones aren't suggested. An organization's "Workflows for workspaces" card sits after its Workspaces card and needs the organization's own workflows switch. **[call]**
 
 ### 38.3 F2 · Document sections and live blocks (agreed 2026-11-17)
 

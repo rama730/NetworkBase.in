@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, 
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Bell, Building2, CalendarDays, Check, ChevronDown, FileText, Folder, FolderKanban, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { WizardWorkflowsField } from '@/components/workspaces/workflows/WizardWorkflowsField';
 import { toast } from '@/lib/feedback';
 import { Button } from '@/components/ui/button';
 import { LifecycleEditor } from '@/components/workspaces/LifecycleEditor';
@@ -459,6 +460,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                         onChange={(stages) => set('lifecycle_stages', stages)}
                         showCurrentStage={false}
                     />
+                    <WizardWorkflowsField orgId={childOrg?.id ?? null} />
                 </LaunchSection>}
 
                 <LaunchSection {...sectionProps('permissions')} title="What members can do" description="The owner and admins can always do both. These apply to members who join later." summary={`Updates: ${memberUpdatesEnabled !== false ? 'members' : 'owner and admins only'} · Uploads: ${memberFileUploadDefault !== false ? 'members' : 'owner and admins only'}`}>

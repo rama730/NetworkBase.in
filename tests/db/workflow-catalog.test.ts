@@ -168,3 +168,69 @@ test("adding and hiding go into the workspace activity, for insiders only (call 
   rows = await activity.readWorkspaceRecentActivityAction(t.ws);
   assert.ok(!rows.some((r) => r.type === "workflow"), "visitors never see workflow activity");
 });
+
+async function orgWithChildren(n = 2) {
+  const t = await workspace();
+  const [org] = await sql`INSERT INTO workspaces (owner_id, title, slug, visibility, status, kind, workflows_enabled) VALUES (${t.owner}, 'Northgate CS', ${`org-${t.ws}`}, 'private', 'active', 'organization', true) RETURNING id`;
+  created.unshift(org!.id);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org!.id}, ${t.owner}, 'owner'), (${org!.id}, ${t.admin}, 'admin'), (${org!.id}, ${t.member}, 'member')`;
+  await sql`UPDATE workspaces SET parent_id = ${org!.id} WHERE id = ${t.ws}`;
+  const kids = [t.ws];
+  for (let i = 1; i < n; i++) {
+    const id = await sql.begin((tx) => createProject(tx, t.owner));
+    created.push(id);
+    await sql`UPDATE workspaces SET parent_id = ${org!.id}, workflows_enabled = true WHERE id = ${id}`;
+    await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${t.owner}, 'owner')`;
+    kids.push(id);
+  }
+  return { ...t, org: org!.id as string, kids };
+}
+
+test("W8: an organization pushes a workflow to every workspace; members can't; Remove from workspaces counts across them", async () => {
+  const t = await orgWithChildren(2);
+  viewerId = t.member;
+  assert.match(errorOf(await actions.pushWorkflowAction({ orgId: t.org, workflow: "bugs" })), /Only the organization’s owners and admins/);
+  assert.equal((await actions.readOrgWorkflowsAction(t.org)).success && (await actions.readOrgWorkflowsAction(t.org) as { enabled: boolean }).enabled, false, "members don't see the push list");
+  viewerId = t.admin;
+  const pushed = await actions.pushWorkflowAction({ orgId: t.org, workflow: "bugs" });
+  assert.deepEqual(pushed.success && [pushed.name, pushed.workspaces], ["Bugs", 2]);
+  assert.match(errorOf(await actions.pushWorkflowAction({ orgId: t.org, workflow: "project_planner" })), /coming later/);
+  const list = await actions.readOrgWorkflowsAction(t.org);
+  assert.deepEqual(list.success && [list.workspaces, list.rows], [2, [{ workflow: "bugs", pushed: true }]]);
+
+  viewerId = t.owner;
+  for (const kid of t.kids) assert.deepEqual((await actions.readWorkflowsAction(kid) as { added: unknown[] }).added, [{ workflow: "bugs", locked: true, by: "Northgate CS", addedAt: (await actions.readWorkflowsAction(kid) as { added: Array<{ addedAt: string }> }).added[0]!.addedAt, addedBy: null }]);
+  // The first child also added Bugs itself: it keeps it when the push ends.
+  await sql`INSERT INTO workspace_workflows (workspace_id, workflow) VALUES (${t.kids[0]!}, 'bugs')`;
+  await sql`INSERT INTO tasks (workspace_id, creator_id, title, status, item_type, stage, on_board) VALUES (${t.kids[0]!}, ${t.owner}, 'A', 'todo', 'bug', 'new', false), (${t.kids[1]!}, ${t.owner}, 'B', 'done', 'bug', 'wont_fix', false)`;
+  const counts = await actions.orgPushCountsAction({ orgId: t.org, workflow: "bugs" });
+  assert.deepEqual(counts.success && [counts.total, counts.open, counts.onBoard], [2, 1, 0]);
+  const removed = await actions.unpushWorkflowAction({ orgId: t.org, workflow: "bugs" });
+  assert.equal(removed.success, true, JSON.stringify(removed));
+  assert.deepEqual(await added(t.kids[0]!), ["bugs"], "a workspace that added it itself keeps it");
+  assert.deepEqual(await added(t.kids[1]!), [], "the push ended");
+  const [kept] = await sql`SELECT count(*)::int AS n FROM tasks WHERE item_type = 'bug' AND workspace_id IN ${sql(t.kids)}`;
+  assert.equal(kept!.n, 2, "nothing is deleted");
+});
+
+test("W9: the wizard's ticked workflows are added for the new workspace's owner and switch workflows on; pushed ones are skipped", async () => {
+  const t = await orgWithChildren(1);
+  await sql`UPDATE workspaces SET workflows_enabled = false WHERE id = ${t.ws}`;
+  viewerId = t.admin;
+  await actions.pushWorkflowAction({ orgId: t.org, workflow: "bugs" });
+  viewerId = t.member;
+  assert.match(errorOf(await actions.addWorkflowsOnCreateAction(t.ws, ["bugs"])), /Only the new workspace’s owner/);
+  viewerId = t.owner;
+  const pushedList = await actions.orgPushedWorkflowsAction(t.org);
+  assert.deepEqual(pushedList.success && [pushedList.by, pushedList.workflows], ["Northgate CS", ["bugs"]]);
+  const made = await actions.addWorkflowsOnCreateAction(t.ws, ["bugs", "project_planner"]);
+  assert.deepEqual(made.success && made.added, [], "Bugs is pushed already; Project planner isn't built");
+  const [ws] = await sql`SELECT workflows_enabled FROM workspaces WHERE id = ${t.ws}`;
+  assert.equal(ws!.workflows_enabled, true);
+  assert.deepEqual(await added(t.ws), ["bugs"]);
+  const plain = await workspace({ on: false });
+  viewerId = plain.owner;
+  const own = await actions.addWorkflowsOnCreateAction(plain.ws, ["bugs"]);
+  assert.deepEqual(own.success && own.added, ["bugs"]);
+  assert.deepEqual(await added(plain.ws), ["bugs"]);
+});

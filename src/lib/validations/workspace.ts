@@ -128,6 +128,8 @@ export const createWorkspaceSchema = z.object({
     short_description: z.string().trim().max(200).optional(),
     project_type: z.string().min(1, 'Project type is required'),
     custom_project_type: z.string().optional(),
+    /** Report 38.2 W9: workflows ticked in the wizard, added right after the workspace is made. */
+    workflows: z.array(z.string().min(1).max(40)).max(20).optional(),
     status: z.enum(['draft', 'open', 'active', 'completed', 'archived']).default('open'),
     visibility: z.preprocess(
         (value) => value === 'unlisted' ? 'public' : value,

@@ -789,6 +789,12 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
             if (result.project.joinCode) createdOrganization = { title: result.project.title, joinCode: result.project.joinCode, handle: result.project.slug ?? data.organization?.handle ?? null, invites: result.project.invites, creatorTitle: data.organization?.creator_title || null, joinMode: data.organization?.join_mode ?? null };
             // Things that didn't happen but didn't stop creation, e.g. an invitation refused by privacy rules.
             for (const notice of result.notices ?? []) warnCreation(notice);
+            // Report 38.2 W9: the ticked workflows, right after the workspace exists.
+            if (!data.organization && data.workflows?.length) {
+                const { addWorkflowsOnCreateAction } = await import('@/app/actions/workflows');
+                const added = await addWorkflowsOnCreateAction(createdProjectId, data.workflows).catch(() => null);
+                if (!added?.success) warnCreation('Workflows weren’t added. Add them from + Add workflow.');
+            }
 
             // Upload flow (Folder Upload import)
             if (importType === 'upload') {

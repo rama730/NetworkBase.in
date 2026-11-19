@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Lock, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { addWorkflowAction, removeWorkflowAction, undoAddWorkflowAction, workflowRemovalCountsAction } from "@/app/actions/workflows";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -133,22 +133,26 @@ export function AddWorkflowDialog({ open, onOpenChange, workspaceId, added, canM
 }
 
 /** Report 38.2 S3: Remove hides (call 4). It says what the workflow holds before anything changes. */
-export function RemoveWorkflowDialog({ entry, workspaceId, onClose, onChanged }: { entry: CatalogEntry | null; workspaceId: string; onClose: () => void; onChanged: () => void }) {
+export function RemoveWorkflowDialog({ entry: chosen, workspaceId, onClose, onChanged }: { entry: CatalogEntry | null; workspaceId: string; onClose: () => void; onChanged: () => void }) {
+  // Keeps naming the workflow while the dialog fades out after Hide or Cancel.
+  const last = useRef<CatalogEntry | null>(null);
+  if (chosen) last.current = chosen;
+  const entry = chosen ?? last.current;
   const [counts, setCounts] = useState<{ total: number; open: number; onBoard: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (!entry) return;
+    if (!chosen) return;
     let current = true;
     setCounts(null);
     setError(null);
-    void workflowRemovalCountsAction({ workspaceId, workflow: entry.id }).then((r) => {
+    void workflowRemovalCountsAction({ workspaceId, workflow: chosen.id }).then((r) => {
       if (!current) return;
       if (r.success) setCounts(r);
       else setError(r.error);
     });
     return () => { current = false; };
-  }, [entry, workspaceId]);
+  }, [chosen, workspaceId]);
   const noun = entry?.types.length ? entry.name.toLowerCase() : "items";
 
   async function hide() {
@@ -163,7 +167,7 @@ export function RemoveWorkflowDialog({ entry, workspaceId, onClose, onChanged }:
   }
 
   return (
-    <Dialog open={Boolean(entry)} onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
+    <Dialog open={Boolean(chosen)} onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
       <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="remove-workflow-dialog">
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <DialogTitle className="text-base font-semibold text-foreground">Remove {entry?.name}?</DialogTitle>

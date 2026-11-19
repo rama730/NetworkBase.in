@@ -81,6 +81,7 @@ import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { OpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { WorkflowSettingsSection } from "@/components/workspaces/workflows/WorkflowSettingsSection";
+import { OrgWorkflowsCard } from "@/components/workspaces/workflows/OrgWorkflowsCard";
 import { WorkspaceSettingsNavigation } from "@/components/workspaces/settings/WorkspaceSettingsNavigation";
 import { useWorkspaceSettingsNavigation } from "@/hooks/useWorkspaceSettingsNavigation";
 import { LegalAndDataRightsSection } from "@/components/settings/LegalAndDataRightsSection";
@@ -1548,6 +1549,7 @@ function ProjectSettingsContent({
                 {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} handle={project?.slug ?? null} />}
                 {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} />}
                 {organization && sections.some((s) => s.id === "org-projects") && <OrgWorkspacesSection orgId={projectId} organization={organization} role={orgRole} />}
+                {organization && sections.some((s) => s.id === "org-projects") ? <OrgWorkflowsCard orgId={projectId} orgName={project?.title ?? "the organization"} /> : null}
                 {organization && sections.some((s) => s.id === "org-work") && <OrgWorkSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "collaborators") && (
                     <section id="project-settings-collaborators" data-project-settings-section className="space-y-6">

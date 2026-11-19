@@ -7881,6 +7881,26 @@
       "status": "live",
       "test": "tests/unit/workflow-rules.test.ts; tests/unit/workflow-dialog-design-contract.test.ts; tests/db/workflow-catalog.test.ts (7); tests/browser/workflow-tabs.spec.ts (7, chromium+webkit)",
       "evidence": "d74c4a6e7 live 2026-11-19 + hotfix 769836eb4 (started promise .catch broke signed-in workspace pages ~15 min, fixed) + c1a90c0a7 (singular copy, Added-by line); 0105 applied in prod; checked live in Chrome on wt-test-a0-2 (deleted): switch off shows nothing; owner sees + Add workflow; dialog lists 23 parked rows, focus in search, Esc returns focus; Bugs row (seeded, stands in for its round) shows after a divider; Settings → Workflows row with Added by line; Remove shows 2 bugs · 2 open · 1 on the board; Hide removes the tab, a second open tab updated live, activity 'hid Bugs', rows and bugs kept; org and child pages unaffected; logs clean"
+    },
+    {
+      "key": "38.2.call17",
+      "section": "38.2",
+      "text": "Correction (A0.3, 2026-11-19): the wizard's ticked workflows are added right after the workspace is made (like its starter doc), not in the create transaction; ",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.2.call18",
+      "section": "38.2",
+      "text": "Section 6's old tab names are read as the workflows they blended into (Bug tracker → Bugs, Roadmap & launches → Roadmap, …); parked ones aren't suggested. An or",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

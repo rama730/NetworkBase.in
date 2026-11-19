@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { profiles, tasks, workspaces, workspaceWorkflows } from "@/lib/db/schema";
 import { broadcast } from "@/lib/realtime/server-broadcast";
 import { catalogEntry } from "@/lib/workflows/catalog";
-import { canChangeWorkflows, effectiveWorkflows, removalSummary, type WorkspaceWorkflows } from "@/lib/workflows/rules";
+import { canChangeWorkflows, effectiveWorkflows, removalSummary, type OrgWorkflows, type WorkspaceWorkflows } from "@/lib/workflows/rules";
 
 /** Undo after adding lasts this long, and only while no item of the workflow exists (F1 call 7). */
 export const UNDO_SECONDS = 10;
@@ -116,4 +116,98 @@ export async function hideWorkflow(workspaceId: string, userId: string, workflow
     .where(and(eq(workspaceWorkflows.workspaceId, workspaceId), eq(workspaceWorkflows.workflow, workflow), isNull(workspaceWorkflows.hiddenAt)));
   announce(workspaceId);
   return { name: entry.name, ...counts };
+}
+
+// ---- Organizations (report 38.2 W8, S10) and the create wizard (W9, S9) ----
+
+
+async function orgAccess(orgId: string, userId: string | null) {
+  const [org] = await db.select({ on: workspaces.workflowsEnabled, kind: workspaces.kind, title: workspaces.title })
+    .from(workspaces).where(and(eq(workspaces.id, orgId), isNull(workspaces.deletedAt))).limit(1);
+  if (!org || org.kind !== "organization") return null;
+  const access = userId ? await getWorkspaceAccessById(orgId, userId) : null;
+  return { org, canManage: Boolean(access && (access.isOwner || access.memberRole === "admin")), access };
+}
+
+const childIds = async (orgId: string) => (await db.select({ id: workspaces.id }).from(workspaces)
+  .where(and(eq(workspaces.parentId, orgId), eq(workspaces.kind, "workspace"), isNull(workspaces.deletedAt)))).map((r) => r.id);
+
+/** Settings → Workflows for workspaces: what the organization pushes, for its owners and admins. */
+export async function readOrgWorkflows(orgId: string, viewerId: string | null): Promise<OrgWorkflows> {
+  const found = await orgAccess(orgId, viewerId);
+  if (!found?.org.on || !found.canManage) return { enabled: false, canManage: false, workspaces: 0, rows: [] };
+  const rows = await db.select({ workflow: workspaceWorkflows.workflow, pushed: workspaceWorkflows.pushToChildren })
+    .from(workspaceWorkflows).where(and(eq(workspaceWorkflows.workspaceId, orgId), isNull(workspaceWorkflows.hiddenAt)));
+  return { enabled: true, canManage: true, workspaces: (await childIds(orgId)).length, rows };
+}
+
+/** What the wizard shows locked under an organization: the workflows it pushes (W9 step 2). */
+export async function orgPushedWorkflows(orgId: string, viewerId: string | null) {
+  const found = await orgAccess(orgId, viewerId);
+  if (!found?.access?.canRead) return { by: null, workflows: [] as string[] };
+  const rows = await db.select({ workflow: workspaceWorkflows.workflow }).from(workspaceWorkflows)
+    .where(and(eq(workspaceWorkflows.workspaceId, orgId), eq(workspaceWorkflows.pushToChildren, true), isNull(workspaceWorkflows.hiddenAt)));
+  return { by: found.org.title, workflows: rows.map((r) => r.workflow) };
+}
+
+async function orgManager(orgId: string, userId: string) {
+  const found = await orgAccess(orgId, userId);
+  if (!found) throw new Error("Organization not found");
+  if (!found.org.on) throw new Error("Workflows aren’t on in this organization.");
+  if (!found.canManage) throw new Error("Only the organization’s owners and admins can push workflows.");
+}
+
+const announceChildren = (ids: string[]) =>
+  void broadcast(ids.map((id) => ({ topic: `live:workspace:${id}`, event: "workflows.changed", payload: {} })));
+
+/** Add to every workspace (W8): the organization's own row with push_to_children; children can't remove it. */
+export async function pushWorkflow(orgId: string, userId: string, workflow: string) {
+  const entry = addable(workflow);
+  await orgManager(orgId, userId);
+  await db.insert(workspaceWorkflows).values({ workspaceId: orgId, workflow, addedBy: userId, pushToChildren: true })
+    .onConflictDoUpdate({ target: [workspaceWorkflows.workspaceId, workspaceWorkflows.workflow], set: { pushToChildren: true, hiddenAt: null, hiddenBy: null } });
+  const ids = await childIds(orgId);
+  announceChildren(ids);
+  return { name: entry.name, workspaces: ids.length };
+}
+
+/** Totals across the organization's workspaces, for the Remove dialog the org admin sees (W8 step 5). */
+export async function orgPushCounts(orgId: string, userId: string, workflow: string) {
+  const entry = catalogEntry(workflow);
+  if (!entry) throw new Error("Unknown workflow");
+  await orgManager(orgId, userId);
+  const ids = await childIds(orgId);
+  if (!entry.types.length || !ids.length) return removalSummary([]);
+  return removalSummary(await db.select({ status: tasks.status, onBoard: tasks.onBoard }).from(tasks)
+    .where(and(inArray(tasks.projectId, ids), inArray(tasks.itemType, entry.types), isNull(tasks.deletedAt))));
+}
+
+/** Remove from workspaces: the push ends; workspaces that added it themselves keep it (their own row was kept). */
+export async function unpushWorkflow(orgId: string, userId: string, workflow: string) {
+  const entry = catalogEntry(workflow);
+  if (!entry) throw new Error("Unknown workflow");
+  const counts = await orgPushCounts(orgId, userId, workflow);
+  await db.update(workspaceWorkflows).set({ pushToChildren: false, hiddenAt: sql`now()`, hiddenBy: userId })
+    .where(and(eq(workspaceWorkflows.workspaceId, orgId), eq(workspaceWorkflows.workflow, workflow)));
+  announceChildren(await childIds(orgId));
+  return { name: entry.name, ...counts };
+}
+
+/**
+ * The wizard's ticked workflows (W9 step 3), right after the workspace is made: its owner adds built ones and the
+ * workspace's switch comes on with them. Ones its organization already pushes are skipped (they show anyway).
+ */
+export async function addWorkflowsOnCreate(workspaceId: string, userId: string, workflows: string[]) {
+  const picked = [...new Set(workflows)].filter((id) => catalogEntry(id)?.built);
+  if (!picked.length) return { added: [] as string[] };
+  const [ws] = await db.select({ ownerId: workspaces.ownerId, kind: workspaces.kind, parentId: workspaces.parentId })
+    .from(workspaces).where(and(eq(workspaces.id, workspaceId), isNull(workspaces.deletedAt))).limit(1);
+  if (!ws || ws.kind !== "workspace" || ws.ownerId !== userId) throw new Error("Only the new workspace’s owner can add its workflows.");
+  const pushed = ws.parentId ? (await orgPushedWorkflows(ws.parentId, userId)).workflows : [];
+  const own = picked.filter((id) => !pushed.includes(id));
+  await db.transaction(async (tx) => {
+    await tx.update(workspaces).set({ workflowsEnabled: true }).where(eq(workspaces.id, workspaceId));
+    if (own.length) await tx.insert(workspaceWorkflows).values(own.map((workflow) => ({ workspaceId, workflow, addedBy: userId }))).onConflictDoNothing();
+  });
+  return { added: own };
 }

@@ -51,3 +51,30 @@ export const PARKED_WORKFLOWS = [
 ];
 
 export const catalogEntry = (id: string) => WORKFLOW_CATALOG.find((entry) => entry.id === id) ?? null;
+
+/**
+ * Report section 6, in its order, with each old tab name read as the workflow it blended into (28.2): Bug tracker →
+ * Bugs, Feedback & requests → Requests, Roadmap & launches → Roadmap, Content calendar → Content, Asset library →
+ * Assets, Meetings & decisions → Meetings, Goals & OKRs → Quarterly goals. Parked ones (Pipeline, Money, Inventory,
+ * Course planner, Event planner) are left out.
+ */
+const SUGGESTIONS: Record<string, string[]> = {
+  side_project: ["roadmap"],
+  startup: ["project_planner", "goals", "roadmap", "meetings"],
+  open_source: ["bugs", "requests", "project_planner", "meetings"],
+  hackathon: ["project_planner"],
+  creative: ["assets"],
+  nonprofit: ["goals"],
+  game: ["project_planner", "roadmap", "bugs", "assets"],
+  web_app: ["bugs", "requests", "roadmap", "project_planner"],
+  ecommerce: ["content"],
+  tool: ["bugs", "requests", "project_planner"],
+  content: ["content", "assets"],
+  podcast: ["content", "assets"],
+  video: ["content", "assets", "project_planner"],
+};
+
+/** The wizard's Workflows section (W9): the category's built suggestions, only the first ticked (decision 5). */
+export function suggestedWorkflows(category: string | null | undefined) {
+  return (SUGGESTIONS[category ?? ""] ?? []).filter((id) => catalogEntry(id)?.built).map((workflow, i) => ({ workflow, ticked: i === 0 }));
+}
