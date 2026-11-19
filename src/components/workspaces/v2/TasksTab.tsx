@@ -1029,7 +1029,7 @@ export default function TasksTab({
       {showCreateModal ? (
         <CreateTaskModal
           isOpen={showCreateModal}
-          canAssignSprint={isOwner}
+          canAssignSprint={isOwner || canManageWorkflow /* owners and admins plan sprints (decision 146, report 38.4 call 4) */}
           // Board/review report §4: an organization picks Assignment from New's tabs; a team workspace keeps its shared task.
           manyOptions={isChildProject && canManageWorkflow ? [{ value: "units", label: "A team, or each team · a shared task" }] : []}
           onAssignMany={(_choice, carry) => {

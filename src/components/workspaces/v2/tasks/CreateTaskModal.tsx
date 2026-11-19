@@ -361,8 +361,8 @@ export default function CreateTaskModal({
                     label="Sprint"
                     htmlFor="task-sprint"
                     error={fieldErrors.sprintId}
-                    hint={canAssignSprint ? undefined : "Only the owner can add tasks to a sprint."}
                   >
+                    {canAssignSprint ? (
                     <div className="relative">
                       <select
                         id="task-sprint"
@@ -375,7 +375,7 @@ export default function CreateTaskModal({
                       >
                         <option value="">Backlog</option>
                         {availableSprints.map((sprint) => {
-                          const isAssignable = canAssignSprint && isAssignableSprintOption(sprint);
+                          const isAssignable = isAssignableSprintOption(sprint);
                           const status = SPRINT_STATUS_PRESENTATION[sprint.status as keyof typeof SPRINT_STATUS_PRESENTATION]?.label ?? sprint.status;
                           return (
                             <option
@@ -392,6 +392,12 @@ export default function CreateTaskModal({
                       <Zap className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     </div>
+                    ) : (
+                      // Report 38.4 W4: members' new items go to the Backlog; no picker to pick from and be refused.
+                      <p id="task-sprint" data-testid="sprint-backlog-note" className="flex min-h-[var(--ui-control-height)] items-center gap-2 rounded-md border border-dashed border-border px-3 text-[13px] text-muted-foreground">
+                        <Zap aria-hidden="true" className="size-4 shrink-0" />Goes to the Backlog · owners and admins plan sprints
+                      </p>
+                    )}
                   </Field>
 
                   <Field
