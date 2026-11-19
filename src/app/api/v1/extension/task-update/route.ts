@@ -53,11 +53,15 @@ async function handlePatch(request: Request) {
     const input = parsed.data;
     const outside = await denyOutsideTokenWorkspace(auth, { projectId: input.projectId, taskId: input.taskId });
     if (outside) return outside;
+    // A stage whose status is Completed (Fixed, Verified, Won't fix, Delivered…) finishes the item, like status=done:
+    // the same token permission and the same yes for agents. Read from the task's own type.
+    const [typed] = input.kind === "stage" ? await db.select({ type: tasks.itemType }).from(tasks).where(and(eq(tasks.id, input.taskId), eq(tasks.projectId, input.projectId))).limit(1) : [];
+    const stageFinishes = input.kind === "stage" && WORKFLOW_TYPES[typed?.type ?? ""]?.stages.find((s) => s.key === input.stage)?.status === "done";
     // Finishing and reviewing need their own token permissions (report A3.6).
     const scopeDenied =
       input.kind === "approve" || input.kind === "request_changes"
         ? await requireTokenScope(auth, "task:review")
-        : input.kind === "resubmit" || (input.kind === "status" && input.status === "done")
+        : input.kind === "resubmit" || (input.kind === "status" && input.status === "done") || stageFinishes
           ? await requireTokenScope(auth, "task:complete")
           : null;
     if (scopeDenied) return scopeDenied;
@@ -65,8 +69,8 @@ async function handlePatch(request: Request) {
     const others = await isOthersTask(input.taskId, user.id);
     const kinds: ChangeKind[] = [
       input.kind === "approve" || input.kind === "request_changes" ? "review" : input.kind === "resubmit" || (input.kind === "status" && input.status === "done") ? "done" : input.kind === "delete" ? "delete"
-        // Closing a bug as Won't fix, Duplicate or Can't reproduce needs a person's yes (report 38.2 part 8).
-        : input.kind === "stage" && Object.values(WORKFLOW_TYPES).some((t) => t.stages.some((s) => s.key === input.stage && s.closing)) ? "done" : "small",
+        // Finishing through a stage (Fixed, Won't fix, Duplicate…) needs a person's yes, like task done (report 38.2 part 8).
+        : stageFinishes ? "done" : "small",
       others || (input.kind === "assign" && input.assigneeId && input.assigneeId !== user.id) ? "others-task" : "small",
     ];
     // The task by number and title, so the yes names it (report D4).
