@@ -47,6 +47,9 @@ const querySchema = z.object({
   sort: z.enum(["updated", "due", "priority"]).default("updated"),
   label: z.string().trim().toLowerCase().max(32).optional(),
   starred: z.enum(["1"]).optional(),
+  // Report 38.2 F1: list one type, or one stage of it (nb task list --type bug --stage confirmed).
+  type: z.string().regex(/^[a-z_]{1,40}$/).optional(),
+  stage: z.string().regex(/^[a-z_]{1,40}$/).optional(),
 });
 const csv = (value: string | null) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : undefined);
 
@@ -91,6 +94,8 @@ export async function GET(request: Request) {
       sort: searchParams.get("sort") || undefined,
       label: searchParams.get("label") || undefined,
       starred: searchParams.get("starred") || undefined,
+      type: searchParams.get("type") || undefined,
+      stage: searchParams.get("stage") || undefined,
     });
     if (!parsed.success)
       return jsonError("Invalid workspace task query", 400, "BAD_REQUEST");
@@ -119,6 +124,9 @@ export async function GET(request: Request) {
           priority: tasks.priority,
           storyPoints: tasks.storyPoints,
           kind: tasks.kind,
+          itemType: tasks.itemType,
+          stage: tasks.stage,
+          onBoard: tasks.onBoard,
           sprintId: tasks.sprintId,
           sprintName: workspaceSprints.name,
           reviewStatus: tasks.reviewStatus,
@@ -149,6 +157,8 @@ export async function GET(request: Request) {
             f.dueAfter ? sql`${tasks.dueDate} >= ${f.dueAfter}::timestamptz` : undefined,
             f.dueBefore ? sql`${tasks.dueDate} < ${f.dueBefore}::timestamptz` : undefined,
             f.label ? sql`${tasks.labels} @> ARRAY[${f.label}]::text[]` : undefined,
+            f.type ? eq(tasks.itemType, f.type) : undefined,
+            f.stage ? eq(tasks.stage, f.stage) : undefined,
             f.starred ? sql`EXISTS (SELECT 1 FROM task_stars s WHERE s.task_id = ${tasks.id} AND s.user_id = ${user.id})` : undefined,
             // Every word in the title, in any order ("bug login" finds "Fix the login bug"), or the number (C2).
             parsed.data.q.trim()
@@ -321,6 +331,7 @@ export async function GET(request: Request) {
           priority: task.priority,
           storyPoints: task.storyPoints,
           kind: task.kind,
+          ...(task.itemType !== "task" ? { type: task.itemType, stage: task.stage, onBoard: task.onBoard } : {}),
           sprintId: task.sprintId,
           sprintName: task.sprintName || null,
           reviewStatus: task.reviewStatus,

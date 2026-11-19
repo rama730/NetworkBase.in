@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { createElement, memo, useEffect, useState } from "react";
 import { markMoveSeen, moveSeen } from "@/lib/organizations/move-seen";
 import { useSprintPath } from "@/components/workspaces/v2/tasks/SprintPathContext";
 import { AssignmentIcon, audienceLabel, cardLine, copyChip, copyStageLine, publishLine, StageBar } from "@/components/workspaces/tabs/sprint/AssignmentStages";
@@ -26,6 +26,10 @@ import {
 import TaskPriorityBadge from "./badges/TaskPriorityBadge";
 import TaskStatusBadge from "./badges/TaskStatusBadge";
 import { formatTaskId } from "@/lib/workspace-key";
+import { useKnownWorkflows } from "@/components/workspaces/workflows/added-workflows";
+import { workflowIcon } from "@/components/workspaces/workflows/workflow-icons";
+import { ownTabOf, typeChip } from "@/lib/workflows/display";
+import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 
 
 interface TaskCardProps {
@@ -148,6 +152,11 @@ export const TaskCard = memo(function TaskCard({
   dragListeners,
 }: TaskCardProps) {
   const taskRecord = normalizeTaskSurfaceRecord(task);
+  const known = useKnownWorkflows();
+  const chip = typeChip(taskRecord.itemType, taskRecord.stage, taskRecord.status);
+  const typeIcon = taskRecord.itemType && WORKFLOW_TYPES[taskRecord.itemType] ? workflowIcon(WORKFLOW_TYPES[taskRecord.itemType]!.icon) : null;
+  const ownTab = taskRecord.itemType ? ownTabOf(taskRecord.itemType) : null;
+  const typeHidden = Boolean(known && ownTab && !known.includes(ownTab.id));
   const sprintPath = useSprintPath(taskRecord.sprint?.id, taskRecord.sprint?.name ?? "");
   const titlePresentation = getTaskTitlePresentation(taskRecord);
   const dueDateLabel = formatTaskDueDate(taskRecord.dueDate);
@@ -270,6 +279,7 @@ export const TaskCard = memo(function TaskCard({
           <div className="shrink-0">
             <TaskPriorityBadge priority={taskRecord.priority} />
           </div>
+          {chip ? <span data-testid="type-chip" className="shrink-0 rounded-[3px] border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] font-semibold text-muted-foreground">{chip}</span> : null}
           {taskRecord.reviewStatus === "pending" && !ownChip && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground">
               <Lock className="size-3" />
@@ -380,6 +390,12 @@ export const TaskCard = memo(function TaskCard({
                 {deadlineLabel}
               </div>
             )}
+            {typeIcon ? (
+              // Report 38.2 S5: the type's icon before NB-n; faded when its workflow is hidden here.
+              <span title={typeHidden ? `${ownTab?.name ?? "This workflow"} is hidden in this workspace` : WORKFLOW_TYPES[taskRecord.itemType!]?.label} className={cn("inline-flex", typeHidden && "opacity-40")}>
+                {createElement(typeIcon, { "aria-label": WORKFLOW_TYPES[taskRecord.itemType!]?.label, className: "size-3.5 text-muted-foreground" })}
+              </span>
+            ) : null}
             <span className="whitespace-nowrap font-mono text-[11px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
               {taskRecord.taskNumber && taskRecord.projectKey
                 ? formatTaskId(taskRecord.projectKey, taskRecord.taskNumber)

@@ -1242,6 +1242,7 @@ export default function TasksTab({
           reviewsGroupWork={reviewsGroupWork}
           canManageFiles={canManageFiles}
           isOwner={isOwner}
+          canPlanSprints={isOwner || canManageWorkflow}
           members={members}
           sprints={sprintOptions}
           currentUserId={currentUserId}

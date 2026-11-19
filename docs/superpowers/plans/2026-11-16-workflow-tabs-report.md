@@ -15422,6 +15422,10 @@ F1 is the floor every other round stands on: a task can have a **type** and a **
 16. Opening a workflow tab straight from a link (`?tab=bugs`) arrives with that tab's round (T3 for Bugs); in A0.2 tabs switch in the page. **[call]**
 17. **Correction (A0.3, 2026-11-19):** the wizard's ticked workflows are added right after the workspace is made (like its starter doc), not in the create transaction; a failure only warns ("Add them from + Add workflow"). Ticking any switches workflows on for that workspace. The Workflows block sits inside the wizard's "Stages and workflow" section under Journey stages, so the step's numbered index doesn't change. **[call]**
 18. Section 6's old tab names are read as the workflows they blended into (Bug tracker → Bugs, Roadmap & launches → Roadmap, …); parked ones aren't suggested. An organization's "Workflows for workspaces" card sits after its Workspaces card and needs the organization's own workflows switch. **[call]**
+19. **A0.10 (2026-11-19):** "Shows in" names the places as plain text until the own tabs exist (Bugs in A2.1); the Stage menu and Join-board sheet sit under the panel header for typed items only. The Join-board tick is remembered in the person's browser for 24 hours (per workspace). **[call]**
+20. **A0.10:** `updateTaskTypeFieldsAction` and the Work tab wait for the first type with fields (A2.1) and the first never-on-board type (A1.3). **[call]**
+21. **A0.10:** MCP stage moves are a pack tool, `networkbase_task_stage` (planning pack), and `networkbase_workflow_list` is in that pack too: the core set was at its 4,000-token limit (D14). `networkbase_task_list` and `networkbase_task_create` take `type` (and the list `stage`) in the core set. **[call]**
+22. **A0.10:** `nb task move <n> --stage x` (and the API's `stage` kind) joins the running sprint unless `--backlog` or a sprint is named; moving to a closing stage (Won't fix, Duplicate, Can't reproduce) needs an agent's person's yes. **[call]**
 
 ### 38.3 F2 · Document sections and live blocks (agreed 2026-11-17)
 

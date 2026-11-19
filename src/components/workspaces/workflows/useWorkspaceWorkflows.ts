@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { readWorkflowsAction } from "@/app/actions/workflows";
 import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
@@ -38,6 +38,4 @@ export function useWorkspaceWorkflows(workspaceId: string, started?: Promise<Wor
   return { ...state, refresh };
 }
 
-/** The workflows added to the open workspace, for parts deep in its tabs (the Documents rail's sections, report 38.3). */
-export const AddedWorkflowsContext = createContext<string[]>([]);
-export const useAddedWorkflows = () => useContext(AddedWorkflowsContext);
+export { AddedWorkflowsContext, useAddedWorkflows, useKnownWorkflows } from "@/components/workspaces/workflows/added-workflows";

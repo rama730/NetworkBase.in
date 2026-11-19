@@ -13,7 +13,7 @@ import { downloadTo, safeJoin } from "../sync/transfer.mjs";
 
 const STATUS_WORDS = /** @type {Record<string, string>} */ ({ todo: "to do", in_progress: "in progress", blocked: "blocked", done: "done" });
 /** @param {any} t */
-const statusWord = (t) => (t.status === "done" && t.reviewStatus === "pending" ? "in review" : STATUS_WORDS[t.status] ?? String(t.status));
+const statusWord = (t) => `${t.status === "done" && t.reviewStatus === "pending" ? "in review" : STATUS_WORDS[t.status] ?? String(t.status)}${t.type && t.stage ? ` · ${t.type} ${String(t.stage).replace(/_/g, " ")}` : ""}`;
 const ROLE = /** @type {Record<string, string>} */ ({ deliverable: "final", working: "draft", reference: "reference" });
 
 /**
@@ -93,7 +93,7 @@ export async function list(ctx) {
   applySavedFilter(ctx);
   const workspaceId = ctx.requireWorkspace();
   // A label or your stars pick tasks on their own, so they look at everyone's (M4b live check).
-  const scope = ctx.flags.all || ctx.flags.to || ctx.flags.label || ctx.flags.starred ? "all" : "mine";
+  const scope = ctx.flags.all || ctx.flags.to || ctx.flags.label || ctx.flags.starred || ctx.flags.type || ctx.flags.stage ? "all" : "mine";
   const wanted = ctx.flags.status ? new Set(String(ctx.flags.status).split(",").map((s) => s.trim())) : null;
   const limit = ctx.flags.limit ? Number(ctx.flags.limit) : 50;
   // Filters run on the server (C2), so open work never falls off a page of done tasks.
@@ -113,11 +113,14 @@ export async function list(ctx) {
   if (ctx.flags.sort) query.sort = String(ctx.flags.sort);
   if (ctx.flags.label) query.label = String(ctx.flags.label).toLowerCase();
   if (ctx.flags.starred) query.starred = "1";
+  // Report 38.2 call 9: one type, or one stage of it (off-board items too).
+  if (ctx.flags.type) query.type = String(ctx.flags.type).toLowerCase();
+  if (ctx.flags.stage) query.stage = String(ctx.flags.stage).toLowerCase();
   const { tasks } = /** @type {any} */ (await ctx.api.get("/api/v1/extension/workspace-tasks", { query }));
   let rows = tasks.filter((/** @type {any} */ t) => (wanted ? wanted.has(t.status) || (wanted.has("review") && t.reviewStatus === "pending") : true));
   const more = Math.max(0, rows.length - limit);
   rows = rows.slice(0, limit);
-  const data = { scope, tasks: rows.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus ?? null, priority: t.priority ?? null, dueDate: t.dueDate ?? null, assignee: t.assigneeUsername ?? t.assigneeName ?? null, labels: t.labels ?? [], subtasks: t.subtaskSummary ?? null })), more };
+  const data = { scope, tasks: rows.map((/** @type {any} */ t) => ({ id: t.id, number: t.taskNumber, title: t.title, status: t.status, reviewStatus: t.reviewStatus ?? null, priority: t.priority ?? null, dueDate: t.dueDate ?? null, assignee: t.assigneeUsername ?? t.assigneeName ?? null, labels: t.labels ?? [], subtasks: t.subtaskSummary ?? null, ...(t.type ? { type: t.type, stage: t.stage ?? null, onBoard: t.onBoard ?? true } : {}) })), more };
   ctx.out.result("nb.task.list/1", data, (d) => {
     if (!d.tasks.length) return scope === "mine" ? "No open tasks assigned to you · nb task list --all for everyone's" : "No open tasks";
     const started = ctx.project?.startedTask?.id;
@@ -315,8 +318,11 @@ export async function create(ctx) {
   const assigneeId = ctx.flags.to === undefined ? undefined : await resolvePerson(ctx, String(ctx.flags.to));
   const sprintId = ctx.flags.sprint === undefined ? undefined : await resolveSprint(ctx, String(ctx.flags.sprint));
   const res = /** @type {any} */ (await ctx.api.post("/api/v1/extension/create-task", { projectId, title, ...(ctx.flags.message ? { description: ctx.flags.message } : {}), ...(priority ? { priority } : {}),
-    ...(dueDate ? { dueDate } : {}), ...(assigneeId !== undefined ? { assigneeId } : {}), ...(sprintId ? { sprintId } : {}) }));
+    ...(dueDate ? { dueDate } : {}), ...(assigneeId !== undefined ? { assigneeId } : {}), ...(sprintId ? { sprintId } : {}),
+    ...(ctx.flags.type ? { itemType: String(ctx.flags.type).toLowerCase() } : {}), ...(ctx.flags.stage ? { stage: String(ctx.flags.stage).toLowerCase() } : {}) }));
   const task = res.task ?? res;
+  // Report 38.4 call 3: a member's sprint goes to the Backlog instead of failing.
+  if (res.backlogged) ctx.out.warn("Goes to the Backlog (owners and admins plan sprints)");
   for (const sub of /** @type {string[]} */ (ctx.flags.subtask ?? [])) await ctx.api.post("/api/v1/extension/task-subtask", { projectId, taskId: task.id, title: sub });
   ctx.out.result("nb.task.create/1", { id: task.id, number: task.taskNumber, title: task.title ?? title, subtasks: (ctx.flags.subtask ?? []).length, dueDate: dueDate ?? null }, (d) => [
     `${ctx.out.c.success(ctx.out.sym.done)} Created #${d.number} ${safe(d.title)}${d.subtasks ? ` with ${d.subtasks} subtasks` : ""}${d.dueDate ? ` · due ${d.dueDate}` : ""}`,
@@ -377,6 +383,7 @@ export async function stop(ctx) {
 
 /** @param {Context} ctx */
 export async function move(ctx) {
+  if (ctx.flags.stage) return moveStage(ctx);
   const refs = ctx.positionals.slice(0, -1);
   const to = ctx.positionals.at(-1);
   const [ref] = refs;
@@ -394,6 +401,37 @@ export async function move(ctx) {
   await setStatus(ctx, task, to);
   if (to === "blocked") await ctx.api.post("/api/v1/extension/comments", { kind: "task", projectId: ctx.requireWorkspace(), taskId: task.id, text: `Blocked: ${ctx.flags.reason}` });
   ctx.out.result("nb.task.move/1", { number: task.taskNumber, status: to }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} #${d.number} is ${STATUS_WORDS[d.status]}`);
+}
+
+/**
+ * Report 38.2 W12: a typed item to a stage. Joining the board takes the running sprint unless --backlog; leaving it
+ * takes it out of its sprint. The server applies the same rules as the item page.
+ * @param {Context} ctx
+ */
+async function moveStage(ctx) {
+  const [ref, extra] = ctx.positionals;
+  if (!ref || extra) throw usage("nb task move <task> --stage <stage> [--backlog]");
+  const stage = String(ctx.flags.stage).toLowerCase();
+  const task = await resolveTask(ctx, ref, { brief: true });
+  const res = /** @type {any} */ (await ctx.api.patch("/api/v1/extension/task-update", { kind: "stage", projectId: ctx.requireWorkspace(), taskId: task.id, stage, ...(ctx.flags.backlog ? { backlog: true } : {}) }));
+  ctx.out.result("nb.task.stage/1", { number: task.taskNumber, stage, status: res.status ?? null, outcome: res.outcome ?? null }, (d) =>
+    `${ctx.out.c.success(ctx.out.sym.done)} #${d.number} is at ${d.stage.replace(/_/g, " ")}${d.status ? ` · ${STATUS_WORDS[d.status] ?? d.status}` : ""}${d.outcome === "submitted" ? " · sent for review" : ""}`);
+}
+
+/**
+ * Report 38.2 call 9: the workspace's workflows, read-only (adding and removing stay in the app).
+ * @param {Context} ctx
+ */
+export async function workflows(ctx) {
+  const id = ctx.requireWorkspace();
+  const d = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(id)}/workflows`));
+  ctx.out.result("nb.workflows/1", d, (r) => {
+    if (!r.enabled || !r.workflows.length) return "No workflows here yet · owners and admins add them in the app (+ Add workflow)";
+    return r.workflows.flatMap((/** @type {any} */ w) => [
+      `  ${safe(w.name)}${w.locked ? ctx.out.c.muted(` · added by ${safe(w.addedBy ?? "the organization")}`) : ""}`,
+      ...w.types.map((/** @type {any} */ t) => ctx.out.c.muted(`    --type ${t.id}: ${t.stages.map((/** @type {any} */ s) => (s.onBoard ? s.key : `${s.key}*`)).join(", ")} (joins the board at ${t.joinsAt}; * off the board)`)),
+    ]);
+  });
 }
 
 /**

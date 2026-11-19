@@ -1690,6 +1690,16 @@
           "type": "boolean",
           "describe": "Only tasks you starred"
         },
+        "type": {
+          "type": "string",
+          "describe": "A type: bug, request or content (nb workflows lists them)",
+          "valueName": "type"
+        },
+        "stage": {
+          "type": "string",
+          "describe": "A stage of that type, like new, confirmed or fixing",
+          "valueName": "stage"
+        },
         "save": {
           "type": "string",
           "describe": "Save these filters under a name (nb task list @name)",
@@ -1699,7 +1709,8 @@
       "examples": [
         "nb task list --due week --sort due",
         "nb task list --all --status blocked --save stuck",
-        "nb task list @stuck"
+        "nb task list @stuck",
+        "nb task list --type bug --stage confirmed"
       ],
       "exitCodes": [
         0,
@@ -1753,13 +1764,23 @@
     {
       "name": "task create",
       "summary": "Create a task (yours unless --to says otherwise)",
-      "usage": "nb task create \"<title>\" [-m description] [--priority high] [--due friday] [--to @sam] [--sprint current]",
+      "usage": "nb task create \"<title>\" [-m description] [--priority high] [--due friday] [--to @sam] [--sprint current] [--type bug --stage new]",
       "flags": {
         "message": {
           "type": "string",
           "short": "m",
           "describe": "Text for this command",
           "valueName": "text"
+        },
+        "type": {
+          "type": "string",
+          "describe": "A type: bug, request or content (nb workflows lists them)",
+          "valueName": "type"
+        },
+        "stage": {
+          "type": "string",
+          "describe": "A stage of that type, like new, confirmed or fixing",
+          "valueName": "stage"
         },
         "priority": {
           "type": "string",
@@ -1794,6 +1815,7 @@
         }
       },
       "examples": [
+        "nb task create \"Login button does nothing\" --type bug",
         "nb task create \"Fix login\" --priority high",
         "nb task create \"Update the logo\" --due friday --to @sam --sprint current",
         "nb task create \"Write report\" --subtask Outline --subtask Draft",
@@ -1835,15 +1857,39 @@
     },
     {
       "name": "task move",
-      "summary": "Move to todo, in_progress or blocked",
-      "usage": "nb task move <task…> <status> [--reason text]",
+      "summary": "Move to todo, in_progress or blocked, or a typed item to a stage",
+      "usage": "nb task move <task…> <status> [--reason text] | nb task move <task> --stage fixing [--backlog]",
       "flags": {
         "reason": {
           "type": "string",
           "describe": "Why (needed for blocked)",
           "valueName": "text"
+        },
+        "stage": {
+          "type": "string",
+          "describe": "A typed item's stage (nb workflows lists them); joining the board takes the running sprint",
+          "valueName": "stage"
+        },
+        "backlog": {
+          "type": "boolean",
+          "describe": "With --stage: join the board in the Backlog, not the running sprint"
         }
       },
+      "examples": [
+        "nb task move 4 blocked --reason \"waiting for keys\"",
+        "nb task move 142 --stage fixing",
+        "nb task move 142 --stage fixing --backlog"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "workflows",
+      "summary": "The workflows this workspace has, and their types and stages",
+      "usage": "nb workflows",
+      "flags": {},
       "examples": [],
       "exitCodes": [
         0,

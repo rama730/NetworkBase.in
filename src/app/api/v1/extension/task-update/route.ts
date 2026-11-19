@@ -15,6 +15,7 @@ import {
   fileVersions,
   taskSubtasks,
   tasks,
+  workspaceSprints,
 } from "@/lib/db/schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -25,7 +26,8 @@ import {
   afterTaskTransition,
 } from "@/lib/workspaces/task-transition-service";
 import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
-import { approveTaskReviewAction, assignTaskAction, requestTaskChangesAction, resubmitTaskReviewAction, updateTaskFieldAction } from "@/app/actions/task";
+import { approveTaskReviewAction, assignTaskAction, requestTaskChangesAction, resubmitTaskReviewAction, setTaskStageAction, updateTaskFieldAction } from "@/app/actions/task";
+import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { deleteSubtaskAction, updateSubtaskAction } from "@/app/actions/subtask";
 import { deleteTaskAs } from "@/lib/workspaces/server/tasks";
 import {
@@ -62,13 +64,16 @@ async function handlePatch(request: Request) {
     // Which changes an agent's person has to agree to first (report §26.6).
     const others = await isOthersTask(input.taskId, user.id);
     const kinds: ChangeKind[] = [
-      input.kind === "approve" || input.kind === "request_changes" ? "review" : input.kind === "resubmit" || (input.kind === "status" && input.status === "done") ? "done" : input.kind === "delete" ? "delete" : "small",
+      input.kind === "approve" || input.kind === "request_changes" ? "review" : input.kind === "resubmit" || (input.kind === "status" && input.status === "done") ? "done" : input.kind === "delete" ? "delete"
+        // Closing a bug as Won't fix, Duplicate or Can't reproduce needs a person's yes (report 38.2 part 8).
+        : input.kind === "stage" && Object.values(WORKFLOW_TYPES).some((t) => t.stages.some((s) => s.key === input.stage && s.closing)) ? "done" : "small",
       others || (input.kind === "assign" && input.assigneeId && input.assigneeId !== user.id) ? "others-task" : "small",
     ];
     // The task by number and title, so the yes names it (report D4).
     const label = auth.tokenKind === "agent" ? await taskLabel(input.taskId, input.projectId) : "the task";
     const what =
       input.kind === "status" ? (input.status === "done" ? `Finish ${label}` : `Move ${label} to ${input.status.replace("_", " ")}`)
+      : input.kind === "stage" ? `Move ${label} to ${input.stage.replace(/_/g, " ")}`
       : input.kind === "subtask" ? `${input.completed ? "Tick" : "Untick"} a subtask`
       : input.kind === "edit" ? `Change the ${input.field} of ${label}`
       : input.kind === "assign" ? (input.assigneeId ? `Assign ${label} to ${auth.tokenKind === "agent" ? await personLabel(input.assigneeId) : "someone"}` : `Unassign ${label}`)
@@ -101,6 +106,14 @@ async function handlePatch(request: Request) {
     const limit = await consumeRateLimit(`task:${user.id}`, 60, 60);
     if (!limit.allowed)
       return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
+    if (input.kind === "stage") {
+      // W12: no sprint named and not --backlog: the running sprint, as the Join-board sheet ticks it.
+      const [running] = input.sprintId || input.backlog ? [] : await db.select({ id: workspaceSprints.id }).from(workspaceSprints)
+        .where(and(eq(workspaceSprints.projectId, input.projectId), eq(workspaceSprints.status, "active"))).limit(1);
+      const sprintId = input.backlog ? null : input.sprintId ?? running?.id ?? null;
+      const result = await setTaskStageAction({ taskId: input.taskId, projectId: input.projectId, stage: input.stage, ...(sprintId ? { sprintId } : { toBacklog: true }) });
+      return result.success ? jsonSuccess(result) : jsonError(result.error, 400, "BAD_REQUEST");
+    }
     if (input.kind === "edit" || input.kind === "assign" || input.kind === "delete") {
       const [before] = await db.select({ title: tasks.title, description: tasks.description, priority: tasks.priority, dueDate: tasks.dueDate, assigneeId: tasks.assigneeId }).from(tasks).where(and(eq(tasks.id, input.taskId), eq(tasks.projectId, input.projectId))).limit(1);
       if (!before) return jsonError("Task not found", 404, "NOT_FOUND");

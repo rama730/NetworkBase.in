@@ -76,10 +76,11 @@ export const TOOLS = [
     description: "Count the user's open tasks across all their workspaces, by status and per workspace. Say which workspace each overdue task is in.",
     run: (nb) => nb("task count") },
   { name: "networkbase_task_list", title: "List tasks", tier: "read",
-    props: { workspace: workspaceProp, all: { type: "boolean", description: "Include others' tasks" }, status: { type: "string", description: "todo,in_progress,blocked,review,done" }, limit: { type: "number" } },
-    description: `List tasks in a workspace (default: the user's open ones). ${DATA}`,
-    fields: { tasks: ["number", "title", "status", "dueDate", "assignee", "labels"] },
-    run: (nb, a) => nb("task list", [], { ...ws(a), ...(a.all ? { all: true } : {}), ...(a.status ? { status: a.status } : {}), ...(a.limit ? { limit: String(a.limit) } : {}) }) },
+    props: { workspace: workspaceProp, all: { type: "boolean", description: "Include others' tasks" }, status: { type: "string", description: "todo,in_progress,blocked,review,done" }, limit: { type: "number" },
+      type: { type: "string" }, stage: { type: "string" } },
+    description: `Tasks in a workspace (default: the user's open ones). ${DATA}`,
+    fields: { tasks: ["number", "title", "status", "dueDate", "assignee", "labels", "type", "stage"] },
+    run: (nb, a) => nb("task list", [], { ...ws(a), ...(a.all ? { all: true } : {}), ...(a.status ? { status: a.status } : {}), ...(a.limit ? { limit: String(a.limit) } : {}), ...(a.type ? { type: a.type } : {}), ...(a.stage ? { stage: a.stage } : {}) }) },
   { name: "networkbase_task_find", title: "Find a task", tier: "read", props: { query: { type: "string", description: "Words from the title, or its number" }, workspace: workspaceProp }, required: ["query"],
     description: "Find a task the user names in words (\"the login task\"). Asks which when several match.",
     run: async (nb, a) => {
@@ -90,15 +91,26 @@ export const TOOLS = [
     description: `Everything to work on a task: status, description, comments, subtasks, files. Use before starting work. ${DATA}`,
     run: (nb, a) => nb("task view", a.task ? [String(a.task)] : [], { ...ws(a), context: true }) },
   { name: "networkbase_task_create", title: "Create a task", tier: "small",
-    props: { title: { type: "string", description: "Short title" }, description: { type: "string", description: "Details (Markdown)" }, priority: { type: "string", enum: ["low", "medium", "high", "urgent"] }, subtasks: { type: "array", items: { type: "string" }, description: "Subtask titles" }, workspace: workspaceProp },
+    props: { title: { type: "string", description: "Short title" }, description: { type: "string", description: "Details (Markdown)" }, priority: { type: "string", enum: ["low", "medium", "high", "urgent"] }, subtasks: { type: "array", items: { type: "string" }, description: "Subtask titles" },
+      type: { type: "string" }, workspace: workspaceProp },
     required: ["title"],
     description: "Create a new task (\"add a task, issue or to-do\"). If the user names a task that may exist, find it first (networkbase_task_find). For subtasks use networkbase_subtask_add.",
-    run: (nb, a) => nb("task create", [a.title], { ...ws(a), ...(a.description ? { message: a.description } : {}), ...(a.priority ? { priority: a.priority } : {}), ...(a.subtasks?.length ? { subtask: a.subtasks } : {}) }) },
+    run: (nb, a) => nb("task create", [a.title], { ...ws(a), ...(a.description ? { message: a.description } : {}), ...(a.priority ? { priority: a.priority } : {}), ...(a.subtasks?.length ? { subtask: a.subtasks } : {}), ...(a.type ? { type: a.type } : {}) }) },
   { name: "networkbase_task_move", title: "Change a task's status", tier: "small",
-    props: { task: taskProp, to: { type: "string", enum: ["todo", "in_progress", "blocked"] }, reason: { type: "string", description: "Needed for blocked" }, workspace: workspaceProp },
+    props: { task: taskProp, to: { type: "string", enum: ["todo", "in_progress", "blocked"] }, reason: { type: "string", description: "Needed for blocked" },
+workspace: workspaceProp },
     required: ["task", "to"],
     description: "Move a task to To do, In progress or Blocked (\"I'm starting #3\"). To finish one, use networkbase_task_done.",
     run: (nb, a) => nb("task move", [String(a.task), a.to], { ...ws(a), ...(a.reason ? { reason: a.reason } : {}) }) },
+  // Report 38.2 W12: a typed item's stage, in the planning pack so the core set stays under budget (D14).
+  { name: "networkbase_task_stage", title: "Move to a stage", tier: "small", pack: "planning",
+    props: { task: taskProp, stage: { type: "string", description: "e.g. confirmed or fixing (networkbase_workflow_list)" }, backlog: { type: "boolean", description: "Joining the board: the Backlog, not the running sprint" }, workspace: workspaceProp },
+    required: ["task", "stage"],
+    description: "Move a bug, request or content item to a stage; joining the board takes the running sprint. Closing a bug (wont_fix, duplicate) needs the person's yes.",
+    run: (nb, a) => nb("task move", [String(a.task)], { ...ws(a), stage: a.stage, ...(a.backlog ? { backlog: true } : {}) }) },
+  { name: "networkbase_workflow_list", title: "List workflows", tier: "read", pack: "planning", props: { workspace: workspaceProp },
+    description: `A workspace's workflows (Bugs, Requests…) with their types and stages; read-only. ${DATA}`,
+    run: (nb, a) => nb("workflows", [], { ...ws(a) }) },
   { name: "networkbase_task_done", title: "Finish a task", tier: "yes",
     props: { task: taskProp, summary: { type: "string", description: "What was done" }, checks: checksProp, workspace: workspaceProp },
     required: ["summary"],
@@ -172,7 +184,7 @@ export const TOOLS = [
     description: "Ask a person in NetworkBase who isn't in this chat (a cloud agent's person, a reviewer); they answer in the app. Ask in this chat when the user is here.",
     run: async (nb, a) => nb("ask", [a.question], { ...ws(a), option: a.options, ...(a.to ? { to: a.to } : {}), ...(a.task ? { task: String(a.task) } : {}), ...(a.wait === false ? {} : { wait: true, timeout: "600" }) }) },
   { name: "networkbase_briefing", title: "Briefing", tier: "read", props: { since: { type: "string", description: "30m, 3h, 1d (default), 2w or a date" }, workspace: workspaceProp },
-    description: `What changed since a time, the inbox and what's next, in one call ("catch me up"). ${DATA}`,
+    description: `What changed since a time, the inbox and what's next ("catch me up"). ${DATA}`,
     run: async (nb, a) => {
       const since = String(a.since ?? "1d");
       const [next, inbox, activity] = await Promise.all([
@@ -515,10 +527,10 @@ export const PACKS = /** @type {Record<Exclude<Pack, "core">, string>} */ ({
 });
 
 TOOLS.push({ name: "networkbase_run", title: "Run a pack tool", tier: "small", props: { tool: { type: "string", description: "Its name, from networkbase_more_tools" }, args: { type: "object" } }, required: ["tool"],
-  description: "Call a tool from a pack by name, with its arguments (works whether or not your client shows the pack's tools).",
+  description: "Call a pack tool by name with its arguments (even if your client hides them).",
   run: async () => { throw new CliError("INTERNAL", "networkbase_run is answered by callTool"); } });
 TOOLS.push({ name: "networkbase_more_tools", title: "More tools", tier: "read", props: { pack: { type: "string", enum: Object.keys(PACKS) } },
-  description: "Load more tools for this session. files: the Trash, folders, copies, stars, history, docs, search. planning: labels, blocked by, reminders, sprints, members, activity. classes: assignments, hand-ins, reviews. people: the inbox, updates, invites, roles. changes: change sets (multi-file work applied at once). branches: merge requests.",
+  description: "More tools for this session. files: Trash, folders, copies, stars, history, docs, search. planning: labels, blocked by, reminders, sprints, members, activity, workflows. classes: assignments, hand-ins, reviews. people: inbox, updates, invites, roles. changes: change sets. branches: merge requests.",
   run: async () => { throw new CliError("INTERNAL", "networkbase_more_tools is answered by the MCP server"); } });
 
 /**

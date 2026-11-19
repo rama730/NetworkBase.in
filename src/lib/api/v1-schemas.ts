@@ -61,6 +61,9 @@ export const createTaskSchema = z.object({
   assigneeId: z.string().uuid().nullable().optional(),
   dueDate: taskDueDateSchema.nullable().optional(),
   sprintId: z.string().uuid().nullable().optional(),
+  // Report 38.2 F1 (nb task create --type bug --stage new): the type and where it starts; checked by createTaskAction.
+  itemType: z.string().regex(/^[a-z_]{1,40}$/).optional(),
+  stage: z.string().regex(/^[a-z_]{1,40}$/).optional(),
 });
 
 // extension/task-subtask
@@ -158,6 +161,9 @@ export const taskUpdateSchema = z.discriminatedUnion("kind", [
     value: z.string().max(10000).nullable(),
   }),
   z.object({ kind: z.literal("assign"), projectId: z.string().uuid(), taskId: z.string().uuid(), assigneeId: z.string().uuid().nullable() }),
+  // Report 38.2 F1 (nb task move --stage, networkbase_task_move stage): a typed item's stage; joining the board takes the
+  // running sprint unless a sprint or the Backlog is named.
+  z.object({ kind: z.literal("stage"), projectId: z.string().uuid(), taskId: z.string().uuid(), stage: z.string().regex(/^[a-z_]{1,40}$/), sprintId: z.string().uuid().nullable().optional(), backlog: z.boolean().optional() }),
   z.object({ kind: z.literal("delete"), projectId: z.string().uuid(), taskId: z.string().uuid() }),
   z.object({ kind: z.literal("subtask_edit"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid(), title: z.string().trim().min(1).max(500) }),
   z.object({ kind: z.literal("subtask_delete"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid() }),

@@ -27,6 +27,7 @@ import { deleteTaskAction, markTaskAsReadAction } from "@/app/actions/workspace"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { queryKeys } from "@/lib/query-keys";
+import { TaskStageControl } from "@/components/workspaces/v2/tasks/TaskStageControl";
 import { removeTaskFromWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
 import { formatTaskId } from "@/lib/workspace-key";
 import { cn } from "@/lib/utils";
@@ -97,6 +98,8 @@ interface TaskDetailPanelProps {
   reviewsGroupWork?: boolean;
   canManageFiles?: boolean;
   isOwner?: boolean;
+  /** Owners and admins plan sprints (decision 146): the Join-board sheet offers the running sprint to them. */
+  canPlanSprints?: boolean;
   sprints?: any[];
   members?: any[];
   projectId: string;
@@ -119,6 +122,7 @@ export default function TaskDetailPanel({
   reviewsGroupWork = false,
   canManageFiles = false,
   isOwner = false,
+  canPlanSprints = isOwner,
   sprints = [],
   members = [],
   projectId,
@@ -495,6 +499,13 @@ export default function TaskDetailPanel({
                 {reportTask.dialog}
               </div>
             </div>
+            {/* Report 38.2 S7: a typed item says where it shows and moves between stages; a plain task shows nothing. */}
+            {resource.task.itemType ? (
+              <div className="px-4 pb-2 sm:px-5">
+                <TaskStageControl projectId={projectId} task={resource.task} canEdit={canEditTask} canPlanSprints={canPlanSprints} sprints={sprints}
+                  onMoved={(moved) => onTaskUpdated?.({ ...resource.task, stage: moved.stage, status: moved.status as typeof resource.task.status, onBoard: moved.onBoard, sprintId: moved.sprintId })} />
+              </div>
+            ) : null}
 
             <div
               role="tablist"

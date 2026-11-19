@@ -8071,6 +8071,46 @@
       "status": "todo",
       "test": "",
       "evidence": "shared quick-add with A2.1; Part of with A1.3."
+    },
+    {
+      "key": "38.2.call19",
+      "section": "38.2",
+      "text": "A0.10 (2026-11-19): \"Shows in\" names the places as plain text until the own tabs exist (Bugs in A2.1); the Stage menu and Join-board sheet sit under the panel h",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.2.call20",
+      "section": "38.2",
+      "text": "A0.10: updateTaskTypeFieldsAction and the Work tab wait for the first type with fields (A2.1) and the first never-on-board type (A1.3). [call]",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.2.call21",
+      "section": "38.2",
+      "text": "A0.10: MCP stage moves are a pack tool, networkbasetaskstage (planning pack), and networkbaseworkflowlist is in that pack too: the core set was at its 4,000-tok",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.2.call22",
+      "section": "38.2",
+      "text": "A0.10: nb task move <n> --stage x (and the API's stage kind) joins the running sprint unless --backlog or a sprint is named; moving to a closing stage (Won't fi",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }
