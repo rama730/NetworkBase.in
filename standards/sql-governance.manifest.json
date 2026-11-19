@@ -107,7 +107,8 @@
     "drizzle/0101_cli_step_up.sql",
     "drizzle/0102_branch_names.sql",
     "drizzle/0103_task_types.sql",
-    "drizzle/0104_task_types_index.sql"
+    "drizzle/0104_task_types_index.sql",
+    "drizzle/0105_workspace_workflows.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

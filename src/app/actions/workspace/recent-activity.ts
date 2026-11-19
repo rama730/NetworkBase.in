@@ -4,7 +4,8 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { labelScopes, visibleViaOfPayload } from "@/lib/agents/via-scope";
 import { db } from "@/lib/db";
-import { githubSyncRuns, profiles, workspaceMembers, workspaceNodeEvents, workspaceNodes, taskActivityEvents, tasks } from "@/lib/db/schema";
+import { githubSyncRuns, profiles, workspaceMembers, workspaceNodeEvents, workspaceNodes, workspaceWorkflows, taskActivityEvents, tasks } from "@/lib/db/schema";
+import { catalogEntry } from "@/lib/workflows/catalog";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { orgFileAccessSql } from "@/lib/files/internal-helpers";
 import { orgTaskReadFilter } from "@/lib/organizations/assignments";
@@ -100,8 +101,18 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
         OR (${githubSyncRuns.manifest}->>'mode' = 'pr' AND nullif(${githubSyncRuns.result}->>'pullRequestUrl', '') IS NOT NULL))`))
     .orderBy(desc(githubSyncRuns.updatedAt), desc(githubSyncRuns.id)).limit(3);
 
-  const [memberEvents, taskEvents, fileEvents, githubEvents] = await Promise.all([
-    memberEventsPromise, taskEventsPromise, fileEventsPromise, githubEventsPromise,
+  // Report 38.2 call 8: adding or hiding a workflow goes into activity, for people inside the workspace only (B11).
+  const workflowEventsPromise = isMember || access.isInheritedAdmin
+    ? db.select({ id: workspaceWorkflows.id, workflow: workspaceWorkflows.workflow, hiddenAt: workspaceWorkflows.hiddenAt,
+      at: sql<Date>`coalesce(${workspaceWorkflows.hiddenAt}, ${workspaceWorkflows.addedAt})`, actorName: actor.fullName, actorUsername: actor.username })
+      .from(workspaceWorkflows)
+      .leftJoin(actor, and(eq(actor.id, sql`coalesce(${workspaceWorkflows.hiddenBy}, ${workspaceWorkflows.addedBy})`), isNull(actor.deletedAt)))
+      .where(eq(workspaceWorkflows.workspaceId, projectId))
+      .orderBy(desc(sql`coalesce(${workspaceWorkflows.hiddenAt}, ${workspaceWorkflows.addedAt})`)).limit(3)
+    : Promise.resolve([]);
+
+  const [memberEvents, taskEvents, fileEvents, githubEvents, workflowEvents] = await Promise.all([
+    memberEventsPromise, taskEventsPromise, fileEventsPromise, githubEventsPromise, workflowEventsPromise,
   ]);
   const items: WorkspaceRecentActivityItem[] = [];
   for (const event of memberEvents) {
@@ -136,6 +147,13 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
     items.push({ id: `github:${event.id}`, type: "github", text: describeGithubPush(actorName, mode),
       occurredAt: event.updatedAt.toISOString(),
       href: isMember ? `${projectHref}?tab=files&filesView=github` : projectHref });
+  }
+  for (const event of workflowEvents) {
+    const name = catalogEntry(event.workflow)?.name;
+    if (!name) continue;
+    const actorName = activityActorName({ fullName: event.actorName, username: event.actorUsername });
+    items.push({ id: `workflow:${event.id}:${event.hiddenAt ? "hid" : "added"}`, type: "workflow", text: `${actorName} ${event.hiddenAt ? "hid" : "added"} ${name}`,
+      occurredAt: new Date(event.at).toISOString(), href: `${projectHref}?tab=settings&section=tasks-workflow` });
   }
   return newestWorkspaceActivities(items);
 }

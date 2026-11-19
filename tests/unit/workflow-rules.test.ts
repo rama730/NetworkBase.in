@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boardMove, defaultStageFor, isOnBoard, stageMove, statusForStage } from "../../src/lib/workflows/rules";
+import { boardMove, canChangeWorkflows, defaultStageFor, effectiveWorkflows, isOnBoard, removalSummary, stageMove, statusForStage } from "../../src/lib/workflows/rules";
+import { WORKFLOW_CATALOG, WORKFLOW_GROUPS } from "../../src/lib/workflows/catalog";
 import { stagesOf, workflowType } from "../../src/lib/workflows/types";
 
 // Report 38.2 F1 part 7: every case listed there.
@@ -74,4 +75,46 @@ test("the registry matches the F1 stage table", () => {
   assert.deepEqual(stagesOf("content").map((s) => s.label), ["Idea", "Drafting", "Editing", "Scheduled", "Published"]);
   assert.equal(workflowType("bug").icon, "Bug");
   assert.equal(stagesOf("task").length, 0);
+});
+
+const row = (workflow: string, extra: Partial<{ hiddenAt: Date | null; pushToChildren: boolean; addedAt: Date }> = {}) => ({ workflow, hiddenAt: null, pushToChildren: false, addedAt: new Date("2026-11-19T10:00:00Z"), ...extra });
+
+test("effectiveWorkflows: own rows, a parent's pushes (locked), hidden rows (F1 part 7)", () => {
+  assert.deepEqual(effectiveWorkflows([row("bugs")], [], "Northgate CS"), [{ workflow: "bugs", locked: false, by: null }]);
+  assert.deepEqual(effectiveWorkflows([], [row("bugs", { pushToChildren: true })], "Northgate CS"), [{ workflow: "bugs", locked: true, by: "Northgate CS" }]);
+  assert.deepEqual(effectiveWorkflows([row("bugs")], [row("bugs", { pushToChildren: true })], "Northgate CS"), [{ workflow: "bugs", locked: true, by: "Northgate CS" }]);
+  assert.deepEqual(effectiveWorkflows([row("bugs", { hiddenAt: new Date() })], [row("bugs", { pushToChildren: true })], "Northgate CS"), [{ workflow: "bugs", locked: true, by: "Northgate CS" }]);
+  assert.deepEqual(effectiveWorkflows([row("bugs")], [row("bugs")], "Northgate CS"), [{ workflow: "bugs", locked: false, by: null }], "an org's own row that isn't pushed doesn't reach children");
+  assert.deepEqual(effectiveWorkflows([row("bugs", { hiddenAt: new Date() })], [], null), []);
+  assert.deepEqual(effectiveWorkflows([row("roadmap"), row("bugs")], [], null).map((w) => w.workflow), ["bugs", "roadmap"], "catalog order");
+});
+
+test("canChangeWorkflows: owners, admins and inherited org admins only", () => {
+  const base = { isOwner: false, memberRole: null as string | null, isInheritedAdmin: false };
+  assert.equal(canChangeWorkflows({ ...base, isOwner: true }), true);
+  assert.equal(canChangeWorkflows({ ...base, memberRole: "admin" }), true);
+  assert.equal(canChangeWorkflows({ ...base, isInheritedAdmin: true }), true);
+  assert.equal(canChangeWorkflows({ ...base, memberRole: "member" }), false);
+  assert.equal(canChangeWorkflows({ ...base, memberRole: "viewer" }), false);
+  assert.equal(canChangeWorkflows(base), false);
+});
+
+test("removalSummary counts items, open ones and ones on the board", () => {
+  const items = [
+    { status: "todo", onBoard: false }, { status: "in_progress", onBoard: true }, { status: "done", onBoard: true },
+    { status: "done", onBoard: false }, { status: "blocked", onBoard: true },
+  ];
+  assert.deepEqual(removalSummary(items), { total: 5, open: 3, onBoard: 3 });
+  assert.deepEqual(removalSummary([]), { total: 0, open: 0, onBoard: 0 });
+});
+
+test("the catalog: unique ids, known groups, own tabs only in Own tab, nothing built before its round", () => {
+  const ids = WORKFLOW_CATALOG.map((w) => w.id);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const w of WORKFLOW_CATALOG) {
+    assert.ok(WORKFLOW_GROUPS.some((g) => g.id === w.group));
+    assert.equal(Boolean(w.tab), w.group === "own_tab", w.id);
+    assert.ok(w.line.endsWith("."), w.id);
+  }
+  assert.deepEqual(WORKFLOW_CATALOG.filter((w) => w.built).map((w) => w.id), []);
 });

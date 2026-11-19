@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { BookOpenText, CheckCircle2, ClipboardCheck, FilePlus2, FolderKanban, GitBranch, IterationCcw, ListTodo, Megaphone, UserRoundPlus, type LucideIcon } from "lucide-react";
+import { BookOpenText, CheckCircle2, ClipboardCheck, FilePlus2, FolderKanban, GitBranch, IterationCcw, ListTodo, Megaphone, UserRoundPlus, Workflow, type LucideIcon } from "lucide-react";
 
 import { ViaLabel } from "@/components/ui/via-label";
 import { activityIcon } from "@/lib/organizations/activity-rules";
 import { formatDistanceToNow } from "@/lib/utils/date";
 
-const ICONS: Record<string, LucideIcon> = { BookOpenText, CheckCircle2, ClipboardCheck, FilePlus2, FolderKanban, GitBranch, IterationCcw, ListTodo, Megaphone, UserRoundPlus };
+const ICONS: Record<string, LucideIcon> = { BookOpenText, CheckCircle2, ClipboardCheck, FilePlus2, FolderKanban, GitBranch, IterationCcw, ListTodo, Megaphone, UserRoundPlus, Workflow };
 
 /** One activity row (report §5.3): icon, one or two lines, and the real time underneath in small mono. */
 export function ActivityItem({ kind, text, subject, href, at, via, agentName }: { kind: string; text: string; subject?: string; href: string; at: string; via?: string | null; agentName?: string | null }) {

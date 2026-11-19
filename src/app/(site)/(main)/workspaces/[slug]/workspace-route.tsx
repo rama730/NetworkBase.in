@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import { cache, Suspense } from 'react';
 import WorkspaceDashboardClient, { type WorkspaceStarted } from '@/components/workspaces/dashboard/WorkspaceDashboardClient';
 import { getWorkspaceLastUpdates } from '@/app/actions/workspace/last-update';
+import { readWorkspaceWorkflows } from '@/lib/workflows/server';
 import { readWorkspaceRecentActivityAction } from '@/app/actions/workspace/recent-activity';
 import { getRoleApplicationCountsAction } from '@/app/actions/applications';
 import { readWorkspaceDetailShell, readWorkspaceSprintDetail } from '@/app/actions/workspace';
@@ -209,6 +210,8 @@ async function ResolvedProjectDashboard({
         lastUpdate: getWorkspaceLastUpdates({ projectIds: [project.id] }).then((list) => list[0] ?? null),
         ...(selectedTab === 'dashboard' && !project.organization ? { recentActivity: readWorkspaceRecentActivityAction(project.id) } : {}),
         ...((capabilities.isOwner || capabilities.memberRole === 'admin') && !project.organization ? { roleCounts: getRoleApplicationCountsAction(project.id) } : {}),
+        // Report 38.2 F1: workflow tabs, for people inside the workspace only (B11).
+        ...(user && !project.organization ? { workflows: readWorkspaceWorkflows(project.id, user.id) } : {}),
     };
     Object.values(started).forEach((read) => read?.catch(() => undefined));
 

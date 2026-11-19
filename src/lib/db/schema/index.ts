@@ -2348,6 +2348,26 @@ export const sprintTaskMemberships = pgTable(
 // A sprint is a project-level lifecycle, so its audit trail cannot live on a
 // task. Keep this deliberately narrow: only durable lifecycle transitions and
 // edits belong here; task activity remains in task_activity_events.
+/** Workflows a workspace added (0105, report 38.2 F1 call 3). Remove hides; an organization pushes to children. */
+export const workspaceWorkflows = pgTable(
+  "workspace_workflows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    workflow: text("workflow").notNull(),
+    pushToChildren: boolean("push_to_children").default(false).notNull(),
+    addedBy: uuid("added_by").references(() => profiles.id, { onDelete: "set null" }),
+    addedAt: timestamp("added_at", { withTimezone: true }).defaultNow().notNull(),
+    hiddenAt: timestamp("hidden_at", { withTimezone: true }),
+    hiddenBy: uuid("hidden_by").references(() => profiles.id, { onDelete: "set null" }),
+  },
+  (t) => ({
+    workspaceWorkflowKey: uniqueIndex("workspace_workflows_workspace_workflow_key").on(t.workspaceId, t.workflow),
+    addedByIdx: index("workspace_workflows_added_by_idx").on(t.addedBy),
+    hiddenByIdx: index("workspace_workflows_hidden_by_idx").on(t.hiddenBy),
+  }),
+);
+
 export const workspaceSprintEvents = pgTable(
   "workspace_sprint_events",
   {

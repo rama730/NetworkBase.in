@@ -6,6 +6,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast, feedbackError } from "@/lib/feedback";
 import { Loader2, Lock } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { AddWorkflowDialog } from '@/components/workspaces/workflows/AddWorkflowDialog';
+import { useWorkspaceWorkflows } from '@/components/workspaces/workflows/useWorkspaceWorkflows';
+import { workflowTabsFor } from '@/components/workspaces/workflows/workflow-icons';
+import type { WorkspaceWorkflows } from '@/lib/workflows/rules';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import WorkspaceLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
@@ -196,6 +201,8 @@ export type WorkspaceStarted = {
     lastUpdate?: Promise<LastUpdateEntry | null>;
     recentActivity?: Promise<WorkspaceRecentActivityItem[]>;
     roleCounts?: Promise<{ success: boolean; counts: RoleApplicationCounts }>;
+    /** Report 38.2 F1: the workflows this viewer sees (none for visitors or with the switch off). */
+    workflows?: Promise<WorkspaceWorkflows>;
 };
 
 const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false });
@@ -359,6 +366,14 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const [followersCount, setFollowersCount] = useState(project.followersCount || 0);
     const [viewCount, setViewCount] = useState(project.viewCount || 0);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const workflows = useWorkspaceWorkflows(project.id, started?.workflows ?? null);
+    const [isAddWorkflowOpen, setIsAddWorkflowOpen] = useState(false);
+    // Report 38.2 S1: own tabs from added workflows, in catalog order, after the default tabs.
+    const workflowTabs = useMemo(() => workflowTabsFor(workflows.added), [workflows.added]);
+    const workflowTabLabel = workflowTabs.find((tab) => tab.id === activeTab)?.label;
+    useEffect(() => {
+        if (workflowTabLabel) document.title = `${workflowTabLabel} · ${project.title} · NetworkBase`;
+    }, [workflowTabLabel, project.title]);
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [isOrgInviteOpen, setIsOrgInviteOpen] = useState(false);
@@ -657,6 +672,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const switchTab = useCallback(
         (tabId: string) => {
             if (
+                !workflowTabs.some((tab) => tab.id === tabId) &&
                 !isWorkspaceTabVisibleToViewer({
                     tabId,
                     isOwnerOrMember: canSeeAllTabs,
@@ -705,7 +721,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             // changes without a server round trip (the tabs read their own data), as Files and Messages already do.
             window.history.replaceState(keepStamp(window.history.state), '', nextUrl);
         },
-        [activeTab, canOpenSettingsTab, canSeeAllTabs, isOrganization, pathname, publicTabVisibility, router],
+        [activeTab, canOpenSettingsTab, canSeeAllTabs, isOrganization, pathname, publicTabVisibility, router, workflowTabs],
     );
     const handleTabChange = useCallback((tabId: string) => confirmFileNavigation(project.id, () => switchTab(tabId)), [project.id, switchTab]);
 
@@ -1159,7 +1175,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     return (
         <PlainContentHeadings>
         {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)} /> : null}
-        <WorkspaceLayout lastUpdateStarted={started?.lastUpdate} project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={canSeeAllTabs} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => (isOrganization ? setIsOrgInviteOpen(true) : setIsInviteModalOpen(true))} canInvite={canManageProjectSettings}
+        <WorkspaceLayout workflowTabs={workflowTabs} onAddWorkflow={workflows.enabled && workflows.canManage ? () => setIsAddWorkflowOpen(true) : undefined} lastUpdateStarted={started?.lastUpdate} project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={canSeeAllTabs} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => (isOrganization ? setIsOrgInviteOpen(true) : setIsInviteModalOpen(true))} canInvite={canManageProjectSettings}
             isOrganization={isOrganization}
             canOpenSettings={isInheritedAdmin}
             breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} current={project.title} /> : null}
@@ -1192,6 +1208,13 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     </div>
                 </div>
             )}
+
+            {workflowTabs.some((tab) => tab.id === activeTab) && (() => {
+                const tab = workflowTabs.find((t) => t.id === activeTab)!;
+                // Each own tab's views arrive with its round (T2–T5); until then the tab says so.
+                return <EmptyState icon={tab.icon} title={tab.label} description={`${tab.label} is added. Its views arrive soon.`} />;
+            })()}
+            <AddWorkflowDialog open={isAddWorkflowOpen} onOpenChange={setIsAddWorkflowOpen} workspaceId={project.id} added={workflows.added} canManage={workflows.canManage} onChanged={() => void workflows.refresh()} />
 
             {activeTab === 'dashboard' && (
                 <div className="w-full h-full min-h-0">

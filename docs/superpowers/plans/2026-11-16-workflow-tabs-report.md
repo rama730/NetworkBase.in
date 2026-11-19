@@ -15416,6 +15416,10 @@ F1 is the floor every other round stands on: a task can have a **type** and a **
 10. A per-workspace flag `workflows_enabled` controls everything until each round ships. **[call]**
 11. **Correction (A0.1, 2026-11-19):** sprint history lives in `task_activity_events` (`added_to_sprint`, `removed_from_sprint`) and `sprint_task_memberships`, not `workspace_sprint_events` (read only for "created"). Joining writes `added_to_sprint` with `reason: "joined_from_workflow"`; moving back writes `removed_from_sprint` with `reason: "moved_back"` and closes the membership. **[call]**
 12. Closing stages (Won’t fix, Duplicate, Can’t reproduce, Declined) finish off the board and are never reviewed; B3 gates only the on-board done stages. `item_type` has no SQL check (plan section 3). **[call]**
+13. **Correction (A0.2, 2026-11-19):** owners have no ⋯ menu on a workspace (it's the report menu for others), so on phones **+ Add workflow** stays the last item of the scrolling tab row, icon only, with the tabs' 44 px touch height (B14 adjusted). The dialog is the shared New dialog shell on phones too, not a separate full-height sheet. **[call]**
+14. Undo is checked by who added it and when (10 seconds, no item made since), not by a token; Settings → Workflows sits right after "Stages and workflow" as its own section without a separate nav entry. **[call]**
+15. Workflow activity ("Asha added Bugs", "hid Bugs") comes from the `workspace_workflows` rows themselves and shows only to people inside the workspace; workflow names use "and", never "&" (terms rule), e.g. "Meetings and decisions". **[call]**
+16. Opening a workflow tab straight from a link (`?tab=bugs`) arrives with that tab's round (T3 for Bugs); in A0.2 tabs switch in the page. **[call]**
 
 ### 38.3 F2 · Document sections and live blocks (agreed 2026-11-17)
 

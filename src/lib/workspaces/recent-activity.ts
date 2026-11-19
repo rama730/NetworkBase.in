@@ -1,4 +1,4 @@
-export type WorkspaceRecentActivityType = "member" | "task" | "file" | "github";
+export type WorkspaceRecentActivityType = "member" | "task" | "file" | "github" | "workflow";
 
 export type WorkspaceRecentActivityItem = {
   id: string;

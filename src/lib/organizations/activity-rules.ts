@@ -1,10 +1,10 @@
 // The one activity item (report §5.3): its icon per kind and the time it shows. Pure, so the server and screens agree.
 
-export type ActivityKind = "sprint" | "workspace" | "join" | "announcement" | "document" | "file" | "assignment" | "submission" | "task" | "github";
+export type ActivityKind = "sprint" | "workspace" | "join" | "announcement" | "document" | "file" | "assignment" | "submission" | "task" | "github" | "workflow";
 
 const ICONS: Record<ActivityKind, string> = {
   sprint: "IterationCcw", workspace: "FolderKanban", join: "UserRoundPlus", announcement: "Megaphone", document: "BookOpenText",
-  file: "FilePlus2", assignment: "ClipboardCheck", submission: "CheckCircle2", task: "ListTodo", github: "GitBranch",
+  file: "FilePlus2", assignment: "ClipboardCheck", submission: "CheckCircle2", task: "ListTodo", github: "GitBranch", workflow: "Workflow",
 };
 // The organization feed and the workspace feed name some kinds their own way; they read as the same kind here.
 const ALIASES: Record<string, ActivityKind> = { project: "workspace", joins: "join", member: "join", doc: "document" };

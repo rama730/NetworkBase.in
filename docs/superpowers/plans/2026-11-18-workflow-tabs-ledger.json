@@ -10,12 +10,12 @@
       "milestone": "A0",
       "status": "live-pending",
       "test": "tests/unit/workflow-rules.test.ts; tests/db/workflow-stages.test.ts (7 journeys)",
-      "evidence": "341cf034a + ecf06be70 live 2026-11-19 (web+worker SUCCESS); 0103+0104 applied in prod; prod check: all 61 tasks item_type=task, no stage, on_board, flag off everywhere, index valid; nb task list matches DB on deepscope-ai (6/6) and CSE 3B (4, copies hidden as before); logs clean ; live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing\u2192Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors ; join/leave stage moves (sprint pick, moved back) proven on a disposable DB only, no UI yet: re-run live with the A0.10 stage menu \u2014 revisit 2026-11-20 ; bug hunt 2026-11-19: prod logs clean, catalog parity with prod OK; FOUND a status change on an off-board item (panel/bulk/undo/CLI/GitHub) left it half on the board, and a done stage chosen off the board waited for review off the board \u2014 fixed de8ab31ea (tests first), redeployed, rechecked live on wt-test-a0-1b via nb task move/done + Chrome approve (deleted after); 2nd pass clean (no other direct status writes; copies are plain tasks) ; round 2 2026-11-19: task links never opened the panel when the task wasn't preloaded (old race, also blocks off-board items) \u2014 fixed 199a30977; tab title lost the task name when <title> streams into <body> \u2014 fixed e2e81bffd; an off-board item opened from a link joined the board cache \u2014 fixed 00da9bfda (onBoard on the task record); build broke because a shared-index commit swept another session's staged onboarding deletions \u2014 restored 8611f47bd; all rechecked live in Chrome on wt-test-link (deleted), logs clean"
+      "evidence": "341cf034a + ecf06be70 live 2026-11-19 (web+worker SUCCESS); 0103+0104 applied in prod; prod check: all 61 tasks item_type=task, no stage, on_board, flag off everywhere, index valid; nb task list matches DB on deepscope-ai (6/6) and CSE 3B (4, copies hidden as before); logs clean ; live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing→Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors ; join/leave stage moves (sprint pick, moved back) proven on a disposable DB only, no UI yet: re-run live with the A0.10 stage menu — revisit 2026-11-20 ; bug hunt 2026-11-19: prod logs clean, catalog parity with prod OK; FOUND a status change on an off-board item (panel/bulk/undo/CLI/GitHub) left it half on the board, and a done stage chosen off the board waited for review off the board — fixed de8ab31ea (tests first), redeployed, rechecked live on wt-test-a0-1b via nb task move/done + Chrome approve (deleted after); 2nd pass clean (no other direct status writes; copies are plain tasks) ; round 2 2026-11-19: task links never opened the panel when the task wasn't preloaded (old race, also blocks off-board items) — fixed 199a30977; tab title lost the task name when <title> streams into <body> — fixed e2e81bffd; an off-board item opened from a link joined the board cache — fixed 00da9bfda (onBoard on the task record); build broke because a shared-index commit swept another session's staged onboarding deletions — restored 8611f47bd; all rechecked live in Chrome on wt-test-link (deleted), logs clean"
     },
     {
       "key": "A0.2",
       "section": "plan",
-      "text": "A0.2 Add workflow dialog, tab row, Settings \u2192 Workflows (38.2 F1 S1\u2013S3, S8)",
+      "text": "A0.2 Add workflow dialog, tab row, Settings → Workflows (38.2 F1 S1–S3, S8)",
       "kind": "unit",
       "milestone": "A0",
       "status": "todo",
@@ -65,7 +65,7 @@
     {
       "key": "A0.7",
       "section": "plan",
-      "text": "A0.7 Sprint permission fix (38.4 F3 call 4) \u2014 standalone, ships first in Wave 0 if wanted",
+      "text": "A0.7 Sprint permission fix (38.4 F3 call 4) — standalone, ships first in Wave 0 if wanted",
       "kind": "unit",
       "milestone": "A0",
       "status": "todo",
@@ -115,7 +115,7 @@
     {
       "key": "A1.1",
       "section": "plan",
-      "text": "A1.1 Calendar view \u2014 Goal: every workspace sees items on their due days. Build: Tasks view switch (Board \u00b7 Calendar \u00b7 Matrix), shared Calendar part (calendarCel",
+      "text": "A1.1 Calendar view — Goal: every workspace sees items on their due days. Build: Tasks view switch (Board · Calendar · Matrix), shared Calendar part (calendarCel",
       "kind": "unit",
       "milestone": "A1",
       "status": "todo",
@@ -125,7 +125,7 @@
     {
       "key": "A1.2",
       "section": "plan",
-      "text": "A1.2 Matrix view \u2014 Goal: personal 2\u00d72 by priority and due. Build: matrixBox; moves change priority/due; Assign\u2026, Move to Backlog. Journeys: T1 W9.",
+      "text": "A1.2 Matrix view — Goal: personal 2×2 by priority and due. Build: matrixBox; moves change priority/due; Assign…, Move to Backlog. Journeys: T1 W9.",
       "kind": "unit",
       "milestone": "A1",
       "status": "todo",
@@ -135,7 +135,7 @@
     {
       "key": "A1.3",
       "section": "plan",
-      "text": "A1.3 Project type + Part of + Work tab \u2014 Goal: projects group work tasks. Build: migration tasks.startdate, tasks.partofid; project type/stages; setPartOfAction",
+      "text": "A1.3 Project type + Part of + Work tab — Goal: projects group work tasks. Build: migration tasks.startdate, tasks.partofid; project type/stages; setPartOfAction",
       "kind": "unit",
       "milestone": "A1",
       "status": "todo",
@@ -145,7 +145,7 @@
     {
       "key": "A1.4",
       "section": "plan",
-      "text": "A1.4 Projects \u2192 Timeline \u2014 Build: Timeline part (timelineRange, barGeometry, conflicts, dependentsToShift), drawing + S6 quick-create bubble, setTaskDatesAction",
+      "text": "A1.4 Projects → Timeline — Build: Timeline part (timelineRange, barGeometry, conflicts, dependentsToShift), drawing + S6 quick-create bubble, setTaskDatesAction",
       "kind": "unit",
       "milestone": "A1",
       "status": "todo",
@@ -155,7 +155,7 @@
     {
       "key": "A1.5",
       "section": "plan",
-      "text": "A1.5 Projects \u2192 Active and All + Overview card + My Work + CLI/MCP \u2014 Journeys: T1 W6, W11, W12, Overview card, \"Ends Friday\" in My Work, nb tasks --type project",
+      "text": "A1.5 Projects → Active and All + Overview card + My Work + CLI/MCP — Journeys: T1 W6, W11, W12, Overview card, \"Ends Friday\" in My Work, nb tasks --type project",
       "kind": "unit",
       "milestone": "A1",
       "status": "todo",
@@ -165,7 +165,7 @@
     {
       "key": "A1.6",
       "section": "plan",
-      "text": "A1.6 Board grouped by project \u2014 Journeys: T1 W7.",
+      "text": "A1.6 Board grouped by project — Journeys: T1 W7.",
       "kind": "unit",
       "milestone": "A1",
       "status": "todo",
@@ -175,7 +175,7 @@
     {
       "key": "A2.1",
       "section": "plan",
-      "text": "A2.1 Bugs: tab, report, triage (38.6) \u2014 Goal: sort bug reports before work. Build: catalog entry; Bugs tab (Triage \u00b7 Board \u00b7 Mine \u00b7 Fixed), severity strip; Bug ",
+      "text": "A2.1 Bugs: tab, report, triage (38.6) — Goal: sort bug reports before work. Build: catalog entry; Bugs tab (Triage · Board · Mine · Fixed), severity strip; Bug ",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -185,7 +185,7 @@
     {
       "key": "A2.2",
       "section": "plan",
-      "text": "A2.2 Bugs: close, duplicate, can't reproduce, reopen \u2014 Build: closeBugAction, reopenBugAction, resolveDuplicateTarget, mergeOnDuplicate. Journeys: T3 W5, W6, W9",
+      "text": "A2.2 Bugs: close, duplicate, can't reproduce, reopen — Build: closeBugAction, reopenBugAction, resolveDuplicateTarget, mergeOnDuplicate. Journeys: T3 W5, W6, W9",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -195,7 +195,7 @@
     {
       "key": "A2.3",
       "section": "plan",
-      "text": "A2.3 Bugs: chat + Change type + CLI/MCP \u2014 Build: reportBugFromMessageAction, changeTaskTypeAction, nb bugs, networkbasebugreport/close. Journeys: T3 W10, W14, W",
+      "text": "A2.3 Bugs: chat + Change type + CLI/MCP — Build: reportBugFromMessageAction, changeTaskTypeAction, nb bugs, networkbasebugreport/close. Journeys: T3 W10, W14, W",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -205,7 +205,7 @@
     {
       "key": "A2.4",
       "section": "plan",
-      "text": "A2.4 Requests: types, ask, Inbox (38.7) \u2014 Build: migration workspacerequesttypes; starters; ask form; acceptRequestAction, declineRequestAction; Inbox \u00b7 Board \u00b7",
+      "text": "A2.4 Requests: types, ask, Inbox (38.7) — Build: migration workspacerequesttypes; starters; ask form; acceptRequestAction, declineRequestAction; Inbox · Board ·",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -215,7 +215,7 @@
     {
       "key": "A2.5",
       "section": "plan",
-      "text": "A2.5 Requests: working hours + clock + Breaching soon \u2014 Build: workspaces.workinghours; workingMinutesBetween, addWorkingMinutes, clockState, reminderTimes; clo",
+      "text": "A2.5 Requests: working hours + clock + Breaching soon — Build: workspaces.workinghours; workingMinutesBetween, addWorkingMinutes, clockState, reminderTimes; clo",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -225,7 +225,7 @@
     {
       "key": "A2.6",
       "section": "plan",
-      "text": "A2.6 Requests: waiting, review, delivered, solved + Overview card \u2014 Journeys: T4 W5, W6, W12, W13; S9 Overview card.",
+      "text": "A2.6 Requests: waiting, review, delivered, solved + Overview card — Journeys: T4 W5, W6, W12, W13; S9 Overview card.",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -235,7 +235,7 @@
     {
       "key": "A2.7",
       "section": "plan",
-      "text": "A2.7 Content: tab, channels, ideas, calendar (38.8) \u2014 Build: migration workspaces.contentsettings; Calendar with Ideas rail; quick-adds; This week; Board; To sc",
+      "text": "A2.7 Content: tab, channels, ideas, calendar (38.8) — Build: migration workspaces.contentsettings; Calendar with Ideas rail; quick-adds; This week; Board; To sc",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -245,7 +245,7 @@
     {
       "key": "A2.8",
       "section": "plan",
-      "text": "A2.8 Content: draft, edit, publish \u2014 Build: writeDraftAction, readyForEditAction (review queue), markPublishedAction (never fetches), publish reminder. Journeys",
+      "text": "A2.8 Content: draft, edit, publish — Build: writeDraftAction, readyForEditAction (review queue), markPublishedAction (never fetches), publish reminder. Journeys",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -255,7 +255,7 @@
     {
       "key": "A2.9",
       "section": "plan",
-      "text": "A2.9 Content: results + Performance \u2014 Journeys: T5 W8, W12.",
+      "text": "A2.9 Content: results + Performance — Journeys: T5 W8, W12.",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -265,7 +265,7 @@
     {
       "key": "A2.10",
       "section": "plan",
-      "text": "A2.10 Roadmap: tab, Now/Next/Later, work, auto stage (38.9) \u2014 \"Ships in\" hidden until launches exist. Journeys: T2 W1\u2013W5, W7, W11, W12 (W6 re-run at A3.1).",
+      "text": "A2.10 Roadmap: tab, Now/Next/Later, work, auto stage (38.9) — \"Ships in\" hidden until launches exist. Journeys: T2 W1–W5, W7, W11, W12 (W6 re-run at A3.1).",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -275,7 +275,7 @@
     {
       "key": "A2.11",
       "section": "plan",
-      "text": "A2.11 Roadmap: Timeline, Backlog, milestones \u2014 Journeys: T2 W8 (launch diamonds re-run at A3.1), W9, W10.",
+      "text": "A2.11 Roadmap: Timeline, Backlog, milestones — Journeys: T2 W8 (launch diamonds re-run at A3.1), W9, W10.",
       "kind": "unit",
       "milestone": "A2",
       "status": "todo",
@@ -285,7 +285,7 @@
     {
       "key": "A3.1",
       "section": "plan",
-      "text": "A3.1 Launch document core \u2014 Goal: a launch is a document whose steps are tasks. Build: createLaunchAction, launch header, stage blocks, Ships block, What's new,",
+      "text": "A3.1 Launch document core — Goal: a launch is a document whose steps are tasks. Build: createLaunchAction, launch header, stage blocks, Ships block, What's new,",
       "kind": "unit",
       "milestone": "A3",
       "status": "todo",
@@ -295,7 +295,7 @@
     {
       "key": "A3.2",
       "section": "plan",
-      "text": "A3.2\u2013A3.8 One preset each \u2014 Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
+      "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
       "status": "todo",
@@ -305,7 +305,7 @@
     {
       "key": "A3.3",
       "section": "plan",
-      "text": "A3.2\u2013A3.8 One preset each \u2014 Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
+      "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
       "status": "todo",
@@ -315,7 +315,7 @@
     {
       "key": "A3.4",
       "section": "plan",
-      "text": "A3.2\u2013A3.8 One preset each \u2014 Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
+      "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
       "status": "todo",
@@ -325,7 +325,7 @@
     {
       "key": "A3.5",
       "section": "plan",
-      "text": "A3.2\u2013A3.8 One preset each \u2014 Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
+      "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
       "status": "todo",
@@ -335,7 +335,7 @@
     {
       "key": "A3.6",
       "section": "plan",
-      "text": "A3.2\u2013A3.8 One preset each \u2014 Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
+      "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
       "status": "todo",
@@ -345,7 +345,7 @@
     {
       "key": "A3.7",
       "section": "plan",
-      "text": "A3.2\u2013A3.8 One preset each \u2014 Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
+      "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
       "status": "todo",
@@ -355,7 +355,7 @@
     {
       "key": "A3.8",
       "section": "plan",
-      "text": "A3.2\u2013A3.8 One preset each \u2014 Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
+      "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
       "status": "todo",
@@ -365,7 +365,7 @@
     {
       "key": "A4.1",
       "section": "plan",
-      "text": "A4.1 Meetings core \u2014 Goal: dated meeting documents with attendees, series, reminders, Finish with carry-over. Build: migration workspacemeetingseries, workspace",
+      "text": "A4.1 Meetings core — Goal: dated meeting documents with attendees, series, reminders, Finish with carry-over. Build: migration workspacemeetingseries, workspace",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -375,7 +375,7 @@
     {
       "key": "A4.2",
       "section": "plan",
-      "text": "A4.2 Decisions: ADR shape, supersede, reverse \u2014 Journeys: D1 W4, W7.",
+      "text": "A4.2 Decisions: ADR shape, supersede, reverse — Journeys: D1 W4, W7.",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -385,7 +385,7 @@
     {
       "key": "A4.3",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -395,7 +395,7 @@
     {
       "key": "A4.4",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -405,7 +405,7 @@
     {
       "key": "A4.5",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -415,7 +415,7 @@
     {
       "key": "A4.6",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -425,7 +425,7 @@
     {
       "key": "A4.7",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -435,7 +435,7 @@
     {
       "key": "A4.8",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -445,7 +445,7 @@
     {
       "key": "A4.9",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -455,7 +455,7 @@
     {
       "key": "A4.10",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -465,7 +465,7 @@
     {
       "key": "A4.11",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -475,7 +475,7 @@
     {
       "key": "A4.12",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -485,7 +485,7 @@
     {
       "key": "A4.13",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -495,7 +495,7 @@
     {
       "key": "A4.14",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -505,7 +505,7 @@
     {
       "key": "A4.15",
       "section": "plan",
-      "text": "A4.3\u2013A4.15 One meeting type each \u2014 Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
+      "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -515,7 +515,7 @@
     {
       "key": "A4.16",
       "section": "plan",
-      "text": "A4.16 Settings \u2192 Meetings (types on/off by category, length, reminder minutes; stored in workspaces.workflowsettings, created in the first migration) \u2014 Journeys",
+      "text": "A4.16 Settings → Meetings (types on/off by category, length, reminder minutes; stored in workspaces.workflowsettings, created in the first migration) — Journeys",
       "kind": "unit",
       "milestone": "A4",
       "status": "todo",
@@ -525,7 +525,7 @@
     {
       "key": "A5.1",
       "section": "plan",
-      "text": "A5.1 Goals document + objectives + key results + check-ins \u2014 Build: migration keyresultcheckins + workspaces.workflowsettings; goals block; checkInAction; pace ",
+      "text": "A5.1 Goals document + objectives + key results + check-ins — Build: migration keyresultcheckins + workspaces.workflowsettings; goals block; checkInAction; pace ",
       "kind": "unit",
       "milestone": "A5",
       "status": "todo",
@@ -535,7 +535,7 @@
     {
       "key": "A5.2",
       "section": "plan",
-      "text": "A5.2 Close period + carry forward \u2014 Journeys: D3 W6 (W8 Contributes to moves to B4.3, which needs org objectives).",
+      "text": "A5.2 Close period + carry forward — Journeys: D3 W6 (W8 Contributes to moves to B4.3, which needs org objectives).",
       "kind": "unit",
       "milestone": "A5",
       "status": "todo",
@@ -545,7 +545,7 @@
     {
       "key": "A5.3",
       "section": "plan",
-      "text": "A5.3 Ideas ranked block + Start building \u2014 Journeys: D4 W1\u2013W9; switch on User interview's Save as idea and re-run A4.12.",
+      "text": "A5.3 Ideas ranked block + Start building — Journeys: D4 W1–W9; switch on User interview's Save as idea and re-run A4.12.",
       "kind": "unit",
       "milestone": "A5",
       "status": "todo",
@@ -555,7 +555,7 @@
     {
       "key": "A5.4",
       "section": "plan",
-      "text": "A5.4 Team off-site \u2014 Journeys: D5 W1\u2013W7.",
+      "text": "A5.4 Team off-site — Journeys: D5 W1–W7.",
       "kind": "unit",
       "milestone": "A5",
       "status": "todo",
@@ -565,7 +565,7 @@
     {
       "key": "A6.1",
       "section": "plan",
-      "text": "A6.1 Start from mechanism \u2014 Goal: New document offers NetworkBase templates by group. Build: templates/docs/.md loader with front-matter (group, section, kind, ",
+      "text": "A6.1 Start from mechanism — Goal: New document offers NetworkBase templates by group. Build: templates/docs/.md loader with front-matter (group, section, kind, ",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -575,7 +575,7 @@
     {
       "key": "A6.2",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -585,7 +585,7 @@
     {
       "key": "A6.3",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -595,7 +595,7 @@
     {
       "key": "A6.4",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -605,7 +605,7 @@
     {
       "key": "A6.5",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -615,7 +615,7 @@
     {
       "key": "A6.6",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -625,7 +625,7 @@
     {
       "key": "A6.7",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -635,7 +635,7 @@
     {
       "key": "A6.8",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -645,7 +645,7 @@
     {
       "key": "A6.9",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -655,7 +655,7 @@
     {
       "key": "A6.10",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -665,7 +665,7 @@
     {
       "key": "A6.11",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -675,7 +675,7 @@
     {
       "key": "A6.12",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -685,7 +685,7 @@
     {
       "key": "A6.13",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -695,7 +695,7 @@
     {
       "key": "A6.14",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -705,7 +705,7 @@
     {
       "key": "A6.15",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -715,7 +715,7 @@
     {
       "key": "A6.16",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -725,7 +725,7 @@
     {
       "key": "A6.17",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -735,7 +735,7 @@
     {
       "key": "A6.18",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -745,7 +745,7 @@
     {
       "key": "A6.19",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -755,7 +755,7 @@
     {
       "key": "A6.20",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -765,7 +765,7 @@
     {
       "key": "A6.21",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -775,7 +775,7 @@
     {
       "key": "A6.22",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -785,7 +785,7 @@
     {
       "key": "A6.23",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -795,7 +795,7 @@
     {
       "key": "A6.24",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -805,7 +805,7 @@
     {
       "key": "A6.25",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -815,7 +815,7 @@
     {
       "key": "A6.26",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -825,7 +825,7 @@
     {
       "key": "A6.27",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -835,7 +835,7 @@
     {
       "key": "A6.28",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -845,7 +845,7 @@
     {
       "key": "A6.29",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -855,7 +855,7 @@
     {
       "key": "A6.30",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -865,7 +865,7 @@
     {
       "key": "A6.31",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -875,7 +875,7 @@
     {
       "key": "A6.32",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -885,7 +885,7 @@
     {
       "key": "A6.33",
       "section": "plan",
-      "text": "A6.2\u2013A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
+      "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -895,7 +895,7 @@
     {
       "key": "A6.34",
       "section": "plan",
-      "text": "A6.34 Docs site view \u2014 Build: setDocsSiteAction, searchDocsAction (\u2318K). Journeys: D6 W3, W4 (public shows only switched-on docs). A6.35 Snippets \u2014 Journeys: D6 ",
+      "text": "A6.34 Docs site view — Build: setDocsSiteAction, searchDocsAction (⌘K). Journeys: D6 W3, W4 (public shows only switched-on docs). A6.35 Snippets — Journeys: D6 ",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -905,7 +905,7 @@
     {
       "key": "A6.35",
       "section": "plan",
-      "text": "A6.34 Docs site view \u2014 Build: setDocsSiteAction, searchDocsAction (\u2318K). Journeys: D6 W3, W4 (public shows only switched-on docs). A6.35 Snippets \u2014 Journeys: D6 ",
+      "text": "A6.34 Docs site view — Build: setDocsSiteAction, searchDocsAction (⌘K). Journeys: D6 W3, W4 (public shows only switched-on docs). A6.35 Snippets — Journeys: D6 ",
       "kind": "unit",
       "milestone": "A6",
       "status": "todo",
@@ -915,7 +915,7 @@
     {
       "key": "A7.1",
       "section": "plan",
-      "text": "A7.1 Assets gallery + details + Used in (O1) \u00b7 A7.2 File comments: pins and moments (O1, migration filecomments) \u00b7 A7.3 Colors + outside links + new-version not",
+      "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
       "status": "todo",
@@ -925,7 +925,7 @@
     {
       "key": "A7.2",
       "section": "plan",
-      "text": "A7.1 Assets gallery + details + Used in (O1) \u00b7 A7.2 File comments: pins and moments (O1, migration filecomments) \u00b7 A7.3 Colors + outside links + new-version not",
+      "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
       "status": "todo",
@@ -935,7 +935,7 @@
     {
       "key": "A7.3",
       "section": "plan",
-      "text": "A7.1 Assets gallery + details + Used in (O1) \u00b7 A7.2 File comments: pins and moments (O1, migration filecomments) \u00b7 A7.3 Colors + outside links + new-version not",
+      "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
       "status": "todo",
@@ -945,7 +945,7 @@
     {
       "key": "A7.4",
       "section": "plan",
-      "text": "A7.1 Assets gallery + details + Used in (O1) \u00b7 A7.2 File comments: pins and moments (O1, migration filecomments) \u00b7 A7.3 Colors + outside links + new-version not",
+      "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
       "status": "todo",
@@ -955,7 +955,7 @@
     {
       "key": "A7.5",
       "section": "plan",
-      "text": "A7.1 Assets gallery + details + Used in (O1) \u00b7 A7.2 File comments: pins and moments (O1, migration filecomments) \u00b7 A7.3 Colors + outside links + new-version not",
+      "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
       "status": "todo",
@@ -965,7 +965,7 @@
     {
       "key": "A7.6",
       "section": "plan",
-      "text": "A7.1 Assets gallery + details + Used in (O1) \u00b7 A7.2 File comments: pins and moments (O1, migration filecomments) \u00b7 A7.3 Colors + outside links + new-version not",
+      "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
       "status": "todo",
@@ -975,7 +975,7 @@
     {
       "key": "A7.7",
       "section": "plan",
-      "text": "A7.1 Assets gallery + details + Used in (O1) \u00b7 A7.2 File comments: pins and moments (O1, migration filecomments) \u00b7 A7.3 Colors + outside links + new-version not",
+      "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
       "status": "todo",
@@ -1005,7 +1005,7 @@
     {
       "key": "B1.1",
       "section": "plan",
-      "text": "B1.1 W1 Class home (30.2) \u2014 Goal: class details, syllabus card, This term, Next class. Build: class details in orgsettings (no table); sessions = meets \u00d7 term \u2212",
+      "text": "B1.1 W1 Class home (30.2) — Goal: class details, syllabus card, This term, Next class. Build: class details in orgsettings (no table); sessions = meets × term −",
       "kind": "unit",
       "milestone": "B1",
       "status": "todo",
@@ -1015,7 +1015,7 @@
     {
       "key": "B1.2",
       "section": "plan",
-      "text": "B1.2 W2 Term plan + lessons (30.3) \u2014 Goal: units \u2192 weeks \u2192 lessons table with outcomes and progress. Build: also the Sprints Calendar for classes, the Term plan",
+      "text": "B1.2 W2 Term plan + lessons (30.3) — Goal: units → weeks → lessons table with outcomes and progress. Build: also the Sprints Calendar for classes, the Term plan",
       "kind": "unit",
       "milestone": "B1",
       "status": "todo",
@@ -1025,7 +1025,7 @@
     {
       "key": "B1.3",
       "section": "plan",
-      "text": "B1.3 W8 Sections and TAs (30.9) \u2014 Build: section table + membership (one per student per kind); Split students; Sections assignment target; review routing to se",
+      "text": "B1.3 W8 Sections and TAs (30.9) — Build: section table + membership (one per student per kind); Split students; Sections assignment target; review routing to se",
       "kind": "unit",
       "milestone": "B1",
       "status": "todo",
@@ -1035,7 +1035,7 @@
     {
       "key": "B1.4",
       "section": "plan",
-      "text": "B1.4 W6 Attendance (30.7) \u2014 Build: attendance table (session \u00d7 student \u2192 Present/Late/Absent/Excused, note, by, at); Take attendance sheet (Mark all present); o",
+      "text": "B1.4 W6 Attendance (30.7) — Build: attendance table (session × student → Present/Late/Absent/Excused, note, by, at); Take attendance sheet (Mark all present); o",
       "kind": "unit",
       "milestone": "B1",
       "status": "todo",
@@ -1045,7 +1045,7 @@
     {
       "key": "B1.5",
       "section": "plan",
-      "text": "B1.5 W7 Marks and rubric (30.8) \u2014 Build: marking setting on assignment master; Rubric record frozen on publish; marks table (total, per-criterion, comments, mar",
+      "text": "B1.5 W7 Marks and rubric (30.8) — Build: marking setting on assignment master; Rubric record frozen on publish; marks table (total, per-criterion, comments, mar",
       "kind": "unit",
       "milestone": "B1",
       "status": "todo",
@@ -1055,7 +1055,7 @@
     {
       "key": "B1.6",
       "section": "plan",
-      "text": "B1.6 W4 Exams (30.5) \u2014 Build: assignment type: exam settings (format, window, room, covers, out of, second marker, hold); extra time per student; server-locked ",
+      "text": "B1.6 W4 Exams (30.5) — Build: assignment type: exam settings (format, window, room, covers, out of, second marker, hold); extra time per student; server-locked ",
       "kind": "unit",
       "milestone": "B1",
       "status": "todo",
@@ -1065,7 +1065,7 @@
     {
       "key": "B1.7",
       "section": "plan",
-      "text": "B1.7 W3 Student's week (30.4) \u2014 Build: Week view in My work; Pin for today (\u2264 3, cleared at midnight); exam strip; teaching rows. Journeys: rows clear on hand-i",
+      "text": "B1.7 W3 Student's week (30.4) — Build: Week view in My work; Pin for today (≤ 3, cleared at midnight); exam strip; teaching rows. Journeys: rows clear on hand-i",
       "kind": "unit",
       "milestone": "B1",
       "status": "todo",
@@ -1075,7 +1075,7 @@
     {
       "key": "B1.8",
       "section": "plan",
-      "text": "B1.8 W5 Thesis workspace (30.6) \u2014 Build: Thesis template; chapter settings + word counts (excluding code/comments/references); Literature record list + BibTeX i",
+      "text": "B1.8 W5 Thesis workspace (30.6) — Build: Thesis template; chapter settings + word counts (excluding code/comments/references); Literature record list + BibTeX i",
       "kind": "unit",
       "milestone": "B1",
       "status": "todo",
@@ -1085,7 +1085,7 @@
     {
       "key": "B2.1",
       "section": "plan",
-      "text": "B2.1 C1 Cohorts and programs (31.2) \u2014 Build: Program snapshot in the template library; cohort \u2194 program link; Start a cohort (duplicateOrg, dates shifted, no le",
+      "text": "B2.1 C1 Cohorts and programs (31.2) — Build: Program snapshot in the template library; cohort ↔ program link; Start a cohort (duplicateOrg, dates shifted, no le",
       "kind": "unit",
       "milestone": "B2",
       "status": "todo",
@@ -1095,7 +1095,7 @@
     {
       "key": "B2.2",
       "section": "plan",
-      "text": "B2.2 C2 Learning path (31.3) \u2014 Build: Pacing per class (never mixed); undated sprints (shared with A7.6); progress = the same lessonprogress table as O3 (Correc",
+      "text": "B2.2 C2 Learning path (31.3) — Build: Pacing per class (never mixed); undated sprints (shared with A7.6); progress = the same lessonprogress table as O3 (Correc",
       "kind": "unit",
       "milestone": "B2",
       "status": "todo",
@@ -1105,7 +1105,7 @@
     {
       "key": "B2.3",
       "section": "plan",
-      "text": "B2.3 C5 Mentors (31.5) \u2014 Build: Mentor group section kind; Check-in meeting type (one running doc per pair); objectives \u2264 3; time slots + .ics; Useful answers (",
+      "text": "B2.3 C5 Mentors (31.5) — Build: Mentor group section kind; Check-in meeting type (one running doc per pair); objectives ≤ 3; time slots + .ics; Useful answers (",
       "kind": "unit",
       "milestone": "B2",
       "status": "todo",
@@ -1115,7 +1115,7 @@
     {
       "key": "B2.4",
       "section": "plan",
-      "text": "B2.4 C3 Mock tests and skills (31.4) \u2014 Build: Score layouts (sections, maxima, scheme, conversion, overall rule); series label; per-section marks with W7 mark; ",
+      "text": "B2.4 C3 Mock tests and skills (31.4) — Build: Score layouts (sections, maxima, scheme, conversion, overall rule); series label; per-section marks with W7 mark; ",
       "kind": "unit",
       "milestone": "B2",
       "status": "todo",
@@ -1125,7 +1125,7 @@
     {
       "key": "B2.5",
       "section": "plan",
-      "text": "B2.5 C4 Capstone and demo day (31.6) \u2014 Build: Capstone template; brief; showcase card (Draft \u2192 Ready); run of show; Judge role (feedback, not marks); awards; De",
+      "text": "B2.5 C4 Capstone and demo day (31.6) — Build: Capstone template; brief; showcase card (Draft → Ready); run of show; Judge role (feedback, not marks); awards; De",
       "kind": "unit",
       "milestone": "B2",
       "status": "todo",
@@ -1135,7 +1135,7 @@
     {
       "key": "B3.1",
       "section": "plan",
-      "text": "B3.1 S1 School year and calendar (32.2) \u2014 Build: terms as school sprints shown in teams (\"Set by\"); day types table; event as an F1 item type (never on board) w",
+      "text": "B3.1 S1 School year and calendar (32.2) — Build: terms as school sprints shown in teams (\"Set by\"); day types table; event as an F1 item type (never on board) w",
       "kind": "unit",
       "milestone": "B3",
       "status": "todo",
@@ -1145,7 +1145,7 @@
     {
       "key": "B3.2",
       "section": "plan",
-      "text": "B3.2 S2 Curriculum map and lesson plans (32.3) \u2014 Build: course template; Year map view; lesson type (Lesson/Assessment/Activity); Taught per lesson \u00d7 class; cla",
+      "text": "B3.2 S2 Curriculum map and lesson plans (32.3) — Build: course template; Year map view; lesson type (Lesson/Assessment/Activity); Taught per lesson × class; cla",
       "kind": "unit",
       "milestone": "B3",
       "status": "todo",
@@ -1155,7 +1155,7 @@
     {
       "key": "B3.3",
       "section": "plan",
-      "text": "B3.3 S3 Staff hand-ins and reviews (32.4) \u2014 Build: NB-item hand-in type (frozen version); second approver (\"Then approved by\", max 2); repeat by school week; qu",
+      "text": "B3.3 S3 Staff hand-ins and reviews (32.4) — Build: NB-item hand-in type (frozen version); second approver (\"Then approved by\", max 2); repeat by school week; qu",
       "kind": "unit",
       "milestone": "B3",
       "status": "todo",
@@ -1165,7 +1165,7 @@
     {
       "key": "B3.4",
       "section": "plan",
-      "text": "B3.4 S4 Timetable, cover, duties (32.5) \u2014 Build: day patterns, periods, rooms; classes as names; timetable slots (CSV/typed + today-only changes); absences by p",
+      "text": "B3.4 S4 Timetable, cover, duties (32.5) — Build: day patterns, periods, rooms; classes as names; timetable slots (CSV/typed + today-only changes); absences by p",
       "kind": "unit",
       "milestone": "B3",
       "status": "todo",
@@ -1175,7 +1175,7 @@
     {
       "key": "B3.5",
       "section": "plan",
-      "text": "B3.5 S5 Staff meetings and growth (32.6) \u2014 Build: school meeting types (D1); Reports to label; goals \u2264 3 (D3 objectives); year review template (no ratings); obs",
+      "text": "B3.5 S5 Staff meetings and growth (32.6) — Build: school meeting types (D1); Reports to label; goals ≤ 3 (D3 objectives); year review template (no ratings); obs",
       "kind": "unit",
       "milestone": "B3",
       "status": "todo",
@@ -1185,7 +1185,7 @@
     {
       "key": "B4.1",
       "section": "plan",
-      "text": "B4.1 K1 Company home and handbook (33.2) \u2014 Build: Handbook starter sections; page owner + Review by; Process (SOP) template + Run this process; About relabels +",
+      "text": "B4.1 K1 Company home and handbook (33.2) — Build: Handbook starter sections; page owner + Review by; Process (SOP) template + Run this process; About relabels +",
       "kind": "unit",
       "milestone": "B4",
       "status": "todo",
@@ -1195,7 +1195,7 @@
     {
       "key": "B4.2",
       "section": "plan",
-      "text": "B4.2 K2 Directory and org chart (33.3) \u2014 Build: time zone + working hours on company membership; time-off type on Away; Directory, Org chart (indented tree from",
+      "text": "B4.2 K2 Directory and org chart (33.3) — Build: time zone + working hours on company membership; time-off type on Away; Directory, Org chart (indented tree from",
       "kind": "unit",
       "milestone": "B4",
       "status": "todo",
@@ -1205,7 +1205,7 @@
     {
       "key": "B4.3",
       "section": "plan",
-      "text": "B4.3 K3 Company goals and projects (33.4) \u2014 Depends: D3 (A5.1); includes D3 W8 Contributes to. Build: company periods; Supports on workspaces; workspace start/e",
+      "text": "B4.3 K3 Company goals and projects (33.4) — Depends: D3 (A5.1); includes D3 W8 Contributes to. Build: company periods; Supports on workspaces; workspace start/e",
       "kind": "unit",
       "milestone": "B4",
       "status": "todo",
@@ -1215,7 +1215,7 @@
     {
       "key": "B4.5",
       "section": "plan",
-      "text": "B4.5 K5 Requests to central teams (33.6) \u2014 Depends: T4 (A2.4\u2013A2.6), K4 (B4.4). Build: Take requests from the company; private types (read rules in SQL); Ask a t",
+      "text": "B4.5 K5 Requests to central teams (33.6) — Depends: T4 (A2.4–A2.6), K4 (B4.4). Build: Take requests from the company; private types (read rules in SQL); Ask a t",
       "kind": "unit",
       "milestone": "B4",
       "status": "todo",
@@ -1225,7 +1225,7 @@
     {
       "key": "B4.4",
       "section": "plan",
-      "text": "B4.4 K4 New hire onboarding (33.5) \u2014 Build: New people assignment target with day offsets; start date on invites/memberships; early access (Start here, Handbook",
+      "text": "B4.4 K4 New hire onboarding (33.5) — Build: New people assignment target with day offsets; start date on invites/memberships; early access (Start here, Handbook",
       "kind": "unit",
       "milestone": "B4",
       "status": "todo",
@@ -1255,7 +1255,7 @@
     {
       "key": "B5.3",
       "section": "plan",
-      "text": "B5.3 M3 Events and meetups (34.4) \u2014 Depends: S1 event item (B3).",
+      "text": "B5.3 M3 Events and meetups (34.4) — Depends: S1 event item (B3).",
       "kind": "unit",
       "milestone": "B5",
       "status": "todo",
@@ -1265,7 +1265,7 @@
     {
       "key": "B5.4",
       "section": "plan",
-      "text": "B5.4 M4 Rituals, challenges, showcases (34.5) \u2014 Depends: A7.4 scheduled Updates, C4 Showcase card (B2.5).",
+      "text": "B5.4 M4 Rituals, challenges, showcases (34.5) — Depends: A7.4 scheduled Updates, C4 Showcase card (B2.5).",
       "kind": "unit",
       "milestone": "B5",
       "status": "todo",
@@ -1275,7 +1275,7 @@
     {
       "key": "B5.5",
       "section": "plan",
-      "text": "B5.5 M5 Chapters and small groups (34.6) \u2014 Depends: B0.",
+      "text": "B5.5 M5 Chapters and small groups (34.6) — Depends: B0.",
       "kind": "unit",
       "milestone": "B5",
       "status": "todo",
@@ -1305,7 +1305,7 @@
     {
       "key": "B6.3",
       "section": "plan",
-      "text": "B6.3 R2 Papers and publications (35.3) \u2014 Depends: W5 (B1.8), S3 frozen hand-in (B3.3).",
+      "text": "B6.3 R2 Papers and publications (35.3) — Depends: W5 (B1.8), S3 frozen hand-in (B3.3).",
       "kind": "unit",
       "milestone": "B6",
       "status": "todo",
@@ -1315,7 +1315,7 @@
     {
       "key": "B6.4",
       "section": "plan",
-      "text": "B6.4 R3 Library and reading group (35.4) \u2014 Depends: W5 Literature, D1 series (A4.1).",
+      "text": "B6.4 R3 Library and reading group (35.4) — Depends: W5 Literature, D1 series (A4.1).",
       "kind": "unit",
       "milestone": "B6",
       "status": "todo",
@@ -1365,7 +1365,7 @@
     {
       "key": "B7.4",
       "section": "plan",
-      "text": "B7.4 L4 Competitions and teams (36.5) \u2014 Depends: C4 (B2.5), M4 (B5.4).",
+      "text": "B7.4 L4 Competitions and teams (36.5) — Depends: C4 (B2.5), M4 (B5.4).",
       "kind": "unit",
       "milestone": "B7",
       "status": "todo",
@@ -1375,7 +1375,7 @@
     {
       "key": "B8.1",
       "section": "plan",
-      "text": "B8.1 X2 Volunteers and shifts (37.3) \u2014 Depends: S1 event item, M3 RSVP slice, R4 training.",
+      "text": "B8.1 X2 Volunteers and shifts (37.3) — Depends: S1 event item, M3 RSVP slice, R4 training.",
       "kind": "unit",
       "milestone": "B8",
       "status": "todo",
@@ -1395,7 +1395,7 @@
     {
       "key": "B8.3",
       "section": "plan",
-      "text": "B8.3 X4 Programs and impact (37.5) \u2014 Depends: D3 (A5.1), K3 (B4.3).",
+      "text": "B8.3 X4 Programs and impact (37.5) — Depends: D3 (A5.1), K3 (B4.3).",
       "kind": "unit",
       "milestone": "B8",
       "status": "todo",
@@ -1405,7 +1405,7 @@
     {
       "key": "B8.5",
       "section": "plan",
-      "text": "B8.4 X1 Start from a kit (37.2) + B8.5\u2013B8.10 one kit each (Nonprofit \u00b7 Event team \u00b7 Association or committee \u00b7 Public-sector team \u00b7 Faith or interest community ",
+      "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
       "status": "todo",
@@ -1415,7 +1415,7 @@
     {
       "key": "B8.6",
       "section": "plan",
-      "text": "B8.4 X1 Start from a kit (37.2) + B8.5\u2013B8.10 one kit each (Nonprofit \u00b7 Event team \u00b7 Association or committee \u00b7 Public-sector team \u00b7 Faith or interest community ",
+      "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
       "status": "todo",
@@ -1425,7 +1425,7 @@
     {
       "key": "B8.7",
       "section": "plan",
-      "text": "B8.4 X1 Start from a kit (37.2) + B8.5\u2013B8.10 one kit each (Nonprofit \u00b7 Event team \u00b7 Association or committee \u00b7 Public-sector team \u00b7 Faith or interest community ",
+      "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
       "status": "todo",
@@ -1435,7 +1435,7 @@
     {
       "key": "B8.8",
       "section": "plan",
-      "text": "B8.4 X1 Start from a kit (37.2) + B8.5\u2013B8.10 one kit each (Nonprofit \u00b7 Event team \u00b7 Association or committee \u00b7 Public-sector team \u00b7 Faith or interest community ",
+      "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
       "status": "todo",
@@ -1445,7 +1445,7 @@
     {
       "key": "B8.9",
       "section": "plan",
-      "text": "B8.4 X1 Start from a kit (37.2) + B8.5\u2013B8.10 one kit each (Nonprofit \u00b7 Event team \u00b7 Association or committee \u00b7 Public-sector team \u00b7 Faith or interest community ",
+      "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
       "status": "todo",
@@ -1455,7 +1455,7 @@
     {
       "key": "B8.10",
       "section": "plan",
-      "text": "B8.4 X1 Start from a kit (37.2) + B8.5\u2013B8.10 one kit each (Nonprofit \u00b7 Event team \u00b7 Association or committee \u00b7 Public-sector team \u00b7 Faith or interest community ",
+      "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
       "status": "todo",
@@ -1465,7 +1465,7 @@
     {
       "key": "B8.4",
       "section": "plan",
-      "text": "B8.4 X1 Start from a kit (37.2) + B8.5\u2013B8.10 one kit each (Nonprofit \u00b7 Event team \u00b7 Association or committee \u00b7 Public-sector team \u00b7 Faith or interest community ",
+      "text": "B8.4 X1 Start from a kit (37.2) + B8.5–B8.10 one kit each (Nonprofit · Event team · Association or committee · Public-sector team · Faith or interest community ",
       "kind": "unit",
       "milestone": "B8",
       "status": "todo",
@@ -1715,7 +1715,7 @@
     {
       "key": "30.5.call4",
       "section": "30.5",
-      "text": "Make-up for\u2026 creates a new exam for chosen students.",
+      "text": "Make-up for… creates a new exam for chosen students.",
       "kind": "call",
       "milestone": "B1",
       "status": "todo",
@@ -2145,7 +2145,7 @@
     {
       "key": "30.9.call9",
       "section": "30.9",
-      "text": "Review load warning above 1.5\u00d7 the average.",
+      "text": "Review load warning above 1.5× the average.",
       "kind": "call",
       "milestone": "B1",
       "status": "todo",
@@ -2165,7 +2165,7 @@
     {
       "key": "31.2.call2",
       "section": "31.2",
-      "text": "Instructor \u00b7 Mentor \u00b7 Learner with Module / Week, all renameable.",
+      "text": "Instructor · Mentor · Learner with Module / Week, all renameable.",
       "kind": "call",
       "milestone": "B2",
       "status": "todo",
@@ -2805,7 +2805,7 @@
     {
       "key": "32.3.call1",
       "section": "32.3",
-      "text": "School \u2192 team org \u2192 course workspaces; the plan lives in the course workspace.",
+      "text": "School → team org → course workspaces; the plan lives in the course workspace.",
       "kind": "call",
       "milestone": "B3",
       "status": "todo",
@@ -2825,7 +2825,7 @@
     {
       "key": "32.3.call3",
       "section": "32.3",
-      "text": "Lessons have a type (Lesson \u00b7 Assessment \u00b7 Activity); assessments never make student copies.",
+      "text": "Lessons have a type (Lesson · Assessment · Activity); assessments never make student copies.",
       "kind": "call",
       "milestone": "B3",
       "status": "todo",
@@ -3025,7 +3025,7 @@
     {
       "key": "32.5.call4",
       "section": "32.5",
-      "text": "A course's sessions come from its timetable slots \u00d7 school days.",
+      "text": "A course's sessions come from its timetable slots × school days.",
       "kind": "call",
       "milestone": "B3",
       "status": "todo",
@@ -3045,7 +3045,7 @@
     {
       "key": "32.5.call6",
       "section": "32.5",
-      "text": "Cover suggestions: free that period \u2192 same department \u2192 fewest covers; the manager picks.",
+      "text": "Cover suggestions: free that period → same department → fewest covers; the manager picks.",
       "kind": "call",
       "milestone": "B3",
       "status": "todo",
@@ -3245,7 +3245,7 @@
     {
       "key": "33.2.call5",
       "section": "33.2",
-      "text": "The Company type relabels About as About \u00b7 Mission \u00b7 How we work, plus Values and Offices.",
+      "text": "The Company type relabels About as About · Mission · How we work, plus Values and Offices.",
       "kind": "call",
       "milestone": "B4",
       "status": "todo",
@@ -3325,7 +3325,7 @@
     {
       "key": "33.3.call5",
       "section": "33.3",
-      "text": "Time off reuses Away with a type; others see only \"Away until \u2026\".",
+      "text": "Time off reuses Away with a type; others see only \"Away until …\".",
       "kind": "call",
       "milestone": "B4",
       "status": "todo",
@@ -3405,7 +3405,7 @@
     {
       "key": "33.4.call5",
       "section": "33.4",
-      "text": "Projects post a status (On track \u00b7 At risk \u00b7 Off track + one line) on the check-in day, as an Update.",
+      "text": "Projects post a status (On track · At risk · Off track + one line) on the check-in day, as an Update.",
       "kind": "call",
       "milestone": "B4",
       "status": "todo",
@@ -3715,7 +3715,7 @@
     {
       "key": "34.3.call4",
       "section": "34.3",
-      "text": "New \u00b7 Active \u00b7 Quiet status is for organisers only.",
+      "text": "New · Active · Quiet status is for organisers only.",
       "kind": "call",
       "milestone": "B5",
       "status": "todo",
@@ -3765,7 +3765,7 @@
     {
       "key": "34.4.call1",
       "section": "34.4",
-      "text": "Only the RSVP slice of 16's registration is taken (Going \u00b7 Can't go, place limit, waitlist); the rest stays parked.",
+      "text": "Only the RSVP slice of 16's registration is taken (Going · Can't go, place limit, waitlist); the rest stays parked.",
       "kind": "call",
       "milestone": "B5",
       "status": "todo",
@@ -3995,7 +3995,7 @@
     {
       "key": "34.6.call5",
       "section": "34.6",
-      "text": "Reports go chapter moderators \u2192 community organisers \u2192 NetworkBase at the deadline.",
+      "text": "Reports go chapter moderators → community organisers → NetworkBase at the deadline.",
       "kind": "call",
       "milestone": "B5",
       "status": "todo",
@@ -4035,7 +4035,7 @@
     {
       "key": "34.6.call9",
       "section": "34.6",
-      "text": "Small groups have a size cap (12 by default) and Open \u00b7 Ask \u00b7 Invite only.",
+      "text": "Small groups have a size cap (12 by default) and Open · Ask · Invite only.",
       "kind": "call",
       "milestone": "B5",
       "status": "todo",
@@ -4165,7 +4165,7 @@
     {
       "key": "35.3.call3",
       "section": "35.3",
-      "text": "Stages Idea \u2192 Published; Rejected is recorded and returns to Drafting.",
+      "text": "Stages Idea → Published; Rejected is recorded and returns to Drafting.",
       "kind": "call",
       "milestone": "B6",
       "status": "todo",
@@ -4295,7 +4295,7 @@
     {
       "key": "35.4.call5",
       "section": "35.4",
-      "text": "A Systematic review setup in a workspace: Found \u2192 Screened \u2192 Included or Excluded with a reason.",
+      "text": "A Systematic review setup in a workspace: Found → Screened → Included or Excluded with a reason.",
       "kind": "call",
       "milestone": "B6",
       "status": "todo",
@@ -4345,7 +4345,7 @@
     {
       "key": "35.5.call1",
       "section": "35.5",
-      "text": "Protocols are lab documents from K1's Process template; versions are Draft \u2192 Approved \u2192 Retired, and only Approved versions can be run.",
+      "text": "Protocols are lab documents from K1's Process template; versions are Draft → Approved → Retired, and only Approved versions can be run.",
       "kind": "call",
       "milestone": "B6",
       "status": "todo",
@@ -4785,7 +4785,7 @@
     {
       "key": "36.5.call1",
       "section": "36.5",
-      "text": "A Competition is a club item in Projects \u2192 Competitions with its team workspaces; links are typed, never fetched.",
+      "text": "A Competition is a club item in Projects → Competitions with its team workspaces; links are typed, never fetched.",
       "kind": "call",
       "milestone": "B7",
       "status": "todo",
@@ -4915,7 +4915,7 @@
     {
       "key": "37.2.call5",
       "section": "37.2",
-      "text": "Settings \u2192 Workflows can add parts from any kit later; turning a part off hides it and keeps its data.",
+      "text": "Settings → Workflows can add parts from any kit later; turning a part off hides it and keeps its data.",
       "kind": "call",
       "milestone": "B8",
       "status": "todo",
@@ -5155,7 +5155,7 @@
     {
       "key": "37.5.call1",
       "section": "37.5",
-      "text": "A program is a workspace marked Program, listed in Projects \u2192 Programs with a timeline.",
+      "text": "A program is a workspace marked Program, listed in Projects → Programs with a timeline.",
       "kind": "call",
       "milestone": "B8",
       "status": "todo",
@@ -5420,7 +5420,7 @@
       "milestone": "A0",
       "status": "live",
       "test": "tests/unit/workflow-rules.test.ts; tests/db/workflow-stages.test.ts (7 journeys)",
-      "evidence": "live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing\u2192Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors ; bug hunt 2026-11-19: prod logs clean, catalog parity with prod OK; FOUND a status change on an off-board item (panel/bulk/undo/CLI/GitHub) left it half on the board, and a done stage chosen off the board waited for review off the board \u2014 fixed de8ab31ea (tests first), redeployed, rechecked live on wt-test-a0-1b via nb task move/done + Chrome approve (deleted after); 2nd pass clean (no other direct status writes; copies are plain tasks)"
+      "evidence": "live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing→Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors ; bug hunt 2026-11-19: prod logs clean, catalog parity with prod OK; FOUND a status change on an off-board item (panel/bulk/undo/CLI/GitHub) left it half on the board, and a done stage chosen off the board waited for review off the board — fixed de8ab31ea (tests first), redeployed, rechecked live on wt-test-a0-1b via nb task move/done + Chrome approve (deleted after); 2nd pass clean (no other direct status writes; copies are plain tasks)"
     },
     {
       "key": "38.2.call6",
@@ -5855,7 +5855,7 @@
     {
       "key": "38.4.call7",
       "section": "38.4",
-      "text": "Shortcuts: N new task, Shift + N the type menu, \u2318/Ctrl + Enter create. [call]",
+      "text": "Shortcuts: N new task, Shift + N the type menu, ⌘/Ctrl + Enter create. [call]",
       "kind": "call",
       "milestone": "A0",
       "status": "todo",
@@ -5995,7 +5995,7 @@
     {
       "key": "38.5.call2",
       "section": "38.5",
-      "text": "The Tasks view switch is Board \u00b7 Projects \u00b7 Calendar \u00b7 Matrix; Projects has Timeline \u00b7 Active \u00b7 All; the planner's own Board view is dropped. [call]",
+      "text": "The Tasks view switch is Board · Projects · Calendar · Matrix; Projects has Timeline · Active · All; the planner's own Board view is dropped. [call]",
       "kind": "call",
       "milestone": "A1",
       "status": "todo",
@@ -6035,7 +6035,7 @@
     {
       "key": "38.5.call6",
       "section": "38.5",
-      "text": "Completion: completed \u00f7 all work tasks (cancelled not counted); then subtasks; then a hand-set %. [call]",
+      "text": "Completion: completed ÷ all work tasks (cancelled not counted); then subtasks; then a hand-set %. [call]",
       "kind": "call",
       "milestone": "A1",
       "status": "todo",
@@ -6465,7 +6465,7 @@
     {
       "key": "38.7.call3",
       "section": "38.7",
-      "text": "In review means the asker looks at the work; the workspace review queue still gates Delivered when review is required (B3). This narrows 28.3's \"In review \u2192 rev",
+      "text": "In review means the asker looks at the work; the workspace review queue still gates Delivered when review is required (B3). This narrows 28.3's \"In review → rev",
       "kind": "call",
       "milestone": "A2",
       "status": "todo",
@@ -6745,7 +6745,7 @@
     {
       "key": "38.8.call9",
       "section": "38.8",
-      "text": "Views: Calendar \u00b7 This week \u00b7 Board \u00b7 To schedule \u00b7 Performance; by channel and by writer are Board groupings. [call]",
+      "text": "Views: Calendar · This week · Board · To schedule · Performance; by channel and by writer are Board groupings. [call]",
       "kind": "call",
       "milestone": "A2",
       "status": "todo",
@@ -6875,7 +6875,7 @@
     {
       "key": "38.9.call1",
       "section": "38.9",
-      "text": "Roadmap's main view is Now \u00b7 Next \u00b7 Later (a column field); quarters and target dates are optional. [call]",
+      "text": "Roadmap's main view is Now · Next · Later (a column field); quarters and target dates are optional. [call]",
       "kind": "call",
       "milestone": "A2",
       "status": "todo",
@@ -6885,7 +6885,7 @@
     {
       "key": "38.9.call2",
       "section": "38.9",
-      "text": "Types are Feature \u00b7 Improvement \u00b7 Fix \u00b7 Milestone; Milestone names come from 22.4. [call]",
+      "text": "Types are Feature · Improvement · Fix · Milestone; Milestone names come from 22.4. [call]",
       "kind": "call",
       "milestone": "A2",
       "status": "todo",
@@ -7225,7 +7225,7 @@
     {
       "key": "38.11.call2",
       "section": "38.11",
-      "text": "Every decision uses the ADR shape (Context \u00b7 Decision \u00b7 Consequences); there's no separate ADR type. [call]",
+      "text": "Every decision uses the ADR shape (Context · Decision · Consequences); there's no separate ADR type. [call]",
       "kind": "call",
       "milestone": "A4",
       "status": "todo",
@@ -7415,7 +7415,7 @@
     {
       "key": "38.12.call3",
       "section": "38.12",
-      "text": "Pace bands \u221210 / \u221225 points; status can be set by hand with a reason until the next check-in. [call]",
+      "text": "Pace bands −10 / −25 points; status can be set by hand with a reason until the next check-in. [call]",
       "kind": "call",
       "milestone": "A5",
       "status": "todo",
@@ -7455,7 +7455,7 @@
     {
       "key": "38.13.call1",
       "section": "38.13",
-      "text": "Score = Impact \u00d7 Ease \u00d7 Confidence (1\u20135 each); unscored ideas rank last. [call]",
+      "text": "Score = Impact × Ease × Confidence (1–5 each); unscored ideas rank last. [call]",
       "kind": "call",
       "milestone": "A5",
       "status": "todo",
@@ -7625,7 +7625,7 @@
     {
       "key": "38.15.call3",
       "section": "38.15",
-      "text": "The Business model canvas renders as a 3 \u00d7 3 grid from its headings; no separate canvas block. [call]",
+      "text": "The Business model canvas renders as a 3 × 3 grid from its headings; no separate canvas block. [call]",
       "kind": "call",
       "milestone": "A6",
       "status": "todo",
@@ -7765,7 +7765,7 @@
     {
       "key": "38.18.call1",
       "section": "38.18",
-      "text": "Progress is a small lessonprogress table (person \u00d7 lesson), not assignment copies; this replaces 28.4's smaller rule for ordinary workspaces. [call]",
+      "text": "Progress is a small lessonprogress table (person × lesson), not assignment copies; this replaces 28.4's smaller rule for ordinary workspaces. [call]",
       "kind": "call",
       "milestone": "A7",
       "status": "todo",
@@ -7835,12 +7835,52 @@
     {
       "key": "38.2.call12",
       "section": "38.2",
-      "text": "Closing stages (Won\u2019t fix, Duplicate, Can\u2019t reproduce, Declined) finish off the board and are never reviewed; B3 gates only the on-board done stages. itemtype h",
+      "text": "Closing stages (Won’t fix, Duplicate, Can’t reproduce, Declined) finish off the board and are never reviewed; B3 gates only the on-board done stages. itemtype h",
       "kind": "call",
       "milestone": "A0",
       "status": "live-pending",
       "test": "tests/unit/workflow-rules.test.ts; tests/db/workflow-stages.test.ts (7 journeys)",
-      "evidence": "closing stages skip review; owners/admins only where review is on; no UI to close yet: re-run live at A2.2 \u2014 revisit 2026-11-20"
+      "evidence": "closing stages skip review; owners/admins only where review is on; no UI to close yet: re-run live at A2.2 — revisit 2026-11-20"
+    },
+    {
+      "key": "38.2.call13",
+      "section": "38.2",
+      "text": "Correction (A0.2, 2026-11-19): owners have no ⋯ menu on a workspace (it's the report menu for others), so on phones + Add workflow stays the last item of the sc",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.2.call14",
+      "section": "38.2",
+      "text": "Undo is checked by who added it and when (10 seconds, no item made since), not by a token; Settings → Workflows sits right after \"Stages and workflow\" as its ow",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.2.call15",
+      "section": "38.2",
+      "text": "Workflow activity (\"Asha added Bugs\", \"hid Bugs\") comes from the workspaceworkflows rows themselves and shows only to people inside the workspace; workflow name",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.2.call16",
+      "section": "38.2",
+      "text": "Opening a workflow tab straight from a link (?tab=bugs) arrives with that tab's round (T3 for Bugs); in A0.2 tabs switch in the page. [call]",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

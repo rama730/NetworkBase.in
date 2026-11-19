@@ -89,6 +89,8 @@ const KEPT: Array<[RegExp, RegExp]> = [
   [/src\/lib\/profile\/role-preferences\.ts$/, /^(?:Lead|Quality Assurance|freelance projects|consulting projects)$/],
   [/src\/lib\/profile\/contribution-story\.ts$/, /^Enter the workspace or project name\.$/],
   [/src\/components\/layout\/header\/global-search\.ts$/, /\blog(?:in|out)\b/],
+  // Report 38.5 T1: "Project" is a workflow item type, so Project planner and its Projects view keep the word.
+  [/src\/(?:lib|components\/workspaces)\/workflows\//, /\b(?:Project planner|Projects view)\b/],
   [/./, /^(?:Apache Airflow|John Doe|Office Online|Excel Online|Android Studio|Samsung Internet|Claude Code|Instrument Sans)$/],
 ];
 

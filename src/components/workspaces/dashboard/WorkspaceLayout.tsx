@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { WORKSPACE_TAB_LABELS } from "@/lib/copy/terms";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
-    Settings, Share2, UserPlus, UserCheck, IterationCcw, Newspaper, MoreHorizontal, Info, Users, FolderKanban
+    Settings, Share2, UserPlus, UserCheck, IterationCcw, Newspaper, MoreHorizontal, Info, Users, FolderKanban, Lock, Plus,
+    type LucideIcon,
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -90,6 +91,10 @@ interface ProjectLayoutProps {
     compactChip?: React.ReactNode;
     compactPrefix?: React.ReactNode;
     compactMenuItems?: React.ReactNode;
+    /** Report 38.2 S1: tabs added by workflows, after a divider; a locked one was added by the organization. */
+    workflowTabs?: Array<{ id: string; label: string; icon: LucideIcon; locked: boolean; by: string | null }>;
+    /** Owners and admins with workflows on: "+ Add workflow" at the end of the row. */
+    onAddWorkflow?: () => void;
 }
 
 const TABS = [
@@ -139,6 +144,8 @@ export default function WorkspaceLayout({
     compactChip,
     compactPrefix = null,
     compactMenuItems = null,
+    workflowTabs = [],
+    onAddWorkflow,
 }: ProjectLayoutProps) {
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [projectTabsHeight, setProjectTabsHeight] = useState(0);
@@ -241,15 +248,20 @@ export default function WorkspaceLayout({
         const centeredLeft = tabLeft - (tabList.clientWidth - activeTabButton.offsetWidth) / 2;
         tabList.scrollTo({ left: Math.max(0, centeredLeft), behavior: "smooth" });
     }, [activeTab, visibleTabs]);
+    const rowTabs = useMemo(
+        () => [...visibleTabs.map((tab) => ({ ...tab, locked: false, by: null as string | null })), ...workflowTabs],
+        [visibleTabs, workflowTabs],
+    );
+    const firstWorkflowTab = workflowTabs[0]?.id;
     const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
         let nextIndex: number | null = null;
-        if (event.key === "ArrowRight") nextIndex = (index + 1) % visibleTabs.length;
-        if (event.key === "ArrowLeft") nextIndex = (index - 1 + visibleTabs.length) % visibleTabs.length;
+        if (event.key === "ArrowRight") nextIndex = (index + 1) % rowTabs.length;
+        if (event.key === "ArrowLeft") nextIndex = (index - 1 + rowTabs.length) % rowTabs.length;
         if (event.key === "Home") nextIndex = 0;
-        if (event.key === "End") nextIndex = visibleTabs.length - 1;
+        if (event.key === "End") nextIndex = rowTabs.length - 1;
         if (nextIndex === null) return;
         event.preventDefault();
-        const nextTab = visibleTabs[nextIndex];
+        const nextTab = rowTabs[nextIndex];
         if (!nextTab) return;
         tabsRef.current?.querySelector<HTMLButtonElement>(`[data-testid="project-tab-${nextTab.id}"]`)?.focus();
     };
@@ -480,9 +492,11 @@ export default function WorkspaceLayout({
             >
                 <div className="w-full">
                     <div ref={tabListRef} role="tablist" aria-label="Workspace sections" className="app-scroll app-scroll-x -mb-px flex items-center overflow-x-auto px-4 sm:px-6 max-md:[mask-image:linear-gradient(to_right,#000_88%,transparent)]">
-                        {visibleTabs.map((tab, index) => {
+                        {rowTabs.map((tab, index) => {
                             const isActive = activeTab === tab.id;
                             return (
+                                <Fragment key={tab.id}>
+                                {tab.id === firstWorkflowTab ? <span aria-hidden="true" data-testid="workflow-tab-divider" className="mx-1.5 h-4 w-px shrink-0 bg-border" /> : null}
                                 <button
                                     key={tab.id}
                                     type="button"
@@ -493,7 +507,8 @@ export default function WorkspaceLayout({
                                     aria-selected={isActive}
                                     aria-controls="project-active-tab-panel"
                                     // Audit 4.7: with no visible active tab ("Tab unavailable"), the first tab keeps the bar reachable.
-                                    tabIndex={isActive || (index === 0 && !visibleTabs.some((t) => t.id === activeTab)) ? 0 : -1}
+                                    tabIndex={isActive || (index === 0 && !rowTabs.some((t) => t.id === activeTab)) ? 0 : -1}
+                                    title={tab.locked ? `Added by ${tab.by ?? "the organization"}` : undefined}
                                     onClick={() => onTabChange(tab.id)}
                                     onKeyDown={(event) => handleTabKeyDown(event, index)}
                                     onMouseEnter={() => onTabHover?.(tab.id)}
@@ -507,6 +522,7 @@ export default function WorkspaceLayout({
                                 >
                                     <tab.icon aria-hidden="true" className={cn("size-4 max-sm:hidden", isActive ? "text-primary" : "text-muted-foreground")} />
                                     {tab.label}
+                                    {tab.locked ? <Lock aria-label={`Added by ${tab.by ?? "the organization"}`} className="size-3 text-muted-foreground" /> : null}
                                     {tab.id === "files" && filesSyncBadge && filesSyncBadge.status !== "idle" && filesSyncBadge.status !== "completed" && (
                                         <span
                                             data-testid="files-tab-sync-badge"
@@ -530,8 +546,23 @@ export default function WorkspaceLayout({
                                     ) : null}
                                     {isActive ? <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" /> : null}
                                 </button>
+                                </Fragment>
                             );
                         })}
+                        {onAddWorkflow ? (
+                            <button
+                                type="button"
+                                data-testid="add-workflow-button"
+                                // Safari doesn't focus a clicked button; focusing it here lets the dialog hand focus back on close.
+                                onClick={(event) => { event.currentTarget.focus(); onAddWorkflow(); }}
+                                aria-label="Add workflow"
+                                title="Add workflow"
+                                className="nb-tab nb-ui-label nb-touch-target ml-1 flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground"
+                            >
+                                <Plus aria-hidden="true" className="size-4" />
+                                <span className="max-[1099px]:sr-only">Add workflow</span>
+                            </button>
+                        ) : null}
                     </div>
                 </div>
             </div>

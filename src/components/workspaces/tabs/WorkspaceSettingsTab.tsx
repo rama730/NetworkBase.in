@@ -80,6 +80,7 @@ import { WorkspaceLinksManager } from "@/components/workspaces/dashboard/Workspa
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { OpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
+import { WorkflowSettingsSection } from "@/components/workspaces/workflows/WorkflowSettingsSection";
 import { WorkspaceSettingsNavigation } from "@/components/workspaces/settings/WorkspaceSettingsNavigation";
 import { useWorkspaceSettingsNavigation } from "@/hooks/useWorkspaceSettingsNavigation";
 import { LegalAndDataRightsSection } from "@/components/settings/LegalAndDataRightsSection";
@@ -1978,6 +1979,7 @@ function ProjectSettingsContent({
                         </div>
                     </section>
                 )}
+                {sections.some((s) => s.id === "tasks-workflow") ? <WorkflowSettingsSection workspaceId={projectId} /> : null}
                 {sections.some((s) => s.id === "files-workspace") && (
                     <section id="project-settings-files-workspace" data-project-settings-section className="space-y-6">
                         <SettingsCard
