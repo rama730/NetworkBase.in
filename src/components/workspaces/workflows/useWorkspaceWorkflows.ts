@@ -22,7 +22,8 @@ export function useWorkspaceWorkflows(workspaceId: string, started?: Promise<Wor
 
   useEffect(() => {
     let current = true;
-    started?.then((value) => { if (current) setState(value); }).catch(() => undefined);
+    // A promise sent from the server is only promise-like: its then() returns nothing, so wrap it before chaining.
+    if (started) void Promise.resolve(started).then((value) => { if (current) setState(value); }, () => undefined);
     return () => { current = false; };
   }, [started]);
 
