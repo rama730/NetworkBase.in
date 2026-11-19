@@ -19,4 +19,7 @@ test('the top bar path shows the place, never ids, at most two parts', () => {
     assert.equal(shellPathFor('/messages/3f2b1c4a-1d2e-4f5a-9b8c-7d6e5f4a3b2c'), 'messages')
     assert.equal(shellPathFor('/settings/account'), 'settings/account')
     assert.equal(shellPathFor('/'), 'discover')
+    // A long slug is a place, not an id.
+    assert.equal(shellPathFor('/workspaces/team-falcon-hash-table-library-oxao5'), 'workspaces/team-falcon-hash-table-library-oxao5')
+    assert.equal(shellPathFor('/messages/ckq2x9v0a0000qz1h3k5d7f9g'), 'messages')
 })
