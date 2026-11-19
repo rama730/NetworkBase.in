@@ -128,9 +128,9 @@
       "text": "A1.2 Matrix view — Goal: personal 2×2 by priority and due. Build: matrixBox; moves change priority/due; Assign…, Move to Backlog. Journeys: T1 W9.",
       "kind": "unit",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/tasks-matrix.spec.ts",
+      "evidence": "LIVE 2026-11-20 7e2d99aa1 (pushed a8b032355). Chrome on wt-test-a1-2 (deleted): four boxes placed right (Do first WT-1, Schedule WT-2 No date, Delegate WT-4 Overdue, Drop WT-3); menu move Drop -> Schedule set High with Undo. Localhost visitor check before push."
     },
     {
       "key": "A1.3",
@@ -5948,9 +5948,9 @@
       "text": "Matrix (every workspace)",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/tasks-matrix.spec.ts",
+      "evidence": "2026-11-20 Chrome: placement and a menu move; date picker in/out of Urgent, Assign…, Move to Backlog in the spec."
     },
     {
       "key": "38.5.W10",
@@ -8158,9 +8158,9 @@
       "text": "A1.2 (2026-11-20): the Matrix reads the board already loaded (its scope menu and chips), choosing Matrix moves the scope to Mine; the urgent window is fixed at ",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/planner-matrix.test.ts",
+      "evidence": "2026-11-20: Matrix reads the loaded board, starts at Mine, 3-day window, Move to Backlog for leaders."
     }
   ]
 }
