@@ -899,12 +899,12 @@ export default function TasksTab({
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className={cn("flex items-center gap-2.5", reviewing && "hidden")}>
             <h2 className="text-[20px] font-semibold tracking-tight text-foreground">
-              Board
+              {currentView === "calendar" ? "Calendar" : "Board"}
             </h2>
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
+            {currentView === "calendar" ? null : <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
               {/* Board view dropdown §3 (D4): the view's real total; while searching or narrowing to a team, what's shown. */}
               {boardCounts && !taskSearchQuery && !unitMembers && !chipsSet ? boardCounts[scope].total : `${filteredTasks.length}${hasNextPage ? "+" : ""}`}
-            </span>
+            </span>}
             {taskSearchQuery ? (
               <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
                 {`matching “${taskSearchQuery}”`}
