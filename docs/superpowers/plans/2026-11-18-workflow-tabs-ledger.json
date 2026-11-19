@@ -158,9 +158,9 @@
       "text": "A1.5 Projects → Active and All + Overview card + My Work + CLI/MCP — Journeys: T1 W6, W11, W12, Overview card, \"Ends Friday\" in My Work, nb tasks --type project",
       "kind": "unit",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-work.spec.ts",
+      "evidence": "LIVE 2026-11-20 feat pushed as 87354584a, live fixes c7bf935b9 (My Work cards said Nov 25, not Ends Wednesday; Stage cell repeated Shows in). No migration. Chrome on wt-test-a1-5 (deleted): All grouped with totals, Stage cell moved to In progress, Active priority edited in place, Overview Projects card \"1 in progress · 1 ends this week\", My Work \"Ends Wednesday\". CLI live: create --type project --start --due, --part-of on create and edit, list --part-of, completion 50%."
     },
     {
       "key": "A1.6",
@@ -5918,9 +5918,9 @@
       "text": "Active and All",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-work.spec.ts",
+      "evidence": "2026-11-20 Chrome: Active (Planning, In progress) edited in place; All grouped by Stage / Assigned to with count and average."
     },
     {
       "key": "38.5.W7",
@@ -5968,9 +5968,9 @@
       "text": "Viewer and public",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-work.spec.ts",
+      "evidence": "2026-11-20: viewers get plain text in the tables and no drag handles on the Timeline (specs); visitors never get the view switch (A1.1, checked live then)."
     },
     {
       "key": "38.5.W12",
@@ -5978,9 +5978,9 @@
       "text": "An agent",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/cli-commands.test.ts",
+      "evidence": "2026-11-20 live CLI journey; MCP planning pack networkbase_project_list / project_create / task_part_of wrap the same commands (CLI tests)."
     },
     {
       "key": "38.5.call1",
@@ -5988,9 +5988,9 @@
       "text": "Calendar and Matrix are Tasks views for every workspace; only Projects needs the planner. [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/tasks-calendar.spec.ts",
+      "evidence": "A1.1/A1.2 live: Calendar and Matrix for every workspace; Projects only with the planner."
     },
     {
       "key": "38.5.call2",
@@ -5998,9 +5998,9 @@
       "text": "The Tasks view switch is Board · Projects · Calendar · Matrix; Projects has Timeline · Active · All; the planner's own Board view is dropped. [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-work.spec.ts",
+      "evidence": "A1.5 live: Board · Projects · Calendar · Matrix; Projects has Timeline · Active · All."
     },
     {
       "key": "38.5.call3",
@@ -6008,9 +6008,9 @@
       "text": "A project's \"About\" is its description; its fields live in typefields. [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/planner-work.test.ts",
+      "evidence": "A1.3: About is the description; completionOverride in type_fields."
     },
     {
       "key": "38.5.call4",
@@ -6018,9 +6018,9 @@
       "text": "One project per task; projects can't be nested or Part of anything. [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/planner-work.test.ts",
+      "evidence": "A1.3: one project per task; no nesting (db test)."
     },
     {
       "key": "38.5.call5",
@@ -6028,9 +6028,9 @@
       "text": "Blocked by stays a warning; moving a blocker asks before shifting others. [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-timeline.spec.ts",
+      "evidence": "A1.4 live: Blocked by is a warning; moving a blocker asks before shifting."
     },
     {
       "key": "38.5.call6",
@@ -6038,9 +6038,9 @@
       "text": "Completion: completed ÷ all work tasks (cancelled not counted); then subtasks; then a hand-set %. [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/planner-calendar.test.ts",
+      "evidence": "A1.3: completion rule tested."
     },
     {
       "key": "38.5.call7",
@@ -6048,9 +6048,9 @@
       "text": "Matrix urgency is fixed at 3 days in this release (11.7's admin setting waits). [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/planner-matrix.test.ts",
+      "evidence": "A1.2: 3-day window fixed."
     },
     {
       "key": "38.5.call8",
@@ -6058,9 +6058,9 @@
       "text": "Calendar spans items with a start and a due date; others sit on their due day; dragging keeps the length. [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/planner-calendar.test.ts",
+      "evidence": "A1.4 live: Calendar spans, dragging keeps length."
     },
     {
       "key": "38.5.call9",
@@ -6068,9 +6068,9 @@
       "text": "The organization portfolio stays with Organizations (K3), not T1. [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
+      "status": "n/a-live",
       "test": "",
-      "evidence": ""
+      "evidence": "The organization portfolio stays with Organizations (K3, B4.3); projects are refused in organizations (A1.3)."
     },
     {
       "key": "38.6.W1",
@@ -8188,9 +8188,9 @@
       "text": "A1.5 (2026-11-20): Active lists Planning and In progress (Paused shows in All); its Stage cell is the panel's Stage menu, so completing with open work asks the ",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/planner-calendar.test.ts",
+      "evidence": "2026-11-20: Active scope, All totals, phone default Active, Overview card members only, My Work Ends label, MCP in planning pack, project notifications with A1.6."
     }
   ]
 }
