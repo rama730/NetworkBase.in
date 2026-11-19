@@ -10,7 +10,7 @@
       "milestone": "A0",
       "status": "live-pending",
       "test": "tests/unit/workflow-rules.test.ts; tests/db/workflow-stages.test.ts (7 journeys)",
-      "evidence": "341cf034a + ecf06be70 live 2026-11-19 (web+worker SUCCESS); 0103+0104 applied in prod; prod check: all 61 tasks item_type=task, no stage, on_board, flag off everywhere, index valid; nb task list matches DB on deepscope-ai (6/6) and CSE 3B (4, copies hidden as before); logs clean ; live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing\u2192Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors ; join/leave stage moves (sprint pick, moved back) proven on a disposable DB only, no UI yet: re-run live with the A0.10 stage menu \u2014 revisit 2026-11-20"
+      "evidence": "341cf034a + ecf06be70 live 2026-11-19 (web+worker SUCCESS); 0103+0104 applied in prod; prod check: all 61 tasks item_type=task, no stage, on_board, flag off everywhere, index valid; nb task list matches DB on deepscope-ai (6/6) and CSE 3B (4, copies hidden as before); logs clean ; live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing\u2192Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors ; join/leave stage moves (sprint pick, moved back) proven on a disposable DB only, no UI yet: re-run live with the A0.10 stage menu \u2014 revisit 2026-11-20 ; bug hunt 2026-11-19: prod logs clean, catalog parity with prod OK; FOUND a status change on an off-board item (panel/bulk/undo/CLI/GitHub) left it half on the board, and a done stage chosen off the board waited for review off the board \u2014 fixed de8ab31ea (tests first), redeployed, rechecked live on wt-test-a0-1b via nb task move/done + Chrome approve (deleted after); 2nd pass clean (no other direct status writes; copies are plain tasks)"
     },
     {
       "key": "A0.2",
@@ -5420,7 +5420,7 @@
       "milestone": "A0",
       "status": "live",
       "test": "tests/unit/workflow-rules.test.ts; tests/db/workflow-stages.test.ts (7 journeys)",
-      "evidence": "live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing\u2192Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors"
+      "evidence": "live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing\u2192Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors ; bug hunt 2026-11-19: prod logs clean, catalog parity with prod OK; FOUND a status change on an off-board item (panel/bulk/undo/CLI/GitHub) left it half on the board, and a done stage chosen off the board waited for review off the board \u2014 fixed de8ab31ea (tests first), redeployed, rechecked live on wt-test-a0-1b via nb task move/done + Chrome approve (deleted after); 2nd pass clean (no other direct status writes; copies are plain tasks)"
     },
     {
       "key": "38.2.call6",
