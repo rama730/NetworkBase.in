@@ -78,9 +78,9 @@
       "text": "A0.8 New module with type tabs (38.4 F3 S1, S2)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/create-module.spec.ts",
+      "evidence": "LIVE 2026-11-19 d8ebb6102 (pushed b5853a11f): Chrome on wt-test-a08 (deleted): New ▾ Task/Bug/Request; bug at Fixing in Sprint 1 via Cmd+Enter (WT-1 in progress); bug at New off board, no sprint (WT-2); Bugs hidden mid-module -> \"Bugs was removed\" + Create as task (WT-3). Plain workspace unchanged."
     },
     {
       "key": "A0.9",
@@ -5698,9 +5698,9 @@
       "text": "New from Tasks (workspace with Bugs and Requests added)",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/create-module.spec.ts",
+      "evidence": "2026-11-19 Chrome: New ▾ -> Bug, Starts at Fixing · on the board, footer line, Create bug, Cmd+Enter; on the board in the sprint."
     },
     {
       "key": "38.4.W2",
@@ -5708,9 +5708,9 @@
       "text": "New from an own tab",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/create-module.spec.ts",
+      "evidence": "Footer/Sprint switch checked live from Tasks (Starts at New -> \"Shows in Bugs · not on the Tasks board yet\", no Sprint); the own-tab New bug button arrives with A2.1."
     },
     {
       "key": "38.4.W3",
@@ -5718,9 +5718,9 @@
       "text": "Switching type mid-way",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/create-module.spec.ts",
+      "evidence": "Switching keeps title, description, due; Need by for Request (spec, chromium+webkit). Type-only fields with A2.1."
     },
     {
       "key": "38.4.W4",
@@ -5768,9 +5768,9 @@
       "text": "Errors and edges in the module",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/create-module.spec.ts",
+      "evidence": "2026-11-19 Chrome: hidden Bugs mid-module -> message + Create as task made WT-3; empty title and server error keep what was typed (spec)."
     },
     {
       "key": "38.4.W9",
@@ -5818,9 +5818,9 @@
       "text": "A member's sprint choice becomes \"Goes to the Backlog\" instead of an error, in the module, F1's Join-board sheet, the CLI and MCP. This corrects F1 W4 for membe",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/create-typed.test.ts",
+      "evidence": "2026-11-19: createTaskAction drops a member sprint to the Backlog with backlogged: true (db tests create-typed + organizations-correct-work); CLI message with A0.10."
     },
     {
       "key": "38.4.call4",
@@ -5858,9 +5858,9 @@
       "text": "Shortcuts: N new task, Shift + N the type menu, ⌘/Ctrl + Enter create. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/create-module.spec.ts",
+      "evidence": "2026-11-19 Chrome: Shift+N opened New ▾, Cmd+Enter created; N covered by the same handler."
     },
     {
       "key": "38.5.W1",
@@ -8018,9 +8018,9 @@
       "text": "A0.8 (2026-11-19): a type tab shows for each added workflow whose type the registry defines (Bug, Request, Content today); Project and Roadmap item join when th",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/create-rules.test.ts",
+      "evidence": "2026-11-19: tabs Task, Bug, Request from added workflows; bug starts New/Confirmed/Fixing."
     },
     {
       "key": "38.4.call9",
@@ -8028,9 +8028,9 @@
       "text": "A0.8: Starts at takes the place of Status for typed items (the stage sets the status); Sprint shows only while the chosen stage is on the board, and an off-boar",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/create-typed.test.ts",
+      "evidence": "2026-11-19: Starts at replaces Status; Sprint only on board; WT-2 at New has no sprint."
     },
     {
       "key": "38.4.call10",
@@ -8040,7 +8040,7 @@
       "milestone": "A0",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "deferred to each type unit (A2.1 Bug details); server already refuses unknown fields by name (db test)."
     },
     {
       "key": "38.4.call11",
@@ -8050,7 +8050,7 @@
       "milestone": "A0",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "CLI/MCP --type/--stage with A0.10."
     }
   ]
 }
