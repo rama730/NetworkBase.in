@@ -736,6 +736,20 @@
       "when": 1794890289282,
       "tag": "0105_workspace_workflows",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1794890349282,
+      "tag": "0106_doc_live_rows",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1794890409282,
+      "tag": "0107_doc_live_rows_index",
+      "breakpoints": true
     }
   ]
 }

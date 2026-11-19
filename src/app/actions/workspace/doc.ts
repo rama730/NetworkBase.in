@@ -3,7 +3,7 @@
 import { docTitle, isEmptyDoc, readOrgDocOptions } from "@/lib/organizations/doc-rules";
 import { linkedFileEditor } from "@/lib/workspaces/doc-linked-editor";
 import { orgLimitBlock } from "@/lib/organizations/limits";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
@@ -11,6 +11,7 @@ import { readWorkspaceFileText } from "@/lib/files/content-reader";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { availableSections, DOC_SECTIONS, sectionHasDate, type DocSection } from "@/lib/workspaces/doc-sections";
+import { canAddRows, MAX_BLOCK_ROWS, visibleRows } from "@/lib/workspaces/doc-live-blocks";
 import {
     profiles,
     workspaceMembers,
@@ -1224,3 +1225,143 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
     }
 }
 
+
+// ---- Live task-rows blocks (report 38.3 F2 S3, W3–W12) ----
+const blockKeySchema = z.string().regex(/^[a-z0-9]{4,12}$/);
+
+export type DocRow = {
+    id: string; number: number | null; title: string; status: string; reviewStatus: string; dueDate: string | null; completedAt: string | null;
+    position: number | null; itemType: string; assignee: { id: string; name: string | null; avatarUrl: string | null } | null; canTick: boolean;
+};
+
+async function blockRows(docId: string, blockKey: string) {
+    return db.select({
+        id: tasks.id, number: tasks.taskNumber, title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus,
+        dueDate: tasks.dueDate, completedAt: tasks.completedAt, position: tasks.sourcePosition, itemType: tasks.itemType,
+        assigneeId: tasks.assigneeId, assigneeName: profiles.fullName, assigneeAvatar: profiles.avatarUrl,
+    }).from(tasks).leftJoin(profiles, eq(profiles.id, tasks.assigneeId))
+        .where(and(eq(tasks.sourceDocId, docId), eq(tasks.sourceBlock, blockKey), isNull(tasks.deletedAt)))
+        .orderBy(asc(tasks.sourcePosition)).limit(MAX_BLOCK_ROWS);
+}
+
+/** A block's rows for this reader (W12: people who can't see Tasks get the count only; the public never sees who). */
+export async function readDocRowsAction(projectId: string, docSlug: string, blockKey: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const key = blockKeySchema.parse(blockKey);
+        const context = await getDocProjectContext(projectId, actor, docSlug);
+        if (!context.readme || !(context.permission.canReadPublished || context.permission.canEdit)) return { success: false as const, error: "Document not found." };
+        const insider = actor === context.project.ownerId || Boolean(context.membership);
+        const role = actor === context.project.ownerId ? "owner" : context.membership?.role ?? null;
+        const leader = role === "owner" || role === "admin";
+        const canSeeTasks = insider || normalizeWorkspacePublicTabVisibility(context.project.publicTabVisibility).tasks;
+        const all = await blockRows(context.readme.id, key);
+        const { rows, hidden } = visibleRows(all, { canSeeTasks });
+        return {
+            success: true as const, hidden, canAdd: canAddRows(context.permission), canSeeTasks,
+            rows: rows.map((r): DocRow => ({
+                id: r.id, number: r.number, title: r.title, status: r.status, reviewStatus: r.reviewStatus, itemType: r.itemType,
+                dueDate: r.dueDate ? r.dueDate.toISOString() : null, completedAt: r.completedAt ? r.completedAt.toISOString() : null, position: r.position,
+                assignee: r.assigneeId && insider ? { id: r.assigneeId, name: r.assigneeName, avatarUrl: r.assigneeAvatar } : null,
+                // B9: the task's own rule (the transition re-checks): its assignee, an unassigned one, or a leader; never viewers.
+                canTick: insider && role !== "viewer" && (leader || !r.assigneeId || r.assigneeId === actor),
+            })),
+        };
+    } catch (error) {
+        logger.error("doc_rows.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load these items." };
+    }
+}
+
+const addRowSchema = z.object({
+    docSlug: docSlugSchema,
+    blockKey: blockKeySchema,
+    title: z.string().trim().min(1, "Add a title").max(200),
+    assigneeId: z.string().uuid().nullish(),
+    dueDate: z.string().datetime().nullish(),
+});
+
+/**
+ * W3: + Add action item. People who can edit the document add rows (B9); each is a task made the usual way (To do, in
+ * the Backlog, the usual assignment notice) and then tied to the document and block, at the end of the list.
+ */
+export async function addDocRowAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = addRowSchema.parse(input);
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme) return { success: false as const, error: "That document isn’t here any more." };
+        if (!canAddRows(context.permission)) return { success: false as const, error: "Only people who can edit this document add items here." };
+        const [count] = await db.select({ n: sql<number>`count(*)::int`, last: sql<number | null>`max(${tasks.sourcePosition})` }).from(tasks)
+            .where(and(eq(tasks.sourceDocId, context.readme.id), eq(tasks.sourceBlock, data.blockKey), isNull(tasks.deletedAt)));
+        if ((count?.n ?? 0) >= MAX_BLOCK_ROWS) return { success: false as const, error: `A list holds up to ${MAX_BLOCK_ROWS} items.` };
+        const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
+        const created = await createTaskAction({ projectId, title: data.title, status: "todo", priority: "medium", assigneeId: data.assigneeId ?? null, dueDate: data.dueDate ?? null });
+        if (!created.success || !("task" in created) || !created.task) return { success: false as const, error: ("error" in created && created.error) || "Couldn’t add the item." };
+        await db.update(tasks).set({ sourceDocId: context.readme.id, sourceBlock: data.blockKey, sourcePosition: (count?.last ?? 0) + 1 }).where(eq(tasks.id, created.task.id));
+        return { success: true as const, id: created.task.id, number: created.task.taskNumber ?? null };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the item." };
+        logger.error("doc_rows.add_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t add the item." };
+    }
+}
+
+const rowSchema = z.object({ docSlug: docSlugSchema, taskId: z.string().uuid() });
+
+async function editableRow(projectId: string, userId: string, input: unknown) {
+    const data = rowSchema.parse(input);
+    const context = await getDocProjectContext(projectId, userId, data.docSlug);
+    if (!context.readme) throw new Error("That document isn’t here any more.");
+    if (!canAddRows(context.permission)) throw new Error("Only people who can edit this document change its lists.");
+    const [row] = await db.select({ id: tasks.id, block: tasks.sourceBlock, position: tasks.sourcePosition }).from(tasks)
+        .where(and(eq(tasks.id, data.taskId), eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt))).limit(1);
+    if (!row?.block) throw new Error("That item isn’t in this list.");
+    return { docId: context.readme.id, row: row as { id: string; block: string; position: number | null } };
+}
+
+/** W8: Move up / Move down, the menu path for reordering (positions only, no document write). */
+export async function moveDocRowAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const direction = z.object({ direction: z.enum(["up", "down"]) }).passthrough().parse(input).direction;
+        const { docId, row } = await editableRow(projectId, userId, input);
+        const rows = await blockRows(docId, row.block);
+        const at = rows.findIndex((r) => r.id === row.id);
+        const other = rows[direction === "up" ? at - 1 : at + 1];
+        if (!other) return { success: true as const };
+        await db.transaction(async (tx) => {
+            await tx.update(tasks).set({ sourcePosition: other.position ?? at }).where(eq(tasks.id, row.id));
+            await tx.update(tasks).set({ sourcePosition: row.position ?? at + 1 }).where(eq(tasks.id, other.id));
+        });
+        return { success: true as const };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t move the item." };
+    }
+}
+
+/** W8: Remove from this list keeps the task and drops its "From" line; deleting the task is done from the task. */
+export async function detachDocRowAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const { row } = await editableRow(projectId, userId, input);
+        await db.update(tasks).set({ sourceDocId: null, sourceBlock: null, sourcePosition: null }).where(eq(tasks.id, row.id));
+        return { success: true as const };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t remove the item from the list." };
+    }
+}
+
+/** W10: how many rows each list key holds, for editors; lists whose line was deleted from the text show as a note. */
+export async function readDocRowKeysAction(projectId: string, docSlug: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const context = await getDocProjectContext(projectId, actor, docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: true as const, keys: [] as Array<{ key: string; count: number }> };
+        const keys = await db.select({ key: tasks.sourceBlock, count: sql<number>`count(*)::int` }).from(tasks)
+            .where(and(eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt))).groupBy(tasks.sourceBlock);
+        return { success: true as const, keys: keys.flatMap((k) => (k.key ? [{ key: k.key, count: k.count }] : [])) };
+    } catch {
+        return { success: false as const, error: "Couldn’t count the lists." };
+    }
+}

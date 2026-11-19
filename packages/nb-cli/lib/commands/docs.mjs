@@ -327,3 +327,29 @@ export async function fileEdit(ctx) {
     fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
   }
 }
+
+/** A doc's live list (report 38.3 W13): `nb doc rows <slug> --list <key>`. @param {Context} ctx */
+export async function rows(ctx) {
+  const workspaceId = ctx.requireWorkspace();
+  const slug = ctx.positionals[0];
+  if (!slug || !ctx.flags.list) throw usage("nb doc rows <slug> --list <key>");
+  const res = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/docs/${encodeURIComponent(slug)}/rows?key=${encodeURIComponent(String(ctx.flags.list))}`));
+  ctx.out.result("nb.doc.rows/1", { slug, list: String(ctx.flags.list), rows: res.rows, hidden: res.hidden }, (d) => {
+    if (!d.rows.length) return d.hidden ? `${d.hidden} items you can't see` : "No items yet";
+    return d.rows.map((/** @type {any} */ r) => `  ${r.status === "done" ? "[x]" : "[ ]"} ${ctx.out.c.muted(`#${r.number ?? "?"}`)} ${safe(r.title)}${r.assignee ? ctx.out.c.muted(`  ${safe(r.assignee.name ?? "")}`) : ""}`);
+  });
+}
+
+/** `nb doc rows add <slug> --list <key> "<title>"`: a task in the list, To do, in the Backlog. @param {Context} ctx */
+export async function rowsAdd(ctx) {
+  const workspaceId = ctx.requireWorkspace();
+  const [slug, ...words] = ctx.positionals;
+  const title = words.join(" ").trim();
+  if (!slug || !title || !ctx.flags.list) throw usage('nb doc rows add <slug> --list <key> "<title>" [--to @user] [--due YYYY-MM-DD]');
+  const due = ctx.flags.due ? new Date(`${String(ctx.flags.due)}T00:00:00Z`) : null;
+  if (due && Number.isNaN(due.getTime())) throw usage("--due takes a date: YYYY-MM-DD");
+  const res = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/docs/${encodeURIComponent(slug)}/rows`, {
+    key: String(ctx.flags.list), title, ...(ctx.flags.to ? { assignee: String(ctx.flags.to) } : {}), ...(due ? { due: due.toISOString() } : {}),
+  }));
+  ctx.out.result("nb.doc.rows.add/1", { slug, id: res.id, number: res.number, title }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Added #${d.number ?? "?"} ${safe(d.title)} to ${safe(d.slug)}`);
+}

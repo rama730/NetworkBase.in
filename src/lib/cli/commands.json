@@ -2872,6 +2872,54 @@
       ]
     },
     {
+      "name": "doc rows",
+      "summary": "A doc's live list: its items, which are tasks",
+      "usage": "nb doc rows <slug> --list <key>",
+      "flags": {
+        "list": {
+          "type": "string",
+          "describe": "The list's key (in the doc's text: key=\"…\")",
+          "valueName": "key"
+        }
+      },
+      "examples": [
+        "nb doc rows weekly --list k7f3"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "doc rows add",
+      "summary": "Add an item to a doc's live list (a task)",
+      "usage": "nb doc rows add <slug> --list <key> \"<title>\" [--to @user] [--due date]",
+      "flags": {
+        "list": {
+          "type": "string",
+          "describe": "The list's key",
+          "valueName": "key"
+        },
+        "to": {
+          "type": "string",
+          "describe": "Who it's for",
+          "valueName": "@user"
+        },
+        "due": {
+          "type": "string",
+          "describe": "Due date (YYYY-MM-DD)",
+          "valueName": "date"
+        }
+      },
+      "examples": [
+        "nb doc rows add weekly --list k7f3 \"Book the venue\" --to @mei --due 2026-11-26"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "doc add",
       "summary": "Make a file a workspace doc (the file stays)",
       "usage": "nb doc add <file>",

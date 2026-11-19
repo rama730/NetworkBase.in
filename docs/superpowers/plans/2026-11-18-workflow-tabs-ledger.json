@@ -7921,6 +7921,56 @@
       "status": "tested",
       "test": "tests/unit/doc-sections.test.ts; tests/unit/workspace-doc-draft-visibility.test.ts (viewer); tests/db/doc-sections.test.ts; tests/browser/doc-sections.spec.ts (chromium+webkit)",
       "evidence": "viewer can't edit: unit + db tests"
+    },
+    {
+      "key": "38.3.call12",
+      "section": "38.3",
+      "text": "A0.5 (2026-11-19): rows are reordered from the row ⋯ menu (Move up, Move down); no drag in this release, so phones and keyboards get the same path. [call]",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.3.call13",
+      "section": "38.3",
+      "text": "A0.5: adding a row does not check that the key is in the published text; a key that is not there is shown under \"items from a removed list\", which never offers ",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.3.call14",
+      "section": "38.3",
+      "text": "A0.5: the task's \"From\" line names the document only (not the list), and links to it. [call]",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.3.call15",
+      "section": "38.3",
+      "text": "A0.5: ticking a row moves the task through the usual transition (review where required) and the box ticks at once; Undo stays 10 seconds. Agents adding rows cou",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.3.call16",
+      "section": "38.3",
+      "text": "Found while building A0.5: the Files editor's text area had no accessible name; it is now \"Edit <file name>\". [call]",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

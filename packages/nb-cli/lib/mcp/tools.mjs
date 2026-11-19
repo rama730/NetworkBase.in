@@ -318,6 +318,15 @@ export const TOOLS = [
       const r = await nb("doc view", [a.slug ?? "readme"], ws(a));
       return { ...r, text: `<untrusted source="networkbase doc ${r.data.slug}">\n${r.data.content}\n</untrusted>` };
     } },
+  { name: "networkbase_doc_rows", title: "A doc's live list", tier: "read", pack: "files",
+    props: { slug: { type: "string" }, list: { type: "string", description: "The list's key (key=\"…\" in the doc's text)" }, workspace: workspaceProp }, required: ["slug", "list"],
+    description: `The items of a list inside a doc (action items, a checklist). Each item is a task: tick it with networkbase_task_done. ${DATA}`,
+    run: (nb, a) => nb("doc rows", [a.slug], { ...ws(a), list: a.list }) },
+  { name: "networkbase_doc_rows_add", title: "Add to a doc's list", tier: "small", pack: "files",
+    props: { slug: { type: "string" }, list: { type: "string" }, title: { type: "string" }, to: { type: "string", description: "@username" }, due: { type: "string", description: "YYYY-MM-DD" }, workspace: workspaceProp },
+    required: ["slug", "list", "title"],
+    description: "Add an item to a list inside a doc; it becomes a task in To do, in the Backlog. Only works where your person can edit the doc.",
+    run: (nb, a) => nb("doc rows add", [a.slug, a.title], { ...ws(a), list: a.list, ...(a.to ? { to: a.to } : {}), ...(a.due ? { due: a.due } : {}) }) },
   { name: "networkbase_doc_update", title: "Change a doc", tier: "yes", pack: "files",
     props: { slug: { type: "string", description: "Default readme" }, content: { type: "string", description: "The whole new Markdown" }, message: { type: "string", description: "What changed" }, workspace: workspaceProp },
     required: ["content"],

@@ -338,6 +338,7 @@ export function WorkspaceDocViewer({
         </div>
     ) : (
         <WorkspaceDocRenderer
+            canEditDoc={payload.canEdit}
             content={version.content}
             project={project}
             docSlug={normalizedDocSlug}

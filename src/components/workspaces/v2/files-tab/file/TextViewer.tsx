@@ -59,6 +59,7 @@ import { isProtectedMain, useMainProtected, useSaveToBranch } from "@/components
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
 import type { FileLeaseStatus } from "../hooks/useFileLease";
 import { saveBlob } from "@/lib/download";
+import { DocInsertMenu } from "@/components/workspaces/doc/DocInsertMenu";
 
 const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
 
@@ -279,6 +280,8 @@ export function TextViewer({
 }: TextViewerProps): React.JSX.Element {
   const { resolvedTheme } = useTheme();
   const upsertNodes = useFilesStore((s) => s.upsertNodes);
+  // Report 38.3 S5: Insert ▾ writes a live block line at the cursor of the edit buffer.
+  const [editView, setEditView] = React.useState<import("@codemirror/view").EditorView | null>(null);
 
   type LoadStatus = "loading" | "ready" | "error";
   const [status, setStatus] = React.useState<LoadStatus>("loading");
@@ -674,6 +677,7 @@ export function TextViewer({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <DocInsertMenu projectId={projectId} nodeId={node.id} view={editView} />
           {onCancel && (
             <Button
               type="button"
@@ -721,6 +725,7 @@ export function TextViewer({
         <CodeMirrorEditor
           value={content}
           onChange={(next) => setContent(next)}
+          onCreateEditor={(view) => { view.contentDOM.setAttribute("aria-label", `Edit ${node.name}`); setEditView(view); }}
           editable={canEdit}
           readOnly={!canEdit}
           theme={appTheme ?? (resolvedTheme === "dark" ? "dark" : "light")}

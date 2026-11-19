@@ -15641,6 +15641,11 @@ F2 gives Documents what the D rounds need: **sections** in the rail (Pages · Me
 9. Organization documents keep their own groups; sections are for workspaces in this release. **[call]**
 10. **Correction (A0.4, 2026-11-19):** no section index migration: a workspace's documents already load together, so the index would never be used. Section, kind and date are kept by the settings normaliser (it used to drop unknown keys, so a later settings save would have undone a move). Workspace documents get the organization header's ⋯ (Document actions) with **Move to section…**, shown only once a section beyond Pages exists; a section's + adds a document straight into it. **[call]**
 11. **Found while building A0.4:** viewers could edit and publish documents whose edit policy is "members" (the shared document permission counted them as members). Fixed in `resolveWorkspaceDocPermission`: viewers read, never edit. **[call]**
+12. **A0.5 (2026-11-19):** rows are reordered from the row ⋯ menu (Move up, Move down); no drag in this release, so phones and keyboards get the same path. Phones add rows in the same inline row, not a bottom sheet (W11): it fits at 375 px and keeps one path. The line under a block for people who can't edit says "Only people who can edit this document add items here." for every edit policy (W5). **[call]**
+13. **A0.5:** adding a row does not check that the key is in the published text; a key that is not there is shown under "items from a removed list", which never offers Add. **[call]**
+14. **A0.5:** the task's "From" line names the document only (not the list), and links to it. **[call]**
+15. **A0.5:** ticking a row moves the task through the usual transition (review where required) and the box ticks at once; Undo stays 10 seconds. Agents adding rows count as a small change with an undo, like creating a task. **[call]**
+16. **Found while building A0.5:** the Files editor's text area had no accessible name; it is now "Edit <file name>". **[call]**
 
 ### 38.4 F3 · The New module and the item page (agreed 2026-11-17)
 

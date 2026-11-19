@@ -471,6 +471,12 @@ export default function DetailsTab({
           />
         </div>
 
+        {/* Report 38.3 S6: a row of a document's list says where it came from. */}
+        {task.source ? (
+          <p className="text-xs text-muted-foreground" data-testid="task-from-line">
+            From: <a href={`?tab=docs&doc=${encodeURIComponent(task.source.docSlug)}`} className="font-medium text-foreground underline-offset-2 hover:underline">{task.source.docTitle}</a>
+          </p>
+        ) : null}
         {/* Creator & Live Telemetry Metadata */}
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>Created by</span>

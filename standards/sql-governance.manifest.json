@@ -108,7 +108,9 @@
     "drizzle/0102_branch_names.sql",
     "drizzle/0103_task_types.sql",
     "drizzle/0104_task_types_index.sql",
-    "drizzle/0105_workspace_workflows.sql"
+    "drizzle/0105_workspace_workflows.sql",
+    "drizzle/0106_doc_live_rows.sql",
+    "drizzle/0107_doc_live_rows_index.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

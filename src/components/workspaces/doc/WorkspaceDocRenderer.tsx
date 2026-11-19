@@ -1,5 +1,7 @@
 "use client";
 
+import { RemovedListsNote, WorkspaceDocLiveBlock } from "@/components/workspaces/doc/WorkspaceDocLiveBlock";
+import { parseLiveBlocks } from "@/lib/workspaces/doc-live-blocks";
 import React, { Suspense, useMemo, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -408,6 +410,7 @@ export const WorkspaceDocRenderer = React.memo(function WorkspaceDocRenderer({
     allowExternalImages = false,
     allowSmartBlocks = true,
     editorMode = false,
+    canEditDoc = false,
     fidelity = "app",
     className,
     onMediaLoad,
@@ -424,6 +427,8 @@ export const WorkspaceDocRenderer = React.memo(function WorkspaceDocRenderer({
     allowExternalImages?: boolean;
     allowSmartBlocks?: boolean;
     editorMode?: boolean;
+    /** Report 38.3 W10: editors see a note for lists whose line was removed. */
+    canEditDoc?: boolean;
     fidelity?: "app" | "github";
     className?: string;
     onMediaLoad?: () => void;
@@ -440,6 +445,7 @@ export const WorkspaceDocRenderer = React.memo(function WorkspaceDocRenderer({
     const isCircularDocReference = renderedSlugs.includes(normalizedDocSlug);
 
     const readmeModel = useMemo(() => viewModel ?? buildWorkspaceDocViewModel({ content }), [content, viewModel]);
+    const liveKeys = useMemo(() => parseLiveBlocks(content).flatMap((b) => (b.key ? [b.key] : [])), [content]);
     const segments = readmeModel.segments;
     const headingTargets = readmeModel.headings;
     const headingTargetQueues = useMemo(() => {
@@ -819,6 +825,13 @@ export const WorkspaceDocRenderer = React.memo(function WorkspaceDocRenderer({
             <Suspense fallback={<div className="text-sm text-muted-foreground">Rendering document…</div>}>
                 {segmentRenderPlans.map((plan) => {
                     if (plan.kind === "block") {
+                        // Report 38.3 S3: a task-rows block is live (its rows are tasks); in the editor's preview it's a frame.
+                        const live = parseLiveBlocks(plan.segment.block.raw)[0];
+                        if (live?.kind === "task_rows") {
+                            return live.key && !editorMode && allowSmartBlocks
+                                ? <WorkspaceDocLiveBlock key={`block-${plan.index}`} projectId={project.id} projectSlug={project.slug || project.id} docSlug={normalizedDocSlug} blockKey={live.key} label={live.label ?? "Action items"} />
+                                : <div key={`block-${plan.index}`} className="my-4 rounded-[8px] border border-dashed border-border px-4 py-3 text-[13px] text-muted-foreground">{live.label ?? "Action items"} · {live.key ? "a live list; its items show on the Documents tab" : "re-insert this list from Insert to use it"}</div>;
+                        }
                         const previewKey = `${plan.segment.block.kind}:${plan.segment.block.ids.join(",")}:${plan.segment.block.index}`;
                         const stablePreviewKey = `${plan.segment.block.kind}:${plan.segment.block.ids.join(",")}`;
                         const preview = effectivePreviewByKey.get(previewKey) ?? effectivePreviewByKey.get(stablePreviewKey) ?? null;
@@ -844,6 +857,7 @@ export const WorkspaceDocRenderer = React.memo(function WorkspaceDocRenderer({
                     );
                 })}
             </Suspense>
+            {canEditDoc && !editorMode && allowSmartBlocks ? <RemovedListsNote projectId={project.id} projectSlug={project.slug || project.id} docSlug={normalizedDocSlug} presentKeys={liveKeys} /> : null}
         </article>
     );
 });

@@ -2458,6 +2458,10 @@ export const tasks = pgTable(
     typeFields: jsonb("type_fields").$type<Record<string, unknown>>().default({}).notNull(),
     /** Written from the stage on every change; off-board items have no column and no sprint. */
     onBoard: boolean("on_board").default(true).notNull(),
+    /** A document's live block this task is a row of (0106, report 38.3 call 1). */
+    sourceDocId: uuid("source_doc_id").references((): AnyPgColumn => workspaceDocuments.id, { onDelete: "set null" }),
+    sourceBlock: text("source_block"),
+    sourcePosition: doublePrecision("source_position"),
     workflowColumnId: uuid("workflow_column_id").references(
       () => workspaceWorkflowColumns.id,
       { onDelete: "set null" },

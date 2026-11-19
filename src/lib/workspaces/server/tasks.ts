@@ -14,7 +14,7 @@ const LIST_SCOPES: TaskListScope[] = ["backlog", "sprint", "review", "assignment
 import { type WorkspaceAccess, getWorkspaceAccessById, canReadWorkspaceTab, WorkspaceTabForbiddenError, getWorkspaceAccessByIdentifier, assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { normalizeSearchQuery, containsLikePattern, escapeLikePattern, tokenizeSearchQuery } from "@/lib/search/query";
 import { sql, eq, and, or, isNull, isNotNull, ilike, desc, inArray, type SQL } from "drizzle-orm";
-import { tasks, taskReadReceipts, workspaces, workspaceMembers, roleApplications, workspaceOpenRoles, workspaceSprints, workspaceWorkflowColumns, sprintTaskMemberships, taskActivityEvents, workspaceNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
+import { tasks, taskReadReceipts, workspaceDocuments, workspaces, workspaceMembers, roleApplications, workspaceOpenRoles, workspaceSprints, workspaceWorkflowColumns, sprintTaskMemberships, taskActivityEvents, workspaceNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { db } from "@/lib/db";
@@ -853,6 +853,8 @@ export async function getWorkspaceTaskDetailAction(
         creatorId: true,
         workflowColumnId: true,
         onBoard: true,
+        sourceDocId: true,
+        sourceBlock: true,
         title: true,
         description: true,
         status: true,
@@ -902,7 +904,12 @@ export async function getWorkspaceTaskDetailAction(
       return { success: false as const, error: "Task not found" };
     }
 
-    return { success: true as const, task: normalizeTaskSurfaceRecord(task) };
+    // Report 38.3 S6: the document and list a row came from, for the panel's "From" line.
+    const [source] = task.sourceDocId
+      ? await db.select({ slug: workspaceDocuments.slug, filename: workspaceDocuments.filename }).from(workspaceDocuments)
+          .where(and(eq(workspaceDocuments.id, task.sourceDocId), eq(workspaceDocuments.projectId, projectId))).limit(1)
+      : [];
+    return { success: true as const, task: normalizeTaskSurfaceRecord({ ...task, source: source ? { docSlug: source.slug, docTitle: source.filename.replace(/\.md$/i, ""), block: task.sourceBlock } : null }) };
   } catch (error) {
     console.error("Failed to fetch task detail:", error);
     return { success: false as const, error: "Couldn’t fetch task detail" };
