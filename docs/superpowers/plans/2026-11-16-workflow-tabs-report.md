@@ -15647,7 +15647,7 @@ F2 gives Documents what the D rounds need: **sections** in the rail (Pages · Me
 15. **A0.5:** ticking a row moves the task through the usual transition (review where required) and the box ticks at once; Undo stays 10 seconds. Agents adding rows count as a small change with an undo, like creating a task. **[call]**
 16. **Found while building A0.5:** the Files editor's text area had no accessible name; it is now "Edit <file name>". **[call]**
 17. **A0.6 (2026-11-19):** Record a decision makes the document like any new one (a Markdown file in Docs, from the browser), then `recordDecisionAction` gives it the next D-number under a lock on the workspace row (unique index 0108 as the backstop); if numbering fails the new file is removed. The number lives in the document's settings, never in its file name or text, so a rename never changes it. **[call]**
-18. **A0.6:** moving a document into Decisions gives it the next D-number; moving it out keeps its number, and numbers are never reused. **[call]**
+18. **A0.6:** moving a document into Decisions gives it the next D-number; moving it out keeps its number (hidden while it is a page, back when it returns), and numbers are never reused. A decision's page shows "D-001 · Decided · date · From: Weekly" above its title. **[call]**
 19. **A0.6:** the rail's Decisions **+** records a decision (with no source meeting) instead of adding an unnumbered page; Insert → **Decisions** shows only when Meetings & decisions is added. **[call]**
 20. **A0.6 deferred:** the attendees' notice "A decision is recorded from a meeting you attended" waits for meeting attendees (A4.1); agents recording decisions (tier "yes") wait for a CLI command, built with A4.2. **[call]**
 

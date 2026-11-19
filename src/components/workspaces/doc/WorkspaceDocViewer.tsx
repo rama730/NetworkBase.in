@@ -382,7 +382,7 @@ export function WorkspaceDocViewer({
                             {listed ? <MoveToSectionMenu projectId={project.id} docSlug={normalizedDocSlug} current={docSectionOf(listed, addedWorkflows)} date={listed.date} /> : null}
                         </div>
                     ) : null}
-                    {listed?.decisionNumber ? <DecisionMetaLine projectId={project.id} doc={listed} /> : null}
+                    {listed?.decisionNumber && docSectionOf(listed, addedWorkflows) === "decisions" ? <DecisionMetaLine projectId={project.id} doc={listed} /> : null}
                     {renderer}
                 </div>
                 <WorkspaceDocRail
