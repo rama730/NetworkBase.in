@@ -28,9 +28,9 @@
       "text": "A0.3 Org push + wizard suggestions (38.2 F1 W8, W9, S9, S10)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/workflow-rules.test.ts (suggestions); tests/db/workflow-catalog.test.ts (W8 push/unpush, W9 add-on-create); tests/browser/workflow-org.spec.ts (chromium+webkit)",
+      "evidence": "cf6862642 live 2026-11-19; checked in Chrome: existing workspace, org Settings and the wizard unchanged with the switch off; test org (switch on) shows Workflows for workspaces with 'No workflow is ready yet'; a pushed Bugs row (seeded) shows in the child as a locked tab 'Added by wt-test-a0-3-org' and a Locked Settings row without Remove; the real wizard inside that org shows Bugs ticked, locked, 'Set by wt-test-a0-3-org' (not created; draft deleted); test org and child deleted; logs clean ; pushing and the wizard's own suggestions need a built workflow: re-run live at A1.3 — revisit 2026-11-20"
     },
     {
       "key": "A0.4",
@@ -5328,9 +5328,9 @@
       "text": "An organization pushes a workflow",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/workflow-rules.test.ts (suggestions); tests/db/workflow-catalog.test.ts (W8 push/unpush, W9 add-on-create); tests/browser/workflow-org.spec.ts (chromium+webkit)",
+      "evidence": "locked push in the child live; push/unpush buttons need a built workflow ; pushing and the wizard's own suggestions need a built workflow: re-run live at A1.3 — revisit 2026-11-20"
     },
     {
       "key": "38.2.W9",
@@ -5338,9 +5338,9 @@
       "text": "Creating a workspace from the wizard",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/workflow-rules.test.ts (suggestions); tests/db/workflow-catalog.test.ts (W8 push/unpush, W9 add-on-create); tests/browser/workflow-org.spec.ts (chromium+webkit)",
+      "evidence": "locked row in the real wizard live; suggestions need a built workflow ; pushing and the wizard's own suggestions need a built workflow: re-run live at A1.3 — revisit 2026-11-20"
     },
     {
       "key": "38.2.W10",
@@ -7888,9 +7888,9 @@
       "text": "Correction (A0.3, 2026-11-19): the wizard's ticked workflows are added right after the workspace is made (like its starter doc), not in the create transaction; ",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts (suggestions); tests/db/workflow-catalog.test.ts (W8 push/unpush, W9 add-on-create); tests/browser/workflow-org.spec.ts (chromium+webkit)",
+      "evidence": "cf6862642 live 2026-11-19; checked in Chrome: existing workspace, org Settings and the wizard unchanged with the switch off; test org (switch on) shows Workflows for workspaces with 'No workflow is ready yet'; a pushed Bugs row (seeded) shows in the child as a locked tab 'Added by wt-test-a0-3-org' and a Locked Settings row without Remove; the real wizard inside that org shows Bugs ticked, locked, 'Set by wt-test-a0-3-org' (not created; draft deleted); test org and child deleted; logs clean"
     },
     {
       "key": "38.2.call18",
@@ -7898,9 +7898,9 @@
       "text": "Section 6's old tab names are read as the workflows they blended into (Bug tracker → Bugs, Roadmap & launches → Roadmap, …); parked ones aren't suggested. An or",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/workflow-rules.test.ts (suggestions); tests/db/workflow-catalog.test.ts (W8 push/unpush, W9 add-on-create); tests/browser/workflow-org.spec.ts (chromium+webkit)",
+      "evidence": "cf6862642 live 2026-11-19; checked in Chrome: existing workspace, org Settings and the wizard unchanged with the switch off; test org (switch on) shows Workflows for workspaces with 'No workflow is ready yet'; a pushed Bugs row (seeded) shows in the child as a locked tab 'Added by wt-test-a0-3-org' and a Locked Settings row without Remove; the real wizard inside that org shows Bugs ticked, locked, 'Set by wt-test-a0-3-org' (not created; draft deleted); test org and child deleted; logs clean"
     }
   ]
 }
