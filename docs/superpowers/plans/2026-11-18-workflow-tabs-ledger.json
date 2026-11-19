@@ -58,9 +58,9 @@
       "text": "A0.6 Decisions block + D-numbers (38.3 F2 S4)",
       "kind": "unit",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/doc-decisions.test.ts",
+      "evidence": "LIVE 2026-11-19: ac678aaae + d186daf9e + 93ebd2570; 0108 prod (index valid). Checked in Chrome on wt-test-a06 (deleted after)."
     },
     {
       "key": "A0.7",
@@ -5528,9 +5528,9 @@
       "text": "Recording a decision",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/doc-decisions.spec.ts",
+      "evidence": "live 2026-11-19 Chrome: Record a decision from Weekly -> D-001 in block + rail, page shows D-001 · Decided · 19 Nov · From: Weekly; rail + -> D-002 newest first."
     },
     {
       "key": "38.3.W7",
@@ -5658,9 +5658,9 @@
       "text": "Decisions get workspace-wide D-numbers that never change. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/doc-decisions.test.ts",
+      "evidence": "live 2026-11-19: D-001..D-003 unique; five parallel records got 1-5 (db test); Move into Decisions gave D-003, back to Pages kept it."
     },
     {
       "key": "38.3.call7",
@@ -7978,9 +7978,9 @@
       "text": "A0.6 (2026-11-19): Record a decision makes the document like any new one (a Markdown file in Docs, from the browser), then recordDecisionAction gives it the nex",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/doc-decisions.test.ts",
+      "evidence": "live 2026-11-19: decision doc made as a file, numbered by recordDecisionAction."
     },
     {
       "key": "38.3.call18",
@@ -7988,9 +7988,9 @@
       "text": "A0.6: moving a document into Decisions gives it the next D-number; moving it out keeps its number, and numbers are never reused. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/doc-decisions.test.ts",
+      "evidence": "live 2026-11-19: Weekly moved in (D-003) and out (kept, line hidden)."
     },
     {
       "key": "38.3.call19",
@@ -7998,9 +7998,9 @@
       "text": "A0.6: the rail's Decisions + records a decision (with no source meeting) instead of adding an unnumbered page; Insert → Decisions shows only when Meetings & dec",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/doc-decisions.spec.ts",
+      "evidence": "live 2026-11-19: rail Decisions + opened Record a decision; Insert offers Decisions with Meetings added."
     },
     {
       "key": "38.3.call20",
@@ -8010,7 +8010,7 @@
       "milestone": "A0",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "deferred to A4.1 (attendee notice) and A4.2 (agent decisions CLI)."
     }
   ]
 }
