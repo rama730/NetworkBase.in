@@ -10,7 +10,7 @@
       "milestone": "A0",
       "status": "live-pending",
       "test": "tests/unit/workflow-rules.test.ts; tests/db/workflow-stages.test.ts (7 journeys)",
-      "evidence": "341cf034a + ecf06be70 live 2026-11-19 (web+worker SUCCESS); 0103+0104 applied in prod; prod check: all 61 tasks item_type=task, no stage, on_board, flag off everywhere, index valid; nb task list matches DB on deepscope-ai (6/6) and CSE 3B (4, copies hidden as before); logs clean ; stage journeys proven on a disposable DB only: run live on wt-test-a0-1 once the browser pane is signed in, or with nb task move --stage at A0.10 \u2014 revisit 2026-11-20"
+      "evidence": "341cf034a + ecf06be70 live 2026-11-19 (web+worker SUCCESS); 0103+0104 applied in prod; prod check: all 61 tasks item_type=task, no stage, on_board, flag off everywhere, index valid; nb task list matches DB on deepscope-ai (6/6) and CSE 3B (4, copies hidden as before); logs clean ; live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing\u2192Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors ; join/leave stage moves (sprint pick, moved back) proven on a disposable DB only, no UI yet: re-run live with the A0.10 stage menu \u2014 revisit 2026-11-20"
     },
     {
       "key": "A0.2",
@@ -5418,9 +5418,9 @@
       "text": "On the board, status moves freely; the stage changes only at the edges: Completed takes the type's done stage, leaving Completed returns to the join stage, Bloc",
       "kind": "call",
       "milestone": "A0",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/unit/workflow-rules.test.ts; tests/db/workflow-stages.test.ts (7 journeys)",
-      "evidence": "board edges in transitionTaskTx ; stage journeys proven on a disposable DB only: run live on wt-test-a0-1 once the browser pane is signed in, or with nb task move --stage at A0.10 \u2014 revisit 2026-11-20"
+      "evidence": "live 2026-11-19 in Chrome on wt-test-a0-1 (deleted after): New bug off the board (count 3), Fixing\u2192Blocked kept stage fixing, Completed set fixed, review on: Completed kept fixing + pending, Approve set fixed; no console errors"
     },
     {
       "key": "38.2.call6",
@@ -7840,7 +7840,7 @@
       "milestone": "A0",
       "status": "live-pending",
       "test": "tests/unit/workflow-rules.test.ts; tests/db/workflow-stages.test.ts (7 journeys)",
-      "evidence": "closing stages skip review; owners/admins only where review is on ; stage journeys proven on a disposable DB only: run live on wt-test-a0-1 once the browser pane is signed in, or with nb task move --stage at A0.10 \u2014 revisit 2026-11-20"
+      "evidence": "closing stages skip review; owners/admins only where review is on; no UI to close yet: re-run live at A2.2 \u2014 revisit 2026-11-20"
     }
   ]
 }
