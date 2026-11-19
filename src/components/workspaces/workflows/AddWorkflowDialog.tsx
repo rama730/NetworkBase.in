@@ -179,7 +179,7 @@ export function RemoveWorkflowDialog({ entry, workspaceId, onClose, onChanged }:
           ) : null}
           <DialogDescription className="text-muted-foreground">
             {entry?.tab
-              ? `The ${entry.name} tab and its stages are hidden. ${counts?.onBoard ? `The ${counts.onBoard} on the board stay there as plain tasks until they’re completed. ` : ""}Nothing is deleted; add ${entry.name} again to bring everything back.`
+              ? `The ${entry.name} tab and its stages are hidden. ${counts?.onBoard === 1 ? "The 1 on the board stays there as a plain task until it’s completed. " : counts?.onBoard ? `The ${counts.onBoard} on the board stay there as plain tasks until they’re completed. ` : ""}Nothing is deleted; add ${entry.name} again to bring everything back.`
               : `What ${entry?.name} adds is hidden. Nothing is deleted; add it again to bring everything back.`}
           </DialogDescription>
         </div>

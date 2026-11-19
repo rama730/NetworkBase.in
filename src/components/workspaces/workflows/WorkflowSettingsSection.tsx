@@ -47,7 +47,8 @@ export function WorkflowSettingsSection({ workspaceId }: { workspaceId: string }
                 <SettingsRow
                   className="flex-1"
                   title={entry.name}
-                  description={w.locked ? `Added by ${w.by ?? "the organization"}` : [entry.line, [w.addedBy && `Added by ${w.addedBy}`, day(w.addedAt)].filter(Boolean).join(" · ")].filter(Boolean).join(" ")}
+                  description={entry.line}
+                  meta={w.locked ? `Added by ${w.by ?? "the organization"}` : [w.addedBy && `Added by ${w.addedBy}`, day(w.addedAt)].filter(Boolean).join(" · ")}
                   right={w.locked ? (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`Only ${w.by ?? "the organization"} can remove it`}><Lock aria-hidden="true" className="size-3" />Locked</span>
                   ) : workflows.canManage ? (

@@ -23,7 +23,7 @@ async function open(page: Page, { role = 'owner', width = 1440, theme = 'light' 
         added.splice(added.findIndex((w) => w.workflow === input.workflow), 1);
         return { success: true, name: 'Bugs' };
       },
-      workflowRemovalCountsAction: async () => ({ success: true, total: 24, open: 6, onBoard: 3 }),
+      workflowRemovalCountsAction: async () => ({ success: true, total: 24, open: 6, onBoard: (window as any).__onBoard ?? 3 }),
       removeWorkflowAction: async (input: { workflow: string }) => {
         calls.push(['remove', input.workflow]);
         added.splice(added.findIndex((w) => w.workflow === input.workflow), 1);
@@ -120,4 +120,14 @@ test('W10 phone and dark: the button is as tall as the tabs (44 px on touch, lik
   await page.waitForTimeout(400);
   await page.screenshot({ path: 'test-results/workflow-tabs/dialog-dark-375.png' });
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('W7 copy: one item on the board reads in the singular', async ({ page }) => {
+  await page.addInitScript(() => { (window as any).__onBoard = 1; });
+  await open(page);
+  await page.getByTestId('add-workflow-button').click();
+  const dialog = page.getByRole('dialog', { name: 'Add workflow' });
+  await dialog.getByRole('button', { name: 'Add Bugs' }).click();
+  await dialog.getByRole('button', { name: 'Remove Bugs' }).click();
+  await expect(page.getByRole('dialog', { name: 'Remove Bugs?' })).toContainText('The 1 on the board stays there as a plain task until it’s completed.');
 });

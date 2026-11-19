@@ -9,6 +9,7 @@ export function SettingsRow({
     right,
     className,
     descriptionId,
+    meta,
 }: {
     title: string;
     description?: string;
@@ -16,6 +17,8 @@ export function SettingsRow({
     className?: string;
     /** Lets the control point at the description (`aria-describedby`). */
     descriptionId?: string;
+    /** A small mono line under the description: who and when (e.g. "Added by Asha · Nov 17"). */
+    meta?: string;
 }) {
     return (
         <div
@@ -33,6 +36,7 @@ export function SettingsRow({
                         {description}
                     </div>
                 ) : null}
+                {meta ? <div className="mt-1 font-mono text-[11px] text-muted-foreground">{meta}</div> : null}
             </div>
             {right ? <div className="max-w-full sm:shrink-0">{right}</div> : null}
         </div>
