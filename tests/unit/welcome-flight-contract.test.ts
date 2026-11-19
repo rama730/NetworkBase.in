@@ -40,7 +40,7 @@ test("the finish screen cannot start two flights, and uses the same photo identi
   const screen = read("src/components/onboarding/FinishScreen.tsx");
   assert.match(screen, /disabled=\{continuing\}/);
   assert.match(screen, /if \(continuing\) return\s*setContinuing\(true\)/);
-  assert.match(screen, /identity=\{\{ id: userId, fullName, username, avatarUrl \}\}/);
+  assert.match(screen, /<Face avatarUrl=\{data\.avatarUrl\} identityKey=\{userId\}/, "the same pixel person as the top bar: keyed by the user id");
 });
 
 test("the overlay never leaves the person behind a curtain", () => {

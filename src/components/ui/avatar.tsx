@@ -8,7 +8,7 @@ import {
   publicAvatarVariantUrl,
   type PublicAvatarVariantSize,
 } from "@/lib/profile/avatar-variants"
-import { getPersonAvatarTone, PERSON_AVATAR_TONE_STYLES } from "@/lib/ui/avatar"
+import { PixelPerson } from "@/components/ui/PixelPerson"
 import { cn } from "@/lib/utils"
 
 function Avatar({
@@ -49,18 +49,20 @@ function AvatarFallback({
   style,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Fallback> & { identityKey?: string }) {
-  const tone = getPersonAvatarTone(identityKey ?? (typeof props.children === "string" ? props.children : "User"))
+  // A person (identityKey given) without a photo is drawn as their pixel person; anything else keeps its text.
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
-      data-avatar-tone={tone}
-      style={{ ...PERSON_AVATAR_TONE_STYLES[tone], ...style }}
+      data-avatar={identityKey ? "pixel" : undefined}
+      style={style}
       className={cn(
-        "bg-muted flex size-full items-center justify-center rounded-md",
+        "bg-muted flex size-full items-center justify-center overflow-hidden rounded-md",
         className
       )}
       {...props}
-    />
+    >
+      {identityKey ? <PixelPerson identityKey={identityKey} className="size-full" /> : props.children}
+    </AvatarPrimitive.Fallback>
   )
 }
 

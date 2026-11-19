@@ -17,5 +17,6 @@ test("a notice with no person shows the brand mark, never initials from the word
 test("a notice from a person shows that person", () => {
     const html = render("11111111-1111-4111-8111-111111111111", "Ravi Kumar");
     assert.doesNotMatch(html, /nb-brand-dot/);
-    assert.match(html, /RK/);
+    assert.match(html, /title="Ravi Kumar"/);
+    assert.match(html, /data-avatar="pixel"/, "no photo: their pixel person");
 });

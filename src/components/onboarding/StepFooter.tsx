@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2 } from "lucide-react"
+import { PixelIcon, PixelSpinner } from "@/components/auth/pixel"
 import { Button } from "@/components/ui/button"
 
 interface StepFooterProps {
@@ -8,8 +8,10 @@ interface StepFooterProps {
   blockedReason?: string
   busy: boolean
   nextLabel: string
-  /** Under the buttons: "Saved" and similar. */
+  /** Under the buttons: a message that matters more than "Saved". */
   status?: string
+  /** The answers are kept (in this browser until Continue sends them): a quiet mono "Saved" with a pixel tick. */
+  saved?: boolean
   showBack: boolean
   onBack: () => void
   /** A second way forward that asks for nothing more (Step 2). */
@@ -23,7 +25,7 @@ interface StepFooterProps {
  * Buttons for a step. Lives inside the step's <form>, so Enter in a field presses the main button. The main
  * button is aria-disabled, not disabled: it stays focusable and its reason is read out.
  */
-export function StepFooter({ blockedReason, busy, nextLabel, status, showBack, onBack, skipLabel, onSkip, onBlocked }: StepFooterProps) {
+export function StepFooter({ blockedReason, busy, nextLabel, status, saved = false, showBack, onBack, skipLabel, onSkip, onBlocked }: StepFooterProps) {
   const blocked = Boolean(blockedReason)
   const statusText = blockedReason ?? status
 
@@ -56,14 +58,14 @@ export function StepFooter({ blockedReason, busy, nextLabel, status, showBack, o
             }}
             className={blocked || busy ? 'min-h-11 min-w-[120px] opacity-60' : 'min-h-11 min-w-[120px]'}
           >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {busy ? <PixelSpinner /> : null}
             {busy ? 'Saving…' : nextLabel}
           </Button>
         </div>
       </div>
       {/* Always mounted so assistive tech announces changes to it. */}
-      <p id="onboarding-footer-status" className="onb-footer-status mt-2 text-right max-sm:text-left" role="status" aria-live="polite">
-        {statusText ?? ''}
+      <p id="onboarding-footer-status" className="onb-footer-status nb-onb-saved mt-2" role="status" aria-live="polite">
+        {statusText ?? (saved ? <><PixelIcon name="check" />Saved</> : '')}
       </p>
     </div>
   )

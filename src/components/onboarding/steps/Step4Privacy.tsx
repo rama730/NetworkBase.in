@@ -1,5 +1,6 @@
 'use client'
 
+import { PixelIcon } from '@/components/auth/pixel'
 import {
   MESSAGE_PRIVACY_CHOICES,
   VISIBILITY_CHOICES,
@@ -25,6 +26,8 @@ export interface ReviewSummaryItem {
   value: string
   /** Where the person fixes this: absent for the choices made on this very step. */
   onEdit?: () => void
+  /** False when nothing is added yet: an empty box instead of the pixel tick. */
+  done?: boolean
 }
 
 interface Step4PrivacyProps {
@@ -136,7 +139,10 @@ export function Step4Privacy({
         <dl className="onb-privacy-review-list">
           {summaryItems.map((item) => (
             <div key={item.label} className="onb-privacy-review-item">
-              <dt>{item.label}</dt>
+              <dt className="nb-onb-review-k">
+                {item.done === false ? <span className="nb-onb-review-box" aria-hidden="true" /> : <PixelIcon name="check" className="nb-onb-review-tick" />}
+                {item.label}
+              </dt>
               <dd>
                 <span>{item.value}</span>
                 {item.onEdit ? (

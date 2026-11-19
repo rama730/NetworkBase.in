@@ -64,7 +64,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
                     <p className="min-w-0 truncate text-sm text-muted-foreground">{facts || 'Organization'}</p>
                 </div>
 
-                {user?.email && preview.viewer !== 'member' ? <SignedInAs email={user.email} name={typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null} next={here} /> : null}
+                {user?.email && preview.viewer !== 'member' ? <SignedInAs userId={user.id} email={user.email} name={typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null} next={here} /> : null}
 
                 {!user ? (
                     <div className="space-y-3">

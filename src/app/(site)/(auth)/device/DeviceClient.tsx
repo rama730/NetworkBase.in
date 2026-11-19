@@ -81,7 +81,7 @@ export default function DeviceClient({ viewerEmail, viewerName = null, viewerId,
     }
     usePasteAnywhere((text) => { if (formatGroupedCode(text).length === 9) takeCode(text) }, !!viewerEmail && (!pending || expired) && !done)
     const here = `/device${code ? `?code=${encodeURIComponent(code)}` : ''}`
-    const account = viewerEmail ? <SignedInAs email={viewerEmail} name={viewerName} next={here} /> : null
+    const account = viewerEmail ? <SignedInAs userId={viewerId} email={viewerEmail} name={viewerName} next={here} /> : null
 
     const bannerKey = `${NEW_BANNER_KEY}:${viewerId ?? 'anon'}`
     useEffect(() => {

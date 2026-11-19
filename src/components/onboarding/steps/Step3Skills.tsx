@@ -24,9 +24,6 @@ export default function Step3Skills({ skills, interests, onSkillsChange, onToggl
           description="Search across engineering, design, product, business, and human skills. Add at least one."
           className="onb-skill-picker"
         />
-        <p className="onb-field-status" role="status" aria-live="polite">
-          {skills.length} of {PROFILE_FIELD_LIMITS.tagMaxItems} skills selected.
-        </p>
       </div>
 
       <div className="onb-field">

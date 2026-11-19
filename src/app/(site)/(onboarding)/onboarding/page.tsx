@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout'
-import { OnboardingSidebar } from '@/components/onboarding/OnboardingSidebar'
-import { MobileProgressBar } from '@/components/onboarding/MobileProgressBar'
+import { OnboardingSteps } from '@/components/onboarding/OnboardingSteps'
+import { OnboardingPanel, PreviewSheet, firstNameOf } from '@/components/onboarding/OnboardingPanel'
+import { useEnter } from '@/components/auth/AuthShell'
+import { PixelSpinner } from '@/components/auth/pixel'
 import { StepHeader } from '@/components/onboarding/StepHeader'
 import { StepFooter } from '@/components/onboarding/StepFooter'
 import { FinishScreen } from '@/components/onboarding/FinishScreen'
@@ -40,10 +42,8 @@ import { isSafeHttpUrl } from '@/lib/security/urls'
 import { compressAvatarOffMainThread } from '@/lib/services/avatar-worker-client'
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client'
 import { parseOnboardingDraft } from '@/lib/validations/onboarding'
-import { Loader2 } from 'lucide-react'
 
-const SIDEBAR_STEPS = STEP_UI_CONFIG.map((config) => ({ title: config.sidebarLabel, subtitle: config.railHint }))
-const MOBILE_LABELS = STEP_UI_CONFIG.map((config) => config.sidebarLabel)
+const RESUME_GREETING_MS = 2600
 const AVATAR_MAX_PICK_BYTES = 15 * 1024 * 1024
 const AVATAR_MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 const USERNAME_CODES = new Set(['USERNAME_TAKEN', 'USERNAME_INVALID', 'USERNAME_RESERVED'])
@@ -122,6 +122,12 @@ export default function OnboardingPage() {
     const [avatarMessage, setAvatarMessage] = useState<{ kind: 'status' | 'error'; text: string } | null>(null)
     const [isDetectingLocation, setIsDetectingLocation] = useState(false)
     const [locationError, setLocationError] = useState<string | null>(null)
+    const [previewOpen, setPreviewOpen] = useState(false)
+    // Coming back half way: the panel says where you pick up, then settles on the step's own line.
+    const [greeting, setGreeting] = useState<string | null>(null)
+    // "Saved" shows once the person has changed something (the crash buffer below keeps every change).
+    const [saved, setSaved] = useState(false)
+    const savedReadyRef = useRef(false)
 
     const versionRef = useRef(bootstrap.draft.version)
     const queueRef = useRef<OnboardingEventInput[]>([])
@@ -137,10 +143,17 @@ export default function OnboardingPage() {
     // Reconcile with the crash buffer once: it wins only when it is at least as new as the server's draft.
     useEffect(() => {
         const local = readStoredDraft(storageKey, bootstrap.userId)
-        if (local && local.baseVersion >= bootstrap.draft.version) {
-            setStep(local.step)
-            setCompletedThrough(local.completedThrough)
-            setData((current) => applyDraft(current, local.draft))
+        const fresher = local && local.baseVersion >= bootstrap.draft.version ? local : null
+        if (fresher) {
+            setStep(fresher.step)
+            setCompletedThrough(fresher.completedThrough)
+            setData((current) => applyDraft(current, fresher.draft))
+        }
+        const resumeAt = fresher ? fresher.step : clampOnboardingStep(bootstrap.draft.step)
+        if (resumeAt > 1) {
+            const first = firstNameOf(fresher?.draft.fullName || data.fullName)
+            setGreeting(`Welcome back${first ? `, ${first}` : ''}. Picking up at step ${resumeAt}.`)
+            setTimeout(() => setGreeting(null), RESUME_GREETING_MS)
         }
         const joinCode = normalizeJoinCode(resolveReturnPath().match(/^\/join\/([^/?#]+)/)?.[1] ?? '')
         if (joinCode) setData((current) => (current.pendingJoinCode ? current : { ...current, pendingJoinCode: joinCode }))
@@ -182,6 +195,15 @@ export default function OnboardingPage() {
             // Storage can be full or blocked; the server still has every committed step.
         }
     }, [bootstrap.userId, completedThrough, data, finished, ready, step, storageKey])
+
+    useEffect(() => {
+        if (!ready) return
+        if (!savedReadyRef.current) {
+            savedReadyRef.current = true
+            return
+        }
+        setSaved(true)
+    }, [data, ready])
 
     // A step change starts at the top, with focus on its heading (or on the part being edited).
     useEffect(() => {
@@ -265,6 +287,8 @@ export default function OnboardingPage() {
     }
 
     const reason = blockReason(step, data, usernameCheck, isUploadingAvatar)
+    // The first paint runs the CSS load; later steps slide in from the side they come from.
+    const enter = useEnter('onboarding', step)
 
     const goToStep = (target: number, anchor?: string) => {
         if (busy || target < 1 || target > TOTAL_STEPS) return
@@ -395,9 +419,9 @@ export default function OnboardingPage() {
     if (!ready) {
         return (
             <OnboardingLayout>
-                <div className="flex min-h-[50vh] items-center justify-center" aria-busy="true">
+                <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground" aria-busy="true">
                     <span className="sr-only">Loading your saved progress.</span>
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+                    <PixelSpinner />
                 </div>
             </OnboardingLayout>
         )
@@ -405,17 +429,9 @@ export default function OnboardingPage() {
 
     if (finished) {
         return (
-            <OnboardingLayout
-                sidebar={<OnboardingSidebar currentStep={0} stepLabels={SIDEBAR_STEPS} completedThrough={TOTAL_STEPS} />}
-            >
                 <FinishScreen
-                    fullName={data.fullName}
-                    username={data.username}
+                    data={data}
                     userId={bootstrap.userId}
-                    headline={data.headline}
-                    avatarUrl={data.avatarUrl}
-                    skills={data.skills}
-                    visibility={data.visibility}
                     continueLabel={joinOrgTitle ? `Continue to ${joinOrgTitle}` : continuePath === '/discover' ? 'Go to Discover' : 'Continue'}
                     onContinue={(from) => {
                         // The welcome flight starts the navigation itself, so the next page loads while it plays. If it cannot
@@ -432,7 +448,6 @@ export default function OnboardingPage() {
                         if (!started) window.location.replace(continuePath)
                     }}
                 />
-            </OnboardingLayout>
         )
     }
 
@@ -442,13 +457,13 @@ export default function OnboardingPage() {
     const linkCount = Object.values(data.socialLinks).filter(hasValue).length
     const summaryItems: ReviewSummaryItem[] = [
         { label: 'Name', value: `${data.fullName} (@${data.username})`, onEdit: () => goToStep(1) },
-        { label: 'Photo', value: data.avatarUrl ? 'Added' : 'Not added', onEdit: () => goToStep(1) },
-        { label: 'Headline', value: data.headline.trim() || 'Not added', onEdit: () => goToStep(2, 'onb-profile') },
-        { label: 'Bio', value: data.bio.trim() ? `${data.bio.trim().length} characters` : 'Not added', onEdit: () => goToStep(2, 'onb-profile') },
-        { label: 'Open to roles', value: count(data.openTo.length, 'selected'), onEdit: () => goToStep(2, 'onb-work') },
-        { label: 'Links', value: count(linkCount, 'added'), onEdit: () => goToStep(2, 'onb-social') },
-        { label: 'Skills', value: count(data.skills.length, 'selected'), onEdit: () => goToStep(3) },
-        { label: 'Interests', value: count(data.interests.length, 'selected'), onEdit: () => goToStep(3) },
+        { label: 'Photo', value: data.avatarUrl ? 'Added' : 'Pixel person', onEdit: () => goToStep(1) },
+        { label: 'Headline', value: data.headline.trim() || 'Not added', onEdit: () => goToStep(2, 'onb-profile'), done: hasValue(data.headline) },
+        { label: 'Bio', value: data.bio.trim() ? `${data.bio.trim().length} characters` : 'Not added', onEdit: () => goToStep(2, 'onb-profile'), done: hasValue(data.bio) },
+        { label: 'Open to roles', value: count(data.openTo.length, 'selected'), onEdit: () => goToStep(2, 'onb-work'), done: data.openTo.length > 0 },
+        { label: 'Links', value: count(linkCount, 'added'), onEdit: () => goToStep(2, 'onb-social'), done: linkCount > 0 },
+        { label: 'Skills', value: count(data.skills.length, 'selected'), onEdit: () => goToStep(3), done: data.skills.length > 0 },
+        { label: 'Interests', value: count(data.interests.length, 'selected'), onEdit: () => goToStep(3), done: data.interests.length > 0 },
         { label: 'Visibility', value: VISIBILITY_CHOICES.find((choice) => choice.value === data.visibility)?.label ?? '' },
         { label: 'Messages', value: MESSAGE_PRIVACY_CHOICES.find((choice) => choice.value === data.messagePrivacy)?.label ?? '' },
     ]
@@ -458,24 +473,10 @@ export default function OnboardingPage() {
 
     return (
         <OnboardingLayout
-            sidebar={
-                <OnboardingSidebar
-                    currentStep={step}
-                    stepLabels={SIDEBAR_STEPS}
-                    completedThrough={completedThrough}
-                    onSelectStep={goToStep}
-                />
-            }
-            mobileProgress={
-                <MobileProgressBar
-                    currentStep={step}
-                    totalSteps={TOTAL_STEPS}
-                    stepLabels={MOBILE_LABELS}
-                    completedThrough={completedThrough}
-                    onSelectStep={goToStep}
-                />
-            }
+            steps={<OnboardingSteps currentStep={step} completedThrough={completedThrough} onSelectStep={goToStep} onPreview={() => setPreviewOpen(true)} />}
+            panel={<OnboardingPanel data={data} identityKey={bootstrap.userId} step={step} greeting={greeting} />}
         >
+            <PreviewSheet open={previewOpen} onOpenChange={setPreviewOpen} data={data} identityKey={bootstrap.userId} />
             <form
                 noValidate
                 onSubmit={(event) => {
@@ -483,8 +484,8 @@ export default function OnboardingPage() {
                     void (isFinalStep ? finish() : advance(false))
                 }}
             >
-                <div key={step} className="onb-step-enter">
-                    <StepHeader title={config.title} subtitle={config.subtitle} step={step} totalSteps={TOTAL_STEPS} />
+                <div key={step} className="nb-onb-step-body" data-enter={enter}>
+                    <StepHeader title={config.title} subtitle={config.subtitle} step={step} totalSteps={TOTAL_STEPS} label={config.stepLabel} />
 
                     {joinOrgTitle ? (
                         <p role="status" className="mb-6 rounded-md border border-border bg-muted px-3 py-2 text-[13px] text-foreground">
@@ -505,6 +506,7 @@ export default function OnboardingPage() {
                                 fullName={data.fullName}
                                 username={data.username}
                                 avatarUrl={data.avatarUrl}
+                                identityKey={bootstrap.userId}
                                 isUploadingAvatar={isUploadingAvatar}
                                 avatarMessage={avatarMessage}
                                 usernameServerError={usernameServerError}
@@ -515,6 +517,10 @@ export default function OnboardingPage() {
                                     update({ username })
                                 }}
                                 onAvatarPick={handleAvatarPick}
+                                onUsePixel={() => {
+                                    setAvatarMessage(null)
+                                    update({ avatarUrl: '' })
+                                }}
                                 onUsernameCheck={setUsernameCheck}
                             />
                         )}
@@ -564,6 +570,7 @@ export default function OnboardingPage() {
                     blockedReason={reason}
                     nextLabel={nextLabel}
                     status={commitFailed ? 'Your entries are kept in this browser. Try again when you are ready.' : undefined}
+                    saved={saved}
                     onBack={goBack}
                     skipLabel={step === 2 && !returnToReview ? 'Skip for now' : undefined}
                     onSkip={step === 2 ? () => void advance(true) : undefined}

@@ -1,26 +1,31 @@
+import { LegalLinks } from '@/components/legal/LegalLinks'
+
 interface OnboardingLayoutProps {
   children: React.ReactNode
-  sidebar?: React.ReactNode
-  mobileProgress?: React.ReactNode
+  /** The steps bar (logo + the four steps), pinned to the top. */
+  steps?: React.ReactNode
+  /** The ink panel on wide screens. */
+  panel?: React.ReactNode
 }
 
 /**
- * Split-pane shell. Desktop (≥1024px): a 248px progress rail beside a 608px form column. Below that: one
- * column under a progress bar that stays pinned while the step scrolls.
+ * The sign-in pages' frame: the form (the app's own fields) on paper under the steps bar, 9fr, and the ink panel that
+ * builds your card, 7fr. Below 1024px: one column, and the card opens from the steps bar's Preview button.
  */
-export function OnboardingLayout({ children, sidebar, mobileProgress }: OnboardingLayoutProps) {
+export function OnboardingLayout({ children, steps, panel }: OnboardingLayoutProps) {
   return (
-    <div className="onb-page min-h-dvh lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
-      <aside className="onb-progress-rail sticky top-0 hidden h-dvh overflow-y-auto border-r border-border lg:block">
-        {sidebar}
-      </aside>
-
-      <section className="min-w-0">
-        <div className="sticky top-0 z-30 lg:hidden">{mobileProgress}</div>
-        <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full flex-col px-4 pb-8 pt-10 md:min-h-dvh md:max-w-[560px] md:px-6 md:pb-10 md:pt-12 lg:max-w-[608px] lg:px-6 lg:pt-16">
-          {children}
-        </main>
-      </section>
+    <div className="nb-onb onb-page" data-panel={panel ? 'true' : 'false'}>
+      <div className="nb-onb-form">
+        {steps}
+        <div className="nb-onb-wrap">
+          <main className="nb-onb-column">{children}</main>
+        </div>
+        <footer className="nb-onb-legal">
+          <a href="mailto:support@networkbase.in?subject=Onboarding%20help" className="onb-link">Need help?</a>
+          <LegalLinks showCopyright className="text-[11px]" />
+        </footer>
+      </div>
+      {panel}
     </div>
   )
 }

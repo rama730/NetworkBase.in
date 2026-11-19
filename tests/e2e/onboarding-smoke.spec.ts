@@ -29,13 +29,13 @@ function attachOnboardingMonitoring(page: import('@playwright/test').Page) {
 async function fillIdentity(page: import('@playwright/test').Page, fullName: string, username: string) {
     await page.getByLabel(/Full name/).fill(fullName)
     await page.locator('#username').fill(username)
-    await expect(page.getByText('Username is available')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/is yours$/)).toBeVisible({ timeout: 15000 })
 }
 
 async function addSkill(page: import('@playwright/test').Page, skill: string) {
     await page.getByRole('combobox').fill(skill)
     await page.keyboard.press('Enter')
-    await expect(page.getByText(/1 of 25 skills selected/)).toBeVisible()
+    await expect(page.getByText(/^1\/25$/)).toBeVisible()
 }
 
 /** After the finish screen: the button, then the legal acceptance the fixture user has not seen yet. */
@@ -203,7 +203,7 @@ test.describe('Onboarding smoke', () => {
         await page.getByLabel(/Full name/).fill('Onboarding Happy User')
         await page.locator('#username').fill(username)
         await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
-        await expect(page.getByText('Username is available')).toBeVisible({ timeout: 15000 })
+        await expect(page.getByText(/is yours$/)).toBeVisible({ timeout: 15000 })
         await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
         await page.getByLabel(/Full name/).press('Enter') // Enter in a field presses Continue
         await expect(page.getByRole('heading', { name: 'Tell us about yourself' })).toBeVisible()
@@ -234,7 +234,7 @@ test.describe('Onboarding smoke', () => {
         await expect(avatar).toBeVisible()
         await expect(avatar).toHaveAttribute('title', 'Onboarding Happy User')
         // An uploaded/provider image or the existing initials fallback must survive navigation.
-        await expect(avatar.locator('img, [data-avatar-tone]')).toBeVisible()
+        await expect(avatar.locator('img, [data-avatar="pixel"]')).toBeVisible()
 
         // A finished account never sees onboarding again.
         await page.goto('/onboarding')

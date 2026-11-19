@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { PixelIcon } from '@/components/auth/pixel'
 import { cn } from '@/lib/utils'
 
 interface ChipOption {
@@ -51,7 +52,7 @@ export default function ChipSelector({ options, selected, onToggle, labelledBy, 
               onClick={() => onToggle(option.value)}
               className={choiceChipClass(isSelected)}
             >
-              {isSelected ? <Check className="mr-1.5 h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden="true" /> : null}
+              <PixelIcon name={isSelected ? 'check' : 'plus'} className="mr-1.5" />
               {option.label}
             </button>
           )

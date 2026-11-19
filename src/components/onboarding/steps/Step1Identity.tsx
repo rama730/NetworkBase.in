@@ -1,12 +1,11 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { PixelSpinner } from '@/components/auth/pixel'
 import UsernameInput from '@/components/onboarding/UsernameInput'
-import { initialsForName } from '@/lib/profile/display'
+import { Face } from '@/components/onboarding/OnboardingPanel'
 import { PROFILE_FIELD_LIMITS } from '@/lib/validations/profile-fields'
 import type { UsernameCheck } from '@/lib/onboarding/block-reason'
 
@@ -14,6 +13,8 @@ export interface Step1IdentityProps {
   fullName: string
   username: string
   avatarUrl: string
+  /** The user id: picks the pixel person's colours, the same everywhere in the app. */
+  identityKey: string
   isUploadingAvatar: boolean
   /** Shown beside the photo: "uploaded" or why it failed. */
   avatarMessage: { kind: 'status' | 'error'; text: string } | null
@@ -23,6 +24,8 @@ export interface Step1IdentityProps {
   onFullNameChange: (value: string) => void
   onUsernameChange: (value: string) => void
   onAvatarPick: (file: File) => void
+  /** Drop the photo and go back to the pixel person. */
+  onUsePixel: () => void
   onUsernameCheck: (check: UsernameCheck) => void
 }
 
@@ -30,6 +33,7 @@ export function Step1Identity({
   fullName,
   username,
   avatarUrl,
+  identityKey,
   isUploadingAvatar,
   avatarMessage,
   usernameServerError,
@@ -37,6 +41,7 @@ export function Step1Identity({
   onFullNameChange,
   onUsernameChange,
   onAvatarPick,
+  onUsePixel,
   onUsernameCheck,
 }: Step1IdentityProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -52,12 +57,9 @@ export function Step1Identity({
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4 max-md:flex-col max-md:items-start">
-        <Avatar className="h-[72px] w-[72px] rounded-[var(--onb-radius-avatar)] border border-border">
-          <AvatarImage src={avatarUrl} alt="" />
-          <AvatarFallback identityKey={username || fullName} className="rounded-[var(--onb-radius-avatar)] bg-muted text-lg text-muted-foreground">
-            {initialsForName(fullName, username)}
-          </AvatarFallback>
-        </Avatar>
+        <span key={avatarUrl || 'pixel'} className="nb-onb-photo" aria-hidden="true">
+          <Face avatarUrl={avatarUrl} identityKey={identityKey} size={72} pop />
+        </span>
 
         <div className="flex flex-col items-start gap-2">
           <p className="onb-section-kicker">Profile photo</p>
@@ -75,17 +77,29 @@ export function Step1Identity({
             tabIndex={-1}
             aria-hidden="true"
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploadingAvatar}
-            className="min-h-11"
-          >
-            {isUploadingAvatar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-            {isUploadingAvatar ? 'Uploading photo' : avatarUrl ? 'Replace photo' : 'Upload photo'}
-          </Button>
+          <p className="onb-field-hint max-w-[46ch]">
+            {avatarUrl
+              ? 'Your photo, cropped square. It replaces your pixel person everywhere.'
+              : 'Until you add a photo, this pixel person is you. Its colours are yours and stay the same everywhere.'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAvatar}
+              className="min-h-11"
+            >
+              {isUploadingAvatar ? <PixelSpinner className="mr-1" /> : null}
+              {isUploadingAvatar ? 'Uploading photo' : avatarUrl ? 'Replace photo' : 'Upload photo'}
+            </Button>
+            {avatarUrl && !isUploadingAvatar ? (
+              <Button type="button" variant="ghost" size="sm" onClick={onUsePixel} className="min-h-11 text-muted-foreground">
+                Use pixel person
+              </Button>
+            ) : null}
+          </div>
           <p className="onb-field-hint">Optional. JPG, PNG or WebP. You can change it later.</p>
           <p
             className={avatarMessage?.kind === 'error' ? 'onb-field-error' : 'onb-field-status'}

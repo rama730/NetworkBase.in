@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import { getPersonAvatarTone, PERSON_AVATAR_TONES } from "../../src/lib/ui/avatar";
+import { getPersonAvatarTone, PERSON_AVATAR_TONES, PIXEL_PERSON_PAIRS, pixelPersonLayout, pixelPersonPair } from "../../src/lib/ui/avatar";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -40,14 +40,31 @@ test("person tones use readable semantic color pairs in light and dark mode", ()
   }
 });
 
-test("all person avatars use identity tones without replacing uploaded photos", () => {
+test("pixel person pairs are stable for a person and vary across people", () => {
+  assert.equal(PIXEL_PERSON_PAIRS.length, 24);
+  assert.deepEqual(pixelPersonPair("person-123"), pixelPersonPair(" PERSON-123 "));
+  const pairs = ["Ada Okonjo", "Ravi Menon", "Sofia Lind", "Tom Ek", "E2E Files QA", "Codex E2E User"].map((k) => pixelPersonPair(k).join());
+  assert.ok(new Set(pairs).size >= 4, "six people should not share two looks");
+  for (const [figure, tile] of PIXEL_PERSON_PAIRS) assert.notEqual(figure, tile);
+});
+
+test("the pixel person lands on whole pixels at any size", () => {
+  for (const size of [14, 16, 18, 20, 24, 26, 32, 34, 36, 40, 48, 64, 72, 144]) {
+    const { box, cell, left, top } = pixelPersonLayout(size);
+    assert.equal(box, size);
+    assert.ok(Number.isInteger(cell) && Number.isInteger(left) && Number.isInteger(top));
+    assert.ok(left >= 0 && left + 7 * cell <= box, `${size}: fits across`);
+    assert.ok(top >= cell, `${size}: a cell of headroom`);
+  }
+});
+
+test("all person avatars draw the pixel person without replacing uploaded photos", () => {
   const avatar = readFileSync(path.join(root, "src/components/ui/UserAvatar.tsx"), "utf8");
   const radixAvatar = readFileSync(path.join(root, "src/components/ui/avatar.tsx"), "utf8");
-  assert.match(avatar, /const fallbackTone = getPersonAvatarTone\(presentation\.id/);
+  assert.match(avatar, /const identityKey = presentation\.id/);
   assert.match(avatar, /!shouldRenderImage\s*\?\s*\(/);
-  assert.match(avatar, /data-avatar-tone=\{fallbackTone\}/);
-  assert.match(radixAvatar, /data-avatar-tone=\{tone\}/);
-
+  assert.match(avatar, /<PixelPerson identityKey=\{identityKey\} size=\{size\}/);
+  assert.match(radixAvatar, /identityKey \? <PixelPerson identityKey=\{identityKey\}/);
   for (const component of [
     "src/components/workspaces/WorkspaceCard.tsx",
     "src/components/network/PersonCard.tsx",

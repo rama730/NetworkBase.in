@@ -14,6 +14,7 @@ import type { PixelIconName } from '@/lib/pixel-icons'
 import type { AuthPanelContent, PanelOutcome } from '@/components/auth/auth-panels'
 import { AuthPanel } from '@/components/auth/AuthPanel'
 import { PixelIcon, PixelSpinner } from '@/components/auth/pixel'
+import { PixelPerson } from '@/components/ui/PixelPerson'
 import { clearSignInMarker, markSignIn } from '@/lib/auth/signin-flight'
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { mailAppFor, readSignInMethod, rememberSignInMethod, type SignInMethod } from '@/lib/auth/last-method'
@@ -24,7 +25,7 @@ const MARK_TONE: Record<StatusMark, string> = { check: 'ok', cross: 'no', clock:
 const GLITCH = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/<>-_=+*#'
 
 /** The marketing page's mono label: scrambles once and settles on the words. Plain text on the server and under reduced motion. */
-function Eyebrow({ text, step }: { text: string; step?: readonly [number, number] }) {
+export function Eyebrow({ text, step }: { text: string; step?: readonly [number, number] }) {
     const ref = useRef<HTMLSpanElement | null>(null)
     useEffect(() => {
         const el = ref.current
@@ -56,7 +57,7 @@ function Eyebrow({ text, step }: { text: string; step?: readonly [number, number
  * How the form enters: the CSS load sequence the first time, then sideways when the step moves (forward from the right,
  * back from the left), or a fade. Read during render, recorded after commit, so StrictMode's second render agrees.
  */
-function useEnter(key: string, step: number | undefined) {
+export function useEnter(key: string, step: number | undefined) {
     const last = useRef<{ key: string; step: number | undefined; enter: string } | null>(null)
     const prev = last.current
     const enter = !prev ? 'load' : prev.key === key ? prev.enter : step !== undefined && prev.step !== undefined && step !== prev.step ? (step < prev.step ? 'back' : 'fwd') : 'fade'
@@ -471,13 +472,12 @@ export async function switchAccount(next: string) {
     window.location.assign(buildAuthPageHref('/login', next))
 }
 
-/** Who is approving: square initials (like the app's avatars), the name and email, and a way to switch. */
-export function SignedInAs({ email, name, next }: { email: string; name?: string | null; next: string }) {
+/** Who is approving: their pixel person (like the app's avatars), the name and email, and a way to switch. */
+export function SignedInAs({ email, name, next, userId }: { email: string; name?: string | null; next: string; userId?: string | null }) {
     const [busy, setBusy] = useState(false)
-    const initials = (name || email).split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]!.toUpperCase()).join('')
     return (
         <div className="nb-auth-account">
-            <span className="nb-auth-avatar" aria-hidden="true">{initials}</span>
+            <span className="nb-auth-avatar" aria-hidden="true"><PixelPerson identityKey={userId || email} size={36} /></span>
             <span className="min-w-0 flex-1 leading-snug">
                 <span className="block truncate font-medium">Signed in as {name || email}</span>
                 {name ? <span className="block truncate text-muted-foreground">{email}</span> : null}

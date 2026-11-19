@@ -9,7 +9,7 @@ const INSTALL = 'npm i -g @networkbase/cli && nb login'
 type Trail = { replay(): void; refresh(): void; destroy(): void }
 
 /** Types a new path in: erases back to what the old and new share, then types the rest. Instant under reduced motion. */
-function useTypedPath(path: string) {
+export function useTypedPath(path: string, stepMs = 28) {
     const [shown, setShown] = useState(path)
     const shownRef = useRef(path)
     useEffect(() => {
@@ -25,9 +25,9 @@ function useTypedPath(path: string) {
             else if ((erasing = false, text.length < path.length)) text = path.slice(0, text.length + 1)
             else return clearInterval(timer)
             set(text)
-        }, 28)
+        }, stepMs)
         return () => { clearInterval(timer); set(path) }
-    }, [path])
+    }, [path, stepMs])
     return shown
 }
 

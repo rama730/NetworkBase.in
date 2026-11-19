@@ -6,9 +6,9 @@ import Image from "next/image";
 
 import { avatarVariantSizeForDisplay, publicAvatarVariantUrl } from "@/lib/profile/avatar-variants";
 import { buildIdentityPresentation, type IdentityRecord } from "@/lib/ui/identity";
-import { getPersonAvatarTone, PERSON_AVATAR_TONE_STYLES } from "@/lib/ui/avatar";
 import { cn } from "@/lib/utils";
 import { PresenceGlyph } from "@/components/presence/PresenceGlyph";
+import { PixelPerson } from "@/components/ui/PixelPerson";
 
 export type UserAvatarProps = {
   identity: IdentityRecord;
@@ -49,7 +49,8 @@ export function UserAvatar({
   }, [presentation.avatarUrl]);
 
   const shouldRenderImage = Boolean(presentation.avatarUrl) && !imageFailed;
-  const fallbackTone = getPersonAvatarTone(presentation.id ?? presentation.username ?? presentation.displayName);
+  // No photo: the pixel person, coloured by the id, so the same person looks the same everywhere.
+  const identityKey = presentation.id ?? presentation.username ?? presentation.displayName;
   const avatarUrl = presentation.avatarUrl && unoptimized
     ? publicAvatarVariantUrl(presentation.avatarUrl, avatarVariantSizeForDisplay(size))
     : presentation.avatarUrl;
@@ -81,15 +82,14 @@ export function UserAvatar({
 
       {!shouldRenderImage ? (
         <div
-          data-avatar-tone={fallbackTone}
-          style={PERSON_AVATAR_TONE_STYLES[fallbackTone]}
+          data-avatar="pixel"
           className={cn(
-            "absolute inset-0 flex items-center justify-center bg-secondary text-foreground font-semibold",
+            "absolute inset-0 flex items-center justify-center overflow-hidden bg-secondary text-foreground",
             roundedClassName,
             fallbackClassName,
           )}
         >
-          {presentation.anonymous ? <PresenceGlyph kind="person" className="size-[58%]" /> : presentation.initials}
+          {presentation.anonymous ? <PresenceGlyph kind="person" className="size-[58%]" /> : <PixelPerson identityKey={identityKey} size={size} className="size-full" />}
         </div>
       ) : null}
     </div>
