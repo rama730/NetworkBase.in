@@ -8131,6 +8131,26 @@
       "status": "todo",
       "test": "",
       "evidence": "Labels when cards carry labels; own-tab chips with their units."
+    },
+    {
+      "key": "38.5.call10",
+      "section": "38.5",
+      "text": "A1.1 (2026-11-20): the Calendar shows off-board items too (a bug at New due Friday is due Friday); the scope menu and the chips apply. Today is a filled 4 px sq",
+      "kind": "call",
+      "milestone": "A1",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.5.call11",
+      "section": "38.5",
+      "text": "A1.1: organizations keep the board only (their Sprints tab has its own calendar); spans across days wait for start dates (A1.3). [call]",
+      "kind": "call",
+      "milestone": "A1",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

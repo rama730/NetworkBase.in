@@ -17,7 +17,7 @@ const LIST_SCOPES: TaskListScope[] = ["backlog", "sprint", "review", "assignment
 
 import { type WorkspaceAccess, getWorkspaceAccessById, canReadWorkspaceTab, WorkspaceTabForbiddenError, getWorkspaceAccessByIdentifier, assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { normalizeSearchQuery, containsLikePattern, escapeLikePattern, tokenizeSearchQuery } from "@/lib/search/query";
-import { sql, eq, and, or, isNull, isNotNull, ilike, desc, inArray, type SQL } from "drizzle-orm";
+import { sql, eq, and, or, isNull, isNotNull, ilike, asc, desc, inArray, type SQL } from "drizzle-orm";
 import { tasks, taskReadReceipts, workspaceDocuments, workspaceWorkflows, workspaces, workspaceMembers, roleApplications, workspaceOpenRoles, workspaceSprints, workspaceWorkflowColumns, sprintTaskMemberships, taskActivityEvents, workspaceNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
@@ -201,6 +201,44 @@ export async function readBoardCountsAction(projectId: string) {
   } catch (error) {
     console.error("Failed to count board views:", error);
     return { success: false as const, error: "Couldn’t count the board" };
+  }
+}
+
+const calendarRangeSchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  scope: z.enum(["all", "backlog", "sprint", "review", "assignments", "mine"]).default("all"),
+});
+
+/**
+ * Report 38.5 T1 W8 (plan A1.1): the Calendar's items: everything due in the visible days (a due date is a calendar day
+ * at UTC midnight), plus open items with no date for the No date tray. Members only (B11: the public never sees
+ * Calendar); the scope menu and the organization read rule apply as on the board. Off-board items show too (a bug at
+ * New with a due date is still due that day).
+ */
+export async function readCalendarAction(projectId: string, input: unknown) {
+  try {
+    if (!isLooseUuid(projectId)) return { success: false as const, error: "Workspace not found" };
+    const range = calendarRangeSchema.parse(input);
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const actorId = user?.id ?? null;
+    const access = await getWorkspaceAccessById(projectId, actorId);
+    if (!access.project || !(access.isOwner || access.isMember)) return { success: false as const, error: "Workspace not found" };
+    const base = and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), orgTaskReadFilter(access, actorId, range.scope), scopeWhere(range.scope, actorId));
+    const columns = { id: tasks.id, taskNumber: tasks.taskNumber, title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus, priority: tasks.priority,
+      dueDate: tasks.dueDate, assigneeId: tasks.assigneeId, sprintId: tasks.sprintId, itemType: tasks.itemType, stage: tasks.stage, onBoard: tasks.onBoard };
+    const [items, noDate, [noDateCount], [ws]] = await Promise.all([
+      db.select(columns).from(tasks).where(and(base, sql`${tasks.dueDate} >= ${range.from}::date AND ${tasks.dueDate} < (${range.to}::date + 1)`)).orderBy(asc(tasks.dueDate), asc(tasks.taskNumber)).limit(500),
+      db.select(columns).from(tasks).where(and(base, isNull(tasks.dueDate), sql`${tasks.status} <> 'done'`)).orderBy(desc(tasks.updatedAt)).limit(100),
+      db.select({ n: sql<number>`count(*)::int` }).from(tasks).where(and(base, isNull(tasks.dueDate), sql`${tasks.status} <> 'done'`)),
+      db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1),
+    ]);
+    const shape = (r: (typeof items)[number]) => ({ ...r, dueDate: r.dueDate ? r.dueDate.toISOString() : null, ...(r.itemType === "task" ? { itemType: undefined } : {}) });
+    return { success: true as const, projectKey: ws?.key ?? null, items: items.map(shape), noDate: noDate.map(shape), noDateCount: noDateCount?.n ?? 0, canEdit: access.isOwner || (access.isMember && access.memberRole !== "viewer") };
+  } catch (error) {
+    console.error("Failed to read the calendar:", error);
+    return { success: false as const, error: "Couldn’t load the calendar" };
   }
 }
 

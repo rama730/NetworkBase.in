@@ -11,6 +11,8 @@ import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspac
 import { workflowIcon } from "@/components/workspaces/workflows/workflow-icons";
 import { addedTypes } from "@/lib/workflows/create-rules";
 import { FilterChipRow, type FilterChip } from "@/components/ui/FilterChipRow";
+import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
+import { TasksCalendar } from "@/components/workspaces/v2/tasks/TasksCalendar";
 import { EMPTY_FILTERS, filtersFromUrl, filtersToUrl, matchesFilters, setCount, type DueFilter, type TaskFilters as ChipFilters } from "@/lib/workspaces/task-filters";
 import { stageOf, workflowType } from "@/lib/workflows/types";
 import {
@@ -246,6 +248,20 @@ export default function TasksTab({
   const itemTypes = addedTypes(useAddedWorkflows());
   const [createType, setCreateType] = useState<string | undefined>(undefined);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const [createDue, setCreateDue] = useState<string>("");
+  // Report 38.5 S1 (A1.1): Board · Calendar for people in the workspace (B11: never the public); ?view= and remembered.
+  const viewKey = `nb:tasks-view:${projectId}`;
+  const [tasksView, setTasksView] = useState<"board" | "calendar">(() => {
+    if (typeof window === "undefined") return "board";
+    const fromUrl = new URLSearchParams(window.location.search).get("view");
+    let saved: string | null = null;
+    try { saved = window.localStorage.getItem(viewKey); } catch { /* storage off */ }
+    return (fromUrl ?? saved) === "calendar" ? "calendar" : "board";
+  });
+  const showViews = isProjectMember && !orgId;
+  const currentView = showViews ? tasksView : "board";
+  useUrlMirror({ view: currentView === "board" ? null : currentView });
+  const pickView = (next: "board" | "calendar") => { setTasksView(next); try { window.localStorage.setItem(viewKey, next); } catch { /* storage off */ } };
   const openCreate = useCallback((type?: string) => { setCreateType(type); setShowCreateModal(true); }, []);
   // W10: N opens New on Task, Shift + N opens New ▾ (not while typing).
   useEffect(() => {
@@ -1013,6 +1029,12 @@ export default function TasksTab({
             </>}
             <OpenInIdeSheet open={ideSheetOpen} onOpenChange={setIdeSheetOpen} projectId={projectId} projectSlug={projectSlug} taskId={editingTask?.id} />
           </div>
+          {showViews && !reviewing ? (
+            <div className="basis-full">
+              <UnderlineTabs label="Tasks view" idPrefix="tasks-view" value={currentView} onChange={pickView} className="min-h-10"
+                tabs={[{ key: "board", label: "Board" }, { key: "calendar", label: "Calendar" }] as const} />
+            </div>
+          ) : null}
           {/* Report 38.4 S5: the chip row gets its own line, so setting chips never pushes New task down. */}
           {!reviewing ? <div className="basis-full"><FilterChipRow chips={filterChips} onClearAll={() => setChipFilters(EMPTY_FILTERS)} /></div> : null}
         </div>
@@ -1080,6 +1102,11 @@ export default function TasksTab({
               </button>
             ) : null}
           </div>
+        ) : currentView === "calendar" ? (
+          <div id="tasks-view-panel-calendar" role="tabpanel" aria-labelledby="tasks-view-tab-calendar">
+            <TasksCalendar projectId={projectId} scope={scope} filters={chipFilters} viewerId={currentUserId ?? null} canEdit={canEditTasks}
+              onOpenTask={(item) => openTask(item)} onNewOnDay={(day) => { setCreateDue(day); openCreate(); }} />
+          </div>
         ) : (
         <KanbanBoard
           projectId={projectId}
@@ -1121,7 +1148,8 @@ export default function TasksTab({
             <AssignmentFields key={reuseFrom ?? "new"} orgId={orgId} timeZone={orgTimeZone} reuseFrom={reuseFrom} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId, dueDate }} onDraft={onDraft} onDone={onDone}
               onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
           ) : undefined}
-          onClose={() => { setShowCreateModal(false); setReuseFrom(null); setCreateKind("task"); setCreateType(undefined); }}
+          onClose={() => { setShowCreateModal(false); setReuseFrom(null); setCreateKind("task"); setCreateType(undefined); setCreateDue(""); }}
+          initialDueDate={createDue}
           types={itemTypes}
           initialType={createType}
           openedFrom="tasks"

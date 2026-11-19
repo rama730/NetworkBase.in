@@ -146,6 +146,10 @@ export async function readBoardCountsAction(...args: Parameters<typeof tasksImpl
   return tasksImpl.readBoardCountsAction(...args);
 }
 
+export async function readCalendarAction(...args: Parameters<typeof tasksImpl.readCalendarAction>): ReturnType<typeof tasksImpl.readCalendarAction> {
+  return tasksImpl.readCalendarAction(...args);
+}
+
 export async function fetchWorkspaceTasksAction(...args: Parameters<typeof tasksImpl.fetchWorkspaceTasksAction>): ReturnType<typeof tasksImpl.fetchWorkspaceTasksAction> {
   return tasksImpl.fetchWorkspaceTasksAction(...args);
 }

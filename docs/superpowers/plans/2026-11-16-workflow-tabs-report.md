@@ -16026,6 +16026,8 @@ T1 turns 11.3's own-tab planner into **views inside Tasks**: a **Projects** view
 7. Matrix urgency is fixed at 3 days in this release (11.7's admin setting waits). **[call]**
 8. Calendar spans items with a start and a due date; others sit on their due day; dragging keeps the length. **[call]**
 9. The organization portfolio stays with Organizations (K3), not T1. **[call]**
+10. **A1.1 (2026-11-20):** the Calendar shows off-board items too (a bug at New due Friday is due Friday); the scope menu and the chips apply. Today is a filled 4 px square, the board's badge shape (the design contract keeps task parts free of round shapes). Phones offer Agenda · Week. **[call]**
+11. **A1.1:** organizations keep the board only (their Sprints tab has its own calendar); spans across days wait for start dates (A1.3). **[call]**
 
 ### 38.6 T3 · Bugs (agreed 2026-11-18)
 

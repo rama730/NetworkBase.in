@@ -30,7 +30,7 @@ export function filtersToUrl(f: TaskFilters): Record<string, string | null> {
 }
 
 /** The address keys the chips use, cleared when leaving Tasks. */
-export const TASK_FILTER_KEYS = ["assignee", "type", "due", "priority", "taskSprint"];
+export const TASK_FILTER_KEYS = ["assignee", "type", "due", "priority", "taskSprint", "view"];
 
 export const setCount = (f: TaskFilters) => [f.assignee.length, f.type.length, f.due ? 1 : 0, f.priority.length, f.sprint.length].filter(Boolean).length;
 

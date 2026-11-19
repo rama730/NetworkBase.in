@@ -7,7 +7,9 @@ import { EMPTY_FILTERS, filtersFromUrl, filtersToUrl, matchesFilters, type DueFi
 // Report 38.4 F3 S5, W7, W9 (plan A0.11): the shared filter chip row over a few tasks; the address keeps the filters.
 const ME = '7a0c1c34-1c7b-4b56-9d55-5f1f1d7c2a10';
 const ASHA = '5f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f';
-const today = new Date().toISOString();
+// A due date is a calendar day stored at UTC midnight (as the app stores it).
+const now = new Date();
+const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T00:00:00.000Z`;
 const tasks = [
   { id: '1', title: 'Fix login', assigneeId: ME, itemType: 'bug', priority: 'high', dueDate: today, status: 'todo', sprintId: null },
   { id: '2', title: 'Write docs', assigneeId: ASHA, itemType: undefined, priority: 'medium', dueDate: null, status: 'todo', sprintId: null },

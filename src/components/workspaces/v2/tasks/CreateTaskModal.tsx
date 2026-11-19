@@ -79,6 +79,8 @@ interface CreateTaskModalProps {
   /** Report 38.4 W5: opened from a quick-add line, the typed title carries in and where it came from shows read-only. */
   initialTitle?: string;
   fromLine?: string;
+  /** Report 38.5 W8: + on a Calendar day opens New with that due date (YYYY-MM-DD). */
+  initialDueDate?: string;
 }
 
 function getTodayDateString(): string {
@@ -123,6 +125,7 @@ export default function CreateTaskModal({
   initialType,
   initialTitle = "",
   fromLine,
+  initialDueDate = "",
 }: CreateTaskModalProps) {
   // Board/review report §4: an organization's New has two tabs, Task and Assignment; what's typed carries across.
   const startKind = initialType && types.includes(initialType) ? initialType : renderMany ? initialKind : "task";
@@ -173,7 +176,7 @@ export default function CreateTaskModal({
   const [isFilePickerOpen, setIsFilePickerOpen] = React.useState(false);
   const [storyPoints, setStoryPoints] = React.useState<string>("");
   // No due date unless one is chosen.
-  const [dueDate, setDueDate] = React.useState<string>("");
+  const [dueDate, setDueDate] = React.useState<string>(initialDueDate);
 
   const openerRef = React.useRef<HTMLElement | null>(null);
   React.useEffect(() => {
