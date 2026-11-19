@@ -7,6 +7,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast } from "@/lib/feedback";
 
 import { AddDocDialog } from "@/components/workspaces/doc/AddDocDialog";
+import { RecordDecisionDialog } from "@/components/workspaces/doc/DocDecisions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc";
 import type { WorkspaceDocListItem } from "@/lib/workspaces/doc";
@@ -62,6 +63,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     const { data: docs = [], isLoading } = useWorkspaceDocList(projectId);
     const [addOpen, setAddOpen] = useState(false);
     const [addSection, setAddSection] = useState<DocSection | null>(null);
+    const [recording, setRecording] = useState(false);
     const [removing, setRemoving] = useState<WorkspaceDocListItem | null>(null);
 
     // Opening a doc is a history entry; leaving a removed doc replaces it.
@@ -90,6 +92,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     const dialogs = (
         <>
             <AddDocDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} section={addSection} />
+            <RecordDecisionDialog projectId={projectId} open={recording} onOpenChange={setRecording} />
             <ConfirmDialog
                 open={removing !== null}
                 onOpenChange={(open) => !open && setRemoving(null)}
@@ -102,7 +105,11 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
         </>
     );
 
-    return { docs, isLoading, navigate, openAdd: (section?: DocSection) => { setAddSection(section ?? null); setAddOpen(true); }, askRemove: setRemoving, dialogs };
+    return { docs, isLoading, navigate, openAdd: (section?: DocSection) => {
+        // Decisions' + records one (S4): it gets the next D-number rather than being an unnumbered page.
+        if (section === "decisions") return setRecording(true);
+        setAddSection(section ?? null); setAddOpen(true);
+    }, askRemove: setRemoving, dialogs };
 }
 
 function AddDocButton({ onClick, className }: { onClick: () => void; className?: string }) {

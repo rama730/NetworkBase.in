@@ -7,6 +7,8 @@ const TONES: Record<string, Tone> = {
     active: 'info', in_progress: 'info', published: 'info', requested: 'info', viewing_as_admin: 'info', new: 'info', updated: 'info',
     submitted: 'warning', changed: 'warning', pending: 'warning', required: 'warning', restricted: 'warning',
     approved: 'success', done: 'success', completed: 'success', verified: 'success',
+    // A decision's state (report 38.3 S4).
+    proposed: 'info', decided: 'success', superseded: 'neutral', reversed: 'warning',
     returned: 'danger', missing: 'danger', suspended: 'danger', late: 'danger', blocked: 'danger',
 }
 

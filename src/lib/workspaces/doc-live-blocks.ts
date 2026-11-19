@@ -5,7 +5,7 @@
 export const MAX_BLOCK_ROWS = 200;
 export const FOLD_AFTER_DAYS = 7;
 
-export type LiveBlockKind = "task_rows" | "unknown";
+export type LiveBlockKind = "task_rows" | "decisions" | "unknown";
 export type LiveBlock = { kind: LiveBlockKind; key: string | null; label: string | null; raw: string };
 
 const BLOCK = /\{%\s*project\.([a-z_]+)([^%]*)%\}/gi;
@@ -18,7 +18,7 @@ export function parseLiveBlocks(markdown: string): LiveBlock[] {
     const name = match[1]!.toLowerCase();
     const params = match[2] ?? "";
     if (["roles", "contributors", "files", "tasks", "sprints", "projects"].includes(name)) return [];
-    const kind: LiveBlockKind = name === "task_rows" ? "task_rows" : "unknown";
+    const kind: LiveBlockKind = name === "task_rows" ? "task_rows" : name === "decisions" ? "decisions" : "unknown";
     const key = attr(params, "key");
     return [{ kind, key: key && /^[a-z0-9]{4,12}$/.test(key) ? key : null, label: kind === "task_rows" ? attr(params, "label") || "Action items" : null, raw: match[0] }];
   });
@@ -36,6 +36,8 @@ export function newBlockKey(existing: string[]) {
 }
 
 export const liveBlockLine = (kind: "task_rows", key: string, label: string) => `{% project.${kind} key="${key}" label="${label.replace(/"/g, "")}" %}`;
+/** S4: the decisions recorded from this document. */
+export const DECISIONS_BLOCK_LINE = "{% project.decisions %}";
 
 /** B9: adding rows follows the document's edit permission; ticking follows the task's. */
 export const canAddRows = (doc: { canEdit: boolean }) => doc.canEdit;

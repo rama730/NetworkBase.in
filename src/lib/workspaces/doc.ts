@@ -34,7 +34,14 @@ export type WorkspaceDocSettings = {
     section?: DocSection;
     kind?: string;
     date?: string;
+    /** Report 38.3 S4: a decision's D-number (never changes), its status and the document it was recorded from. */
+    decisionNumber?: number;
+    decisionStatus?: DecisionStatus;
+    fromDocId?: string;
 };
+
+export type DecisionStatus = "proposed" | "decided" | "superseded" | "reversed";
+const DECISION_STATUSES: DecisionStatus[] = ["proposed", "decided", "superseded", "reversed"];
 
 export type WorkspaceDocQualityIssue = {
     id: string;
@@ -78,7 +85,7 @@ export type WorkspaceDocVersion = {
     deletedAt: string | null;
 };
 
-export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null; section?: DocSection; kind?: string; date?: string };
+export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null; section?: DocSection; kind?: string; date?: string; decisionNumber?: number; decisionStatus?: DecisionStatus; fromDocId?: string };
 
 export type WorkspaceDocPublishedPayload = {
     projectId: string;
@@ -122,6 +129,9 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(isDocSection(source.section) ? { section: source.section } : {}),
         ...(typeof source.kind === "string" && /^[a-z0-9_-]{1,40}$/.test(source.kind) ? { kind: source.kind } : {}),
         ...(typeof source.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.date) ? { date: source.date } : {}),
+        ...(Number.isInteger(source.decisionNumber) && source.decisionNumber! > 0 ? { decisionNumber: source.decisionNumber } : {}),
+        ...(DECISION_STATUSES.includes(source.decisionStatus as DecisionStatus) ? { decisionStatus: source.decisionStatus } : {}),
+        ...(typeof source.fromDocId === "string" && /^[0-9a-f-]{36}$/i.test(source.fromDocId) ? { fromDocId: source.fromDocId } : {}),
     };
 }
 

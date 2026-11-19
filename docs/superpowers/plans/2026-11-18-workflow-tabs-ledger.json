@@ -7971,6 +7971,46 @@
       "status": "live",
       "test": "tests/browser/doc-live-rows.spec.ts",
       "evidence": "live 2026-11-19: editor content labelled \"Edit Weekly.md\"."
+    },
+    {
+      "key": "38.3.call17",
+      "section": "38.3",
+      "text": "A0.6 (2026-11-19): Record a decision makes the document like any new one (a Markdown file in Docs, from the browser), then recordDecisionAction gives it the nex",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.3.call18",
+      "section": "38.3",
+      "text": "A0.6: moving a document into Decisions gives it the next D-number; moving it out keeps its number, and numbers are never reused. [call]",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.3.call19",
+      "section": "38.3",
+      "text": "A0.6: the rail's Decisions + records a decision (with no source meeting) instead of adding an unnumbered page; Insert → Decisions shows only when Meetings & dec",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.3.call20",
+      "section": "38.3",
+      "text": "A0.6 deferred: the attendees' notice \"A decision is recorded from a meeting you attended\" waits for meeting attendees (A4.1); agents recording decisions (tier \"",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

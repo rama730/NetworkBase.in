@@ -1,6 +1,7 @@
 "use client";
 
 import { RemovedListsNote, WorkspaceDocLiveBlock } from "@/components/workspaces/doc/WorkspaceDocLiveBlock";
+import { DocDecisionsBlock } from "@/components/workspaces/doc/DocDecisions";
 import { parseLiveBlocks } from "@/lib/workspaces/doc-live-blocks";
 import React, { Suspense, useMemo, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
@@ -831,6 +832,11 @@ export const WorkspaceDocRenderer = React.memo(function WorkspaceDocRenderer({
                             return live.key && !editorMode && allowSmartBlocks
                                 ? <WorkspaceDocLiveBlock key={`block-${plan.index}`} projectId={project.id} projectSlug={project.slug || project.id} docSlug={normalizedDocSlug} blockKey={live.key} label={live.label ?? "Action items"} />
                                 : <div key={`block-${plan.index}`} className="my-4 rounded-[8px] border border-dashed border-border px-4 py-3 text-[13px] text-muted-foreground">{live.label ?? "Action items"} · {live.key ? "a live list; its items show on the Documents tab" : "re-insert this list from Insert to use it"}</div>;
+                        }
+                        if (live?.kind === "decisions") {
+                            return !editorMode && allowSmartBlocks
+                                ? <DocDecisionsBlock key={`block-${plan.index}`} projectId={project.id} docSlug={normalizedDocSlug} canEdit={canEditDoc} />
+                                : <div key={`block-${plan.index}`} className="my-4 rounded-[8px] border border-dashed border-border px-4 py-3 text-[13px] text-muted-foreground">Decisions · the decisions recorded here show on the Documents tab</div>;
                         }
                         const previewKey = `${plan.segment.block.kind}:${plan.segment.block.ids.join(",")}:${plan.segment.block.index}`;
                         const stablePreviewKey = `${plan.segment.block.kind}:${plan.segment.block.ids.join(",")}`;

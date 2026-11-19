@@ -6,11 +6,13 @@ import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useWorkspaceDocList } from "@/hooks/workspaces/useWorkspaceDocData";
-import { liveBlockLine, newBlockKey, parseLiveBlocks } from "@/lib/workspaces/doc-live-blocks";
+import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
+import { DECISIONS_BLOCK_LINE, liveBlockLine, newBlockKey, parseLiveBlocks } from "@/lib/workspaces/doc-live-blocks";
 
 const ITEMS = [
   { label: "Action items", hint: "Tasks with who and when, made right here" },
   { label: "Checklist", hint: "Steps to tick off; each one is a task" },
+  { label: "Decisions", hint: "Decisions recorded here, each with a D-number" },
 ] as const;
 
 /**
@@ -19,6 +21,8 @@ const ITEMS = [
  */
 export function DocInsertMenu({ projectId, nodeId, view }: { projectId: string; nodeId: string; view: EditorView | null }) {
   const { data: docs = [] } = useWorkspaceDocList(projectId);
+  // Decisions come with Meetings & decisions (report 38.3 W7).
+  const items = useAddedWorkflows().includes("meetings") ? ITEMS : ITEMS.filter((item) => item.label !== "Decisions");
   if (!docs.some((doc) => doc.linkedNodeId === nodeId)) return null;
 
   function insert(label: string) {
@@ -29,7 +33,7 @@ export function DocInsertMenu({ projectId, nodeId, view }: { projectId: string; 
     const line = view.state.doc.lineAt(at);
     const before = line.text.trim() ? "\n" : "";
     const insertAt = line.text.trim() ? line.to : line.from;
-    const block = `${before}${liveBlockLine("task_rows", key, label)}\n`;
+    const block = `${before}${label === "Decisions" ? DECISIONS_BLOCK_LINE : liveBlockLine("task_rows", key, label)}\n`;
     view.dispatch({ changes: { from: insertAt, insert: block }, selection: { anchor: insertAt + block.length } });
     view.focus();
   }
@@ -42,7 +46,7 @@ export function DocInsertMenu({ projectId, nodeId, view }: { projectId: string; 
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {ITEMS.map((item) => (
+        {items.map((item) => (
           <DropdownMenuItem key={item.label} onSelect={() => insert(item.label)} className="flex flex-col items-start gap-0.5">
             <span className="text-[13px] font-medium">{item.label}</span>
             <span className="text-[11px] text-muted-foreground">{item.hint}</span>

@@ -11,12 +11,13 @@ test("parseLiveBlocks: keys and labels, a block without a key, unknown kinds, co
     '{% project.task_rows key="a1b2" label="Checklist" %}',
     "{% project.task_rows %}",
     '{% project.mystery key="zzzz" %}',
+    "{% project.decisions %}",
     "```",
     '{% project.task_rows key="code" label="In code" %}',
     "```",
   ].join("\n");
   assert.deepEqual(parseLiveBlocks(md).map((b) => [b.kind, b.key, b.label]), [
-    ["task_rows", "k7f3", "Action items"], ["task_rows", "a1b2", "Checklist"], ["task_rows", null, "Action items"], ["unknown", "zzzz", null],
+    ["task_rows", "k7f3", "Action items"], ["task_rows", "a1b2", "Checklist"], ["task_rows", null, "Action items"], ["unknown", "zzzz", null], ["decisions", null, null],
   ]);
 });
 

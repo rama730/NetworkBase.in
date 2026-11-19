@@ -27,7 +27,12 @@ export function docSectionOf(settings: { section?: string }, added: string[]): D
   return isDocSection(settings.section) && availableSections(added).includes(settings.section) ? settings.section : "pages";
 }
 
-type RailDoc = { id: string; filename: string; section?: string; date?: string };
+type RailDoc = { id: string; filename: string; section?: string; date?: string; decisionNumber?: number };
+
+/** S4: a decision's D-number, never reused or changed (call 6). */
+export const decisionLabel = (n: number) => `D-${String(n).padStart(3, "0")}`;
+/** The workspace's next D-number: the highest plus one, so gaps stay gaps. */
+export const nextDecisionNumber = (existing: Array<number | null | undefined>) => Math.max(0, ...existing.filter((n): n is number => typeof n === "number")) + 1;
 const monthDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 /**
@@ -41,7 +46,8 @@ export function railSections<T extends RailDoc>(docs: T[], added: string[]) {
     const inSection = docs.filter((d) => docSectionOf(d, added) === id);
     const sorted = id === "meetings"
       ? [...inSection].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
-      : inSection;
-    return { id, label: sectionLabel(id), docs: sorted.map((d) => ({ ...d, prefix: id === "meetings" && d.date ? monthDay(d.date) : null })) };
+      : id === "decisions" ? [...inSection].sort((a, b) => (b.decisionNumber ?? 0) - (a.decisionNumber ?? 0)) : inSection;
+    const prefix = (d: T) => (id === "meetings" && d.date ? monthDay(d.date) : id === "decisions" && d.decisionNumber ? decisionLabel(d.decisionNumber) : null);
+    return { id, label: sectionLabel(id), docs: sorted.map((d) => ({ ...d, prefix: prefix(d) })) };
   });
 }

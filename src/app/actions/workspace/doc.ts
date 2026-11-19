@@ -11,7 +11,7 @@ import { z } from "zod";
 import { readWorkspaceFileText } from "@/lib/files/content-reader";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
-import { availableSections, DOC_SECTIONS, sectionHasDate, type DocSection } from "@/lib/workspaces/doc-sections";
+import { availableSections, decisionLabel, DOC_SECTIONS, sectionHasDate, type DocSection } from "@/lib/workspaces/doc-sections";
 import { canAddRows, MAX_BLOCK_ROWS, visibleRows } from "@/lib/workspaces/doc-live-blocks";
 import {
     profiles,
@@ -245,8 +245,9 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
         if (!permission.canEdit && project.kind === "organization" && readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).lifecycle === "draft") continue;
         if (!permission.canEdit && !membership && !isOwner && doc.empty && (project.kind === "organization" || project.parentId)) continue;
         if (permission.canReadPublished || permission.canEdit) {
-            const { section, kind, date } = normalizeWorkspaceDocSettings(doc.settings);
-            results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId, ...(section ? { section } : {}), ...(kind ? { kind } : {}), ...(date ? { date } : {}) });
+            const { section, kind, date, decisionNumber, decisionStatus, fromDocId } = normalizeWorkspaceDocSettings(doc.settings);
+            results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId, ...(section ? { section } : {}), ...(kind ? { kind } : {}), ...(date ? { date } : {}),
+                ...(decisionNumber ? { decisionNumber, decisionStatus: decisionStatus ?? "decided" } : {}), ...(fromDocId ? { fromDocId } : {}) });
         }
     }
     return results.sort((a, b) => {
@@ -1017,12 +1018,62 @@ export async function moveDocToSectionAction(projectId: string, input: unknown) 
         };
         const nextSettings = normalizeWorkspaceDocSettings({ ...rest, ...placed });
         await db.update(workspaceDocuments).set({ settings: nextSettings, updatedAt: new Date() }).where(eq(workspaceDocuments.id, readme.id));
+        // A document moved into Decisions becomes a decision with the next D-number; one moved out keeps its number.
+        if (parsed.section === "decisions" && !nextSettings.decisionNumber) await assignDecisionNumber(projectId, readme.id, {});
         await recordNodeEvent(projectId, userId, null, "project_readme.section_moved", { docSlug: parsed.docSlug, section: parsed.section });
         revalidateProjectDoc(context.project);
         return { success: true as const, section: parsed.section, date: nextSettings.date ?? null };
     } catch (error) {
         logger.error("project_readme.section_move_failed", { module: "projects", projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t move the document." };
+    }
+}
+
+/**
+ * Report 38.3 S4, call 6: the workspace's next D-number, taken under a lock on the workspace row so two records at once
+ * never share one (the unique index 0108 is the backstop). A document that already has a number keeps it.
+ */
+async function assignDecisionNumber(projectId: string, docId: string, extra: Record<string, string>) {
+    return db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT id FROM workspaces WHERE id = ${projectId} FOR UPDATE`);
+        const [current] = await tx.select({ n: sql<number | null>`(${workspaceDocuments.settings}->>'decisionNumber')::int` })
+            .from(workspaceDocuments).where(eq(workspaceDocuments.id, docId)).limit(1);
+        if (current?.n) return current.n;
+        const [top] = await tx.select({ n: sql<number>`coalesce(max((${workspaceDocuments.settings}->>'decisionNumber')::int), 0)::int` })
+            .from(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.settings} ? 'decisionNumber'`));
+        const number = (top?.n ?? 0) + 1;
+        await tx.update(workspaceDocuments)
+            .set({ settings: sql`${workspaceDocuments.settings} || ${JSON.stringify({ section: "decisions", decisionNumber: number, decisionStatus: "decided", ...extra })}::jsonb`, updatedAt: new Date() })
+            .where(eq(workspaceDocuments.id, docId));
+        return number;
+    });
+}
+
+const recordDecisionSchema = z.object({ docSlug: docSlugSchema, fromDocSlug: z.string().min(1).max(200).transform((value) => normalizeWorkspaceDocSlug(value)).optional() });
+
+/**
+ * W6: Record a decision. The browser makes the document's file as any new document (createDocFile); this files it under
+ * Decisions with the next D-number, Decided, today's date and the document it came from. Editors of both only.
+ */
+export async function recordDecisionAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const parsed = recordDecisionSchema.parse(input);
+        const context = await getDocProjectContext(projectId, userId, parsed.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents record decisions." };
+        let fromDocId: string | undefined;
+        if (parsed.fromDocSlug) {
+            const from = await getDocProjectContext(projectId, userId, parsed.fromDocSlug);
+            if (!from.readme || !from.permission.canEdit) return { success: false as const, error: "Only people who can edit this document record its decisions." };
+            fromDocId = from.readme.id;
+        }
+        const number = await assignDecisionNumber(projectId, context.readme.id, { date: new Date().toISOString().slice(0, 10), ...(fromDocId ? { fromDocId } : {}) });
+        await recordNodeEvent(projectId, userId, null, "project_readme.decision_recorded", { docSlug: parsed.docSlug, number });
+        revalidateProjectDoc(context.project);
+        return { success: true as const, number, label: decisionLabel(number) };
+    } catch (error) {
+        logger.error("project_readme.decision_record_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t record the decision." };
     }
 }
 

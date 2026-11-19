@@ -110,7 +110,8 @@
     "drizzle/0104_task_types_index.sql",
     "drizzle/0105_workspace_workflows.sql",
     "drizzle/0106_doc_live_rows.sql",
-    "drizzle/0107_doc_live_rows_index.sql"
+    "drizzle/0107_doc_live_rows_index.sql",
+    "drizzle/0108_decision_numbers.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
