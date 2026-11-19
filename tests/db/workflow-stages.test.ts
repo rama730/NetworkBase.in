@@ -107,6 +107,26 @@ test("a member's item joins the Backlog, never a sprint (decision 146)", async (
   assert.equal((await row(id)).sprint_id, null);
 });
 
+test("members can't take sprint work off the board, end a review with a stage, or close where review is on", async () => {
+  const t = await workspace({ review: true });
+  viewerId = t.owner;
+  const id = await bug(t.ws, t.member, "confirmed");
+  assert.equal((await actions.setTaskStageAction({ taskId: id, projectId: t.ws, stage: "fixing", sprintId: t.sprint })).success, true);
+  viewerId = t.member;
+  const leave = await actions.setTaskStageAction({ taskId: id, projectId: t.ws, stage: "confirmed" });
+  assert.match(leave.success ? "" : leave.error, /Ask an owner or admin/);
+  assert.equal((await row(id)).sprint_id, t.sprint);
+  const loose = await bug(t.ws, t.member, "confirmed");
+  const close = await actions.setTaskStageAction({ taskId: loose, projectId: t.ws, stage: "wont_fix" });
+  assert.match(close.success ? "" : close.error, /Only owners and admins can close/);
+  assert.equal((await actions.updateTaskStatusAction(id, "done", t.ws)).success, true);
+  assert.equal((await row(id)).review_status, "pending");
+  viewerId = t.owner;
+  const skip = await actions.setTaskStageAction({ taskId: id, projectId: t.ws, stage: "wont_fix" });
+  assert.match(skip.success ? "" : skip.error, /waiting for review/);
+  assert.deepEqual([(await row(id)).stage, (await row(id)).review_status], ["fixing", "pending"]);
+});
+
 test("on the board: Blocked keeps the stage; Completed takes Fixed; back out of Completed returns to Fixing", async () => {
   const t = await workspace();
   viewerId = t.owner;

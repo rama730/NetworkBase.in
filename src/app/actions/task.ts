@@ -451,6 +451,8 @@ export async function setTaskStageAction(input: z.infer<typeof stageMoveSchema>)
       const [ws] = await tx.select({ on: workspaces.workflowsEnabled }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
       if (!ws?.on) throw new Error("Workflows aren’t on in this workspace.");
       const move = stageMove(locked.itemType, locked.stage, stage);
+      // Leaving the board takes it out of its sprint, and only owners and admins change sprints (decision 146).
+      if (move.leaves && locked.previousSprintId && !locked.isLeader) throw new Error("This is in a sprint. Ask an owner or admin to move it off the board.");
       const result = await transitionTaskTx(tx, locked, { taskId, userId: user.id, stage });
       const now = new Date();
       const via = await viaPayload();

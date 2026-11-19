@@ -254,6 +254,10 @@ export async function transitionTaskTx(
   const typed = (locked.itemType ?? "task") !== "task";
   if (input.stage !== undefined && !typed) throw new Error("Plain tasks have no stage. Change the status instead.");
   const target = input.stage !== undefined ? stageOf(locked.itemType, input.stage) : null;
+  // Only Approve or Request changes ends a review; a stage move never does.
+  if (target && locked.reviewStatus === "pending") throw new Error("This item is waiting for review. Approve it or request changes first.");
+  // Closing stages finish without review, so where review is on only owners and admins close.
+  if (target?.closing && locked.reviewRequired && !locked.isLeader) throw new Error("Only owners and admins can close items here.");
   // An off-board stage (New, Confirmed, Won't fix…) has no column.
   const column = target && !target.onBoard ? null : await tx.query.workspaceWorkflowColumns.findFirst({
     where: input.columnId
