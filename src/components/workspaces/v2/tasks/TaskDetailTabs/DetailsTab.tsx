@@ -7,6 +7,7 @@ import { isAssignmentMaster } from "@/lib/workspaces/task-presentation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSessionDraft } from "@/hooks/useSessionDraft";
 import { formatTaskDueDate, isTaskOverdue } from "@/lib/workspaces/task-presentation";
+import { sectionsFor } from "@/lib/workflows/create-rules";
 import {
   Calendar,
   Check,
@@ -939,8 +940,8 @@ export default function DetailsTab({
             ) : null}
           </div>}
 
-          {/* Sprint Dropdown */}
-          <div className="space-y-1.5">
+          {/* Sprint Dropdown (an item off the board, such as a project, has no sprint) */}
+          {task.onBoard !== false ? <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
               <Zap className="size-3 text-muted-foreground" />
               Sprint
@@ -1007,15 +1008,16 @@ export default function DetailsTab({
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
+          </div> : null}
 
           {/* Due date with Quick Presets & Overdue Status */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label htmlFor="task-due-date" className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
                 <Calendar className="size-3 text-muted-foreground" />
-                Due date
+                {sectionsFor(task.itemType ?? "task").dueLabel}
               </label>
+              {task.startDate ? <span className="font-mono text-[11px] text-muted-foreground">Starts {formatTaskDueDate(task.startDate)}</span> : null}
               {isOverdue ? (
                 <span className="inline-flex items-center rounded-[3px] border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
                   Overdue

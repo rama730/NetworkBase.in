@@ -12,7 +12,7 @@ test("CreateTaskModal implements canonical SectionDividers matching Sprint tab s
   const content = fs.readFileSync(CREATE_TASK_MODAL_PATH, "utf8");
 
   assert.match(content, /title="Basics"/);
-  assert.match(content, /title="Sprint and assignee"/);
+  assert.match(content, /title=\{sprintApplies\(kind, stage\) \? "Sprint and assignee" : "Assignee"\}/);
   // Report 38.5 (A1.3): a project's Schedule reads "Start and end".
   assert.match(content, /title=\{sectionsFor\(kind\)\.startDate \? "Start and end" : "Schedule"\}/);
   assert.match(content, /title="Subtasks and files"/);

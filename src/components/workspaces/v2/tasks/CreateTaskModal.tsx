@@ -294,7 +294,7 @@ export default function CreateTaskModal({
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close create task dialog"
+        aria-label={`Close the ${typeLabel.toLowerCase()} dialog`}
         className="nb-touch-target size-7 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <X className="size-4" />
@@ -371,7 +371,7 @@ export default function CreateTaskModal({
                     name="title"
                     required
                     defaultValue={carry.title}
-                    placeholder="e.g., Conduct end-to-end testing on core flows"
+                    placeholder={kind === "project" ? "e.g., Website relaunch" : "e.g., Conduct end-to-end testing on core flows"}
                     className={inputClassName(!!fieldErrors.title)}
                     autoFocus
                   />
@@ -400,7 +400,7 @@ export default function CreateTaskModal({
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">
-                <SectionDivider title="Sprint and assignee" />
+                <SectionDivider title={sprintApplies(kind, stage) ? "Sprint and assignee" : "Assignee"} />
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   {sprintApplies(kind, stage) ? (

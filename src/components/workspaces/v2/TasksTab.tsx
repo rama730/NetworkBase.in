@@ -881,6 +881,9 @@ export default function TasksTab({
           normalizeTaskSurfaceRecord(created),
         );
         patchWorkspaceTaskCaches(queryClient, projectId, normalizedCreatedTask);
+        // A1.3: the Projects list and a project's Work tab read their own queries, so a new project or Part of shows now.
+        if (normalizedCreatedTask.itemType === "project") void queryClient.invalidateQueries({ queryKey: [...queryKeys.project.detail.tasksRoot(projectId), "projects"] });
+        if (normalizedCreatedTask.partOfId) void queryClient.invalidateQueries({ queryKey: [...queryKeys.project.detail.tasksRoot(projectId), "project-work", normalizedCreatedTask.partOfId] });
         if (normalizedCreatedTask.sprintId) {
           void queryClient.invalidateQueries({
             queryKey: queryKeys.project.detail.sprintDetailRoot(projectId),
@@ -919,7 +922,7 @@ export default function TasksTab({
             <h2 className="text-[20px] font-semibold tracking-tight text-foreground">
               {currentView === "calendar" ? "Calendar" : currentView === "matrix" ? "Matrix" : currentView === "projects" ? "Projects" : "Board"}
             </h2>
-            {currentView === "calendar" ? null : <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
+            {currentView === "calendar" || currentView === "projects" ? null : <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
               {/* Board view dropdown §3 (D4): the view's real total; while searching or narrowing to a team, what's shown. */}
               {boardCounts && !taskSearchQuery && !unitMembers && !chipsSet ? boardCounts[scope].total : `${filteredTasks.length}${hasNextPage ? "+" : ""}`}
             </span>}
