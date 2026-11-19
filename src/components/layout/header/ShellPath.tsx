@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { ChevronDown, Search } from "lucide-react";
 import { useTypedPath } from "@/components/auth/AuthPanel";
@@ -10,20 +10,12 @@ import { WorkspaceAvatar } from "@/components/workspaces/WorkspaceAvatar";
 import { useSidebarWorkspacesQuery } from "@/components/layout/AppSidebar";
 import { placeForPath, sidebarPlaces, type SidebarPlace } from "@/components/layout/SidebarWorkspaces";
 import { readRecentPages } from "@/lib/navigation/recent-pages";
-import { coverThumbUrl } from "@/lib/workspaces/cover-thumb";
 import { isPlacePath, shellPartsFor } from "@/lib/navigation/shell-path";
 import { usePlaceName } from "@/lib/navigation/place-name";
 
 /** Where a breadcrumb part goes. Workspaces and organizations have no index page, so they open the switcher instead. */
 const CRUMB_HREF: Record<string, string> = { settings: "/settings", messages: "/messages", u: "/network", admin: "/admin/trust", network: "/network", discover: "/discover" };
 
-
-function PlacePic({ place, size = 18 }: { place: SidebarPlace | null; size?: number }) {
-    const [failed, setFailed] = useState(false);
-    useEffect(() => setFailed(false), [place?.coverImage]);
-    if (!place?.coverImage || failed) return null;
-    return <img className="nb-path-pic" data-org={place.organization || undefined} src={coverThumbUrl(place.coverImage, 64)} alt="" width={size} height={size} onError={() => setFailed(true)} />;
-}
 
 /** The workspace part of the path: switch to a recent workspace or organization. */
 function Switcher({ label, places, current }: { label: string; places: SidebarPlace[]; current: SidebarPlace | null }) {
@@ -62,7 +54,6 @@ function Switcher({ label, places, current }: { label: string; places: SidebarPl
 /**
  * The top bar's "you are here" (shell redesign): `networkbase / workspaces / Alpha app` in mono, a place by its real name. It types itself in when
  * you move, the way the sign-in address does, then each part becomes a link; the workspace part opens a quick switcher.
- * The place's own picture sits before it (never a default up here).
  */
 export function ShellPath({ phone = false }: { phone?: boolean }) {
     const pathname = usePathname() ?? "/";
@@ -79,8 +70,6 @@ export function ShellPath({ phone = false }: { phone?: boolean }) {
     if (phone) {
         return (
             <span className="nb-shell-path nb-shell-path--phone" aria-label={`You are here: ${parts.join(" / ")}`}>
-                {/* The dot before it is the bar's logo (it turns into the back arrow on deeper pages); a picture shows here. */}
-                <PlacePic place={place} size={18} />
                 <b>{parts[parts.length - 1]}</b>
             </span>
         );
@@ -89,7 +78,6 @@ export function ShellPath({ phone = false }: { phone?: boolean }) {
     const onPlace = isPlacePath(pathname);
     return (
         <div className="nb-cell nb-shell-path" data-typing={typing || undefined}>
-            <PlacePic place={place} />
             <span className="nb-shell-path-pre" aria-hidden="true">networkbase&nbsp;/&nbsp;</span>
             <nav aria-label="You are here" className="nb-shell-path-crumbs">
                 {typing ? (
