@@ -15639,6 +15639,8 @@ F2 gives Documents what the D rounds need: **sections** in the rail (Pages · Me
 7. Section, kind and date live in the document's settings; moving a document writes no version. **[call]**
 8. Agenda stays plain Markdown inside the templates; no live agenda block. **[call]**
 9. Organization documents keep their own groups; sections are for workspaces in this release. **[call]**
+10. **Correction (A0.4, 2026-11-19):** no section index migration: a workspace's documents already load together, so the index would never be used. Section, kind and date are kept by the settings normaliser (it used to drop unknown keys, so a later settings save would have undone a move). Workspace documents get the organization header's ⋯ (Document actions) with **Move to section…**, shown only once a section beyond Pages exists; a section's + adds a document straight into it. **[call]**
+11. **Found while building A0.4:** viewers could edit and publish documents whose edit policy is "members" (the shared document permission counted them as members). Fixed in `resolveWorkspaceDocPermission`: viewers read, never edit. **[call]**
 
 ### 38.4 F3 · The New module and the item page (agreed 2026-11-17)
 

@@ -27,3 +27,11 @@ test("a public override never publishes a doc out of a private project or a hidd
   assert.equal(resolveWorkspaceDocPermission({ ...base, publicTabVisibility: { readme: false } }).canReadPublished, false);
   assert.equal(resolveWorkspaceDocPermission(base).canReadPublished, true);
 });
+
+test("viewers read documents but never edit or publish them, even where members may edit (found in A0.4)", () => {
+  const member = { actorUserId: "u1", projectVisibility: "private", projectStatus: "active", isActiveMember: true, settings: { editPolicy: "members" } };
+  const viewer = resolveWorkspaceDocPermission({ ...member, membershipRole: "viewer" });
+  assert.deepEqual([viewer.canReadPublished, viewer.canEdit, viewer.canPublish], [true, false, false]);
+  const plain = resolveWorkspaceDocPermission({ ...member, membershipRole: "member" });
+  assert.deepEqual([plain.canEdit, plain.canPublish], [true, true]);
+});

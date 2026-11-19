@@ -7901,6 +7901,26 @@
       "status": "live",
       "test": "tests/unit/workflow-rules.test.ts (suggestions); tests/db/workflow-catalog.test.ts (W8 push/unpush, W9 add-on-create); tests/browser/workflow-org.spec.ts (chromium+webkit)",
       "evidence": "cf6862642 live 2026-11-19; checked in Chrome: existing workspace, org Settings and the wizard unchanged with the switch off; test org (switch on) shows Workflows for workspaces with 'No workflow is ready yet'; a pushed Bugs row (seeded) shows in the child as a locked tab 'Added by wt-test-a0-3-org' and a Locked Settings row without Remove; the real wizard inside that org shows Bugs ticked, locked, 'Set by wt-test-a0-3-org' (not created; draft deleted); test org and child deleted; logs clean"
+    },
+    {
+      "key": "38.3.call10",
+      "section": "38.3",
+      "text": "Correction (A0.4, 2026-11-19): no section index migration: a workspace's documents already load together, so the index would never be used. Section, kind and da",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.3.call11",
+      "section": "38.3",
+      "text": "Found while building A0.4: viewers could edit and publish documents whose edit policy is \"members\" (the shared document permission counted them as members). Fix",
+      "kind": "call",
+      "milestone": "A0",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

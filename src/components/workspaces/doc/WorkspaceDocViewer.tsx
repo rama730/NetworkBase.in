@@ -20,6 +20,9 @@ import { decodeReadmeHashTarget } from "@/lib/workspaces/doc-navigation";
 import { buildWorkspaceDocViewModel } from "@/lib/workspaces/doc-view-model";
 import { WorkspaceDocRail, WorkspaceDocMobileBar, useDocRail } from "@/components/workspaces/doc/WorkspaceDocRail";
 import { OrgDocHeader, uploadWorkspaceFile, useOrgDocs } from "@/components/organizations/OrgDocParts";
+import { MoveToSectionMenu } from "@/components/workspaces/doc/MoveToSectionMenu";
+import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
+import { docSectionOf } from "@/lib/workspaces/doc-sections";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
 import { useMainProtected, useSaveToBranch } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import type { Workspace } from "@/types/discover";
@@ -179,6 +182,7 @@ export function WorkspaceDocViewer({
     const orgDocs = useOrgDocs(project.id).data;
     const orgDoc = !inPlaceBanner && orgDocs?.mode === "org" ? orgDocs.docs.find((doc) => doc.slug === normalizedDocSlug) : undefined;
     const listed = rail.docs.find((doc) => doc.slug === normalizedDocSlug);
+    const addedWorkflows = useAddedWorkflows();
     const title = docTitle(orgDoc?.filename ?? listed?.filename ?? "");
     const fileHref = payload.linkedNode ? `/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}` : null;
     
@@ -371,8 +375,9 @@ export function WorkspaceDocViewer({
                         <OrgDocHeader data={orgDocs} doc={orgDoc} updatedBy={version?.createdByName ?? null} updatedAt={version?.createdAt ?? null}
                             editHref={payload.canEdit ? fileHref : null} onRemove={payload.canEdit && listed ? () => rail.askRemove(listed) : null} visibility={payload.settings.visibilityOverride} />
                     ) : payload.canEdit ? (
-                        <div className="mb-3 flex justify-end">
+                        <div className="mb-3 flex items-center justify-end gap-1">
                             <DocEditButton projectId={project.id} docSlug={normalizedDocSlug} filename={listed?.filename ?? "README.md"} content={readmeContent} fileHref={fileHref} />
+                            {listed ? <MoveToSectionMenu projectId={project.id} docSlug={normalizedDocSlug} current={docSectionOf(listed, addedWorkflows)} date={listed.date} /> : null}
                         </div>
                     ) : null}
                     {renderer}

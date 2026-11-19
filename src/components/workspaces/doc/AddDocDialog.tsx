@@ -1,5 +1,6 @@
 "use client";
 
+import type { DocSection } from "@/lib/workspaces/doc-sections";
 import { useMemo, useState } from "react";
 import { Check, FileText, Loader2 } from "lucide-react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,10 +24,13 @@ export function AddDocDialog({
     projectId,
     open,
     onOpenChange,
+    section,
 }: {
     projectId: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** Report 38.3 S1: opened from a rail section's +, the new or picked document lands in that section. */
+    section?: DocSection | null;
 }) {
     const router = useRouter();
     const pathname = usePathname();
@@ -41,6 +45,13 @@ export function AddDocDialog({
     const [title, setTitle] = useState("");
     const [creating, setCreating] = useState<string | null>(null);
 
+    const placeInSection = async (docSlug: string) => {
+        if (!section || section === "pages") return;
+        const { moveDocToSectionAction } = await import("@/app/actions/workspace/doc");
+        const moved = await moveDocToSectionAction(projectId, { docSlug, section });
+        if (!moved.success) toast.warning(`Added to Pages. ${moved.error}`);
+    };
+
     /** New doc (report §19.3) and org template copies (§19.7): a Markdown file in Docs, opened in the editor. */
     const createDoc = async (key: string, make: () => Promise<{ filename: string; content: string }>) => {
         if (creating) return;
@@ -48,6 +59,7 @@ export function AddDocDialog({
         try {
             const { filename, content } = await make();
             const created = await createDocFile(projectId, filename, content);
+            await placeInSection(created.slug);
             if (org?.mode === "org") {
                 const { updateOrgDocOptionsAction } = await import("@/app/actions/org-docs");
                 await updateOrgDocOptionsAction(org.orgId, created.id, { visibility: "members_only" });
@@ -107,6 +119,7 @@ export function AddDocDialog({
                 toast.error(feedbackError(result.error, "Action couldn’t finish"));
                 return;
             }
+            await placeInSection(result.slug);
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),
                 queryClient.invalidateQueries({ queryKey: WORKSPACE_DOCS_QUERY_KEY(projectId) }),

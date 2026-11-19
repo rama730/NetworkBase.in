@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Loader2, Plus, X } from "lucide-react";
+import { ChevronDown, FileText, Loader2, Plus, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast } from "@/lib/feedback";
@@ -18,6 +18,27 @@ import {
 import { cn } from "@/lib/utils";
 import { FromOrgDocs, OrgDocChips, useOrgDocs } from "@/components/organizations/OrgDocParts";
 import { docTitle } from "@/lib/organizations/doc-rules";
+import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
+import { railSections, type DocSection } from "@/lib/workspaces/doc-sections";
+
+const EMPTY_LINE: Record<DocSection, string> = {
+    pages: "+ New page", meetings: "+ New meeting", decisions: "+ Record a decision", launches: "+ New launch",
+    goals: "+ New goals document", ideas: "+ New idea list", offsite: "+ Plan an off-site",
+};
+
+/** Collapsed rail sections, remembered per person in this browser (S1); works without storage too. */
+function useCollapsedSections(projectId: string): [DocSection[], (id: DocSection) => void] {
+    const key = `nb:doc-sections-collapsed:${projectId}`;
+    const [collapsed, setState] = useState<DocSection[]>(() => {
+        try { return typeof window === "undefined" ? [] : JSON.parse(window.localStorage.getItem(key) ?? "[]"); } catch { return []; }
+    });
+    const toggle = (id: DocSection) => setState((current) => {
+        const next = current.includes(id) ? current.filter((c) => c !== id) : [...current, id];
+        try { window.localStorage.setItem(key, JSON.stringify(next)); } catch { /* storage off: still works for this visit */ }
+        return next;
+    });
+    return [collapsed, toggle];
+}
 
 const ACTIVE_ITEM = "border-foreground/20 bg-muted text-foreground font-semibold";
 const IDLE_ITEM = "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/40";
@@ -26,7 +47,8 @@ export type DocRailState = {
     docs: WorkspaceDocListItem[];
     isLoading: boolean;
     navigate: (slug: string | null, replace?: boolean) => void;
-    openAdd: () => void;
+    /** Add document; from a rail section's + it lands in that section (report 38.3 S1). */
+    openAdd: (section?: DocSection) => void;
     askRemove: (doc: WorkspaceDocListItem | null) => void;
     dialogs: React.JSX.Element;
 };
@@ -39,6 +61,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     const queryClient = useQueryClient();
     const { data: docs = [], isLoading } = useWorkspaceDocList(projectId);
     const [addOpen, setAddOpen] = useState(false);
+    const [addSection, setAddSection] = useState<DocSection | null>(null);
     const [removing, setRemoving] = useState<WorkspaceDocListItem | null>(null);
 
     // Opening a doc is a history entry; leaving a removed doc replaces it.
@@ -66,7 +89,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
 
     const dialogs = (
         <>
-            <AddDocDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
+            <AddDocDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} section={addSection} />
             <ConfirmDialog
                 open={removing !== null}
                 onOpenChange={(open) => !open && setRemoving(null)}
@@ -79,7 +102,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
         </>
     );
 
-    return { docs, isLoading, navigate, openAdd: () => setAddOpen(true), askRemove: setRemoving, dialogs };
+    return { docs, isLoading, navigate, openAdd: (section?: DocSection) => { setAddSection(section ?? null); setAddOpen(true); }, askRemove: setRemoving, dialogs };
 }
 
 function AddDocButton({ onClick, className }: { onClick: () => void; className?: string }) {
@@ -115,12 +138,18 @@ export function WorkspaceDocRail({
     // Org docs (report §19): groups, labels, the From <org> section and admin options.
     const org = useOrgDocs(projectId).data ?? null;
     const orgById = new Map((org?.docs ?? []).map((doc) => [doc.id, doc]));
+    // Report 38.3 S1: a workspace's sections once a document workflow is added; organizations keep their groups.
+    const added = useAddedWorkflows();
+    const sections = org?.mode === "org" ? [] : railSections(rail.docs, added);
+    const [collapsed, setCollapsed] = useCollapsedSections(projectId);
     const grouped = org?.mode === "org"
         ? [
-            ...org.groups.map((group) => ({ name: group.name, docs: rail.docs.filter((doc) => orgById.get(doc.id)?.group === group.id) })),
-            { name: "Other", docs: rail.docs.filter((doc) => !orgById.has(doc.id)) },
+            ...org.groups.map((group) => ({ id: null as DocSection | null, name: group.name, docs: rail.docs.filter((doc) => orgById.get(doc.id)?.group === group.id).map((doc) => ({ ...doc, prefix: null as string | null })) })),
+            { id: null as DocSection | null, name: "Other", docs: rail.docs.filter((doc) => !orgById.has(doc.id)).map((doc) => ({ ...doc, prefix: null as string | null })) },
         ].filter((section) => section.docs.length > 0)
-        : [{ name: null as string | null, docs: rail.docs }];
+        : sections.length
+            ? sections.map((section) => ({ id: section.id as DocSection | null, name: section.label as string | null, docs: section.docs }))
+            : [{ id: null as DocSection | null, name: null as string | null, docs: rail.docs.map((doc) => ({ ...doc, prefix: null as string | null })) }];
 
     return (
         <aside className="hidden w-full xl:block xl:w-[260px] shrink-0 border-l border-border pl-6" aria-label="Workspace documents">
@@ -137,7 +166,7 @@ export function WorkspaceDocRail({
                                 {rail.docs.length}
                             </span>
                         )}
-                        {canEdit ? <AddDocButton onClick={rail.openAdd} className="size-6" /> : null}
+                        {canEdit ? <AddDocButton onClick={() => rail.openAdd()} className="size-6" /> : null}
                     </span>
                 </div>
 
@@ -149,8 +178,28 @@ export function WorkspaceDocRail({
                         </div>
                     ) : (
                         grouped.map((section) => [
-                            section.name ? <p key={`group:${section.name}`} className="px-1 pt-2 text-[11px] text-muted-foreground">{section.name}</p> : null,
-                            ...section.docs.map((doc) => {
+                            section.id ? (
+                                <div key={`section:${section.id}`} className="flex items-center gap-1 pt-2" data-testid={`doc-section-${section.id}`}>
+                                    <button type="button" aria-expanded={!collapsed.includes(section.id)} onClick={() => setCollapsed(section.id!)}
+                                        className="flex min-w-0 flex-1 items-center gap-1 px-1 text-left text-[11px] text-muted-foreground hover:text-foreground">
+                                        <ChevronDown aria-hidden="true" className={cn("size-3 transition-transform duration-[180ms]", collapsed.includes(section.id) && "-rotate-90")} />
+                                        <span className="truncate">{section.name}</span>
+                                        <span className="font-mono text-[10px]">{section.docs.length}</span>
+                                    </button>
+                                    {canEdit ? (
+                                        <button type="button" onClick={() => rail.openAdd(section.id!)} aria-label={`Add to ${section.name}`} title={`Add to ${section.name}`}
+                                            className="nb-touch-target inline-flex size-5 items-center justify-center rounded-[4px] text-muted-foreground hover:bg-muted hover:text-foreground">
+                                            <Plus className="size-3" />
+                                        </button>
+                                    ) : null}
+                                </div>
+                            ) : section.name ? <p key={`group:${section.name}`} className="px-1 pt-2 text-[11px] text-muted-foreground">{section.name}</p> : null,
+                            section.id && canEdit && section.docs.length === 0 && !collapsed.includes(section.id) ? (
+                                <button key={`empty:${section.id}`} type="button" onClick={() => rail.openAdd(section.id!)} className="block w-full px-1 py-1 text-left text-[12px] text-muted-foreground hover:text-foreground">
+                                    {EMPTY_LINE[section.id]}
+                                </button>
+                            ) : null,
+                            ...(section.id && collapsed.includes(section.id) ? [] : section.docs).map((doc) => {
                             const isActive = doc.slug === activeSlug;
                             return (
                                 <div key={doc.id} className="group relative">
@@ -165,7 +214,7 @@ export function WorkspaceDocRail({
                                         )}
                                     >
                                         <FileText className={cn("size-3.5 shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} />
-                                        <span className="min-w-0 flex-1 truncate">{docTitle(doc.filename)}</span>
+                                        <span className="min-w-0 flex-1 truncate">{doc.prefix ? <span className="font-mono text-[11px] text-muted-foreground">{doc.prefix} · </span> : null}{docTitle(doc.filename)}</span>
                                         <OrgDocChips item={org?.mode === "org" ? orgById.get(doc.id) : undefined} />
                                     </button>
                                     {canEdit ? (
@@ -207,12 +256,27 @@ export function WorkspaceDocMobileBar({
     const internalRail = useDocRail(projectId, activeSlug);
     const rail = passedRail ?? internalRail;
     const org = useOrgDocs(projectId).data ?? null;
+    // Report 38.3 W11: on phones the sections become a Section menu over the chips.
+    const added = useAddedWorkflows();
+    const sections = org?.mode === "org" ? [] : railSections(rail.docs, added);
+    const activeSection = sections.find((section) => section.docs.some((doc) => doc.slug === activeSlug))?.id ?? "pages";
+    const [picked, setPicked] = useState<DocSection | null>(null);
+    const shownSection = picked ?? activeSection;
+    const chips = sections.length ? sections.find((section) => section.id === shownSection)?.docs ?? [] : rail.docs;
     const fromOrg = org?.mode === "child" ? <div className="mb-6 xl:hidden"><FromOrgDocs data={org} activeSlug={activeSlug} /></div> : null;
 
     if (rail.docs.length <= 1 && !rail.isLoading && !canEdit) return fromOrg;
 
     return (
         <>
+        {sections.length ? (
+            <label className="mb-2 flex items-center gap-2 text-[12px] text-muted-foreground xl:hidden">
+                Section
+                <select className="nb-select" data-size="sm" value={shownSection} onChange={(event) => setPicked(event.target.value as DocSection)} data-testid="doc-section-menu">
+                    {sections.map((section) => <option key={section.id} value={section.id}>{section.label} ({section.docs.length})</option>)}
+                </select>
+            </label>
+        ) : null}
         <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border pb-4 xl:hidden max-md:flex-nowrap max-md:overflow-x-auto max-md:snap-x">
             {rail.isLoading ? (
                 <div className="flex h-[32px] items-center justify-center px-3 text-muted-foreground text-xs gap-1.5 shrink-0">
@@ -220,7 +284,7 @@ export function WorkspaceDocMobileBar({
                     Loading documents…
                 </div>
             ) : (
-                rail.docs.map((doc) => {
+                chips.map((doc) => {
                     const isActive = doc.slug === activeSlug;
                     return (
                         <button
@@ -241,7 +305,7 @@ export function WorkspaceDocMobileBar({
                 })
             )}
             {canEdit ? (
-                <AddDocButton onClick={rail.openAdd} className="nb-touch-target h-[32px] w-[32px] shrink-0" />
+                <AddDocButton onClick={() => rail.openAdd(sections.length ? shownSection : undefined)} className="nb-touch-target h-[32px] w-[32px] shrink-0" />
             ) : null}
         </div>
         {fromOrg}

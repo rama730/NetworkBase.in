@@ -10,6 +10,7 @@ import { z } from "zod";
 import { readWorkspaceFileText } from "@/lib/files/content-reader";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
+import { availableSections, DOC_SECTIONS, sectionHasDate, type DocSection } from "@/lib/workspaces/doc-sections";
 import {
     profiles,
     workspaceMembers,
@@ -242,7 +243,8 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
         if (!permission.canEdit && project.kind === "organization" && readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).lifecycle === "draft") continue;
         if (!permission.canEdit && !membership && !isOwner && doc.empty && (project.kind === "organization" || project.parentId)) continue;
         if (permission.canReadPublished || permission.canEdit) {
-            results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId });
+            const { section, kind, date } = normalizeWorkspaceDocSettings(doc.settings);
+            results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId, ...(section ? { section } : {}), ...(kind ? { kind } : {}), ...(date ? { date } : {}) });
         }
     }
     return results.sort((a, b) => {
@@ -977,6 +979,48 @@ export async function updateWorkspaceDocSettingsAction(projectId: string, input:
             error: error instanceof Error ? error.message : String(error),
         });
         return { success: false as const, error: "Couldn’t update document settings." };
+    }
+}
+
+const moveToSectionSchema = z.object({
+    docSlug: docSlugSchema,
+    section: z.enum(DOC_SECTIONS.map((s) => s.id) as [DocSection, ...DocSection[]]),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    kind: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional(),
+});
+
+/**
+ * Report 38.3 W2, S2: Move to section. Only sections whose workflow is added (or Pages); Meetings and Launches carry a
+ * date (the document's creation date unless given). Settings only, so no version is written (call 7).
+ */
+export async function moveDocToSectionAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const parsed = moveToSectionSchema.parse(input);
+        const context = await getDocProjectContext(projectId, userId, parsed.docSlug);
+        if (!context.permission.canEdit) return { success: false as const, error: "Only people who can edit this document can move it." };
+        const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+        const added = (await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow);
+        if (!availableSections(added).includes(parsed.section)) return { success: false as const, error: "That section isn’t in this workspace." };
+        const readme = await db.query.workspaceDocuments.findFirst({
+            where: and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, normalizeWorkspaceDocSlug(parsed.docSlug))),
+            columns: { id: true, createdAt: true },
+        });
+        if (!readme) return { success: false as const, error: "That document isn’t here any more." };
+        const { section: _section, kind: _kind, date: _date, ...rest } = context.settings;
+        const placed = parsed.section === "pages" ? {} : {
+            section: parsed.section,
+            ...(parsed.kind ? { kind: parsed.kind } : {}),
+            ...(sectionHasDate(parsed.section) ? { date: parsed.date ?? readme.createdAt.toISOString().slice(0, 10) } : {}),
+        };
+        const nextSettings = normalizeWorkspaceDocSettings({ ...rest, ...placed });
+        await db.update(workspaceDocuments).set({ settings: nextSettings, updatedAt: new Date() }).where(eq(workspaceDocuments.id, readme.id));
+        await recordNodeEvent(projectId, userId, null, "project_readme.section_moved", { docSlug: parsed.docSlug, section: parsed.section });
+        revalidateProjectDoc(context.project);
+        return { success: true as const, section: parsed.section, date: nextSettings.date ?? null };
+    } catch (error) {
+        logger.error("project_readme.section_move_failed", { module: "projects", projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t move the document." };
     }
 }
 

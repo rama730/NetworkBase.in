@@ -5,6 +5,7 @@ import { evaluateWorkspaceDocQuality } from "@/lib/workspaces/doc-quality";
 import { parseWorkspaceDocSmartBlocks, type WorkspaceDocSmartBlock } from "@/lib/workspaces/doc-blocks";
 import { buildWorkspaceDocPlainText } from "@/lib/workspaces/doc-plain-text";
 import { extractWorkspaceDocHeadings, type WorkspaceDocHeading } from "@/lib/workspaces/doc-headings";
+import { isDocSection, type DocSection } from "@/lib/workspaces/doc-sections";
 
 export { buildWorkspaceDocPlainText, decodeWorkspaceDocHtmlEntities } from "@/lib/workspaces/doc-plain-text";
 export { extractWorkspaceDocHeadings, slugifyReadmeHeading, type WorkspaceDocHeading } from "@/lib/workspaces/doc-headings";
@@ -19,6 +20,7 @@ export type WorkspaceDocEditPolicy = "leaders" | "members";
 export type WorkspaceDocPublicVisibility = "inherit_workspace";
 export type WorkspaceDocVisibilityOverride = "inherit_workspace" | "public" | "members_only" | "leaders_only";
 
+
 export type WorkspaceDocSettings = {
     version: 1;
     editPolicy: WorkspaceDocEditPolicy;
@@ -28,6 +30,10 @@ export type WorkspaceDocSettings = {
     projectBlocks: boolean;
     /** Org docs only (report §19): group, Required, Template, Show in child projects, re-read version. */
     org?: Record<string, unknown>;
+    /** Report 38.3 F2: the rail section (src/lib/workspaces/doc-sections.ts), a kind and a date; no version is written. */
+    section?: DocSection;
+    kind?: string;
+    date?: string;
 };
 
 export type WorkspaceDocQualityIssue = {
@@ -72,7 +78,7 @@ export type WorkspaceDocVersion = {
     deletedAt: string | null;
 };
 
-export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null };
+export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null; section?: DocSection; kind?: string; date?: string };
 
 export type WorkspaceDocPublishedPayload = {
     projectId: string;
@@ -112,6 +118,10 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         externalImages: typeof source.externalImages === "boolean" ? source.externalImages : DEFAULT_WORKSPACE_DOC_SETTINGS.externalImages,
         projectBlocks: typeof source.projectBlocks === "boolean" ? source.projectBlocks : DEFAULT_WORKSPACE_DOC_SETTINGS.projectBlocks,
         ...(source.org && typeof source.org === "object" ? { org: source.org } : {}),
+        // Kept through every settings save, or a move to a section would be undone by the next one (report 38.3).
+        ...(isDocSection(source.section) ? { section: source.section } : {}),
+        ...(typeof source.kind === "string" && /^[a-z0-9_-]{1,40}$/.test(source.kind) ? { kind: source.kind } : {}),
+        ...(typeof source.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.date) ? { date: source.date } : {}),
     };
 }
 
@@ -280,7 +290,8 @@ export function resolveWorkspaceDocPermission(input: {
     }
 
     const isLeader = isOwner || isCoLeader;
-    const canReadDraft = isLeader || (isMember && settings.editPolicy === "members" && override !== "leaders_only");
+    // Viewers read; they never edit, even where members may (a viewer could edit and publish before, found in A0.4).
+    const canReadDraft = isLeader || (isMember && role !== "viewer" && settings.editPolicy === "members" && override !== "leaders_only");
     const canEdit = canReadDraft;
     const canPublish = canEdit;
     const canManageSettings = isLeader;

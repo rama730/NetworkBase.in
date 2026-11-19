@@ -8,7 +8,7 @@ import { toast, feedbackError } from "@/lib/feedback";
 import { Loader2, Lock } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AddWorkflowDialog } from '@/components/workspaces/workflows/AddWorkflowDialog';
-import { useWorkspaceWorkflows } from '@/components/workspaces/workflows/useWorkspaceWorkflows';
+import { AddedWorkflowsContext, useWorkspaceWorkflows } from '@/components/workspaces/workflows/useWorkspaceWorkflows';
 import { workflowTabsFor } from '@/components/workspaces/workflows/workflow-icons';
 import type { WorkspaceWorkflows } from '@/lib/workflows/rules';
 import dynamic from 'next/dynamic';
@@ -370,6 +370,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const [isAddWorkflowOpen, setIsAddWorkflowOpen] = useState(false);
     // Report 38.2 S1: own tabs from added workflows, in catalog order, after the default tabs.
     const workflowTabs = useMemo(() => workflowTabsFor(workflows.added), [workflows.added]);
+    const addedWorkflowIds = useMemo(() => workflows.added.map((w) => w.workflow), [workflows.added]);
     const workflowTabLabel = workflowTabs.find((tab) => tab.id === activeTab)?.label;
     useEffect(() => {
         if (workflowTabLabel) document.title = `${workflowTabLabel} · ${project.title} · NetworkBase`;
@@ -1175,6 +1176,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     return (
         <PlainContentHeadings>
         {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)} /> : null}
+        <AddedWorkflowsContext.Provider value={addedWorkflowIds}>
         <WorkspaceLayout workflowTabs={workflowTabs} onAddWorkflow={workflows.enabled && workflows.canManage ? () => setIsAddWorkflowOpen(true) : undefined} lastUpdateStarted={started?.lastUpdate} project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={canSeeAllTabs} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => (isOrganization ? setIsOrgInviteOpen(true) : setIsInviteModalOpen(true))} canInvite={canManageProjectSettings}
             isOrganization={isOrganization}
             canOpenSettings={isInheritedAdmin}
@@ -1379,6 +1381,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 />
             )}
         </WorkspaceLayout>
+        </AddedWorkflowsContext.Provider>
         </PlainContentHeadings>
     );
 }
