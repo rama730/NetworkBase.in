@@ -110,3 +110,17 @@ test("W12: a public reader with Tasks private sees the count only; with Tasks pu
   const open = await rows(t.ws);
   assert.deepEqual([open.rows.length, open.rows[0]!.assignee, open.rows[0]!.canTick], [1, null, false]);
 });
+
+test("Organizations: a member sees only their own rows (others' copies are counted, never shown); detaching others' is refused", async () => {
+  const t = await meeting("members");
+  await sql`UPDATE workspaces SET kind = 'organization' WHERE id = ${t.ws}`;
+  viewerId = t.owner;
+  await docs.addDocRowAction(t.ws, { docSlug: "weekly", blockKey: "k7f3", title: "Mine", assigneeId: t.member });
+  await docs.addDocRowAction(t.ws, { docSlug: "weekly", blockKey: "k7f3", title: "Owner's", assigneeId: t.owner });
+  assert.deepEqual((await rows(t.ws)).rows.map((r) => r.title), ["Mine", "Owner's"], "admins see every row");
+  viewerId = t.member;
+  const asMember = await rows(t.ws);
+  assert.deepEqual([asMember.rows.map((r) => r.title), asMember.hidden], [["Mine"], 1]);
+  const [others] = await sql`SELECT id FROM tasks WHERE title = 'Owner''s' AND workspace_id = ${t.ws}`;
+  assert.match(errorOf(await docs.detachDocRowAction(t.ws, { docSlug: "weekly", taskId: others!.id })), /isn’t in this list/);
+});

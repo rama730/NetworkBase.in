@@ -3,7 +3,8 @@
 import { docTitle, isEmptyDoc, readOrgDocOptions } from "@/lib/organizations/doc-rules";
 import { linkedFileEditor } from "@/lib/workspaces/doc-linked-editor";
 import { orgLimitBlock } from "@/lib/organizations/limits";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { orgTaskReadFilter } from "@/lib/organizations/assignments";
+import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
@@ -1234,8 +1235,10 @@ export type DocRow = {
     position: number | null; itemType: string; assignee: { id: string; name: string | null; avatarUrl: string | null } | null; canTick: boolean;
 };
 
-async function blockRows(docId: string, blockKey: string) {
+/** A block's rows in order; `visible` applies the organization's task read rule (others' copies) when one is given. */
+async function blockRows(docId: string, blockKey: string, readFilter?: SQL) {
     return db.select({
+        visible: readFilter ? sql<boolean>`coalesce((${readFilter}), false)` : sql<boolean>`true`,
         id: tasks.id, number: tasks.taskNumber, title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus,
         dueDate: tasks.dueDate, completedAt: tasks.completedAt, position: tasks.sourcePosition, itemType: tasks.itemType,
         assigneeId: tasks.assigneeId, assigneeName: profiles.fullName, assigneeAvatar: profiles.avatarUrl,
@@ -1255,8 +1258,10 @@ export async function readDocRowsAction(projectId: string, docSlug: string, bloc
         const role = actor === context.project.ownerId ? "owner" : context.membership?.role ?? null;
         const leader = role === "owner" || role === "admin";
         const canSeeTasks = insider || normalizeWorkspacePublicTabVisibility(context.project.publicTabVisibility).tasks;
-        const all = await blockRows(context.readme.id, key);
-        const { rows, hidden } = visibleRows(all, { canSeeTasks });
+        const all = await blockRows(context.readme.id, key, orgTaskReadFilter(await getWorkspaceAccessById(projectId, actor), actor));
+        const readable = all.filter((r) => r.visible);
+        const { rows, hidden: tabHidden } = visibleRows(readable, { canSeeTasks });
+        const hidden = tabHidden + all.length - readable.length;
         return {
             success: true as const, hidden, canAdd: canAddRows(context.permission), canSeeTasks,
             rows: rows.map((r): DocRow => ({
@@ -1315,7 +1320,8 @@ async function editableRow(projectId: string, userId: string, input: unknown) {
     if (!context.readme) throw new Error("That document isn’t here any more.");
     if (!canAddRows(context.permission)) throw new Error("Only people who can edit this document change its lists.");
     const [row] = await db.select({ id: tasks.id, block: tasks.sourceBlock, position: tasks.sourcePosition }).from(tasks)
-        .where(and(eq(tasks.id, data.taskId), eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt))).limit(1);
+        .where(and(eq(tasks.id, data.taskId), eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt),
+            orgTaskReadFilter(await getWorkspaceAccessById(projectId, userId), userId))).limit(1);
     if (!row?.block) throw new Error("That item isn’t in this list.");
     return { docId: context.readme.id, row: row as { id: string; block: string; position: number | null } };
 }
