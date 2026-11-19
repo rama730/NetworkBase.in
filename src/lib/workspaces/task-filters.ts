@@ -49,11 +49,12 @@ export function matchesFilters(task: FilterableTask, f: TaskFilters, viewerId: s
   if (f.due) {
     if (f.due === "none") return !task.dueDate;
     if (!task.dueDate) return false;
-    const due = dayKey(new Date(task.dueDate), tz);
+    // A due date is a calendar day stored at UTC midnight (taskDueDateKey); today is the viewer's own day.
+    const due = new Date(task.dueDate).toISOString().slice(0, 10);
     const today = dayKey(now, tz);
     if (f.due === "overdue") return due < today && task.status !== "done";
     if (f.due === "today") return due === today;
-    const end = dayKey(new Date(now.getTime() + 6 * 86_400_000), tz);
+    const end = new Date(Date.parse(`${today}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
     return due >= today && due <= end;
   }
   return true;

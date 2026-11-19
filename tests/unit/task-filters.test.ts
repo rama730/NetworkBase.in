@@ -36,3 +36,10 @@ test("chip text and Clear all count", () => {
   assert.equal(chipValue([]), null);
   assert.equal(setCount({ ...EMPTY_FILTERS, assignee: ["me"], due: "today" }), 2);
 });
+
+test("due dates are calendar days stored at UTC midnight: west of UTC a task due today is still today", () => {
+  const now = new Date("2026-11-20T15:00:00Z"); // 10:00 in New York
+  const task = { assigneeId: ME, dueDate: "2026-11-20T00:00:00.000Z", status: "todo", priority: "medium" };
+  assert.equal(matchesFilters(task, { ...EMPTY_FILTERS, due: "today" }, ME, now, "America/New_York"), true);
+  assert.equal(matchesFilters(task, { ...EMPTY_FILTERS, due: "overdue" }, ME, now, "America/New_York"), false);
+});
