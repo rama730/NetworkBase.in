@@ -758,8 +758,8 @@ export default function DetailsTab({
             </DropdownMenu>
           </div>}
 
-          {/* Section Dropdown */}
-          {!master && workflowColumns && workflowColumns.length > 0 ? (
+          {/* Section Dropdown: a board column, so not for an item off the board (report 38.2: a bug at New or Confirmed). */}
+          {!master && task.onBoard !== false && workflowColumns && workflowColumns.length > 0 ? (
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
                 <FolderPlus className="size-3 text-muted-foreground" />
