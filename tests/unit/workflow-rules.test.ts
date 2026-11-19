@@ -134,3 +134,12 @@ test("wizard suggestions: section 6 in order, built ones only, the first ticked 
     bugs.built = planner.built = roadmap.built = false;
   }
 });
+
+test("boardMove: a project (no join stage) keeps a fitting stage, else takes the status's first stage", () => {
+  assert.deepEqual(boardMove("project", "paused", "in_progress", false), { stage: "paused", status: "in_progress", review: false });
+  assert.deepEqual(boardMove("project", "in_progress", "todo", false), { stage: "not_started", status: "todo", review: false });
+  assert.deepEqual(boardMove("project", "completed", "in_progress", false), { stage: "planning", status: "in_progress", review: false });
+  assert.deepEqual(boardMove("project", "planning", "done", false), { stage: "completed", status: "done", review: false });
+  assert.deepEqual(boardMove("project", "planning", "done", true), { stage: "planning", status: "done", review: true });
+  assert.deepEqual(boardMove("project", "planning", "blocked", false), { stage: "planning", status: "blocked", review: false });
+});

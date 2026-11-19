@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { addedTypes, footerLine, moduleTabs, sectionsFor, sprintApplies, startingStages, typeFieldsSchema } from "../../src/lib/workflows/create-rules";
+import { addedTypes, footerLine, newMenuLine, moduleTabs, sectionsFor, sprintApplies, startingStages, typeFieldsSchema } from "../../src/lib/workflows/create-rules";
 import { defaultStageFor } from "../../src/lib/workflows/rules";
 
 // Report 38.4 F3 part 7 (plan A0.8): the New module's tabs, starting stages, footer line and renamed labels.
@@ -37,4 +37,9 @@ test("typeFieldsSchema: types without fields yet accept nothing extra, naming th
   const bad = typeFieldsSchema("bug").safeParse({ severity: "high" });
   assert.equal(bad.success, false);
   assert.match(JSON.stringify(bad.error?.issues), /severity/);
+});
+
+test("newMenuLine: a type that joins the board names its stage; a project names its own tab (A1.3 live crash)", () => {
+  assert.equal(newMenuLine("bug"), "Joins Tasks at Fixing");
+  assert.equal(newMenuLine("project"), "Shows in Projects");
 });

@@ -429,7 +429,7 @@ export async function workflows(ctx) {
     if (!r.enabled || !r.workflows.length) return "No workflows here yet · owners and admins add them in the app (+ Add workflow)";
     return r.workflows.flatMap((/** @type {any} */ w) => [
       `  ${safe(w.name)}${w.locked ? ctx.out.c.muted(` · added by ${safe(w.addedBy ?? "the organization")}`) : ""}`,
-      ...w.types.map((/** @type {any} */ t) => ctx.out.c.muted(`    --type ${t.id}: ${t.stages.map((/** @type {any} */ s) => (s.onBoard ? s.key : `${s.key}*`)).join(", ")} (joins the board at ${t.joinsAt}; * off the board)`)),
+      ...w.types.map((/** @type {any} */ t) => ctx.out.c.muted(`    --type ${t.id}: ${t.stages.map((/** @type {any} */ s) => (s.onBoard ? s.key : `${s.key}*`)).join(", ")} (${t.joinsAt ? `joins the board at ${t.joinsAt}` : "never on the board"}; * off the board)`)),
     ]);
   });
 }

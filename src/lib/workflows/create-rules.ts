@@ -43,6 +43,12 @@ export function footerLine(type: string, stage: string | null, sprintAllowed: bo
   return `Joins Tasks at ${label} · also shows in ${tab}${sprintAllowed ? "" : " · Goes to the Backlog"}`;
 }
 
+/** The New ▾ menu's muted line under a type: where it joins the board, or the tab it lives in (a project). */
+export function newMenuLine(type: string) {
+  const t = workflowType(type);
+  return t.joinStage ? `Joins Tasks at ${t.stages.find((s) => s.key === t.joinStage)!.label}` : `Shows in ${ownTabName(type)}`;
+}
+
 /** Labels and sections a type changes (28.11): Request's due is Need by, Content's is Publish date. */
 export function sectionsFor(type: string) {
   // A project has a start and an end (38.5 part 5).

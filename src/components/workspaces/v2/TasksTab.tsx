@@ -9,14 +9,14 @@ import { TeamTaskDialog } from "@/components/organizations/TeamTaskDialog";
 import { Plus, Check, Search, X, MoreHorizontal, Laptop, ChevronDown } from "lucide-react";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { workflowIcon } from "@/components/workspaces/workflows/workflow-icons";
-import { addedTypes } from "@/lib/workflows/create-rules";
+import { addedTypes, newMenuLine } from "@/lib/workflows/create-rules";
 import { FilterChipRow, type FilterChip } from "@/components/ui/FilterChipRow";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { TasksCalendar } from "@/components/workspaces/v2/tasks/TasksCalendar";
 import { TasksMatrix } from "@/components/workspaces/v2/tasks/TasksMatrix";
 import { ProjectsList } from "@/components/workspaces/v2/tasks/PlannerParts";
 import { EMPTY_FILTERS, filtersFromUrl, filtersToUrl, matchesFilters, setCount, type DueFilter, type TaskFilters as ChipFilters } from "@/lib/workspaces/task-filters";
-import { stageOf, workflowType } from "@/lib/workflows/types";
+import { workflowType } from "@/lib/workflows/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1034,7 +1034,7 @@ export default function TasksTab({
                       return (
                         <DropdownMenuItem key={type} onSelect={() => openCreate(type)}>
                           <Icon className="size-4" aria-hidden="true" />
-                          <span className="flex flex-col"><span className="text-[13px] font-medium">{t.label}</span><span className="text-[11px] text-muted-foreground">Joins Tasks at {stageOf(type, t.joinStage!).label}</span></span>
+                          <span className="flex flex-col"><span className="text-[13px] font-medium">{t.label}</span><span className="text-[11px] text-muted-foreground">{newMenuLine(type)}</span></span>
                         </DropdownMenuItem>
                       );
                     })}

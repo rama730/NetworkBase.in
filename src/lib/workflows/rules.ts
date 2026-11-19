@@ -33,6 +33,12 @@ export function boardMove(type: string, stage: string | null, toStatus: TaskStat
   if (!t.stages.length || !stage) return { stage: null, status: toStatus, review };
   const current = stageOf(type, stage);
   const to = (next: string | null) => ({ stage: next, status: toStatus, review });
+  // A type never on the board (a project): keep the stage when the status already fits (or it waits for review),
+  // else the status's first stage; done takes the done stage.
+  if (!t.joinStage) {
+    if (toStatus === "done") return to(review || current.status === "done" ? stage : t.doneStage);
+    return to(toStatus === "blocked" || current.status === toStatus ? stage : t.stages.find((x) => x.status === toStatus && !x.closing)?.key ?? stage);
+  }
   if (toStatus === "done") return to(review ? reviewStage(type, stage) : current.status === "done" ? stage : t.doneStage);
   if (current.status === "done") return to(t.joinStage);
   if (current.onBoard) return to(stage);
