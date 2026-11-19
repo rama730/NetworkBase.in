@@ -118,9 +118,9 @@
       "text": "A1.1 Calendar view — Goal: every workspace sees items on their due days. Build: Tasks view switch (Board · Calendar · Matrix), shared Calendar part (calendarCel",
       "kind": "unit",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/tasks-calendar.spec.ts",
+      "evidence": "LIVE 2026-11-20 490095dad (pushed da214b383) + 0c0941e68 (title). Chrome on wt-test-a1-1 (deleted): Board · Calendar switch, items on Nov 20/26, No date tray WT-3, drag WT-2 26 -> 27 stored 2026-11-27T00:00Z with Undo toast. Visitor sees no switch (localhost check before push). Also fixed A0.11 Due chip west of UTC (59f88749f)."
     },
     {
       "key": "A1.2",
@@ -5938,9 +5938,9 @@
       "text": "Calendar (every workspace)",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/tasks-calendar.spec.ts",
+      "evidence": "2026-11-20 Chrome: due-day items, drag with Undo, No date tray; + on a day and +n more in the spec. Spans wait for A1.3."
     },
     {
       "key": "38.5.W9",
@@ -5958,9 +5958,9 @@
       "text": "Phone",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/tasks-calendar.spec.ts",
+      "evidence": "Phone agenda in the spec (chromium+webkit, axe clean); Projects/Matrix parts with A1.2/A1.4."
     },
     {
       "key": "38.5.W11",
@@ -8138,9 +8138,9 @@
       "text": "A1.1 (2026-11-20): the Calendar shows off-board items too (a bug at New due Friday is due Friday); the scope menu and the chips apply. Today is a filled 4 px sq",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/calendar.test.ts",
+      "evidence": "2026-11-20: A1.1 calls checked live (off-board items shown, square today, organizations board only)."
     },
     {
       "key": "38.5.call11",
@@ -8148,9 +8148,9 @@
       "text": "A1.1: organizations keep the board only (their Sprints tab has its own calendar); spans across days wait for start dates (A1.3). [call]",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/calendar.test.ts",
+      "evidence": "2026-11-20: A1.1 calls checked live (off-board items shown, square today, organizations board only)."
     }
   ]
 }
