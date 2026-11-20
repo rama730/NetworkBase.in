@@ -70,6 +70,7 @@ export function inkLine(input: { late: number; today: number; week: number; tota
         return { em: '', rest: `${n} due ${day === 0 ? 'today' : day === 1 ? 'tomorrow' : `on ${input.dayName ?? 'that day'}`}.` }
     }
     if (!total) return { em: '', rest: 'All clear.' }
+    if (late && !today && !week) return { em: `${late} late.`, rest: ' Nothing else due this week.' }
     if (late) return { em: `${late} late`, rest: `, ${today ? `${today} due today` : `${week} due this week`}.` }
     if (today) return { em: '', rest: `${today} ${today === 1 ? 'thing is' : 'things are'} due today.` }
     if (week) return { em: '', rest: `${week} ${week === 1 ? 'thing' : 'things'} due this week.` }

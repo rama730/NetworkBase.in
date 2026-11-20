@@ -47,6 +47,8 @@ test('Next up is the most urgent task of yours you can act on now', () => {
 test('the serif line says what matters', () => {
     assert.deepEqual(inkLine({ late: 2, today: 1, week: 4, total: 9, day: null }), { em: '2 late', rest: ', 1 due today.' })
     assert.deepEqual(inkLine({ late: 2, today: 0, week: 4, total: 9, day: null }), { em: '2 late', rest: ', 4 due this week.' })
+    // Found live: never "0 due this week".
+    assert.deepEqual(inkLine({ late: 1, today: 0, week: 0, total: 5, day: null }), { em: '1 late.', rest: ' Nothing else due this week.' })
     assert.deepEqual(inkLine({ late: 0, today: 1, week: 3, total: 3, day: null }), { em: '', rest: '1 thing is due today.' })
     assert.deepEqual(inkLine({ late: 0, today: 0, week: 0, total: 2, day: null }), { em: '', rest: 'Nothing due this week.' })
     assert.deepEqual(inkLine({ late: 0, today: 0, week: 0, total: 0, day: null }), { em: '', rest: 'All clear.' })
