@@ -19,12 +19,13 @@ export interface IdeWorkspace {
   name: string;
   slug?: string;
 }
-type ProjectPage = {
+export type ProjectPage = {
   projects: IdeWorkspace[];
   projectPage: { hasMore: boolean; nextCursor: string | null };
 };
 
-async function loadProjects(
+/** One page of the viewer's workspaces for an editor handoff (My work's footer reads the same list and cache). */
+export async function loadProjects(
   cursor: string | null,
   signal: AbortSignal,
 ): Promise<ProjectPage> {

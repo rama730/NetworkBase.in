@@ -191,7 +191,15 @@ it("finishes work in place and reads the week from the same list (shell redesign
   assert.match(tasks, /if \(pinned\) setTimeout\(\(\) => setIsNavigating\(false\), 600\);\s*else setMyWorkOpen\(false\);/);
   assert.match(drawer, /weekColumns\(todayKey\)/);
   assert.match(drawer, /useTypedPath\(target, 22\)/);
-  assert.match(drawer, /<OpenInIdeButton/);
+  // The code editor is footer cells and one sheet inside the panel; Esc closes the sheet before the panel.
+  assert.match(drawer, /<MyWorkEditor open=\{editorOpen\} onOpenChange=\{setEditorOpen\} \/>/);
+  assert.match(drawer, /onEscapeKeyDown=\{\(event\) => \{ if \(editorOpen\) \{ event\.preventDefault\(\); setEditorOpen\(false\); \} \}\}/);
+  const editor = read("src/components/my-work/MyWorkEditor.tsx");
+  assert.match(editor, /aria-label=\{`Open in \$\{active\.name\}`\}/);
+  assert.match(editor, /<span className="t">\{active\.name\}<\/span>/);
+  assert.match(editor, /aria-label="Choose a workspace"/);
+  assert.match(editor, /aria-label="Desktop editor picker"/);
+  assert.doesNotMatch(editor, /bg-\[var\(--status-success\)\]/);
   // No coloured edge on the Next up card; a picked day fills.
   assert.match(css, /\.nb-mw-next \{ display:grid; gap:12px; padding:14px; border:1px solid var\(--border\); border-radius:8px; background:var\(--card\); \}/);
   assert.match(css, /\.nb-mw-col\[aria-pressed="true"\] \{ background:var\(--text-inverse\)/);

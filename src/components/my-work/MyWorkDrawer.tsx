@@ -16,7 +16,7 @@ import { localDayKey } from "@/lib/workflows/planner";
 import { fullDayName, inDay, inkLine, requestsLine, weekColumns, dayName, type DayKey } from "@/lib/my-work/panel";
 import MyWorkTasksTab, { type MyWorkWeekItem } from "./MyWorkTasksTab";
 import MyWorkRequestsTab, { type MyWorkWaiting } from "./MyWorkRequestsTab";
-import { OpenInIdeButton } from "@/components/workspaces/v2/files-tab/OpenInIdeButton";
+import { MyWorkEditor } from "./MyWorkEditor";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 
 const PIN_KEY = "nb:my-work-pinned";
@@ -66,6 +66,8 @@ export default function MyWorkDrawer() {
     const [handled, setHandled] = useState(0);
     const [load, setLoad] = useState(false);
     const [dir, setDir] = useState<"next" | "prev" | null>(null);
+    // The code editor sheet (footer): Esc closes it before the panel.
+    const [editorOpen, setEditorOpen] = useState(false);
 
     useEffect(() => {
         try { setPinned(window.localStorage.getItem(PIN_KEY) === "1"); } catch { /* a per-viewer convenience */ }
@@ -78,7 +80,7 @@ export default function MyWorkDrawer() {
     // Each open: the head drops and the rest rises (once), and the counters start from zero.
     useEffect(() => {
         if (!isMyWorkOpen) return;
-        setLoad(true); setFinished(0); setHandled(0);
+        setLoad(true); setFinished(0); setHandled(0); setEditorOpen(false);
         const timer = setTimeout(() => setLoad(false), 900);
         return () => clearTimeout(timer);
     }, [isMyWorkOpen]);
@@ -163,6 +165,7 @@ export default function MyWorkDrawer() {
                     data-load={load || undefined}
                     style={{ ["--nb-mw-left" as string]: `${edge}px` }}
                     onKeyDown={onPanelKeyDown}
+                    onEscapeKeyDown={(event) => { if (editorOpen) { event.preventDefault(); setEditorOpen(false); } }}
                     // The panel takes focus itself, so no focus ring lands on a tab when it opens.
                     onOpenAutoFocus={(event) => { event.preventDefault(); contentRef.current?.focus({ preventScroll: true }); }}
                     onCloseAutoFocus={(event) => {
@@ -256,7 +259,7 @@ export default function MyWorkDrawer() {
                     </div>
 
                     <div className="nb-mw-foot" style={{ ["--n" as string]: 8 }}>
-                        <div><OpenInIdeButton className="min-w-0 shrink" /></div>
+                        <MyWorkEditor open={editorOpen} onOpenChange={setEditorOpen} />
                         <span className="nb-mw-hint" aria-hidden="true">
                             {activeTab === "tasks"
                                 ? <><span><b>E</b> done</span><span><b>S</b> start</span><span><b>↑↓</b> move</span></>

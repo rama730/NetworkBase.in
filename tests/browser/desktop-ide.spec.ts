@@ -365,10 +365,10 @@ test("mobile sheet and dark My Work header fit the viewport and keep the picker 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     390,
   );
-  // A narrow desktop window retains the standard density; coarse pointers use 44px.
+  // My work's editor is footer cells (shell redesign v3): full footer height, 44px.
   expect(
     (await page.getByTestId("open-in-ide-tool").boundingBox())!.height,
-  ).toBe(34);
+  ).toBe(44);
   await page.screenshot({ path: "test-results/desktop-ide-mobile.png" });
 });
 
