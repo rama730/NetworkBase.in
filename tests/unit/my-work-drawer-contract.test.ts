@@ -9,8 +9,9 @@ describe("My work drawer contracts", () => {
     const requests = read("src/components/my-work/MyWorkRequestsTab.tsx");
     const drawer = read("src/components/my-work/MyWorkDrawer.tsx");
 
-    assert.match(requests, /IncomingWorkspaceApplicationRow/);
-    assert.match(requests, /RequestProfileRow/);
+    // Shell redesign v3: one compact line per request (RequestRow), org requests in the same compact look.
+    assert.match(requests, /function RequestRow/);
+    assert.match(requests, /<OrgRequestsSection compact/);
     assert.match(requests, /usePendingRequests\(20, isMyWorkOpen && isActive, \{ includeSent: false \}\)/);
     assert.match(requests, /app\.isInvitation/);
     assert.match(requests, /queryKeys.myWork\.joinRequests\(20\)/);
@@ -29,9 +30,13 @@ describe("My work drawer contracts", () => {
     assert.match(tasks, /DropdownMenuTrigger asChild/);
     assert.match(tasks, /aria-label="Filter tasks"/);
     assert.match(tasks, /DropdownMenuRadioGroup/);
-    assert.match(tasks, /MoreHorizontal/);
+    assert.match(tasks, /SlidersHorizontal/);
     assert.match(tasks, /z-\[202\]/);
-    assert.match(tasks, /index === 0 \? taskFiltersMenu : null/);
+    // The View menu lives inside the one search field; it also groups (time / workspace) and switches list or cards.
+    assert.match(tasks, /<kbd aria-hidden="true">\/<\/kbd>\s*\{taskFiltersMenu\}/);
+    assert.match(tasks, /By time/);
+    assert.match(tasks, /By workspace/);
+    assert.match(tasks, /Missing hand-ins/);
     assert.doesNotMatch(tasks, /absolute right-0 top-0/);
     assert.match(tasks, /resetScope = \(nextScope: MyWorkScope\)/);
     assert.match(tasks, /queryKeys.myWork\.tasks\(scope, limit\)/);
@@ -134,8 +139,11 @@ it("uses the shared drawer motion contract and concise workspace naming", () => 
   const host = read("src/components/my-work/MyWorkDrawerHost.tsx");
   const indicator = read("src/components/layout/header/MyWorkIndicator.tsx");
 
-  assert.match(drawer, /presentation="right-drawer"/);
-  assert.match(drawer, /<DialogTitle[^>]*>\s*My work\s*<\/DialogTitle>/);
+  // Shell redesign v3: a panel beside the sidebar; only the page dims, and nothing dims when pinned.
+  assert.match(drawer, /className="nb-mw"/);
+  assert.match(drawer, /modal=\{!pinned\}/);
+  assert.match(drawer, /pinned \? null : <DialogPrimitive\.Overlay className="nb-mw-scrim"/);
+  assert.match(drawer, /<DialogPrimitive\.Title[^>]*>My work<\/DialogPrimitive\.Title>/);
   assert.match(host, /const \[hasMounted, setHasMounted\]/);
   assert.match(host, /return hasMounted \? <MyWorkDrawer \/> : null/);
   assert.match(indicator, />\s*My work\s*</);
@@ -157,12 +165,34 @@ it("keeps actionable workspace state visible without task-tab scaffolding", () =
   assert.match(drawer, /useNetworkNotifications/);
   assert.match(drawer, /summary\.requestCount : 0\) \+ pendingConnections/);
   assert.doesNotMatch(drawer, /needsAttention/);
-  assert.match(drawer, /className="nb-tab-count"/);
+  assert.match(drawer, /className="nb-mw-n"/);
   assert.doesNotMatch(drawer, /(?:text|bg|border)-rose-/);
   assert.doesNotMatch(tasks, />Workspace Tasks</);
   assert.match(tasks, /groups\.map\(\(group, index\)/);
   assert.match(tasks, /API's urgency-aware task order/);
   assert.match(tasks, /grid-cols-1 gap-2/);
   assert.match(tasks, /Load more tasks/);
-  assert.match(drawer, /px-4 pb-6 pt-2 pb-\[max\(1\.5rem,env\(safe-area-inset-bottom\)\)\] md:px-6/);
+  assert.match(drawer, /className="nb-mw-body"/);
+  assert.match(drawer, /className="nb-mw-foot"/);
+});
+
+it("finishes work in place and reads the week from the same list (shell redesign v3)", () => {
+  const tasks = read("src/components/my-work/MyWorkTasksTab.tsx");
+  const drawer = read("src/components/my-work/MyWorkDrawer.tsx");
+  const css = read("src/app/globals.css");
+
+  // Status and due date change through the existing task actions, each with Undo.
+  assert.match(tasks, /updateTaskStatusAction\(task\.id, to, projectId\)/);
+  assert.match(tasks, /updateTaskFieldAction\(task\.id, "dueDate", to, projectId\)/);
+  assert.match(tasks, /label: "Undo"/);
+  assert.match(tasks, /pickNextUp\(/);
+  assert.match(tasks, /BUCKETS\.map/);
+  assert.match(tasks, /event\.key === "e" \|\| event\.key === "E"/);
+  assert.match(tasks, /if \(pinned\) setTimeout\(\(\) => setIsNavigating\(false\), 600\);\s*else setMyWorkOpen\(false\);/);
+  assert.match(drawer, /weekColumns\(todayKey\)/);
+  assert.match(drawer, /useTypedPath\(target, 22\)/);
+  assert.match(drawer, /<OpenInIdeButton/);
+  // No coloured edge on the Next up card; a picked day fills.
+  assert.match(css, /\.nb-mw-next \{ display:grid; gap:12px; padding:14px; border:1px solid var\(--border\); border-radius:8px; background:var\(--card\); \}/);
+  assert.match(css, /\.nb-mw-col\[aria-pressed="true"\] \{ background:var\(--text-inverse\)/);
 });

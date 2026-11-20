@@ -228,8 +228,11 @@ test("activity counts share one chip that keeps its size; the From label is the 
   assert.match(html, /class="min-w-12 flex-1 truncate">From Ms\. Rao · CSE 3B</);
 });
 
-test("My work rows: the org chips group shrinks only its context chip and clips instead of overlapping", () => {
+test("My work rows: org context sits in the one meta line, and Missing / Returned / Late are quiet tags", () => {
   const source = fs.readFileSync(path.join(process.cwd(), "src/components/my-work/MyWorkTasksTab.tsx"), "utf8");
-  assert.match(source, /hidden min-w-0 max-w-\[55%\] items-center gap-1 overflow-hidden sm:flex/);
-  assert.match(source, /cn\(chip, "min-w-0 shrink truncate"\)\} title=\{task\.org\.context\}/);
+  const css = fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
+  assert.match(source, /<span className="nb-mw-wsn">\{task\.org\?\.context \|\| task\.project\?\.title \|\| "Workspace"\}<\/span>/);
+  assert.match(source, /function OrgTags/);
+  // The meta line clips at the row's edge instead of spilling over the due date.
+  assert.match(css, /\.nb-mw-open > span \{ display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden; white-space:nowrap;/);
 });

@@ -8,11 +8,13 @@ import { approveJoinRequestsAction, declineJoinRequestAction } from '@/app/actio
 import { readOrgRequestsForMeAction } from '@/app/actions/org-workspace'
 import { cancelJoinRequestAction } from '@/app/actions/organizations'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { toast } from '@/lib/feedback'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { useInviteAnswer } from '@/components/organizations/org-ui'
 import { withCount } from '@/lib/organizations/display'
 import WorkspaceAvatar from '@/components/workspaces/WorkspaceAvatar'
+import { PixelPerson } from '@/components/ui/PixelPerson'
 
 // Org invitations and admins' join requests (report §29.2 My work, §30.6 Network). My work decides join requests
 // in place (first 5 per org, then Review all); Network only links to the Members tab.
@@ -24,11 +26,16 @@ export function useOrgRequests(enabled = true) {
 }
 
 // One list container, padded rows (spec §05 "complex row containers"), 56px request rows.
-const list = 'divide-y divide-border overflow-hidden rounded-lg border border-border bg-card'
-const row = 'flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 text-[13px]'
+const LOOK = {
+    page: { wrap: 'mb-6 space-y-6', head: 'nb-micro mb-3', list: 'divide-y divide-border overflow-hidden rounded-lg border border-border bg-card', row: 'flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 text-[13px]', text: 'min-w-0 flex-1', button: undefined },
+    // My work (shell redesign): mono section labels and one compact line per request, like the panel's other requests.
+    compact: { wrap: 'grid gap-[14px]', head: 'nb-mw-sec-h', list: 'nb-mw-sec', row: 'nb-mw-req', text: 'txt', button: 'h-7 px-2.5 text-xs' },
+}
 
-export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enabled = true }: { joinRequests?: 'decide' | 'link'; onNavigate?: () => void; enabled?: boolean }) {
+export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enabled = true, compact = false }: { joinRequests?: 'decide' | 'link'; onNavigate?: () => void; enabled?: boolean; compact?: boolean }) {
     const query = useOrgRequests(enabled)
+    const { wrap, head, list, row, text, button } = compact ? LOOK.compact : LOOK.page
+    const quiet = compact ? 'text-muted-foreground' : undefined
     const client = useQueryClient()
     const [hidden, setHidden] = useState<Set<string>>(new Set())
     const [declining, setDeclining] = useState<{ orgId: string; id: string; name: string } | null>(null)
@@ -40,17 +47,17 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
     const invites = data.invites.filter((invite) => !answer.hidden.has(invite.id))
 
     return (
-        <div className="mb-6 space-y-6">
+        <div className={wrap}>
             {invites.length > 0 ? (
                 <section aria-labelledby="org-invitations-heading">
-                    <h3 id="org-invitations-heading" className="nb-micro mb-3">{withCount('Organization invitations', invites.length)}</h3>
+                    <h3 id="org-invitations-heading" className={head}>{withCount('Organization invitations', invites.length)}</h3>
                     <ul className={list}>
                         {invites.map((invite) => (
                             <li key={invite.id} className={row}>
-                                <WorkspaceAvatar project={{ title: invite.orgTitle, coverImage: null }} size="row" kind="organization" />
-                                <span className="min-w-0 flex-1"><span className="block truncate font-medium text-foreground">{invite.orgTitle}</span><span className="block truncate text-muted-foreground">Invited as {invite.roleLabel}{invite.title ? ` · ${invite.title}` : ''}</span></span>
-                                <Button size="sm" disabled={answer.pending} onClick={() => answer.accept(invite)}>Accept</Button>
-                                <Button size="sm" variant="outline" disabled={answer.pending} onClick={() => answer.decline(invite)}>Decline</Button>
+                                <WorkspaceAvatar project={{ title: invite.orgTitle, coverImage: null }} size="row" kind="organization" className={compact ? 'size-7 rounded-md' : undefined} />
+                                <span className={text}><span className="block truncate font-medium text-foreground">{invite.orgTitle}</span><span className="block truncate text-muted-foreground">Invited as {invite.roleLabel}{invite.title ? ` · ${invite.title}` : ''}</span></span>
+                                <span className="acts flex gap-2"><Button size="sm" className={button} disabled={answer.pending} onClick={() => answer.accept(invite)}>Accept</Button>
+                                <Button size="sm" variant={compact ? 'ghost' : 'outline'} className={cn(button, quiet)} disabled={answer.pending} onClick={() => answer.decline(invite)}>Decline</Button></span>
                             </li>
                         ))}
                     </ul>
@@ -58,13 +65,13 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
             ) : null}
             {data.mine.length > 0 ? (
                 <section aria-labelledby="org-my-requests-heading">
-                    <h3 id="org-my-requests-heading" className="nb-micro mb-3">{withCount('Your requests', data.mine.length)}</h3>
+                    <h3 id="org-my-requests-heading" className={head}>{withCount('Your requests', data.mine.length)}</h3>
                     <ul className={list}>
                         {data.mine.map((r) => (
                             <li key={r.orgId} className={row}>
-                                <WorkspaceAvatar project={{ id: r.orgId, title: r.title, coverImage: null }} size="row" kind="organization" />
-                                <span className="min-w-0 flex-1"><Link href={`/org/${encodeURIComponent(r.slug ?? r.orgId)}`} onClick={onNavigate} className="block truncate font-medium text-foreground hover:underline">{r.title}</Link><span className="nb-status mt-1" data-tone="info">Requested</span></span>
-                                <Button size="sm" variant="outline" onClick={async () => {
+                                <WorkspaceAvatar project={{ id: r.orgId, title: r.title, coverImage: null }} size="row" kind="organization" className={compact ? 'size-7 rounded-md' : undefined} />
+                                <span className={text}><Link href={`/org/${encodeURIComponent(r.slug ?? r.orgId)}`} onClick={onNavigate} className="block truncate font-medium text-foreground hover:underline">{r.title}</Link><span className="nb-status mt-1" data-tone="info">Requested</span></span>
+                                <Button size="sm" variant={compact ? 'ghost' : 'outline'} className={cn(button, quiet)} onClick={async () => {
                                     const result = await cancelJoinRequestAction(r.orgId)
                                     if (!result.success) return void toast.error(result.error)
                                     toast.success('Request canceled')
@@ -83,16 +90,17 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
                 }
                 return (
                     <section key={group.orgId} aria-label={`${group.title} join requests`}>
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                            <h3 className="nb-micro min-w-0 truncate">{group.title} · {words}</h3>
-                            <Link href={members} onClick={onNavigate} className="nb-link shrink-0 text-[13px]">Review all</Link>
+                        <div className={compact ? 'flex items-center justify-between gap-3' : 'mb-3 flex items-center justify-between gap-3'}>
+                            <h3 className={cn(head, 'min-w-0 truncate')}>{group.title} · {words}</h3>
+                            <Link href={members} onClick={onNavigate} className={compact ? 'nb-mw-link shrink-0' : 'nb-link shrink-0 text-[13px]'}>Review all</Link>
                         </div>
                         <ul className={list}>
                             {group.first.filter((r) => !hidden.has(r.id)).map((request) => (
                                 <li key={request.id} className={row}>
-                                    <span className="min-w-0 flex-1"><span className="block truncate font-medium text-foreground">{request.name}</span>{request.note ? <span className="block truncate text-muted-foreground">“{request.note}”</span> : null}</span>
-                                    <Button size="sm" onClick={async () => { hide(request.id, true); const r = await approveJoinRequestsAction(group.orgId, [request.id]); if (!r.success) { hide(request.id, false); toast.error(r.error) } else toast.success(r.approved ? `${request.name} approved` : `${request.name} stays waiting: they’re in 50 organizations`); refresh() }}>Approve</Button>
-                                    <Button size="sm" variant="outline" onClick={() => setDeclining({ orgId: group.orgId, id: request.id, name: request.name })}>Decline</Button>
+                                    {compact ? <span className="size-7 overflow-hidden rounded-md"><PixelPerson identityKey={request.id} size={28} /></span> : null}
+                                    <span className={text}><span className="block truncate font-medium text-foreground">{request.name}</span>{request.note ? <span className="block truncate text-muted-foreground">“{request.note}”</span> : <span className="block truncate text-muted-foreground">Wants to join {group.title}</span>}</span>
+                                    <span className="acts flex gap-2"><Button size="sm" className={button} onClick={async () => { hide(request.id, true); const r = await approveJoinRequestsAction(group.orgId, [request.id]); if (!r.success) { hide(request.id, false); toast.error(r.error) } else toast.success(r.approved ? `${request.name} approved` : `${request.name} stays waiting: they’re in 50 organizations`); refresh() }}>Approve</Button>
+                                    <Button size="sm" variant={compact ? 'ghost' : 'outline'} className={cn(button, quiet)} onClick={() => setDeclining({ orgId: group.orgId, id: request.id, name: request.name })}>Decline</Button></span>
                                 </li>
                             ))}
                         </ul>

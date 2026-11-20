@@ -284,8 +284,10 @@ test("task detail panel dimensions match the workspace drawer specification exac
   const panel = read("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx");
   const workspaceDrawer = read("src/components/my-work/MyWorkDrawer.tsx");
 
-  assert.match(workspaceDrawer, /sm:w-\[520px\]/);
-  assert.match(workspaceDrawer, /sm:max-w-\[520px\]/);
+  // Shell redesign v3: My work is a 440px panel beside the sidebar, full width on phones.
+  const css = read("src/app/globals.css");
+  assert.match(workspaceDrawer, /className="nb-mw"/);
+  assert.match(css, /\.nb-mw \{[^}]*width:min\(440px, 100vw\)/);
   assert.match(panel, /sm:w-\[580px\]/);
   assert.match(panel, /sm:max-w-\[580px\]/);
 });

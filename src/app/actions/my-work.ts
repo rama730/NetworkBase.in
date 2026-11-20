@@ -127,7 +127,8 @@ export async function fetchMyWorkTasksAction(
             limit: safeLimit + 1,
             with: {
                 project: {
-                    columns: { id: true, title: true, key: true, slug: true },
+                    // The panel's row avatar: the cover, or the default figure (an org's own, or the desk under its org's roof).
+                    columns: { id: true, title: true, key: true, slug: true, coverImage: true, kind: true, parentId: true },
                 },
                 sprint: {
                     columns: { id: true, name: true, status: true },
