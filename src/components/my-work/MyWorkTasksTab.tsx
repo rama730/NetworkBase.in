@@ -20,7 +20,7 @@ import { WorkspaceAvatar } from "@/components/workspaces/WorkspaceAvatar";
 import { TASK_STATUS_PRESENTATION, type TaskWorkflowStatus } from "@/lib/workspaces/task-workflow";
 import { taskDueDateKey } from "@/lib/workspaces/task-presentation";
 import { formatTaskId } from "@/lib/workspace-key";
-import { localDayKey } from "@/lib/workflows/planner";
+import { localDayKey, projectEnds } from "@/lib/workflows/planner";
 import { format, parseISO } from "@/lib/utils/date";
 import { addDaysKey, BUCKETS, bucketOf, dayDiff, dayName, dueLabel, inDay, nextMondayOffset, pickNextUp, type DayKey } from "@/lib/my-work/panel";
 import { cn } from "@/lib/utils";
@@ -545,7 +545,8 @@ export default function MyWorkTasksTab({ isActive = true, day = null, onDay, pin
                     </span>
                 </button>
                 <span className="nb-mw-due" data-tone={dueTone(diff)}>
-                    {task.itemType === "project" && diff != null && diff >= 0 ? `Ends ${dueLabel(diff, todayKey)}` : dueLabel(diff, todayKey)}
+                    {/* A1.5: a project of yours says when it ends ("Ends Friday" this week). */}
+                    {task.itemType === "project" && item.dueKey && diff != null && diff >= 0 ? projectEnds(item.dueKey, todayKey) ?? `Ends ${dueLabel(diff, todayKey)}` : dueLabel(diff, todayKey)}
                 </span>
                 {mine || !task.assignee ? null : (
                     <span title={task.assignee.fullName ?? undefined}>
