@@ -30,6 +30,7 @@ test.beforeAll(async () => {
     '@/components/presence/usePresence': `export const useNow=()=>Date.now();export const usePersonPresence=()=>{const p=window.profileFixture.presence||({availability:'now',availabilityText:'Active now',status:null});return {...p,label:[p.status?.emoji,p.statusText,p.availabilityText].filter(Boolean).join(' · ')};};export const useWorkspacePresence=()=>({availability:'offline',label:'Offline'});`,
     '@/components/messages/message-user': `export const messageUserInWindow=id=>{window.profileFixture.messaged.push(id);return true;};`,
     '@/app/actions/contribution-stories': `export const saveContributionStoryAction=async(c)=>{window.profileFixture.storyCalls.push(c);return {success:true,id:c.id,version:(c.expectedVersion||1)+1,featured:c.operation==='feature',published:true};};const none=async()=>({success:false,error:'Not in this fixture'});export const createContributionStoryAction=none,searchContributionReferencesAction=async()=>({success:true,options:[]}),createContributionImageUploadAction=none,finalizeContributionImageAction=none,importContributionWorkspaceImageAction=none,listContributionLinkWorkspacesAction=async()=>({success:true,projects:[]});`,
+    '@/app/actions/profile-mix': `export const setContributionTimelineOrderAction=async(ids)=>{(window.profileFixture.orderCalls??=[]).push(ids);return {success:true};};export const setPortfolioPinAction=async(id,pinned)=>{(window.profileFixture.pinCalls??=[]).push([id,pinned]);return {success:true};};`,
     '@/app/actions/org-profile': `const ok=async()=>({success:true});export const dismissContributionNudgeAction=ok,readOrgStoryStarterAction=async()=>({success:true,text:''}),revokeOrgVerificationAction=ok,verifyOrgContributionsAction=async()=>({success:true,verified:0});`,
     './ProfileInviteModal': `export default ()=>null;`,
     '@/components/workspaces/ApplyRoleModal': `export default ()=>null;`,
@@ -311,6 +312,19 @@ test('contributions tab: filters with counts, a timeline that pages by ten, owne
   for (const item of ['Pin to the top','Hide from profile','Edit']) await expect(page.getByRole('menuitem',{name:item})).toBeVisible();
   await page.getByRole('menuitem',{name:'Pin to the top'}).click();
   await expect.poll(()=>page.evaluate(()=>(window as any).profileFixture.storyCalls.at(-1)?.operation)).toBe('feature');
+  // Move up / Move down: not on the pinned entry, not past either end; the new order is saved.
+  const titles=()=>panel.locator('.nb-pf-tli .nb-pf-tl-t b').allInnerTexts();
+  const before=await titles();
+  // Two are pinned now (Workspace 1 and 16), so the fourth row is the second movable one.
+  const target=before[3]!;
+  await panel.getByRole('button',{name:`More for ${target}`}).click();
+  await expect(page.getByRole('menuitem',{name:'Move down'})).toBeVisible();
+  await page.getByRole('menuitem',{name:'Move up'}).click();
+  await expect.poll(titles).toEqual([before[0],before[1],target,before[2],...before.slice(4)]);
+  await expect.poll(()=>page.evaluate(()=>(window as any).profileFixture.orderCalls?.length??0)).toBe(1);
+  await panel.getByRole('button',{name:`More for ${before[0]}`}).click();
+  await expect(page.getByRole('menuitem',{name:'Move up'})).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.viewer=true;f.refresh();});
   await expect(panel.locator('.nb-pf-tli.is-hidden')).toHaveCount(0);
   await panel.getByRole('button',{name:'More for Workspace 16'}).click();
@@ -368,6 +382,17 @@ test('portfolio: filter by own or member, sort by recent or name, with your role
   await expect(panel.locator('[data-pf-wrole]').first()).toContainText('Owner');
   await filters.getByRole('button',{name:/^Member/}).click();
   await expect(panel.locator('[data-pf-wrole]')).toHaveCount(2);
+  // Pin: the owner pins one to the top of the list, in any sort; visitors see it marked.
+  await filters.getByRole('button',{name:/^All/}).click();
+  await panel.getByRole('button',{name:'Pin Project B',exact:true}).click();
+  await expect(panel.locator('[data-pf-wrole]').first()).toContainText('Project B');
+  await expect(panel.getByRole('button',{name:'Unpin Project B',exact:true})).toHaveAttribute('aria-pressed','true');
+  await panel.getByRole('button',{name:'Recent'}).click();
+  await expect(panel.locator('[data-pf-wrole]').first()).toContainText('Project B');
+  expect(await page.evaluate(()=>(window as any).profileFixture.pinCalls)).toEqual([['20000000-0000-4000-8000-000000000002',true]]);
+  await page.evaluate(()=>{const f=(window as any).profileFixture;f.projects=f.projects.map((p:any)=>({...p,pinned:p.title==='Project A'}));f.viewer=true;f.refresh();});
+  await expect(panel.locator('[data-pf-wrole]').first()).toContainText('Pinned');
+  await expect(panel.getByRole('button',{name:/^(Pin|Unpin) /})).toHaveCount(0);
 });
 
 test('owner band: status sits in the row with Change; the band never scrolls sideways', async ({ page }) => {

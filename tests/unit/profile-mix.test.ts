@@ -50,6 +50,16 @@ test('orderContributions: pinned first, then the chosen order, then newest start
     assert.deepEqual(list.map((x) => x.id), ['c', 'd', 'b', 'e', 'a']);
 });
 
+test('orderContributions: once you move entries on the timeline, that order wins over the Organizations order', () => {
+    const list = orderContributions([
+        { id: 'org', featured: false, profileOrder: 1, timelineOrder: 2, startDate: '2026-01-01' },
+        { id: 'ws', featured: false, profileOrder: null, timelineOrder: 0, startDate: '2020-01-01' },
+        { id: 'old', featured: false, profileOrder: null, timelineOrder: 1, startDate: '2019-01-01' },
+        { id: 'new', featured: false, profileOrder: 0, timelineOrder: null, startDate: '2027-01-01' },
+    ]);
+    assert.deepEqual(list.map((x) => x.id), ['ws', 'old', 'org', 'new']);
+});
+
 test('changeSummary says what changed in words', () => {
     assert.equal(changeSummary('skills', ['A', 'B'], ['B', 'A']), 'Reordered');
     assert.equal(changeSummary('skills', ['A'], ['A', 'React', 'Go', 'Rust']), '+React, +Go +1 more');

@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { FolderKanban } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { FolderKanban, Pin } from "lucide-react";
+import { setPortfolioPinAction } from "@/app/actions/profile-mix";
+import { toast } from "@/lib/feedback";
 import { EmptyState } from "@/components/ui/EmptyState";
 import ProjectCard from "@/components/workspaces/WorkspaceCard";
 import WorkspaceCardSkeleton from "@/components/workspaces/WorkspaceCardSkeleton";
@@ -79,13 +81,23 @@ export function WorkspacesGridCard({ projects: allProjects, title = "Workspaces"
     const [sort, setSort] = useState<"recent" | "name">("recent");
     // Report §31.3, decision 71: workspaces only; organizations live in their own section (§4.5).
     const workspaces = useMemo(() => allProjects.filter((p) => p.kind !== "organization"), [allProjects]);
+    // Pins (0113): the owner pins workspaces to the top of the list, whatever the sort.
+    const [pins, setPins] = useState<Set<string>>(() => new Set(allProjects.filter((p) => p.pinned).map((p) => p.id)));
+    useEffect(() => setPins(new Set(allProjects.filter((p) => p.pinned).map((p) => p.id))), [allProjects]);
+    const togglePin = async (project: ProfileCollaborationWorkspace) => {
+        const on = !pins.has(project.id);
+        const flip = (value: boolean) => setPins((current) => { const next = new Set(current); if (value) next.add(project.id); else next.delete(project.id); return next; });
+        flip(on);
+        const result = await setPortfolioPinAction(project.id, on);
+        if (!result.success) { flip(!on); toast.error(result.error); return; }
+        toast.success(on ? `${project.title} is pinned to the top of your portfolio.` : `${project.title} unpinned.`);
+    };
     const owns = (p: ProfileCollaborationWorkspace) => Boolean(profileId && p.ownerId === profileId);
     const counts = { all: workspaces.length, own: workspaces.filter(owns).length, member: workspaces.filter((p) => !owns(p)).length };
     const projects = useMemo(() => workspaces
         .filter((p) => show === "all" || (show === "own") === owns(p))
-        .sort((a, b) => sort === "name" ? a.title.localeCompare(b.title) : (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [workspaces, show, sort, profileId]);
+        .sort((a, b) => Number(pins.has(b.id)) - Number(pins.has(a.id)) || (sort === "name" ? a.title.localeCompare(b.title) : (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))),
+        [workspaces, show, sort, profileId, pins]);
     // The bell shows whether you follow each project (one lookup for the whole grid).
     const pageIds = useMemo(() => [projects.map((project) => project.id)], [projects]);
     const followed = useUserFollowedWorkspaces(user?.id, pageIds);
@@ -133,6 +145,12 @@ export function WorkspacesGridCard({ projects: allProjects, title = "Workspaces"
                                 <span className="tag">{project.userRole}</span>
                                 {owns(project) && project.userRole !== "Owner" ? <span className="tag">Owner</span> : null}
                                 {ago(project.updatedAt) ? <span>Updated {ago(project.updatedAt)}</span> : null}
+                                {isOwner ? (
+                                    <button type="button" className="nb-pf-ib ml-auto" aria-pressed={pins.has(project.id)} onClick={() => void togglePin(project)}
+                                        aria-label={`${pins.has(project.id) ? "Unpin" : "Pin"} ${project.title}`} title={pins.has(project.id) ? "Unpin" : "Pin to the top"}>
+                                        <Pin className="size-3.5" aria-hidden="true" />
+                                    </button>
+                                ) : pins.has(project.id) ? <span className="ml-auto inline-flex items-center gap-1"><Pin className="size-3" aria-hidden="true" />Pinned</span> : null}
                             </p>
                             <ProjectCard
                                 project={cardProject}

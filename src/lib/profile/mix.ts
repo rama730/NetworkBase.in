@@ -38,11 +38,16 @@ export function filterCounts(entries: Kinded[]) {
     return counts;
 }
 
-/** Pinned first, then the order you chose (Move up/down), then newest start, then id. */
-export function orderContributions<T extends { id: string; featured?: boolean | null; profileOrder?: number | null; startDate?: string | null; createdAt?: string | null }>(entries: T[]): T[] {
+/**
+ * Pinned first, then the order you chose, then newest start, then id. Once you've moved anything on the timeline
+ * (Move up/down) that order is used; until then, the Organizations order from Manage organizations.
+ */
+export function orderContributions<T extends { id: string; featured?: boolean | null; profileOrder?: number | null; timelineOrder?: number | null; startDate?: string | null; createdAt?: string | null }>(entries: T[]): T[] {
+    const moved = entries.some((e) => e.timelineOrder != null);
+    const rank = (e: T) => (moved ? e.timelineOrder : e.profileOrder) ?? Infinity;
     return [...entries].sort((a, b) => {
         if (Boolean(b.featured) !== Boolean(a.featured)) return Number(Boolean(b.featured)) - Number(Boolean(a.featured));
-        const oa = a.profileOrder ?? Infinity, ob = b.profileOrder ?? Infinity;
+        const oa = rank(a), ob = rank(b);
         if (oa !== ob) return oa - ob;
         const da = a.startDate || a.createdAt || '', db = b.startDate || b.createdAt || '';
         if (da !== db) return db.localeCompare(da);

@@ -114,7 +114,9 @@
     "drizzle/0108_decision_numbers.sql",
     "drizzle/0109_project_planner.sql",
     "drizzle/0110_project_planner_index.sql",
-    "drizzle/0111_workflows_on.sql"
+    "drizzle/0111_workflows_on.sql",
+    "drizzle/0112_contribution_timeline_order.sql",
+    "drizzle/0113_profile_portfolio_pins.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

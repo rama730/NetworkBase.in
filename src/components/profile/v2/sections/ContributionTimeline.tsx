@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Eye, EyeOff, Globe, MoreHorizontal, Pencil, Pin, PinOff, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Globe, MoreHorizontal, Pencil, Pin, PinOff, Plus } from 'lucide-react'
+import { setContributionTimelineOrderAction } from '@/app/actions/profile-mix'
 import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
 import { previewText } from '@/lib/profile/contribution-editor-text'
 import { Button } from '@/components/ui/button'
@@ -114,6 +115,22 @@ export function ContributionTimeline({
         onChanged?.()
     }
 
+    // Move up / Move down among the entries that aren't pinned (pinned ones always come first).
+    const movable = ordered.filter((c) => !c.featured)
+    const move = async (c: Entry, by: -1 | 1) => {
+        const from = movable.findIndex((x) => x.id === c.id), to = from + by
+        if (from < 0 || to < 0 || to >= movable.length) return
+        const next = [...movable]
+        next.splice(to, 0, next.splice(from, 1)[0]!)
+        const before = new Map(live.map((x) => [x.id, x.timelineOrder]))
+        setLive((list) => list.map((x) => { const i = next.findIndex((n) => n.id === x.id); return i < 0 ? x : { ...x, timelineOrder: i } }))
+        const result = await setContributionTimelineOrderAction(next.map((x) => x.id))
+        if (!result.success) {
+            setLive((list) => list.map((x) => ({ ...x, timelineOrder: before.get(x.id) ?? null })))
+            toast.error(result.error)
+        }
+    }
+
     const item = (c: Entry, compact: boolean, nested = false) => {
         const date = contributionDate(c)
         const kind = contributionKind(c)
@@ -131,6 +148,8 @@ export function ContributionTimeline({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
                     <DropdownMenuItem onSelect={() => void command(c, 'feature')}>{c.featured ? <PinOff className="size-4" /> : <Pin className="size-4" />}{c.featured ? 'Unpin' : 'Pin to the top'}</DropdownMenuItem>
+                    {!c.featured && !nested && movable[0]?.id !== c.id ? <DropdownMenuItem onSelect={() => void move(c, -1)}><ArrowUp className="size-4" />Move up</DropdownMenuItem> : null}
+                    {!c.featured && !nested && movable.at(-1)?.id !== c.id ? <DropdownMenuItem onSelect={() => void move(c, 1)}><ArrowDown className="size-4" />Move down</DropdownMenuItem> : null}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => void command(c, hidden ? 'publish' : 'hide')}>{hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}{hidden ? 'Show on profile' : 'Hide from profile'}</DropdownMenuItem>
                     {onEdit ? <DropdownMenuItem onSelect={() => onEdit(c.id)}><Pencil className="size-4" />Edit</DropdownMenuItem> : null}

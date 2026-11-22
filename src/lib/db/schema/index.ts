@@ -1113,6 +1113,13 @@ export const userDevices = pgTable("user_devices", {
     trustedUntil: timestamp("trusted_until", { withTimezone: true }),
 }, (t) => ({ pk: primaryKey({ columns: [t.userId, t.deviceHash] }) }));
 
+/** Portfolio pins (0113): workspaces you pinned to the top of your profile's Portfolio. Server only. */
+export const profilePortfolioPins = pgTable("profile_portfolio_pins", {
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    pinnedAt: timestamp("pinned_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.profileId, t.workspaceId] }), workspaceIdx: index("profile_portfolio_pins_workspace_idx").on(t.workspaceId) }));
+
 /** Left navigation pins (0065): workspaces you pinned to the top of your Workspaces list. Server only. */
 export const sidebarPins = pgTable("sidebar_pins", {
     userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
@@ -1385,6 +1392,8 @@ export const profileContributions = pgTable(
     repositoryUrl: text("repository_url"),
     presentation: jsonb("presentation").$type<import("@/lib/profile/contribution-story").ContributionStory>(),
     featured: boolean("featured").default(false).notNull(),
+    /** Your order on the contributions timeline, from Move up / Move down (0112); null keeps the default order. */
+    timelineOrder: integer("timeline_order"),
     /** Opt-in Work record on an org entry (report §24.5, 0260). */
     showWorkRecord: boolean("show_work_record").default(false).notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),

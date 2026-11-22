@@ -2472,3 +2472,4 @@ a.nb-pf-link-row:hover { background: var(--secondary); }
 .nb-pf-strip .nb-pf-pv { color: var(--foreground); }
 .nb-pf-strip .k { font: 11.5px var(--font-mono, ui-monospace), monospace; color: var(--muted-foreground); white-space: nowrap; }
 @media (max-width: 480px) { .nb-pf-strip .k { display: none; } }
+.nb-pf-wrole .nb-pf-ib[aria-pressed="true"] { color: var(--primary); background: var(--secondary); }

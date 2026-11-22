@@ -36,6 +36,8 @@ export type ProfileCollaborationMemberPreview = {
 };
 
 export type ProfileCollaborationWorkspace = {
+  /** Pinned to the top of the owner's Portfolio (0113). */
+  pinned?: boolean;
   /** Organizations group first on Portfolio; child cards carry their org line (report §24.4). */
   kind?: "workspace" | "organization";
   cardOrg?: { title: string; slug: string | null } | null;
@@ -134,6 +136,8 @@ export type ProfileCollaborationContribution = {
   nudgeDismissed?: boolean;
   /** Manage organizations (report §38.2): the person's order and Show switch for an organization entry. */
   profileOrder?: number | null;
+  /** Move up / Move down on the timeline (0112). */
+  timelineOrder?: number | null;
   showOnProfile?: boolean | null;
   /** How the membership ended (report §10.1); null on an ended entry reads as "left". */
   endReason?: "left" | "removed" | "term_ended" | "org_deleted" | null;
@@ -167,6 +171,7 @@ export type ProfileInviteWorkspaceOption = {
 };
 
 type ProfileProjectRow = {
+  pinned?: boolean | null;
   kind?: string | null;
   parent_org_title?: string | null;
   parent_org_slug?: string | null;
@@ -208,6 +213,7 @@ type ProfileProjectRow = {
 type ProfileContributionRow = {
   nudge_dismissed_at?: Date | string | null;
   profile_order?: number | null;
+  timeline_order?: number | null;
   show_on_profile?: boolean | null;
   end_reason?: string | null;
   org_type?: string | null;
@@ -447,6 +453,7 @@ function projectFromRow(row: ProfileProjectRow): ProfileCollaborationWorkspace {
     // members-only project links never leave the project page (AUTH-013).
     externalLinks: filterWorkspaceLinksForAudience(row.external_links, false),
     openRolesCount: numberOrNull(row.open_roles_count) ?? 0,
+    pinned: row.pinned === true,
   };
 }
 
@@ -557,6 +564,7 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     projectKind: row.project_kind ?? null,
     endReason: (row.end_reason as ProfileCollaborationContribution["endReason"]) ?? null,
     profileOrder: row.profile_order ?? null,
+    timelineOrder: row.timeline_order ?? null,
     nudgeDismissed: Boolean(row.nudge_dismissed_at),
     showOnProfile: row.show_on_profile ?? null,
     parentOrg: row.parent_org_id ? { id: row.parent_org_id, title: row.parent_org_title ?? "Organization", slug: row.parent_org_slug ?? null } : null,
@@ -633,6 +641,7 @@ async function queryProfileProjectRows(profileId: string, options: {
         NULLIF(p.import_source->'metadata'->>'leadFocus', '') AS lead_focus,
         pc.summary AS contribution_summary,
         COALESCE(pc_skills.labels, '[]'::jsonb) AS contribution_skills,
+        (pin.pinned_at IS NOT NULL) AS pinned,
         count(*) OVER()::int AS total_count
       FROM user_project_candidates upc
       INNER JOIN ${workspaces} p ON p.id = upc.id
@@ -642,6 +651,9 @@ async function queryProfileProjectRows(profileId: string, options: {
       LEFT JOIN workspace_members pm_self
         ON pm_self.workspace_id = p.id
        AND pm_self.user_id = ${profileId}
+      LEFT JOIN profile_portfolio_pins pin
+        ON pin.workspace_id = p.id
+       AND pin.profile_id = ${profileId}::uuid
       LEFT JOIN ${profileContributions} pc
         ON pc.workspace_id = p.id
        AND pc.profile_id = ${profileId}
@@ -670,7 +682,7 @@ async function queryProfileProjectRows(profileId: string, options: {
             AND show_pref.workspace_id = COALESCE(CASE WHEN p.kind = 'organization' THEN p.id END, p.parent_id)
         )`})
         AND (${includePrivate ? sql`TRUE` : sql`COALESCE(pc.visibility, 'public') = 'public'`})
-      ORDER BY p.created_at DESC, p.updated_at DESC, p.id DESC
+      ORDER BY pin.pinned_at ASC NULLS LAST, p.created_at DESC, p.updated_at DESC, p.id DESC
       LIMIT ${limit} OFFSET ${offset}
     )
     SELECT
@@ -717,7 +729,7 @@ async function queryProfileProjectRows(profileId: string, options: {
       ) ranked
       WHERE ranked.member_rank <= 3
     ) members ON true
-    ORDER BY ps.created_at DESC, ps.updated_at DESC, ps.project_id DESC
+    ORDER BY ps.pinned DESC, ps.created_at DESC, ps.updated_at DESC, ps.project_id DESC
   `);
 
   return Array.from(rows);
@@ -753,6 +765,7 @@ async function queryProfileContributionRows(profileId: string, options: {
       project.created_at AS project_created_at,
       contribution.presentation,
       contribution.featured,
+      contribution.timeline_order,
       contribution.published_at,
       ${includePrivate ? sql`(SELECT d.document FROM profile_contribution_drafts d WHERE d.contribution_id=contribution.id AND d.profile_id=${profileId}::uuid)` : sql`NULL::jsonb`} AS draft_story,
       contribution.workspace_id AS project_id,
@@ -900,6 +913,7 @@ async function queryProfileContributionRows(profileId: string, options: {
         )
       )
     ORDER BY contribution.featured DESC,
+      contribution.timeline_order ASC NULLS LAST,
       COALESCE(contribution.started_at, project.created_at, contribution.created_at) DESC NULLS LAST,
       COALESCE(project.created_at, contribution.created_at) DESC,
       contribution.id DESC
