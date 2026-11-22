@@ -29,7 +29,7 @@ export type CatalogEntry = {
 };
 
 export const WORKFLOW_CATALOG: CatalogEntry[] = [
-  { id: "project_planner", name: "Project planner", group: "tasks", icon: "ChartGantt", types: ["project"], built: false, line: "Adds to Tasks: a Projects view with a Timeline. Tasks get Part of." },
+  { id: "project_planner", name: "Project planner", group: "tasks", icon: "ChartGantt", types: ["project"], built: true, line: "Adds to Tasks: a Projects view with a Timeline. Tasks get Part of." },
   { id: "bugs", name: "Bugs", group: "own_tab", icon: "Bug", types: ["bug"], tab: "bugs", built: false, line: "Adds a Bugs tab. Bugs join Tasks at Fixing." },
   { id: "requests", name: "Requests", group: "own_tab", icon: "Inbox", types: ["request"], tab: "requests", built: false, line: "Adds a Requests tab. People ask; accepted requests join Tasks at Accepted." },
   { id: "content", name: "Content", group: "own_tab", icon: "PenLine", types: ["content"], tab: "content", built: false, line: "Adds a Content tab. Pieces join Tasks at Drafting." },

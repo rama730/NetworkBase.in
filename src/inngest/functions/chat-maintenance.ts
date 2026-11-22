@@ -66,6 +66,8 @@ export const chatDue = inngest.createFunction(
     if (scheduled.due >= DUE_MESSAGE_LIMIT || reminders.reminders >= DUE_REMINDER_LIMIT || tasks.due >= TASK_REMINDER_LIMIT) await step.sendEvent("drain-more", { name: "chat/due.wake", data: {} });
     // Only the hourly run arms: this is the on-time guarantee for anything scheduled far ahead, so it uses Inngest's own retries.
     if (event.name !== "chat/due.wake") {
+      // A1.6: "Ends in 3 days" for projects, once a project and end date (the hourly run only; dedupe keys hold).
+      await step.run("projects-ending", async () => (await import("@/lib/workflows/planner-notify")).notifyProjectsEndingSoon());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

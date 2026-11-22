@@ -8191,6 +8191,16 @@
       "status": "live",
       "test": "tests/unit/planner-calendar.test.ts",
       "evidence": "2026-11-20: Active scope, All totals, phone default Active, Overview card members only, My Work Ends label, MCP in planning pack, project notifications with A1.6."
+    },
+    {
+      "key": "38.5.call16",
+      "section": "38.5",
+      "text": "A1.6 (2026-11-23): Board ⋯ → Group by: Project shows a swimlane per open project (and per completed project that still has work on the board) plus No project, r",
+      "kind": "call",
+      "milestone": "A1",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

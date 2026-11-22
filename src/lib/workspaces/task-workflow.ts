@@ -41,7 +41,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     emptyTitle: "Tasks will appear here…",
     emptyDescription: "Items will appear here as soon as they start. Drag and drop your tasks here.",
     badgeClassName:
-      "border border-primary/20 bg-primary/10 text-primary",
+      "border border-primary/20 bg-primary/10 text-[var(--primary-active)] dark:text-primary",
     accentClassName: "blue",
   },
   blocked: {

@@ -156,3 +156,25 @@ test("W4 (A1.4): arrows with the loop check, a later blocker reports conflicts, 
   const other = await workspace();
   assert.equal((await taskActions.setBlockedByAction({ projectId: other.ws, taskId: b, blockedById: a })).success, false);
 });
+
+test("A1.6 notices: a conflict and a shift tell the assignee, completing tells the people on it, ends-in-3-days once", async () => {
+  const t = await workspace();
+  const notes = async (user: string) => (await sql`SELECT title FROM user_notifications WHERE user_id = ${user} AND kind = 'project_task_activity' ORDER BY created_at`).map((r) => r.title);
+  viewerId = t.owner;
+  const a = await make(t.ws, "Design system", { itemType: "project", startDate: "2026-12-01T00:00:00Z", dueDate: "2026-12-05T00:00:00Z" });
+  const b = await make(t.ws, "Website relaunch", { itemType: "project", startDate: "2026-12-06T00:00:00Z", dueDate: "2026-12-10T00:00:00Z", assigneeId: t.member });
+  await make(t.ws, "Copy", { partOfId: b, assigneeId: t.member });
+  await taskActions.setBlockedByAction({ projectId: t.ws, taskId: b, blockedById: a });
+  await taskActions.setTaskDatesAction({ projectId: t.ws, taskId: a, dueDate: "2026-12-08T00:00:00Z" });
+  await taskActions.shiftDependentsAction({ projectId: t.ws, taskId: a, days: 3 });
+  await taskActions.setTaskStageAction({ taskId: b, projectId: t.ws, stage: "completed", toBacklog: true });
+  assert.deepEqual(await notes(t.member), ["Website relaunch now starts before Design system ends", "Website relaunch moved 3 days later with Design system", "Completed: Website relaunch"]);
+  assert.deepEqual(await notes(t.owner), [], "the person who acted hears nothing");
+
+  const { notifyProjectsEndingSoon } = await loadAppModule(() => import("../../src/lib/workflows/planner-notify"));
+  const soon = await make(t.ws, "Pricing", { itemType: "project", assigneeId: t.member });
+  await sql`UPDATE tasks SET due_date = ((now() AT TIME ZONE 'UTC')::date + 3)::timestamptz WHERE id = ${soon}`;
+  await notifyProjectsEndingSoon();
+  await notifyProjectsEndingSoon();
+  assert.equal((await notes(t.member)).filter((x) => x === "Ends in 3 days: Pricing").length, 1);
+});

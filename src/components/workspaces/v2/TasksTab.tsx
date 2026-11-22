@@ -6,7 +6,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { readWorkspaceUnitsAction } from "@/app/actions/child-units";
 import { TeamTaskDialog } from "@/components/organizations/TeamTaskDialog";
-import { Plus, Check, Search, X, MoreHorizontal, Laptop, ChevronDown } from "lucide-react";
+import { Plus, Check, Search, X, MoreHorizontal, Laptop, ChevronDown, FolderKanban } from "lucide-react";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { workflowIcon } from "@/components/workspaces/workflows/workflow-icons";
 import { addedTypes, newMenuLine } from "@/lib/workflows/create-rules";
@@ -16,6 +16,7 @@ import { TasksCalendar } from "@/components/workspaces/v2/tasks/TasksCalendar";
 import { TasksMatrix } from "@/components/workspaces/v2/tasks/TasksMatrix";
 import { ProjectsTable } from "@/components/workspaces/v2/tasks/PlannerParts";
 import { PlannerTimeline } from "@/components/workspaces/v2/tasks/PlannerTimeline";
+import { PlannerBoardLanes } from "@/components/workspaces/v2/tasks/PlannerBoardLanes";
 import { EMPTY_FILTERS, filtersFromUrl, filtersToUrl, matchesFilters, setCount, type DueFilter, type TaskFilters as ChipFilters } from "@/lib/workspaces/task-filters";
 import { workflowType } from "@/lib/workflows/types";
 import {
@@ -263,6 +264,10 @@ export default function TasksTab({
     if (saved === "timeline" || saved === "active" || saved === "all") setProjectsView(saved);
     else if (window.matchMedia("(max-width: 767px)").matches) setProjectsView("active");
   }, [projectId]);
+  // Report 38.5 W7 (A1.6): the board grouped by project, remembered per workspace.
+  const [groupByProject, setGroupByProject] = useState(false);
+  useEffect(() => { try { setGroupByProject(localStorage.getItem(`nb:board-group:${projectId}`) === "project"); } catch { /* private window */ } }, [projectId]);
+  const pickGroup = (on: boolean) => { setGroupByProject(on); try { localStorage.setItem(`nb:board-group:${projectId}`, on ? "project" : "none"); } catch { /* private window */ } };
   const pickProjectsView = (v: "timeline" | "active" | "all") => { setProjectsView(v); try { localStorage.setItem(`nb:projects-view:${projectId}`, v); } catch { /* private window */ } };
   // Report 38.5 S1 (A1.1): Board · Calendar for people in the workspace (B11: never the public); ?view= and remembered.
   const viewKey = `nb:tasks-view:${projectId}`;
@@ -999,7 +1004,7 @@ export default function TasksTab({
             {/* ⋯: New column on every screen (board view dropdown §6, D3), and on phones the code editor handoff. */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" aria-label="More task actions" className="inline-flex size-11 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted md:size-[34px]" hidden={!canManageWorkflow && isDesktop ? true : undefined}>
+                <button type="button" aria-label="More task actions" className="inline-flex size-11 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted md:size-[34px]" hidden={!canManageWorkflow && isDesktop && !(hasProjects && currentView === "board") ? true : undefined}>
                   <MoreHorizontal className="size-4" aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
@@ -1008,6 +1013,12 @@ export default function TasksTab({
                   <DropdownMenuItem onSelect={handleAddColumn} disabled={workflow.length >= 6}>
                     <Plus className="size-4" aria-hidden="true" />
                     {workflow.length >= 6 ? "Six columns (maximum)" : "New column"}
+                  </DropdownMenuItem>
+                ) : null}
+                {hasProjects && currentView === "board" ? (
+                  <DropdownMenuItem onSelect={() => pickGroup(!groupByProject)}>
+                    <FolderKanban className="size-4" aria-hidden="true" />
+                    {groupByProject ? "Group by: None" : "Group by: Project"}
                   </DropdownMenuItem>
                 ) : null}
                 {/* Board view dropdown §6 (D3): a rare action, in ⋯ on every screen; the code editor has its own button on desktop. */}
@@ -1157,6 +1168,8 @@ export default function TasksTab({
             <TasksCalendar projectId={projectId} scope={scope} filters={chipFilters} viewerId={currentUserId ?? null} canEdit={canEditTasks}
               onOpenTask={(item) => openTask(item)} onNewOnDay={(day) => { setCreateDue(day); openCreate(); }} />
           </div>
+        ) : hasProjects && groupByProject ? (
+          <PlannerBoardLanes projectId={projectId} workflow={workflow} tasks={filteredTasks} canEdit={canEditTasks} onOpenTask={(task) => openTask(task)} />
         ) : (
         <KanbanBoard
           projectId={projectId}

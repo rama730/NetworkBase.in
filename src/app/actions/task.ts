@@ -481,6 +481,11 @@ export async function setTaskStageAction(input: z.infer<typeof stageMoveSchema>)
       return { locked, result };
     });
     const warnings = await afterTaskTransition(user, locked, taskId, result);
+    // A1.6: a completed project tells the people on it (Summary); every path (panel, tables, CLI) comes through here.
+    if (locked.itemType === "project" && stage === "completed" && locked.stage !== "completed") {
+      const { notifyProjectCompleted } = await import("@/lib/workflows/planner-notify");
+      await notifyProjectCompleted(user.id, taskId);
+    }
     return { success: true as const, updatedAt: result.updatedAt.toISOString(), status: result.status, reviewStatus: result.reviewStatus, outcome: result.outcome, warnings };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t move this item" };
@@ -647,6 +652,11 @@ export async function setTaskDatesAction(input: z.infer<typeof datesSchema>) {
       .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), inArray(tasks.id, [taskId, ...dependentsToShift(taskId, deps)])));
     const late = conflicts(rows.map((r) => ({ id: r.id, start: dayKey(r.startDate), end: dayKey(r.dueDate) })), deps.filter((d) => d.blockedById === taskId));
     const shift = late.length ? dependentsToShift(taskId, deps) : [];
+    // A1.6: the assignee of a project that now starts before this one ends hears about it (Normal).
+    if (late.length) {
+      const { notifyProjectConflicts } = await import("@/lib/workflows/planner-notify");
+      await notifyProjectConflicts(user.id, { title: rows.find((r) => r.id === taskId)?.title ?? "its blocker", end: moved.after }, late.map((c) => c.blocked));
+    }
     return {
       success: true as const,
       conflicts: late.map((c) => c.blocked),
@@ -668,7 +678,7 @@ export async function shiftDependentsAction(input: z.infer<typeof shiftSchema>) 
     if (!user) return { success: false as const, error: "Sign in to continue" };
     const ids = dependentsToShift(taskId, await projectDeps(projectId));
     if (!ids.length || !days) return { success: true as const, count: 0 };
-    await db.transaction(async (tx) => {
+    const blockerTitle = await db.transaction(async (tx) => {
       for (const id of ids) {
         const locked = await lockTaskForWrite(tx, id, user.id);
         if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
@@ -682,7 +692,11 @@ export async function shiftDependentsAction(input: z.infer<typeof shiftSchema>) 
       const [blocker] = await tx.select({ title: tasks.title, taskNumber: tasks.taskNumber, status: tasks.status }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
       await tx.insert(taskActivityEvents).values({ taskId, projectId, actorId: user.id, eventType: "field_updated",
         payload: { ...(await viaPayload()), version: 1, field: "dueDate", shifted: ids.length, days, taskTitle: blocker?.title ?? "", taskNumber: blocker?.taskNumber ?? null, taskStatus: blocker?.status ?? "todo" } });
+      return blocker?.title ?? "its blocker";
     });
+    // A1.6: the moved projects' assignees get one Summary notice each.
+    const { notifyProjectsShifted } = await import("@/lib/workflows/planner-notify");
+    await notifyProjectsShifted(user.id, blockerTitle, ids, days, crypto.randomUUID());
     return { success: true as const, count: ids.length };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t move them" };
