@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.7.0 (2026-11-23)
+
+Workflows: typed items, stages, document lists and projects.
+
+### Added
+- `nb workflows` lists the workflows a workspace has, with their types and stages.
+- `nb task list --type bug --stage confirmed` lists one type, or one stage of it; `nb task create --type bug --stage new` makes a typed item; `nb task move <task> --stage fixing [--backlog]` moves it to a stage (joining the board takes the running sprint).
+- `nb doc rows <slug> --list <key>` shows a document's live list (its items are tasks), and `nb doc rows add` adds one.
+- Projects: `nb task create "Website relaunch" --type project --start 2026-12-02 --due 2026-12-20`, `--part-of 40` on `nb task create`, `nb task edit` (or `--part-of none`) and `nb task list`; projects list with their completion.
+- For agents: `networkbase_task_stage`, `networkbase_workflow_list`, `networkbase_doc_rows`, `networkbase_doc_rows_add`, and in the planning pack `networkbase_project_list`, `networkbase_project_create` and `networkbase_task_part_of`.
+
+### Fixed
+- `nb workflows` says "never on the board" for a type that never joins it (projects).
+
 ## 2.6.8 (2026-11-18)
 
 ### Fixed
