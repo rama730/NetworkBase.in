@@ -49,7 +49,7 @@ test('Live-fix 61–66: the organization entry says who set and verified it, lis
     await open(page, '?contribution=e1');
     await expect(page.getByText(/Set by CSE 3B · Data Structures 2026 · ✓ Verified by Ms\. Rao, Nov 2, 2026/)).toBeVisible();
     await expect(page.getByRole('list', { name: 'Workspaces in this organization' })).toContainText('Team Falcon');
-    await expect(page.getByText('Back to contributions')).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Edit CSE 3B · Data Structures 2026 contribution' })).toBeVisible();
     await expect(page.getByText('0 positions')).toBeVisible();
     await expect(page.getByText('Clearing this also marks your positions')).toHaveCount(0);
     // Publish is there for an entry that isn't on the profile yet, with nothing edited, and it sends a publish.
@@ -57,4 +57,20 @@ test('Live-fix 61–66: the organization entry says who set and verified it, lis
     await expect(publish).toBeVisible();
     await publish.click();
     await expect.poll(() => page.evaluate(() => (window as unknown as { __saves?: string[] }).__saves ?? [])).toContain('publish');
+});
+
+test('Edit profile › Contributions: the profile timeline with status, Show on profile and Pin; Edit opens a side panel over it', async ({ page }) => {
+    await open(page, '?contribution=e2');
+    const panel = page.getByRole('dialog', { name: 'Edit Team Falcon contribution' });
+    await expect(panel).toBeVisible();
+    expect(Math.round((await panel.boundingBox())!.width)).toBe(620);
+    await expect(panel.getByText('Visitors see your last published version.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Contributions/ })).toBeAttached();
+    await panel.getByRole('button', { name: 'Close', exact: true }).first().click();
+    await expect(panel).toHaveCount(0);
+    expect(new URL(page.url()).searchParams.get('contribution')).toBeNull();
+    await expect(page.getByText('Show on profile and Pin save right away, with Undo.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add outside project' })).toBeVisible();
+    await page.getByRole('region', { name: 'Not on your profile yet' }).getByRole('button', { name: 'Write about Team Falcon' }).click();
+    await expect(panel).toBeVisible();
 });

@@ -34,10 +34,10 @@ test("app chrome renders before the legal gate and profile pages reuse server re
 });
 
 test("avatar and onboarding writes use the shared optimized lifecycle", () => {
-  const editor = read("src/components/profile/edit/EditProfileTabs.tsx");
+  const editor = read("src/components/profile/edit/DetailsSection.tsx");
   assert.match(editor, /compressAvatarOffMainThread/);
-  assert.match(editor, /cacheProfile: "public"/);
-  assert.match(editor, /publicAvatarVariantUrl\(avatarSrc, 128\)/);
+  assert.match(editor, /cacheProfile: 'public'/);
+  assert.match(editor, /publicAvatarVariantUrl\(avatar, 128\)/);
 
   const onboarding = read("src/app/(site)/(onboarding)/onboarding/page.tsx");
   assert.doesNotMatch(onboarding, /saveOnboardingDraft/);

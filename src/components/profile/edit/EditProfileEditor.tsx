@@ -620,8 +620,6 @@ export function EditProfileEditor({
                             profile={formState || profile}
                             contributionProfileId={profile.id}
                             contributionProfileVisibility={profile.visibility ?? "public"}
-                            onCancelContribution={() => handleCancel()}
-                            showContributionExitPrompt={showDiscardConfirm}
                             originalUsername={originalUsernameRef.current}
                             baseAvatarUrl={baseProfileRef.current?.avatarUrl ?? ""}
                             usernameCheck={usernameCheck}

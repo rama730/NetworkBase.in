@@ -40,11 +40,12 @@ test("every chip on the profile and onboarding screens uses the one style", () =
   }
   const editor = read("src/components/profile/edit/EditProfileTabs.tsx");
   assert.doesNotMatch(editor, /border-dashed border-border bg-card\/60/, "suggestions are ordinary chips");
-  assert.match(editor, /className=\{choiceChipClass\(false\)\}/);
+  // Spec (profile mix): suggestions are ordinary chips with a dashed edge, so they read as "add", not "picked".
+  assert.match(editor, /cn\(choiceChipClass\(false\), "border-dashed"\)/);
 });
 
 test("Save changes is the one primary action in Collaboration preferences", () => {
   const editor = read("src/components/profile/edit/EditProfileTabs.tsx");
-  assert.match(editor, /<Button type="button" variant="outline" onClick=\{handleAddCustomCategory\}>Add category<\/Button>/);
+  assert.match(editor, /<Button type="button" variant="outline" onClick=\{handleAddCustomCategory\}>Add<\/Button>/);
   assert.match(editor, /<Button type="button" variant="outline" onClick=\{\(\) => handleAddCustomRole\(\)\}>Add role<\/Button>/);
 });

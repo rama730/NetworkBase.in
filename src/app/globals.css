@@ -2438,3 +2438,24 @@ a.nb-pf-link-row:hover { background: var(--secondary); }
 .nb-pf-sublabel { margin: 14px 0 8px; font: 500 10.5px var(--font-mono, ui-monospace), monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-foreground); }
 .nb-pf-clear { display: block; margin-top: 14px; padding: 0; border: 0; background: none; font: 500 13px var(--font-sans, system-ui); color: var(--muted-foreground); cursor: pointer; }
 .nb-pf-clear:hover { color: var(--destructive); }
+/* edit profile: contributions and the side panel */
+.nb-pf-enote { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--secondary); font-size: 13px; line-height: 1.5; }
+.nb-pf-enote > svg { margin-top: 3px; color: var(--muted-foreground); }
+.nb-pf-enote b { font-weight: 600; }
+@media (max-width: 640px) { .nb-pf-enote { grid-template-columns: auto minmax(0, 1fr); } .nb-pf-enote > button { grid-column: 1 / -1; justify-self: start; } }
+.nb-pf-st { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 3px; font: 500 10.5px/1 var(--font-mono, ui-monospace), monospace; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.nb-pf-st::before { content: ""; width: 6px; height: 6px; background: currentColor; }
+.nb-pf-st.is-pub { background: color-mix(in srgb, var(--status-success) 12%, transparent); color: var(--status-success); }
+.nb-pf-st.is-drf { background: color-mix(in srgb, var(--nb-brand) 12%, transparent); color: var(--primary); }
+.nb-pf-st.is-hid { background: var(--secondary); color: var(--muted-foreground); }
+.nb-pf-cbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border); }
+.nb-pf-switchrow { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; font-size: 13px; color: var(--foreground); cursor: pointer; }
+.nb-pf-btn-sm.is-ghost { border-color: transparent; background: none; }
+.nb-pf-btn-sm[aria-pressed="true"] { background: var(--secondary); color: var(--foreground); }
+.clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.nb-pf-cd-scrim { position: fixed; inset: 0; z-index: 92; display: flex; justify-content: flex-end; background: rgb(20 26 30 / 40%); }
+.nb-pf-cd { display: flex; flex-direction: column; width: min(620px, 100%); height: 100%; background: var(--card); box-shadow: -24px 0 60px rgb(20 26 30 / 25%); }
+@media (prefers-reduced-motion: no-preference) { .nb-pf-cd { animation: nb-pf-slide 260ms cubic-bezier(.2, .8, .3, 1) both; } }
+@keyframes nb-pf-slide { from { transform: translateX(24px); opacity: 0; } }
+.nb-pf-cd-b { flex: 1; min-height: 0; padding: 18px max(18px, env(safe-area-inset-right, 0px)) 24px 18px; overflow-y: auto; }
+.nb-pf-cd [data-contribution-actions] { padding-left: 18px; padding-right: 18px; }

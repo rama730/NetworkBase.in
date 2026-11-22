@@ -1,8 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Eye, EyeOff, MoreHorizontal, Pencil, Pin, PinOff, Plus } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, Eye, EyeOff, Globe, MoreHorizontal, Pencil, Pin, PinOff, Plus } from 'lucide-react'
+import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
+import { previewText } from '@/lib/profile/contribution-editor-text'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -26,11 +28,7 @@ const KIND_LABEL: Record<ContributionKind, string> = { org: 'Organization', work
 /** The story's first lines as plain text, for the compact Recent work cards. */
 function plainSummary(c: ProfileCollaborationContribution) {
     const raw = c.presentation?.summary ?? c.description ?? ''
-    const labels = new Map((c.resolvedReferences ?? []).map((r) => [`${r.kind}:${r.id}`, r.label]))
-    return raw
-        .replace(/\{%\s*ref\.(\w+)\s+id="([^"]+)"\s*%\}/g, (_m, kind, id) => labels.get(`${kind}:${id}`) ?? '')
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`#>]/g, '')
-        .split(/\n\s*\n/)[0]!.trim()
+    return previewText(raw.split(/\n\s*\n/)[0] ?? '', c.resolvedReferences ?? []).trim()
 }
 
 /**
@@ -47,6 +45,8 @@ export function ContributionTimeline({
     onEdit,
     onChanged,
     onProjectIntent,
+    mode = 'profile',
+    onAddOutside,
 }: {
     contributions: Entry[]
     isOwner: boolean
@@ -57,13 +57,19 @@ export function ContributionTimeline({
     onEdit?: (contributionId?: string) => void
     onChanged?: () => void
     onProjectIntent?: (href: string) => void
+    /** Edit profile › Contributions: each card shows its status and its own Show on profile, Pin and Edit. */
+    mode?: 'profile' | 'edit'
+    onAddOutside?: () => void
 }) {
+    const editing = mode === 'edit'
     const [live, setLive] = useState(contributions)
     const [filter, setFilter] = useState<Filter>('all')
     const [limit, setLimit] = useState(PAGE)
-    const [draftsOpen, setDraftsOpen] = useState(false)
+    const [draftsOpen, setDraftsOpen] = useState(mode === 'edit')
     const [dismissed, setDismissed] = useState<Set<string>>(new Set())
     useEffect(() => setLive(contributions), [contributions])
+    const latest = useRef(live)
+    latest.current = live
     // Come back to the tab after editing: the profile shows the latest published entries.
     useEffect(() => {
         if (!profileId) return
@@ -87,7 +93,7 @@ export function ContributionTimeline({
     const counts = filterCounts(ordered)
 
     const patch = (id: string, change: Partial<ProfileCollaborationContribution>) => setLive((list) => list.map((c) => c.id === id ? { ...c, ...change } : c))
-    const command = async (c: Entry, operation: 'feature' | 'hide' | 'publish') => {
+    const command = async (c: Entry, operation: 'feature' | 'hide' | 'publish', fromUndo = false): Promise<void> => {
         const before = { featured: c.featured, visibility: c.visibility }
         if (operation === 'feature') patch(c.id, { featured: !c.featured })
         else patch(c.id, { visibility: operation === 'hide' ? 'private' : 'public' })
@@ -98,7 +104,13 @@ export function ContributionTimeline({
             return
         }
         patch(c.id, { version: result.version })
-        toast.success(operation === 'feature' ? (c.featured ? 'Unpinned.' : 'Pinned. It shows first, with its picture.') : operation === 'hide' ? 'Hidden from your profile. Your words are kept.' : 'Back on your profile.')
+        const message = operation === 'feature' ? (c.featured ? 'Unpinned.' : 'Pinned. It shows first, with its picture.') : operation === 'hide' ? 'Hidden from your profile. Your words are kept.' : 'Back on your profile.'
+        // In the editor these save at once, so each one can be undone from its toast.
+        const undo = editing && !fromUndo ? { action: { label: 'Undo', onClick: () => {
+            const now = latest.current.find((x) => x.id === c.id)
+            if (now) void command(now, operation === 'feature' ? 'feature' : operation === 'hide' ? 'publish' : 'hide', true)
+        } } } : undefined
+        toast.success(message, undo)
         onChanged?.()
     }
 
@@ -127,15 +139,29 @@ export function ContributionTimeline({
         ) : (
             <ItemMenu label={`More for ${c.projectTitle}`} className="nb-pf-ib" report={{ kind: 'contribution', targetId: c.id, noun: 'contribution story' }} />
         )
+        const state = hidden ? 'Hidden' : c.draftStory && JSON.stringify(c.draftStory) !== JSON.stringify(c.presentation ?? null) ? 'Draft changes' : 'Published'
+        const chip = <span className={cn('nb-pf-st', state === 'Published' ? 'is-pub' : state === 'Hidden' ? 'is-hid' : 'is-drf')}>{state}</span>
+        const bar = (
+            <div className="nb-pf-cbar">
+                <label className="nb-pf-switchrow">
+                    <SettingsSwitch aria-label={`Show ${c.projectTitle} on profile`} checked={!hidden} onCheckedChange={(on) => void command(c, on ? 'publish' : 'hide')} />
+                    Show on profile
+                </label>
+                <button type="button" className="nb-pf-btn-sm is-ghost" aria-pressed={Boolean(c.featured)} onClick={() => void command(c, 'feature')}><Pin className="size-3.5" aria-hidden="true" />{c.featured ? 'Pinned' : 'Pin'}</button>
+                {onEdit ? <button type="button" className="nb-pf-btn-sm" onClick={() => onEdit(c.id)} aria-label={`Edit ${c.projectTitle}`}><Pencil className="size-3.5" aria-hidden="true" />Edit</button> : null}
+            </div>
+        )
         const card = (
-            <article className="nb-pf-tl-card">
+            <article className={cn('nb-pf-tl-card', editing && 'is-edit')}>
                 <div className="nb-pf-tl-top">
                     <WorkspaceAvatar project={{ title: c.projectTitle, coverImage: c.projectCoverImage ?? null }} size="row" placeholder className={pinned ? 'size-10 rounded-[6px]' : 'size-8 rounded-[6px]'} />
                     <span className="nb-pf-tl-t"><b>{title}</b>{c.title ? <span className="role">{c.title}</span> : null}</span>
                     <span className="nb-pf-tl-tools">
-                        {c.featured ? <span className="nb-pf-flag"><Pin className="size-3" aria-hidden="true" />Pinned</span> : null}
-                        {hidden ? <span className="nb-pf-flag"><EyeOff className="size-3" aria-hidden="true" />Hidden</span> : null}
-                        {menu}
+                        {editing ? chip : <>
+                            {c.featured ? <span className="nb-pf-flag"><Pin className="size-3" aria-hidden="true" />Pinned</span> : null}
+                            {hidden ? <span className="nb-pf-flag"><EyeOff className="size-3" aria-hidden="true" />Hidden</span> : null}
+                            {menu}
+                        </>}
                     </span>
                 </div>
                 <p className="nb-pf-tl-sub">
@@ -145,8 +171,8 @@ export function ContributionTimeline({
                     {status ? <span>{status}</span> : null}
                     {isOwner && c.verificationRevokedReason ? <span>Verification removed: {c.verificationRevokedReason}</span> : null}
                 </p>
-                {compact ? (
-                    plainSummary(c) ? <p className="nb-pf-tl-story">{plainSummary(c)}</p> : null
+                {compact || editing ? (
+                    plainSummary(c) ? <p className={cn('nb-pf-tl-story', editing && 'clamp2')}>{plainSummary(c)}</p> : null
                 ) : (
                     <ContributionStoryView contribution={{ ...c, draftStory: null }} onProjectIntent={onProjectIntent} bare />
                 )}
@@ -163,10 +189,12 @@ export function ContributionTimeline({
                                 <WorkspaceAvatar project={{ title: k.projectTitle, coverImage: k.projectCoverImage ?? null }} size="row" placeholder className="size-6 rounded-[5px]" />
                                 {k.projectHref ? <Link href={k.projectHref} className="hover:underline"><b>{k.projectTitle}</b></Link> : <b>{k.projectTitle}</b>}
                                 <span className="r">{k.title}</span>
+                                {editing && onEdit ? <button type="button" className="nb-pf-link" onClick={() => onEdit(k.id)} aria-label={`Edit ${k.projectTitle}`}>Edit</button> : null}
                             </div>
                         ))}
                     </div>
                 ) : null}
+                {editing ? bar : null}
                 {!compact && c.workRecord ? <p className="nb-pf-tl-sub" data-testid="work-record">Work record: {c.workRecord.done} of {c.workRecord.total} assignments · {c.workRecord.sprints} {c.workRecord.sprints === 1 ? 'sprint' : 'sprints'}</p> : null}
             </article>
         )
@@ -198,6 +226,12 @@ export function ContributionTimeline({
     }
 
     function empty() {
+        if (editing) return (
+            <div className="nb-pf-empty">
+                <b>No contributions yet</b>
+                <span>They appear when you join a workspace. You can also add an outside project you worked on.</span>
+            </div>
+        )
         return isOwner ? (
             <div className="nb-pf-empty">
                 <b>Show what you worked on</b>
@@ -216,8 +250,15 @@ export function ContributionTimeline({
         <section className="nb-pf-sec" aria-labelledby="pf-contrib-h">
             <h2 id="pf-contrib-h" className="nb-pf-label has-rule">
                 Contributions · <b>{ordered.length}</b>
-                {isOwner && onEdit ? <button type="button" className="nb-pf-ed" onClick={() => onEdit()} aria-label="Edit contributions"><Pencil className="size-3.5" /></button> : null}
+                {isOwner && onEdit && !editing ? <button type="button" className="nb-pf-ed" onClick={() => onEdit()} aria-label="Edit contributions"><Pencil className="size-3.5" /></button> : null}
             </h2>
+            {editing ? (
+                <div className="nb-pf-enote">
+                    <Globe className="size-3.5" aria-hidden="true" />
+                    <span><b>Show on profile</b> and <b>Pin</b> save right away, with Undo. Your writing saves on its own: a private draft first, then <b>Publish updates</b>. Visitors see your last published version.</span>
+                    {onAddOutside ? <button type="button" className="nb-pf-btn-sm" onClick={onAddOutside}><Plus className="size-3.5" aria-hidden="true" />Add outside project</button> : null}
+                </div>
+            ) : null}
             {ordered.length ? (
                 <>
                     <div className="nb-pf-filters" role="group" aria-label="Show contributions">
@@ -232,10 +273,10 @@ export function ContributionTimeline({
                         </button>
                     ) : null}
                 </>
-            ) : empty()}
+            ) : editing && drafts.length ? null : empty()}
             {isOwner && drafts.length ? (
                 draftsOpen ? (
-                    <div className="nb-pf-panel nb-pf-drafts" aria-label="Not on your profile yet">
+                    <section className="nb-pf-panel nb-pf-drafts" aria-label="Not on your profile yet">
                         <h3 className="nb-pf-label">Not on your profile yet · <b>{drafts.length}</b>
                             <button type="button" className="nb-pf-ib ml-auto" onClick={() => setDraftsOpen(false)} aria-label="Hide drafts">×</button></h3>
                         {drafts.map((c) => {
@@ -244,15 +285,15 @@ export function ContributionTimeline({
                             return (
                                 <div key={c.id} className="nb-pf-draft">
                                     <WorkspaceAvatar project={{ title: c.projectTitle, coverImage: c.projectCoverImage ?? null }} size="row" placeholder className="size-6 rounded-[5px]" />
-                                    <span className="min-w-0"><b>{c.projectTitle}</b><span className="s">Draft{nudge ? ' · write about your work' : ''}</span></span>
+                                    <span className="min-w-0"><b>{c.projectTitle}</b><span className="s">Draft{nudge ? ' · write about your work' : ''}</span>{editing && plainSummary(c) ? <span className="s clamp2">{plainSummary(c)}</span> : null}</span>
                                     <span className="a">
-                                        <a href={href} className="nb-pf-btn-sm">Write about it</a>
+                                        {editing && onEdit ? <button type="button" className="nb-pf-btn-sm" onClick={() => onEdit(c.id)} aria-label={`Write about ${c.projectTitle}`}>Write about it</button> : <a href={href} className="nb-pf-btn-sm">Write about it</a>}
                                         {nudge ? <button type="button" className="nb-pf-ib" aria-label={`Dismiss ${c.projectTitle}`} onClick={() => { setDismissed((d) => new Set(d).add(c.id)); void dismissContributionNudgeAction(c.id) }}>×</button> : null}
                                     </span>
                                 </div>
                             )
                         })}
-                    </div>
+                    </section>
                 ) : (
                     <button type="button" className="nb-pf-drafts-row" onClick={() => setDraftsOpen(true)}>
                         <EyeOff className="size-4" aria-hidden="true" /><span><span className="c">{drafts.length}</span> {drafts.length === 1 ? 'workspace isn’t' : 'workspaces aren’t'} on your profile yet</span><span className="go">Review<ChevronDown className="size-3.5" /></span>

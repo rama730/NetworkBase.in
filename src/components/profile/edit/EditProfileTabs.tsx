@@ -83,8 +83,6 @@ interface EditProfileTabsProps {
     contributionTotal?: number;
     onLoadMoreContributions?: () => void;
     onImageFinalized?: (avatarUrl: string, updatedAt?: string) => void;
-    onCancelContribution?: () => void;
-    showContributionExitPrompt?: boolean;
 }
 
 const EDIT_SECTIONS: Array<{ id: EditProfileSection; label: string }> = [
@@ -119,11 +117,8 @@ export function EditProfileTabs({
     contributionTotal = 0,
     onLoadMoreContributions,
     onImageFinalized,
-    onCancelContribution,
-    showContributionExitPrompt = false,
 }: EditProfileTabsProps) {
     const contentScrollRef = useRef<HTMLDivElement>(null);
-    const [contributionFooterHost, setContributionFooterHost] = useState<HTMLDivElement | null>(null);
     // Switching sections keeps the tab bar where it is: past the band it stays floating, above it nothing moves.
     useEffect(() => {
         const root = contentScrollRef.current, bar = root?.querySelector<HTMLElement>("[data-pf-tabbar]");
@@ -164,7 +159,7 @@ export function EditProfileTabs({
 
                     <TabsContent value="experience" forceMount hidden={section !== "experience"} className="mt-0">
                         <fieldset disabled={section !== "experience"} className="min-w-0">
-                        <ContributionEditor profileId={contributionProfileId} profileVisibility={contributionProfileVisibility} items={profile.experience ?? []} hasMore={contributionHasMore} loadingMore={contributionsLoadingMore} onLoadMore={onLoadMoreContributions} footerContainer={contributionFooterHost} onCancel={onCancelContribution}/>
+                        <ContributionEditor profileId={contributionProfileId} profileVisibility={contributionProfileVisibility} items={profile.experience ?? []} hasMore={contributionHasMore} loadingMore={contributionsLoadingMore} onLoadMore={onLoadMoreContributions}/>
                         </fieldset>
                     </TabsContent>
 
@@ -191,7 +186,6 @@ export function EditProfileTabs({
                         <RolePreferencesEditor profile={profile} onChange={onChange} />
                     </TabsContent>
                 </div>
-                <div ref={setContributionFooterHost} hidden={section !== "experience" || showContributionExitPrompt} data-contribution-footer-host className="shrink-0" />
                 </div>
                 <aside className="nb-pf-rail" aria-label="Your changes">{card}</aside>
                 </div>

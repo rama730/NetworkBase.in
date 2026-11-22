@@ -748,8 +748,8 @@ test.describe('profile editor touch reflow',()=>{
     await page.setViewportSize({width,height:900});
     for(const [tab,section] of sections) {
       await editor.getByRole('tab',{name:new RegExp(`^${tab}`)}).click();
-      if(section==='Contributions'&&width===320) await editor.getByRole('button',{name:'Add external project',exact:true}).click();
-      await expect(editor.getByRole('heading',{name:section,exact:true})).toBeVisible();
+      if(section==='Contributions'&&width===320) await expect(editor.getByRole('button',{name:'Add outside project',exact:true})).toBeVisible();
+      await expect(editor.getByRole('heading',{name:new RegExp(`^${section}`)}).first()).toBeVisible();
       expect(await editor.locator('[data-scroll-root="route"]').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
       expect(await editor.getByRole('tabpanel').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

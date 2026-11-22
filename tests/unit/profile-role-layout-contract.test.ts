@@ -76,7 +76,7 @@ test('profile surfaces use the shared typography roles', () => {
   const about = read('src/components/profile/v2/sections/AboutSection.tsx')
   const projects = read('src/components/profile/v2/sections/WorkspacesGridCard.tsx')
   const contributions = read('src/components/profile/v2/sections/ContributionTimeline.tsx')
-  const editor = read('src/components/profile/edit/EditProfileTabs.tsx')
+  const editor = read('src/components/profile/edit/EditProfileTabs.tsx') + read('src/components/profile/edit/DetailsSection.tsx')
 
   assert.match(rail, /nb-pf-fsec/)
   assert.match(rail, /<FactList /)
@@ -86,12 +86,12 @@ test('profile surfaces use the shared typography roles', () => {
   assert.match(projects, /nb-compact/)
   assert.match(contributions, /nb-pf-tl-card/)
   assert.match(contributions + read('src/components/profile/ContributionStoryView.tsx'), /nb-meta/)
-  assert.match(editor, /nb-section-title/)
-  assert.match(editor, /nb-card-title/)
+  // Edit profile's sections carry the profile's own section label and panel (spec: profile mix).
+  assert.match(editor, /<EditPanel title=/)
+  assert.match(editor, /nb-pf-label has-rule/)
   assert.match(editor, /nb-ui-label/)
   assert.match(editor, /nb-body/)
   assert.match(editor, /nb-meta/)
-  assert.match(editor, /nb-micro/)
   assert.doesNotMatch(editor, /text-\[13px\]/)
 })
 

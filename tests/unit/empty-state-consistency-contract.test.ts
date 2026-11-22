@@ -34,7 +34,7 @@ test("Empty state architectural contract: My profile surfaces", () => {
     assert.match(projectsGrid, /<EmptyState[\s\S]*?title="No workspaces yet"/);
     assert.match(contributions, /className="nb-pf-empty"/);
     assert.match(connectionsModal, /className=["'][^"']*nb-empty-state nb-grid-ground/);
-    assert.match(editProfileTabs, /className=["'][^"']*nb-empty-state nb-grid-ground/);
+    assert.match(editProfileTabs, /className="nb-pf-empty"/);
 });
 
 test("Empty state architectural contract: Projects and Tasks surfaces", () => {

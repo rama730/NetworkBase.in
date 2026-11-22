@@ -15,14 +15,12 @@
  * - Strict adherence to Ponytail design tokens and contract assertions.
  */
 
-import { editorEntryStatus, groupProfileContributions } from "@/lib/organizations/profile-rules";
+import { editorEntryStatus } from "@/lib/organizations/profile-rules";
 import { WorkspaceAvatar } from "@/components/workspaces/WorkspaceAvatar";
-import { hiddenReason, previewText, roleCount } from "@/lib/profile/contribution-editor-text";
+import { hiddenReason, roleCount } from "@/lib/profile/contribution-editor-text";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { get, set, del, createStore } from "idb-keyval";
 import {
-  ArrowLeft,
   ArrowUp,
   ArrowDown,
   Plus,
@@ -43,20 +41,14 @@ import {
   Globe,
   FileText,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/messaging/image-compression";
 import { scrollContributionEditorTarget } from "@/lib/profile/contribution-editor-scroll";
 import { Button } from "@/components/ui/button";
-import { SearchField } from "@/components/ui/SearchField";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ContributionTimeline } from "@/components/profile/v2/sections/ContributionTimeline";
 import {
   Dialog,
   DialogContent,
@@ -64,10 +56,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { SkillPicker } from "@/components/skills/SkillPicker";
-import {
-  ContributionStoryView,
-  ContributionIdentityLinks,
-} from "@/components/profile/ContributionStoryView";
+import { ContributionStoryView } from "@/components/profile/ContributionStoryView";
 import { ContributionSummaryEditor } from "./ContributionSummaryEditor";
 import { OrgStoryHelpers } from "./OrgStoryHelpers";
 import {
@@ -144,8 +133,6 @@ export function ContributionEditor({
   hasMore,
   onLoadMore,
   loadingMore,
-  footerContainer,
-  onCancel,
 }: {
   items: ContributionEditorEntry[];
   profileId: string;
@@ -153,11 +140,8 @@ export function ContributionEditor({
   hasMore?: boolean;
   onLoadMore?: () => void;
   loadingMore?: boolean;
-  footerContainer?: HTMLElement | null;
-  onCancel?: () => void;
 }) {
   const params = useSearchParams();
-  const router = useRouter();
   const [validationProject, setValidationProject] = useState<string | null>(
     null,
   );
@@ -177,12 +161,11 @@ export function ContributionEditor({
     docs = useRef(documents);
   docs.current = documents;
   const [pauseAutosave, setPauseAutosave] = useState(false);
+  const [askClose, setAskClose] = useState(false);
   const [busy, setBusy] = useState(false),
     busyRef = useRef(false),
     [error, setError] = useState<string | null>(null),
-    [status, setStatus] = useState("Private draft saved"),
-    [search, setSearch] = useState(""),
-    [filter, setFilter] = useState("all");
+    [status, setStatus] = useState("Private draft saved");
   const [roleEdit, setRoleEdit] = useState<string | null>(null),
     [preview, setPreview] = useState<"draft" | "visitor" | null>(null),
     [undo, setUndo] = useState<Undo | null>(null),
@@ -725,31 +708,26 @@ export function ContributionEditor({
     }
   }
   saveRef.current = save;
-  async function cancelEditing() {
+  // Closing keeps the private draft (also locally, in case the last save is still running); unpublished edits ask first.
+  async function closePanel(confirmed = false) {
     if (busyRef.current || pending.length) return;
+    if (!confirmed && hasPublishChanges && (active?.publishedAt || active?.presentation)) {
+      setAskClose(true);
+      return;
+    }
     try {
       await Promise.all(
         Object.entries(docs.current)
           .filter(([id, document]) => !same(document, bases.current[id]))
           .map(([id, document]) =>
-            set(
-              key(id),
-              {
-                document,
-                base: bases.current[id],
-                version: versions.current[id],
-              },
-              draftStorage(),
-            ),
+            set(key(id), { document, base: bases.current[id], version: versions.current[id] }, draftStorage()),
           ),
       );
-      if (onCancel) onCancel();
-      else router.push("/my-profile");
     } catch {
-      setError(
-        "Your latest edits could not be kept locally. Save your draft before leaving.",
-      );
+      /* the server draft is the record; the local copy is a convenience */
     }
+    setAskClose(false);
+    nav(null);
   }
   const closeRole = (id: string) => {
     setRoleEdit(null);
@@ -895,44 +873,6 @@ export function ContributionEditor({
             : p,
       ),
     }));
-  const filtered = records
-    .filter((r) => {
-      const doc = documents[r.id];
-      return (
-        (!search ||
-          `${r.projectTitle} ${doc?.title ?? ""} ${doc?.summary ?? ""}`
-            .toLowerCase()
-            .includes(search.toLowerCase())) &&
-        (filter === "all" ||
-          (filter === "public"
-            ? r.visibility === "public"
-            : r.visibility !== "public"))
-      );
-    })
-    .sort((a, b) => {
-      if (Number(b.featured) !== Number(a.featured)) {
-        return Number(b.featured) - Number(a.featured);
-      }
-      const docA = documents[a.id];
-      const docB = documents[b.id];
-      const dateA =
-        docA?.start ||
-        sortedStoryPositions(docA?.positions ?? [])[0]?.start ||
-        a.startDate ||
-        a.createdAt ||
-        "";
-      const dateB =
-        docB?.start ||
-        sortedStoryPositions(docB?.positions ?? [])[0]?.start ||
-        b.startDate ||
-        b.createdAt ||
-        "";
-      if (dateA !== dateB) return dateB.localeCompare(dateA);
-      const createdA = a.projectCreatedAt || a.createdAt || "";
-      const createdB = b.projectCreatedAt || b.createdAt || "";
-      if (createdA !== createdB) return createdB.localeCompare(createdA);
-      return b.id.localeCompare(a.id);
-    });
   const footer =
     active && d ? (
       <footer
@@ -964,9 +904,9 @@ export function ContributionEditor({
             type="button"
             variant="outline"
             disabled={busy || pending.length > 0}
-            onClick={() => void cancelEditing()}
+            onClick={() => void closePanel()}
           >
-            Cancel
+            Close
           </Button>
           {/* Live-fix 63: an entry that isn't on the profile yet can always be published; checks list what's missing. */}
           {(hasPublishChanges || (!!active && !active.publishedAt && !active.presentation)) && (
@@ -983,20 +923,10 @@ export function ContributionEditor({
         </div>
       </footer>
     ) : null;
-  if (active && !d)
-    return (
-      <div className="nb-contribution-editor">
-        <Button type="button" variant="ghost" onClick={() => nav(null)}>
-          <ArrowLeft className="size-4" />
-          Contributions
-        </Button>
-        <p role="status" className="nb-compact py-8">
-          Loading contribution…
-        </p>
-      </div>
-    );
   return (
     <div className="nb-contribution-editor">
+      {!active ? (
+        <>
       {error && (
         <div
           role="alert"
@@ -1034,168 +964,83 @@ export function ContributionEditor({
           </Button>
         </div>
       )}
-      {!active || !d ? (
-        <>
-          <div className="mb-5 flex min-w-0 flex-col gap-4">
-            <div className="min-w-0">
-              <h1 className="nb-page-title text-balance">Contributions</h1>
-              <p className="nb-body mt-1 text-pretty text-muted-foreground">
-                Tell the story behind your work. Choose what appears on your
-                profile.
-              </p>
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <Select value={filter} onValueChange={setFilter}>
-                <SelectTrigger
-                  aria-label="Filter contributions"
-                  className="w-auto min-w-[136px] bg-card pointer-coarse:h-11"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All contributions</SelectItem>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                </SelectContent>
-              </Select>
-              <SearchField
-                label="Search contributions"
-                value={search}
-                onChange={setSearch}
-                pageSearch
-                className="flex-1 basis-40 sm:w-64 sm:flex-none sm:basis-auto"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="bg-card max-sm:w-full pointer-coarse:h-11"
-                onClick={() => void addExternal()}
-              >
-                <Plus className="size-4" aria-hidden="true" />
-                Add external project
-              </Button>
-            </div>
-          </div>
-          <div className="divide-y divide-border">
-            {/* Live-fix 57, 66: grouped like the profile, an organization's workspaces nested under it. */}
-            {(() => {
-              const g = groupProfileContributions(filtered, true);
-              const groups: Array<[string, Array<Item & { children?: Item[] }>]> = [["Organizations", g.organizations], ["Workspaces", g.workspaces], ["Not on your profile yet", g.drafts], ["Private to you", g.privateToYou]];
-              const row = (r: Item, nested: boolean) => {
-                const doc = documents[r.id];
-                return (
-                  <article key={r.id} className={nested ? "border-l-2 border-border py-5 pl-4 ml-2" : "py-5"}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <button
-                          type="button"
-                          className="nb-card-title break-words text-left hover:underline"
-                          onClick={() => nav(r.id)}
-                        >
-                          {r.projectId
-                            ? r.projectTitle
-                            : doc?.title || r.projectTitle}
-                          {r.featured && (
-                            <Pin className="ml-2 inline size-3.5 text-primary" />
-                          )}
-                        </button>
-                        <p className="nb-compact mt-1 text-muted-foreground">
-                          {doc?.positions.find((p) => !p.hidden)?.title ||
-                            r.title}
-                        </p>
-                        <p className="nb-meta mt-1 text-muted-foreground">
-                          {doc && storyPeriod(doc)}
-                        </p>
-                        <div className="mt-2">
-                          <ContributionIdentityLinks
-                            links={[
-                              ...(r.projectIdentityLinks ?? []),
-                              ...(doc?.links ?? []),
-                            ]}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        {/* Report §16.10, §38.3: Published, Draft, Hidden, Left, Completed or Private to you. */}
-                        <span className="nb-micro text-muted-foreground" data-testid="editor-entry-status">
-                          {editorEntryStatus(r)}
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          aria-label={`Edit ${r.projectTitle}`}
-                          onClick={() => nav(r.id)}
-                        >
-                          <Pencil className="size-3.5" />
-                          Edit
-                        </Button>
-                      </div>
-                    </div>
-                    {doc?.summary && (
-                      <p className="nb-compact mt-3 line-clamp-2 text-muted-foreground">
-                        {/* Live-fix 60: mentions read as their names; Markdown marks and escapes drop out. */}
-                        {previewText(doc.summary, r.resolvedReferences ?? [])}
-                      </p>
-                    )}
-                  </article>
-                );
-              };
-              return groups.filter(([, rows]) => rows.length).map(([title, rows]) => (
-                <section key={title} aria-label={title}>
-                  <h3 className="nb-micro pt-5 text-muted-foreground">{title}</h3>
-                  {rows.flatMap((p) => [row(p, false), ...(p.children ?? []).map((c) => row(c, true))])}
-                </section>
-              ));
-            })()}
-          </div>
-          {!filtered.length && (
-            <div className="nb-empty-state nb-grid-ground rounded-lg py-12 text-center">
-              <h3 className="nb-card-title">
-                {search
-                  ? "No matching contributions"
-                  : "No workspace contributions yet"}
-              </h3>
-              <p className="nb-compact mt-2 text-muted-foreground">
-                {search
-                  ? "Try a different search."
-                  : "Contributions appear when you join a workspace. You can also add an external project."}
-              </p>
-            </div>
-          )}
-          {hasMore && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={loadingMore}
-              onClick={onLoadMore}
-            >
-              {loadingMore
-                ? "Loading contributions…"
-                : "Load more contributions"}
-            </Button>
-          )}
         </>
-      ) : (
-        <>
+      ) : null}
+      <ContributionTimeline
+        mode="edit"
+        contributions={records}
+        isOwner
+        profileId={profileId}
+        onEdit={(id) => (id ? nav(id) : undefined)}
+        onAddOutside={() => void addExternal()}
+        onChanged={() => void refresh()}
+      />
+      {hasMore && (
+        <Button type="button" variant="outline" disabled={loadingMore} onClick={onLoadMore}>
+          {loadingMore ? "Loading contributions…" : "Load more contributions"}
+        </Button>
+      )}
+      {active ? (
+        <div className="nb-pf-cd-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) void closePanel(); }}>
+          <section
+            className="nb-pf-cd"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Edit ${(active.projectId ? active.projectTitle : d?.title || "Untitled external project")} contribution`}
+            onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); void closePanel(); } }}
+          >
+            <div className="nb-pf-cd-b @container">
+      {error && (
+        <div
+          role="alert"
+          tabIndex={-1}
+          className="mb-5 rounded-[5px] border border-destructive/30 bg-destructive/5 p-3 nb-compact text-destructive"
+        >
+          {error}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void save("draft")}
+            disabled={!active || busy}
+          >
+            Retry save
+          </Button>
+        </div>
+      )}
+      {undo && (
+        <div
+          role="status"
+          className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3 nb-compact"
+        >
+          {undo.label}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              undo.run();
+              setUndo(null);
+            }}
+          >
+            Undo
+          </Button>
+        </div>
+      )}
+              {d ? (
+                <>
           {/* Redesigned Detail Header matching NetworkBase specifications */}
           <header className="mb-6 border-b border-border pb-6">
             {/* Top Row: Navigation Return Path */}
             <div className="mb-4 flex items-center justify-between">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => nav(null)}
-                className="-ml-2 h-8 gap-1.5 rounded-[6px] px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="size-3.5" aria-hidden="true" />
-                Back to contributions
+              <span className="nb-meta text-muted-foreground">Contribution</span>
+              <Button type="button" variant="ghost" size="icon" onClick={() => void closePanel()} aria-label="Close" className="nb-touch-target size-8">
+                <X className="size-4" aria-hidden="true" />
               </Button>
             </div>
 
             {/* Title, Badge, Description, and Action Controls */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex flex-col gap-4 @min-[720px]:flex-row @min-[720px]:items-start @min-[720px]:justify-between">
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2.5">
                   {active.projectId ? <WorkspaceAvatar project={{ title: active.projectTitle, coverImage: active.projectCoverImage }} size="row" placeholder /> : null}
@@ -2317,9 +2162,24 @@ export function ContributionEditor({
               </Button>
             )}
           </div>
-          {footerContainer ? createPortal(footer, footerContainer) : footer}
-        </>
-      )}
+                </>
+              ) : (
+                <p role="status" className="nb-compact py-8">Loading contribution…</p>
+              )}
+            </div>
+            {footer}
+          </section>
+        </div>
+      ) : null}
+      <ConfirmDialog
+        open={askClose}
+        onOpenChange={setAskClose}
+        title="Close without publishing?"
+        description="Your draft is kept privately. Visitors still see your last published version."
+        confirmLabel="Close"
+        cancelLabel="Keep editing"
+        onConfirm={() => void closePanel(true)}
+      />
       <Dialog
         open={!!picker}
         onOpenChange={(open) => {

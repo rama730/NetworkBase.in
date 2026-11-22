@@ -22,7 +22,7 @@ function text(element: any): string {
   return element?.props?.children ? text(element.props.children) : "";
 }
 async function workspace(
-  options: { image?: boolean; footerContainer?: HTMLElement } = {},
+  options: { image?: boolean } = {},
 ) {
   const id = randomUUID(),
     position = randomUUID(),
@@ -143,6 +143,8 @@ async function workspace(
     "@/components/profile/ContributionStoryView": `export function ContributionStoryView(){return null;}export function ContributionIdentityLinks(){return null;}`,
     "./ContributionSummaryEditor": `export function ContributionSummaryEditor(){return null;}`,
     "./OrgStoryHelpers": `export function OrgStoryHelpers(){return null;}`,
+    "@/components/profile/v2/sections/ContributionTimeline": `export function ContributionTimeline(){return null;}`,
+    "@/components/ui/ConfirmDialog": `export function ConfirmDialog(){return null;}`,
   };
   const result = await build({
     entryPoints: ["src/components/profile/edit/ContributionEditor.tsx"],
@@ -219,7 +221,6 @@ async function workspace(
   const props = {
     items: [{ contribution: record }],
     profileId: randomUUID(),
-    footerContainer: options.footerContainer,
   };
   async function render() {
     for (let attempts = 0; attempts < 25; attempts++) {
@@ -425,14 +426,20 @@ test("missing image descriptions show a field error and focus only the editor pa
     h.close();
   }
 });
-test("Cancel preserves the private recovery journal and returns to the profile", async () => {
+test("Close asks before leaving unpublished edits, keeps the private recovery journal and closes the panel", async () => {
   const h = await workspace();
   try {
     h.summary().props!.onChange("Keep this draft for later.");
     await h.render();
-    await h.button("Cancel").props!.onClick();
+    await h.button("Close").props!.onClick();
+    await h.render();
+    const ask = h.all().find((n) => (n.type as any)?.name === "ConfirmDialog")!;
+    assert.equal(ask.props!.open, true);
+    assert.equal(ask.props!.title, "Close without publishing?");
+    await ask.props!.onConfirm();
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(h.navigations, ["/my-profile"]);
+    await h.render();
+    assert.deepEqual(h.navigations, []);
     assert.ok(
       [...h.journal.values()].some(
         (entry) => entry.document.summary === "Keep this draft for later.",
@@ -440,32 +447,22 @@ test("Cancel preserves the private recovery journal and returns to the profile",
     );
     assert.equal(h.commands.length, 0);
     assert.equal(h.record.presentation.summary, "Published story.");
+    assert.equal(h.all().some((n) => n.props?.role === "dialog"), false);
   } finally {
     h.close();
   }
 });
-test("the footer portals into the editor sibling and file selection restores focus without scrolling", async () => {
-  const host = { nodeType: 1 } as HTMLElement;
-  const portalHarness = await workspace({ footerContainer: host });
-  try {
-    const portal = portalHarness
-      .all()
-      .find((n: any) => n.$$typeof === Symbol.for("react.portal")) as any;
-    assert.ok(portal);
-    assert.equal(portal.containerInfo, host);
-    assert.equal(portal.children.type, "footer");
-    assert.equal(portal.children.props["data-contribution-actions"], true);
-    assert.doesNotMatch(
-      portal.children.props.className,
-      /nb-story-footer|sticky|fixed|-(?:bottom|mb)-/,
-    );
-    assert.match(portal.children.props.className, /flex.*shrink-0.*px-4.*py-3/);
-    assert.match(portal.children.props.className, /safe-area-inset-bottom/);
-  } finally {
-    portalHarness.close();
-  }
+test("the footer sits in the side panel and file selection restores focus without scrolling", async () => {
   const h = await workspace();
   try {
+    const panel = h.all().find((n) => n.type === "section" && n.props?.role === "dialog") as any;
+    assert.ok(panel);
+    assert.match(panel.props["aria-label"], /^Edit .* contribution$/);
+    const footer = nodes(panel).find((n) => n.type === "footer") as any;
+    assert.equal(footer.props["data-contribution-actions"], true);
+    assert.doesNotMatch(footer.props.className, /nb-story-footer|sticky|fixed|-(?:bottom|mb)-/);
+    assert.match(footer.props.className, /flex.*shrink-0.*px-4.*py-3/);
+    assert.match(footer.props.className, /safe-area-inset-bottom/);
     const file = h
       .all()
       .find((n) => n.type === "input" && n.props?.type === "file")!;
