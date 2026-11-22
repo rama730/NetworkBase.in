@@ -46,7 +46,7 @@ test('profile summary is the calm band (mix): photo, serif name, handle + tag, h
   assert.match(header, /Set a status/)
   assert.match(header, />Edit profile</)
   assert.match(header, /aria-label="Share profile"/)
-  assert.match(header, /data-testid="profile-summary-header"/)
+  assert.match(header, /'profile-summary-header'/)
   assert.match(client, /onConnectionsClick=\{handleOpenConnections\}/)
   assert.match(client, /onProjectsClick=\{handleOpenProjects\}/)
 })

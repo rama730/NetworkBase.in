@@ -10,7 +10,7 @@ import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { normalizeSocialLinks } from '@/lib/profile/normalization'
-import { completionItemSection, type ProfileEditSection } from '@/lib/profile/edit-route'
+import { completionField, completionItemSection, type ProfileEditSection } from '@/lib/profile/edit-route'
 import { currentOrganizations, sinceMonth } from '@/lib/organizations/profile-rules'
 import { experienceLevelLabel, getRolePreferences, rolePreferenceLabel, WEEKLY_CAPACITY_OPTIONS } from '@/lib/profile/role-preferences'
 import type { ProfileDetailsRow } from '@/lib/profile/details'
@@ -18,12 +18,7 @@ import type { ProfileCollaborationContribution } from '@/lib/profile/collaborati
 import { FactList, type Fact } from './FactList'
 import { ManageOrganizationsDialog } from './ProfileOrganizationsSection'
 
-/** calculateProfileCompletion's items → the field Edit profile opens. */
-const COMPLETION_FIELD: Array<[RegExp, string]> = [
-    [/photo/i, 'photo'], [/full name/i, 'name'], [/username/i, 'username'], [/headline/i, 'headline'], [/bio/i, 'bio'],
-    [/location/i, 'location'], [/website/i, 'website'], [/skill/i, 'skills'], [/social link/i, 'links'],
-]
-export const completionField = (item: string) => COMPLETION_FIELD.find(([re]) => re.test(item))?.[1] ?? 'name'
+export { completionField } from '@/lib/profile/edit-route'
 
 function Section({ title, count, onEdit, editLabel, extra, children, id }: { title: string; count?: number; onEdit?: () => void; editLabel?: string; extra?: React.ReactNode; children: React.ReactNode; id?: string }) {
     const hid = useId()

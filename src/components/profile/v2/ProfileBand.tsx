@@ -108,7 +108,7 @@ export function ProfileBand(props: ProfileBandProps) {
     }, [vm?.fullName, vm?.headline, vm?.username])
 
     if (!vm) return null
-    const name = vm.fullName || vm.username || 'User'
+    const name = vm.fullName || vm.username || (preview ? 'Your name' : 'User')
     const firstName = name.split(/\s+/)[0]
     const isOpen = !lockedShell && vm.openToCollaborate === true
     const connectionsCount = stats?.connectionsCount ?? vm.connectionsCount ?? 0
@@ -228,7 +228,7 @@ export function ProfileBand(props: ProfileBandProps) {
     )
 
     return (
-        <section ref={bandRef} className={cn('nb-pf-band', tall && 'is-tall')} aria-label="Profile" data-testid="profile-summary-header">
+        <section ref={bandRef} className={cn('nb-pf-band', tall && 'is-tall')} aria-label={preview ? 'Preview of your profile header' : 'Profile'} data-testid={preview ? 'profile-edit-preview' : 'profile-summary-header'}>
             <div className="nb-pf-band-in">
                 <div className="nb-pf-photo">
                     {preview ? <button type="button" className="nb-pf-pic nb-pf-hit" onClick={() => preview.onJump('photo')} title="Change photo">{preview.photo ?? avatar}</button> : avatar}
@@ -236,7 +236,7 @@ export function ProfileBand(props: ProfileBandProps) {
                     {preview?.badge}
                 </div>
                 <div className="nb-pf-id">
-                    <h1 className="nb-pf-name" data-pf-name>{preview ? <button {...jump('name')!}>{name}</button> : name}</h1>
+                    {preview ? <p className="nb-pf-name" data-pf-name><button {...jump('name')!}>{name}</button></p> : <h1 className="nb-pf-name" data-pf-name>{name}</h1>}
                     <div className="nb-pf-handle">
                         {vm.username ? (preview ? <button {...jump('username')!}>@{vm.username}</button> : <span>@{vm.username}</span>) : null}
                         {tag}

@@ -82,19 +82,21 @@ test('header quick toggle saves only availability and preserves preferences thro
 test('the role card opens Collaboration preferences; draft switch and categories save together', async ({ page }) => {
   await page.getByRole('button', { name: 'Edit role preferences', exact: true }).click();
   const dialog = page.getByRole('region', {name:'Edit profile',exact:true});
-  await expect(dialog.getByRole('tab', { name: 'Collaboration preferences' })).toHaveAttribute('data-state', 'active');
+  await expect(dialog.getByRole('tab', { name: 'Collaboration' })).toHaveAttribute('aria-selected', 'true');
   await dialog.getByRole('switch', { name: 'Open to collaboration', exact: true }).click();
   await dialog.getByRole('button', { name: 'Design', exact: true }).click();
   await dialog.getByRole('tab', { name: 'Skills' }).click();
-  await dialog.getByRole('tab', { name: 'Collaboration preferences' }).click();
+  await dialog.getByRole('tab', { name: 'Collaboration' }).click();
   await expect(dialog.getByRole('switch', { name: 'Open to collaboration', exact: true })).toBeChecked();
   expect(await page.evaluate(() => (window as any).profileFixture.calls.length)).toBe(0);
   await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(dialog.getByText('Saved just now', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.getByRole('switch', { name: 'Open to collaboration', exact: true })).toBeChecked();
   await expect(page.getByText('Design', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Edit role preferences', exact: true }).click();
-  await expect(dialog.getByRole('tab', { name: 'Collaboration preferences' })).toHaveAttribute('data-state', 'active');
+  await expect(dialog.getByRole('tab', { name: 'Collaboration' })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('discard preserves saved state; failed save preserves draft; header failures roll back', async ({ page }) => {
@@ -163,10 +165,12 @@ test('mobile preferences save custom roles without overflow; new users can enabl
   await expect(page.getByText('Add the role types, roles, and categories that interest you.', {exact:true})).toBeVisible();
   await page.getByRole('button', {name:'Edit role preferences',exact:true}).click();
   const dialog=page.getByRole('region', {name:'Edit profile',exact:true});
-  await expect(dialog.getByRole('tab', {name:'Collaboration preferences'})).toHaveAttribute('data-state','active');
+  await expect(dialog.getByRole('tab', {name:'Collaboration'})).toHaveAttribute('aria-selected','true');
   await dialog.getByPlaceholder('e.g. Next.js Developer, Rust Dev').fill('Game developer');
   await dialog.getByRole('button', {name:'Add role',exact:true}).click();
   await dialog.getByRole('button', {name:'Save changes',exact:true}).click();
+  await expect(dialog.getByText('Saved just now',{exact:true})).toBeVisible();
+  await dialog.getByRole('button', {name:'Done',exact:true}).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.getByText('Game developer',{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
@@ -184,6 +188,8 @@ test('editor conflict keeps preferences draft available for review', async ({ pa
   await expect(dialog.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
   await page.evaluate(()=>{(window as any).profileFixture.conflict=false;});
   await dialog.getByRole('button',{name:'Save changes',exact:true}).click();
+  await expect(dialog.getByText('Saved just now',{exact:true})).toBeVisible();
+  await dialog.getByRole('button',{name:'Done',exact:true}).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.getByText('Updated elsewhere',{exact:true})).toBeVisible();
   const payload=await page.evaluate(()=>(window as any).profileFixture.calls.at(-1));
@@ -332,7 +338,7 @@ test('the right card is ordered by who is looking; owner-only parts stay with th
       socialLinkMetadata:{l2:{health:'unavailable'}}});
     f.refresh();
   });
-  const card=page.getByRole('complementary',{name:'Profile details'});
+  const card=page.getByRole('complementary',{name:'Details'});
   await expect(card.locator('.nb-pf-fsec').first().getByRole('heading')).toHaveText('Profile completeness');
   await expect(card.getByRole('button',{name:/Add profile photo/})).toBeVisible();
   await expect(card.getByText('Didn’t open last time')).toBeVisible();
@@ -510,8 +516,35 @@ test('edit profile uses a full page, preserves section links on refresh and keep
   await page.getByRole('button',{name:'Edit profile',exact:true}).click();
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});await expect(editor).toBeVisible();await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit\?section=general/);
   const bounds=await editor.boundingBox();expect(bounds!.y).toBe(56);expect(bounds!.y+bounds!.height).toBe(1000);
-  await editor.getByRole('tab',{name:'Collaboration preferences'}).click();await expect(page).toHaveURL(/section=opportunity/);await page.reload();await expect(editor.getByRole('tab',{name:'Collaboration preferences'})).toHaveAttribute('data-state','active');
-  await editor.getByRole('button',{name:'Design',exact:true}).click();await editor.getByRole('tab',{name:'Skills'}).click();await editor.getByRole('tab',{name:'Collaboration preferences'}).click();await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');expect(await page.evaluate(()=>(window as any).profileFixture.calls.length)).toBe(0);
+  await editor.getByRole('tab',{name:'Collaboration'}).click();await expect(page).toHaveURL(/section=opportunity/);await page.reload();await expect(editor.getByRole('tab',{name:'Collaboration'})).toHaveAttribute('aria-selected','true');
+  await editor.getByRole('button',{name:'Design',exact:true}).click();await editor.getByRole('tab',{name:'Skills'}).click();await editor.getByRole('tab',{name:'Collaboration'}).click();await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');expect(await page.evaluate(()=>(window as any).profileFixture.calls.length)).toBe(0);
+});
+
+test('edit profile: typing updates the preview, lists the change with its own Undo, dots the tab, and ⌘S saves in place',async({page})=>{
+  await page.getByRole('button',{name:'Edit profile',exact:true}).click();
+  const editor=page.getByRole('region',{name:'Edit profile',exact:true});
+  const preview=editor.getByRole('region',{name:'Preview of your profile header'});
+  const card=editor.getByRole('complementary',{name:'Your changes'});
+  await expect(card.getByText('Everything is saved')).toBeVisible();
+  await expect(preview.getByText('Click anything above to edit it')).toBeVisible();
+  await editor.locator('#profile-headline').fill('Builds compilers for fun');
+  await expect(preview.getByRole('button',{name:'Builds compilers for fun'})).toBeVisible();
+  await expect(card.getByText('1 unsaved change',{exact:true})).toBeVisible();
+
+  await expect(card.getByRole('button',{name:/^Headline\s*Edited/})).toBeVisible();
+  await expect(card.getByRole('button',{name:'Save changes',exact:true})).toBeEnabled();
+  await expect(editor.getByRole('tab',{name:/^Details/}).locator('.dot')).toHaveCount(1);
+  await card.getByRole('button',{name:'Undo Headline'}).click();
+  await expect(card.getByText('Everything is saved')).toBeVisible();
+  await expect(preview.getByRole('button',{name:'Builds compilers for fun'})).toHaveCount(0);
+  await expect(editor.getByRole('tab',{name:/^Details/}).locator('.dot')).toHaveCount(0);
+  await preview.getByRole('button',{name:'Builder',exact:true}).click();
+  await expect(editor.locator('#profile-full-name')).toBeFocused();
+  await editor.locator('#profile-headline').fill('Builds compilers');
+  await page.keyboard.press('ControlOrMeta+s');
+  await expect(card.getByText('Saved just now')).toBeVisible();
+  await expect(page).toHaveURL(/\/my-profile\/edit/);
+  expect(await page.evaluate(()=>(window as any).profileFixture.calls.at(-1).headline)).toBe('Builds compilers');
 });
 
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
@@ -524,7 +557,7 @@ test('dirty drafts protect sidebar navigation and refresh; pristine cancel retur
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
   expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(true);
   await page.getByRole('link',{name:'Network',exact:true}).click();await page.getByRole('alertdialog',{name:'Discard unsaved changes?'}).getByRole('button',{name:'Keep editing',exact:true}).click();await expect(editor).toBeVisible();
-  await editor.getByRole('button',{name:'Reset',exact:true}).click();expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(false);await editor.getByRole('button',{name:'Cancel',exact:true}).click();await expect(page).toHaveURL(/\/my-profile$/);
+  await editor.getByRole('button',{name:'Reset',exact:true}).click();expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(false);await editor.getByRole('button',{name:'Done',exact:true}).click();await expect(page).toHaveURL(/\/my-profile$/);
 });
 
 test('Discard and leave on a plain link follows that link',async({page})=>{
@@ -532,107 +565,65 @@ test('Discard and leave on a plain link follows that link',async({page})=>{
   await page.getByRole('link',{name:'Network',exact:true}).click();await page.getByRole('alertdialog',{name:'Discard unsaved changes?'}).getByRole('button',{name:'Discard and leave',exact:true}).click();await expect(page).toHaveURL(/\/network$/);
 });
 
-test('editor sections form a left navigation rail beside the form and use vertical keyboard navigation',async({page})=>{
+test('editor: preview band, then the tab bar, the form beside the Changes card, and no sideways scroll',async({page})=>{
   await page.getByRole('button',{name:'Edit profile',exact:true}).click();
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});
-  const navigation=editor.getByRole('complementary',{name:'Profile edit sections'});
-  const tabs=editor.getByRole('tab');
+  const preview=editor.getByRole('region',{name:'Preview of your profile header'});
+  const tablist=editor.getByRole('tablist',{name:'Profile edit sections'});
+  const card=editor.getByRole('complementary',{name:'Your changes'});
   const panel=editor.getByRole('tabpanel');
-  await expect(editor.locator('header')).toHaveCount(0);
-  await expect(editor.getByRole('tablist')).toHaveAttribute('aria-orientation','vertical');
-  const navBounds=await navigation.boundingBox();
-  const panelBounds=await panel.boundingBox();
-  const mainNavigation=page.getByRole('navigation',{name:'Fixture application navigation'});
-  expect(navBounds!.width).toBe((await mainNavigation.boundingBox())!.width);
-  expect(navBounds!.y).toBe(56);
-  expect(navBounds!.y+navBounds!.height).toBe(1000);
-  const title=navigation.getByRole('heading',{name:'Edit profile',exact:true});
-  await expect(title).toBeVisible();
-  const titleBounds=await title.boundingBox();
-  const dividerBounds=await title.locator('..').locator('[aria-hidden="true"]').boundingBox();
-  const firstTabBounds=await tabs.first().boundingBox();
-  expect(dividerBounds!.y).toBeGreaterThanOrEqual(titleBounds!.y+titleBounds!.height);
-  expect(dividerBounds!.height).toBe(1);
-  expect(firstTabBounds!.y).toBeGreaterThanOrEqual(dividerBounds!.y+dividerBounds!.height+12);
-  const mainButton=page.getByRole('link',{name:'Network',exact:true});
-  const mainButtonBounds=await mainButton.boundingBox();
-  expect(panelBounds!.x).toBeGreaterThanOrEqual(navBounds!.x+navBounds!.width);
-  let previousBottom=0;
-  for(const tab of await tabs.all()) {
-    const bounds=await tab.boundingBox();
-    expect(bounds!.x).toBeGreaterThanOrEqual(navBounds!.x);
-    expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(navBounds!.x+navBounds!.width);
-    expect(bounds!.y).toBeGreaterThanOrEqual(previousBottom);
-    expect(bounds!.height).toBeCloseTo(mainButtonBounds!.height,0);
-    expect(bounds!.width).toBeCloseTo(mainButtonBounds!.width,0);
-    expect(await tab.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,s.padding,s.borderRadius];})).toEqual(await mainButton.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,s.padding,s.borderRadius];}));
-    previousBottom=bounds!.y+bounds!.height;
-  }
-  const actions=editor.locator('footer');
-  const actionBounds=await actions.boundingBox();
-  expect(actionBounds!.height).toBeLessThanOrEqual(64);
-  expect(actionBounds!.x).toBeGreaterThanOrEqual(navBounds!.x+navBounds!.width);
-  expect(actionBounds!.x+actionBounds!.width).toBe((await editor.boundingBox())!.x+(await editor.boundingBox())!.width);
-  expect(actionBounds!.y+actionBounds!.height).toBe(1000);
-  const scrollBounds=await editor.locator('[data-scroll-root="route"]').boundingBox();
-  expect(actionBounds!.x).toBe(scrollBounds!.x);
-  expect(actionBounds!.width).toBe(scrollBounds!.width);
-  expect(await actions.evaluate(el=>{const s=getComputedStyle(el);return [s.borderLeftWidth,s.borderTopLeftRadius,s.borderTopRightRadius];})).toEqual(['0px','0px','0px']);
-  expect(scrollBounds!.y+scrollBounds!.height).toBeLessThanOrEqual(actionBounds!.y);
-  await editor.getByRole('tab',{name:'Profile details'}).focus();
-  await page.keyboard.press('ArrowDown');
+  expect(await editor.getByRole('tab').allInnerTexts()).toEqual(expect.arrayContaining([expect.stringMatching(/^Details/),expect.stringMatching(/^Contributions/),expect.stringMatching(/^Skills/),expect.stringMatching(/^Links/),expect.stringMatching(/^Collaboration/)]));
+  const [pv,tl,cd,pn]=await Promise.all([preview.boundingBox(),tablist.boundingBox(),card.boundingBox(),panel.boundingBox()]);
+  expect(tl!.y).toBeGreaterThanOrEqual(pv!.y+pv!.height-2);
+  expect(cd!.x).toBeGreaterThanOrEqual(pn!.x+pn!.width);
+  expect(Math.abs(cd!.y-pn!.y)).toBeLessThan(40);
+  await editor.getByRole('tab',{name:'Details'}).focus();
+  await page.keyboard.press('ArrowRight');
   await expect(editor.getByRole('tab',{name:'Contributions'})).toBeFocused();
   await expect(page).toHaveURL(/section=experience/);
-  const initialNavTop=navBounds!.y;
-  await editor.getByRole('tab',{name:'Profile details'}).click();
-  await editor.locator('[data-scroll-root="route"]').evaluate(el=>el.scrollTo({top:el.scrollHeight}));
-  expect((await navigation.boundingBox())!.y).toBe(initialNavTop);
-  await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeInViewport();
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
-  for(const width of [1440,1024,768]) {
+  await editor.getByRole('tab',{name:'Details'}).click();
+  for(const width of [1440,1024,768,320]) {
     await page.setViewportSize({width,height:1000});
-    await expect(editor.getByRole('tablist')).toHaveAttribute('aria-orientation','vertical');
     expect(await editor.locator('[data-scroll-root="route"]').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
   }
-  await page.setViewportSize({width:320,height:740});
-  await expect(editor.getByRole('tablist')).toHaveAttribute('aria-orientation','horizontal');
+  const [pn2,cd2]=await Promise.all([panel.boundingBox(),card.boundingBox()]);
+  expect(cd2!.y).toBeGreaterThanOrEqual(pn2!.y+pn2!.height);
 });
 
 test('editor keeps save controls visible on mobile and does not create horizontal scrolling',async({page})=>{
   await page.setViewportSize({width:320,height:740});await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});
-  await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeInViewport();expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
-  const nav=editor.getByRole('tablist');expect(await nav.evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(false);await editor.getByRole('tab',{name:'Skills'}).focus();await page.keyboard.press('ArrowRight');await expect(editor.getByRole('tab',{name:'Links and profiles'})).toBeFocused();
-  await editor.getByRole('tab',{name:'Collaboration preferences'}).click();
+  const bar=editor.getByRole('region',{name:'Save',exact:true});
+  await expect(bar).toHaveCount(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await editor.getByRole('tab',{name:'Skills'}).focus();await page.keyboard.press('ArrowRight');await expect(editor.getByRole('tab',{name:'Links'})).toBeFocused();
+  await editor.getByRole('tab',{name:'Collaboration'}).click();
   await editor.getByRole('button',{name:'Design',exact:true}).click();
   const assertReachable=async()=>{
     expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
-    for(const button of await editor.locator('footer button').all()) await expect(button).toBeInViewport();
-    const content=await editor.locator('[data-scroll-root="route"]').boundingBox();
-    const actions=await editor.locator('footer').boundingBox();
-    expect(content!.height).toBeGreaterThan(100);
-    expect(content!.y+content!.height).toBeLessThanOrEqual(actions!.y);
+    for(const button of await bar.getByRole('button').all()) await expect(button).toBeInViewport();
+    const b=await bar.boundingBox();expect(b!.y+b!.height).toBeLessThanOrEqual(740);
   };
+  await expect(bar).toContainText('1 unsaved');await expect(bar).toContainText('Collaboration');
   await assertReachable();
   await page.evaluate(()=>(window as any).profileFixture.fail=true);
-  await editor.getByRole('button',{name:'Save changes',exact:true}).click();
-  await expect(editor.getByRole('alert')).toContainText('Save failed');
+  await bar.getByRole('button',{name:'Save',exact:true}).click();
+  await expect(editor.getByRole('alert').first()).toContainText('Save failed');
   await assertReachable();
-  await editor.getByRole('button',{name:'Cancel',exact:true}).click();
-  await expect(editor.getByRole('button',{name:'Keep editing',exact:true})).toBeVisible();
-  await assertReachable();
+  await bar.getByRole('button',{name:'Reset',exact:true}).click();
+  await expect(bar).toHaveCount(0);
 });
 
-test('pending editor saves block repeated writes and complete by returning to the profile',async({page})=>{
-  await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();await page.evaluate(()=>{(window as any).profileFixture.delay=500;});await editor.getByRole('button',{name:'Save changes',exact:true}).click();await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeDisabled();await expect(editor.getByRole('button',{name:'Cancel',exact:true})).toBeDisabled();await expect(editor).not.toBeVisible();expect(await page.evaluate(()=>(window as any).profileFixture.calls.length)).toBe(1);
+test('pending editor saves block repeated writes and finish on the page',async({page})=>{
+  await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();await page.evaluate(()=>{(window as any).profileFixture.delay=500;});await editor.getByRole('button',{name:'Save changes',exact:true}).click();await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeDisabled();await expect(editor.getByRole('button',{name:'Cancel',exact:true})).toBeDisabled();await expect(editor.getByText('Saved just now',{exact:true})).toBeVisible();expect(await page.evaluate(()=>(window as any).profileFixture.calls.length)).toBe(1);
 });
 
 test('deep links reject invalid section names and editing cannot continue under a different account',async({page})=>{
-  await page.goto(origin+'/my-profile/edit?section=not-a-section');const editor=page.getByRole('region',{name:'Edit profile',exact:true});await expect(editor.getByRole('tab',{name:'Profile details'})).toHaveAttribute('data-state','active');
+  await page.goto(origin+'/my-profile/edit?section=not-a-section');const editor=page.getByRole('region',{name:'Edit profile',exact:true});await expect(editor.getByRole('tab',{name:'Details'})).toHaveAttribute('aria-selected','true');
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.actorId='22222222-2222-4222-8222-222222222222';f.refresh();});await expect(page.getByRole('alert')).toContainText('different account');await expect(page.getByRole('button',{name:'Save changes',exact:true})).toHaveCount(0);
 });
 
 test('portfolio edit links return to portfolio without changing the selected profile view',async({page})=>{
-  await page.getByRole('tab',{name:/^Portfolio/}).click();await page.getByTestId('profile-summary-header').getByRole('button',{name:'Edit profile',exact:true}).click();await expect(page).toHaveURL(/returnTab=portfolio/);await page.getByRole('region',{name:'Edit profile',exact:true}).getByRole('button',{name:'Cancel',exact:true}).click();await expect(page).toHaveURL(origin+'/my-profile?tab=portfolio');await expect(page.getByRole('tab',{name:/^Portfolio/})).toHaveAttribute('aria-selected','true');
+  await page.getByRole('tab',{name:/^Portfolio/}).click();await page.getByTestId('profile-summary-header').getByRole('button',{name:'Edit profile',exact:true}).click();await expect(page).toHaveURL(/returnTab=portfolio/);await page.getByRole('region',{name:'Edit profile',exact:true}).getByRole('button',{name:'Done',exact:true}).click();await expect(page).toHaveURL(origin+'/my-profile?tab=portfolio');await expect(page.getByRole('tab',{name:/^Portfolio/})).toHaveAttribute('aria-selected','true');
 });
 
 
@@ -646,19 +637,18 @@ test('editor typography, control density and selection colors follow the design 
   await page.getByRole('button',{name:'Edit profile',exact:true}).click();
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});
   const font=async(locator:ReturnType<typeof page.locator>)=>locator.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,`${Math.round(parseFloat(s.lineHeight)*100)/100}px`,s.fontWeight,s.fontFamily];});
-  expect((await font(editor.getByRole('heading',{name:'Edit profile',exact:true}))).slice(0,3)).toEqual(['11px','13.2px','500']);
+  await expect(editor.getByRole('heading',{name:'Edit profile',exact:true})).toHaveClass(/sr-only/);
   expect((await font(editor.getByRole('heading',{name:'Profile details',exact:true}))).slice(0,3)).toEqual(['20px','25.6px','600']);
   expect((await font(editor.getByRole('heading',{name:'Basic information',exact:true}))).slice(0,3)).toEqual(['17px','21.76px','600']);
   expect((await font(editor.locator('label[for="profile-full-name"]'))).slice(0,3)).toEqual(['13px','15.6px','500']);
   expect((await font(editor.getByLabel('Full name',{exact:false}))).slice(0,2)).toEqual(['15px','22.5px']);
   expect(await font(editor.locator('#profile-full-name-count'))).toEqual(['12px','16.2px','400','"JetBrains Mono", monospace']);
   await expect(editor.locator('#profile-username-url')).toHaveText('profile.test/u/builder');
-  for(const dark of [false,true]) for(const [density,inset,height] of [['compact',20,30],['default',24,34],['comfortable',28,42]] as const) {
+  for(const dark of [false,true]) for(const [density,height] of [['compact',30],['default',34],['comfortable',42]] as const) {
     await page.evaluate(({dark,density})=>{document.documentElement.classList.toggle('dark',dark);document.documentElement.dataset.density=density;},{dark,density});
-    await editor.getByRole('tab',{name:'Profile details'}).click();
-    expect(await editor.locator('[data-scroll-root="route"]').evaluate(el=>parseFloat(getComputedStyle(el).paddingLeft))).toBe(inset);
+    await editor.getByRole('tab',{name:'Details'}).click();
     expect((await editor.getByLabel('Full name',{exact:false}).boundingBox())!.height).toBe(height);
-    await editor.getByRole('tab',{name:'Collaboration preferences'}).click();
+    await editor.getByRole('tab',{name:'Collaboration'}).click();
     expect((await editor.getByLabel('Experience level',{exact:true}).boundingBox())!.height).toBe(height);
     const selected=editor.getByRole('button',{name:'Engineering',exact:true});
     expect(await selected.evaluate(el=>getComputedStyle(el).borderRadius)).toBe('3px');
@@ -677,18 +667,18 @@ test.describe('profile editor touch reflow',()=>{
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.saved={...f.saved,username:'builder_with_a_long_username',skills:['React'],socialLinks:[{id:'github',platform:'github',url:'https://github.com/builder',order:0},{id:'linkedin',platform:'linkedin',url:'https://www.linkedin.com/in/builder',order:1}]};f.refresh();});
   await page.getByRole('button',{name:'Edit profile',exact:true}).click();
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});
-  const sections=['Profile details','Contributions','Skills','Links and profiles','Collaboration preferences'];
+  const sections:Array<[tab:string,heading:string]>=[['Details','Profile details'],['Contributions','Contributions'],['Skills','Skills'],['Links','Links and profiles'],['Collaboration','Collaboration preferences']];
   for(const width of [320,768,1024]) {
     await page.setViewportSize({width,height:900});
-    for(const section of sections) {
-      await editor.getByRole('tab',{name:section,exact:true}).click();
+    for(const [tab,section] of sections) {
+      await editor.getByRole('tab',{name:new RegExp(`^${tab}`)}).click();
       if(section==='Contributions'&&width===320) await editor.getByRole('button',{name:'Add external project',exact:true}).click();
       await expect(editor.getByRole('heading',{name:section,exact:true})).toBeVisible();
       expect(await editor.locator('[data-scroll-root="route"]').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
       expect(await editor.getByRole('tabpanel').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      // Contributions saves each entry itself, so that tab has no shared footer.
-      if(section!=='Contributions') await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeInViewport();
+      // Beside the form the Changes card holds Save; narrower, the phone bar does once there is a change.
+      if(width>=1024) await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeInViewport();
       if(width===320&&section==='Links and profiles') for(const action of await editor.getByRole('button',{name:/^(Edit|Remove|Move) (GitHub|LinkedIn)/}).all()) {
         const bounds=await action.boundingBox();expect(bounds!.width).toBeGreaterThanOrEqual(44);expect(bounds!.height).toBeGreaterThanOrEqual(44);
       }

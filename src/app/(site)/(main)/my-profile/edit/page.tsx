@@ -15,12 +15,12 @@ export const metadata = buildRouteMetadata({
 });
 
 export default async function EditProfilePage({ searchParams }: {
-    searchParams: Promise<{ section?: string; returnTab?: string; contribution?: string }>;
+    searchParams: Promise<{ section?: string; returnTab?: string; contribution?: string; field?: string }>;
 }) {
     const params = await searchParams;
     const section = parseProfileEditSection(params.section);
     const { user } = await getViewerAuthContext();
-    const currentHref = profileEditHref(section, params.returnTab, { contribution: params.contribution });
+    const currentHref = profileEditHref(section, params.returnTab, { contribution: params.contribution, field: params.field });
     if (!user) redirect(buildAuthPageHref('/login', currentHref));
 
     const data = await getProfileDetails(undefined, { viewerUser: user, recordViewEvent: false });

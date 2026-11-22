@@ -33,7 +33,8 @@ export function ProfileTabBar<K extends string>({
     const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
         event.preventDefault()
-        const i = tabs.findIndex((t) => t.key === value)
+        const focused = tabs.findIndex((t) => (event.target as HTMLElement).id === `${idPrefix}-tab-${t.key}`)
+        const i = focused >= 0 ? focused : tabs.findIndex((t) => t.key === value)
         const next = tabs[(i + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]!
         onChange(next.key)
         requestAnimationFrame(() => document.getElementById(`${idPrefix}-tab-${next.key}`)?.focus())

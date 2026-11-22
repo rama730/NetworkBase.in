@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Check } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 
 import { saveProfileContributionsAction } from "@/app/actions/profile-contributions";
@@ -10,7 +10,12 @@ import { updateProfileAction } from "@/app/actions/profile";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useRouter, useSearchParams } from "next/navigation";
-import { parseProfileEditSection, profileEditHref, profileEditReturnHref } from "@/lib/profile/edit-route";
+import { completionField, completionItemSection, parseProfileEditSection, profileEditHref, profileEditReturnHref } from "@/lib/profile/edit-route";
+import { calculateProfileCompletion } from "@/lib/validations/profile";
+import { changeSummary, websiteError } from "@/lib/profile/mix";
+import { experienceLevelLabel, weeklyCapacityLabel } from "@/lib/profile/role-preferences";
+import { ProfileBand } from "@/components/profile/v2/ProfileBand";
+import { ChangesCard, PhoneSaveBar, type ProfileChange } from "./ChangesCard";
 import { useLeaveGuard } from "@/hooks/useLeaveGuard";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -25,7 +30,7 @@ import {
     loadProfileContributionsPage,
     loadProfileContributionWindow,
 } from "@/lib/profile/browser-profile";
-import { applyPayloadToFormBase, mergeSocialLinkCollections, toFormState, toChangedServerPayload } from "@/lib/profile/normalization";
+import { applyPayloadToFormBase, mergeSocialLinkCollections, socialLinkItemsFromStorage, toFormState, toChangedServerPayload } from "@/lib/profile/normalization";
 import { queryKeys } from "@/lib/query-keys";
 import { EditProfileTabs, type EditProfileSection } from "./EditProfileTabs";
 import { useBack } from "@/hooks/useBack";
@@ -92,6 +97,37 @@ function formFieldsChanged(current: Record<string, unknown> | null, base: Record
     return false;
 }
 
+/** Every saved field: its name in the Changes card and the section that holds it. */
+const PROFILE_FIELDS: Array<[key: string, label: string, section: EditProfileSection]> = [
+    ["avatarUrl", "Photo", "general"], ["fullName", "Name", "general"], ["username", "Username", "general"], ["headline", "Headline", "general"],
+    ["bio", "About", "general"], ["location", "Location", "general"], ["website", "Website", "general"], ["genderIdentity", "Gender", "general"],
+    ["pronouns", "Pronouns", "general"], ["skills", "Skills", "skills"], ["interests", "Interests", "skills"], ["socialLinks", "Links", "social"],
+    ["openToCollaborate", "Open to collaborate", "opportunity"], ["openTo", "Role types", "opportunity"], ["preferredCategories", "Categories", "opportunity"],
+    ["openToCustomRoles", "Roles", "opportunity"], ["experienceLevel", "Experience", "opportunity"], ["hoursPerWeek", "Weekly availability", "opportunity"],
+];
+
+/** The field a change row, a preview part or a checklist item opens. */
+const FIELD_ELEMENT: Record<string, string> = {
+    name: "profile-full-name", fullName: "profile-full-name", username: "profile-username", headline: "profile-headline", bio: "profile-bio",
+    location: "profile-location", website: "profile-website", pronouns: "profile-pronouns", links: "profile-social-url", socialLinks: "profile-social-url",
+    open: "open-to-collaborate-switch", openToCollaborate: "open-to-collaborate-switch", photo: "profile-photo-button", avatarUrl: "profile-photo-button",
+    skills: "profile-skills",
+};
+const FIELD_SECTION: Record<string, EditProfileSection> = { links: "social", open: "opportunity", photo: "general", name: "general", skills: "skills" };
+
+const norm = (value: unknown) => typeof value === "string" ? value.trim() : value ?? null;
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+const linkNames = (value: unknown) => socialLinkItemsFromStorage(value ?? {}).map((link) => link.label || link.platform || link.url);
+
+function summarize(key: string, before: any, after: any): string {
+    if (key === "avatarUrl") return changeSummary("photo", before ? "photo" : "pixel", after ? "new" : "pixel");
+    if (key === "socialLinks") return changeSummary(key, linkNames(before), linkNames(after)).replace(/^Reordered$/, "Edited");
+    if (key === "experienceLevel" && after) return experienceLevelLabel(after) ?? "Edited";
+    if (key === "hoursPerWeek" && after) return weeklyCapacityLabel(after) ?? "Edited";
+    if ((key === "experienceLevel" || key === "hoursPerWeek" || key === "genderIdentity") && !after) return "Cleared";
+    return changeSummary(key, before ?? "", after ?? "");
+}
+
 export function EditProfileEditor({
     profile,
     contributions = [],
@@ -115,6 +151,7 @@ export function EditProfileEditor({
     const [contributionsLoadingMore, setContributionsLoadingMore] = useState(false);
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
     const [activeSection, setActiveSection] = useState<EditProfileSection>(initialSection);
+    const [savedLabel, setSavedLabel] = useState("Everything is saved");
     const inFlightRef = useRef(false);
     const [initialData] = useState(() => ({ profile, contributions, section: sectionFromUrl }));
     const draftTouchedRef = useRef(false);
@@ -132,6 +169,26 @@ export function EditProfileEditor({
         );
         return formFieldsChanged(formState, base) || contributionChanges.length > 0;
     }, [formState]);
+
+    // What is unsaved, one row per field, plus one row for contribution edits, which share Save.
+    const changes = useMemo<ProfileChange[]>(() => {
+        if (!formState || !baseProfileRef.current) return [];
+        const base = baseProfileRef.current as any;
+        const rows: ProfileChange[] = PROFILE_FIELDS.filter(([key]) => !sameValue(formState[key], base[key]))
+            .map(([key, label, section]) => ({ key, label, section, field: key, summary: summarize(key, base[key], formState[key]) }));
+        const edits = buildContributionMutations((base.contributionBase ?? []) as ContributionEditorEntry[], (formState.experience ?? []) as ContributionEditorEntry[]).length;
+        if (edits) rows.push({ key: "experience", label: "Contributions", section: "experience", field: "experience", summary: `${edits} edited` });
+        return rows;
+    }, [formState]);
+    const dirtySections = useMemo(() => new Set(changes.map((change) => change.section)), [changes]);
+    const completion = useMemo(() => formState ? calculateProfileCompletion({
+        avatarUrl: formState.avatarUrl, fullName: formState.fullName?.trim(), username: formState.username, headline: formState.headline?.trim(),
+        bio: formState.bio?.trim(), location: formState.location?.trim(), website: formState.website?.trim(), skills: formState.skills ?? [], socialLinks: formState.socialLinks ?? {},
+    }) : { score: 0, missing: [] }, [formState]);
+    const blockReason = !formState ? null
+        : !String(formState.fullName ?? "").trim() ? "Add your name before saving."
+            : websiteError(String(formState.website ?? "")) ? "Fix the website address before saving."
+                : !user || user.id !== profile.id ? "Sign in to the account that owns this profile before saving." : null;
 
     useEffect(() => {
         const { profile, contributions, section } = initialData;
@@ -238,7 +295,7 @@ export function EditProfileEditor({
 
     useEffect(() => { setActiveSection(sectionFromUrl); }, [sectionFromUrl]);
 
-    const persistChanges = async (closeOnSuccess: boolean) => {
+    const persistChanges = async () => {
         if (!formState || !hasChanges || inFlightRef.current) return;
         if (!user || user.id !== profile.id) {
             setSaveErrorMessage("Sign in to the account that owns this profile before saving.");
@@ -351,11 +408,10 @@ export function EditProfileEditor({
             setContributionHasMore(freshWindow.hasMore && freshEntries.length < 500);
             draftTouchedRef.current = false;
             setSaveState("success");
+            setSavedLabel("Saved just now");
             invalidateProfileReads(profilePayload);
             void refreshProfile().catch(() => undefined);
             await onSaved?.(lastKnownUpdatedAtRef.current, mutations.length > 0);
-            toast.success("Profile updated");
-            if (closeOnSuccess) onClose();
         } catch (error) {
             if (profileSaved) {
                 invalidateProfileReads(profilePayload);
@@ -442,13 +498,60 @@ export function EditProfileEditor({
     const handleResetChanges = (e?: React.MouseEvent) => {
         e?.preventDefault?.();
         e?.stopPropagation?.();
+        const draft = formState;
         setFormState(baseProfileRef.current);
         setContributionErrors({});
         draftTouchedRef.current = false;
         setShowDiscardConfirm(false);
         setSaveState("idle");
         setSaveErrorMessage(null);
+        if (draft && changes.length) toast(`${changes.length} change${changes.length > 1 ? "s" : ""} reset`, { action: { label: "Undo", onClick: () => setFormState(draft) } });
     };
+
+    const undoChange = (key: string) => {
+        const base = baseProfileRef.current as any;
+        setFormState((current: any) => current ? (key === "experience" ? { ...current, experience: base.contributionBase ?? [] } : { ...current, [key]: base[key] }) : current);
+        setSaveState("idle");
+        setSaveErrorMessage(null);
+    };
+
+    // Opens the section, then focuses the field and flashes it once.
+    const jumpTo = (field: string, section: EditProfileSection = FIELD_SECTION[field] ?? PROFILE_FIELDS.find(([key]) => key === field)?.[2] ?? "general") => {
+        handleSectionChange(section);
+        window.setTimeout(() => {
+            const el = document.getElementById(FIELD_ELEMENT[field] ?? "");
+            if (!el) return;
+            const target = el.matches("input, textarea, button, [tabindex]") ? el : el.querySelector<HTMLElement>("input, textarea, button");
+            el.scrollIntoView({ block: "center", behavior: "smooth" });
+            target?.focus({ preventScroll: true });
+            const box = el.closest<HTMLElement>("[data-pf-field]") ?? el.parentElement;
+            box?.classList.remove("nb-pf-flash");
+            void box?.offsetWidth;
+            box?.classList.add("nb-pf-flash");
+            window.setTimeout(() => box?.classList.remove("nb-pf-flash"), 1300);
+        }, 60);
+    };
+
+    // A ?field= link (the profile's checklist, a change row) lands on that field once the draft is ready.
+    const fieldFromUrl = searchParams.get("field");
+    const jumpedRef = useRef(false);
+    useEffect(() => {
+        if (!formState || jumpedRef.current || !fieldFromUrl) return;
+        jumpedRef.current = true;
+        jumpTo(fieldFromUrl, sectionFromUrl);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formState, fieldFromUrl]);
+
+    const saveInPlace = () => { if (!blockReason) void persistChanges(); };
+    const saveRef = useRef(saveInPlace);
+    saveRef.current = saveInPlace;
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "s") { event.preventDefault(); saveRef.current(); }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, []);
 
     const handleDiscard = (e?: React.MouseEvent) => {
         e?.preventDefault?.();
@@ -475,19 +578,13 @@ export function EditProfileEditor({
         toast.info("Latest version loaded");
     };
 
-    const handleSave = (e?: React.MouseEvent) => {
-        e?.preventDefault?.();
-        e?.stopPropagation?.();
-        void persistChanges(true);
-    };
-
     if (user && user.id !== profile.id) return <section role="alert" className="space-y-4 p-6"><p>This editor belongs to a different account. Return to your profile to continue.</p><Button onClick={() => { allowLeave(); router.replace("/my-profile"); }}>Go to my profile</Button></section>;
 
     return (
         <section data-profile-editor className="flex h-full min-h-0 flex-col overflow-clip bg-background text-foreground" aria-labelledby="profile-editor-title">
                 <ConfirmDialog {...leaveDialog} title="Discard unsaved changes?" description="Your profile changes haven’t been saved." confirmLabel="Discard and leave" cancelLabel="Keep editing" variant="destructive" />
-                <form className="flex min-h-0 flex-1 flex-col overflow-clip" onSubmit={(event) => { event.preventDefault(); void persistChanges(true); }} aria-label="Edit profile form">
-                    <fieldset disabled={saveState === "saving"} className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-clip md:flex-row">
+                <form className="flex min-h-0 flex-1 flex-col overflow-clip" onSubmit={(event) => { event.preventDefault(); saveInPlace(); }} aria-label="Edit profile form">
+                    <fieldset disabled={saveState === "saving"} className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-clip">
                         <EditProfileTabs
                             profile={formState || profile}
                             contributionProfileId={profile.id}
@@ -513,85 +610,58 @@ export function EditProfileEditor({
                                     setSaveErrorMessage(null);
                                 }
                             }}
-                            actions={
-                                <footer aria-label="Profile actions" className="w-full shrink-0 border-t border-border bg-card px-4 py-2 md:px-[calc(var(--ui-panel-padding)+4px)]">
-                                    {showDiscardConfirm ? (
-                                        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
-                                            <p className="nb-ui-label flex items-center gap-1.5 text-foreground">
-                                                <AlertTriangle className="size-4 text-[var(--status-warning)] shrink-0" />
-                                                Discard unsaved changes?
-                                            </p>
-                                            <div className="flex items-center gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    onClick={() => setShowDiscardConfirm(false)}
-                                                >
-                                                    Keep editing
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="destructive"
-                                                    onClick={handleDiscard}
-                                                >
-                                                    Discard
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
-                                            {(saveErrorMessage || saveState === "saving" || hasChanges) ? <div className="min-w-0">
-                                                {saveErrorMessage ? (
-                                                    <p role="alert" className="nb-meta text-destructive">
-                                                        {saveErrorMessage}
-                                                    </p>
-                                                ) : saveState === "saving" ? (
-                                                    <p aria-live="polite" className="nb-meta text-muted-foreground flex items-center gap-1.5">
-                                                        <Loader2 className="size-3.5 animate-spin text-primary" />
-                                                        Saving changes…
-                                                    </p>
-                                                ) : hasChanges ? (
-                                                    <p aria-live="polite" className="nb-meta text-muted-foreground flex items-center gap-1.5">
-                                                        <span className="size-1.5 rounded-[2px] bg-[var(--status-warning)]" />
-                                                        Unsaved changes
-                                                    </p>
-                                                ) : null}
-                                            </div> : null}
-
-                                            <div className="flex flex-wrap items-center justify-end gap-2">
-                                                {conflictProfile ? <Button type="button" variant="outline" onClick={reviewLatestChanges} disabled={saveState === "saving"}>Review latest changes</Button> : null}
-                                                {hasChanges ? (
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        onClick={handleResetChanges}
-                                                        disabled={saveState === "saving"}
-                                                        title="Revert all fields to original values"
-                                                    >
-                                                        Reset
-                                                    </Button>
-                                                ) : null}
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={handleCancel}
-                                                    disabled={saveState === "saving"}
-                                                >
-                                                    Cancel
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    onClick={handleSave}
-                                                    disabled={saveState === "saving" || !hasChanges || !user || user.id !== profile.id}
-                                                >
-                                                    {saveState === "saving" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                                    Save changes
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </footer>
+                            dirtySections={dirtySections}
+                            preview={
+                                <ProfileBand
+                                    profile={formState || profile}
+                                    viewerId={profile.id}
+                                    isOwner
+                                    isAuthenticated
+                                    connectionState="none"
+                                    privacyRelationship={{ canViewProfile: true, canSendMessage: false, canSendConnectionRequest: false, blockedByViewer: false, blockedByTarget: false, visibilityReason: "self", connectionState: "none" }}
+                                    onEdit={() => undefined}
+                                    onConnectPrimary={() => undefined}
+                                    onMessage={() => undefined}
+                                    preview={{
+                                        onJump: (field) => jumpTo(field),
+                                        actions: <span className="nb-pf-pv">Preview</span>,
+                                        hint: <div className="nb-pf-hint"><span>Click anything above to edit it</span><span>Updates as you type</span></div>,
+                                    }}
+                                />
                             }
+                            tabAction={
+                                <Button type="button" size="sm" onClick={saveInPlace} disabled={!changes.length || saveState === "saving" || Boolean(blockReason)}>
+                                    <Check className="size-3.5" aria-hidden="true" />Save{changes.length ? ` · ${changes.length}` : ""}
+                                </Button>
+                            }
+                            card={
+                                <>
+                                    {showDiscardConfirm ? (
+                                        <div className="nb-pf-panel nb-pf-discard" role="group" aria-label="Discard unsaved changes?">
+                                            <p className="nb-pf-state"><AlertTriangle className="size-4 shrink-0 text-[var(--status-warning)]" />Discard unsaved changes?</p>
+                                            <div className="nb-pf-row2">
+                                                <Button type="button" variant="ghost" onClick={() => setShowDiscardConfirm(false)}>Keep editing</Button>
+                                                <Button type="button" variant="destructive" onClick={handleDiscard}>Discard</Button>
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                    <ChangesCard
+                                        changes={changes}
+                                        state={saveState}
+                                        error={saveErrorMessage}
+                                        blockReason={blockReason}
+                                        savedLabel={savedLabel}
+                                        onJump={(section, field) => jumpTo(field, section)}
+                                        onUndo={undoChange}
+                                        onSave={saveInPlace}
+                                        onReset={() => handleResetChanges()}
+                                        onCancel={() => handleCancel()}
+                                        extra={conflictProfile ? <Button type="button" variant="outline" size="sm" onClick={reviewLatestChanges} disabled={saveState === "saving"}>Review latest changes</Button> : null}
+                                        completion={{ score: completion.score, missing: completion.missing, jump: (item) => jumpTo(completionField(item), completionItemSection(item)) }}
+                                    />
+                                </>
+                            }
+                            phoneBar={<PhoneSaveBar changes={changes} saving={saveState === "saving"} onReset={() => handleResetChanges()} onSave={saveInPlace} />}
                         />
                     </fieldset>
                 </form>

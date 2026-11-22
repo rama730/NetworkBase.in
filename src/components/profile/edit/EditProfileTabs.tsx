@@ -12,17 +12,12 @@ import {
     Trash2,
     CheckCircle2,
     AlertTriangle,
-    Briefcase,
     Calendar,
     Link as LinkIcon,
     Code,
     Github,
     ChevronDown,
     Pencil,
-    SlidersHorizontal,
-    Globe,
-    UserCheck,
-    Wrench,
     ArrowUp,
     ArrowDown,
 } from "lucide-react";
@@ -30,7 +25,9 @@ import { createProfileImageUploadUrlAction, finalizeProfileImageUploadAction } f
 import { Input } from "@/components/ui/input";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { ProfileTabBar } from "@/components/profile/v2/ProfileTabBar";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import ChipSelector, { choiceChipClass } from "@/components/onboarding/ChipSelector";
 import { GenderChoice } from "@/components/profile/GenderChoice";
 import { INTEREST_OPTIONS } from "@/lib/profile/interests";
@@ -38,7 +35,6 @@ import type { OnboardingGenderIdentity } from "@/lib/onboarding/contracts";
 import { cn } from "@/lib/utils";
 import { sanitizeUsernameInput } from "@/lib/validations/username";
 import { useUsernameAvailability } from "@/hooks/useUsernameAvailability";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { profileSharePath, shareOrigin } from "@/lib/sharing/presentation";
 import { PROFILE_LIMITS } from "@/lib/validations/profile";
 import { PROFILE_FIELD_LIMITS } from "@/lib/validations/profile-fields";
@@ -76,7 +72,14 @@ interface EditProfileTabsProps {
     profile: any;
     contributionProfileId?: string;
     contributionProfileVisibility?: string;
-    actions: ReactNode;
+    /** The preview band, the Changes card and the phone save bar come from the editor (it owns the draft). */
+    preview: ReactNode;
+    card: ReactNode;
+    phoneBar?: ReactNode;
+    /** Sections with unsaved changes get the orange square on their tab. */
+    dirtySections?: ReadonlySet<EditProfileSection>;
+    /** Once the tab bar floats past the name, it carries Save. */
+    tabAction?: ReactNode;
     originalUsername: string;
     section: EditProfileSection;
     onSectionChange: (section: EditProfileSection) => void;
@@ -92,23 +95,23 @@ interface EditProfileTabsProps {
     showContributionExitPrompt?: boolean;
 }
 
-const EDIT_SECTIONS: Array<{
-    id: EditProfileSection;
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-}> = [
-    { id: "general", label: "Profile details", icon: SlidersHorizontal },
-    { id: "experience", label: "Contributions", icon: Briefcase },
-    { id: "skills", label: "Skills", icon: Wrench },
-    { id: "social", label: "Links and profiles", icon: Globe },
-    { id: "opportunity", label: "Collaboration preferences", icon: UserCheck },
+const EDIT_SECTIONS: Array<{ id: EditProfileSection; label: string }> = [
+    { id: "general", label: "Details" },
+    { id: "experience", label: "Contributions" },
+    { id: "skills", label: "Skills" },
+    { id: "social", label: "Links" },
+    { id: "opportunity", label: "Collaboration" },
 ];
 
 export function EditProfileTabs({
     profile,
     contributionProfileId = "",
     contributionProfileVisibility = "public",
-    actions,
+    preview,
+    card,
+    phoneBar,
+    dirtySections,
+    tabAction,
     originalUsername,
     section,
     onSectionChange,
@@ -124,11 +127,14 @@ export function EditProfileTabs({
     showContributionExitPrompt = false,
 }: EditProfileTabsProps) {
     const [avatarUploading, setAvatarUploading] = useState(false);
-    const desktopNavigation = useMediaQuery("(min-width: 768px)");
     const fileInputRef = useRef<HTMLInputElement>(null);
     const contentScrollRef = useRef<HTMLDivElement>(null);
     const [contributionFooterHost, setContributionFooterHost] = useState<HTMLDivElement | null>(null);
-    useEffect(() => { contentScrollRef.current?.scrollTo({top:0}); }, [section]);
+    // Switching sections keeps the tab bar where it is: past the band it stays floating, above it nothing moves.
+    useEffect(() => {
+        const root = contentScrollRef.current, bar = root?.querySelector<HTMLElement>("[data-pf-tabbar]");
+        if (root && bar && root.scrollTop > bar.offsetTop - 8) root.scrollTo({ top: bar.offsetTop - 8 });
+    }, [section]);
 
     const { status: usernameStatus, message: usernameMessage } = useUsernameAvailability({
         value: profile.username,
@@ -198,45 +204,28 @@ export function EditProfileTabs({
     };
 
     return (
-        <Tabs
-            value={section}
-            onValueChange={(value) => onSectionChange(value as EditProfileSection)}
-            className="w-full min-w-0 min-h-0 flex-1 flex flex-col gap-0 md:flex-row"
-            orientation={desktopNavigation ? "vertical" : "horizontal"}
-        >
-            <aside aria-label="Profile edit sections" className="w-full min-h-0 shrink-0 border-b border-border bg-card px-3 py-4 md:w-[var(--nb-sidebar-width)] md:overflow-y-auto md:border-b-0 md:border-r">
-                <div className="mb-3 space-y-3 px-2 pr-3">
-                    {section === "experience" ? (
-                        <p id="profile-editor-title" className="nb-micro">Edit profile</p>
-                    ) : (
-                        <h1 id="profile-editor-title" className="nb-micro">Edit profile</h1>
-                    )}
-                    <div className="h-px w-full bg-border" aria-hidden="true" />
-                </div>
-                <TabsList aria-label="Profile edit sections" className="flex flex-wrap h-auto min-h-0 w-full bg-transparent p-0 pr-1 border-none gap-1 items-stretch md:flex-col md:flex-nowrap">
-                    {EDIT_SECTIONS.map((tab) => {
-                        const Icon = tab.icon;
-                        return (
-                            <TabsTrigger
-                                key={tab.id}
-                                value={tab.id}
-                                aria-current={section === tab.id ? "page" : undefined}
-                                title={tab.label}
-                                className={cn(
-                                    "nb-nav-link group min-w-0 basis-[calc(50%-2px)] md:w-full md:basis-auto md:grow-0 justify-start text-left border-b-0 border-transparent focus-visible:outline-none focus-visible:brightness-95 data-[state=active]:shadow-none"
-                                )}
-                            >
-                                <Icon className="size-4 shrink-0 transition-colors text-muted-foreground group-data-[state=active]:text-primary group-hover:text-foreground" />
-                                <span className="block min-w-0 whitespace-normal break-words md:truncate md:whitespace-nowrap">{tab.label}</span>
-                            </TabsTrigger>
-                        );
-                    })}
-                </TabsList>
-            </aside>
-
-            <div className="flex min-w-0 min-h-0 flex-1 flex-col bg-card">
-            <div ref={contentScrollRef} data-scroll-root="route" className="min-w-0 min-h-0 flex-1 app-scroll app-scroll-y p-4 md:p-[calc(var(--ui-panel-padding)+4px)] bg-card">
-                <div className="@container max-w-4xl mx-auto w-full">
+        <Tabs value={section} onValueChange={(value) => onSectionChange(value as EditProfileSection)} className="contents">
+            <div ref={contentScrollRef} data-scroll-root="route" className="min-h-0 min-w-0 flex-1 overflow-y-auto app-scroll app-scroll-y bg-background">
+            <div className="nb-pf-page nb-pf-edit">
+                <h1 id="profile-editor-title" className="sr-only">Edit profile</h1>
+                {preview}
+                <ProfileTabBar
+                    label="Profile edit sections"
+                    idPrefix="profile-edit"
+                    value={section}
+                    onChange={onSectionChange}
+                    tabs={EDIT_SECTIONS.map((tab) => ({
+                        key: tab.id,
+                        label: tab.label,
+                        count: tab.id === "experience" ? contributionTotal : tab.id === "skills" ? (profile.skills ?? []).length : tab.id === "social" ? socialLinkItemsFromStorage(profile.socialLinks ?? {}).length : undefined,
+                        dirty: dirtySections?.has(tab.id),
+                    }))}
+                    identity={{ name: profile.fullName || profile.username || "Your name", avatar: <UserAvatar identity={profile} className="size-[26px]" roundedClassName="rounded-[5px]" sizes="26px" /> }}
+                    action={tabAction}
+                />
+                <div className="nb-pf-body">
+                <div className="nb-pf-col min-w-0">
+                <div className="@container w-full">
                     <TabsContent value="general" className="space-y-8 mt-0">
                         <div className="flex flex-col gap-1">
                             <h2 className="nb-section-title text-foreground">Profile details</h2>
@@ -292,6 +281,7 @@ export function EditProfileTabs({
                                             disabled={avatarUploading}
                                         />
                                         <Button
+                                            id="profile-photo-button"
                                             type="button"
                                             variant="outline"
                                             size="sm"
@@ -579,9 +569,12 @@ export function EditProfileTabs({
                         <RolePreferencesEditor profile={profile} onChange={onChange} />
                     </TabsContent>
                 </div>
+                <div ref={setContributionFooterHost} hidden={section !== "experience" || showContributionExitPrompt} data-contribution-footer-host className="shrink-0" />
+                </div>
+                <aside className="nb-pf-rail" aria-label="Your changes">{card}</aside>
+                </div>
             </div>
-            <div ref={setContributionFooterHost} hidden={section !== "experience" || showContributionExitPrompt} data-contribution-footer-host className="shrink-0" />
-            {section !== "experience" || showContributionExitPrompt ? actions : null}
+            {phoneBar}
             </div>
         </Tabs>
     );
@@ -954,7 +947,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
 }
 
 function SkillsEditor({ skills, onChange }: { skills: string[]; onChange: (skills: string[]) => void }) {
-    return <SkillPicker value={skills} onChange={onChange} maxSkills={25} />;
+    return <div id="profile-skills"><SkillPicker value={skills} onChange={onChange} maxSkills={25} /></div>;
 }
 
 type SocialLinkEditorEntry = {
