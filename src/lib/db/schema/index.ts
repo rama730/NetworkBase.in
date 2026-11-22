@@ -814,7 +814,7 @@ export const workspaces = pgTable(
     /** Branches and saves are on for this workspace (0096, report H16). */
     branchesEnabled: boolean("branches_enabled").default(false).notNull(),
     /** Workflow tabs are on for this workspace (0103, report 38.2 F1 call 10). */
-    workflowsEnabled: boolean("workflows_enabled").default(false).notNull(),
+    workflowsEnabled: boolean("workflows_enabled").default(true).notNull(),
     /** Workflow rounds' settings: meetings, goals, docs, assets, path (0103). */
     workflowSettings: jsonb("workflow_settings").$type<Record<string, unknown>>(),
     /** Who sees "with Claude Code" on work here (0086, report Part B): everyone, only the person, or no one. */
