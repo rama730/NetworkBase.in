@@ -29,7 +29,6 @@ test.beforeAll(async () => {
     '@/components/presence/presence-ui-store': `export const usePresenceUi=()=>open=>{window.profileFixture.pickerOpen=open;};`,
     '@/components/presence/usePresence': `export const useNow=()=>Date.now();export const usePersonPresence=()=>{const p=window.profileFixture.presence||({availability:'now',availabilityText:'Active now',status:null});return {...p,label:[p.status?.emoji,p.statusText,p.availabilityText].filter(Boolean).join(' · ')};};export const useWorkspacePresence=()=>({availability:'offline',label:'Offline'});`,
     '@/components/messages/message-user': `export const messageUserInWindow=id=>{window.profileFixture.messaged.push(id);return true;};`,
-    './sections/WorkspacesGridCard': `export const WorkspacesGridCard=()=>null;`,
     '@/app/actions/contribution-stories': `export const saveContributionStoryAction=async(c)=>{window.profileFixture.storyCalls.push(c);return {success:true,id:c.id,version:(c.expectedVersion||1)+1,featured:c.operation==='feature',published:true};};const none=async()=>({success:false,error:'Not in this fixture'});export const createContributionStoryAction=none,searchContributionReferencesAction=async()=>({success:true,options:[]}),createContributionImageUploadAction=none,finalizeContributionImageAction=none,importContributionWorkspaceImageAction=none,listContributionLinkWorkspacesAction=async()=>({success:true,projects:[]});`,
     '@/app/actions/org-profile': `const ok=async()=>({success:true});export const dismissContributionNudgeAction=ok,readOrgStoryStarterAction=async()=>({success:true,text:''}),revokeOrgVerificationAction=ok,verifyOrgContributionsAction=async()=>({success:true,verified:0});`,
     './ProfileInviteModal': `export default ()=>null;`,
@@ -345,6 +344,26 @@ test('the right card is ordered by who is looking; owner-only parts stay with th
   await expect(card.getByRole('button',{name:'Invite to a workspace'})).toBeVisible();
   await expect(card.getByRole('heading',{name:'Profile completeness'})).toHaveCount(0);
   await expect(card.getByText('Didn’t open last time')).toHaveCount(0);
+});
+
+test('portfolio: filter by own or member, sort by recent or name, with your role on each card', async ({page}) => {
+  const ws = (i: number, over: Record<string, unknown> = {}) => ({ kind: 'workspace', id: `20000000-0000-4000-8000-${String(i).padStart(12,'0')}`, ownerId: '99999999-9999-4999-8999-999999999999',
+    title: `Project ${String.fromCharCode(64 + i)}`, slug: `p${i}`, description: 'A project.', shortDescription: null, coverImage: null, href: `/workspaces/p${i}`, image: null, url: `/workspaces/p${i}`,
+    members: [], userRole: 'Tester', roleKind: 'member', joinedAt: null, createdAt: null, updatedAt: `2026-11-${String(10 + i).padStart(2,'0')}T00:00:00Z`, viewCount: 3, followersCount: 0,
+    category: null, visibility: 'public', contributionVisibility: 'public', status: 'active', skills: [], tags: [], verified: false, ...over });
+  await page.evaluate((list) => { const f=(window as any).profileFixture; f.projects=list; f.refresh(); }, [ws(1), ws(2, { ownerId: '11111111-1111-4111-8111-111111111111', userRole: 'Owner' }), ws(3)]);
+  await page.getByRole('tab',{name:/^Portfolio/}).click();
+  const panel=page.locator('#profile-panel-portfolio');
+  const filters=panel.getByRole('group',{name:'Show workspaces'});
+  await expect(filters.getByRole('button',{name:/^All/})).toContainText('3');
+  await expect(panel.locator('[data-pf-wrole]').first()).toContainText('Project C');
+  await panel.getByRole('button',{name:'Name'}).click();
+  await expect(panel.locator('[data-pf-wrole]').first()).toContainText('Project A');
+  await filters.getByRole('button',{name:/^I own/}).click();
+  await expect(panel.locator('[data-pf-wrole]')).toHaveCount(1);
+  await expect(panel.locator('[data-pf-wrole]').first()).toContainText('Owner');
+  await filters.getByRole('button',{name:/^Member/}).click();
+  await expect(panel.locator('[data-pf-wrole]')).toHaveCount(2);
 });
 
 test('owner band: status sits in the row with Change; the band never scrolls sideways', async ({ page }) => {

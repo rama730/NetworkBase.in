@@ -82,7 +82,7 @@ test('profile surfaces use the shared typography roles', () => {
   assert.match(rail, /<FactList /)
   assert.match(about, /nb-pf-about/)
   assert.doesNotMatch(about, /font-serif|nb-pf-name/)
-  assert.match(projects, /nb-section-title/)
+  assert.match(projects, /nb-pf-label/)
   assert.match(projects, /nb-compact/)
   assert.match(contributions, /nb-pf-tl-card/)
   assert.match(contributions + read('src/components/profile/ContributionStoryView.tsx'), /nb-meta/)

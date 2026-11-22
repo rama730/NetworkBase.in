@@ -513,7 +513,7 @@ export function ProfileV2Client({
                         </div>
                     )}
                     <WorkspacesGridCard projects={portfolioProjects} title="Portfolio" description={portfolioDescription} isOwner={isOwner}
-                        isLoading={portfolioQuery.isLoading && portfolioProjects.length === 0} onProjectIntent={prefetchProjectHref} />
+                        isLoading={portfolioQuery.isLoading && portfolioProjects.length === 0} onProjectIntent={prefetchProjectHref} profileId={profile.id} />
                 </div>
             )
         }

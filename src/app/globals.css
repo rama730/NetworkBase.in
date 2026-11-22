@@ -2344,3 +2344,11 @@ a.nb-pf-link-row:hover { background: var(--secondary); }
 .nb-pf-h { margin: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
 .nb-pf-cta > * { min-height: 44px; }
 @media (hover: none), (max-width: 767px) { .nb-pf-fsec .nb-pf-ed, .nb-pf-sec .nb-pf-ed { width: 44px; height: 44px; margin: -8px -8px -8px auto; } }
+/* portfolio */
+.nb-pf-ptools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.nb-pf-seg { display: inline-flex; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.nb-pf-seg button { height: 28px; padding: 0 10px; border: 0; background: var(--card); color: var(--muted-foreground); font: 500 12px var(--font-sans, system-ui); cursor: pointer; }
+.nb-pf-seg button + button { border-left: 1px solid var(--border); }
+.nb-pf-seg button[aria-pressed="true"] { background: var(--secondary); color: var(--foreground); }
+.nb-pf-wrole { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 6px; font: 11.5px var(--font-mono, ui-monospace), monospace; color: var(--muted-foreground); }
+.nb-pf-wrole .tag { padding: 1px 7px; border-radius: 3px; background: var(--secondary); font: 600 11.5px/1.6 var(--font-sans, system-ui); color: var(--foreground); }
