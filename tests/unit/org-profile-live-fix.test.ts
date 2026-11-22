@@ -25,9 +25,9 @@ test("live-fix 53: a team workspace draft nests under its organization's draft",
 });
 
 test("live-fix 54, 55: the nudge names its own workspace and Publish sits beside it", () => {
-  const card = source("src/components/profile/v2/sections/WorkspaceContributionsCard.tsx");
-  assert.match(card, /`Write about your work in \$\{c\.projectTitle\}`/);
-  assert.match(card, /profileEditHref\("experience", "overview", \{ contribution: c\.id \}\)/);
+  const card = source("src/components/profile/v2/sections/ContributionTimeline.tsx");
+  assert.match(card, />Write about it</);
+  assert.match(card, /profileEditHref\('experience', 'overview', \{ contribution: c\.id \}\)/);
 });
 
 test("live-fix 58: a team workspace's owner reads Team lead; Contributor only when nothing is known", () => {

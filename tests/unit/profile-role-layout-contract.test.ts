@@ -75,7 +75,7 @@ test('profile surfaces use the shared typography roles', () => {
   const rail = read('src/components/profile/v2/ProfileRightRail.tsx')
   const about = read('src/components/profile/v2/sections/AboutSection.tsx')
   const projects = read('src/components/profile/v2/sections/WorkspacesGridCard.tsx')
-  const contributions = read('src/components/profile/v2/sections/WorkspaceContributionsCard.tsx')
+  const contributions = read('src/components/profile/v2/sections/ContributionTimeline.tsx')
   const editor = read('src/components/profile/edit/EditProfileTabs.tsx')
 
   assert.match(rail, /RailSection/)
@@ -84,7 +84,7 @@ test('profile surfaces use the shared typography roles', () => {
   assert.doesNotMatch(about, /font-serif|nb-pf-name/)
   assert.match(projects, /nb-section-title/)
   assert.match(projects, /nb-compact/)
-  assert.match(contributions, /nb-card-title|nb-body/)
+  assert.match(contributions, /nb-pf-tl-card/)
   assert.match(contributions + read('src/components/profile/ContributionStoryView.tsx'), /nb-meta/)
   assert.match(editor, /nb-section-title/)
   assert.match(editor, /nb-card-title/)

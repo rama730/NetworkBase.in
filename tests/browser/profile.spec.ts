@@ -30,7 +30,8 @@ test.beforeAll(async () => {
     '@/components/presence/usePresence': `export const useNow=()=>Date.now();export const usePersonPresence=()=>{const p=window.profileFixture.presence||({availability:'now',availabilityText:'Active now',status:null});return {...p,label:[p.status?.emoji,p.statusText,p.availabilityText].filter(Boolean).join(' · ')};};export const useWorkspacePresence=()=>({availability:'offline',label:'Offline'});`,
     '@/components/messages/message-user': `export const messageUserInWindow=id=>{window.profileFixture.messaged.push(id);return true;};`,
     './sections/WorkspacesGridCard': `export const WorkspacesGridCard=()=>null;`,
-    './sections/WorkspaceContributionsCard': `export const WorkspaceContributionsCard=()=>null;`,
+    '@/app/actions/contribution-stories': `export const saveContributionStoryAction=async(c)=>{window.profileFixture.storyCalls.push(c);return {success:true,id:c.id,version:(c.expectedVersion||1)+1,featured:c.operation==='feature',published:true};};const none=async()=>({success:false,error:'Not in this fixture'});export const createContributionStoryAction=none,searchContributionReferencesAction=async()=>({success:true,options:[]}),createContributionImageUploadAction=none,finalizeContributionImageAction=none,importContributionWorkspaceImageAction=none,listContributionLinkWorkspacesAction=async()=>({success:true,projects:[]});`,
+    '@/app/actions/org-profile': `const ok=async()=>({success:true});export const dismissContributionNudgeAction=ok,readOrgStoryStarterAction=async()=>({success:true,text:''}),revokeOrgVerificationAction=ok,verifyOrgContributionsAction=async()=>({success:true,verified:0});`,
     './ProfileRightRail': `export const ProfileRightRail=()=>null;`,
     './ProfileInviteModal': `export default ()=>null;`,
     '@/components/workspaces/ApplyRoleModal': `export default ()=>null;`,
@@ -275,6 +276,53 @@ test('skills fold after twelve; About is plain body text with a fold and an owne
   await expect(page.getByRole('button',{name:'Edit about in Edit profile'})).toBeVisible();
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.viewer=true;f.refresh();});
   await expect(page.getByRole('button',{name:'Edit about in Edit profile'})).toHaveCount(0);
+});
+
+const entry = (i: number, over: Record<string, unknown> = {}) => ({
+  id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`, projectId: `10000000-0000-4000-8000-${String(i).padStart(12, '0')}`, version: 1,
+  title: 'Tester', projectTitle: `Workspace ${i}`, projectHref: `/workspaces/w${i}`, repoUrl: null, description: `Story ${i}.`,
+  startDate: `2026-${String((i % 9) + 1).padStart(2, '0')}-01`, endDate: null, currentlyActive: true, skills: [], source: 'membership', verified: false,
+  visibility: 'public', publishedAt: '2026-10-01T00:00:00Z', projectKind: 'workspace', featured: false, ...over,
+});
+
+test('contributions tab: filters with counts, a timeline that pages by ten, owner and visitor menus', async ({page}) => {
+  await page.evaluate((list) => { const f=(window as any).profileFixture; f.contributions=list; f.refresh(); }, [
+    entry(1, { featured: true }), entry(2, { projectKind: 'organization', projectTitle: 'Org One', orgVerified: true }),
+    entry(3, { projectId: null, projectHref: null, projectTitle: 'Outside thing' }), entry(4, { visibility: 'private' }),
+    ...Array.from({ length: 10 }, (_, k) => entry(10 + k)),
+  ]);
+  await page.getByRole('tab',{name:/^Contributions/}).click();
+  const panel=page.locator('#profile-panel-contributions');
+  const filters=panel.getByRole('group',{name:'Show contributions'});
+  await expect(filters.getByRole('button',{name:/^All/})).toContainText('14');
+  await expect(panel.locator('.nb-pf-tli')).toHaveCount(10);
+  await panel.getByRole('button',{name:/^Show 4 more/}).click();
+  await expect(panel.locator('.nb-pf-tli')).toHaveCount(14);
+  await expect(panel.locator('.nb-pf-tli').first()).toContainText('Workspace 1');
+  await expect(panel.locator('.nb-pf-tli.is-hidden')).toHaveCount(1);
+  await filters.getByRole('button',{name:/^Organizations/}).click();
+  await expect(panel.locator('.nb-pf-tli')).toHaveCount(1);
+  await expect(panel.locator('.nb-pf-tli')).toContainText('Verified');
+  await filters.getByRole('button',{name:/^All/}).click();
+  await panel.getByRole('button',{name:'More for Workspace 16'}).click();
+  for (const item of ['Pin to the top','Hide from profile','Edit']) await expect(page.getByRole('menuitem',{name:item})).toBeVisible();
+  await page.getByRole('menuitem',{name:'Pin to the top'}).click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).profileFixture.storyCalls.at(-1)?.operation)).toBe('feature');
+  await page.evaluate(()=>{const f=(window as any).profileFixture;f.viewer=true;f.refresh();});
+  await expect(panel.locator('.nb-pf-tli.is-hidden')).toHaveCount(0);
+  await panel.getByRole('button',{name:'More for Workspace 16'}).click();
+  await expect(page.getByRole('menuitem',{name:/Report/})).toBeVisible();
+  await expect(page.getByRole('menuitem',{name:'Pin to the top'})).toHaveCount(0);
+});
+
+test('overview: Recent work shows the pinned entry and the newest, with See all', async ({page}) => {
+  await page.evaluate((list) => { const f=(window as any).profileFixture; f.contributions=list; f.refresh(); }, [entry(1), entry(2, { featured: true }), entry(3)]);
+  const recent=page.locator('#profile-panel-overview');
+  await expect(recent.getByText(/Recent work/)).toBeVisible();
+  await expect(recent.locator('.nb-pf-tli')).toHaveCount(2);
+  await expect(recent.locator('.nb-pf-tli').first()).toContainText('Workspace 2');
+  await recent.getByRole('button',{name:/See all 3 contributions/}).click();
+  await expect(page.getByRole('tab',{name:/^Contributions/})).toHaveAttribute('aria-selected','true');
 });
 
 test('owner band: status sits in the row with Change; the band never scrolls sideways', async ({ page }) => {

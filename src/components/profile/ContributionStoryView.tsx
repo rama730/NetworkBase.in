@@ -189,12 +189,15 @@ export function ContributionStoryView({
   refs,
   expandedByDefault = false,
   onProjectIntent,
+  bare = false,
 }: {
   contribution: ProfileCollaborationContribution;
   story?: ContributionStory;
   refs?: ResolvedStoryReference[];
   expandedByDefault?: boolean;
   onProjectIntent?: (href: string) => void;
+  /** The profile timeline draws its own header (name, role, date) around the story body. */
+  bare?: boolean;
 }) {
   const story = reconcileStoryCurrentStatus(
     override ??
@@ -336,9 +339,9 @@ export function ContributionStoryView({
     <article
       ref={article}
       tabIndex={-1}
-      className="nb-contribution-story min-w-0 py-5"
+      className={bare ? "nb-contribution-story min-w-0" : "nb-contribution-story min-w-0 py-5"}
     >
-      <header className="nb-story-heading mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4">
+      {bare ? null : <header className="nb-story-heading mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4">
         <div className="nb-story-identity flex min-w-0 flex-nowrap items-baseline gap-2">
           <h3 className="nb-card-title flex min-w-0 items-center gap-2">
             {contribution.projectHref &&
@@ -400,7 +403,7 @@ export function ContributionStoryView({
             </p>
           )}
         </div>
-      </header>
+      </header>}
       <div
         id={`contribution-story-${contribution.id}`}
         className={`nb-story-reveal ${expanded ? "is-expanded" : ""}`}

@@ -37,7 +37,7 @@ import { ProfileBand } from './ProfileBand'
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { ProfileRightRail } from './ProfileRightRail'
 import { OpenToRolesCard } from './sections/OpenToRolesCard'
-import { WorkspaceContributionsCard } from './sections/WorkspaceContributionsCard'
+import { ContributionTimeline } from './sections/ContributionTimeline'
 import { WorkspacesGridCard } from './sections/WorkspacesGridCard'
 import { ProfileOrganizationsSection } from './sections/ProfileOrganizationsSection'
 import { DetailsCard } from './sections/DetailsCard'
@@ -248,7 +248,6 @@ export function ProfileV2Client({
     })
     const portfolioProjects = portfolioQuery.data?.projects ?? overviewProjects
     const collaborationContributions = initialSummary.contributions ?? []
-    const projectOptionsForEditing = portfolioProjects.length ? portfolioProjects : overviewProjects
     const safeStats = useMemo(
         () => ({
             ...(initialStats || {}),
@@ -487,14 +486,16 @@ export function ProfileV2Client({
     };
 
     const visibleContributions = collaborationContributions.filter((c) => isOwner || c.visibility === 'public')
-    const contributionsCard = (
+    const timeline = (variant: 'full' | 'recent') => (
         <ComponentErrorBoundary fallbackMessage="Couldn’t load workspace contributions.">
-            <WorkspaceContributionsCard
+            <ContributionTimeline
+                variant={variant}
                 contributions={collaborationContributions}
                 profileId={profile.id}
                 isOwner={isOwner}
-                onAdd={isOwner ? () => openEditPage('experience') : undefined}
-                projects={projectOptionsForEditing}
+                onEdit={isOwner ? (id) => openEditPage('experience', { contribution: id }) : undefined}
+                onSeeAll={() => handleTabChange('contributions')}
+                onChanged={() => router.refresh()}
                 onProjectIntent={prefetchProjectHref}
             />
         </ComponentErrorBoundary>
@@ -520,7 +521,7 @@ export function ProfileV2Client({
             )
         }
         if (activeTab === 'contributions') {
-            return <div id="profile-panel-contributions" role="tabpanel" aria-labelledby="profile-tab-contributions">{contributionsCard}</div>
+            return <div id="profile-panel-contributions" role="tabpanel" aria-labelledby="profile-tab-contributions">{timeline('full')}</div>
         }
         return (
             <div id="profile-panel-overview" role="tabpanel" aria-labelledby="profile-tab-overview" className="nb-pf-col">
@@ -533,7 +534,7 @@ export function ProfileV2Client({
                         onSeeAll={() => handleTabChange('contributions')}
                     />
                 </ComponentErrorBoundary>
-                {contributionsCard}
+                {timeline('recent')}
             </div>
         )
     }

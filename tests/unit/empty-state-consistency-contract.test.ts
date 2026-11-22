@@ -27,12 +27,12 @@ test("Empty state architectural contract: Workspace surfaces", () => {
 
 test("Empty state architectural contract: My profile surfaces", () => {
     const projectsGrid = readFileSync(resolve(ROOT, "src/components/profile/v2/sections/WorkspacesGridCard.tsx"), "utf-8");
-    const contributions = readFileSync(resolve(ROOT, "src/components/profile/v2/sections/WorkspaceContributionsCard.tsx"), "utf-8");
+    const contributions = readFileSync(resolve(ROOT, "src/components/profile/v2/sections/ContributionTimeline.tsx"), "utf-8");
     const connectionsModal = readFileSync(resolve(ROOT, "src/components/profile/v2/UserConnectionsModal.tsx"), "utf-8");
     const editProfileTabs = readFileSync(resolve(ROOT, "src/components/profile/edit/EditProfileTabs.tsx"), "utf-8");
 
     assert.match(projectsGrid, /<EmptyState[\s\S]*?title="No workspaces yet"/);
-    assert.match(contributions, /className=["'][^"']*nb-empty-state nb-grid-ground/);
+    assert.match(contributions, /className="nb-pf-empty"/);
     assert.match(connectionsModal, /className=["'][^"']*nb-empty-state nb-grid-ground/);
     assert.match(editProfileTabs, /className=["'][^"']*nb-empty-state nb-grid-ground/);
 });

@@ -260,7 +260,7 @@ test("the contribution editor loads real pages and preserves the loaded baseline
 test("parent visibility is the UI and read authority while owners retain a private preview", () => {
   const collaboration = read("src/lib/profile/collaboration.ts");
   const editor = read("src/components/profile/edit/EditProfileTabs.tsx");
-  const card = read("src/components/profile/v2/sections/WorkspaceContributionsCard.tsx");
+  const card = read("src/components/profile/v2/sections/ContributionTimeline.tsx");
   const retiredStageRoute = read("src/app/api/v1/profiles/[id]/collaboration-stages/[stageId]/route.ts");
   assert.doesNotMatch(collaboration, /updateProfileProjectContributionStage/);
   assert.doesNotMatch(collaboration, /stage\.visibility/);
@@ -282,7 +282,7 @@ test("profile contributions preserve recorded team terminology while stories use
   assert.equal(formatWorkspaceTeamRole({ membershipRole: "owner", projectRoleTitle: "Lead", leadFocus: "Tester" }), "Tester · Owner");
   assert.equal(formatWorkspaceTeamRole({ membershipRole: "member", projectRoleTitle: "QA Engineer" }), "QA Engineer · Member");
 
-  const card = read("src/components/profile/v2/sections/WorkspaceContributionsCard.tsx");
+  const card = read("src/components/profile/v2/sections/ContributionTimeline.tsx");
   assert.doesNotMatch(card, /statusLabel: contribution\.currentlyActive \? 'Current'/);
   assert.doesNotMatch(card, /Present/);
   assert.doesNotMatch(card, /formatRange/);
