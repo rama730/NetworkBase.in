@@ -18,7 +18,11 @@ async function open(page: Page, opts: { width?: number; readOnly?: boolean } = {
         { id: 'p3', taskNumber: 11, title: 'Old launch', stage: 'completed', status: 'done', priority: 'medium', assigneeId: null, startDate: null, dueDate: null, completion: { percent: 100, source: 'work' } },
       ] }),
       setPartOfAction: async (input: { taskIds: string[]; partOfId: string | null }) => { calls.push(['partOf', input.taskIds, input.partOfId]); return { success: true, count: 1 }; },
-      moveTaskToWorkflowColumnAction: async (id: string, _p: string, column: string) => { calls.push(['column', id, column]); return { success: true }; },
+      // Like the server: Part of changes the card, so a column move after it fails the "unchanged since read" check.
+      moveTaskToWorkflowColumnAction: async (id: string, _p: string, column: string) => {
+        if (calls.some((c: any) => c[0] === 'partOf' && c[1].includes(id))) return { success: false, error: 'This task changed. Refresh and try again.' };
+        calls.push(['column', id, column]); return { success: true };
+      },
       groupIntoProjectAction: async (input: { taskIds: string[]; name: string }) => { calls.push(['group', input.taskIds, input.name]); return { success: true, id: 'p9' }; },
     };
   }, Boolean(opts.readOnly));
@@ -41,7 +45,7 @@ test('W7.1: a lane per open project plus No project, cards in their columns', as
 test('W7.2: dropping in another lane sets Part of; in another column moves the status', async ({ page }) => {
   await open(page);
   await page.getByText('Fix the footer').dragTo(page.getByLabel('Pricing, In progress'));
-  await expect.poll(() => calls(page)).toEqual([['partOf', ['t3'], 'p2'], ['column', 't3', 'c2']]);
+  await expect.poll(() => calls(page)).toEqual([['column', 't3', 'c2'], ['partOf', ['t3'], 'p2']]);
   await expect(page.getByTestId('toast')).toContainText('Part of Pricing');
 });
 

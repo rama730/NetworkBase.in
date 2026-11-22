@@ -8,7 +8,7 @@ import { groupIntoProjectAction, moveTaskToWorkflowColumnAction, readProjectsAct
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName } from "@/components/workspaces/v2/tasks/form-parts";
 import { TaskCard } from "@/components/workspaces/v2/tasks/TaskCard";
-import { toast } from "@/lib/feedback";
+import { feedbackError, toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { getTaskWorkflowColumnId } from "@/lib/workspaces/task-drag-preview";
@@ -44,16 +44,17 @@ export function PlannerBoardLanes({ projectId, workflow, tasks, canEdit, onOpenT
   const colName = (c: Column) => c.title ?? c.name ?? "Column";
 
   async function move(task: TaskSurfaceRecord, lane: string | null, columnId: string | null) {
+    // The column first: it checks the card hasn't changed since it was read, and Part of would change it (live check).
+    if (columnId && columnId !== columnOf(task)) {
+      const r = await moveTaskToWorkflowColumnAction(task.id, projectId, columnId, undefined, task.updatedAt ?? null);
+      if (!r.success) { await refresh(); return void toast.error(feedbackError(`Couldn’t move task: ${r.error}`, "Couldn’t move task")); }
+    }
     if (lane !== laneOf(task)) {
       const before = laneOf(task);
       const r = await setPartOfAction({ projectId, taskIds: [task.id], partOfId: lane });
       if (!r.success) return void toast.error(r.error);
       toast(lane ? `Part of ${lanes.find((l) => l.id === lane)?.title}` : "Out of its project", { duration: 10_000,
         action: { label: "Undo", onClick: () => void setPartOfAction({ projectId, taskIds: [task.id], partOfId: before }).then(refresh) } });
-    }
-    if (columnId && columnId !== columnOf(task)) {
-      const r = await moveTaskToWorkflowColumnAction(task.id, projectId, columnId, undefined, task.updatedAt ?? null);
-      if (!r.success) toast.error(r.error ?? "Couldn’t move it.");
     }
     await refresh();
   }
@@ -62,9 +63,6 @@ export function PlannerBoardLanes({ projectId, workflow, tasks, canEdit, onOpenT
   const select = "h-7 w-full rounded-[5px] border border-border bg-background px-1.5 text-[12px] text-muted-foreground md:sr-only md:focus:not-sr-only";
   return (
     <section aria-label="Board by project" className="space-y-3" data-testid="board-lanes">
-      <div className="grid gap-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground max-md:hidden" style={{ gridTemplateColumns: `repeat(${workflow.length}, minmax(0, 1fr))` }} aria-hidden="true">
-        {workflow.map((c) => <span key={c.id} className="px-1">{colName(c)}</span>)}
-      </div>
       {lanes.map((lane) => {
         const key = lane.id ?? "none";
         const list = tasks.filter((t) => laneOf(t) === lane.id);
@@ -93,7 +91,7 @@ export function PlannerBoardLanes({ projectId, workflow, tasks, canEdit, onOpenT
                       onDragOver={(e) => { if (!canEdit) return; e.preventDefault(); setOver(cell); }} onDragLeave={() => setOver((o) => (o === cell ? null : o))}
                       onDrop={(e) => { e.preventDefault(); setOver(null); const t = tasks.find((x) => x.id === e.dataTransfer.getData("text/plain")); if (t) void move(t, lane.id, col.id); }}
                       className={cn("min-h-16 space-y-2 rounded-[6px] p-1 transition-colors duration-[180ms]", over === cell && "bg-primary/10 outline outline-1 outline-primary/40")}>
-                      <span className="block px-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground md:hidden">{colName(col)}</span>
+                      <span className="block px-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">{colName(col)}</span>
                       {cards.map((t) => (
                         <div key={t.id} draggable={canEdit} onDragStart={(e) => { e.dataTransfer.setData("text/plain", t.id); e.dataTransfer.effectAllowed = "move"; }} className={cn(canEdit && "cursor-grab")}>
                           <TaskCard task={t} onClick={() => onOpenTask(t)} />
