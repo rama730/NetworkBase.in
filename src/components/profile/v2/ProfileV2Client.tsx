@@ -8,7 +8,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ProfilePageData, ProfilePrivacyRelationship, ProfileStats, ProfileTabKey } from './types'
 import type { ProfileCollaborationSummary, ProfileInviteWorkspaceOption } from '@/lib/profile/collaboration'
 import { ProfileShell } from './ProfileShell'
-import { ProfileTabs } from './ProfileTabs'
+import { ProfileTabBar } from './ProfileTabBar'
+import { SkillsStrip } from './SkillsStrip'
+import { UserAvatar } from '@/components/ui/UserAvatar'
+import { Button } from '@/components/ui/button'
+import { Clock, MessageSquare, Pencil, UserCheck, UserPlus } from 'lucide-react'
 import { toast, feedbackError } from "@/lib/feedback";
 import { useAuth } from '@/hooks/use-auth';
 import { invalidatePrivacyDependents } from '@/lib/privacy/client-invalidation';
@@ -21,7 +25,7 @@ import { useRealtime } from '@/components/providers/RealtimeProvider';
 // Keep the first content card synchronous. The action-heavy header and secondary
 // rail cards remain server-rendered, but live in separate client chunks so every
 // profile navigation does not synchronously evaluate their menus and controls.
-import { AboutCard } from './sections/AboutCard'
+import { AboutSection } from './sections/AboutSection'
 import { ComponentErrorBoundary } from '@/components/ui/ComponentErrorBoundary'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messageUserInWindow } from '@/components/messages/message-user'
@@ -53,7 +57,7 @@ interface ProfileClientProps extends Omit<ProfilePageData, 'stats'> {
 }
 
 function parseProfileTab(value: string | null): ProfileTabKey {
-    return value === 'portfolio' ? 'portfolio' : 'overview';
+    return value === 'portfolio' || value === 'contributions' ? value : 'overview';
 }
 
 function connectionStateFromRelationship(relationship: ProfilePrivacyRelationship): ConnectionState {
@@ -296,9 +300,9 @@ export function ProfileV2Client({
         setApplyRoleModal(() => mod.default)
     }, [ApplyRoleModal])
 
-    const openEditPage = useCallback((section: EditProfileSection = 'general') => {
+    const openEditPage = useCallback((section: EditProfileSection = 'general', extra?: Record<string, string | null | undefined>) => {
         if (!isOwner || availabilityInFlight.current) return
-        router.push(profileEditHref(section, activeTab))
+        router.push(profileEditHref(section, activeTab, extra))
     }, [activeTab, isOwner, router])
 
     const handleTabChange = useCallback(
@@ -482,70 +486,55 @@ export function ProfileV2Client({
         }
     };
 
+    const visibleContributions = collaborationContributions.filter((c) => isOwner || c.visibility === 'public')
+    const contributionsCard = (
+        <ComponentErrorBoundary fallbackMessage="Couldn’t load workspace contributions.">
+            <WorkspaceContributionsCard
+                contributions={collaborationContributions}
+                profileId={profile.id}
+                isOwner={isOwner}
+                onAdd={isOwner ? () => openEditPage('experience') : undefined}
+                projects={projectOptionsForEditing}
+                onProjectIntent={prefetchProjectHref}
+            />
+        </ComponentErrorBoundary>
+    )
     const renderMainContent = () => {
-        if (lockedShell) {
-            return null
-        }
-        switch (activeTab) {
-            case 'overview':
-                return (
-                    <div id="profile-panel-overview" role="tabpanel" aria-labelledby="profile-tab-overview">
-                        <ComponentErrorBoundary fallbackMessage="Couldn’t load about section.">
-                            <AboutCard
-                                profile={safeProfile}
-                                isOwner={isOwner}
-                                onEdit={isOwner ? () => openEditPage('general') : undefined}
-                            />
-                        </ComponentErrorBoundary>
-                    </div>
-                )
-            case 'portfolio':
-                const visibleProjectsCount = Number(portfolioQuery.data?.total ?? safeStats.projectsCount ?? portfolioProjects.length ?? 0)
-                const portfolioDescription = visibleProjectsCount > portfolioProjects.length
-                    ? `Showing ${portfolioProjects.length} of ${visibleProjectsCount} visible workspaces`
-                    : `Showcasing ${visibleProjectsCount} visible workspaces`
-                return (
-                    <div
-                        id="profile-panel-portfolio"
-                        role="tabpanel"
-                        aria-labelledby="profile-tab-portfolio"
-                    >
-                        <div className="space-y-4">
-                            {portfolioQuery.isError && (
-                                <div role="alert" className="nb-compact flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--status-danger)] bg-[var(--status-danger-soft)] px-4 py-3">
-                                    <span>Some portfolio workspaces could not be refreshed. Showing the last available workspaces.</span>
-                                    <button type="button" className="nb-ui-label text-primary hover:underline" onClick={() => void portfolioQuery.refetch()}>Try again</button>
-                                </div>
-                            )}
-                            <WorkspacesGridCard
-                                projects={portfolioProjects}
-                                title="Portfolio"
-                                description={portfolioDescription}
-                                isOwner={isOwner}
-                                isLoading={portfolioQuery.isLoading && portfolioProjects.length === 0}
-                                onProjectIntent={prefetchProjectHref}
-                            />
+        if (lockedShell) return null
+        if (activeTab === 'portfolio') {
+            const visibleProjectsCount = Number(portfolioQuery.data?.total ?? safeStats.projectsCount ?? portfolioProjects.length ?? 0)
+            const portfolioDescription = visibleProjectsCount > portfolioProjects.length
+                ? `Showing ${portfolioProjects.length} of ${visibleProjectsCount} visible workspaces`
+                : `Showcasing ${visibleProjectsCount} visible workspaces`
+            return (
+                <div id="profile-panel-portfolio" role="tabpanel" aria-labelledby="profile-tab-portfolio" className="space-y-4">
+                    {portfolioQuery.isError && (
+                        <div role="alert" className="nb-compact flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--status-danger)] bg-[var(--status-danger-soft)] px-4 py-3">
+                            <span>Some portfolio workspaces could not be refreshed. Showing the last available workspaces.</span>
+                            <button type="button" className="nb-ui-label text-primary hover:underline" onClick={() => void portfolioQuery.refetch()}>Try again</button>
                         </div>
-                    </div>
-                )
-            default:
-                return null
+                    )}
+                    <WorkspacesGridCard projects={portfolioProjects} title="Portfolio" description={portfolioDescription} isOwner={isOwner}
+                        isLoading={portfolioQuery.isLoading && portfolioProjects.length === 0} onProjectIntent={prefetchProjectHref} />
+                </div>
+            )
         }
-    }
-
-    const renderMainBottom = () => {
-        if (lockedShell || (activeTab !== 'overview' && activeTab !== 'portfolio')) return null
+        if (activeTab === 'contributions') {
+            return <div id="profile-panel-contributions" role="tabpanel" aria-labelledby="profile-tab-contributions">{contributionsCard}</div>
+        }
         return (
-            <ComponentErrorBoundary fallbackMessage="Couldn’t load workspace contributions.">
-                <WorkspaceContributionsCard
-                    contributions={collaborationContributions}
-                    profileId={profile.id}
-                    isOwner={isOwner}
-                    onAdd={isOwner ? () => openEditPage('experience') : undefined}
-                    projects={projectOptionsForEditing}
-                    onProjectIntent={prefetchProjectHref}
-                />
-            </ComponentErrorBoundary>
+            <div id="profile-panel-overview" role="tabpanel" aria-labelledby="profile-tab-overview" className="nb-pf-col">
+                <ComponentErrorBoundary fallbackMessage="Couldn’t load about section.">
+                    <AboutSection
+                        profile={safeProfile}
+                        isOwner={isOwner}
+                        current={visibleContributions.filter((c) => c.currentlyActive && c.visibility !== 'private')}
+                        onEdit={isOwner ? () => openEditPage('general', { field: 'bio' }) : undefined}
+                        onSeeAll={() => handleTabChange('contributions')}
+                    />
+                </ComponentErrorBoundary>
+                {contributionsCard}
+            </div>
         )
     }
 
@@ -593,6 +582,21 @@ export function ProfileV2Client({
         void loadApplyRoleModal()
     }, [applicationsCapReached, loadApplyRoleModal])
 
+    // the tab bar carries the page's main action once it floats past the name
+    const tabBarAction = isOwner ? (
+        <Button size="sm" className="nb-pf-icononly" onClick={() => openEditPage('general')} aria-label="Edit profile"><Pencil className="size-3.5" />Edit profile</Button>
+    ) : !viewerUser ? (
+        <Button size="sm" className="nb-pf-icononly" onClick={handleConnectPrimary} aria-label="Sign in to connect"><UserPlus className="size-3.5" />Sign in to connect</Button>
+    ) : status === 'accepted' && privacyRelationship.canSendMessage ? (
+        <Button size="sm" variant="outline" className="nb-pf-icononly" onClick={() => { if (!messageUserInWindow(safeProfile.id)) router.push(`/messages?userId=${safeProfile.id}`) }} aria-label="Message"><MessageSquare className="size-3.5" />Message</Button>
+    ) : status === 'pending_incoming' ? (
+        <Button size="sm" className="nb-pf-icononly" onClick={handleConnectPrimary} disabled={isLoading} aria-label="Accept"><UserCheck className="size-3.5" />Accept</Button>
+    ) : status === 'pending_outgoing' ? (
+        <Button size="sm" variant="outline" className="nb-pf-icononly" disabled aria-label="Requested"><Clock className="size-3.5" />Requested</Button>
+    ) : (status === 'none' || status === 'rejected') && privacyRelationship.canSendConnectionRequest ? (
+        <Button size="sm" className="nb-pf-icononly" onClick={handleConnectPrimary} disabled={isLoading} aria-label="Connect"><UserPlus className="size-3.5" />Connect</Button>
+    ) : null
+
     const handleShareProfile = useCallback((trigger?: HTMLElement) => { shareTrigger.current = trigger ?? null; setShareOpen(true); }, [])
 
 
@@ -603,8 +607,7 @@ export function ProfileV2Client({
                 ownerUsernameSetup={isOwner ? { profileId: safeProfile.id, updatedAt: safeProfile.updatedAt, onSaved: username => { applyOptimisticProfileUpdate({ username }); router.refresh(); } } : undefined} /> : null}
             {blockFlow.dialog}
             <ProfileShell
-                header={
-                    <ProfileBand
+                header={<ProfileBand
                         profile={safeProfile}
                         viewerId={viewerUser?.id ?? null}
                         isOwner={isOwner}
@@ -621,26 +624,34 @@ export function ProfileV2Client({
                         isSavingAvailability={isSavingAvailability}
                         onConnectionsClick={handleOpenConnections}
                         onProjectsClick={handleOpenProjects}
+                        onContributionsClick={() => handleTabChange('contributions')}
                         onConnectPrimary={handleConnectPrimary}
                         onConnectSecondary={handleConnectSecondary}
                         onMessage={() => { if (!messageUserInWindow(safeProfile.id)) router.push(`/messages?userId=${safeProfile.id}`); }}
                         onToggleBlock={handleToggleBlock}
                         mutualCount={safeStats.mutualCount}
                         stats={{ ...safeStats, contributionsCount: collaborationContributions.filter((c) => isOwner || c.visibility === 'public').length }}
-                    />
-                }
+                    />}
                 tabs={lockedShell ? null : (
-                    <ProfileTabs
+                    <ProfileTabBar
+                        label="Profile sections"
+                        idPrefix="profile"
                         value={activeTab}
                         onChange={handleTabChange}
-                        onIntent={(next) => {
-                            if (next === 'portfolio') prefetchPortfolioProjects()
-                        }}
+                        onIntent={(next) => { if (next === 'portfolio') prefetchPortfolioProjects() }}
+                        tabs={[
+                            { key: 'overview', label: 'Overview' },
+                            { key: 'contributions', label: 'Contributions', count: visibleContributions.length },
+                            { key: 'portfolio', label: 'Portfolio', count: Number(portfolioQuery.data?.total ?? initialSummary.stats?.visibleProjectsCount ?? portfolioProjects.length) },
+                        ]}
+                        identity={{ name: safeProfile.fullName || safeProfile.username || 'Profile', avatar: <UserAvatar identity={safeProfile} className="size-[26px]" roundedClassName="rounded-[5px]" sizes="26px" /> }}
+                        action={tabBarAction}
                     />
                 )}
+                strip={lockedShell ? null : <SkillsStrip skills={Array.isArray(safeProfile.skills) ? safeProfile.skills : []} isOwner={isOwner} onAdd={isOwner ? () => openEditPage('skills') : undefined} />}
                 main={renderMainContent()}
-                mainBottom={renderMainBottom()}
-                highlights={lockedShell ? null : (
+                rail={lockedShell ? null : (
+                    <div className="space-y-6">
                     <>
                     <ComponentErrorBoundary fallbackMessage="Couldn’t load role preferences.">
                         <OpenToRolesCard
@@ -666,8 +677,6 @@ export function ProfileV2Client({
                         <DetailsCard rows={detailsRows} onEdit={isOwner ? () => openEditPage('skills') : undefined} />
                     </ComponentErrorBoundary>
                     </>
-                )}
-                rail={lockedShell ? null : (
                     <ProfileRightRail
                         profile={safeProfile}
                         isOwner={isOwner}
@@ -680,6 +689,7 @@ export function ProfileV2Client({
                         socialLinks={safeProfile.socialLinks || []}
                         onEditSection={openEditPage}
                     />
+                    </div>
                 )}
             />
 

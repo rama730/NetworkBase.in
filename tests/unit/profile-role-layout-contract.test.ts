@@ -4,30 +4,20 @@ import test from 'node:test'
 
 const read = (path: string) => readFileSync(path, 'utf8')
 
-test('profile layout keeps roles in the responsive rail without duplicate skills or stats cards', () => {
+test('profile layout (mix): band, the tab bar touching it, the skills strip, then the main column and one right card', () => {
   const client = read('src/components/profile/v2/ProfileV2Client.tsx')
   const shell = read('src/components/profile/v2/ProfileShell.tsx')
-  const rail = read('src/components/profile/v2/ProfileRightRail.tsx')
-  const tabs = read('src/components/profile/v2/ProfileTabs.tsx') + read('src/components/ui/UnderlineTabs.tsx') // board/review report §5: the shared tabs
+  const bar = read('src/components/profile/v2/ProfileTabBar.tsx')
 
-  const rolesPosition = client.indexOf('<OpenToRolesCard')
-  assert.ok(rolesPosition >= 0)
   assert.doesNotMatch(client, /<SkillsCard/)
-  assert.doesNotMatch(rail, /title="Stats"/)
-  assert.match(shell, /className="order-3 space-y-6"/)
-  assert.match(shell, /className="order-4"/)
-  assert.match(shell, /className="order-5 space-y-6"/)
+  assert.match(client, /<SkillsStrip /)
+  assert.match(client, /<ProfileTabBar/)
+  assert.match(client, /key: 'contributions', label: 'Contributions', count:/)
+  assert.match(shell, /\{header\}\s*\{tabs\}\s*\{strip\}/)
   assert.match(shell, /data-testid="profile-tabs-shell"/)
-  assert.match(shell, /className="order-1 min-w-0"/)
-  assert.match(shell, /lg:grid-cols-\[minmax\(0,1fr\)_320px\]/)
-  assert.doesNotMatch(shell, /Profile Summary/)
-  assert.doesNotMatch(shell, /profile-tabs-shell"[\s\S]{0,120}sticky/)
-  assert.doesNotMatch(tabs, /sticky z-/)
-  assert.doesNotMatch(tabs, /nb-tabs-list/)
-  assert.doesNotMatch(tabs, /'nb-tab /)
-  assert.match(tabs, /focus-visible:bg-muted\/70 focus-visible:outline-none/)
-  assert.doesNotMatch(shell, /hidden lg:block/)
-  assert.doesNotMatch(rail, /title="Collaboration"/)
+  assert.match(shell, /className="nb-pf-rail"/)
+  assert.match(bar, /role="tablist"/)
+  assert.match(bar, /ArrowLeft/)
 })
 
 test('current availability is absent from live product contracts and schema', () => {
@@ -82,17 +72,16 @@ test('public profile actions use the design-system hierarchy and hide unavailabl
 })
 
 test('profile surfaces use the shared typography roles', () => {
-  const tabs = read('src/components/profile/v2/ProfileTabs.tsx') + read('src/components/ui/UnderlineTabs.tsx') // board/review report §5: the shared tabs
   const rail = read('src/components/profile/v2/ProfileRightRail.tsx')
-  const about = read('src/components/profile/v2/sections/AboutCard.tsx')
+  const about = read('src/components/profile/v2/sections/AboutSection.tsx')
   const projects = read('src/components/profile/v2/sections/WorkspacesGridCard.tsx')
   const contributions = read('src/components/profile/v2/sections/WorkspaceContributionsCard.tsx')
   const editor = read('src/components/profile/edit/EditProfileTabs.tsx')
 
-  assert.match(tabs, /nb-ui-label/)
   assert.match(rail, /RailSection/)
   assert.match(rail, /nb-meta/)
-  assert.match(about, /nb-body/)
+  assert.match(about, /nb-pf-about/)
+  assert.doesNotMatch(about, /font-serif|nb-pf-name/)
   assert.match(projects, /nb-section-title/)
   assert.match(projects, /nb-compact/)
   assert.match(contributions, /nb-card-title|nb-body/)

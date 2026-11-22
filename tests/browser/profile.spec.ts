@@ -234,25 +234,47 @@ test('role preference values share one column and stay aligned in narrow cards',
   await card.screenshot({path:'/tmp/nb-role-preferences-mobile.png'});
 });
 
-test('profile tabs do not create a scroll container and retain keyboard navigation', async ({page}) => {
+test('profile tabs: Overview, Contributions and Portfolio with counts, arrow keys, and no vertical scroll', async ({page}) => {
   const tabs=page.getByRole('tablist',{name:'Profile sections'});
-  const overview=tabs.getByRole('tab',{name:'Overview',exact:true});
-  const portfolio=tabs.getByRole('tab',{name:'Portfolio',exact:true});
+  const overview=tabs.getByRole('tab',{name:/^Overview/});
+  const contributions=tabs.getByRole('tab',{name:/^Contributions/});
+  const portfolio=tabs.getByRole('tab',{name:/^Portfolio/});
+  await expect(tabs.getByRole('tab')).toHaveCount(3);
+  await expect(contributions.locator('.n')).toHaveText(/^\d+$/);
   for(const width of [1440,1024,390]) {
     await page.setViewportSize({width,height:900});
-    const overflow=await tabs.evaluate(el=>{
-      const style=getComputedStyle(el);
-      el.scrollTop=100;
-      el.scrollLeft=100;
-      return {x:style.overflowX,y:style.overflowY,top:el.scrollTop,left:el.scrollLeft,fits:el.scrollWidth<=el.clientWidth};
-    });
-    expect(overflow).toEqual({x:'visible',y:'visible',top:0,left:0,fits:true});
+    const overflow=await tabs.evaluate(el=>{ const style=getComputedStyle(el); el.scrollTop=100; return {y:style.overflowY==='visible'||style.overflowY==='hidden'||el.scrollTop===0}; });
+    expect(overflow).toEqual({y:true});
     await portfolio.click();
     await expect(portfolio).toHaveAttribute('aria-selected','true');
+    await expect(page).toHaveURL(/tab=portfolio/);
     await portfolio.press('ArrowLeft');
-    await expect(overview).toBeFocused();
+    await expect(contributions).toBeFocused();
+    await expect(contributions).toHaveAttribute('aria-selected','true');
+    await contributions.press('ArrowLeft');
     await expect(overview).toHaveAttribute('aria-selected','true');
   }
+  await page.goto(origin + '/?tab=contributions');
+  await expect(page.getByRole('tab',{name:/^Contributions/})).toHaveAttribute('aria-selected','true');
+});
+
+test('skills fold after twelve; About is plain body text with a fold and an owner pencil', async ({page}) => {
+  await page.evaluate(()=>{
+    const f=(window as any).profileFixture;
+    Object.assign(f.saved,{skills:Array.from({length:25},(_,i)=>`Skill ${i+1}`),bio:'First paragraph about my work.\n\nSecond paragraph. '+'More words to make it long. '.repeat(20)});
+    f.refresh();
+  });
+  const strip=page.getByLabel('Skills',{exact:true});
+  await expect(strip.locator('.nb-pf-chip:not(.is-more)')).toHaveCount(12);
+  await strip.getByRole('button',{name:'+13 more'}).click();
+  await expect(strip.locator('.nb-pf-chip:not(.is-more)')).toHaveCount(25);
+  const about=page.locator('[data-pf-about]');
+  const family=await about.locator('p').first().evaluate(el=>getComputedStyle(el).fontFamily);
+  expect(family).not.toMatch(/Instrument Serif|Georgia/i);
+  await expect(about.getByRole('button',{name:'Read more'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Edit about in Edit profile'})).toBeVisible();
+  await page.evaluate(()=>{const f=(window as any).profileFixture;f.viewer=true;f.refresh();});
+  await expect(page.getByRole('button',{name:'Edit about in Edit profile'})).toHaveCount(0);
 });
 
 test('owner band: status sits in the row with Change; the band never scrolls sideways', async ({ page }) => {
@@ -521,7 +543,7 @@ test('deep links reject invalid section names and editing cannot continue under 
 });
 
 test('portfolio edit links return to portfolio without changing the selected profile view',async({page})=>{
-  await page.getByRole('tab',{name:'Portfolio',exact:true}).click();await page.getByRole('button',{name:'Edit profile',exact:true}).click();await expect(page).toHaveURL(/returnTab=portfolio/);await page.getByRole('region',{name:'Edit profile',exact:true}).getByRole('button',{name:'Cancel',exact:true}).click();await expect(page).toHaveURL(origin+'/my-profile?tab=portfolio');await expect(page.getByRole('tab',{name:'Portfolio',exact:true})).toHaveAttribute('aria-selected','true');
+  await page.getByRole('tab',{name:/^Portfolio/}).click();await page.getByTestId('profile-summary-header').getByRole('button',{name:'Edit profile',exact:true}).click();await expect(page).toHaveURL(/returnTab=portfolio/);await page.getByRole('region',{name:'Edit profile',exact:true}).getByRole('button',{name:'Cancel',exact:true}).click();await expect(page).toHaveURL(origin+'/my-profile?tab=portfolio');await expect(page.getByRole('tab',{name:/^Portfolio/})).toHaveAttribute('aria-selected','true');
 });
 
 

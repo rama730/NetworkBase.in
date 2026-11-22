@@ -98,7 +98,8 @@ test("board/review report §4: the Assignment tab keeps every target the assignm
 
 test("board/review report §5: every “which kind” choice uses the profile's underline tabs, from one component", () => {
   const uses = (file: string) => (source(file).match(/<UnderlineTabs /g) ?? []).length;
-  assert.equal(uses("src/components/profile/v2/ProfileTabs.tsx"), 1, "Overview · Portfolio");
+  // The profile has its own floating tab bar (profile mix, ProfileTabBar); dialogs keep the shared underline tabs.
+  assert.equal(uses("src/components/profile/v2/ProfileTabBar.tsx"), 0);
   assert.equal(uses("src/components/workspaces/v2/tasks/CreateTaskModal.tsx"), 1, "Task · Assignment");
   // Sprint cleanup §2: one tab row (CO · Sprint inside a CO); One or Several is a small choice with the dates.
   assert.equal(uses("src/components/workspaces/v2/sprints/CreateSprintModal.tsx"), 1, "CO · Sprint inside a CO");

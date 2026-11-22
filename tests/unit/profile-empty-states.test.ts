@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { AboutCard } from '../../src/components/profile/v2/sections/AboutCard';
+import { AboutSection } from '../../src/components/profile/v2/sections/AboutSection';
 import { readFileSync } from 'node:fs';
 import { DetailsCard } from '../../src/components/profile/v2/sections/DetailsCard';
 import { OpenToRolesCard } from '../../src/components/profile/v2/sections/OpenToRolesCard';
@@ -18,22 +18,22 @@ const html = (element: Parameters<typeof renderToStaticMarkup>[0]) =>
     renderToStaticMarkup(element).replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&');
 
 test('About: a visitor sees one honest line instead of an empty page', () => {
-    const visitor = html(createElement(AboutCard, { profile: { fullName: 'Vijay Kumar', username: 'vijay23', bio: '' }, isOwner: false }));
+    const visitor = html(createElement(AboutSection, { profile: { fullName: 'Vijay Kumar', username: 'vijay23', bio: '' }, isOwner: false, current: [] }));
     assert.match(visitor, /Vijay hasn’t written an introduction yet\./);
-    assert.doesNotMatch(visitor, /Add bio|Only you can see this/);
+    assert.doesNotMatch(visitor, /Add an introduction|Only you can see this/);
 
-    const noName = html(createElement(AboutCard, { profile: { username: 'vijay23', bio: null }, isOwner: false }));
+    const noName = html(createElement(AboutSection, { profile: { username: 'vijay23', bio: null }, isOwner: false, current: [] }));
     assert.match(noName, /@vijay23 hasn’t written an introduction yet\./);
 
-    const withBio = html(createElement(AboutCard, { profile: { fullName: 'Vijay Kumar', bio: 'I design things.' }, isOwner: false }));
+    const withBio = html(createElement(AboutSection, { profile: { fullName: 'Vijay Kumar', bio: 'I design things.' }, isOwner: false, current: [] }));
     assert.match(withBio, /I design things\./);
     assert.doesNotMatch(withBio, /introduction yet/);
 });
 
 test('About: the owner gets the prompt, marked as visible only to them', () => {
-    const owner = html(createElement(AboutCard, { profile: { fullName: 'Vijay Kumar', bio: '' }, isOwner: true, onEdit: () => {} }));
-    assert.match(owner, /Add bio/);
-    assert.match(owner, /Only you can see this/);
+    const owner = html(createElement(AboutSection, { profile: { fullName: 'Vijay Kumar', bio: '' }, isOwner: true, current: [], onEdit: () => {} }));
+    assert.match(owner, /Add an introduction/);
+    assert.match(owner, /Only you can see this until you add one/);
     assert.doesNotMatch(owner, /introduction yet/);
 });
 

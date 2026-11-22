@@ -86,9 +86,9 @@ function Fixture() {
           header={<h1 className="nb-page-title" style={{ height: 100 }}>Builder</h1>}
           tabs={<div>Overview · Portfolio</div>}
           main={<div data-testid="detail-main" style={{ height: 3000 }}>Profile overview</div>}
-          highlights={<div data-testid="detail-rail-content" style={{ height: params.has('short') ? 200 : 1100 }} className="flex flex-col justify-between border border-border p-4">
+          rail={<div data-testid="detail-rail-content" style={{ height: params.has('short') ? 200 : 1100 }} className="flex flex-col justify-between border border-border p-4">
             <h2>Role preferences</h2><a href="/my-profile/edit">Edit preferences</a>
-          </div>} rail={null} />
+          </div>} />
           : <div data-testid="project-layout" style={{ '--workspace-tabs-height': '56px' } as React.CSSProperties}>
             <h1 className="nb-page-title px-6" style={{ height: 100 }}>Example project</h1>
             <nav data-testid="project-tabs" className="sticky top-0 z-30 bg-card px-6" style={{ height: 'var(--workspace-tabs-height)' }}>Dashboard · Docs</nav>
@@ -136,12 +136,12 @@ function Fixture() {
           </div> : <ProfileShell header={<h1 className="nb-page-title">Builder</h1>}
             tabs={<div className="border-b border-border pb-3">Overview · Portfolio</div>}
             main={<Card title="About"><p className="nb-body p-5">I build things.</p></Card>}
-            highlights={<OpenToRolesCard isOwner={owner} openToCollaborate={!params.has('paused')}
+            rail={<><OpenToRolesCard isOwner={owner} openToCollaborate={!params.has('paused')}
               openTo={empty ? [] : ['Full-time roles', 'Freelance workspaces', 'Co-founder opportunities']} categories={empty ? [] : ['Design']}
               hoursPerWeek={empty ? undefined : 'h_5_10'} onEdit={record('edit-roles')}
-              onInvite={record('invite')} onApply={record('apply-profile')} hasOpenRoles />}
-            rail={<ProfileRightRail profile={profile} isOwner={owner} socialLinks={[]}
-              onEditSection={section => fixture.events.push(`edit:${section}`)} />} />}
+              onInvite={record('invite')} onApply={record('apply-profile')} hasOpenRoles />
+            <ProfileRightRail profile={profile} isOwner={owner} socialLinks={[]}
+              onEditSection={section => fixture.events.push(`edit:${section}`)} /></>} />}
   </QueryClientProvider>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture />);

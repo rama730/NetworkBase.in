@@ -4,7 +4,7 @@ import type { PrivacyConnectionState, PrivacyVisibilityReason } from '@/lib/priv
 
 export type ConnectionState = 'none' | 'pending_incoming' | 'pending_outgoing' | 'accepted' | 'rejected' | 'blocked'
 
-export type ProfileTabKey = 'overview' | 'portfolio'
+export type ProfileTabKey = 'overview' | 'contributions' | 'portfolio'
 
 export interface ProfilePrivacyRelationship {
     canViewProfile: boolean

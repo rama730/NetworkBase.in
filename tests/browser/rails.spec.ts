@@ -163,7 +163,8 @@ for (const surface of ['profile', 'project']) {
     await open(page, `surface=sticky-${surface}&short`);
     const root = page.getByTestId('detail-page-scroll');
     const rail = page.getByRole('complementary', { name: label });
-    const expectedTop = (await root.boundingBox())!.y + 24 + (surface === 'project' ? 56 : 0);
+    // The profile card clears the floating tab bar (8px gap + 44px bar + 16px): 68px. Projects keep 24px under their tabs.
+    const expectedTop = (await root.boundingBox())!.y + (surface === 'project' ? 24 + 56 : 68);
     await root.evaluate(el => el.scrollTo({ top: 800 }));
     await expect.poll(async () => (await rail.boundingBox())!.y).toBeCloseTo(expectedTop, 0);
     if (surface === 'project') {
