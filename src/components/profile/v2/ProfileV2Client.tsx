@@ -35,12 +35,9 @@ const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDial
 
 import { ProfileBand } from './ProfileBand'
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
-import { ProfileRightRail } from './ProfileRightRail'
-import { OpenToRolesCard } from './sections/OpenToRolesCard'
 import { ContributionTimeline } from './sections/ContributionTimeline'
+import { ProfileFactsCard } from './sections/ProfileFactsCard'
 import { WorkspacesGridCard } from './sections/WorkspacesGridCard'
-import { ProfileOrganizationsSection } from './sections/ProfileOrganizationsSection'
-import { DetailsCard } from './sections/DetailsCard'
 import { profileDetailsRows } from '@/lib/profile/details'
 import { usePersonContext } from '@/components/messages/useConversation'
 
@@ -652,45 +649,22 @@ export function ProfileV2Client({
                 strip={lockedShell ? null : <SkillsStrip skills={Array.isArray(safeProfile.skills) ? safeProfile.skills : []} isOwner={isOwner} onAdd={isOwner ? () => openEditPage('skills') : undefined} />}
                 main={renderMainContent()}
                 rail={lockedShell ? null : (
-                    <div className="space-y-6">
-                    <>
-                    <ComponentErrorBoundary fallbackMessage="Couldn’t load role preferences.">
-                        <OpenToRolesCard
-                            openTo={safeProfile.openTo}
-                            openToCollaborate={safeProfile.openToCollaborate}
-                            customRoles={safeProfile.openToCustomRoles}
-                            categories={safeProfile.preferredCategories}
-                            experienceLevel={safeProfile.experienceLevel}
-                            hoursPerWeek={safeProfile.hoursPerWeek}
+                    <ComponentErrorBoundary fallbackMessage="Couldn’t load profile details.">
+                        <ProfileFactsCard
+                            profile={safeProfile}
                             isOwner={isOwner}
-                            onEdit={isOwner ? () => openEditPage('opportunity') : undefined}
+                            isAuthenticated={Boolean(viewerUser)}
+                            contributions={collaborationContributions}
+                            detailsRows={detailsRows}
+                            mutualCount={safeStats.mutualCount}
+                            onEditSection={isOwner ? (section, extra) => openEditPage(section, extra) : undefined}
                             onInvite={viewerUser && !isOwner ? handleOpenInvite : undefined}
                             onInviteIntent={prefetchInviteOptions}
                             onApply={viewerUser && !isOwner ? handleOpenApplyModal : undefined}
                             hasOpenRoles={openRolesProjects.length > 0 || applicationsCapReached}
+                            onSeeConnections={handleOpenConnections}
                         />
                     </ComponentErrorBoundary>
-                    {/* Report §4.5, decision 13: between Collaboration preferences and Links; the chip row is gone. */}
-                    <ProfileOrganizationsSection contributions={collaborationContributions} isOwner={isOwner} />
-                    {/* Background facts after what the visitor can act on (Apply, Invite) and where they belong. */}
-                    <ComponentErrorBoundary fallbackMessage="Couldn’t load details.">
-                        {/* Interests live in the Skills section of profile edit. */}
-                        <DetailsCard rows={detailsRows} onEdit={isOwner ? () => openEditPage('skills') : undefined} />
-                    </ComponentErrorBoundary>
-                    </>
-                    <ProfileRightRail
-                        profile={safeProfile}
-                        isOwner={isOwner}
-                        canMessage={Boolean(
-                            viewerUser
-                            && privacyRelationship.canSendMessage
-                            && !privacyRelationship.blockedByViewer
-                            && !privacyRelationship.blockedByTarget
-                        )}
-                        socialLinks={safeProfile.socialLinks || []}
-                        onEditSection={openEditPage}
-                    />
-                    </div>
                 )}
             />
 

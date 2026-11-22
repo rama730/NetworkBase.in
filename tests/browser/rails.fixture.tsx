@@ -5,8 +5,7 @@ import { DiscoverPeopleRail } from '@/components/discover/DiscoverPeopleRail';
 import { DiscoverRail } from '@/components/discover/DiscoverRail';
 import { AppScrollArea } from '@/components/ui/AppScrollArea';
 import { ProfileShell } from '@/components/profile/v2/ProfileShell';
-import { ProfileRightRail } from '@/components/profile/v2/ProfileRightRail';
-import { OpenToRolesCard } from '@/components/profile/v2/sections/OpenToRolesCard';
+import { ProfileFactsCard } from '@/components/profile/v2/sections/ProfileFactsCard';
 import { Card } from '@/components/profile/v2/sections/Card';
 import { DashboardTab } from '@/components/workspaces/tabs/DashboardTab';
 import { ProfileRouteSkeleton } from '@/components/profile/v2/ProfileRouteSkeleton';
@@ -136,12 +135,11 @@ function Fixture() {
           </div> : <ProfileShell header={<h1 className="nb-page-title">Builder</h1>}
             tabs={<div className="border-b border-border pb-3">Overview · Portfolio</div>}
             main={<Card title="About"><p className="nb-body p-5">I build things.</p></Card>}
-            rail={<><OpenToRolesCard isOwner={owner} openToCollaborate={!params.has('paused')}
-              openTo={empty ? [] : ['Full-time roles', 'Freelance workspaces', 'Co-founder opportunities']} categories={empty ? [] : ['Design']}
-              hoursPerWeek={empty ? undefined : 'h_5_10'} onEdit={record('edit-roles')}
-              onInvite={record('invite')} onApply={record('apply-profile')} hasOpenRoles />
-            <ProfileRightRail profile={profile} isOwner={owner} socialLinks={[]}
-              onEditSection={section => fixture.events.push(`edit:${section}`)} /></>} />}
+            rail={<ProfileFactsCard profile={{ ...profile, fullName: 'Builder', openToCollaborate: !params.has('paused'),
+              openTo: empty ? [] : ['Full-time roles', 'Freelance workspaces', 'Co-founder opportunities'], preferredCategories: empty ? [] : ['Design'],
+              hoursPerWeek: empty ? undefined : 'h_5_10' }} isOwner={owner} isAuthenticated contributions={[]} detailsRows={[]}
+              onEditSection={section => fixture.events.push(`edit:${section}`)}
+              onInvite={record('invite')} onApply={record('apply-profile')} hasOpenRoles />} />}
   </QueryClientProvider>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture />);

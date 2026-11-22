@@ -32,7 +32,6 @@ test.beforeAll(async () => {
     './sections/WorkspacesGridCard': `export const WorkspacesGridCard=()=>null;`,
     '@/app/actions/contribution-stories': `export const saveContributionStoryAction=async(c)=>{window.profileFixture.storyCalls.push(c);return {success:true,id:c.id,version:(c.expectedVersion||1)+1,featured:c.operation==='feature',published:true};};const none=async()=>({success:false,error:'Not in this fixture'});export const createContributionStoryAction=none,searchContributionReferencesAction=async()=>({success:true,options:[]}),createContributionImageUploadAction=none,finalizeContributionImageAction=none,importContributionWorkspaceImageAction=none,listContributionLinkWorkspacesAction=async()=>({success:true,projects:[]});`,
     '@/app/actions/org-profile': `const ok=async()=>({success:true});export const dismissContributionNudgeAction=ok,readOrgStoryStarterAction=async()=>({success:true,text:''}),revokeOrgVerificationAction=ok,verifyOrgContributionsAction=async()=>({success:true,verified:0});`,
-    './ProfileRightRail': `export const ProfileRightRail=()=>null;`,
     './ProfileInviteModal': `export default ()=>null;`,
     '@/components/workspaces/ApplyRoleModal': `export default ()=>null;`,
     '@/app/actions/profile-contributions': `export const saveProfileContributionsAction=async()=>({success:true});`,
@@ -40,7 +39,7 @@ test.beforeAll(async () => {
     '@/lib/services/avatar-worker-client': `export const compressAvatarOffMainThread=async f=>f;`,
     '@/lib/upload/supabase-signed-upload-client': `export const uploadToSupabaseSignedUrl=async()=>{};`,
     '@/lib/profile/browser-profile': `export const loadProfileContributionsPage=async()=>({contributions:[],total:0,hasMore:false});export const loadProfileContributionWindow=async()=>({contributions:[],total:0,hasMore:false});`,
-    '@/app/actions/connections': `export const getProfileConnectionCountAction=async()=>({success:true,connectionsCount:window.profileFixture.count});
+    '@/app/actions/connections': `export const readPersonSharedConnectionsAction=async()=>({success:true,summary:{targetIds:[],total:5,people:[{id:'p1',username:'priya',fullName:'Priya Nair',avatarUrl:null,headline:'Backend engineer'},{id:'p2',username:'alexc',fullName:'Alex Chen',avatarUrl:null,headline:'Designer'}]}});export const getProfileConnectionCountAction=async()=>({success:true,connectionsCount:window.profileFixture.count});
       export const getAcceptedConnections=async({search,cursor})=>window.profileFixture.listFail?{success:false,error:'Connection service unavailable'}:{success:true,totalConnections:42,hasMore:!search&&!cursor,nextCursor:'next',connections:Array.from({length:search?1:cursor?12:30},(_,i)=>({id:String((cursor?30:0)+i),otherUser:{id:String(i),username:'peer'+i,fullName:'Peer '+i}}))};`,
   };
   const bundle = await build({ entryPoints: [path.resolve('tests/browser/profile.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env.APP_URL':'undefined', 'process.env.NEXT_PUBLIC_APP_URL': '"https://profile.test"' }, plugins: [{ name: 'isolated-profile', setup(b) {
@@ -147,7 +146,7 @@ test('connections show authoritative total independently of paging/search and di
 test('visitors see saved availability but cannot edit; paused and locked profiles hide opportunity card', async ({ page }) => {
   await page.evaluate(() => { const f=(window as any).profileFixture; f.viewer=true;f.saved.openToCollaborate=true;f.refresh(); });
   await expect(page.getByRole('switch')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Collaboration preferences', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Collaboration', exact: true })).toBeVisible();
   await expect(page.getByText('Rust Developer', { exact: true })).toBeVisible();
   await page.evaluate(() => { const f=(window as any).profileFixture; f.saved.openToCollaborate=false;f.refresh(); });
   await expect(page.locator('#profile-open-to-roles')).toHaveCount(0);
@@ -200,7 +199,7 @@ test('role preference values share one column and stay aligned in narrow cards',
     f.refresh();
   });
   const card=page.locator('#profile-open-to-roles');
-  await expect(card.getByRole('heading')).toHaveText('Collaboration preferences');
+  await expect(card.getByRole('heading')).toHaveText('Collaboration');
   await expect(card.locator('.nb-tag')).toHaveCount(0);
   await expect(card.getByText('<5 h/week',{exact:true})).toBeVisible();
   await expect(card.getByText('Less than 5 hours a week',{exact:true})).toHaveClass('sr-only');
@@ -215,12 +214,13 @@ test('role preference values share one column and stay aligned in narrow cards',
         range.selectNodeContents(span);
         return Math.max(...Array.from(range.getClientRects()).map(rect=>rect.right));
       });
-      return {labelX:label.x,labelCenter:label.y+label.height/2,valueX:value.x,valueCenter:value.y+value.height/2,valueRight:value.right,textRights};
+      return {labelX:label.x,labelTop:label.y,valueX:value.x,valueTop:value.y,valueRight:value.right,textRights};
     }));
     for(const pos of positions) {
       expect(pos.labelX).toBeCloseTo(positions[0]!.labelX,0);
       expect(pos.valueX).toBeCloseTo(positions[0]!.valueX,0);
-      expect(pos.labelCenter).toBeCloseTo(pos.valueCenter,0);
+      // items-start: when a value wraps, its label stays on the first line
+      expect(pos.labelTop).toBeCloseTo(pos.valueTop,0);
       if(pos.textRights.length) expect(Math.max(...pos.textRights)).toBeCloseTo(pos.valueRight,0);
     }
     expect(await card.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
@@ -323,6 +323,28 @@ test('overview: Recent work shows the pinned entry and the newest, with See all'
   await expect(recent.locator('.nb-pf-tli').first()).toContainText('Workspace 2');
   await recent.getByRole('button',{name:/See all 3 contributions/}).click();
   await expect(page.getByRole('tab',{name:/^Contributions/})).toHaveAttribute('aria-selected','true');
+});
+
+test('the right card is ordered by who is looking; owner-only parts stay with the owner', async ({page}) => {
+  await page.evaluate(()=>{
+    const f=(window as any).profileFixture;
+    Object.assign(f.saved,{openToCollaborate:true,profileStrength:60,completionMissing:['Add profile photo','Add location','Add website'],
+      socialLinks:[{id:'l1',platform:'github',url:'https://github.com/builder'},{id:'l2',platform:'linkedin',url:'https://www.linkedin.com/in/builder'}],
+      socialLinkMetadata:{l2:{health:'unavailable'}}});
+    f.refresh();
+  });
+  const card=page.getByRole('complementary',{name:'Profile details'});
+  await expect(card.locator('.nb-pf-fsec').first().getByRole('heading')).toHaveText('Profile completeness');
+  await expect(card.getByRole('button',{name:/Add profile photo/})).toBeVisible();
+  await expect(card.getByText('Didn’t open last time')).toBeVisible();
+  await card.getByRole('button',{name:'Fix LinkedIn'}).click();
+  await expect(page).toHaveURL(/section=social/);
+  await page.goBack();
+  await page.evaluate(()=>{const f=(window as any).profileFixture;f.viewer=true;f.refresh();});
+  await expect(card.locator('.nb-pf-fsec').first().getByRole('heading')).toHaveText('Collaboration');
+  await expect(card.getByRole('button',{name:'Invite to a workspace'})).toBeVisible();
+  await expect(card.getByRole('heading',{name:'Profile completeness'})).toHaveCount(0);
+  await expect(card.getByText('Didn’t open last time')).toHaveCount(0);
 });
 
 test('owner band: status sits in the row with Change; the band never scrolls sideways', async ({ page }) => {
@@ -452,7 +474,7 @@ test('visitor status sits in the band row; long status wraps; locked profiles sh
 test('visitor role actions fit the rail and have a full touch target', async ({page}) => {
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.viewer=true;f.saved.openToCollaborate=true;f.refresh();});
   const card=page.locator('#profile-open-to-roles');
-  const action=card.getByRole('button',{name:'Invite to workspace',exact:true});
+  const action=card.getByRole('button',{name:'Invite to a workspace',exact:true});
   await expect(action).toBeVisible();
   for(const width of [320,280]) {
     await card.evaluate((el,w)=>{el.style.width=`${w}px`;},width);

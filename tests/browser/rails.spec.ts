@@ -57,6 +57,14 @@ async function open(page: Page, query: string) {
   await expect(page.getByRole('heading').first()).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
 }
+/** The profile's right card (mix): one card, each section a mono label heading over its content. */
+async function checkCardSection(page: Page, name: string) {
+  const heading = page.getByRole('heading', { name, exact: true });
+  await expect(heading).toHaveCount(1);
+  await expect(page.getByRole('region', { name, exact: true })).toBeVisible();
+  expect(await heading.evaluate(el => { const s = getComputedStyle(el); return [s.fontSize, s.fontWeight, s.textTransform]; })).toEqual(['11px', '500', 'uppercase']);
+  expect(await heading.evaluate(el => el.closest('.nb-pf-facts') !== null)).toBe(true);
+}
 async function checkHeading(page: Page, name: string) {
   const heading = page.getByRole('heading', { name, exact: true });
   await expect(heading).toHaveCount(1);
@@ -319,17 +327,11 @@ test('Network loading cards use the full page layout and the same card geometry'
   for (const key of ['x', 'y', 'width', 'height'] as const) expect(loading[key]).toBeCloseTo(live[key], 0);
 });
 
-test('profile headings use the Discover pattern with titles outside cards and working edit controls', async ({ page }) => {
-  await open(page, 'surface=discover');
-  const reference = page.getByRole('heading', { name: 'Suggested people' });
-  const referenceStyle = await reference.evaluate(el => { const s = getComputedStyle(el); return [s.fontSize, s.fontWeight, s.letterSpacing, s.lineHeight]; });
+test('profile right card: mono section labels in one card, working edit controls', async ({ page }) => {
   await open(page, 'surface=profile');
-  for (const title of ['Collaboration preferences', 'Links', 'Profile completeness']) {
-    await checkHeading(page, title);
-    expect(await page.getByRole('heading', { name: title, exact: true }).evaluate(el => { const s = getComputedStyle(el); return [s.fontSize, s.fontWeight, s.letterSpacing, s.lineHeight]; })).toEqual(referenceStyle);
-  }
+  for (const title of ['Profile completeness', 'Collaboration', 'Links']) await checkCardSection(page, title);
   await page.getByRole('button', { name: 'Edit role preferences' }).click();
-  expect(await page.evaluate(() => (window as any).railsFixture.events)).toEqual(['edit-roles']);
+  expect(await page.evaluate(() => (window as any).railsFixture.events)).toEqual(['edit:opportunity']);
   await expect(page.getByRole('link', { name: /Open GitHub/ })).toHaveAttribute('href', /\/go\/profile\//);
   const roleTypes = page.getByRole('list', { name: 'Role types', exact: true });
   const values = await roleTypes.getByRole('listitem').all();
@@ -397,9 +399,8 @@ test.describe('mutual connections', () => {
 
 test('profile empty and visitor states retain visibility and collaboration actions', async ({ page }) => {
   await open(page, 'surface=profile&empty');
-  await checkHeading(page, 'Collaboration preferences');
-  await expect(page.getByRole('heading', { name: 'Links', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Links', exact: true })).toHaveCount(0);
+  await checkCardSection(page, 'Collaboration');
+  await expect(page.getByText('Add your GitHub, LinkedIn or site.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Profile completeness' })).toBeVisible();
   await open(page, 'surface=profile&audience=visitor&empty');
   await expect(page.getByRole('heading', { name: 'Links', exact: true })).toHaveCount(0);
@@ -407,11 +408,11 @@ test('profile empty and visitor states retain visibility and collaboration actio
   await open(page, 'surface=profile&audience=visitor');
   await expect(page.getByRole('heading', { name: 'Profile completeness' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Edit role preferences' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Invite to workspace' }).click();
-  await page.getByRole('button', { name: 'Apply for a role' }).click();
+  await page.getByRole('button', { name: 'Invite to a workspace' }).click();
+  await page.getByRole('button', { name: 'See Builder’s open roles' }).click();
   expect(await page.evaluate(() => (window as any).railsFixture.events)).toEqual(['invite', 'apply-profile']);
   await open(page, 'surface=profile&audience=visitor&paused');
-  await expect(page.getByRole('heading', { name: 'Collaboration preferences' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Collaboration' })).toHaveCount(0);
 });
 
 test('project rail preserves Journey controls, activity links and role management', async ({ page }) => {
@@ -462,9 +463,10 @@ test.describe('touch layouts', () => {
     await page.setViewportSize({ width: 320, height: 740 });
     for (const theme of ['light', 'dark']) {
       await open(page, `surface=profile&theme=${theme}`);
-      for (const title of ['Collaboration preferences', 'Links']) await checkHeading(page, title);
+      for (const title of ['Collaboration', 'Links']) await checkCardSection(page, title);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await expect(page.getByRole('heading', { name: 'Profile completeness' })).toHaveCount(0);
+      // the card sits under the main column on phones and keeps completeness (profile mix)
+      await expect(page.getByRole('heading', { name: 'Profile completeness' })).toHaveCount(1);
       expect((await page.getByRole('button', { name: 'Edit role preferences' }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await open(page, `surface=project&theme=${theme}`);
       for (const title of ['Stages', 'Recent activity', 'Open roles']) await checkHeading(page, title);

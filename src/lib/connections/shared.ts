@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 export type SharedConnectionsSummary = {
     targetIds: string[];
     total: number;
-    people: Array<{ id: string; username: string | null; fullName: string | null; avatarUrl: string | null }>;
+    people: Array<{ id: string; username: string | null; fullName: string | null; avatarUrl: string | null; headline?: string | null }>;
 };
 
 /** Distinct, visible accepted peers shared with the suggestions actually shown. */
@@ -20,7 +20,7 @@ export async function readSharedConnections(viewerId: string, targetIds: string[
         ), targets AS (
             SELECT jsonb_array_elements_text(${JSON.stringify(targets)}::jsonb)::uuid AS id
         )
-        SELECT p.id, p.username, p.full_name AS "fullName", p.avatar_url AS "avatarUrl", count(*) OVER ()::int AS total
+        SELECT p.id, p.username, p.full_name AS "fullName", p.avatar_url AS "avatarUrl", p.headline, count(*) OVER ()::int AS total
         FROM profiles p
         JOIN viewer_peers vp ON vp.id = p.id
         WHERE p.id <> ${viewerId}::uuid AND p.deleted_at IS NULL AND p.onboarding_status = 'completed'
@@ -37,6 +37,6 @@ export async function readSharedConnections(viewerId: string, targetIds: string[
     return {
         targetIds: targets,
         total: Number(rows[0]?.total ?? 0),
-        people: Array.from(rows, ({ id, username, fullName, avatarUrl }) => ({ id, username, fullName, avatarUrl })),
+        people: Array.from(rows, ({ id, username, fullName, avatarUrl, headline }) => ({ id, username, fullName, avatarUrl, headline: headline ?? null })),
     };
 }

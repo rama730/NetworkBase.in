@@ -3,90 +3,33 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, Pencil, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 
-import { readMyProfileOrganizationsAction, saveMyOrganizationOrderAction, updateMyOrgMembershipAction, type MyProfileOrganization } from "@/app/actions/organizations";
+import type { MyProfileOrganization } from "@/app/actions/organizations";
+
+// Loaded when the dialog is used, so the profile card never pulls server actions into its first render.
+const actions = () => import("@/app/actions/organizations");
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { RailSection } from "@/components/ui/rail-section";
-import { OwnerOnlyNote } from "./Card";
 import { profileEditHref } from "@/lib/profile/edit-route";
 import { toast } from "@/lib/feedback";
-import { currentOrganizations, sinceMonth } from "@/lib/organizations/profile-rules";
 import { WorkspaceAvatar } from "@/components/workspaces/WorkspaceAvatar";
-import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
 
-
-/**
- * Organizations on the profile (report §4.5, decision 13): right column, between Collaboration preferences and
- * Links. Current members only, in the person's own order. Others see nothing when it's empty.
- */
-export function ProfileOrganizationsSection({ contributions, isOwner }: { contributions: ProfileCollaborationContribution[]; isOwner: boolean }) {
-  const [managing, setManaging] = useState(false);
-  const rows = currentOrganizations(contributions, isOwner);
-  if (!isOwner && rows.length === 0) return null;
-  return (
-    <RailSection
-      title="Organizations"
-      contentClassName="px-5 max-md:px-4"
-      action={isOwner ? (
-        <button type="button" aria-label="Manage organizations" onClick={() => setManaging(true)} className="nb-touch-target rounded-[3px] p-1.5 text-muted-foreground hover:bg-muted">
-          <Pencil className="size-4" />
-        </button>
-      ) : null}
-    >
-      {rows.length ? (
-        <ul className="space-y-3">
-          {rows.map((c) => {
-            const body = (
-              <>
-                {/* Live-fix 56: the organization's logo, initials when it has none. */}
-                <WorkspaceAvatar project={{ title: c.projectTitle, coverImage: c.projectCoverImage }} size="row" kind="organization" />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-foreground">{c.projectTitle}</span>
-                  <span className="block truncate text-[12px] text-muted-foreground">
-                    {[c.title, c.startDate ? `Since ${sinceMonth(c.startDate)}` : null, isOwner && c.showOnProfile === false ? "Hidden" : null].filter(Boolean).join(" · ")}
-                  </span>
-                </span>
-              </>
-            );
-            return (
-              <li key={c.id}>
-                {c.projectHref ? <Link href={c.projectHref} className="flex items-center gap-3 rounded-[5px] hover:bg-muted/50">{body}</Link> : <div className="flex items-center gap-3">{body}</div>}
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <div>
-          <p className="text-sm text-muted-foreground">Organizations you’re part of show here.</p>
-          <OwnerOnlyNote />
-        </div>
-      )}
-      {isOwner ? (
-        <Link href="/join" className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline">
-          <Plus className="size-3.5" aria-hidden="true" /> Join with code
-        </Link>
-      ) : null}
-      {isOwner ? <ManageOrganizationsDialog open={managing} onOpenChange={setManaging} /> : null}
-    </RailSection>
-  );
-}
 
 /** Manage organizations (report §38.2): a Show switch and the order, each saved at once. */
-function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter();
   const [rows, setRows] = useState<MyProfileOrganization[] | null>(null);
   const [pending, startTransition] = useTransition();
   useEffect(() => {
     if (!open) return;
     let live = true;
-    void readMyProfileOrganizationsAction().then((r) => { if (live) setRows(r); });
+    void actions().then((m) => m.readMyProfileOrganizationsAction()).then((r) => { if (live) setRows(r); });
     return () => { live = false; };
   }, [open]);
   const saved = () => toast.success("Saved");
   const toggle = (row: MyProfileOrganization) => startTransition(async () => {
-    const result = await updateMyOrgMembershipAction(row.orgId, { show_on_profile: !row.showOnProfile });
+    const result = await (await actions()).updateMyOrgMembershipAction(row.orgId, { show_on_profile: !row.showOnProfile });
     if (!result.success) return void toast.error(result.error);
     setRows((current) => current?.map((r) => (r.orgId === row.orgId ? { ...r, showOnProfile: !r.showOnProfile } : r)) ?? null);
     saved();
@@ -97,7 +40,7 @@ function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolean; onOp
     const [row] = next.splice(index, 1);
     next.splice(index + by, 0, row!);
     setRows(next);
-    const result = await saveMyOrganizationOrderAction(next.map((r) => r.orgId));
+    const result = await (await actions()).saveMyOrganizationOrderAction(next.map((r) => r.orgId));
     if (!result.success) return void toast.error(result.error);
     saved();
   });
