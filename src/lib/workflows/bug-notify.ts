@@ -11,11 +11,12 @@ import { projectTaskHref } from "@/lib/workspaces/task-presentation";
  */
 type Bug = { id: string; title: string; taskNumber: number | null; workspaceId: string };
 
-async function leaders(workspaceId: string) {
+/** The owner and admins; with everyone, every current member (viewers included). */
+async function leaders(workspaceId: string, everyone = false) {
   return Array.from(await db.execute<{ id: string; slug: string | null; key: string | null }>(sql`
     SELECT w.owner_id AS id, w.slug, w.key FROM workspaces w WHERE w.id = ${workspaceId}::uuid
     UNION SELECT m.user_id, w.slug, w.key FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id
-    WHERE m.workspace_id = ${workspaceId}::uuid AND m.role IN ('owner', 'admin')`));
+    WHERE m.workspace_id = ${workspaceId}::uuid AND (${everyone} OR m.role IN ('owner', 'admin'))`));
 }
 
 async function tell(bug: Bug, actorId: string, title: string, importance: "important" | "more", dedupe: string) {
@@ -57,7 +58,10 @@ export async function notifyBugFixed(taskId: string, actorId: string) {
       coalesce(t.type_fields->'alsoSeen', '[]'::jsonb) AS seen
     FROM tasks t JOIN workspaces w ON w.id = t.workspace_id WHERE t.id = ${taskId}::uuid`));
   if (!bug) return;
-  const people = [...new Set([bug.creator_id, ...(Array.isArray(bug.seen) ? bug.seen : [])].filter((p): p is string => Boolean(p) && p !== actorId))];
+  const wanted = [...new Set([bug.creator_id, ...(Array.isArray(bug.seen) ? bug.seen : [])].filter((p): p is string => Boolean(p) && p !== actorId))];
+  // Only people still in the workspace (security review: someone who left keeps no window into it).
+  const current = new Set((await leaders(bug.workspace_id, true)).map((p) => p.id));
+  const people = wanted.filter((p) => current.has(p));
   for (const p of people) {
     await createNotification({
       recipientUserId: p, actorUserId: actorId, kind: "project_task_activity", category: "tasks", importance: "important",

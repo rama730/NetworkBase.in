@@ -1175,7 +1175,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     const validated = createTaskSchema.parse(data);
     // Report 38.6 layer 10 (A2.1): members and viewers report bugs (at New); viewers do nothing else here, so what
     // only a member could set is dropped. Everything else keeps the create_tasks check.
-    const bugReport = validated.itemType === "bug" && (validated.stage ?? "new") === "new";
+    // Only an explicit New: with no stage a bug from Tasks starts at Fixing, which needs create rights (security review).
+    const bugReport = validated.itemType === "bug" && validated.stage === "new";
     const reporterAccess = bugReport ? await getWorkspaceAccessById(validated.projectId, user.id) : null;
     if (reporterAccess?.project?.kind === "workspace" && (reporterAccess.isOwner || reporterAccess.isMember)) {
       if (reporterAccess.memberRole === "viewer") Object.assign(validated, { assigneeId: null, sprintId: null, partOfId: null, startDate: null, dueDate: null });

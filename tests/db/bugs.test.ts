@@ -69,6 +69,7 @@ test("W2: a member reports with bug fields; severity sets priority; owners hear;
   // Viewers report bugs at New only: no plain tasks, no bug that starts further on.
   assert.equal((await tasksServer.createTaskAction({ projectId: t.ws, title: "Plain", status: "todo", priority: "medium" } as never)).success, false);
   assert.equal((await tasksServer.createTaskAction({ projectId: t.ws, title: "Skip", status: "todo", priority: "medium", itemType: "bug", stage: "confirmed" } as never)).success, false);
+  assert.equal((await tasksServer.createTaskAction({ projectId: t.ws, title: "No stage", status: "todo", priority: "medium", itemType: "bug" } as never)).success, false, "no stage would start at Fixing");
   assert.equal((await workflows.readWorkspaceWorkflows(t.ws, t.owner)).waiting?.bugs, 2, "the tab counts New bugs");
 });
 
@@ -113,6 +114,13 @@ test("W4: Confirm needs a member and a severity; Urgent sets priority, assigns, 
   assert.deepEqual((await notes(t.viewer)).slice(-1), ["Fixed: Crash on export (important)"]);
   assert.deepEqual((await notes(t.owner)).slice(-1), ["Fixed: Crash on export (important)"]);
   assert.equal((await notes(t.member)).filter((x) => x.startsWith("Fixed")).length, 0);
+  // Someone who left hears nothing more.
+  const other = await report(t.ws, "Second crash");
+  await sql`DELETE FROM workspace_members WHERE workspace_id = ${t.ws} AND user_id = ${t.viewer}`;
+  await sql`UPDATE tasks SET creator_id = ${t.viewer} WHERE id = ${other}`;
+  await setTaskStageAction({ taskId: other, projectId: t.ws, stage: "fixing", toBacklog: true });
+  await setTaskStageAction({ taskId: other, projectId: t.ws, stage: "fixed", toBacklog: true });
+  assert.equal((await notes(t.viewer)).filter((x) => x === "Fixed: Second crash (important)").length, 0);
 });
 
 test("S5: the panel's fields save; a severity change writes priority; viewers read but can't change; outsiders can't read", async () => {
