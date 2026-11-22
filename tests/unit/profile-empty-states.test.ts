@@ -145,7 +145,7 @@ test('Right card order by viewer: the owner starts with completeness; a visitor 
     const source = readFileSync('src/components/profile/v2/sections/ProfileFactsCard.tsx', 'utf8');
     assert.match(source, /isOwner \? \[completeness, collaboration, organizations, details, linkSection\] : \[collaboration, mutual, organizations, details, linkSection\]/);
     const skeleton = readFileSync('src/components/profile/v2/ProfileRouteSkeleton.tsx', 'utf8');
-    assert.ok(skeleton.indexOf('title="Collaboration preferences"') < skeleton.indexOf('title="Details"'));
+    assert.ok(skeleton.indexOf('"Collaboration"') > 0 && skeleton.indexOf('"Collaboration"') < skeleton.indexOf('"Details"'));
 });
 
 test('Header: visitors see New member instead of zero counts; owners keep their counts', () => {

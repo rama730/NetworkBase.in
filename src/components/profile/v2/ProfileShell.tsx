@@ -28,7 +28,7 @@ export function ProfileShell({
                 {header}
                 {tabs}
                 {strip}
-                <div className="nb-pf-body">
+                <div className={rail ? "nb-pf-body" : "nb-pf-body is-solo"}>
                     <div className="nb-pf-col" data-testid="profile-tabs-shell">{main}</div>
                     {rail ? <aside {...stickyRail} className="nb-pf-rail" aria-label="Profile details">{rail}</aside> : null}
                 </div>

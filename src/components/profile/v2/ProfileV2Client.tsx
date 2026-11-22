@@ -498,7 +498,17 @@ export function ProfileV2Client({
         </ComponentErrorBoundary>
     )
     const renderMainContent = () => {
-        if (lockedShell) return null
+        // Spec (private profile): under the band, what's hidden and how to see it.
+        if (lockedShell) {
+            const first = (safeProfile.fullName || safeProfile.username || 'them').split(/\s+/)[0]
+            const blocked = privacyRelationship.blockedByViewer || privacyRelationship.blockedByTarget
+            return (
+                <div className="nb-pf-empty" data-pf-locked>
+                    <b>{blocked ? 'Nothing to show while blocked' : 'This profile is private'}</b>
+                    <span>{privacyRelationship.blockedByViewer ? 'Unblock them to see their profile again.' : blocked ? 'This account isn’t available.' : `Connect with ${first} to see their work, contributions and links.`}</span>
+                </div>
+            )
+        }
         if (activeTab === 'portfolio') {
             const visibleProjectsCount = Number(portfolioQuery.data?.total ?? safeStats.projectsCount ?? portfolioProjects.length ?? 0)
             const portfolioDescription = visibleProjectsCount > portfolioProjects.length

@@ -1,12 +1,16 @@
 import { Skeleton } from '@/components/ui/skeleton';
 
+/** Edit profile's loading shape: the preview band, the section tabs, the form beside the Changes card. */
 export default function EditProfileLoading() {
-    return <div role="status" aria-label="Loading profile editor" className="flex h-full min-h-0 flex-col bg-card md:flex-row">
-        <div className="shrink-0 border-b border-border px-3 py-4 md:w-[var(--nb-sidebar-width)] md:border-r md:border-b-0">
-            <div className="mb-3 space-y-3 px-2 pr-3"><Skeleton className="h-3 w-24" /><div className="h-px w-full bg-border" aria-hidden="true" /></div>
-            <div className="flex flex-wrap gap-1 md:flex-col">{Array.from({length:5},(_,index)=><Skeleton key={index} className="h-[var(--ui-nav-item-height)] w-full" />)}</div>
+    return <div role="status" aria-label="Loading profile editor" className="h-full min-h-0 overflow-hidden bg-background">
+        <div aria-hidden="true" className="nb-pf-page">
+            <div className="nb-pf-band"><div className="flex gap-4 p-5"><Skeleton className="size-20 shrink-0 rounded-[6px]" /><div className="min-w-0 flex-1 space-y-2.5 pt-1"><Skeleton className="h-8 w-56 max-w-full" /><Skeleton className="h-4 w-40" /><Skeleton className="h-4 w-72 max-w-full" /></div></div></div>
+            <div className="nb-pf-tabbar"><div className="flex min-h-11 items-center gap-6 px-5">{[16, 24, 14, 12, 24].map((w, i) => <Skeleton key={i} className="h-4" style={{ width: `${w * 4}px` }} />)}</div></div>
+            <div className="nb-pf-body">
+                <div className="nb-pf-col"><span className="nb-pf-label has-rule">Photo</span><Skeleton className="h-28 w-full rounded-[8px]" /><span className="nb-pf-label has-rule">Identity</span><Skeleton className="h-48 w-full rounded-[8px]" /></div>
+                <div className="nb-pf-rail"><Skeleton className="h-72 w-full rounded-[8px]" /></div>
+            </div>
         </div>
-        <div className="min-w-0 flex-1 p-4 md:p-[calc(var(--ui-panel-padding)+4px)]"><div className="mx-auto w-full max-w-4xl space-y-6"><Skeleton className="size-[72px]" /><Skeleton className="h-11 w-full" /><Skeleton className="h-11 w-full" /><Skeleton className="h-32 w-full" /></div></div>
         <span className="sr-only">Loading profile editor…</span>
     </div>;
 }

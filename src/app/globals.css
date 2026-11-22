@@ -2148,7 +2148,7 @@ button.nb-pf-tag[aria-checked="false"] { background: var(--pf-band-chip); color:
 .nb-pf-tabwrap[data-stuck]::before { opacity: 1; }
 .nb-pf-tabbar { border: 1px solid var(--border); border-top-color: transparent; border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--card); transition: border-radius 240ms var(--nb-ease), border-color 240ms var(--nb-ease), box-shadow 240ms var(--nb-ease); }
 .nb-pf-tabwrap[data-stuck] .nb-pf-tabbar { border-top-color: var(--border); border-radius: var(--radius-lg); box-shadow: 0 10px 22px -16px rgb(20 26 30 / 45%); }
-.nb-pf-tb { display: flex; align-items: stretch; min-height: 44px; }
+.nb-pf-tb { display: flex; align-items: stretch; min-height: 44px; overflow: clip; }
 .nb-pf-tb-me { display: flex; align-items: center; gap: 10px; flex: none; min-width: 0; max-width: 0; padding: 0; overflow: hidden; border-right: 1px solid transparent; opacity: 0; transform: translateX(-10px); transition: max-width 340ms var(--nb-ease), padding 340ms var(--nb-ease), transform 340ms var(--nb-ease), opacity 220ms var(--nb-ease), border-color 220ms; }
 .nb-pf-tabwrap[data-me] .nb-pf-tb-me { max-width: 220px; padding: 0 14px 0 10px; border-right-color: var(--border); opacity: 1; transform: none; }
 .nb-pf-tb-me .nb-pf-pic { width: 26px; height: 26px; flex: none; overflow: hidden; border-radius: 5px; }
@@ -2473,3 +2473,6 @@ a.nb-pf-link-row:hover { background: var(--secondary); }
 .nb-pf-strip .k { font: 11.5px var(--font-mono, ui-monospace), monospace; color: var(--muted-foreground); white-space: nowrap; }
 @media (max-width: 480px) { .nb-pf-strip .k { display: none; } }
 .nb-pf-wrole .nb-pf-ib[aria-pressed="true"] { color: var(--primary); background: var(--secondary); }
+.nb-pf-body.is-solo { grid-template-columns: minmax(0, 1fr); }
+.nb-pf-edit .nb-pf-band .nb-pf-acts { display: grid; justify-items: end; align-content: start; gap: 8px; }
+.nb-pf-esec > .nb-pf-label > :not(h2) { order: 2; }

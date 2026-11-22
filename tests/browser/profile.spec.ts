@@ -692,6 +692,41 @@ test('Preview full profile shows the whole profile from the draft, and Back to e
   await expect(editor.locator('#profile-headline')).toHaveValue('Draft headline only');
 });
 
+test('heavy profile: long name and headline, 25 skills, 55 contributions, 8 links and 5 long organizations fit at 1440 and 390', async ({page}) => {
+  const long = (n: number, word: string) => (word + ' ').repeat(40).slice(0, n).trim();
+  const skills = ['React','TypeScript','Rust','Go','Python','Figma','Postgres','Redis','Kubernetes','Docker','GraphQL','Node.js','Next.js','Tailwind','Svelte','Vue','Swift','Kotlin','Java','C++','Elixir','Terraform','AWS','GCP','Leadership'];
+  const links = Array.from({length:8},(_,i)=>({id:`l${i}`,platform:'website',url:`https://site-${i}.example.com/a/very/long/path/${i}`,order:i}));
+  const orgs = Array.from({length:5},(_,i)=>entry(900+i,{projectKind:'organization',projectTitle:long(80,`Organization${i}`),featured:false}));
+  await page.evaluate(({name,headline,skills,links,list})=>{const f=(window as any).profileFixture;f.saved={...f.saved,fullName:name,headline,skills,socialLinks:links,bio:'Long about. '.repeat(60)};f.contributions=list;f.refresh();},
+    {name:long(80,'Avery'),headline:long(120,'Builds'),skills,links,list:[...orgs,...Array.from({length:50},(_,k)=>entry(k+1))]});
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({width,height:900});
+    await page.getByRole('tab',{name:/^Overview/}).click();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await expect(page.getByTestId('profile-summary-header')).toHaveClass(/is-tall/);
+    await expect(page.locator('.nb-pf-skills .nb-pf-chip:not(.is-more)')).toHaveCount(12);
+    await expect(page.locator('.nb-pf-skills .nb-pf-chip.is-more')).toHaveText(/\+13 more/);
+    await expect(page.locator('.nb-pf-about-body.is-folded')).toHaveCount(1);
+    await page.getByRole('tab',{name:/^Contributions/}).click();
+    const panel=page.locator('#profile-panel-contributions');
+    await expect(panel.locator('.nb-pf-tli')).toHaveCount(10);
+    await expect(panel.getByRole('button',{name:/^Show 10 more/})).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    for (const el of await page.locator('.nb-pf-rail, .nb-pf-band, .nb-pf-tabbar').all()) expect(await el.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
+  }
+  await page.setViewportSize({width:1440,height:900});
+  await page.getByRole('button',{name:'Edit profile',exact:true}).click();
+  const editor=page.getByRole('region',{name:'Edit profile',exact:true});
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({width,height:900});
+    for (const tab of ['Details','Contributions','Skills','Links','Collaboration']) {
+      await editor.getByRole('tab',{name:new RegExp(`^${tab}`)}).click();
+      expect(await editor.locator('[data-scroll-root="route"]').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    }
+  }
+});
+
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
   await page.evaluate(()=>history.back());const ask=page.getByRole('alertdialog',{name:'Discard unsaved changes?'});await expect(ask).toBeVisible();await ask.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(ask).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit/);await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
