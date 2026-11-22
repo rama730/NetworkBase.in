@@ -578,6 +578,33 @@ test('details: a taken username offers names to try and asks before changing; th
   await expect(editor.getByRole('alert').filter({hasText:'That’s a GIF. Use a JPG, PNG or WebP photo.'})).toBeVisible();
 });
 
+test('skills move with ← →; links refuse a duplicate, offer Fix on a broken one, and removal can be undone',async({page})=>{
+  await page.evaluate(()=>{const f=(window as any).profileFixture;f.saved={...f.saved,skills:['React','Figma','Rust'],socialLinks:[{id:'github',platform:'github',url:'https://github.com/builder',order:0},{id:'site',platform:'website',url:'https://builder.dev',order:1}],socialLinkMetadata:{site:{health:'unavailable'}}};sessionStorage.setItem('profile',JSON.stringify(f.saved));});
+  await page.goto(origin+'/my-profile/edit?section=skills');
+  const editor=page.getByRole('region',{name:'Edit profile',exact:true});
+  const card=editor.getByRole('complementary',{name:'Your changes'});
+  const chips=editor.locator('[aria-label="Selected skills"] [data-reorder]');
+  await expect(chips).toHaveText(['React','Figma','Rust']);
+  await chips.nth(1).focus();await page.keyboard.press('ArrowLeft');
+  await expect(chips).toHaveText(['Figma','React','Rust']);
+  await expect(chips.first()).toBeFocused();
+  await expect(card.getByRole('button',{name:/^Skills\s*Reordered/})).toBeVisible();
+  await editor.getByRole('tab',{name:/^Links/}).click();
+  await expect(editor.getByRole('heading',{name:'Your public links',exact:true})).toBeVisible();
+  await expect(editor.getByText('Needs update · this link didn’t open last time')).toBeVisible();
+  await editor.getByRole('button',{name:'Fix',exact:true}).click();
+  await expect(editor.locator('#profile-social-url')).toHaveValue('https://builder.dev');
+  await expect(editor.getByRole('heading',{name:'Edit link',exact:true})).toBeVisible();
+  await editor.getByRole('button',{name:'Cancel',exact:true}).first().click();
+  await editor.locator('#profile-social-url').fill('https://github.com/builder/');
+  await expect(editor.getByText('You already have this link.')).toBeVisible();
+  await expect(editor.getByRole('button',{name:'Add link',exact:true})).toBeDisabled();
+  await editor.getByRole('button',{name:'Remove GitHub',exact:true}).click();
+  await expect(editor.getByRole('button',{name:'Remove GitHub',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Undo',exact:true}).click();
+  await expect(editor.getByRole('button',{name:'Remove GitHub',exact:true})).toBeVisible();
+});
+
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
   await page.evaluate(()=>history.back());const ask=page.getByRole('alertdialog',{name:'Discard unsaved changes?'});await expect(ask).toBeVisible();await ask.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(ask).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit/);await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
@@ -688,7 +715,7 @@ test('editor typography, control density and selection colors follow the design 
   await editor.getByRole('button',{name:'All',exact:true}).click();
   await editor.getByRole('option',{name:/React/}).click();
   await expect(editor.getByRole('button',{name:'Remove React',exact:true})).toBeVisible();
-  expect((await font(editor.getByText('Search skills or add your own.',{exact:true})))[0]).toBe('13px');
+  expect((await font(editor.getByText('Drag to reorder, or focus one and press ← →',{exact:true})))[0]).toBe('13px');
 });
 
 test.describe('profile editor touch reflow',()=>{
@@ -697,7 +724,7 @@ test.describe('profile editor touch reflow',()=>{
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.saved={...f.saved,username:'builder_with_a_long_username',skills:['React'],socialLinks:[{id:'github',platform:'github',url:'https://github.com/builder',order:0},{id:'linkedin',platform:'linkedin',url:'https://www.linkedin.com/in/builder',order:1}]};f.refresh();});
   await page.getByRole('button',{name:'Edit profile',exact:true}).click();
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});
-  const sections:Array<[tab:string,heading:string]>=[['Details','Identity'],['Contributions','Contributions'],['Skills','Skills'],['Links','Links and profiles'],['Collaboration','Collaboration preferences']];
+  const sections:Array<[tab:string,heading:string]>=[['Details','Identity'],['Contributions','Contributions'],['Skills','Skills'],['Links','Your public links'],['Collaboration','Collaboration preferences']];
   for(const width of [320,768,1024]) {
     await page.setViewportSize({width,height:900});
     for(const [tab,section] of sections) {
@@ -709,7 +736,7 @@ test.describe('profile editor touch reflow',()=>{
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       // Beside the form the Changes card holds Save; narrower, the phone bar does once there is a change.
       if(width>=1024) await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeInViewport();
-      if(width===320&&section==='Links and profiles') for(const action of await editor.getByRole('button',{name:/^(Edit|Remove|Move) (GitHub|LinkedIn)/}).all()) {
+      if(width===320&&section==='Your public links') for(const action of await editor.getByRole('button',{name:/^(Edit|Remove|Move) (GitHub|LinkedIn)/}).all()) {
         const bounds=await action.boundingBox();expect(bounds!.width).toBeGreaterThanOrEqual(44);expect(bounds!.height).toBeGreaterThanOrEqual(44);
       }
     }

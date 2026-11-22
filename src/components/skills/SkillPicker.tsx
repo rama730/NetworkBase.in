@@ -38,6 +38,7 @@ export function SkillPicker({
     controlSize = 'default',
     placeholder = 'Search React, Figma, leadership…',
     className,
+    reorderable = false,
 }: {
     value: string[]
     onChange: (skills: string[]) => void
@@ -52,6 +53,8 @@ export function SkillPicker({
     controlSize?: 'default' | 'large'
     placeholder?: string
     className?: string
+    /** The order matters (a profile's skills): drag a chip, or focus it and press ← →. */
+    reorderable?: boolean
 }) {
     const skillCatalog = useSkillCatalog()
     const defaultSkills = useMemo(() => (skillCatalog ? defaultClientSkills() : []), [skillCatalog])
@@ -65,6 +68,15 @@ export function SkillPicker({
     const [activeIndex, setActiveIndex] = useState(0)
     const [catalogOpen, setCatalogOpen] = useState(!progressive)
     const requestRef = useRef<AbortController | null>(null)
+    const chipsRef = useRef<HTMLDivElement>(null)
+    const dragFrom = useRef<number | null>(null)
+    const move = (from: number, to: number) => {
+        if (to < 0 || to >= value.length || from === to) return
+        const next = [...value]
+        next.splice(to, 0, next.splice(from, 1)[0]!)
+        onChange(next)
+        requestAnimationFrame(() => chipsRef.current?.querySelectorAll<HTMLElement>('[data-reorder]')[to]?.focus())
+    }
     const selectedKeys = useMemo(() => new Set(value.map((skill) => resolveClientSkill(skill).canonicalKey)), [value, skillCatalog])
 
     const handleCategoryClick = useCallback((key: string) => {
@@ -189,15 +201,28 @@ export function SkillPicker({
             </div>
 
             {value.length > 0 ? (
-                <div className="flex min-w-0 flex-wrap gap-2" aria-label="Selected skills">
-                    {value.map((skill) => (
-                        <SkillChip
-                            key={resolveClientSkill(skill).canonicalKey}
-                            skill={skill}
-                            size={compact ? 'sm' : 'md'}
-                            onRemove={() => removeSkill(skill)}
-                        />
-                    ))}
+                <div ref={chipsRef} className="flex min-w-0 flex-wrap gap-2" aria-label="Selected skills">
+                    {value.map((skill, index) => {
+                        const key = resolveClientSkill(skill).canonicalKey
+                        const chip = <SkillChip key={key} skill={skill} size={compact ? 'sm' : 'md'} onRemove={() => removeSkill(skill)} />
+                        return reorderable ? (
+                            <span
+                                key={key}
+                                data-reorder
+                                tabIndex={0}
+                                draggable
+                                aria-label={`${resolveClientSkill(skill).name}, ${index + 1} of ${value.length}. Press left or right to move.`}
+                                className="inline-flex cursor-grab rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                onKeyDown={(event) => {
+                                    if (event.target !== event.currentTarget) return
+                                    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); move(index, index + (event.key === 'ArrowLeft' ? -1 : 1)) }
+                                }}
+                                onDragStart={() => { dragFrom.current = index }}
+                                onDragOver={(event) => event.preventDefault()}
+                                onDrop={(event) => { event.preventDefault(); if (dragFrom.current != null) move(dragFrom.current, index); dragFrom.current = null }}
+                            >{chip}</span>
+                        ) : chip
+                    })}
                 </div>
             ) : null}
 

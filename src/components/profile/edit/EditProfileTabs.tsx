@@ -25,7 +25,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import ChipSelector, { choiceChipClass } from "@/components/onboarding/ChipSelector";
 import { INTEREST_OPTIONS } from "@/lib/profile/interests";
 import type { UsernameAvailabilityStatus } from "@/hooks/useUsernameAvailability";
-import { DetailsSection } from "./DetailsSection";
+import { DetailsSection, EditPanel } from "./DetailsSection";
 import { PROFILE_LIMITS } from "@/lib/validations/profile";
 import { PROFILE_FIELD_LIMITS } from "@/lib/validations/profile-fields";
 import {
@@ -167,8 +167,7 @@ export function EditProfileTabs({
                         </fieldset>
                     </TabsContent>
 
-                    <TabsContent value="skills" className="space-y-6 mt-0">
-                        <h2 className="nb-section-title text-foreground">Skills</h2>
+                    <TabsContent value="skills" className="nb-pf-edit-sec mt-0">
                         <SkillsEditor
                             skills={profile.skills ?? []}
                             onChange={(skills) => updateForm("skills", skills)}
@@ -179,8 +178,7 @@ export function EditProfileTabs({
                         />
                     </TabsContent>
 
-                    <TabsContent value="social" className="space-y-6 mt-0">
-                        <h2 className="nb-section-title text-foreground">Links and profiles</h2>
+                    <TabsContent value="social" className="nb-pf-edit-sec mt-0">
                         <SocialLinksEditor
                             links={profile.socialLinks ?? {}}
                             metadata={profile.socialLinkMetadata ?? {}}
@@ -217,15 +215,10 @@ function InterestsEditor({ interests, onChange }: { interests: string[]; onChang
         onChange([...interests, value]);
     };
     return (
-        <section aria-labelledby="profile-interests-heading" className="space-y-3">
-            <div>
-                <h3 id="profile-interests-heading" className="nb-card-title text-foreground">Interests</h3>
-                <p className="nb-compact mt-0.5 max-w-[64ch] text-muted-foreground">
-                    Topics help us suggest workspaces and people.
-                </p>
-            </div>
-            <ChipSelector options={options} selected={new Set(interests)} onToggle={toggle} labelledBy="profile-interests-heading" maxVisible={options.length} />
-        </section>
+        <EditPanel title="Interests">
+            <p className="nb-pf-help mb-2.5">Topics you care about. They help people with the same interests find you.</p>
+            <ChipSelector options={options} selected={new Set(interests)} onToggle={toggle} labelledBy="pf-edit-interests" maxVisible={options.length} />
+        </EditPanel>
     );
 }
 
@@ -571,7 +564,14 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
 }
 
 function SkillsEditor({ skills, onChange }: { skills: string[]; onChange: (skills: string[]) => void }) {
-    return <div id="profile-skills"><SkillPicker value={skills} onChange={onChange} maxSkills={25} /></div>;
+    return (
+        <EditPanel title="Skills">
+            <div id="profile-skills">
+                <SkillPicker value={skills} onChange={onChange} maxSkills={25} reorderable
+                    label="Your skills, in the order they show on your profile" description="Drag to reorder, or focus one and press ← →" />
+            </div>
+        </EditPanel>
+    );
 }
 
 type SocialLinkEditorEntry = {
@@ -601,6 +601,7 @@ function SortableSocialLinkCard({
     canMoveDown?: boolean;
 }) {
     const { id, item, presence, name } = entry;
+    const handle = presence?.accountLabel && presence.accountLabel !== name ? presence.accountLabel : null;
 
     return (
         <>
@@ -609,9 +610,11 @@ function SortableSocialLinkCard({
             </span>
             <div className="min-w-0 flex-1">
                 <p className="nb-ui-label truncate text-foreground">{name}</p>
-                {unavailable ? <p className="nb-micro mt-1 text-[var(--status-warning)]">Needs update — this link was unavailable when opened.</p> : null}
+                {handle ? <p className="nb-meta truncate text-muted-foreground">{handle}</p> : null}
+                {unavailable ? <p className="mt-0.5 text-[12px] leading-snug text-[var(--status-warning)]">Needs update · this link didn’t open last time</p> : null}
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-1">
+                {unavailable ? <Button type="button" variant="outline" size="sm" onClick={() => onEdit(id, item)}>Fix</Button> : null}
                 {canMoveUp && onMoveUp ? (
                     <Button type="button" variant="ghost" size="icon" onClick={onMoveUp} aria-label={`Move ${name} up`} className="nb-touch-target size-8 text-muted-foreground hover:text-foreground">
                         <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
@@ -659,6 +662,11 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
     const preview = previewItem ? resolveSocialPresence(previewItem.platform, previewItem.url) : null;
     const previewIsGenericWebsite = ['website', 'portfolio', 'other'].includes(preview?.platform || '');
     const previewName = previewIsGenericWebsite ? (customLabel.trim() || preview?.accountLabel) : preview?.platformLabel;
+    const sameUrl = (url: string) => url.trim().toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/\/+$/, "");
+    const duplicate = Boolean(previewItem && items.some((item) => item.id !== editingKey && sameUrl(item.url) === sameUrl(previewItem.url)));
+    // Undo after a remove puts the link back into the list as it is then, not as it was.
+    const latest = useRef({ items, onChange });
+    latest.current = { items, onChange };
 
     const resetDraft = () => {
         setNewUrl("");
@@ -668,6 +676,7 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
     };
 
     const handleSave = () => {
+        if (duplicate) return;
         if (!candidate?.success || !preview) {
             setLinkError(candidate?.success === false ? candidate.error : 'Enter a valid public web address.');
             return;
@@ -688,8 +697,17 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
     };
 
     const remove = (key: string) => {
-        onChange(items.filter((item) => item.id !== key).map((item, index) => ({ ...item, order: index })));
+        const index = items.findIndex((item) => item.id === key);
+        const removed = items[index];
+        onChange(items.filter((item) => item.id !== key).map((item, order) => ({ ...item, order })));
         if (editingKey === key) resetDraft();
+        if (!removed) return;
+        const name = entries[index]?.name ?? "Link";
+        toast(`${name} removed`, { action: { label: "Undo", onClick: () => {
+            const current = latest.current.items.filter((item) => item.id !== removed.id);
+            current.splice(Math.min(index, current.length), 0, removed);
+            latest.current.onChange(current.map((item, order) => ({ ...item, order })));
+        } } });
     };
 
     const moveItem = (index: number, direction: 'up' | 'down') => {
@@ -710,15 +728,9 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
     };
 
     return (
-        <div className="space-y-4">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-                <div>
-                    <h3 className="nb-card-title text-foreground">Your public links</h3>
-                    <p className="nb-compact mt-1 text-muted-foreground">Show people where they can verify your work and follow you.</p>
-                </div>
-                <span className="nb-meta rounded-[3px] bg-muted px-2.5 py-1 font-medium text-muted-foreground">{entries.length} {entries.length === 1 ? "link" : "links"}</span>
-            </div>
-
+        <>
+        <EditPanel title="Your public links" extra={<span className="nb-pf-pct">{entries.length}</span>}>
+            {entries.length ? <p className="nb-pf-help mb-2">Drag to reorder. The first ones show first.</p> : null}
             {entries.length ? (
                 <SortableLinkList
                     items={entries}
@@ -743,21 +755,15 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
                     )}
                 </SortableLinkList>
             ) : (
-                <div className="nb-empty-state nb-grid-ground rounded-md border border-dashed border-border px-4 py-5 text-center">
-                    <p className="nb-compact text-muted-foreground">Add a public profile, portfolio, or website to get started.</p>
+                <div className="nb-pf-empty">
+                    <b>No links yet</b>
+                    <span>Add GitHub, LinkedIn or your site so people can see your work.</span>
                 </div>
             )}
+        </EditPanel>
 
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
-                <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <h3 className="nb-card-title text-foreground">{editingKey ? "Edit link" : "Add a link"}</h3>
-                        <p className="nb-compact mt-1 text-muted-foreground">Paste any public address. Familiar services are named automatically; other sites use their domain name.</p>
-                    </div>
-                    {editingKey ? <Button type="button" variant="ghost" size="sm" onClick={resetDraft}>Cancel edit</Button> : null}
-                </div>
-
-                <div className="mt-4">
+        <EditPanel title={editingKey ? "Edit link" : "Add a link"}>
+                <div>
                     <label htmlFor="profile-social-url" className="nb-ui-label text-foreground">Public link</label>
                     <Input
                         id="profile-social-url"
@@ -785,18 +791,22 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
                             {preview.iconKey ? <SocialPresenceIcon iconKey={preview.iconKey} className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" aria-hidden="true" />}
                         </span>
                         <span className="min-w-0 flex-1 truncate text-foreground"><strong>{previewName}</strong>{!previewIsGenericWebsite ? <span className="text-muted-foreground"> · {preview.accountLabel}</span> : null}</span>
-                        <span className="nb-meta shrink-0 text-muted-foreground">Detected from URL</span>
+                        <span className="nb-meta shrink-0 text-muted-foreground">Found from the link</span>
                     </div>
                 ) : trimmedNewUrl ? (
                     <p role="status" className="nb-compact mt-3 text-[var(--status-warning)]">{candidate?.success === false ? candidate.error : 'Enter a valid public http(s) URL.'}</p>
                 ) : null}
+                {duplicate ? <p role="status" className="nb-compact mt-3 text-destructive">You already have this link.</p> : null}
                 {linkError ? <p role="alert" className="nb-compact mt-3 text-destructive">{linkError}</p> : null}
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <p className="nb-compact max-w-md text-muted-foreground">Only public http(s) links can be saved. Links are checked again when someone opens them.</p>
-                    <Button type="button" onClick={handleSave} disabled={!preview}>{editingKey ? "Save link" : "Add link"}</Button>
+                    <p className="nb-compact max-w-md text-muted-foreground">Only public links. They’re checked again when someone opens them.</p>
+                    <span className="flex gap-2">
+                        {editingKey ? <Button type="button" variant="ghost" onClick={resetDraft}>Cancel</Button> : null}
+                        <Button type="button" onClick={handleSave} disabled={!preview || duplicate}>{editingKey ? "Save link" : "Add link"}</Button>
+                    </span>
                 </div>
-            </div>
-        </div>
+        </EditPanel>
+        </>
     );
 }
