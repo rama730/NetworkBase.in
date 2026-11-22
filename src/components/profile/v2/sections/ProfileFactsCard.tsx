@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Fragment, useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, ArrowRight, ExternalLink, Link2, Pencil, Plus } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Check, ExternalLink, Link2, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
@@ -158,7 +158,7 @@ export function ProfileFactsCard({
                     <>
                         <WorkspaceAvatar project={{ title: c.projectTitle, coverImage: c.projectCoverImage }} size="row" kind="organization" />
                         <span className="min-w-0">
-                            <b>{c.projectTitle}{c.orgVerified ? <span className="nb-pf-vok" title={`Verified by ${c.projectTitle}`} aria-label="Verified">✓</span> : null}</b>
+                            <b>{c.projectTitle}{c.orgVerified ? <span className="nb-pf-vok" title={`Verified by ${c.projectTitle}`} role="img" aria-label="Verified"><Check className="size-2.5" strokeWidth={3} aria-hidden="true" /></span> : null}</b>
                             <span>{[c.title, c.startDate ? `Since ${sinceMonth(c.startDate)}` : null, isOwner && c.showOnProfile === false ? 'Hidden' : null].filter(Boolean).join(' · ')}</span>
                         </span>
                         {c.projectHref ? <ExternalLink className="go size-3" aria-hidden="true" /> : null}
