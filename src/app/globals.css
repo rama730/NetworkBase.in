@@ -2064,3 +2064,109 @@ html[data-reduce-motion="true"][data-signin-flight][data-welcome-flight="reveal"
 .nb-mw-err { padding:12px; border-radius:6px; background:color-mix(in srgb, var(--destructive) 7%, var(--card)); font-size:12.5px; color:var(--destructive); }
 .nb-mw-err button { margin-left:8px; border:0; background:none; padding:0; color:var(--destructive); font:600 12px var(--font-instrument-sans),sans-serif; text-decoration:underline; cursor:pointer; }
 @media (max-width:767px) { .nb-mw-sheet { max-height:calc(100% - 64px); } }
+
+/* ===== profile mix (spec: docs/superpowers/specs/2026-11-23-profile-mix-prototype.html) =====
+   The calm band follows the theme (white with faint grid lines in light, ink in dark); one floating tab bar;
+   cards on paper with hairline sections. No coloured edges. */
+:root {
+  --pf-band-bg: #FFFFFF; --pf-band-fg: #141A1E; --pf-band-2: #4C5A61; --pf-band-line: rgb(219 213 200 / 55%); --pf-band-cell: #DBD5C8; --pf-band-edge: #DBD5C8;
+  --pf-band-btn-bg: #FFFFFF; --pf-band-btn-border: #DBD5C8; --pf-band-btn-hover: #F3F0EA; --pf-band-chip: #F3F0EA; --pf-band-tag-bg: rgb(47 107 79 / 11%); --pf-band-tag-fg: #2F6B4F;
+  --nb-pf-stick: 0px; /* the route scrolls inside [data-scroll-root] under the top bar */
+}
+.dark {
+  --pf-band-bg: #1A2227; --pf-band-fg: #FAF8F4; --pf-band-2: rgb(250 248 244 / 64%); --pf-band-line: rgb(255 255 255 / 9%); --pf-band-cell: rgb(255 255 255 / 14%); --pf-band-edge: #374349;
+  --pf-band-btn-bg: rgb(255 255 255 / 4%); --pf-band-btn-border: rgb(255 255 255 / 22%); --pf-band-btn-hover: rgb(255 255 255 / 10%); --pf-band-chip: rgb(255 255 255 / 9%); --pf-band-tag-bg: rgb(153 206 173 / 14%); --pf-band-tag-fg: #99CEAD;
+}
+.nb-pf-mono { font-family: var(--font-mono), ui-monospace, monospace; }
+.nb-pf-label { display: flex; align-items: center; gap: 10px; font: 500 11px/1 var(--font-mono), ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--muted-foreground); }
+.nb-pf-label.is-sq::before { content: ""; width: 7px; height: 7px; flex: none; background: var(--nb-brand); }
+.nb-pf-label.has-rule::after { content: ""; order: 1; flex: 1; height: 1px; background: var(--border); }
+.nb-pf-label b { color: var(--foreground); font-weight: 500; }
+
+/* the band */
+.nb-pf-band { position: relative; isolation: isolate; overflow: hidden; border-radius: var(--radius-lg); background: var(--pf-band-bg); color: var(--pf-band-fg); box-shadow: inset 0 0 0 1px var(--pf-band-edge); }
+.nb-pf-band::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-size: 16px 16px; background-image: linear-gradient(var(--pf-band-line) 1px, transparent 1px), linear-gradient(90deg, var(--pf-band-line) 1px, transparent 1px); mask-image: linear-gradient(180deg, #000 25%, transparent 92%); }
+.nb-pf-band-in { display: grid; grid-template-columns: 80px minmax(0, 1fr) auto; grid-template-areas: "av id acts" "row row row" "lock lock lock"; gap: 8px 20px; padding: 18px 22px 14px; }
+.nb-pf-photo { grid-area: av; position: relative; width: 80px; height: 80px; }
+.nb-pf-photo > .nb-pf-pic { display: block; width: 80px; height: 80px; overflow: hidden; border-radius: 6px; box-shadow: 0 0 0 1px var(--pf-band-cell); }
+.nb-pf-id { grid-area: id; min-width: 0; display: grid; align-content: center; gap: 5px; }
+.nb-pf-name { margin: 0; font: 400 34px/1 var(--font-serif), Georgia, serif; letter-spacing: -.005em; color: var(--pf-band-fg); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; text-wrap: balance; }
+.nb-pf-handle { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font: 13px var(--font-mono), ui-monospace, monospace; color: var(--pf-band-2); }
+.nb-pf-tag { display: inline-flex; align-items: center; gap: 7px; height: 22px; padding: 0 8px; border: 0; border-radius: 3px; background: var(--pf-band-tag-bg); color: var(--pf-band-tag-fg); font: 500 10.5px/1 var(--font-mono), ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+.nb-pf-tag:not(button)::before { content: ""; width: 6px; height: 6px; background: currentColor; }
+button.nb-pf-tag { cursor: pointer; }
+button.nb-pf-tag[aria-checked="false"] { background: var(--pf-band-chip); color: var(--pf-band-2); }
+.nb-pf-tag .mini { position: relative; width: 20px; height: 12px; flex: none; border-radius: 6px; background: currentColor; }
+.nb-pf-tag .mini::after { content: ""; position: absolute; top: 2px; left: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--pf-band-bg); transition: left 160ms var(--nb-ease); }
+.nb-pf-tag[aria-checked="false"] .mini::after { left: 2px; }
+.nb-pf-headline { margin: 0; max-width: 60ch; font-size: 15px; line-height: 1.45; color: var(--pf-band-fg); }
+.nb-pf-acts { grid-area: acts; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: flex-end; gap: 8px; padding-top: 2px; }
+.nb-pf-band .nb-pf-btn { border-color: var(--pf-band-btn-border); background: var(--pf-band-btn-bg); color: var(--pf-band-fg); }
+.nb-pf-band .nb-pf-btn:hover { background: var(--pf-band-btn-hover); }
+.nb-pf-row { grid-area: row; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-top: 6px; }
+.nb-pf-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; min-width: 0; font: 12.5px var(--font-mono), ui-monospace, monospace; color: var(--pf-band-2); }
+.nb-pf-meta > * { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.nb-pf-meta a:hover { color: var(--pf-band-fg); text-decoration: underline; text-underline-offset: 3px; }
+.nb-pf-status { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; max-width: 100%; margin-left: auto; padding: 3px 10px; border: 0; border-radius: 5px; background: var(--pf-band-chip); color: var(--pf-band-fg); font-size: 13px; text-align: left; }
+.nb-pf-status .chg { margin-left: 4px; padding: 0 0 0 10px; border: 0; border-left: 1px solid var(--pf-band-cell); background: none; color: var(--pf-band-2); font: 500 12px var(--font-sans, inherit); cursor: pointer; }
+.nb-pf-status .chg:hover { color: var(--pf-band-fg); text-decoration: underline; }
+.nb-pf-status.is-add { border: 1px dashed var(--pf-band-btn-border); background: none; color: var(--pf-band-2); cursor: pointer; }
+.nb-pf-lock { grid-area: lock; display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 6px; background: var(--pf-band-chip); font-size: 13.5px; line-height: 1.5; }
+.nb-pf-stats { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); border-top: 1px solid var(--pf-band-cell); }
+.nb-pf-stat { display: flex; align-items: baseline; gap: 8px; padding: 11px 22px 12px; border: 0; border-right: 1px solid var(--pf-band-cell); background: none; color: var(--pf-band-fg); text-align: left; cursor: pointer; }
+.nb-pf-stat:last-child { border-right: 0; }
+.nb-pf-stat:hover { background: var(--pf-band-btn-hover); }
+.nb-pf-stat b { font: 400 24px/1 var(--font-serif), Georgia, serif; font-variant-numeric: tabular-nums; }
+.nb-pf-stat span { font: 500 10.5px/1 var(--font-mono), ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--pf-band-2); }
+.nb-pf-stat.is-new { grid-column: 1 / -1; cursor: default; color: var(--pf-band-2); }
+.nb-pf-stat.is-new::before { content: ""; width: 6px; height: 6px; background: var(--nb-brand); align-self: center; }
+/* tall: name and handle beside the photo, the headline on its own line under it */
+.nb-pf-band.is-tall .nb-pf-band-in { grid-template-areas: "av name acts" "av handle acts" "head head head" "row row row" "lock lock lock"; row-gap: 4px; }
+.nb-pf-band.is-tall .nb-pf-id { display: contents; }
+.nb-pf-band.is-tall .nb-pf-name { grid-area: name; align-self: end; }
+.nb-pf-band.is-tall .nb-pf-handle { grid-area: handle; align-self: start; }
+.nb-pf-band.is-tall .nb-pf-headline { grid-area: head; margin-top: 8px; max-width: 72ch; }
+.nb-pf-band.is-tall .nb-pf-photo { align-self: center; }
+@media (max-width: 767px) {
+  .nb-pf-band-in { grid-template-columns: 64px minmax(0, 1fr); grid-template-areas: "av id" "row row" "acts acts" "lock lock"; gap: 10px 14px; padding: 16px; }
+  .nb-pf-band.is-tall .nb-pf-band-in { grid-template-areas: "av name" "av handle" "head head" "row row" "acts acts" "lock lock"; }
+  .nb-pf-photo, .nb-pf-photo > .nb-pf-pic { width: 64px; height: 64px; }
+  .nb-pf-name { font-size: 26px; line-height: 1.05; }
+  .nb-pf-acts { justify-content: stretch; flex-wrap: nowrap; }
+  .nb-pf-acts > .nb-pf-grow { flex: 1; min-height: 44px; }
+  .nb-pf-acts > .nb-pf-icon { flex: none; width: 44px; min-height: 44px; }
+  .nb-pf-status { margin-left: 0; }
+  .nb-pf-stat { display: grid; gap: 4px; padding: 10px 14px; }
+  .nb-pf-stat b { font-size: 22px; }
+}
+
+/* the tab bar: attached under the band; once you scroll it floats as a rounded card 8px under the top bar, with a
+   paper mask above it. Your photo and name glide in once the band's name has gone under the top bar. */
+.nb-pf-band:has(+ .nb-pf-tabwrap) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.nb-pf-tabwrap { --gap: 8px; position: sticky; top: calc(var(--nb-pf-stick) + var(--gap)); z-index: 15; margin-top: -1px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--background); }
+.nb-pf-tabwrap::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: calc(var(--gap) + 1px); background: var(--background); opacity: 0; pointer-events: none; }
+.nb-pf-tabwrap[data-stuck]::before { opacity: 1; }
+.nb-pf-tabbar { border: 1px solid var(--border); border-top-color: transparent; border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--card); transition: border-radius 240ms var(--nb-ease), border-color 240ms var(--nb-ease), box-shadow 240ms var(--nb-ease); }
+.nb-pf-tabwrap[data-stuck] .nb-pf-tabbar { border-top-color: var(--border); border-radius: var(--radius-lg); box-shadow: 0 10px 22px -16px rgb(20 26 30 / 45%); }
+.nb-pf-tb { display: flex; align-items: stretch; min-height: 44px; }
+.nb-pf-tb-me { display: flex; align-items: center; gap: 10px; flex: none; min-width: 0; max-width: 0; padding: 0; overflow: hidden; border-right: 1px solid transparent; opacity: 0; transform: translateX(-10px); transition: max-width 340ms var(--nb-ease), padding 340ms var(--nb-ease), transform 340ms var(--nb-ease), opacity 220ms var(--nb-ease), border-color 220ms; }
+.nb-pf-tabwrap[data-me] .nb-pf-tb-me { max-width: 220px; padding: 0 14px 0 10px; border-right-color: var(--border); opacity: 1; transform: none; }
+.nb-pf-tb-me .nb-pf-pic { width: 26px; height: 26px; flex: none; overflow: hidden; border-radius: 5px; }
+.nb-pf-tb-me b { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 19px/1 var(--font-serif), Georgia, serif; }
+.nb-pf-tabs { display: flex; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.nb-pf-tabs::-webkit-scrollbar { display: none; }
+.nb-pf-tab { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border: 0; border-right: 1px solid var(--border); background: none; color: var(--muted-foreground); font: 500 13.5px var(--font-sans, inherit); white-space: nowrap; cursor: pointer; }
+.nb-pf-tab:hover { background: var(--secondary); color: var(--foreground); }
+.nb-pf-tab[aria-selected="true"] { color: var(--foreground); box-shadow: inset 0 -2px var(--nb-brand); }
+.nb-pf-tab .n { padding: 1px 5px; border-radius: 3px; background: var(--secondary); font: 500 11px/1.4 var(--font-mono), ui-monospace, monospace; color: var(--foreground); }
+.nb-pf-tab .dot { width: 7px; height: 7px; background: var(--nb-brand); }
+.nb-pf-tb-act { display: flex; align-items: center; margin-left: auto; padding: 0 8px; border-left: 1px solid transparent; opacity: 0; transform: translateX(10px); visibility: hidden; transition: opacity 220ms var(--nb-ease), transform 340ms var(--nb-ease), border-color 220ms, visibility 0s 340ms; }
+.nb-pf-tabwrap[data-me] .nb-pf-tb-act { border-left-color: var(--border); opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
+@media (prefers-reduced-motion: reduce) { .nb-pf-tb-me, .nb-pf-tb-act { transform: none !important; transition: opacity 150ms, visibility 0s !important; } .nb-pf-tabbar { transition: none; } }
+@media (max-width: 767px) {
+  .nb-pf-tab { padding: 0 12px; }
+  .nb-pf-tabwrap[data-me] .nb-pf-tb-me { padding: 0 8px; }
+  .nb-pf-tb-me b { display: none; }
+  .nb-pf-tb-act { padding: 0 6px; }
+  .nb-pf-tb-act .nb-pf-icononly { width: 34px; padding: 0; gap: 0; font-size: 0; }
+}
