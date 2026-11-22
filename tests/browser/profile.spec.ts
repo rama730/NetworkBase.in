@@ -23,7 +23,7 @@ test.beforeAll(async () => {
     '@/components/messages/ChatShellProvider': `export const useMutedIds=()=>new Set();export const useChatShell=()=>({data:{channels:[]},refresh:()=>{},loadError:null});`,
     '@/components/providers/AuthProvider': `export const useAuthContext=()=>({user:window.profileFixture.actorId?{id:window.profileFixture.actorId}:null,refreshProfile:async()=>{}});export const AuthProvider=({children})=>children;export default ({children})=>children;`,
     '@/hooks/use-auth': `export const useAuth=()=>({user:window.profileFixture.actorId?{id:window.profileFixture.actorId}:null,refreshProfile:async()=>{}});`,
-    '@/hooks/useUsernameAvailability': `export const useUsernameAvailability=()=>({status:'valid',message:''});`,
+    '@/hooks/useUsernameAvailability': `export const useUsernameAvailability=({value,currentUsername})=>!value||value===currentUsername?{status:'idle',message:''}:(window.profileFixture?.takenUsernames??[]).includes(value)?{status:'invalid',message:'Username is taken'}:{status:'valid',message:''};`,
     '@/lib/skills/client': `const catalog={version:'fixture',categories:[{key:'engineering',name:'Engineering',iconKey:'code'}],lookup:{},defaults:[]};export const useSkillCatalog=()=>catalog;export const resolveClientSkill=name=>({name,canonicalKey:name.toLowerCase(),categoryKey:'engineering',kind:'framework',iconSource:'monogram',status:'active'});export const defaultClientSkills=()=>['React','TypeScript'].map(resolveClientSkill);`,
     '@/components/skills': `export const SkillIcon=()=>null;`,
     '@/components/presence/presence-ui-store': `export const usePresenceUi=()=>open=>{window.profileFixture.pickerOpen=open;};`,
@@ -547,6 +547,37 @@ test('edit profile: typing updates the preview, lists the change with its own Un
   expect(await page.evaluate(()=>(window as any).profileFixture.calls.at(-1).headline)).toBe('Builds compilers');
 });
 
+test('details: a taken username offers names to try and asks before changing; the website gets https on blur; photo errors explain themselves',async({page})=>{
+  await page.evaluate(()=>{(window as any).profileFixture.takenUsernames=['taken_name'];});
+  await page.getByRole('button',{name:'Edit profile',exact:true}).click();
+  const editor=page.getByRole('region',{name:'Edit profile',exact:true});
+  const card=editor.getByRole('complementary',{name:'Your changes'});
+  for(const label of ['Photo','Identity','About','Private details']) await expect(editor.getByRole('heading',{name:label,exact:true})).toBeVisible();
+  await expect(editor.getByText('Only you',{exact:true}).first()).toBeVisible();
+  await editor.locator('#profile-username').fill('taken_name');
+  await expect(editor.getByText('@taken_name is taken.')).toBeVisible();
+  await expect(card.getByRole('button',{name:'Save changes',exact:true})).toBeDisabled();
+  await editor.getByRole('button',{name:'@taken_name1',exact:true}).click();
+  await expect(editor.locator('#profile-username')).toHaveValue('taken_name1');
+  await expect(editor.locator('#profile-username-hint')).toContainText('Available.');
+  await expect(editor.locator('#profile-username-hint')).toContainText('builder → taken_name1');
+  await editor.locator('#profile-website').fill('example.com');await editor.locator('#profile-website').blur();
+  await expect(editor.locator('#profile-website')).toHaveValue('https://example.com');
+  await editor.locator('#profile-bio').fill('First paragraph.\n\nSecond paragraph.');
+  await expect(editor.getByTestId('about-preview').locator('p')).toHaveCount(2);
+  await card.getByRole('button',{name:'Save changes',exact:true}).click();
+  const ask=page.getByRole('alertdialog',{name:'Change your username to @taken_name1?'});
+  await expect(ask).toContainText('You can’t change it again until');
+  await ask.getByRole('button',{name:'Keep @builder',exact:true}).click();
+  await expect(card.getByText('Saved just now')).toBeVisible();
+  const last=await page.evaluate(()=>(window as any).profileFixture.calls.at(-1));
+  expect(last.website).toBe('https://example.com');expect(last).not.toHaveProperty('username');
+  await editor.locator('input[type=file]').setInputFiles({name:'big.png',mimeType:'image/png',buffer:Buffer.alloc(3.4*1024*1024)});
+  await expect(editor.getByRole('alert').filter({hasText:'That photo is 3.4 MB. Choose one under 2 MB.'})).toBeVisible();
+  await editor.locator('input[type=file]').setInputFiles({name:'a.gif',mimeType:'image/gif',buffer:Buffer.alloc(10)});
+  await expect(editor.getByRole('alert').filter({hasText:'That’s a GIF. Use a JPG, PNG or WebP photo.'})).toBeVisible();
+});
+
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
   await page.evaluate(()=>history.back());const ask=page.getByRole('alertdialog',{name:'Discard unsaved changes?'});await expect(ask).toBeVisible();await ask.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(ask).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit/);await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
@@ -638,12 +669,11 @@ test('editor typography, control density and selection colors follow the design 
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});
   const font=async(locator:ReturnType<typeof page.locator>)=>locator.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,`${Math.round(parseFloat(s.lineHeight)*100)/100}px`,s.fontWeight,s.fontFamily];});
   await expect(editor.getByRole('heading',{name:'Edit profile',exact:true})).toHaveClass(/sr-only/);
-  expect((await font(editor.getByRole('heading',{name:'Profile details',exact:true}))).slice(0,3)).toEqual(['20px','25.6px','600']);
-  expect((await font(editor.getByRole('heading',{name:'Basic information',exact:true}))).slice(0,3)).toEqual(['17px','21.76px','600']);
+  for(const label of ['Photo','Identity','About','Private details']) await expect(editor.getByRole('heading',{name:label,exact:true})).toBeVisible();
   expect((await font(editor.locator('label[for="profile-full-name"]'))).slice(0,3)).toEqual(['13px','15.6px','500']);
   expect((await font(editor.getByLabel('Full name',{exact:false}))).slice(0,2)).toEqual(['15px','22.5px']);
   expect(await font(editor.locator('#profile-full-name-count'))).toEqual(['12px','16.2px','400','"JetBrains Mono", monospace']);
-  await expect(editor.locator('#profile-username-url')).toHaveText('profile.test/u/builder');
+  await expect(editor.locator('#profile-username-url')).toHaveText('profile.test/u/');
   for(const dark of [false,true]) for(const [density,height] of [['compact',30],['default',34],['comfortable',42]] as const) {
     await page.evaluate(({dark,density})=>{document.documentElement.classList.toggle('dark',dark);document.documentElement.dataset.density=density;},{dark,density});
     await editor.getByRole('tab',{name:'Details'}).click();
@@ -667,7 +697,7 @@ test.describe('profile editor touch reflow',()=>{
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.saved={...f.saved,username:'builder_with_a_long_username',skills:['React'],socialLinks:[{id:'github',platform:'github',url:'https://github.com/builder',order:0},{id:'linkedin',platform:'linkedin',url:'https://www.linkedin.com/in/builder',order:1}]};f.refresh();});
   await page.getByRole('button',{name:'Edit profile',exact:true}).click();
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});
-  const sections:Array<[tab:string,heading:string]>=[['Details','Profile details'],['Contributions','Contributions'],['Skills','Skills'],['Links','Links and profiles'],['Collaboration','Collaboration preferences']];
+  const sections:Array<[tab:string,heading:string]>=[['Details','Identity'],['Contributions','Contributions'],['Skills','Skills'],['Links','Links and profiles'],['Collaboration','Collaboration preferences']];
   for(const width of [320,768,1024]) {
     await page.setViewportSize({width,height:900});
     for(const [tab,section] of sections) {

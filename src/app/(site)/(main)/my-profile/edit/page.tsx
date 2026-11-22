@@ -6,6 +6,20 @@ import { hasCompletedOnboarding } from '@/lib/onboarding/completion';
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata';
 import { buildAuthPageHref } from '@/lib/auth/redirects';
 import { parseProfileEditSection, profileEditHref } from '@/lib/profile/edit-route';
+import { db } from '@/lib/db';
+import { profileAuditEvents } from '@/lib/db/schema';
+import { and, desc, eq } from 'drizzle-orm';
+
+/** The same 30 days updateProfileAction enforces; null when the username can change now (or the lookup fails: the save re-checks). */
+async function usernameNextChangeAt(userId: string): Promise<string | null> {
+    const last = await db.query.profileAuditEvents.findFirst({
+        columns: { createdAt: true },
+        where: and(eq(profileAuditEvents.userId, userId), eq(profileAuditEvents.eventType, 'username_changed')),
+        orderBy: [desc(profileAuditEvents.createdAt)],
+    }).catch(() => undefined);
+    const next = last ? last.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000 : 0;
+    return next > Date.now() ? new Date(next).toISOString() : null;
+}
 
 export const metadata = buildRouteMetadata({
     title: 'Edit profile · NetworkBase',
@@ -28,5 +42,6 @@ export default async function EditProfilePage({ searchParams }: {
     if (!data.isOwner || data.profile.id !== user.id) notFound();
 
     return <EditProfileEditor key={data.profile.id} profile={data.profile}
-        contributions={data.collaborationSummary?.contributions ?? []} initialSection={section} />;
+        contributions={data.collaborationSummary?.contributions ?? []} initialSection={section}
+        usernameNextChangeAt={await usernameNextChangeAt(user.id)} />;
 }

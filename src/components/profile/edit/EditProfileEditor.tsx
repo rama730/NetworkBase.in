@@ -12,7 +12,11 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { completionField, completionItemSection, parseProfileEditSection, profileEditHref, profileEditReturnHref } from "@/lib/profile/edit-route";
 import { calculateProfileCompletion } from "@/lib/validations/profile";
-import { changeSummary, websiteError } from "@/lib/profile/mix";
+import { changeSummary, normalizeWebsite, websiteError } from "@/lib/profile/mix";
+import { useUsernameAvailability } from "@/hooks/useUsernameAvailability";
+import { shareOrigin } from "@/lib/sharing/presentation";
+
+const usernameHost = (() => { try { return new URL(shareOrigin()).host; } catch { return "networkbase.in"; } })();
 import { experienceLevelLabel, weeklyCapacityLabel } from "@/lib/profile/role-preferences";
 import { ProfileBand } from "@/components/profile/v2/ProfileBand";
 import { ChangesCard, PhoneSaveBar, type ProfileChange } from "./ChangesCard";
@@ -41,6 +45,8 @@ interface EditProfileEditorProps {
     onOptimisticUpdate?: (updates: any) => void;
     initialSection?: EditProfileSection;
     onSaved?: (updatedAt: string, contributionsChanged: boolean) => Promise<void> | void;
+    /** While the last username change is under 30 days old: when the next one is allowed. */
+    usernameNextChangeAt?: string | null;
 }
 
 type SaveState = "idle" | "saving" | "success" | "error";
@@ -134,6 +140,7 @@ export function EditProfileEditor({
     onOptimisticUpdate,
     initialSection = "general",
     onSaved,
+    usernameNextChangeAt = null,
 }: EditProfileEditorProps) {
     const queryClient = useQueryClient();
     const { refreshProfile, user } = useAuth();
@@ -152,6 +159,8 @@ export function EditProfileEditor({
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
     const [activeSection, setActiveSection] = useState<EditProfileSection>(initialSection);
     const [savedLabel, setSavedLabel] = useState("Everything is saved");
+    const [showWebsiteError, setShowWebsiteError] = useState(false);
+    const [askUsername, setAskUsername] = useState(false);
     const inFlightRef = useRef(false);
     const [initialData] = useState(() => ({ profile, contributions, section: sectionFromUrl }));
     const draftTouchedRef = useRef(false);
@@ -185,10 +194,15 @@ export function EditProfileEditor({
         avatarUrl: formState.avatarUrl, fullName: formState.fullName?.trim(), username: formState.username, headline: formState.headline?.trim(),
         bio: formState.bio?.trim(), location: formState.location?.trim(), website: formState.website?.trim(), skills: formState.skills ?? [], socialLinks: formState.socialLinks ?? {},
     }) : { score: 0, missing: [] }, [formState]);
-    const blockReason = !formState ? null
+    const usernameCheck = useUsernameAvailability({ value: formState?.username ?? "", currentUsername: originalUsernameRef.current, debounceMs: 500 });
+    // Hard stops turn Save off; a bad website leaves Save on and takes you to the field.
+    const hardBlock = !formState ? null
         : !String(formState.fullName ?? "").trim() ? "Add your name before saving."
-            : websiteError(String(formState.website ?? "")) ? "Fix the website address before saving."
-                : !user || user.id !== profile.id ? "Sign in to the account that owns this profile before saving." : null;
+            : !String(formState.username ?? "").trim() || usernameCheck.status === "invalid" ? "Pick another username before saving."
+                : usernameCheck.status === "checking" ? "Checking your username…"
+                    : !user || user.id !== profile.id ? "Sign in to the account that owns this profile before saving." : null;
+    const websiteBad = Boolean(formState && websiteError(String(formState.website ?? "")));
+    const blockReason = hardBlock ?? (websiteBad && showWebsiteError ? "Fix the website address before saving." : null);
 
     useEffect(() => {
         const { profile, contributions, section } = initialData;
@@ -295,14 +309,15 @@ export function EditProfileEditor({
 
     useEffect(() => { setActiveSection(sectionFromUrl); }, [sectionFromUrl]);
 
-    const persistChanges = async () => {
-        if (!formState || !hasChanges || inFlightRef.current) return;
+    const persistChanges = async (draft: any = formState) => {
+        if (!draft || !hasChanges || inFlightRef.current) return;
+        if (draft !== formState) setFormState(draft);
         if (!user || user.id !== profile.id) {
             setSaveErrorMessage("Sign in to the account that owns this profile before saving.");
             return;
         }
         const base = baseProfileRef.current as any;
-        const currentEntries = (formState.experience ?? []) as ContributionEditorEntry[];
+        const currentEntries = (draft.experience ?? []) as ContributionEditorEntry[];
         const originalEntries = (base.contributionBase ?? []) as ContributionEditorEntry[];
         const originalEntriesById = new Map(originalEntries.map((entry) => [entry.draftId, entry]));
         const validationErrors = Object.fromEntries(
@@ -326,12 +341,12 @@ export function EditProfileEditor({
         setSaveErrorMessage(null);
         setContributionErrors({});
 
-        const profilePayload = toChangedServerPayload(formState, base, lastKnownUpdatedAtRef.current);
+        const profilePayload = toChangedServerPayload(draft, base, lastKnownUpdatedAtRef.current);
         const mutations = buildContributionMutations(
             originalEntries,
             currentEntries,
         );
-        const shouldSaveProfile = formFieldsChanged(formState, base);
+        const shouldSaveProfile = formFieldsChanged(draft, base);
         const rollbackPatch: Record<string, unknown> = {};
         let profileSaved = false;
 
@@ -347,7 +362,7 @@ export function EditProfileEditor({
                     const code = (response as any).errorCode || (response as any).code;
                     const changedKeys = Object.keys(profilePayload).filter((key) => key !== 'expectedUpdatedAt' && JSON.stringify(profilePayload[key] ?? null) !== JSON.stringify(base[key] ?? null));
                     if (code === 'PROFILE_CONFLICT' && changedKeys.length === 1 && changedKeys[0] === 'socialLinks' && (response as any).currentSocialLinks !== undefined) {
-                        const mergedLinks = mergeSocialLinkCollections(base.socialLinks, formState.socialLinks, (response as any).currentSocialLinks);
+                        const mergedLinks = mergeSocialLinkCollections(base.socialLinks, draft.socialLinks, (response as any).currentSocialLinks);
                         baseProfileRef.current = { ...baseProfileRef.current, socialLinks: (response as any).currentSocialLinks };
                         setFormState((current: any) => current ? { ...current, socialLinks: mergedLinks } : current);
                         lastKnownUpdatedAtRef.current = typeof (response as any).updatedAt === 'string' ? (response as any).updatedAt : lastKnownUpdatedAtRef.current;
@@ -377,7 +392,7 @@ export function EditProfileEditor({
                     const failedMutation = result.mutationIndex === undefined
                         ? undefined
                         : mutations[result.mutationIndex];
-                    const failedEntry = ((formState.experience ?? []) as ContributionEditorEntry[]).find((entry) =>
+                    const failedEntry = ((draft.experience ?? []) as ContributionEditorEntry[]).find((entry) =>
                         (result.contributionId && entry.contributionId === result.contributionId)
                         || (failedMutation?.kind === "external" && entry.externalKey === failedMutation.externalKey),
                     );
@@ -389,7 +404,7 @@ export function EditProfileEditor({
             }
 
             const loadedCount = Math.max(
-                ((formState.experience ?? []) as ContributionEditorEntry[]).length,
+                ((draft.experience ?? []) as ContributionEditorEntry[]).length,
                 1,
             );
             const freshWindow = mutations.length > 0 && profile?.id
@@ -539,10 +554,22 @@ export function EditProfileEditor({
         if (!formState || jumpedRef.current || !fieldFromUrl) return;
         jumpedRef.current = true;
         jumpTo(fieldFromUrl, sectionFromUrl);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formState, fieldFromUrl]);
 
-    const saveInPlace = () => { if (!blockReason) void persistChanges(); };
+    const saveInPlace = (usernameConfirmed = false) => {
+        if (hardBlock || !formState) return;
+        const website = normalizeWebsite(String(formState.website ?? ""));
+        if (websiteError(website)) { setShowWebsiteError(true); jumpTo("website"); return; }
+        const draft = website === (formState.website ?? "") ? formState : { ...formState, website };
+        if (!usernameConfirmed && !sameValue(draft.username, baseProfileRef.current?.username)) { setAskUsername(true); return; }
+        void persistChanges(draft);
+    };
+    // "Keep @old": the username goes back, everything else saves.
+    const keepUsername = () => {
+        const draft = { ...formState, username: baseProfileRef.current?.username ?? "" };
+        if (changes.length > 1) void persistChanges(draft);
+        else { setFormState(draft); toast.message("Kept your username."); }
+    };
     const saveRef = useRef(saveInPlace);
     saveRef.current = saveInPlace;
     useEffect(() => {
@@ -582,6 +609,10 @@ export function EditProfileEditor({
 
     return (
         <section data-profile-editor className="flex h-full min-h-0 flex-col overflow-clip bg-background text-foreground" aria-labelledby="profile-editor-title">
+                <ConfirmDialog open={askUsername} onOpenChange={setAskUsername} title={`Change your username to @${formState?.username ?? ""}?`}
+                    description={`Your profile link becomes ${usernameHost}/u/${formState?.username ?? ""}. You can’t change it again until ${new Date(Date.now() + 30 * 86_400_000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}.`}
+                    confirmLabel="Change it and save" cancelLabel={`Keep @${baseProfileRef.current?.username ?? ""}`}
+                    onConfirm={() => saveInPlace(true)} onCancel={keepUsername} />
                 <ConfirmDialog {...leaveDialog} title="Discard unsaved changes?" description="Your profile changes haven’t been saved." confirmLabel="Discard and leave" cancelLabel="Keep editing" variant="destructive" />
                 <form className="flex min-h-0 flex-1 flex-col overflow-clip" onSubmit={(event) => { event.preventDefault(); saveInPlace(); }} aria-label="Edit profile form">
                     <fieldset disabled={saveState === "saving"} className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-clip">
@@ -592,6 +623,10 @@ export function EditProfileEditor({
                             onCancelContribution={() => handleCancel()}
                             showContributionExitPrompt={showDiscardConfirm}
                             originalUsername={originalUsernameRef.current}
+                            baseAvatarUrl={baseProfileRef.current?.avatarUrl ?? ""}
+                            usernameCheck={usernameCheck}
+                            usernameNextChangeAt={usernameNextChangeAt}
+                            showWebsiteError={showWebsiteError}
                             section={activeSection}
                             onSectionChange={handleSectionChange}
                             onImageFinalized={handleImageFinalized}
@@ -624,13 +659,14 @@ export function EditProfileEditor({
                                     onMessage={() => undefined}
                                     preview={{
                                         onJump: (field) => jumpTo(field),
+                                        badge: formState?.avatarUrl && formState.avatarUrl !== baseProfileRef.current?.avatarUrl ? <span className="nb-pf-new">New · not saved</span> : null,
                                         actions: <span className="nb-pf-pv">Preview</span>,
                                         hint: <div className="nb-pf-hint"><span>Click anything above to edit it</span><span>Updates as you type</span></div>,
                                     }}
                                 />
                             }
                             tabAction={
-                                <Button type="button" size="sm" onClick={saveInPlace} disabled={!changes.length || saveState === "saving" || Boolean(blockReason)}>
+                                <Button type="button" size="sm" onClick={() => saveInPlace()} disabled={!changes.length || saveState === "saving" || Boolean(hardBlock)}>
                                     <Check className="size-3.5" aria-hidden="true" />Save{changes.length ? ` · ${changes.length}` : ""}
                                 </Button>
                             }
@@ -653,7 +689,7 @@ export function EditProfileEditor({
                                         savedLabel={savedLabel}
                                         onJump={(section, field) => jumpTo(field, section)}
                                         onUndo={undoChange}
-                                        onSave={saveInPlace}
+                                        onSave={() => saveInPlace()}
                                         onReset={() => handleResetChanges()}
                                         onCancel={() => handleCancel()}
                                         extra={conflictProfile ? <Button type="button" variant="outline" size="sm" onClick={reviewLatestChanges} disabled={saveState === "saving"}>Review latest changes</Button> : null}
@@ -661,7 +697,7 @@ export function EditProfileEditor({
                                     />
                                 </>
                             }
-                            phoneBar={<PhoneSaveBar changes={changes} saving={saveState === "saving"} onReset={() => handleResetChanges()} onSave={saveInPlace} />}
+                            phoneBar={<PhoneSaveBar changes={changes} saving={saveState === "saving"} onReset={() => handleResetChanges()} onSave={() => saveInPlace()} />}
                         />
                     </fieldset>
                 </form>

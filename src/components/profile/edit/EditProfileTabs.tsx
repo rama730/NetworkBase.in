@@ -2,16 +2,11 @@
 
 import { toast } from "@/lib/feedback";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import {
-    Loader2,
-    Camera,
     Plus,
     X,
     Trash2,
-    CheckCircle2,
-    AlertTriangle,
     Calendar,
     Link as LinkIcon,
     Code,
@@ -21,7 +16,6 @@ import {
     ArrowUp,
     ArrowDown,
 } from "lucide-react";
-import { createProfileImageUploadUrlAction, finalizeProfileImageUploadAction } from "@/app/actions/profile";
 import { Input } from "@/components/ui/input";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { Button } from "@/components/ui/button";
@@ -29,18 +23,11 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ProfileTabBar } from "@/components/profile/v2/ProfileTabBar";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import ChipSelector, { choiceChipClass } from "@/components/onboarding/ChipSelector";
-import { GenderChoice } from "@/components/profile/GenderChoice";
 import { INTEREST_OPTIONS } from "@/lib/profile/interests";
-import type { OnboardingGenderIdentity } from "@/lib/onboarding/contracts";
-import { cn } from "@/lib/utils";
-import { sanitizeUsernameInput } from "@/lib/validations/username";
-import { useUsernameAvailability } from "@/hooks/useUsernameAvailability";
-import { profileSharePath, shareOrigin } from "@/lib/sharing/presentation";
+import type { UsernameAvailabilityStatus } from "@/hooks/useUsernameAvailability";
+import { DetailsSection } from "./DetailsSection";
 import { PROFILE_LIMITS } from "@/lib/validations/profile";
 import { PROFILE_FIELD_LIMITS } from "@/lib/validations/profile-fields";
-import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
-import { compressAvatarOffMainThread } from "@/lib/services/avatar-worker-client";
-import { publicAvatarVariantUrl } from "@/lib/profile/avatar-variants";
 import {
     DESIGNATED_CATEGORIES,
     EXPERIENCE_LEVEL_OPTIONS,
@@ -81,6 +68,10 @@ interface EditProfileTabsProps {
     /** Once the tab bar floats past the name, it carries Save. */
     tabAction?: ReactNode;
     originalUsername: string;
+    baseAvatarUrl: string;
+    usernameCheck: { status: UsernameAvailabilityStatus; message: string };
+    usernameNextChangeAt?: string | null;
+    showWebsiteError?: boolean;
     section: EditProfileSection;
     onSectionChange: (section: EditProfileSection) => void;
     onChange: (updates: any) => void;
@@ -113,6 +104,10 @@ export function EditProfileTabs({
     dirtySections,
     tabAction,
     originalUsername,
+    baseAvatarUrl,
+    usernameCheck,
+    usernameNextChangeAt,
+    showWebsiteError,
     section,
     onSectionChange,
     onChange,
@@ -126,8 +121,6 @@ export function EditProfileTabs({
     onCancelContribution,
     showContributionExitPrompt = false,
 }: EditProfileTabsProps) {
-    const [avatarUploading, setAvatarUploading] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const contentScrollRef = useRef<HTMLDivElement>(null);
     const [contributionFooterHost, setContributionFooterHost] = useState<HTMLDivElement | null>(null);
     // Switching sections keeps the tab bar where it is: past the band it stays floating, above it nothing moves.
@@ -136,71 +129,8 @@ export function EditProfileTabs({
         if (root && bar && root.scrollTop > bar.offsetTop - 8) root.scrollTo({ top: bar.offsetTop - 8 });
     }, [section]);
 
-    const { status: usernameStatus, message: usernameMessage } = useUsernameAvailability({
-        value: profile.username,
-        currentUsername: originalUsername,
-        debounceMs: 500,
-    });
-
     const updateForm = (key: string, value: any) => {
         onChange({ ...profile, [key]: value });
-    };
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (file.size > 2 * 1024 * 1024) {
-            toast.error("Image must be 2 MB or smaller");
-            return;
-        }
-
-        const previousAvatarUrl = profile.avatarUrl;
-        const localPreview = URL.createObjectURL(file);
-        updateForm("avatarUrl", localPreview);
-        setAvatarUploading(true);
-
-        try {
-            const preparedAvatar = await compressAvatarOffMainThread(file);
-            const uploadSession = await createProfileImageUploadUrlAction({
-                mimeType: "image/jpeg",
-                sizeBytes: preparedAvatar.size,
-                kind: "avatar",
-            });
-            if (!uploadSession.success) {
-                throw new Error(uploadSession.error || "Couldn’t prepare image upload");
-            }
-
-            await uploadToSupabaseSignedUrl(uploadSession, preparedAvatar, { cacheProfile: "public" });
-
-            const finalized = await finalizeProfileImageUploadAction({
-                uploadIntentId: uploadSession.uploadIntentId,
-                commitToProfile: false,
-            });
-            if (!finalized.success) {
-                throw new Error(finalized.error || "Couldn’t finalize image upload");
-            }
-
-            updateForm("avatarUrl", finalized.publicUrl);
-            onImageFinalized?.(finalized.publicUrl, finalized.updatedAt);
-            toast.message("Avatar ready to save");
-        } catch {
-            updateForm("avatarUrl", previousAvatarUrl);
-            toast.error('Couldn’t upload the photo');
-        } finally {
-            URL.revokeObjectURL(localPreview);
-            setAvatarUploading(false);
-            if (e.target) e.target.value = "";
-        }
-    };
-
-    const handleRemoveAvatar = () => {
-        updateForm("avatarUrl", "");
-        toast.message("Avatar removed from draft");
-    };
-
-    const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        updateForm("username", sanitizeUsernameInput(e.target.value));
     };
 
     return (
@@ -226,315 +156,9 @@ export function EditProfileTabs({
                 <div className="nb-pf-body">
                 <div className="nb-pf-col min-w-0">
                 <div className="@container w-full">
-                    <TabsContent value="general" className="space-y-8 mt-0">
-                        <div className="flex flex-col gap-1">
-                            <h2 className="nb-section-title text-foreground">Profile details</h2>
-                            <p className="nb-compact max-w-[64ch] text-muted-foreground">Manage your public identity, profile photo, and core professional details.</p>
-                        </div>
-
-                        {/* Profile photo */}
-                        {(() => {
-                            const avatarSrc = profile.avatarUrl;
-                            return (
-                                <div className="flex flex-col gap-4 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:justify-between pb-6 border-b border-border">
-                                    <div className="flex min-w-0 flex-1 items-center gap-4">
-                                        <div className="relative size-[72px] shrink-0 overflow-hidden rounded-lg border border-border bg-muted/30">
-                                            {avatarSrc ? (
-                                                <Image
-                                                    src={publicAvatarVariantUrl(avatarSrc, 128)}
-                                                    alt="Profile avatar"
-                                                    fill
-                                                    className="object-cover"
-                                                    sizes="72px"
-                                                    unoptimized
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-muted-foreground">
-                                                    {(profile.fullName?.[0] || profile.username?.[0] || "?").toUpperCase()}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <h3 className="nb-card-title text-foreground">Profile photo</h3>
-                                            <p className="nb-compact mt-0.5 text-muted-foreground">
-                                                Square avatar displayed on your profile, workspace cards, and directory.
-                                            </p>
-                                            <div className="nb-meta mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
-                                                <span>JPG, PNG, or WebP</span>
-                                                <span>•</span>
-                                                <span>Up to 2 MB</span>
-                                                <span>•</span>
-                                                <span>Recommended 400×400</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex shrink-0 items-center gap-2">
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp"
-                                            className="hidden"
-                                            tabIndex={-1}
-                                            aria-hidden="true"
-                                            onChange={handleImageUpload}
-                                            disabled={avatarUploading}
-                                        />
-                                        <Button
-                                            id="profile-photo-button"
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            disabled={avatarUploading}
-                                            className="rounded-md"
-                                        >
-                                            {avatarUploading ? (
-                                                <Loader2 className="mr-1.5 size-4 animate-spin" />
-                                            ) : (
-                                                <Camera className="mr-1.5 size-4" />
-                                            )}
-                                            {avatarSrc ? "Change photo" : "Upload photo"}
-                                        </Button>
-                                        {avatarSrc ? (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={handleRemoveAvatar}
-                                                disabled={avatarUploading}
-                                                className="text-muted-foreground hover:text-destructive rounded-md"
-                                                title="Remove photo"
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {/* Personal identity */}
-                        <div className="border-b border-border space-y-4 pb-6">
-                            <div>
-                                <h3 className="nb-card-title text-foreground">Basic information</h3>
-                                <p className="nb-compact mt-0.5 text-muted-foreground">
-                                    Your name, handle, and professional headline across NetworkBase.
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-1 @min-[640px]:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <label htmlFor="profile-full-name" className="nb-ui-label text-foreground">
-                                            Full name <span className="text-destructive">*</span>
-                                        </label>
-                                        <span id="profile-full-name-count" className="nb-meta text-muted-foreground font-normal">
-                                            {(profile.fullName ?? "").length}/{PROFILE_LIMITS.fullNameMax}
-                                        </span>
-                                    </div>
-                                    <Input
-                                        id="profile-full-name"
-                                        aria-describedby="profile-full-name-count"
-                                        name="fullName"
-                                        required
-                                        minLength={1}
-                                        maxLength={PROFILE_LIMITS.fullNameMax}
-                                        value={profile.fullName ?? ""}
-                                        onChange={(e) => updateForm("fullName", e.target.value)}
-                                        placeholder="e.g. Satoshi Nakamoto"
-                                        className="mt-2"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                                        <label htmlFor="profile-username" className="nb-ui-label text-foreground">
-                                            Username <span className="text-destructive">*</span>
-                                        </label>
-                                        <span id="profile-username-url" className="nb-meta min-w-0 break-all text-muted-foreground font-normal">
-                                            {new URL(shareOrigin()).host}{profileSharePath(profile.username) || "/u/handle"}
-                                        </span>
-                                    </div>
-                                    <div className="relative mt-2">
-                                        <Input
-                                            id="profile-username"
-                                            name="username"
-                                            aria-describedby={`profile-username-url profile-identity-help${usernameMessage ? " profile-username-hint" : ""}`}
-                                            aria-invalid={usernameStatus === "invalid"}
-                                            required
-                                            minLength={PROFILE_LIMITS.usernameMin}
-                                            maxLength={PROFILE_LIMITS.usernameMax}
-                                            pattern="(?:[a-z0-9_]|-)+"
-                                            value={profile.username ?? ""}
-                                            onChange={handleUsernameChange}
-                                            className={cn(
-                                                "pr-9",
-                                                usernameStatus === "invalid" && "border-destructive focus-visible:ring-destructive",
-                                                usernameStatus === "valid" && "border-[var(--status-success)]",
-                                            )}
-                                            placeholder="username"
-                                        />
-                                        {usernameStatus === "checking" ? (
-                                            <Loader2 className="absolute right-3 top-2.5 size-4 animate-spin text-muted-foreground" />
-                                        ) : null}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {usernameMessage ? (
-                                <p id="profile-username-hint" className={cn(
-                                    "nb-meta flex items-center gap-2 font-medium -mt-2",
-                                    usernameStatus === "valid" && "text-[var(--status-success)]",
-                                    usernameStatus === "checking" && "text-muted-foreground",
-                                    usernameStatus === "invalid" && "text-destructive",
-                                    usernameStatus === "error" && "text-[var(--status-warning)]",
-                                )}>
-                                    {usernameStatus === "valid" ? (
-                                        <CheckCircle2 className="size-3.5" />
-                                    ) : usernameStatus === "checking" ? (
-                                        <Loader2 className="size-3.5 animate-spin" />
-                                    ) : (
-                                        <X className="size-3.5" />
-                                    )}
-                                    {usernameMessage}
-                                </p>
-                            ) : null}
-
-                            <div className="flex items-start gap-3 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] p-3 text-foreground">
-                                <AlertTriangle className="size-4 shrink-0 text-[var(--status-warning)] mt-0.5" />
-                                <div className="space-y-1">
-                                    <p className="nb-ui-label text-foreground font-medium">Changing your identity</p>
-                                    <p id="profile-identity-help" className="nb-compact max-w-[64ch] text-muted-foreground">
-                                        Your public handle updates immediately. Note: You can only change your username once every 30 days. Cached mentions may take a little time to refresh.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label htmlFor="profile-headline" className="nb-ui-label text-foreground">
-                                        Headline
-                                    </label>
-                                    <span id="profile-headline-count" className="nb-meta text-muted-foreground font-normal">
-                                        {(profile.headline ?? "").length}/{PROFILE_LIMITS.headlineMax}
-                                    </span>
-                                </div>
-                                <Input
-                                    id="profile-headline"
-                                    aria-describedby="profile-headline-count"
-                                    name="headline"
-                                    maxLength={PROFILE_LIMITS.headlineMax}
-                                    value={profile.headline ?? ""}
-                                    onChange={(e) => updateForm("headline", e.target.value)}
-                                    placeholder="e.g. Senior Frontend Engineer · Open Source Contributor"
-                                    className="mt-2"
-                                />
-                            </div>
-                        </div>
-
-                        {/* About & details */}
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="nb-card-title text-foreground">About and details</h3>
-                                <p className="nb-compact mt-0.5 text-muted-foreground">
-                                    Extended background information, location, and your personal website.
-                                </p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label htmlFor="profile-bio" className="nb-ui-label text-foreground">
-                                        Bio
-                                    </label>
-                                    <span id="profile-bio-count" className="nb-meta text-muted-foreground font-normal">
-                                        {(profile.bio ?? "").length}/{PROFILE_LIMITS.bioMax}
-                                    </span>
-                                </div>
-                                <textarea
-                                    id="profile-bio"
-                                    aria-describedby="profile-bio-count"
-                                    name="bio"
-                                    rows={4}
-                                    maxLength={PROFILE_LIMITS.bioMax}
-                                    value={profile.bio ?? ""}
-                                    onChange={(e) => updateForm("bio", e.target.value)}
-                                    className="nb-body min-h-24 w-full resize-y rounded-md border border-input bg-card px-[var(--ui-control-px)] py-2 text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                    placeholder="Tell your story…"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 @min-[640px]:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <label htmlFor="profile-location" className="nb-ui-label text-foreground">
-                                            Location
-                                        </label>
-                                        <span id="profile-location-count" className="nb-meta text-muted-foreground font-normal">
-                                            {(profile.location ?? "").length}/{PROFILE_LIMITS.locationMax}
-                                        </span>
-                                    </div>
-                                    <Input
-                                        id="profile-location"
-                                        aria-describedby="profile-location-count"
-                                        name="location"
-                                        maxLength={PROFILE_LIMITS.locationMax}
-                                        value={profile.location ?? ""}
-                                        onChange={(e) => updateForm("location", e.target.value)}
-                                        placeholder="e.g. San Francisco, CA or Remote"
-                                        className="mt-2"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <label htmlFor="profile-website" className="nb-ui-label text-foreground">
-                                            Website
-                                        </label>
-                                        <span id="profile-website-count" className="nb-meta text-muted-foreground font-normal">
-                                            {(profile.website ?? "").length}/{PROFILE_LIMITS.websiteMax}
-                                        </span>
-                                    </div>
-                                    <Input
-                                        id="profile-website"
-                                        aria-describedby="profile-website-count"
-                                        name="website"
-                                        type="url"
-                                        pattern="https?://.*"
-                                        maxLength={PROFILE_LIMITS.websiteMax}
-                                        value={profile.website ?? ""}
-                                        onChange={(e) => updateForm("website", e.target.value)}
-                                        placeholder="https://example.com"
-                                        className="mt-2"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        {/* Optional personal details. Only the owner is ever sent these. */}
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="nb-card-title text-foreground">Gender</h3>
-                                <p className="nb-compact mt-0.5 text-muted-foreground">
-                                    Optional. Only you can see these; they are not shown on your profile.
-                                </p>
-                            </div>
-                            <GenderChoice
-                                name="profileGenderIdentity"
-                                value={(profile.genderIdentity ?? "") as OnboardingGenderIdentity | ""}
-                                onChange={(value) => updateForm("genderIdentity", value)}
-                            />
-                            <div className="space-y-2">
-                                <label htmlFor="profile-pronouns" className="nb-ui-label text-foreground">Pronouns</label>
-                                <Input
-                                    id="profile-pronouns"
-                                    name="pronouns"
-                                    maxLength={PROFILE_FIELD_LIMITS.pronounsMax}
-                                    value={profile.pronouns ?? ""}
-                                    onChange={(e) => updateForm("pronouns", e.target.value)}
-                                    placeholder="e.g. they/them"
-                                    className="mt-2"
-                                />
-                            </div>
-                        </div>
+                    <TabsContent value="general" className="mt-0">
+                        <DetailsSection profile={profile} baseAvatarUrl={baseAvatarUrl} originalUsername={originalUsername} username={usernameCheck}
+                            usernameNextChangeAt={usernameNextChangeAt} showWebsiteError={showWebsiteError} onField={updateForm} onImageFinalized={onImageFinalized} />
                     </TabsContent>
 
                     <TabsContent value="experience" forceMount hidden={section !== "experience"} className="mt-0">

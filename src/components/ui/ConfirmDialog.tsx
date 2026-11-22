@@ -23,6 +23,8 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: "default" | "destructive";
   onConfirm: () => void | Promise<void>;
+  /** The cancel button only (not Esc or a click outside), when it means more than closing. */
+  onCancel?: () => void;
   onError?: (error: unknown) => void;
   loading?: boolean;
   pendingLabel?: string;
@@ -36,6 +38,7 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({
+  onCancel,
   open,
   onOpenChange,
   title,
@@ -162,7 +165,7 @@ export function ConfirmDialog({
             type="button"
             variant="outline"
             className="w-full sm:w-auto"
-            onClick={() => handleOpenChange(false)}
+            onClick={() => { if (busy) return; onCancel?.(); handleOpenChange(false); }}
             disabled={busy}
           >
             {cancelLabel}
