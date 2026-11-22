@@ -83,6 +83,8 @@ test("W2–W3: Similar open bugs never shows closed ones; That's my bug adds you
   const found = await bugs.similarBugsAction({ projectId: t.ws, title: "payment" });
   assert.ok(found.success);
   assert.deepEqual(found.bugs.map((b) => b.title), ["Payment gateway is down"]);
+  const loose = await bugs.similarBugsAction({ projectId: t.ws, title: "Payment fails" });
+  assert.deepEqual(loose.success && loose.bugs.map((b) => b.title), ["Payment gateway is down"], "any word matches (live check)");
   assert.deepEqual((await bugs.similarBugsAction({ projectId: t.ws, title: "pay" })).success && [], [], "under 4 characters: nothing");
   await bugs.seeTooAction({ projectId: t.ws, taskId: open, on: true });
   await bugs.seeTooAction({ projectId: t.ws, taskId: open, on: true });

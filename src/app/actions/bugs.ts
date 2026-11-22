@@ -62,15 +62,17 @@ export async function readBugsAction(projectId: string) {
 export async function similarBugsAction(input: { projectId: string; title: string }) {
   try {
     const projectId = id.parse(input.projectId);
-    const words = String(input.title ?? "").trim().split(/\s+/).filter((w) => w.length >= 2).slice(0, 6);
+    // Live check: every word was too strict ("Payment fails" missed "Payment gateway is down"); any word of 3+
+    // letters matches, more matching words first.
+    const words = String(input.title ?? "").trim().split(/\s+/).filter((w) => w.length >= 3).slice(0, 6);
     if (String(input.title ?? "").trim().length < 4 || !words.length) return { success: true as const, bugs: [] };
     const { user } = await insider(projectId);
     const rows = Array.from(await db.execute<{ id: string; task_number: number | null; title: string; stage: string; seen: number; mine: boolean }>(sql`
       SELECT id, task_number, title, stage, jsonb_array_length(coalesce(type_fields->'alsoSeen', '[]'::jsonb))::int AS seen,
         (creator_id = ${user.id}::uuid OR coalesce(type_fields->'alsoSeen', '[]'::jsonb) ? ${user.id}) AS mine
       FROM tasks WHERE workspace_id = ${projectId}::uuid AND item_type = 'bug' AND deleted_at IS NULL AND stage IN ('new', 'confirmed', 'fixing')
-        AND ${sql.join(words.map((w) => sql`title ILIKE ${"%" + w.replace(/[%_\\]/g, (c) => "\\" + c) + "%"}`), sql` AND `)}
-      ORDER BY updated_at DESC LIMIT 5`));
+        AND (${sql.join(words.map((w) => sql`title ILIKE ${"%" + w.replace(/[%_\\]/g, (c) => "\\" + c) + "%"}`), sql` OR `)})
+      ORDER BY (${sql.join(words.map((w) => sql`(title ILIKE ${"%" + w.replace(/[%_\\]/g, (c) => "\\" + c) + "%"})::int`), sql` + `)}) DESC, updated_at DESC LIMIT 5`));
     return { success: true as const, bugs: rows.map((r) => ({ id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, seen: r.seen, mine: r.mine })) };
   } catch (error) {
     return fail(error, "Couldn’t look for similar bugs");
