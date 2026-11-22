@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FolderKanban, Pin } from "lucide-react";
 import { setPortfolioPinAction } from "@/app/actions/profile-mix";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/feedback";
 import { EmptyState } from "@/components/ui/EmptyState";
 import ProjectCard from "@/components/workspaces/WorkspaceCard";
@@ -82,14 +83,22 @@ export function WorkspacesGridCard({ projects: allProjects, title = "Workspaces"
     // Report §31.3, decision 71: workspaces only; organizations live in their own section (§4.5).
     const workspaces = useMemo(() => allProjects.filter((p) => p.kind !== "organization"), [allProjects]);
     // Pins (0113): the owner pins workspaces to the top of the list, whatever the sort.
-    const [pins, setPins] = useState<Set<string>>(() => new Set(allProjects.filter((p) => p.pinned).map((p) => p.id)));
-    useEffect(() => setPins(new Set(allProjects.filter((p) => p.pinned).map((p) => p.id))), [allProjects]);
+    const queryClient = useQueryClient();
+    const pinKey = ["profile", "portfolio-pins", profileId ?? ""];
+    const pinsFrom = (list: ProfileCollaborationWorkspace[]) => {
+        const chosen = queryClient.getQueryData<Record<string, boolean>>(pinKey) ?? {};
+        return new Set(list.filter((p) => chosen[p.id] ?? p.pinned).map((p) => p.id));
+    };
+    const [pins, setPins] = useState<Set<string>>(() => pinsFrom(allProjects));
+    useEffect(() => setPins(pinsFrom(allProjects)), [allProjects]);
     const togglePin = async (project: ProfileCollaborationWorkspace) => {
         const on = !pins.has(project.id);
         const flip = (value: boolean) => setPins((current) => { const next = new Set(current); if (value) next.add(project.id); else next.delete(project.id); return next; });
         flip(on);
         const result = await setPortfolioPinAction(project.id, on);
         if (!result.success) { flip(!on); toast.error(result.error); return; }
+        // Remember the choice for this page's life, so the list keeps it when it's drawn again (another tab and back).
+        queryClient.setQueryData<Record<string, boolean>>(pinKey, (current) => ({ ...current, [project.id]: on }));
         toast.success(on ? `${project.title} is pinned to the top of your portfolio.` : `${project.title} unpinned.`);
     };
     const owns = (p: ProfileCollaborationWorkspace) => Boolean(profileId && p.ownerId === profileId);

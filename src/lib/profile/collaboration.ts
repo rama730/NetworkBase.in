@@ -271,7 +271,7 @@ type ProfileContributionRow = {
 };
 
 // v7: members-only project links removed from cached summaries (AUTH-013).
-const SUMMARY_VERSION = 8;
+const SUMMARY_VERSION = 9;
 const SUMMARY_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_LIMIT = 12;
 const EMPTY_SUMMARY: ProfileCollaborationSummary = {
@@ -913,7 +913,7 @@ async function queryProfileContributionRows(profileId: string, options: {
         )
       )
     ORDER BY contribution.featured DESC,
-      contribution.timeline_order ASC NULLS LAST,
+      contribution.timeline_order ASC NULLS FIRST,
       COALESCE(contribution.started_at, project.created_at, contribution.created_at) DESC NULLS LAST,
       COALESCE(project.created_at, contribution.created_at) DESC,
       contribution.id DESC

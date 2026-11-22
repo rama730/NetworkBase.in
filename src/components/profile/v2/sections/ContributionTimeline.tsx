@@ -128,7 +128,9 @@ export function ContributionTimeline({
         if (!result.success) {
             setLive((list) => list.map((x) => ({ ...x, timelineOrder: before.get(x.id) ?? null })))
             toast.error(result.error)
+            return
         }
+        onChanged?.()
     }
 
     const item = (c: Entry, compact: boolean, nested = false) => {

@@ -74,3 +74,16 @@ test('Edit profile › Contributions: the profile timeline with status, Show on 
     await page.getByRole('region', { name: 'Not on your profile yet' }).getByRole('button', { name: 'Write about Team Falcon' }).click();
     await expect(panel).toBeVisible();
 });
+
+test('the side panel takes focus, keeps Tab inside, closes on Esc and gives focus back', async ({ page }) => {
+    await open(page);
+    const trigger = page.getByRole('region', { name: 'Not on your profile yet' }).getByRole('button', { name: 'Write about Team Falcon' });
+    await trigger.click();
+    const panel = page.getByRole('dialog', { name: 'Edit Team Falcon contribution' });
+    await expect(panel.getByRole('button', { name: 'Close', exact: true }).first()).toBeFocused();
+    for (let i = 0; i < 60; i++) await page.keyboard.press('Shift+Tab');
+    expect(await panel.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+});

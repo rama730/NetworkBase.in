@@ -54,6 +54,13 @@ test("0112: Move up / Move down writes the timeline order for your own entries o
   const timeline = await collab.getProfileCollaborationSummary(me!, { includePrivate: true });
   assert.deepEqual(timeline.contributions.filter((x) => [ca, cb, cc].includes(x.id)).map((x) => x.timelineOrder).sort(), [0, 1, 2]);
 
+  const fresh = await contribution(me!, await space(me!));
+  const after = await collab.getProfileCollaborationSummary(me!, { includePrivate: true });
+  assert.equal(after.contributions[0]!.id, fresh, "a contribution added after a move comes first, not last");
+  await mix.setContributionTimelineOrderAction([ca, cb]);
+  const [cached] = await sql<{ stale: boolean }[]>`SELECT stale FROM profile_collaboration_summaries WHERE profile_id = ${me!}`;
+  assert.equal(cached?.stale, true, "a move marks the cached public summary stale");
+
   viewerId = "";
   assert.equal((await mix.setContributionTimelineOrderAction([ca])).success, false, "signed out can't reorder");
   assert.equal((await mix.setContributionTimelineOrderAction(["not-a-uuid"])).success, false);
@@ -67,7 +74,10 @@ test("0113: Portfolio pins need membership, put the workspace first, and unpin c
   const outside = await space(other!);
 
   viewerId = me!;
+  await sql`DELETE FROM profile_collaboration_summaries WHERE profile_id = ${me!}`;
   assert.deepEqual(await mix.setPortfolioPinAction(older, true), { success: true });
+  const [cached] = await sql<{ stale: boolean }[]>`SELECT stale FROM profile_collaboration_summaries WHERE profile_id = ${me!}`;
+  assert.equal(cached?.stale, true, "a pin marks the cached public summary stale");
   assert.equal((await mix.setPortfolioPinAction(outside, true)).success, false, "only workspaces you're in");
   let portfolio = await collab.getProfilePortfolioWorkspaces(me!, { includePrivate: false });
   assert.equal(portfolio.projects[0]!.id, older, "pinned comes first even though it's older");

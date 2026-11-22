@@ -195,6 +195,11 @@ async function workspace(
     matchMedia: () => ({ matches: true }),
   };
   (globalThis as any).document = {
+    activeElement: null,
+    addEventListener() {},
+    removeEventListener() {},
+    querySelector: () => null,
+    querySelectorAll: () => [],
     getElementById: (id: string) => ({
       focus(options: unknown) {
         focused.push({ id, options });

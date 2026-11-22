@@ -873,6 +873,38 @@ export function ContributionEditor({
             : p,
       ),
     }));
+  // The side panel is modal: focus goes in and stays in (Tab wraps), Esc closes, the page behind doesn't scroll,
+  // and focus goes back to what opened it.
+  const panelRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef(closePanel);
+  closeRef.current = closePanel;
+  const panelOpen = Boolean(active);
+  useEffect(() => {
+    if (!panelOpen) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const root = panelRef.current?.closest<HTMLElement>("[data-scroll-root]") ?? null;
+    const overflow = root?.style.overflow ?? "";
+    if (root) root.style.overflow = "hidden";
+    const focusables = () => [...(panelRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]') ?? [])].filter((el) => el.offsetParent !== null || el === document.activeElement);
+    const otherDialog = () => [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].some((el) => el !== panelRef.current && !panelRef.current?.contains(el));
+    requestAnimationFrame(() => panelRef.current?.querySelector<HTMLElement>('[aria-label="Close"]')?.focus());
+    const onKey = (event: KeyboardEvent) => {
+      if (otherDialog()) return;
+      if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); void closeRef.current(); return; }
+      if (event.key !== "Tab") return;
+      const list = focusables();
+      if (!list.length) return;
+      const first = list[0]!, last = list[list.length - 1]!, inside = panelRef.current?.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || !inside)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !inside)) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (root) root.style.overflow = overflow;
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [panelOpen]);
   const footer =
     active && d ? (
       <footer
@@ -987,7 +1019,7 @@ export function ContributionEditor({
             role="dialog"
             aria-modal="true"
             aria-label={`Edit ${(active.projectId ? active.projectTitle : d?.title || "Untitled external project")} contribution`}
-            onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); void closePanel(); } }}
+            ref={panelRef}
           >
             <div className="nb-pf-cd-b @container">
       {error && (

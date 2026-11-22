@@ -43,3 +43,17 @@ test('owner-only parts render behind isOwner', () => {
     const grid = read('src/components/profile/v2/sections/WorkspacesGridCard.tsx');
     assert.match(grid, /\{isOwner \? \(\s*<button type="button" className="nb-pf-ib ml-auto" aria-pressed=\{pins\.has/);
 });
+
+test('a move refreshes the profile like Pin and Hide do', () => {
+    const timeline = read('src/components/profile/v2/sections/ContributionTimeline.tsx');
+    const move = timeline.slice(timeline.indexOf('const move = async'), timeline.indexOf('const item = '));
+    assert.match(move, /onChanged\?\.\(\)/);
+});
+
+test('Edit profile: drafts link wired, ⌘S ignores the contribution panel, no save while a photo uploads', () => {
+    const editor = read('src/components/profile/edit/EditProfileEditor.tsx');
+    assert.match(editor, /contributionDrafts=\{/);
+    assert.match(editor, /onOpenDrafts=\{/);
+    assert.match(editor, /closest\?\.\("\.nb-pf-cd"\)/);
+    assert.match(editor, /startsWith\("blob:"\)/);
+});

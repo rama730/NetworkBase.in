@@ -40,11 +40,12 @@ export function filterCounts(entries: Kinded[]) {
 
 /**
  * Pinned first, then the order you chose, then newest start, then id. Once you've moved anything on the timeline
- * (Move up/down) that order is used; until then, the Organizations order from Manage organizations.
+ * (Move up/down) that order is used, with new entries first; until then, the Organizations order.
  */
 export function orderContributions<T extends { id: string; featured?: boolean | null; profileOrder?: number | null; timelineOrder?: number | null; startDate?: string | null; createdAt?: string | null }>(entries: T[]): T[] {
     const moved = entries.some((e) => e.timelineOrder != null);
-    const rank = (e: T) => (moved ? e.timelineOrder : e.profileOrder) ?? Infinity;
+    // Once anything is moved, an entry with no place yet (a new one) leads, newest first; before that, unordered sink.
+    const rank = (e: T) => moved ? (e.timelineOrder ?? -Infinity) : (e.profileOrder ?? Infinity);
     return [...entries].sort((a, b) => {
         if (Boolean(b.featured) !== Boolean(a.featured)) return Number(Boolean(b.featured)) - Number(Boolean(a.featured));
         const oa = rank(a), ob = rank(b);
@@ -103,4 +104,12 @@ export function normalizeWebsite(value: string) {
 export function websiteError(value: string): string | null {
     const v = value.trim();
     return v && !/^https?:\/\/[^\s/]+\.[a-z]{2,}(\/\S*)?$/i.test(v) ? 'Enter a full address, like https://example.com' : null;
+}
+
+/** The unsaved fields kept in this browser: only what differs from the saved profile, and never a `blob:` photo still uploading. */
+export function localDraft(form: Record<string, unknown>, base: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+    const norm = (v: unknown) => JSON.stringify(typeof v === 'string' ? v.trim() : v ?? null);
+    return Object.fromEntries(keys
+        .filter((k) => norm(form[k]) !== norm(base[k]) && !(typeof form[k] === 'string' && (form[k] as string).startsWith('blob:')))
+        .map((k) => [k, form[k]]));
 }

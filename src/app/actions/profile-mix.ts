@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { profileContributions, profilePortfolioPins } from '@/lib/db/schema';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { isUuid } from '@/lib/validations/uuid';
+import { markProfileCollaborationSummaryStale } from '@/lib/profile/collaboration';
 
 type Result = { success: true } | { success: false; error: string };
 const ROWS = <T,>(query: ReturnType<typeof sql>) => db.execute(query) as unknown as Promise<T[]>;
@@ -24,6 +25,8 @@ export async function setContributionTimelineOrderAction(orderedIds: string[]): 
             await tx.update(profileContributions).set({ timelineOrder: index })
                 .where(and(eq(profileContributions.id, id), eq(profileContributions.profileId, userId)));
         }
+        // Visitors read the cached summary: rebuild it so they see the new order.
+        await markProfileCollaborationSummaryStale([userId], tx);
     });
     return { success: true };
 }
@@ -35,11 +38,13 @@ export async function setPortfolioPinAction(workspaceId: string, pinned: boolean
     if (!isUuid(workspaceId)) return { success: false, error: 'That workspace couldn’t be found.' };
     if (!pinned) {
         await db.delete(profilePortfolioPins).where(and(eq(profilePortfolioPins.profileId, userId), eq(profilePortfolioPins.workspaceId, workspaceId)));
+        await markProfileCollaborationSummaryStale([userId]);
         return { success: true };
     }
     const [member] = await ROWS<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM workspaces w WHERE w.id = ${workspaceId}::uuid AND w.deleted_at IS NULL
         AND (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid))) AS ok`);
     if (!member?.ok) return { success: false, error: 'You can pin only workspaces you’re in.' };
     await db.insert(profilePortfolioPins).values({ profileId: userId, workspaceId }).onConflictDoNothing();
+    await markProfileCollaborationSummaryStale([userId]);
     return { success: true };
 }

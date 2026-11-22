@@ -390,6 +390,9 @@ test('portfolio: filter by own or member, sort by recent or name, with your role
   await panel.getByRole('button',{name:'Recent'}).click();
   await expect(panel.locator('[data-pf-wrole]').first()).toContainText('Project B');
   expect(await page.evaluate(()=>(window as any).profileFixture.pinCalls)).toEqual([['20000000-0000-4000-8000-000000000002',true]]);
+  await page.getByRole('tab',{name:/^Overview/}).click();
+  await page.getByRole('tab',{name:/^Portfolio/}).click();
+  await expect(panel.getByRole('button',{name:'Unpin Project B',exact:true})).toHaveAttribute('aria-pressed','true');
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.projects=f.projects.map((p:any)=>({...p,pinned:p.title==='Project A'}));f.viewer=true;f.refresh();});
   await expect(panel.locator('[data-pf-wrole]').first()).toContainText('Pinned');
   await expect(panel.getByRole('button',{name:/^(Pin|Unpin) /})).toHaveCount(0);
@@ -725,6 +728,18 @@ test('heavy profile: long name and headline, 25 skills, 55 contributions, 8 link
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     }
   }
+});
+
+test('a blocked Save on the phone bar takes you to the field and says why', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole('button',{name:'Edit profile',exact:true}).click();
+  const editor=page.getByRole('region',{name:'Edit profile',exact:true});
+  await editor.locator('#profile-full-name').fill('');
+  await editor.locator('#profile-headline').focus();
+  await editor.getByRole('region',{name:'Save',exact:true}).getByRole('button',{name:'Save',exact:true}).click();
+  await expect(editor.locator('#profile-full-name')).toBeFocused();
+  await expect(page.getByText('Add your name before saving.').first()).toBeVisible();
+  expect(await page.evaluate(()=>(window as any).profileFixture.calls.length)).toBe(0);
 });
 
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{

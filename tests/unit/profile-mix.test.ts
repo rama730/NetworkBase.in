@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
+import { localDraft,
     changeSummary,
     contributionDate,
     currentRoles,
@@ -57,7 +57,8 @@ test('orderContributions: once you move entries on the timeline, that order wins
         { id: 'old', featured: false, profileOrder: null, timelineOrder: 1, startDate: '2019-01-01' },
         { id: 'new', featured: false, profileOrder: 0, timelineOrder: null, startDate: '2027-01-01' },
     ]);
-    assert.deepEqual(list.map((x) => x.id), ['ws', 'old', 'org', 'new']);
+    // A new entry (no order yet) comes first, so a new workspace shows in Recent work instead of sinking.
+    assert.deepEqual(list.map((x) => x.id), ['new', 'ws', 'old', 'org']);
 });
 
 test('changeSummary says what changed in words', () => {
@@ -104,4 +105,10 @@ test('website: https is added; a broken address is named', () => {
     assert.equal(websiteError(''), null);
     assert.equal(websiteError('https://nope'), 'Enter a full address, like https://example.com');
     assert.equal(websiteError('not a url'), 'Enter a full address, like https://example.com');
+});
+
+test('localDraft keeps only changed fields and never a photo that is still uploading', () => {
+    const base = { headline: 'Old', avatarUrl: 'https://cdn/a.jpg', skills: ['A'] };
+    assert.deepEqual(localDraft({ headline: 'New', avatarUrl: 'blob:http://x/1', skills: ['A'] }, base, ['headline', 'avatarUrl', 'skills']), { headline: 'New' });
+    assert.deepEqual(localDraft({ headline: ' Old ', avatarUrl: 'https://cdn/b.jpg', skills: ['A', 'B'] }, base, ['headline', 'avatarUrl', 'skills']), { avatarUrl: 'https://cdn/b.jpg', skills: ['A', 'B'] });
 });

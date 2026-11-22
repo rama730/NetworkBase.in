@@ -12,7 +12,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { completionField, completionItemSection, parseProfileEditSection, profileEditHref, profileEditReturnHref } from "@/lib/profile/edit-route";
 import { calculateProfileCompletion } from "@/lib/validations/profile";
-import { changeSummary, mergeConflict, normalizeWebsite, websiteError } from "@/lib/profile/mix";
+import { changeSummary, localDraft, mergeConflict, normalizeWebsite, websiteError } from "@/lib/profile/mix";
 import { useUsernameAvailability } from "@/hooks/useUsernameAvailability";
 import { shareOrigin } from "@/lib/sharing/presentation";
 
@@ -205,7 +205,7 @@ export function EditProfileEditor({
     useEffect(() => {
         if (!formState || recover || !profile?.id) return;
         const base = baseProfileRef.current as any;
-        const d = Object.fromEntries(PROFILE_FIELDS.filter(([key]) => !sameValue(formState[key], base[key])).map(([key]) => [key, formState[key]]));
+        const d = localDraft(formState, base, PROFILE_FIELDS.map(([key]) => key));
         try {
             if (Object.keys(d).length) window.localStorage.setItem(draftKey(profile.id), JSON.stringify({ at: Date.now(), d }));
             else window.localStorage.removeItem(draftKey(profile.id));
@@ -220,6 +220,7 @@ export function EditProfileEditor({
     // Hard stops turn Save off; a bad website leaves Save on and takes you to the field.
     const hardBlock = !formState ? null
         : Object.keys(clashes).length ? "Pick a version for each field changed in another tab."
+        : String(formState.avatarUrl ?? "").startsWith("blob:") ? "Wait for the photo to finish uploading."
         : !String(formState.fullName ?? "").trim() ? "Add your name before saving."
             : !String(formState.username ?? "").trim() || usernameCheck.status === "invalid" ? "Pick another username before saving."
                 : usernameCheck.status === "checking" ? "Checking your username…"
@@ -591,7 +592,15 @@ export function EditProfileEditor({
     }, [formState, fieldFromUrl]);
 
     const saveInPlace = (usernameConfirmed = false) => {
-        if (hardBlock || !formState) return;
+        if (!formState) return;
+        if (hardBlock) {
+            // Say why and go there, rather than a Save that quietly does nothing (the phone bar, ⌘S).
+            toast.warning(hardBlock);
+            if (Object.keys(clashes).length) return;
+            if (!String(formState.fullName ?? "").trim()) jumpTo("name");
+            else if (usernameCheck.status === "invalid" || !String(formState.username ?? "").trim()) jumpTo("username");
+            return;
+        }
         const website = normalizeWebsite(String(formState.website ?? ""));
         if (websiteError(website)) { setShowWebsiteError(true); jumpTo("website"); return; }
         const draft = website === (formState.website ?? "") ? formState : { ...formState, website };
@@ -608,7 +617,11 @@ export function EditProfileEditor({
     saveRef.current = saveInPlace;
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
-            if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "s") { event.preventDefault(); saveRef.current(); }
+            if (!(event.metaKey || event.ctrlKey) || event.altKey || event.key.toLowerCase() !== "s") return;
+            event.preventDefault();
+            // In a contribution's side panel ⌘S belongs to that story (it autosaves), not to the profile fields.
+            if ((event.target as HTMLElement | null)?.closest?.(".nb-pf-cd")) return;
+            saveRef.current();
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
@@ -770,6 +783,8 @@ export function EditProfileEditor({
                                         onReset={() => handleResetChanges()}
                                         onCancel={() => handleCancel()}
                                         extra={clashList}
+                                        contributionDrafts={((formState?.experience ?? []) as ContributionEditorEntry[]).filter((entry) => entry.contribution && !entry.contribution.publishedAt && !entry.contribution.presentation).length}
+                                        onOpenDrafts={() => handleSectionChange("experience")}
                                         completion={{ score: completion.score, missing: completion.missing, jump: (item) => jumpTo(completionField(item), completionItemSection(item)) }}
                                     />
                                 </>
