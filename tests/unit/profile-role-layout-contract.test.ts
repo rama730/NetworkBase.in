@@ -54,7 +54,7 @@ test('profile summary is the calm band (mix): photo, serif name, handle + tag, h
 test('public profile actions use the design-system hierarchy and hide unavailable messaging', () => {
   const client = read('src/components/profile/v2/ProfileV2Client.tsx')
   const header = read('src/components/profile/v2/ProfileBand.tsx')
-  const rail = read('src/components/profile/v2/ProfileRightRail.tsx')
+  const rail = read('src/components/profile/v2/sections/ProfileFactsCard.tsx')
 
   assert.match(header, /import \{ Button \} from '@\/components\/ui\/button'/)
   assert.match(header, /resolveProfileActionState\(\{/)
@@ -68,18 +68,18 @@ test('public profile actions use the design-system hierarchy and hide unavailabl
   assert.match(header, /<ItemMenu label=\{`More actions for \$\{name\}`\}[\s\S]*?\{canManageBlock \? \(/)
   assert.match(header, /\) : isInteractionBlocked && !privacyRelationship\.blockedByViewer \? \(/)
   assert.doesNotMatch(rail, /title="Shortcuts"/)
-  assert.match(client, /canMessage=\{Boolean\(/)
+  assert.match(client, /<ProfileFactsCard/)
 })
 
 test('profile surfaces use the shared typography roles', () => {
-  const rail = read('src/components/profile/v2/ProfileRightRail.tsx')
+  const rail = read('src/components/profile/v2/sections/ProfileFactsCard.tsx')
   const about = read('src/components/profile/v2/sections/AboutSection.tsx')
   const projects = read('src/components/profile/v2/sections/WorkspacesGridCard.tsx')
   const contributions = read('src/components/profile/v2/sections/ContributionTimeline.tsx')
   const editor = read('src/components/profile/edit/EditProfileTabs.tsx')
 
-  assert.match(rail, /RailSection/)
-  assert.match(rail, /nb-meta/)
+  assert.match(rail, /nb-pf-fsec/)
+  assert.match(rail, /<FactList /)
   assert.match(about, /nb-pf-about/)
   assert.doesNotMatch(about, /font-serif|nb-pf-name/)
   assert.match(projects, /nb-section-title/)
