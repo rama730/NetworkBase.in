@@ -25,3 +25,21 @@ test('the tab bar and its sticky hook exist and are shared', () => {
     assert.match(read('src/components/profile/v2/ProfileTabBar.tsx'), /export function ProfileTabBar/);
     assert.match(read('src/components/profile/v2/useStickyBar.ts'), /export function useStickyBar/);
 });
+
+test('About stays in body text, never the serif', () => {
+    const about = read('src/components/profile/v2/sections/AboutSection.tsx');
+    assert.doesNotMatch(about, /font-serif|nb-pf-name/);
+    assert.doesNotMatch(pf.match(/\.nb-pf-about-body[^{]*{[^}]*}/g)?.join('') ?? '', /serif/);
+});
+
+test('owner-only parts render behind isOwner', () => {
+    const card = read('src/components/profile/v2/sections/ProfileFactsCard.tsx');
+    assert.match(card, /const completeness = isOwner && /);
+    assert.match(card, /const health = isOwner && /, 'only the owner sees the broken-link warning and Fix');
+    assert.match(card, /const order = isOwner \? \[completeness/);
+    const timeline = read('src/components/profile/v2/sections/ContributionTimeline.tsx');
+    assert.match(timeline, /const menu = isOwner \?/);
+    assert.match(timeline, /isOwner && drafts\.length/);
+    const grid = read('src/components/profile/v2/sections/WorkspacesGridCard.tsx');
+    assert.match(grid, /\{isOwner \? \(\s*<button type="button" className="nb-pf-ib ml-auto" aria-pressed=\{pins\.has/);
+});
