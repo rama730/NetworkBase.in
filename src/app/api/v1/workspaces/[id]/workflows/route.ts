@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { routeErrorResponse } from "@/app/api/v1/_error";
-import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { denyOutsideTokenWorkspace, getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { catalogEntry } from "@/lib/workflows/catalog";
 import { readWorkspaceWorkflows } from "@/lib/workflows/server";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
@@ -20,6 +20,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const id = (await context.params).id;
     if (!z.string().uuid().safeParse(id).success) return jsonError("Invalid workspace", 400, "BAD_REQUEST");
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId: id });
+    if (outside) return outside;
     const state = await readWorkspaceWorkflows(id, auth.user.id);
     return jsonSuccess({
       enabled: state.enabled,

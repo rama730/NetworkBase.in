@@ -20,7 +20,11 @@ let updates: typeof import("../../src/app/api/v1/workspaces/[id]/updates/route")
 let taskFiles: typeof import("../../src/app/api/v1/tasks/[taskId]/files/route");
 let listTasks: typeof import("../../src/app/api/v1/extension/workspace-tasks/route");
 let createTask: typeof import("../../src/app/api/v1/extension/create-task/route");
+let workflowsRoute: typeof import("../../src/app/api/v1/workspaces/[id]/workflows/route");
+let docRows: typeof import("../../src/app/api/v1/workspaces/[id]/docs/[slug]/rows/route");
 before(async () => {
+  workflowsRoute = await loadAppModule(() => import("../../src/app/api/v1/workspaces/[id]/workflows/route"));
+  docRows = await loadAppModule(() => import("../../src/app/api/v1/workspaces/[id]/docs/[slug]/rows/route"));
   listTasks = await loadAppModule(() => import("../../src/app/api/v1/extension/workspace-tasks/route"));
   createTask = await loadAppModule(() => import("../../src/app/api/v1/extension/create-task/route"));
   taskUpdate = await loadAppModule(() => import("../../src/app/api/v1/extension/task-update/route"));
@@ -158,4 +162,18 @@ test("W12 (A1.5): a project with dates over the API, Part of through task-update
   const out = await call(taskUpdate.PATCH, token, "PATCH", "/api/v1/extension/task-update", { kind: "part_of", projectId, taskId: second.json.data.task.id, partOfId: null });
   assert.equal(out.status, 200);
   assert.deepEqual((await list(`partOf=${project}`)).map((t: any) => t.title), ["Copy"]);
+});
+
+test("security review: an agent bound to one workspace can't read another's workflows or document rows", async () => {
+  const userId = await sql.begin((tx) => createUser(tx));
+  const mine = await sql.begin((tx) => createProject(tx, userId));
+  const other = await sql.begin((tx) => createProject(tx, userId));
+  const token = await agent(userId, mine);
+  const ctx = (id: string, slug?: string) => ({ params: Promise.resolve(slug ? { id, slug } : { id }) });
+  const read = await call(workflowsRoute.GET, token, "GET", `/api/v1/workspaces/${other}/workflows`, undefined, ctx(other));
+  assert.equal(read.status, 403, JSON.stringify(read.json));
+  const rows = await call(docRows.GET, token, "GET", `/api/v1/workspaces/${other}/docs/readme/rows?key=abcd`, undefined, ctx(other, "readme"));
+  assert.equal(rows.status, 403, JSON.stringify(rows.json));
+  const own = await call(workflowsRoute.GET, token, "GET", `/api/v1/workspaces/${mine}/workflows`, undefined, ctx(mine));
+  assert.equal(own.status, 200, JSON.stringify(own.json));
 });

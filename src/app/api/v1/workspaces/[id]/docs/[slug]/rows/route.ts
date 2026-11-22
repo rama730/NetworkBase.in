@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { denyOutsideTokenWorkspace, getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { addDocRowAction, readDocRowsAction } from "@/app/actions/workspace/doc";
 import { agentGate, recordUndo } from "@/lib/agents/policy";
@@ -19,6 +19,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (auth.response) return auth.response;
     if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const { id, slug } = await context.params;
+    if (!z.string().uuid().safeParse(id).success) return jsonError("Invalid workspace", 400, "BAD_REQUEST");
+    // A token bound to one workspace reads only that workspace (security review: parity with sibling routes).
+    const outside = await denyOutsideTokenWorkspace(auth, { projectId: id });
+    if (outside) return outside;
     const key = new URL(request.url).searchParams.get("key") ?? "";
     if (!/^[a-z0-9]{4,12}$/.test(key)) return jsonError("Name the list with --list (its key)", 400, "BAD_REQUEST");
     const result = await readDocRowsAction(id, slug, key);
@@ -46,6 +50,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (auth.response) return auth.response;
       if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
       const { id, slug } = await context.params;
+      if (!z.string().uuid().safeParse(id).success) return jsonError("Invalid workspace", 400, "BAD_REQUEST");
+      const outside = await denyOutsideTokenWorkspace(auth, { projectId: id });
+      if (outside) return outside;
       const body = addSchema.parse(await req.json());
       const held = await agentGate(auth, req, body, { workspaceId: id, kinds: ["small"], summary: `Add “${body.title}” to the list in ${slug}` });
       if (held) return held;
