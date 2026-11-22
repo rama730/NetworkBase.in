@@ -166,7 +166,7 @@ test('mobile preferences save custom roles without overflow; new users can enabl
   await page.getByRole('button', {name:'Edit role preferences',exact:true}).click();
   const dialog=page.getByRole('region', {name:'Edit profile',exact:true});
   await expect(dialog.getByRole('tab', {name:'Collaboration'})).toHaveAttribute('aria-selected','true');
-  await dialog.getByPlaceholder('e.g. Next.js Developer, Rust Dev').fill('Game developer');
+  await dialog.getByPlaceholder('e.g. Next.js developer, Rust developer').fill('Game developer');
   await dialog.getByRole('button', {name:'Add role',exact:true}).click();
   await dialog.getByRole('button', {name:'Save changes',exact:true}).click();
   await expect(dialog.getByText('Saved just now',{exact:true})).toBeVisible();
@@ -605,6 +605,25 @@ test('skills move with ← →; links refuse a duplicate, offer Fix on a broken 
   await expect(editor.getByRole('button',{name:'Remove GitHub',exact:true})).toBeVisible();
 });
 
+test('collaboration: a picked 17th category shows while folded; off dims the panels; Clear all can be undone',async({page})=>{
+  await page.evaluate(()=>{const f=(window as any).profileFixture;f.saved={...f.saved,openToCollaborate:true,preferredCategories:['Quality Assurance'],openToCustomRoles:['Rust developer']};sessionStorage.setItem('profile',JSON.stringify(f.saved));});
+  await page.goto(origin+'/my-profile/edit?section=opportunity');
+  const editor=page.getByRole('region',{name:'Edit profile',exact:true});
+  for(const label of ['Availability','Role types','Categories','Preferred roles']) await expect(editor.getByRole('heading',{name:label,exact:true})).toBeVisible();
+  await expect(editor.getByRole('button',{name:'Quality Assurance',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(editor.getByRole('button',{name:'People and HR',exact:true})).toHaveCount(0);
+  await editor.getByRole('button',{name:'Show all 17',exact:true}).click();
+  await expect(editor.getByRole('button',{name:'People and HR',exact:true})).toBeVisible();
+  await expect(editor.getByText('Suggestions',{exact:true})).toBeVisible();
+  await expect(editor.getByText('Open to collaborate',{exact:true}).first()).toBeVisible();
+  await editor.getByRole('switch',{name:'Open to collaboration',exact:true}).click();
+  await expect(editor.getByText('You’re not open to collaboration, so these don’t show. They’re kept for when you turn it back on.')).toBeVisible();
+  await editor.getByRole('button',{name:'Clear all preferences',exact:true}).click();
+  await expect(editor.getByRole('button',{name:'Remove desired role Rust developer'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Undo',exact:true}).click();
+  await expect(editor.getByRole('button',{name:'Remove desired role Rust developer'})).toBeVisible();
+});
+
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
   await page.evaluate(()=>history.back());const ask=page.getByRole('alertdialog',{name:'Discard unsaved changes?'});await expect(ask).toBeVisible();await ask.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(ask).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit/);await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
@@ -724,7 +743,7 @@ test.describe('profile editor touch reflow',()=>{
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.saved={...f.saved,username:'builder_with_a_long_username',skills:['React'],socialLinks:[{id:'github',platform:'github',url:'https://github.com/builder',order:0},{id:'linkedin',platform:'linkedin',url:'https://www.linkedin.com/in/builder',order:1}]};f.refresh();});
   await page.getByRole('button',{name:'Edit profile',exact:true}).click();
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});
-  const sections:Array<[tab:string,heading:string]>=[['Details','Identity'],['Contributions','Contributions'],['Skills','Skills'],['Links','Your public links'],['Collaboration','Collaboration preferences']];
+  const sections:Array<[tab:string,heading:string]>=[['Details','Identity'],['Contributions','Contributions'],['Skills','Skills'],['Links','Your public links'],['Collaboration','Availability']];
   for(const width of [320,768,1024]) {
     await page.setViewportSize({width,height:900});
     for(const [tab,section] of sections) {

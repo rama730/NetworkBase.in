@@ -26,6 +26,7 @@ import ChipSelector, { choiceChipClass } from "@/components/onboarding/ChipSelec
 import { INTEREST_OPTIONS } from "@/lib/profile/interests";
 import type { UsernameAvailabilityStatus } from "@/hooks/useUsernameAvailability";
 import { DetailsSection, EditPanel } from "./DetailsSection";
+import { cn } from "@/lib/utils";
 import { PROFILE_LIMITS } from "@/lib/validations/profile";
 import { PROFILE_FIELD_LIMITS } from "@/lib/validations/profile-fields";
 import {
@@ -186,8 +187,7 @@ export function EditProfileTabs({
                         />
                     </TabsContent>
 
-                    <TabsContent value="opportunity" className="space-y-6 mt-0">
-                        <h2 id="role-preferences-heading" className="nb-section-title text-foreground">Collaboration preferences</h2>
+                    <TabsContent value="opportunity" className="nb-pf-edit-sec mt-0">
                         <RolePreferencesEditor profile={profile} onChange={onChange} />
                     </TabsContent>
                 </div>
@@ -343,223 +343,133 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
         (suggestion) => !customRoles.some((r: string) => r.toLowerCase() === suggestion.toLowerCase())
     );
 
+    const [allCategories, setAllCategories] = useState(false);
+    const open = profile.openToCollaborate === true;
+    const dim = open ? undefined : "is-dim";
+    const picked = (category: string) => categories.some((c: string) => c.toLowerCase() === category.toLowerCase());
+    // First nine, plus anything you picked further down, so a choice never hides behind "Show all".
+    const shownCategories = DESIGNATED_CATEGORIES.filter((category, index) => allCategories || index < 9 || picked(category));
+    const clearAll = () => {
+        const before = { openTo: profile.openTo, openToCustomRoles: customRoles, preferredCategories: categories, experienceLevel: profile.experienceLevel ?? null, hoursPerWeek: profile.hoursPerWeek ?? null };
+        onChange({ ...profile, openTo: replaceRolePreferences(profile.openTo, []), openToCustomRoles: [], preferredCategories: [], experienceLevel: null, hoursPerWeek: null });
+        toast("Preferences cleared", { action: { label: "Undo", onClick: () => latest.current({ ...latestProfile.current, ...before }) } });
+    };
+    const latest = useRef(onChange);
+    latest.current = onChange;
+    const latestProfile = useRef(profile);
+    latestProfile.current = profile;
+    const selectClass = "nb-body h-[var(--ui-control-height)] w-full rounded-md border border-input bg-card px-[var(--ui-control-px)] text-foreground outline-none focus-visible:bg-muted/20";
+
     return (
-        <section aria-labelledby="role-preferences-heading" className="space-y-6">
-            <div>
-                <p className="nb-compact max-w-[64ch] text-muted-foreground">
-                    Choose the role types, roles, categories, and weekly hours that suit you.
-                </p>
-            </div>
-
-            <div className="rounded-lg border border-border p-4 space-y-2">
-                <div className="flex items-center justify-between gap-4">
-                    <label className="flex items-center gap-2 nb-ui-label cursor-pointer" htmlFor="open-to-collaborate-switch">
-                        <span>Open to collaboration</span>
-                        {profile.openToCollaborate ? (
-                            <span className="nb-micro inline-flex items-center gap-1 rounded-[4px] border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600 dark:text-emerald-400">
-                                <span className="h-1.5 w-1.5 rounded-[2px] bg-emerald-500" aria-hidden="true" />
-                                Available
-                            </span>
-                        ) : (
-                            <span className="nb-micro inline-flex items-center gap-1 rounded-[4px] border border-border bg-muted/60 px-2 py-0.5 text-muted-foreground">
-                                Hidden
-                            </span>
-                        )}
-                    </label>
-                    <SettingsSwitch
-                        id="open-to-collaborate-switch"
-                        aria-label="Open to collaboration"
-                        aria-describedby="collaboration-availability-help"
-                        checked={profile.openToCollaborate === true}
-                        onCheckedChange={(checked) => onChange({ ...profile, openToCollaborate: checked })}
-                    />
-                </div>
-                <p id="collaboration-availability-help" className="nb-compact max-w-[64ch] text-muted-foreground">
-                    Save changes to publish your availability. Turning it off keeps your role preferences.
-                </p>
-            </div>
-
-            <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <p id="role-types-label" className="nb-ui-label text-foreground">Role types</p>
-                    {selectedRoles.size > 0 && (
-                        <span className="nb-micro text-muted-foreground">{selectedRoles.size} selected</span>
-                    )}
-                </div>
-                <ChipSelector
-                    options={[...ROLE_PREFERENCE_OPTIONS]}
-                    selected={selectedRoles as Set<string>}
-                    onToggle={toggleRole}
-                    labelledBy="role-types-label"
-                    maxVisible={ROLE_PREFERENCE_OPTIONS.length}
-                    showCount={false}
-                />
-            </div>
-
-            <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <p id="categories-label" className="nb-ui-label text-foreground">Categories</p>
-                    {categories.length > 0 && (
-                        <span className="nb-micro text-muted-foreground">{categories.length}/{PROFILE_LIMITS.listMaxItems} selected</span>
-                    )}
-                </div>
-                <ChipSelector
-                    options={DESIGNATED_CATEGORIES.map((category) => ({ value: category, label: category }))}
-                    selected={new Set<string>(DESIGNATED_CATEGORIES.filter((category) => categories.some((c: string) => c.toLowerCase() === category.toLowerCase())))}
-                    onToggle={toggleCategory}
-                    labelledBy="categories-label"
-                    maxVisible={DESIGNATED_CATEGORIES.length}
-                    showCount={false}
-                />
-
-                <div className="pt-1">
-                    <div className="flex gap-2">
-                        <Input
-                            id="profile-custom-category"
-                            value={customCategoryInput}
-                            onChange={(e) => setCustomCategoryInput(e.target.value)}
-                            aria-label="Other"
-                            placeholder="e.g. Developer Relations, BioTech, Robotics, FinOps"
-                            maxLength={PROFILE_LIMITS.listItemMax}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    handleAddCustomCategory();
-                                }
-                            }}
-                            className="flex-1"
+        <>
+            <EditPanel title="Availability">
+                <div className="nb-pf-eopen">
+                    <label className="flex items-center gap-2.5 nb-ui-label cursor-pointer" htmlFor="open-to-collaborate-switch">
+                        <SettingsSwitch
+                            id="open-to-collaborate-switch"
+                            aria-label="Open to collaboration"
+                            aria-describedby="collaboration-availability-help"
+                            checked={open}
+                            onCheckedChange={(checked) => onChange({ ...profile, openToCollaborate: checked })}
                         />
-                        <Button type="button" variant="outline" onClick={handleAddCustomCategory}>Add category</Button>
-                    </div>
+                        <b className="font-semibold">Open to collaboration</b>
+                    </label>
+                    <span id="collaboration-availability-help" className="nb-pf-tagpv">
+                        {open ? <><span className="nb-pf-tag">Open to collaborate</span><span>shows on your header</span></> : <span>Hidden from your header. Your preferences are kept.</span>}
+                    </span>
+                </div>
+                <div className="nb-pf-egrid mt-3.5">
+                    <label className="nb-ui-label grid gap-1.5 text-foreground">
+                        <span id="profile-experience-label">Experience level</span>
+                        <select aria-labelledby="profile-experience-label" value={profile.experienceLevel ?? ''} onChange={(event) => onChange({ ...profile, experienceLevel: event.target.value || null })} className={selectClass}>
+                            <option value="">Not specified</option>
+                            {EXPERIENCE_LEVEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                    </label>
+                    <label className="nb-ui-label grid gap-1.5 text-foreground">
+                        <span id="profile-hours-label">Weekly availability</span>
+                        <select aria-labelledby="profile-hours-label" value={profile.hoursPerWeek ?? ''} onChange={(event) => onChange({ ...profile, hoursPerWeek: event.target.value || null })} className={selectClass}>
+                            <option value="">Not specified</option>
+                            {WEEKLY_CAPACITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                    </label>
+                </div>
+            </EditPanel>
+
+            {open ? null : <p className="nb-pf-dimnote"><span className="nb-pf-pv">Hidden</span>You’re not open to collaboration, so these don’t show. They’re kept for when you turn it back on.</p>}
+
+            <div className={dim}>
+                <EditPanel title="Role types" extra={<span className="nb-pf-pct">{selectedRoles.size} picked</span>}>
+                    <span id="role-types-label" className="sr-only">Role types</span>
+                    <ChipSelector options={[...ROLE_PREFERENCE_OPTIONS]} selected={selectedRoles as Set<string>} onToggle={toggleRole} labelledBy="role-types-label" maxVisible={ROLE_PREFERENCE_OPTIONS.length} showCount={false} />
+                </EditPanel>
+            </div>
+
+            <div className={dim}>
+                <EditPanel title="Categories" extra={<span className="nb-pf-pct">{categories.length} / {PROFILE_LIMITS.listMaxItems}</span>}>
+                    <span id="categories-label" className="sr-only">Categories</span>
+                    <ChipSelector
+                        options={shownCategories.map((category) => ({ value: category, label: category }))}
+                        selected={new Set<string>(DESIGNATED_CATEGORIES.filter(picked))}
+                        onToggle={toggleCategory}
+                        labelledBy="categories-label"
+                        maxVisible={DESIGNATED_CATEGORIES.length}
+                        showCount={false}
+                    />
+                    <button type="button" className="nb-pf-link mt-2" onClick={() => setAllCategories((v) => !v)}>{allCategories ? "Show fewer" : `Show all ${DESIGNATED_CATEGORIES.length}`}</button>
                     {customCategories.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-2" aria-label="Custom categories">
+                        <div className="flex flex-wrap gap-2 pt-2.5" aria-label="Your own categories">
                             {customCategories.map((cat: string) => (
-                                <span
-                                    key={cat}
-                                    className="nb-tag inline-flex min-w-0 max-w-full items-center gap-2 rounded-[3px] border border-border bg-muted px-2 py-1 font-medium text-foreground"
-                                >
+                                <span key={cat} className="nb-tag inline-flex min-w-0 max-w-full items-center gap-2 rounded-[3px] border border-border bg-muted px-2 py-1 font-medium text-foreground">
                                     <span className="min-w-0 break-words">{cat}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveCategory(cat)}
-                                        aria-label={`Remove category ${cat}`}
-                                        className="nb-icon-button nb-touch-target shrink-0 text-muted-foreground hover:text-foreground"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
+                                    <button type="button" onClick={() => handleRemoveCategory(cat)} aria-label={`Remove category ${cat}`} className="nb-icon-button nb-touch-target shrink-0 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
                                 </span>
                             ))}
                         </div>
                     )}
-                </div>
+                    <div className="mt-3 flex gap-2">
+                        <Input id="profile-custom-category" value={customCategoryInput} onChange={(e) => setCustomCategoryInput(e.target.value)} aria-label="Add a category"
+                            placeholder="Something else? e.g. Robotics, FinOps" maxLength={PROFILE_LIMITS.listItemMax}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCustomCategory(); } }} className="flex-1" />
+                        <Button type="button" variant="outline" onClick={handleAddCustomCategory}>Add</Button>
+                    </div>
+                </EditPanel>
             </div>
 
-            <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <label htmlFor="profile-desired-role" className="nb-ui-label text-foreground">Preferred roles</label>
+            <div className={dim}>
+                <EditPanel title="Preferred roles" extra={<span className="nb-pf-pct">{customRoles.length} / {PROFILE_LIMITS.listMaxItems}</span>}>
+                    <div className="flex gap-2">
+                        <Input id="profile-desired-role" value={customRoleInput} onChange={(e) => setCustomRoleInput(e.target.value)} aria-label="Add a preferred role"
+                            placeholder="e.g. Next.js developer, Rust developer" maxLength={PROFILE_LIMITS.listItemMax}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCustomRole(); } }} className="flex-1" />
+                        <Button type="button" variant="outline" onClick={() => handleAddCustomRole()}>Add role</Button>
+                    </div>
                     {customRoles.length > 0 && (
-                        <span className="nb-micro text-muted-foreground">{customRoles.length}/{PROFILE_LIMITS.listMaxItems} roles</span>
+                        <div className="flex flex-wrap gap-2 pt-2.5" aria-label="Your preferred roles">
+                            {customRoles.map((role: string) => (
+                                <span key={role} className="nb-tag inline-flex min-w-0 max-w-full items-center gap-2 rounded-[3px] border border-border bg-muted px-2 py-1 font-medium text-foreground">
+                                    <span className="min-w-0 break-words">{role}</span>
+                                    <button type="button" onClick={() => handleRemoveCustomRole(role)} aria-label={`Remove desired role ${role}`} className="nb-icon-button nb-touch-target shrink-0 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+                                </span>
+                            ))}
+                        </div>
                     )}
-                </div>
-                <div className="flex gap-2">
-                    <Input
-                        id="profile-desired-role"
-                        value={customRoleInput}
-                        onChange={(e) => setCustomRoleInput(e.target.value)}
-                        aria-label="Desired role title"
-                        placeholder="e.g. Next.js Developer, Rust Dev"
-                        maxLength={PROFILE_LIMITS.listItemMax}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleAddCustomRole();
-                            }
-                        }}
-                        className="flex-1"
-                    />
-                    <Button type="button" variant="outline" onClick={() => handleAddCustomRole()}>Add role</Button>
-                </div>
-                {availableRoleSuggestions.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        <span className="nb-micro text-muted-foreground">Quick suggestions:</span>
-                        {availableRoleSuggestions.map((suggestion) => (
-                            <button
-                                key={suggestion}
-                                type="button"
-                                onClick={() => handleAddCustomRole(suggestion)}
-                                className={choiceChipClass(false)}
-                            >
-                                + {suggestion}
-                            </button>
-                        ))}
-                    </div>
-                )}
-                {customRoles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1" aria-label="Preferred roles">
-                        {customRoles.map((role: string) => (
-                            <span
-                                key={role}
-                                className="nb-tag inline-flex min-w-0 max-w-full items-center gap-2 rounded-[3px] border border-border bg-muted px-2 py-1 font-medium text-foreground"
-                            >
-                                <span className="min-w-0 break-words">{role}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveCustomRole(role)}
-                                    aria-label={`Remove desired role ${role}`}
-                                    className="nb-icon-button nb-touch-target shrink-0 text-muted-foreground hover:text-foreground"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </span>
-                        ))}
-                    </div>
-                )}
+                    {availableRoleSuggestions.length > 0 && (
+                        <>
+                            <p className="nb-pf-sublabel">Suggestions</p>
+                            <div className="flex flex-wrap gap-1.5">
+                                {availableRoleSuggestions.map((suggestion) => (
+                                    <button key={suggestion} type="button" onClick={() => handleAddCustomRole(suggestion)} className={cn(choiceChipClass(false), "border-dashed")}>
+                                        <Plus className="mr-1 size-3" aria-hidden="true" />{suggestion}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                    {hasPreferences ? <button type="button" onClick={clearAll} className="nb-pf-clear">Clear all preferences</button> : null}
+                </EditPanel>
             </div>
-
-            <div className="grid gap-4 @min-[640px]:grid-cols-2">
-                <label className="nb-ui-label block space-y-2 text-foreground">
-                    <span id="profile-experience-label">Experience level</span>
-                    <select
-                        aria-labelledby="profile-experience-label"
-                        value={profile.experienceLevel ?? ''}
-                        onChange={(event) => onChange({ ...profile, experienceLevel: event.target.value || null })}
-                        className="nb-body h-[var(--ui-control-height)] w-full rounded-md border border-input bg-card px-[var(--ui-control-px)] text-foreground outline-none focus-visible:bg-muted/20"
-                    >
-                        <option value="">Not specified</option>
-                        {EXPERIENCE_LEVEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                </label>
-                <label className="nb-ui-label block space-y-2 text-foreground">
-                    <span id="profile-hours-label">Weekly availability</span>
-                    <select
-                        aria-labelledby="profile-hours-label"
-                        value={profile.hoursPerWeek ?? ''}
-                        onChange={(event) => onChange({ ...profile, hoursPerWeek: event.target.value || null })}
-                        className="nb-body h-[var(--ui-control-height)] w-full rounded-md border border-input bg-card px-[var(--ui-control-px)] text-foreground outline-none focus-visible:bg-muted/20"
-                    >
-                        <option value="">Not specified</option>
-                        {WEEKLY_CAPACITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                </label>
-            </div>
-
-            {hasPreferences ? (
-                <button
-                    type="button"
-                    onClick={() => onChange({
-                        ...profile,
-                        openTo: replaceRolePreferences(profile.openTo, []),
-                        openToCustomRoles: [],
-                        preferredCategories: [],
-                        experienceLevel: null,
-                        hoursPerWeek: null,
-                    })}
-                    className="nb-ui-label nb-touch-target text-muted-foreground hover:text-destructive focus-visible:brightness-95"
-                >
-                    Clear role preferences
-                </button>
-            ) : null}
-        </section>
+        </>
     )
 }
 
