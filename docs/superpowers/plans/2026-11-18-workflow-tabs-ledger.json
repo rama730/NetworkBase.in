@@ -178,9 +178,9 @@
       "text": "A2.1 Bugs: tab, report, triage (38.6) — Goal: sort bug reports before work. Build: catalog entry; Bugs tab (Triage · Board · Mine · Fixed), severity strip; Bug ",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/bugs-tab.spec.ts",
+      "evidence": "LIVE 2026-11-23 5e1246568; security fix 16e84c9eb (viewer gate needs an explicit New; Fixed notices only current members); live fixes 7d17faeea (?tab=bugs landed on Overview) and 5139a8ace (Similar needed every word). No migration; Bugs stays unbuilt until A2.3 (switched on per test workspace). Chrome on wt-test-a2-1 (deleted): link opens Bugs, Report a bug with Bug details (Web · Chrome 131, Major), tab count 1, Triage Confirm Urgent + assign, Stage → Fixing asked the sprint (Backlog) and the bug showed on the Tasks board as Bug · Fixing, Fixed asked Fixed in v2.4, Fixed and Mine views, panel Bug details with priority from severity, Overview \"0 urgent · 0 to triage · 1 fixed this week\", Similar open bugs \"Yours\"."
     },
     {
       "key": "A2.2",
@@ -6078,9 +6078,9 @@
       "text": "First look after adding Bugs",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/bugs-tab.spec.ts",
+      "evidence": "2026-11-23 Chrome: five empty columns, strip, hint, Report a bug."
     },
     {
       "key": "38.6.W2",
@@ -6088,9 +6088,9 @@
       "text": "Reporting a bug",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts",
+      "evidence": "2026-11-23 Chrome: report with Bug details; New; owners told (db test)."
     },
     {
       "key": "38.6.W3",
@@ -6098,9 +6098,9 @@
       "text": "\"That's my bug\"",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/bugs-tab.spec.ts",
+      "evidence": "Similar shows live; That's my bug needs a second account (spec + db test)."
     },
     {
       "key": "38.6.W4",
@@ -6108,9 +6108,9 @@
       "text": "Triage",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts",
+      "evidence": "2026-11-23 Chrome: Triage Confirm with severity and Assigned to."
     },
     {
       "key": "38.6.W5",
@@ -6138,9 +6138,9 @@
       "text": "Fixing (joins the board)",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/bugs-tab.spec.ts",
+      "evidence": "2026-11-23 Chrome: Fixing asks the sprint, bug on the Tasks board as Bug · Fixing. PR chip on cards waits for A2.3."
     },
     {
       "key": "38.6.W8",
@@ -6148,9 +6148,9 @@
       "text": "Fixed and Verified",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts",
+      "evidence": "2026-11-23 Chrome: Fixed asks Fixed in; card shows ➜ v2.4; Fixed notice to reporter and see-too people (db test)."
     },
     {
       "key": "38.6.W9",
@@ -6178,9 +6178,9 @@
       "text": "A bug made from Tasks",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/create-module.spec.ts",
+      "evidence": "New ▾ → Bug from Tasks starts at Fixing (A0.8 rule, spec)."
     },
     {
       "key": "38.6.W12",
@@ -6188,9 +6188,9 @@
       "text": "Mine and Fixed",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/bugs-tab.spec.ts",
+      "evidence": "2026-11-23 Chrome: Mine by severity, Fixed by version."
     },
     {
       "key": "38.6.W13",
@@ -6198,9 +6198,9 @@
       "text": "Phone",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/browser/bugs-tab.spec.ts",
+      "evidence": "Phone opens on Triage; viewers without Confirm (spec, axe)."
     },
     {
       "key": "38.6.W14",
@@ -8208,9 +8208,9 @@
       "text": "A2.1 (2026-11-23): Bugs ships in three units; the catalog marks it built only at A2.3, so until then it is switched on for test workspaces only. A bug opens in ",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts",
+      "evidence": "2026-11-23: unbuilt until A2.3, panel via Tasks, drops run the Stage menu, viewers report at New, what waits for A2.2/A2.3."
     }
   ]
 }
