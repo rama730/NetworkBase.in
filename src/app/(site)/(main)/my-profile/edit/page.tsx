@@ -29,6 +29,6 @@ export default async function EditProfilePage({ searchParams }: {
     if (!data.isOwner || data.profile.id !== user.id) notFound();
 
     return <EditProfileEditor key={data.profile.id} profile={data.profile}
-        contributions={data.collaborationSummary?.contributions ?? []} initialSection={section}
+        contributions={data.collaborationSummary?.contributions ?? []} collaborationSummary={data.collaborationSummary ?? undefined} initialSection={section}
         usernameNextChangeAt={await getUsernameNextChangeAt(user.id)} />;
 }

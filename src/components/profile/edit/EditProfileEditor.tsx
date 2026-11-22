@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check } from "lucide-react";
+import { AlertTriangle, Check, Eye, Pencil } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 
 import { saveProfileContributionsAction } from "@/app/actions/profile-contributions";
@@ -29,7 +29,7 @@ import {
     type ContributionEditorEntry,
     validateContributionEditorEntry,
 } from "@/lib/profile/contribution-editor";
-import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
+import type { ProfileCollaborationContribution, ProfileCollaborationSummary } from "@/lib/profile/collaboration";
 import {
     loadProfileContributionsPage,
     loadProfileContributionWindow,
@@ -42,6 +42,8 @@ import { useBack } from "@/hooks/useBack";
 interface EditProfileEditorProps {
     profile: any;
     contributions?: ProfileCollaborationContribution[];
+    /** The profile's own summary, for Preview full profile. */
+    collaborationSummary?: ProfileCollaborationSummary;
     onOptimisticUpdate?: (updates: any) => void;
     initialSection?: EditProfileSection;
     onSaved?: (updatedAt: string, contributionsChanged: boolean) => Promise<void> | void;
@@ -121,6 +123,9 @@ const FIELD_ELEMENT: Record<string, string> = {
 };
 const FIELD_SECTION: Record<string, EditProfileSection> = { links: "social", open: "opportunity", photo: "general", name: "general", skills: "skills" };
 
+// The whole profile, drawn from the draft; loaded only when you ask for it.
+const ProfileV2Client = lazy(() => import("@/components/profile/v2/ProfileV2Client").then((m) => ({ default: m.ProfileV2Client })));
+const SELF = { canViewProfile: true, canSendMessage: false, canSendConnectionRequest: false, blockedByViewer: false, blockedByTarget: false, visibilityReason: "self", connectionState: "none" } as const;
 const draftKey = (profileId: string) => `nb:profile-edit:${profileId}`;
 const agoText = (at: number) => { const m = Math.round((Date.now() - at) / 60_000); return m < 1 ? "just now" : m < 60 ? `${m} minute${m === 1 ? "" : "s"} ago` : `${Math.round(m / 60)} hour${Math.round(m / 60) === 1 ? "" : "s"} ago`; };
 const norm = (value: unknown) => typeof value === "string" ? value.trim() : value ?? null;
@@ -139,6 +144,7 @@ function summarize(key: string, before: any, after: any): string {
 export function EditProfileEditor({
     profile,
     contributions = [],
+    collaborationSummary,
     onOptimisticUpdate,
     initialSection = "general",
     onSaved,
@@ -166,6 +172,7 @@ export function EditProfileEditor({
     const [savedLabel, setSavedLabel] = useState("Everything is saved");
     const [showWebsiteError, setShowWebsiteError] = useState(false);
     const [askUsername, setAskUsername] = useState(false);
+    const [previewing, setPreviewing] = useState(false);
     const inFlightRef = useRef(false);
     const [initialData] = useState(() => ({ profile, contributions, section: sectionFromUrl }));
     const draftTouchedRef = useRef(false);
@@ -650,7 +657,30 @@ export function EditProfileEditor({
                     confirmLabel="Change it and save" cancelLabel={`Keep @${baseProfileRef.current?.username ?? ""}`}
                     onConfirm={() => saveInPlace(true)} onCancel={keepUsername} />
                 <ConfirmDialog {...leaveDialog} title="Discard unsaved changes?" description="Your profile changes haven’t been saved." confirmLabel="Discard and leave" cancelLabel="Keep editing" variant="destructive" />
-                <form className="flex min-h-0 flex-1 flex-col overflow-clip" onSubmit={(event) => { event.preventDefault(); saveInPlace(); }} aria-label="Edit profile form">
+                {previewing ? (
+                    <div data-scroll-root="route" className="min-h-0 flex-1 overflow-y-auto app-scroll app-scroll-y bg-background">
+                        {/* Look only: nothing in here saves or navigates; the strip is the way back. */}
+                        <div role="region" aria-label="Preview of your full profile" inert>
+                            <Suspense fallback={<p role="status" className="nb-compact p-6">Loading preview…</p>}>
+                                <ProfileV2Client
+                                    profile={{ ...profile, ...formState }}
+                                    stats={{ connectionsCount: profile.connectionsCount ?? 0, projectsCount: profile.projectsCount ?? 0, followersCount: 0, mutualCount: 0 } as any}
+                                    isOwner
+                                    currentUser={{ id: profile.id } as any}
+                                    connectionStatus="none"
+                                    privacyRelationship={SELF}
+                                    collaborationSummary={collaborationSummary ? { ...collaborationSummary, contributions: collaborationSummary.contributions ?? contributions } : undefined}
+                                />
+                            </Suspense>
+                        </div>
+                        <div className="nb-pf-strip" role="status">
+                            <span className="nb-pf-pv">Previewing unsaved changes</span>
+                            <span className="k">{changes.length} not saved yet</span>
+                            <Button type="button" size="sm" onClick={() => setPreviewing(false)}><Pencil className="size-3.5" aria-hidden="true" />Back to editing</Button>
+                        </div>
+                    </div>
+                ) : null}
+                <form hidden={previewing} className="flex min-h-0 flex-1 flex-col overflow-clip" onSubmit={(event) => { event.preventDefault(); saveInPlace(); }} aria-label="Edit profile form">
                     <fieldset disabled={saveState === "saving"} className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-clip">
                         <EditProfileTabs
                             profile={formState || profile}
@@ -697,14 +727,17 @@ export function EditProfileEditor({
                                     isOwner
                                     isAuthenticated
                                     connectionState="none"
-                                    privacyRelationship={{ canViewProfile: true, canSendMessage: false, canSendConnectionRequest: false, blockedByViewer: false, blockedByTarget: false, visibilityReason: "self", connectionState: "none" }}
+                                    privacyRelationship={SELF}
                                     onEdit={() => undefined}
                                     onConnectPrimary={() => undefined}
                                     onMessage={() => undefined}
                                     preview={{
                                         onJump: (field) => jumpTo(field),
                                         badge: formState?.avatarUrl && formState.avatarUrl !== baseProfileRef.current?.avatarUrl ? <span className="nb-pf-new">New · not saved</span> : null,
-                                        actions: <span className="nb-pf-pv">Preview</span>,
+                                        actions: <>
+                                            <span className="nb-pf-pv">Preview</span>
+                                            <Button type="button" size="sm" variant="outline" onClick={() => setPreviewing(true)}><Eye className="size-3.5" aria-hidden="true" />Preview full profile</Button>
+                                        </>,
                                         hint: <div className="nb-pf-hint"><span>Click anything above to edit it</span><span>Updates as you type</span></div>,
                                     }}
                                 />

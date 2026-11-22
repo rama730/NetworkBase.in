@@ -2467,3 +2467,8 @@ a.nb-pf-link-row:hover { background: var(--secondary); }
 .nb-pf-clash { display: grid; gap: 6px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: var(--radius-md); font-size: 13px; }
 .nb-pf-clash p { margin: 0; overflow-wrap: anywhere; }
 .nb-pf-clash p span { display: inline-block; min-width: 72px; font: 500 10.5px var(--font-mono, ui-monospace), monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground); }
+/* edit profile: preview strip */
+.nb-pf-strip { position: fixed; z-index: 60; left: 50%; bottom: max(16px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px); padding: 8px 8px 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); box-shadow: 0 14px 34px -14px rgb(20 26 30 / 45%); }
+.nb-pf-strip .nb-pf-pv { color: var(--foreground); }
+.nb-pf-strip .k { font: 11.5px var(--font-mono, ui-monospace), monospace; color: var(--muted-foreground); white-space: nowrap; }
+@media (max-width: 480px) { .nb-pf-strip .k { display: none; } }

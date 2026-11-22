@@ -648,6 +648,25 @@ test('saving edge cases: unsaved changes come back after a reload, and a field c
   expect(await page.evaluate((id)=>localStorage.getItem(`nb:profile-edit:${id}`),id)).toBeNull();
 });
 
+test('Preview full profile shows the whole profile from the draft, and Back to editing keeps every change',async({page})=>{
+  await page.getByRole('button',{name:'Edit profile',exact:true}).click();
+  const editor=page.getByRole('region',{name:'Edit profile',exact:true});
+  const card=editor.getByRole('complementary',{name:'Your changes'});
+  await editor.locator('#profile-headline').fill('Draft headline only');
+  await editor.locator('#profile-bio').fill('A draft about me.');
+  await editor.getByRole('button',{name:'Preview full profile',exact:true}).click();
+  const strip=page.getByRole('status').filter({hasText:'Previewing unsaved changes'});
+  await expect(strip).toContainText('2 not saved yet');
+  const preview=page.getByRole('region',{name:'Preview of your full profile'});
+  await expect(preview.getByText('Draft headline only')).toBeVisible();
+  await expect(preview.getByText('A draft about me.')).toBeVisible();
+  await expect(preview.getByRole('tablist')).toBeVisible();
+  expect(await page.evaluate(()=>(window as any).profileFixture.calls.length)).toBe(0);
+  await strip.getByRole('button',{name:'Back to editing',exact:true}).click();
+  await expect(card.getByText('2 unsaved changes',{exact:true})).toBeVisible();
+  await expect(editor.locator('#profile-headline')).toHaveValue('Draft headline only');
+});
+
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
   await page.evaluate(()=>history.back());const ask=page.getByRole('alertdialog',{name:'Discard unsaved changes?'});await expect(ask).toBeVisible();await ask.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(ask).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit/);await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
