@@ -68,6 +68,8 @@ interface EditProfileTabsProps {
     dirtySections?: ReadonlySet<EditProfileSection>;
     /** Once the tab bar floats past the name, it carries Save. */
     tabAction?: ReactNode;
+    /** Above the section: an unsaved draft from earlier, to restore or discard. */
+    notice?: ReactNode;
     originalUsername: string;
     baseAvatarUrl: string;
     usernameCheck: { status: UsernameAvailabilityStatus; message: string };
@@ -102,6 +104,7 @@ export function EditProfileTabs({
     phoneBar,
     dirtySections,
     tabAction,
+    notice,
     originalUsername,
     baseAvatarUrl,
     usernameCheck,
@@ -151,6 +154,7 @@ export function EditProfileTabs({
                 />
                 <div className="nb-pf-body">
                 <div className="nb-pf-col min-w-0">
+                {notice}
                 <div className="@container w-full">
                     <TabsContent value="general" className="mt-0">
                         <DetailsSection profile={profile} baseAvatarUrl={baseAvatarUrl} originalUsername={originalUsername} username={usernameCheck}

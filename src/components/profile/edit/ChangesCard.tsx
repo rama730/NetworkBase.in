@@ -77,7 +77,7 @@ export function ChangesCard({
                 ) : null}
                 <div className="nb-pf-cta">
                     <Button type="button" onClick={onSave} disabled={saving || !n || Boolean(blockReason)}>
-                        {saving ? <Loader2 className="size-4 animate-spin" /> : null}{error ? 'Try again' : 'Save changes'}<kbd className="nb-pf-kbd" aria-hidden="true">⌘S</kbd>
+                        {saving ? <Loader2 className="size-4 animate-spin" /> : null}{error && !blockReason ? 'Try again' : 'Save changes'}<kbd className="nb-pf-kbd" aria-hidden="true">⌘S</kbd>
                     </Button>
                     {blockReason && n ? <p className="nb-pf-help is-bad">{blockReason}</p> : null}
                     <div className="nb-pf-row2">

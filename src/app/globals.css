@@ -2459,3 +2459,11 @@ a.nb-pf-link-row:hover { background: var(--secondary); }
 @keyframes nb-pf-slide { from { transform: translateX(24px); opacity: 0; } }
 .nb-pf-cd-b { flex: 1; min-height: 0; padding: 18px max(18px, env(safe-area-inset-right, 0px)) 24px 18px; overflow-y: auto; }
 .nb-pf-cd [data-contribution-actions] { padding-left: 18px; padding-right: 18px; }
+/* edit profile: draft recovery and conflicts */
+.nb-pf-recover { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); font-size: 13px; }
+.nb-pf-recover > span:nth-child(2) { flex: 1 1 240px; min-width: 0; }
+.nb-pf-recover .nb-pf-pv { color: var(--foreground); }
+.nb-pf-clashes { display: grid; gap: 10px; }
+.nb-pf-clash { display: grid; gap: 6px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: var(--radius-md); font-size: 13px; }
+.nb-pf-clash p { margin: 0; overflow-wrap: anywhere; }
+.nb-pf-clash p span { display: inline-block; min-width: 72px; font: 500 10.5px var(--font-mono, ui-monospace), monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground); }

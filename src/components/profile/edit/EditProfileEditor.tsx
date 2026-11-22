@@ -12,7 +12,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { completionField, completionItemSection, parseProfileEditSection, profileEditHref, profileEditReturnHref } from "@/lib/profile/edit-route";
 import { calculateProfileCompletion } from "@/lib/validations/profile";
-import { changeSummary, normalizeWebsite, websiteError } from "@/lib/profile/mix";
+import { changeSummary, mergeConflict, normalizeWebsite, websiteError } from "@/lib/profile/mix";
 import { useUsernameAvailability } from "@/hooks/useUsernameAvailability";
 import { shareOrigin } from "@/lib/sharing/presentation";
 
@@ -121,6 +121,8 @@ const FIELD_ELEMENT: Record<string, string> = {
 };
 const FIELD_SECTION: Record<string, EditProfileSection> = { links: "social", open: "opportunity", photo: "general", name: "general", skills: "skills" };
 
+const draftKey = (profileId: string) => `nb:profile-edit:${profileId}`;
+const agoText = (at: number) => { const m = Math.round((Date.now() - at) / 60_000); return m < 1 ? "just now" : m < 60 ? `${m} minute${m === 1 ? "" : "s"} ago` : `${Math.round(m / 60)} hour${Math.round(m / 60) === 1 ? "" : "s"} ago`; };
 const norm = (value: unknown) => typeof value === "string" ? value.trim() : value ?? null;
 const sameValue = (a: unknown, b: unknown) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 const linkNames = (value: unknown) => socialLinkItemsFromStorage(value ?? {}).map((link) => link.label || link.platform || link.url);
@@ -151,7 +153,10 @@ export function EditProfileEditor({
     const [formState, setFormState] = useState<any>(null);
     const [saveState, setSaveState] = useState<SaveState>("idle");
     const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
-    const [conflictProfile, setConflictProfile] = useState<{ profile: any; updatedAt: string } | null>(null);
+    // Fields changed both here and in another tab, with the other tab's value; you pick per field.
+    const [clashes, setClashes] = useState<Record<string, unknown>>({});
+    // A draft left unsaved earlier (this browser only), offered once on open.
+    const [recover, setRecover] = useState<{ at: number; d: Record<string, unknown> } | null>(null);
     const [contributionErrors, setContributionErrors] = useState<Record<string, string>>({});
     const [contributionHasMore, setContributionHasMore] = useState(false);
     const [contributionTotal, setContributionTotal] = useState(contributions.length);
@@ -189,6 +194,16 @@ export function EditProfileEditor({
         if (edits) rows.push({ key: "experience", label: "Contributions", section: "experience", field: "experience", summary: `${edits} edited` });
         return rows;
     }, [formState]);
+    // Keep unsaved fields in this browser so a reload or a crash doesn't lose them; saved or reset, it goes.
+    useEffect(() => {
+        if (!formState || recover || !profile?.id) return;
+        const base = baseProfileRef.current as any;
+        const d = Object.fromEntries(PROFILE_FIELDS.filter(([key]) => !sameValue(formState[key], base[key])).map(([key]) => [key, formState[key]]));
+        try {
+            if (Object.keys(d).length) window.localStorage.setItem(draftKey(profile.id), JSON.stringify({ at: Date.now(), d }));
+            else window.localStorage.removeItem(draftKey(profile.id));
+        } catch { /* private mode or full storage: the draft just isn't kept */ }
+    }, [formState, recover, profile?.id]);
     const dirtySections = useMemo(() => new Set(changes.map((change) => change.section)), [changes]);
     const completion = useMemo(() => formState ? calculateProfileCompletion({
         avatarUrl: formState.avatarUrl, fullName: formState.fullName?.trim(), username: formState.username, headline: formState.headline?.trim(),
@@ -197,6 +212,7 @@ export function EditProfileEditor({
     const usernameCheck = useUsernameAvailability({ value: formState?.username ?? "", currentUsername: originalUsernameRef.current, debounceMs: 500 });
     // Hard stops turn Save off; a bad website leaves Save on and takes you to the field.
     const hardBlock = !formState ? null
+        : Object.keys(clashes).length ? "Pick a version for each field changed in another tab."
         : !String(formState.fullName ?? "").trim() ? "Add your name before saving."
             : !String(formState.username ?? "").trim() || usernameCheck.status === "invalid" ? "Pick another username before saving."
                 : usernameCheck.status === "checking" ? "Checking your username…"
@@ -217,7 +233,7 @@ export function EditProfileEditor({
         lastKnownUpdatedAtRef.current = toIsoTimestamp(profile.updatedAt);
         setFormState(initial);
         setSaveState("idle");
-        setConflictProfile(null);
+        setClashes({});
         setSaveErrorMessage(null);
         setContributionErrors({});
         setContributionHasMore(false);
@@ -225,6 +241,11 @@ export function EditProfileEditor({
         setContributionsLoadingMore(true);
         setShowDiscardConfirm(false);
         setActiveSection(section);
+        try {
+            const stored = JSON.parse(window.localStorage.getItem(draftKey(profile.id)) ?? "null");
+            const d = stored && typeof stored.d === "object" ? Object.fromEntries(Object.entries(stored.d as Record<string, unknown>).filter(([key, value]) => PROFILE_FIELDS.some(([k]) => k === key) && !sameValue(value, (initial as any)[key]))) : {};
+            setRecover(Object.keys(d).length ? { at: Number(stored.at) || Date.now(), d } : null);
+        } catch { setRecover(null); }
 
         void loadProfileContributionsPage(profile.id, { limit: 50, offset: 0, stageLimit: 20 })
             .then((page) => {
@@ -369,12 +390,18 @@ export function EditProfileEditor({
                         throw new Error('Your latest saved links were merged with this draft. Review them and save again.');
                     }
                     if (code === "PROFILE_CONFLICT" && response.currentProfile && response.updatedAt) {
-                        setConflictProfile({ profile: response.currentProfile, updatedAt: response.updatedAt });
+                        // What only the other tab changed comes in; what you both changed differently is yours to pick.
+                        const theirs = toFormState(response.currentProfile) as any;
+                        const keys = PROFILE_FIELDS.map(([key]) => key);
+                        const result = mergeConflict(base, draft, theirs, keys);
+                        baseProfileRef.current = { ...base, ...Object.fromEntries(keys.map((key) => [key, theirs[key]])) };
+                        originalUsernameRef.current = theirs.username || "";
+                        lastKnownUpdatedAtRef.current = response.updatedAt;
+                        setFormState({ ...draft, ...result.merged });
+                        setClashes(result.clashes);
+                        throw new Error(Object.keys(result.clashes).length ? "Changed in another tab. Pick a version below." : "Merged with changes from another tab. Review and save again.");
                     }
-                    const message = code === "PROFILE_CONFLICT"
-                        ? "Your profile changed in another session. Review the latest changes before saving again."
-                        : ((response as any).error || "Couldn’t update profile");
-                    throw new Error(message);
+                    throw new Error(code === "PROFILE_CONFLICT" ? "Your profile changed in another session. Reload to see it, then save again." : ((response as any).error || "Couldn’t update profile"));
                 }
                 lastKnownUpdatedAtRef.current = typeof (response as any).updatedAt === "string"
                     ? (response as any).updatedAt
@@ -590,20 +617,29 @@ export function EditProfileEditor({
         onClose();
     };
 
-    const reviewLatestChanges = () => {
-        if (!conflictProfile || !formState) return;
-        const draft = toChangedServerPayload(formState, baseProfileRef.current, conflictProfile.updatedAt);
-        const latest = toFormState(conflictProfile.profile);
-        const nextBase = { ...baseProfileRef.current, ...latest, experience: baseProfileRef.current.experience };
-        baseProfileRef.current = nextBase;
-        originalUsernameRef.current = latest.username;
-        lastKnownUpdatedAtRef.current = conflictProfile.updatedAt;
-        setFormState({ ...nextBase, ...draft, experience: formState.experience });
-        setConflictProfile(null);
-        setSaveState("idle");
-        setSaveErrorMessage(null);
-        toast.info("Latest version loaded");
+    const pickClash = (key: string, use: "mine" | "theirs") => {
+        if (use === "theirs") setFormState((current: any) => ({ ...current, [key]: clashes[key] }));
+        const rest = { ...clashes };
+        delete rest[key];
+        setClashes(rest);
+        if (!Object.keys(rest).length) { setSaveState("idle"); setSaveErrorMessage(null); }
     };
+    const shown = (value: unknown) => Array.isArray(value) ? value.join(", ") || "None" : typeof value === "boolean" ? (value ? "On" : "Off") : String(value ?? "") || "Empty";
+    const clashList = Object.keys(clashes).length ? (
+        <div className="nb-pf-clashes">
+            {Object.entries(clashes).map(([key, theirs]) => (
+                <div key={key} className="nb-pf-clash">
+                    <b>{PROFILE_FIELDS.find(([k]) => k === key)?.[1] ?? key}</b>
+                    <p><span>Yours</span>“{shown(formState?.[key])}”</p>
+                    <p><span>Other tab</span>“{shown(theirs)}”</p>
+                    <div className="nb-pf-row2">
+                        <Button type="button" size="sm" variant="outline" onClick={() => pickClash(key, "mine")}>Keep mine</Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => pickClash(key, "theirs")}>Use theirs</Button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    ) : null;
 
     if (user && user.id !== profile.id) return <section role="alert" className="space-y-4 p-6"><p>This editor belongs to a different account. Return to your profile to continue.</p><Button onClick={() => { allowLeave(); router.replace("/my-profile"); }}>Go to my profile</Button></section>;
 
@@ -644,6 +680,16 @@ export function EditProfileEditor({
                                 }
                             }}
                             dirtySections={dirtySections}
+                            notice={recover ? (
+                                <div className="nb-pf-recover" role="status">
+                                    <span className="nb-pf-pv">Not saved</span>
+                                    <span>You have changes from {agoText(recover.at)} that weren’t saved: {Object.keys(recover.d).map((key) => PROFILE_FIELDS.find(([k]) => k === key)?.[1] ?? key).join(", ")}.</span>
+                                    <span className="flex gap-2">
+                                        <Button type="button" size="sm" variant="ghost" onClick={() => { setRecover(null); try { window.localStorage.removeItem(draftKey(profile.id)); } catch { /* nothing kept */ } }}>Discard</Button>
+                                        <Button type="button" size="sm" onClick={() => { const d = recover.d; setRecover(null); draftTouchedRef.current = true; setFormState((current: any) => ({ ...current, ...d })); }}>Restore</Button>
+                                    </span>
+                                </div>
+                            ) : null}
                             preview={
                                 <ProfileBand
                                     profile={formState || profile}
@@ -690,7 +736,7 @@ export function EditProfileEditor({
                                         onSave={() => saveInPlace()}
                                         onReset={() => handleResetChanges()}
                                         onCancel={() => handleCancel()}
-                                        extra={conflictProfile ? <Button type="button" variant="outline" size="sm" onClick={reviewLatestChanges} disabled={saveState === "saving"}>Review latest changes</Button> : null}
+                                        extra={clashList}
                                         completion={{ score: completion.score, missing: completion.missing, jump: (item) => jumpTo(completionField(item), completionItemSection(item)) }}
                                     />
                                 </>

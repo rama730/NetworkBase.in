@@ -176,18 +176,16 @@ test('mobile preferences save custom roles without overflow; new users can enabl
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });
 
-test('editor conflict keeps preferences draft available for review', async ({ page }) => {
+test('editor conflict keeps preferences draft and takes what only the other tab changed', async ({ page }) => {
   await page.getByRole('button', {name:'Edit role preferences',exact:true}).click();
   const dialog=page.getByRole('region', {name:'Edit profile',exact:true});
   await dialog.getByRole('button', {name:'Design',exact:true}).click();
   await page.evaluate(()=>{const f=(window as any).profileFixture; f.conflict=true;f.saved.headline='Updated elsewhere';f.saved.hoursPerWeek='h_20_40';f.saved.updatedAt=new Date(Date.now()).toISOString();});
   await dialog.getByRole('button', {name:'Save changes',exact:true}).click();
-  await expect(dialog.getByText('Your profile changed in another session. Review the latest changes before saving again.',{exact:true})).toBeVisible();
-  await expect(dialog.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
-  await dialog.getByRole('button',{name:'Review latest changes',exact:true}).click();
+  await expect(dialog.getByText('Merged with changes from another tab. Review and save again.',{exact:true})).toBeVisible();
   await expect(dialog.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
   await page.evaluate(()=>{(window as any).profileFixture.conflict=false;});
-  await dialog.getByRole('button',{name:'Save changes',exact:true}).click();
+  await dialog.getByRole('button',{name:'Try again',exact:true}).click();
   await expect(dialog.getByText('Saved just now',{exact:true})).toBeVisible();
   await dialog.getByRole('button',{name:'Done',exact:true}).click();
   await expect(dialog).not.toBeVisible();
@@ -622,6 +620,32 @@ test('collaboration: a picked 17th category shows while folded; off dims the pan
   await expect(editor.getByRole('button',{name:'Remove desired role Rust developer'})).toHaveCount(0);
   await page.getByRole('button',{name:'Undo',exact:true}).click();
   await expect(editor.getByRole('button',{name:'Remove desired role Rust developer'})).toBeVisible();
+});
+
+test('saving edge cases: unsaved changes come back after a reload, and a field changed in another tab is yours to pick',async({page})=>{
+  const id=await page.evaluate(()=>(window as any).profileFixture.saved.id);
+  await page.evaluate((id)=>localStorage.setItem(`nb:profile-edit:${id}`,JSON.stringify({at:Date.now()-5*60_000,d:{headline:'Recovered headline'}})),id);
+  await page.goto(origin+'/my-profile/edit?section=general');
+  const editor=page.getByRole('region',{name:'Edit profile',exact:true});
+  const card=editor.getByRole('complementary',{name:'Your changes'});
+  const notice=editor.getByRole('status').filter({hasText:'You have changes from 5 minutes ago that weren’t saved: Headline.'});
+  await expect(notice).toBeVisible();
+  await notice.getByRole('button',{name:'Restore',exact:true}).click();
+  await expect(editor.locator('#profile-headline')).toHaveValue('Recovered headline');
+  await expect(card.getByText('1 unsaved change',{exact:true})).toBeVisible();
+  await page.evaluate(()=>{const f=(window as any).profileFixture;f.conflict=true;f.saved.headline='Their headline';f.saved.location='Chennai';f.saved.updatedAt=new Date().toISOString();});
+  await card.getByRole('button',{name:'Save changes',exact:true}).click();
+  await expect(card.getByText('Changed in another tab. Pick a version below.')).toBeVisible();
+  await expect(card.getByText('“Their headline”')).toBeVisible();
+  await expect(card.getByRole('button',{name:'Save changes',exact:true})).toBeDisabled();
+  await expect(editor.locator('#profile-location')).toHaveValue('Chennai');
+  await card.getByRole('button',{name:'Keep mine',exact:true}).click();
+  await page.evaluate(()=>{(window as any).profileFixture.conflict=false;});
+  await card.getByRole('button',{name:'Save changes',exact:true}).click();
+  await expect(card.getByText('Saved just now')).toBeVisible();
+  const last=await page.evaluate(()=>(window as any).profileFixture.calls.at(-1));
+  expect(last.headline).toBe('Recovered headline');expect(last).not.toHaveProperty('location');
+  expect(await page.evaluate((id)=>localStorage.getItem(`nb:profile-edit:${id}`),id)).toBeNull();
 });
 
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
