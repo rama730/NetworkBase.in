@@ -12,6 +12,7 @@ import { AddWorkflowDialog } from '@/components/workspaces/workflows/AddWorkflow
 import { AddedWorkflowsContext, useWorkspaceWorkflows } from '@/components/workspaces/workflows/useWorkspaceWorkflows';
 import { workflowTabsFor } from '@/components/workspaces/workflows/workflow-icons';
 import { BugsTab } from '@/components/workspaces/workflows/BugsTab';
+import { WORKFLOW_CATALOG } from '@/lib/workflows/catalog';
 import type { WorkspaceWorkflows } from '@/lib/workflows/rules';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
@@ -380,6 +381,10 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const workflowTabs = useMemo(() => workflowTabsFor(workflows.added), [workflows.added]);
     const addedWorkflowIds = useMemo(() => workflows.added.map((w) => w.workflow), [workflows.added]);
     const workflowTabLabel = workflowTabs.find((tab) => tab.id === activeTab)?.label;
+    // A link to a workflow tab this workspace hasn't added lands on Overview once the workflows are known.
+    useEffect(() => {
+        if (workflows.loaded && activeTab && WORKFLOW_CATALOG.some((w) => w.tab === activeTab) && !workflowTabs.some((t) => t.id === activeTab)) setActiveTab('dashboard');
+    }, [workflows.loaded, activeTab, workflowTabs]);
     useEffect(() => {
         if (workflowTabLabel) document.title = `${workflowTabLabel} · ${project.title} · NetworkBase`;
     }, [workflowTabLabel, project.title]);

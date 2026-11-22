@@ -1,4 +1,5 @@
 import { ACCESS_LEVEL_LABELS, WORKSPACE_TAB_LABELS } from "@/lib/copy/terms";
+import { WORKFLOW_CATALOG } from "@/lib/workflows/catalog";
 import {
   formatWorkspaceVisibility,
   normalizeWorkspaceVisibility as normalizeCanonicalProjectVisibility,
@@ -393,6 +394,9 @@ export function resolveAllowedWorkspaceTab(input: {
     const canOpenSettings = isWorkspaceTabVisibleToViewer({ ...input, tabId: "settings" });
     return canOpenSettings ? "settings" : (isWorkspaceTabVisibleToViewer({ ...input, tabId: landingTab }) ? landingTab : null);
   }
+  // Workflow tabs (Bugs…) open from a link for the workspace's own people; if the workflow isn't added, the page
+  // falls back to the landing tab once the workflows load (A2.1 live check: ?tab=bugs landed on Overview).
+  if (input.isOwnerOrMember && !input.isOrganization && WORKFLOW_CATALOG.some((w) => w.tab === requestedTab)) return requestedTab;
   const isKnownTab = requestedTab === "settings" || requestedTab in DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY || (input.isOrganization && (requestedTab === "about" || requestedTab === "members" || requestedTab === "projects"));
   if (isKnownTab && isWorkspaceTabVisibleToViewer({ ...input, tabId: requestedTab })) return requestedTab;
   if (isKnownTab && !input.isOrganization) return null;

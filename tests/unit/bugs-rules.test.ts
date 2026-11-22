@@ -44,3 +44,11 @@ test("bugFieldsSchema: known fields only, lengths capped, where shapes", () => {
   assert.equal(bugFieldsSchema.safeParse({ foundIn: "x".repeat(41) }).success, false);
   assert.equal(bugFieldsSchema.safeParse({ owner: "me" }).success, false);
 });
+
+test("a link to a workflow tab opens it for the workspace's own people only (A2.1 live check)", async () => {
+  const { resolveAllowedWorkspaceTab } = await import("../../src/lib/workspaces/settings-policies");
+  assert.equal(resolveAllowedWorkspaceTab({ requestedTab: "bugs", isOwnerOrMember: true }), "bugs");
+  assert.equal(resolveAllowedWorkspaceTab({ requestedTab: "bugs", isOwnerOrMember: false }), "dashboard");
+  assert.equal(resolveAllowedWorkspaceTab({ requestedTab: "bugs", isOwnerOrMember: true, isOrganization: true }), "dashboard");
+  assert.equal(resolveAllowedWorkspaceTab({ requestedTab: "nonsense", isOwnerOrMember: true }), "dashboard");
+});

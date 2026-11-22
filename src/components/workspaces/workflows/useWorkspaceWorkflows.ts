@@ -14,16 +14,16 @@ const OFF: WorkspaceWorkflows = { enabled: false, canManage: false, added: [] };
  * another admin adding or hiding one announces `workflows.changed` on the workspace's topic (W3).
  */
 export function useWorkspaceWorkflows(workspaceId: string, started?: Promise<WorkspaceWorkflows> | null) {
-  const [state, setState] = useState<WorkspaceWorkflows>(OFF);
+  const [state, setState] = useState<WorkspaceWorkflows & { loaded?: boolean }>(OFF);
   const refresh = useCallback(async () => {
     const result = await readWorkflowsAction(workspaceId);
-    if (result.success) setState({ enabled: result.enabled, canManage: result.canManage, added: result.added });
+    if (result.success) setState({ enabled: result.enabled, canManage: result.canManage, added: result.added, waiting: result.waiting, loaded: true });
   }, [workspaceId]);
 
   useEffect(() => {
     let current = true;
     // A promise sent from the server is only promise-like: its then() returns nothing, so wrap it before chaining.
-    if (started) void Promise.resolve(started).then((value) => { if (current) setState(value); }, () => undefined);
+    if (started) void Promise.resolve(started).then((value) => { if (current) setState({ ...value, loaded: true }); }, () => undefined);
     return () => { current = false; };
   }, [started]);
 
