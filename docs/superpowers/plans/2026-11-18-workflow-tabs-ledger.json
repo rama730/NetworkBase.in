@@ -168,9 +168,9 @@
       "text": "A1.6 Board grouped by project — Journeys: T1 W7.",
       "kind": "unit",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-lanes.spec.ts",
+      "evidence": "LIVE 2026-11-23 c336d8e19, live fix 228490228 (a lane drop failed its column move: Part of changed the card first; cells now name their column). No migration. Chrome on wt-test-a1-6: Add workflow offered Project planner (built) and added it; Group by: Project lanes; drag into another lane + column set Part of and In progress; No project → Group into a project made Brand refresh with 2 tasks. Notices: db test (conflict, shifted, completed, ends-in-3-days once); the actor is never told, so with one account only the hourly ends-in-3-days notice is visible live."
     },
     {
       "key": "A2.1",
@@ -5928,9 +5928,9 @@
       "text": "Board grouped by project",
       "kind": "journey",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-lanes.spec.ts",
+      "evidence": "2026-11-23 Chrome: swimlanes per project + No project; drag between lanes changes Part of; menus Project… / Column… on each card."
     },
     {
       "key": "38.5.W8",
@@ -5958,9 +5958,9 @@
       "text": "Phone",
       "kind": "journey",
       "milestone": "A1",
-      "status": "tested",
+      "status": "live",
       "test": "tests/browser/tasks-calendar.spec.ts",
-      "evidence": "Phone agenda in the spec (chromium+webkit, axe clean); Projects/Matrix parts with A1.2/A1.4."
+      "evidence": "Phone agenda in the spec (chromium+webkit, axe clean); Projects/Matrix parts with A1.2/A1.4. LIVE 2026-11-23 Chrome at phone width: Projects opens on Active, Timeline and lanes scroll inside their frames, no page side-scroll (Calendar agenda and Matrix sections in their specs)."
     },
     {
       "key": "38.5.W11",
@@ -8198,9 +8198,9 @@
       "text": "A1.6 (2026-11-23): Board ⋯ → Group by: Project shows a swimlane per open project (and per completed project that still has work on the board) plus No project, r",
       "kind": "call",
       "milestone": "A1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/planner-work.test.ts",
+      "evidence": "2026-11-23: lanes beside the board, Group into a project on No project, notice levels, In progress badge contrast, planner built."
     }
   ]
 }
