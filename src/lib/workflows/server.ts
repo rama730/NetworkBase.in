@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { profiles, tasks, workspaces, workspaceWorkflows } from "@/lib/db/schema";
 import { broadcast } from "@/lib/realtime/server-broadcast";
 import { catalogEntry } from "@/lib/workflows/catalog";
+import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { canChangeWorkflows, effectiveWorkflows, removalSummary, type OrgWorkflows, type WorkspaceWorkflows } from "@/lib/workflows/rules";
 
 /** Undo after adding lasts this long, and only while no item of the workflow exists (F1 call 7). */
@@ -37,7 +38,17 @@ export async function readWorkspaceWorkflows(workspaceId: string, viewerId: stri
     const row = (w.locked ? parentRows : own).find((r) => r.workflow === w.workflow);
     return { ...w, addedAt: row?.addedAt.toISOString() ?? null, addedBy: w.locked ? null : row?.addedBy ?? null };
   });
-  return { enabled: true, canManage: canChangeWorkflows(access), added };
+  // Report 28.4 call (A2.1): an own tab's count is the items waiting at its first stage (New bugs, New requests…).
+  const waiting: Record<string, number> = {};
+  for (const w of added) {
+    const entry = catalogEntry(w.workflow);
+    const type = entry?.tab ? entry.types.map((t) => WORKFLOW_TYPES[t]).find(Boolean) : null;
+    if (!entry?.tab || !type?.stages[0]) continue;
+    const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(tasks)
+      .where(and(eq(tasks.projectId, workspaceId), eq(tasks.itemType, type.id), eq(tasks.stage, type.stages[0].key), isNull(tasks.deletedAt)));
+    if (row?.n) waiting[entry.tab] = row.n;
+  }
+  return { enabled: true, canManage: canChangeWorkflows(access), added, waiting };
 }
 
 async function managerAccess(workspaceId: string, userId: string) {

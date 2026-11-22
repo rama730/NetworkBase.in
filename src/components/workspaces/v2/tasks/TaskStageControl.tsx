@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { completeProjectAction, readProjectWorkAction, setTaskStageAction } from "@/app/actions/task";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -23,12 +23,14 @@ const saveTick = (projectId: string, tick: boolean) => { try { window.localStora
  * Report 38.2 F1 S7 and S4: a typed item's page says where it shows and moves between stages. A move onto the board asks
  * which sprint (ticked: the running one, remembered 24 hours); members' items go to the Backlog (decision 146).
  */
-export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, sprints, onMoved, compact = false }: {
+export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, sprints, onMoved, compact = false, requested = null }: {
   projectId: string;
   task: { id: string; itemType?: string; stage?: string | null; status: string; sprintId?: string | null };
   canEdit: boolean;
   /** A table cell (Projects' Active and All): the Stage menu without the "Shows in" line. */
   compact?: boolean;
+  /** A board drop asks for a stage; the move runs here so joining the board still asks the sprint (A2.1). */
+  requested?: { stage: string; nonce: number } | null;
   canPlanSprints: boolean;
   sprints: Array<{ id: string; name: string; status: string }>;
   onMoved: (moved: Moved) => void;
@@ -38,6 +40,8 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
   const [tick, setTick] = useState(true);
   const [busy, setBusy] = useState(false);
   const [openWork, setOpenWork] = useState<number | null>(null);
+  const pickRef = useRef<(stage: string) => void>(() => undefined);
+  useEffect(() => { if (requested) pickRef.current(requested.stage); }, [requested]);
   const type = task.itemType ? WORKFLOW_TYPES[task.itemType] : null;
   if (!type || !type.stages.length) return null;
   const running = sprints.find((s) => s.status === "active") ?? null;
@@ -87,6 +91,7 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
     void move(stage, null);
   }
 
+  pickRef.current = (stage: string) => void pick(stage);
   const joinLabel = joining ? type.stages.find((s) => s.key === joining)?.label : "";
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground" data-testid="task-stage-control">

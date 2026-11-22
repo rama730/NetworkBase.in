@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { footerLine, moduleTabs, sectionsFor, sprintApplies, startingStages } from "@/lib/workflows/create-rules";
+import { BugDetailsFields, BugSimilar, readBugFields } from "@/components/workspaces/v2/tasks/BugParts";
 import { defaultStageFor } from "@/lib/workflows/rules";
 import { workflowType } from "@/lib/workflows/types";
 import {
@@ -75,6 +76,8 @@ interface CreateTaskModalProps {
   types?: string[];
   /** Opened from Tasks (types start where they join the board) or a type's own tab (its first stage). */
   openedFrom?: "tasks" | "own";
+  /** For NB-n names in Similar open bugs. */
+  projectKey?: string | null;
   initialType?: string;
   /** Report 38.4 W5: opened from a quick-add line, the typed title carries in and where it came from shows read-only. */
   initialTitle?: string;
@@ -126,6 +129,7 @@ export default function CreateTaskModal({
   initialKind = "task",
   types = [],
   openedFrom = "tasks",
+  projectKey = null,
   initialType,
   initialTitle = "",
   fromLine,
@@ -141,6 +145,7 @@ export default function CreateTaskModal({
   const [stage, setStage] = React.useState<string | null>(typed ? defaultStageFor(kind, openedFrom) : null);
   const typeLabel = kind === "task" ? "Task" : kind === "assignment" ? "Assignment" : workflowType(kind).label;
   const [carry, setCarry] = React.useState({ title: initialTitle, description: "", sprintId: "", dueDate: "" });
+  const [titleText, setTitleText] = React.useState(initialTitle);
   const formRef = React.useRef<HTMLFormElement>(null);
   const switchKind = (next: string) => {
     if (next === kind) return;
@@ -246,6 +251,7 @@ export default function CreateTaskModal({
         ...(typed ? { itemType: kind, stage } : {}),
         ...(sectionsFor(kind).startDate && formData.get("startDate") ? { startDate: String(formData.get("startDate")) } : {}),
         ...(partOf && kind !== "project" ? { partOfId: partOf.id } : {}),
+        ...(kind === "bug" ? { typeFields: readBugFields(formData) } : {}),
       };
 
       const parsed = taskEditorDraftSchema.safeParse(draft);
@@ -374,15 +380,17 @@ export default function CreateTaskModal({
                     name="title"
                     required
                     defaultValue={carry.title}
-                    placeholder={kind === "project" ? "e.g., Website relaunch" : "e.g., Conduct end-to-end testing on core flows"}
+                    onChange={kind === "bug" ? (e) => setTitleText(e.target.value) : undefined}
+                    placeholder={kind === "project" ? "e.g., Website relaunch" : kind === "bug" ? "e.g., Payment gateway is down" : "e.g., Conduct end-to-end testing on core flows"}
                     className={inputClassName(!!fieldErrors.title)}
                     autoFocus
                   />
                 </Field>
                 {fromLine ? <p className="text-xs text-muted-foreground" data-testid="create-from-line">From: <span className="font-medium text-foreground">{fromLine}</span></p> : null}
                 {partOf ? <p className="text-xs text-muted-foreground" data-testid="create-partof-line">Part of: <span className="font-medium text-foreground">{partOf.title}</span></p> : null}
+                {kind === "bug" && projectId ? <BugSimilar projectId={projectId} title={titleText} projectKey={projectKey} onMine={onClose} /> : null}
 
-                <Field
+                {kind === "bug" ? null : <Field
                   label="Description"
                   htmlFor="task-description"
                   error={fieldErrors.description}
@@ -398,8 +406,10 @@ export default function CreateTaskModal({
                       "min-h-[72px] resize-none py-2",
                     )}
                   />
-                </Field>
+                </Field>}
               </div>
+              {/* Report 38.6 W2 (A2.1): a bug's own section. */}
+              {kind === "bug" ? <BugDetailsFields /> : null}
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">
@@ -530,7 +540,7 @@ export default function CreateTaskModal({
                   </Field>
                   )}
 
-                  <Field
+                  {kind === "bug" ? <p className="self-end pb-2 text-xs text-muted-foreground">Priority comes from severity.</p> : <Field
                     label="Priority"
                     htmlFor="task-priority"
                     error={fieldErrors.priority}
@@ -553,7 +563,7 @@ export default function CreateTaskModal({
                       </select>
                       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     </div>
-                  </Field>
+                  </Field>}
                 </div>
               </div>
 

@@ -61,6 +61,8 @@ export const taskEditorDraftSchema = z.object({
   // Report 38.5 (A1.3): a project's start, and the project a task is Part of.
   startDate: optionalDate.optional(),
   partOfId: optionalUuid.optional(),
+  // Report 38.6 (A2.1): a typed item's own fields (a bug's severity, steps, Where…); the server checks them.
+  typeFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type TaskEditorDraft = z.infer<typeof taskEditorDraftSchema>;
@@ -88,6 +90,7 @@ export function buildTaskSubmitPayload(input: {
     ...(input.draft.itemType ? { itemType: input.draft.itemType, stage: input.draft.stage ?? null } : {}),
     ...(input.draft.startDate ? { startDate: input.draft.startDate } : {}),
     ...(input.draft.partOfId ? { partOfId: input.draft.partOfId } : {}),
+    ...(input.draft.typeFields && Object.keys(input.draft.typeFields).length ? { typeFields: input.draft.typeFields } : {}),
     attachmentNodeIds: input.attachments.map((attachment) => attachment.id),
     subtasks: input.subtasks
       .map((subtask) => ({ title: subtask.title.trim(), completed: false }))

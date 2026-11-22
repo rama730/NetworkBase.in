@@ -5,6 +5,7 @@ import OpenRolesCard, { type ApplicationCardControls } from "@/components/worksp
 import JourneyTimeline from "@/components/workspaces/dashboard/JourneyTimeline";
 import { RecentActivityCard } from "@/components/workspaces/dashboard/RecentActivityCard";
 import { PlannerOverviewCard } from "@/components/workspaces/dashboard/PlannerOverviewCard";
+import { BugsOverviewCard } from "@/components/workspaces/dashboard/BugsOverviewCard";
 import { useBottomStickyRail } from "@/hooks/useBottomStickyRail";
 
 import { type ApplicationStatusResult } from "@/app/actions/applications";
@@ -72,6 +73,7 @@ export function DashboardTab({
                     />
                 ) : null}
                 {project.kind !== "organization" ? <PlannerOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
+                {project.kind !== "organization" ? <BugsOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
                 <RecentActivityCard projectId={project.id} started={recentActivityStarted} />
                 <OpenRolesCard
                     inOrganization={Boolean(project.parentOrg)}

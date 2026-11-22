@@ -1150,6 +1150,7 @@ export default function TasksTab({
           <div id="tasks-view-panel-projects" role="tabpanel" aria-labelledby="tasks-view-tab-projects">
             <UnderlineTabs label="Projects view" idPrefix="projects-view" value={projectsView} onChange={pickProjectsView} className="mb-3 min-h-9"
               tabs={[{ key: "timeline" as const, label: "Timeline" }, { key: "active" as const, label: "Active" }, { key: "all" as const, label: "All" }]} />
+            <div id={`projects-view-panel-${projectsView}`} role="tabpanel" aria-labelledby={`projects-view-tab-${projectsView}`}>
             {projectsView === "timeline" ? (
               <PlannerTimeline projectId={projectId} canEdit={canEditTasks} sprints={sprintOptions} viewerId={currentUserId ?? null} onOpen={openTaskById}
                 onMoreDetails={(d) => { setCreateDraft({ title: d.title, startDate: d.startDate }); setCreateDue(d.dueDate); openCreate("project"); }} />
@@ -1157,6 +1158,7 @@ export default function TasksTab({
               <ProjectsTable projectId={projectId} mode={projectsView} canEdit={canEditTasks} canPlanSprints={isOwner || canManageWorkflow} members={assignable}
                 onOpen={openTaskById} onNew={() => openCreate("project")} />
             )}
+            </div>
           </div>
         ) : currentView === "matrix" ? (
           <div id="tasks-view-panel-matrix" role="tabpanel" aria-labelledby="tasks-view-tab-matrix">

@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSessionDraft } from "@/hooks/useSessionDraft";
 import { formatTaskDueDate, isTaskOverdue } from "@/lib/workspaces/task-presentation";
 import { sectionsFor } from "@/lib/workflows/create-rules";
+import { BugPanelSection } from "@/components/workspaces/v2/tasks/BugParts";
 import {
   Calendar,
   Check,
@@ -679,6 +680,9 @@ export default function DetailsTab({
         )}
       </div>
 
+      {/* Report 38.6 S5 (A2.1): a bug's own section. */}
+      {task.itemType === "bug" && task.projectId ? <BugPanelSection projectId={task.projectId} taskId={task.id} /> : null}
+
       {/* Properties Section (Unboxed, direct on panel surface); review UX 2.12: on a copy they fold under More details. */}
       <MoreDetails fold={Boolean(task.assignmentId)}>
       <div className="space-y-3 pt-1">
@@ -810,9 +814,10 @@ export default function DetailsTab({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  disabled={!canEdit || master || isMutating}
+                  disabled={!canEdit || master || isMutating || task.itemType === "bug"}
+                  title={task.itemType === "bug" ? "From severity" : undefined}
                   className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
-                  aria-label="Select priority"
+                  aria-label={task.itemType === "bug" ? "Priority, from severity" : "Select priority"}
                 >
                   <span className="flex items-center gap-2">
                     <Flag className="size-3 text-muted-foreground" />

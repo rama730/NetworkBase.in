@@ -3,6 +3,7 @@ import { assignmentWriteBlock, type AssignmentTarget } from "@/lib/organizations
 import { WORKFLOW_CATALOG } from "@/lib/workflows/catalog";
 import { startingStages, typeFieldsSchema } from "@/lib/workflows/create-rules";
 import { canBeParent, canBePartOf } from "@/lib/workflows/planner";
+import { priorityForSeverity } from "@/lib/workflows/bugs";
 import { defaultStageFor, isOnBoard, statusForStage } from "@/lib/workflows/rules";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { orgCan, orgRoleOf } from "@/lib/organizations/permissions";
@@ -1158,8 +1159,9 @@ async function checkNewItemType(projectId: string, userId: string, type: string,
   if (!chosen || !starts.some((s) => s.key === chosen)) return { error: `A new ${t.label.toLowerCase()} starts at ${orList(starts.map((s) => s.label))}` } as const;
   const parsed = typeFieldsSchema(type).safeParse(fields);
   if (!parsed.success) {
-    const keys = parsed.error.issues.flatMap((i) => ("keys" in i ? (i.keys as string[]) : i.path.map(String)));
-    return { error: `${t.label} has no field ${keys.map((k) => `“${k}”`).join(", ") || "like that"}` } as const;
+    const unknown = parsed.error.issues.flatMap((i) => ("keys" in i ? (i.keys as string[]) : []));
+    if (!unknown.length) return { error: `Check the ${t.label.toLowerCase()}’s ${parsed.error.issues[0]?.path.join(" ") || "details"}` } as const;
+    return { error: `${t.label} has no field ${unknown.map((k) => `“${k}”`).join(", ")}` } as const;
   }
   return { stage: chosen, fields: parsed.data } as const;
 }
@@ -1171,12 +1173,20 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     if (!user) throw new Error("Sign in to continue");
 
     const validated = createTaskSchema.parse(data);
-    await requireWorkspaceCapability(
-      validated.projectId,
-      user.id,
-      "create_tasks",
-    );
-    const access = await getWorkspaceAccessById(validated.projectId, user.id);
+    // Report 38.6 layer 10 (A2.1): members and viewers report bugs (at New); viewers do nothing else here, so what
+    // only a member could set is dropped. Everything else keeps the create_tasks check.
+    const bugReport = validated.itemType === "bug" && (validated.stage ?? "new") === "new";
+    const reporterAccess = bugReport ? await getWorkspaceAccessById(validated.projectId, user.id) : null;
+    if (reporterAccess?.project?.kind === "workspace" && (reporterAccess.isOwner || reporterAccess.isMember)) {
+      if (reporterAccess.memberRole === "viewer") Object.assign(validated, { assigneeId: null, sprintId: null, partOfId: null, startDate: null, dueDate: null });
+    } else {
+      await requireWorkspaceCapability(
+        validated.projectId,
+        user.id,
+        "create_tasks",
+      );
+    }
+    const access = reporterAccess ?? await getWorkspaceAccessById(validated.projectId, user.id);
     if (!access.project) throw new Error("Workspace not found");
     const ownerOrAdmin = access.isOwner || access.memberRole === "admin";
     // Decision 87: an organization's board takes tasks from the roles create_org_tasks allows (owners and admins).
@@ -1191,6 +1201,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       if ("error" in placed) return { success: false, error: placed.error, ...("code" in placed ? { code: placed.code } : {}) };
       stage = placed.stage;
       typeFields = placed.fields;
+      // Report 38.6 call 3 (A2.1): a bug's severity sets its priority; Not sure leaves it.
+      if (itemType === "bug") validated.priority = (priorityForSeverity(typeFields.severity as never) ?? validated.priority) as typeof validated.priority;
       // The stage sets the status; a sprint only means something on the board.
       validated.status = statusForStage(itemType, stage);
       if (!isOnBoard(itemType, stage)) validated.sprintId = null;
@@ -1422,6 +1434,11 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       return { ...newTask, completion };
     });
     if (createdTask.completion) await afterTaskTransition(user, createdTask.completion.locked, createdTask.id, createdTask.completion.result);
+    // Report 38.6 part 8 (A2.1): a new bug tells the workspace's owners and admins.
+    if (itemType === "bug") {
+      const { notifyBugReported } = await import("@/lib/workflows/bug-notify");
+      await notifyBugReported({ id: createdTask.id, title: validated.title.trim(), taskNumber: null, workspaceId: validated.projectId }, user.id);
+    }
 
     await wakeEmailWorker();
     await queueCounterRefreshBestEffort([validated.assigneeId ?? null]);

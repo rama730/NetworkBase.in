@@ -16236,6 +16236,7 @@ T3 is the first **own tab over the same tasks** (28.1): **Bugs** sorts reports b
 7. Reopening goes to Confirmed with a comment; a reporter adding details reopens to New. **[call]**
 8. Report as bug sits beside Create task on chat messages. **[call]**
 9. Existing tasks can be changed to bugs by people who can edit them. **[call]**
+10. **A2.1 (2026-11-23):** Bugs ships in three units; the catalog marks it **built** only at A2.3, so until then it is switched on for test workspaces only. A bug opens in the task panel on the Tasks tab (Back returns to Bugs). A drop on the Bugs board runs the panel's Stage menu, so a move that joins the board (Fixing, or straight to Fixed) asks the sprint first; Fixed asks **Fixed in** when the move is made from Bugs (a Completed drag on the Tasks board doesn't ask; the panel's Fixed in field is there). Viewers report bugs at New and nothing else (no assignee, sprint or dates); triage is for members. Similar open bugs matches titles. Arriving later: Close… with Won't fix / Duplicate / Can't reproduce, Reopen and the triage keys (A2.2); the chip row, search, Export CSV, the PR chip on cards, Report as bug and Change type (A2.3). Own tabs count what waits at their first stage (28.4). **[call]**
 
 ### 38.7 T4 · Requests (agreed 2026-11-18)
 

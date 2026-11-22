@@ -170,7 +170,7 @@
       "milestone": "A1",
       "status": "live",
       "test": "tests/browser/planner-lanes.spec.ts",
-      "evidence": "LIVE 2026-11-23 c336d8e19, live fix 228490228 (a lane drop failed its column move: Part of changed the card first; cells now name their column). No migration. Chrome on wt-test-a1-6: Add workflow offered Project planner (built) and added it; Group by: Project lanes; drag into another lane + column set Part of and In progress; No project → Group into a project made Brand refresh with 2 tasks. Notices: db test (conflict, shifted, completed, ends-in-3-days once); the actor is never told, so with one account only the hourly ends-in-3-days notice is visible live."
+      "evidence": "LIVE 2026-11-23 c336d8e19, live fix 228490228 (a lane drop failed its column move: Part of changed the card first; cells now name their column). No migration. Chrome on wt-test-a1-6: Add workflow offered Project planner (built) and added it; Group by: Project lanes; drag into another lane + column set Part of and In progress; No project → Group into a project made Brand refresh with 2 tasks. Notices: db test (conflict, shifted, completed, ends-in-3-days once); the actor is never told, so with one account only the hourly ends-in-3-days notice is visible live. Hourly job sent \"Ends in 3 days: Website relaunch\" live at 2026-11-22 20:15 UTC; workspace wt-test-a1-6 and the notice deleted after."
     },
     {
       "key": "A2.1",
@@ -8201,6 +8201,16 @@
       "status": "live",
       "test": "tests/db/planner-work.test.ts",
       "evidence": "2026-11-23: lanes beside the board, Group into a project on No project, notice levels, In progress badge contrast, planner built."
+    },
+    {
+      "key": "38.6.call10",
+      "section": "38.6",
+      "text": "A2.1 (2026-11-23): Bugs ships in three units; the catalog marks it built only at A2.3, so until then it is switched on for test workspaces only. A bug opens in ",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

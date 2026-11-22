@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { AddWorkflowDialog } from '@/components/workspaces/workflows/AddWorkflowDialog';
 import { AddedWorkflowsContext, useWorkspaceWorkflows } from '@/components/workspaces/workflows/useWorkspaceWorkflows';
 import { workflowTabsFor } from '@/components/workspaces/workflows/workflow-icons';
+import { BugsTab } from '@/components/workspaces/workflows/BugsTab';
 import type { WorkspaceWorkflows } from '@/lib/workflows/rules';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
@@ -1133,11 +1134,15 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         void readBadges().then((b) => { if (live) setOrgBadges(b); });
         return () => { live = false; };
     }, [orgIdForBadges, activeTab, readBadges, badgeTick]);
-    const tabBadges = useMemo(() => orgBadges ? {
-        tasks: orgBadges.tasks || undefined,
-        updates: orgBadges.updates && activeTab !== 'updates' ? 'dot' as const : undefined,
-        members: orgBadges.members || undefined,
-    } : {}, [orgBadges, activeTab]);
+    const tabBadges = useMemo(() => ({
+        ...(orgBadges ? {
+            tasks: orgBadges.tasks || undefined,
+            updates: orgBadges.updates && activeTab !== 'updates' ? 'dot' as const : undefined,
+            members: orgBadges.members || undefined,
+        } : {}),
+        // Report 28.4 (A2.1): own tabs count what waits at their first stage.
+        ...(workflows.waiting ?? {}),
+    }), [orgBadges, activeTab, workflows.waiting]);
     const startNew = useCallback((kind: OrgNewKind) => {
         if (kind === 'project') return router.push(`/workspaces/new?org=${encodeURIComponent(project.slug ?? project.id)}`);
         setNewIntent(kind);
@@ -1220,7 +1225,12 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
 
             {workflowTabs.some((tab) => tab.id === activeTab) && (() => {
                 const tab = workflowTabs.find((t) => t.id === activeTab)!;
-                // Each own tab's views arrive with its round (T2–T5); until then the tab says so.
+                // Report 38.6 (A2.1): Bugs has its views; the other own tabs arrive with their rounds (T2, T4, T5).
+                if (tab.id === "bugs") return (
+                    <TabErrorBoundary tabName="Bugs">
+                        <BugsTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || null} members={allMembers} sprints={sprints as unknown[]} canPlanSprints={canManageProjectSettings} />
+                    </TabErrorBoundary>
+                );
                 return <EmptyState icon={tab.icon} title={tab.label} description={`${tab.label} is added. Its views arrive soon.`} />;
             })()}
             <AddWorkflowDialog open={isAddWorkflowOpen} onOpenChange={setIsAddWorkflowOpen} workspaceId={project.id} added={workflows.added} canManage={workflows.canManage} onChanged={() => void workflows.refresh()} />

@@ -486,6 +486,11 @@ export async function setTaskStageAction(input: z.infer<typeof stageMoveSchema>)
       const { notifyProjectCompleted } = await import("@/lib/workflows/planner-notify");
       await notifyProjectCompleted(user.id, taskId);
     }
+    // A2.1: a bug reaching Fixed tells its reporter and the people who see it too.
+    if (locked.itemType === "bug" && stage === "fixed" && locked.stage !== "fixed") {
+      const { notifyBugFixed } = await import("@/lib/workflows/bug-notify");
+      await notifyBugFixed(taskId, user.id);
+    }
     return { success: true as const, updatedAt: result.updatedAt.toISOString(), status: result.status, reviewStatus: result.reviewStatus, outcome: result.outcome, warnings };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t move this item" };

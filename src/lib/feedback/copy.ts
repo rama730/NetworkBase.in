@@ -443,4 +443,17 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Couldn’t change what it waits on": { "title": "Couldn’t change what it waits on" },
   "Couldn’t create the project": { "title": "Couldn’t create the project" },
   "Couldn’t move it.": { "title": "Couldn’t move it" },
+  // Workflow tabs A2.1 (report 38.6): Bugs.
+  "Pick a severity to confirm": { "title": "Pick a severity to confirm", "type": "warning" },
+  "Only a New bug is confirmed": { "title": "Only a New bug is confirmed", "type": "warning" },
+  "Viewers can’t triage bugs": { "title": "Viewers can’t triage bugs", "type": "warning" },
+  "Viewers can’t change bugs": { "title": "Viewers can’t change bugs", "type": "warning" },
+  "Couldn’t change the bug": { "title": "Couldn’t change the bug" },
+  "Couldn’t confirm the bug": { "title": "Couldn’t confirm the bug" },
+  "Couldn’t change that": { "title": "Couldn’t change that" },
+  "Couldn’t report the bug": { "title": "Couldn’t report the bug" },
+  "Couldn’t assign it": { "title": "Couldn’t assign it" },
+  "Couldn’t look for similar bugs": { "title": "Couldn’t look for similar bugs" },
+  "Check the bug’s {field}": { "title": "Check the bug’s {field}", "type": "warning" },
+  "Bug has no field {fields}": { "title": "Bug has no field {fields}", "type": "warning" },
 };
