@@ -29,7 +29,7 @@ import { profileSharePath } from '@/lib/sharing/presentation'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
 const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false })
 
-import { ProfileHeader } from './ProfileHeader'
+import { ProfileBand } from './ProfileBand'
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { ProfileRightRail } from './ProfileRightRail'
 import { OpenToRolesCard } from './sections/OpenToRolesCard'
@@ -195,6 +195,7 @@ export function ProfileV2Client({
         const timer = window.setInterval(() => setNow(new Date()), 60_000)
         return () => window.clearInterval(timer)
     }, [theirTimeZone])
+    const localTime = theirTimeZone ? new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit', timeZone: theirTimeZone }).format(now) : null
     const detailsRows = profileDetailsRows({
         isOwner,
         // Collaboration preferences shows experience and availability whenever it is on the page.
@@ -603,12 +604,13 @@ export function ProfileV2Client({
             {blockFlow.dialog}
             <ProfileShell
                 header={
-                    <ProfileHeader
-                            profile={safeProfile}
-                            viewerId={viewerUser?.id ?? null}
-                            isOwner={isOwner}
-                            isAuthenticated={!!viewerUser}
-                            connectionState={status}
+                    <ProfileBand
+                        profile={safeProfile}
+                        viewerId={viewerUser?.id ?? null}
+                        isOwner={isOwner}
+                        isAuthenticated={!!viewerUser}
+                        connectionState={status}
+                        localTime={localTime}
                         privacyRelationship={privacyRelationship}
                         lockedShell={lockedShell}
                         isLoadingConnection={isLoading}
@@ -624,7 +626,7 @@ export function ProfileV2Client({
                         onMessage={() => { if (!messageUserInWindow(safeProfile.id)) router.push(`/messages?userId=${safeProfile.id}`); }}
                         onToggleBlock={handleToggleBlock}
                         mutualCount={safeStats.mutualCount}
-                        stats={safeStats}
+                        stats={{ ...safeStats, contributionsCount: collaborationContributions.filter((c) => isOwner || c.visibility === 'public').length }}
                     />
                 }
                 tabs={lockedShell ? null : (

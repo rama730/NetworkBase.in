@@ -118,7 +118,7 @@ test("badge sizes per place follow the approved table", () => {
   assert.match(person, /return 26;/);
   assert.match(read("src/components/network/PersonPresenceDot.tsx"), /size=\{compact \? 16 : 20\} statusSize=\{20\}/);
   assert.match(read("src/components/layout/header/TopNav.tsx"), /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{16\} statusSize=\{20\}/);
-  assert.match(read("src/components/profile/v2/ProfileHeader.tsx"), /live=\{isOwner \|\| undefined\} size=\{30\}/);
+  assert.match(read("src/components/profile/v2/ProfileBand.tsx"), /live=\{isOwner \|\| undefined\} size=\{24\}/);
 });
 
 test("while presence data loads: a gray placeholder, then gray arcs that spin, then a settle into the real state", () => {

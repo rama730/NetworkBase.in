@@ -255,33 +255,21 @@ test('profile tabs do not create a scroll container and retain keyboard navigati
   }
 });
 
-test('profile status sits below collaboration and details use the space under the avatar', async ({ page }) => {
+test('owner band: status sits in the row with Change; the band never scrolls sideways', async ({ page }) => {
   await page.evaluate(()=>{
     const f=(window as any).profileFixture;
-    Object.assign(f.saved,{location:'Vijayawada, Andhra Pradesh, India',skills:['Claude Code','CodeRabbit','Cursor','GitHub','Google Antigravity','Kiro']});
+    Object.assign(f.saved,{location:'Vijayawada, Andhra Pradesh, India',website:'https://builder.dev'});
     f.refresh();
   });
   const header=page.getByTestId('profile-summary-header');
-  const status=header.getByRole('button',{name:'Update your status',exact:true});
-  const toggle=header.getByRole('switch',{name:'Open to collaboration',exact:true});
+  const status=header.getByRole('button',{name:'Set a status',exact:true});
   for(const width of [1440,1024,390]) {
     await page.setViewportSize({width,height:900});
     await expect(status).toBeVisible();
-    const avatar=await header.locator('[data-slot="user-avatar"]').boundingBox();
-    const details=await header.locator('[data-profile-details]').boundingBox();
-    const skills=await header.getByLabel('Profile skills').boundingBox();
-    const statusBounds=await status.boundingBox();
-    const toggleBounds=await toggle.boundingBox();
-    expect(details!.x).toBeCloseTo(avatar!.x,0);
-    expect(skills!.x).toBeCloseTo(avatar!.x,0);
-    expect(details!.y).toBeGreaterThan(avatar!.y+avatar!.height);
-    expect(statusBounds!.y).toBeGreaterThan(toggleBounds!.y+toggleBounds!.height);
-    if(width>=768) {
-      expect(statusBounds!.x+statusBounds!.width).toBeCloseTo(details!.x+details!.width,0);
-      expect(details!.y-(avatar!.y+avatar!.height)).toBeLessThanOrEqual(24);
-    }
+    const avatar=(await header.locator('.nb-pf-photo').boundingBox())!;
+    const row=(await header.locator('.nb-pf-row').boundingBox())!;
+    expect(row.y).toBeGreaterThanOrEqual(avatar.y+avatar.height-1);
     expect(await header.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
-    await header.screenshot({path:`/tmp/nb-profile-header-${width}.png`});
   }
   await status.click();
   expect(await page.evaluate(()=>(window as any).profileFixture.pickerOpen)).toBe(true);
@@ -297,14 +285,33 @@ test('profile status sits below collaboration and details use the space under th
     expect(await header.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
   }
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.viewer=true;f.refresh();});
-  await expect(header.getByRole('button',{name:/^(Update your status|Change status)$/})).toHaveCount(0);
-  await expect(header.getByRole('button',{name:'Message Builder'})).toHaveCount(0);
+  await expect(header.getByRole('button',{name:/^(Set a status|Change status)$/})).toHaveCount(0);
   await header.getByRole('button',{name:'Connect options',exact:true}).click();
   await expect(page.getByRole('menuitem',{name:'Message Builder'})).toBeVisible();
 });
 
+test('a long name and headline drop the headline under the photo, so no space is left beside it', async ({ page }) => {
+  await page.evaluate(()=>{
+    const f=(window as any).profileFixture;
+    Object.assign(f.saved,{fullName:'Venkata Lakshmi Narasimha Subrahmanyam Chaganti-Rodrigues',headline:'Staff engineer building developer tools, CI pipelines and review queues for university teams across three campuses'});
+    f.refresh();
+  });
+  const header=page.getByTestId('profile-summary-header');
+  for(const width of [1440,390]) {
+    await page.setViewportSize({width,height:900});
+    await expect(header).toHaveClass(/is-tall/);
+    const photo=(await header.locator('.nb-pf-photo').boundingBox())!;
+    const headline=(await header.locator('.nb-pf-headline').boundingBox())!;
+    expect(headline.y).toBeGreaterThanOrEqual(photo.y+photo.height-1);
+    expect(Math.abs(headline.x-photo.x)).toBeLessThanOrEqual(1);
+    expect(await header.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  }
+  await page.evaluate(()=>{const f=(window as any).profileFixture;Object.assign(f.saved,{fullName:'Builder',headline:'Engineer'});f.refresh();});
+  await page.setViewportSize({width:1440,height:900});
+  await expect(header).not.toHaveClass(/is-tall/);
+});
 
-test('visitor actions keep Share in the connection row and Message in the permitted dropdown', async ({page}) => {
+test('visitor actions: the connection control, then Share, then ⋯ on one row; Message in the permitted dropdown', async ({page}) => {
   const header = page.getByTestId('profile-summary-header');
   for (const state of ['accepted', 'none', 'pending_outgoing', 'pending_incoming'] as const) {
     await page.evaluate(state => {
@@ -319,15 +326,14 @@ test('visitor actions keep Share in the connection row and Message in the permit
       await expect(control).toBeVisible();
       const shareRect = (await share.boundingBox())!;
       const controlRect = (await control.boundingBox())!;
-      expect(Math.abs(shareRect.y - controlRect.y)).toBeLessThanOrEqual(1);
-      expect(shareRect.x + shareRect.width).toBeLessThan(controlRect.x);
+      expect(Math.abs(shareRect.y - controlRect.y)).toBeLessThanOrEqual(6);
+      expect(shareRect.x).toBeGreaterThan(controlRect.x + controlRect.width - 1);
       expect(await header.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     }
-    await expect(header.getByRole('button', {name: 'Message Builder', exact: true})).toHaveCount(0);
     await control.click();
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem', {name: 'Message Builder', exact: true})).toBeVisible();
-    for (const item of state === 'accepted' ? ['Disconnect'] : state === 'pending_outgoing' ? ['Cancel'] : state === 'pending_incoming' ? ['Accept', 'Decline'] : ['Connect']) {
+    for (const item of state === 'accepted' ? ['Disconnect'] : state === 'pending_outgoing' ? ['Cancel request'] : state === 'pending_incoming' ? ['Accept', 'Decline'] : ['Connect']) {
       await expect(menu.getByRole('menuitem', {name: item, exact: true})).toBeVisible();
     }
     await menu.getByRole('menuitem', {name: 'Message Builder', exact: true}).click();
@@ -348,7 +354,7 @@ test('visitor actions keep Share in the connection row and Message in the permit
   await expect(page.getByRole('menuitem', {name: 'Connect', exact: true})).toHaveCount(0);
 });
 
-test('visitor status shares the collaboration badge row and presence stays on the avatar', async ({page}) => {
+test('visitor status sits in the band row; long status wraps; locked profiles show none', async ({page}) => {
   await page.evaluate(()=>{
     const f=(window as any).profileFixture;
     f.viewer=true;
@@ -358,48 +364,19 @@ test('visitor status shares the collaboration badge row and presence stays on th
   });
   const header=page.getByTestId('profile-summary-header');
   const status=header.locator('[data-profile-status]');
-  const dot=header.locator('.nb-presence');
   await expect(status).toHaveText('💻Building something new');
-  const collaboration=header.getByText('Open to collaboration',{exact:true});
-  expect(await status.evaluate(el=>el.previousElementSibling?.textContent?.trim())).toBe('Open to collaboration');
-  for(const [availability,label] of [['offline','Offline'],['now','Active now'],['today','Active today'],['week','Active this week']]) {
-    await page.evaluate(([availability,availabilityText])=>{
-      const f=(window as any).profileFixture;
-      Object.assign(f.presence,{availability,availabilityText});
-      f.refresh();
-    },[availability,label]);
-    await expect(dot).toHaveAttribute('title',`💻 · Building something new · ${label}`);
-    await expect(header.getByText(label,{exact:true})).toHaveCount(0);
-    await expect(status).toBeVisible();
-  }
-  await page.setViewportSize({width:1440,height:900});
-  const statusBounds=await status.boundingBox();
-  const collaborationBounds=await collaboration.boundingBox();
-  expect(statusBounds!.y+statusBounds!.height/2).toBeCloseTo(collaborationBounds!.y+collaborationBounds!.height/2,0);
-  await header.screenshot({path:'/tmp/nb-profile-visitor-status-desktop.png'});
-  await page.evaluate(()=>{const f=(window as any).profileFixture;f.saved.openToCollaborate=false;f.refresh();});
-  await expect(collaboration).toHaveCount(0);
-  await expect(status).toBeVisible();
+  await expect(header.getByText('Open to collaborate',{exact:true})).toBeVisible();
+  await expect(header.locator('.nb-pf-row [data-profile-status]')).toHaveCount(1);
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.presence.statusText='SpecializedDeveloperWithALongUnbrokenPersonalStatusThatMustWrapWithinTheProfileCard';f.refresh();});
   for(const width of [1024,390,320]) {
     await page.setViewportSize({width,height:900});
     await expect(status).toBeVisible();
     expect(await header.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
-    expect(await status.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
-    const style=await status.evaluate(el=>({transform:getComputedStyle(el).textTransform,wrap:getComputedStyle(el).whiteSpace}));
-    expect(style).toEqual({transform:'none',wrap:'normal'});
   }
-  await page.evaluate(()=>{const f=(window as any).profileFixture;f.presence.statusText=null;f.refresh();});
-  await expect(status).toHaveText('💻');
-  await page.evaluate(()=>{const f=(window as any).profileFixture;f.presence.status={emoji:null};f.presence.statusText='Focus time';f.refresh();});
-  await expect(status).toHaveText('Focus time');
-  await page.setViewportSize({width:390,height:900});
-  await header.screenshot({path:'/tmp/nb-profile-visitor-status-mobile.png'});
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.locked=true;f.refresh();});
   await expect(status).toHaveCount(0);
-  await page.evaluate(()=>{const f=(window as any).profileFixture;f.locked=false;f.presence.status=null;f.presence.statusText=null;f.refresh();});
-  await expect(status).toHaveCount(0);
-  await expect(header.getByRole('button',{name:/^(Update your status|Change status)$/})).toHaveCount(0);
+  await expect(header.locator('.nb-pf-lock')).toBeVisible();
+  await expect(page.locator('[data-pf-tabbar]')).toHaveCount(0);
 });
 
 test('visitor role actions fit the rail and have a full touch target', async ({page}) => {

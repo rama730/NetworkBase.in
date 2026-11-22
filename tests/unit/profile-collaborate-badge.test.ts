@@ -11,13 +11,14 @@ import {
 const read = (path: string) => readFileSync(path, 'utf8');
 
 test('profile header uses OpenToCollaborateBadge with brand square without duplicate hover popover', () => {
-    const header = read('src/components/profile/v2/ProfileHeader.tsx');
+    const header = read('src/components/profile/v2/ProfileBand.tsx');
     const badge = read('src/components/profile/OpenToCollaborateBadge.tsx');
     const css = read('src/app/globals.css');
 
-    // ProfileHeader renders OpenToCollaborateBadge instead of round-circle nb-status
-    assert.match(header, /<OpenToCollaborateBadge/);
-    assert.doesNotMatch(header, /<span className="size-1\.5 rounded-full bg-current"/);
+    // The band's tag is the square mono tag (owner: the switch itself); no round dots.
+    assert.match(header, /className="nb-pf-tag"/);
+    assert.match(header, /role="switch" className="nb-pf-tag" aria-checked=\{isOpen\}/);
+    assert.doesNotMatch(header, /rounded-full bg-current/);
 
     // Profile page suppresses redundant hover popover because Role Preferences card is already visible on the page
     assert.match(badge, /isInteractive\s*=\s*interactive\s*!==\s*undefined\s*\?\s*interactive\s*:\s*variant\s*!==\s*'profile-header'/);

@@ -23,7 +23,7 @@ const requiredFiles = [
   "src/components/workspaces/dashboard/WorkspaceLayout.tsx",
   "src/components/workspaces/dashboard/WorkspaceOverviewCard.tsx",
   "src/components/workspaces/v2/TasksTab.tsx",
-  "src/components/profile/v2/ProfileHeader.tsx",
+  "src/components/profile/v2/ProfileBand.tsx",
 ];
 
 describe("check-appearance-contract script", () => {
