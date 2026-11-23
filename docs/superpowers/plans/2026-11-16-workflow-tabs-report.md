@@ -17216,6 +17216,7 @@ CLI and MCP (`networkbase_doc_create` gains `template`; `networkbase_snippet_get
 3. The Business model canvas renders as a 3 × 3 grid from its headings; no separate canvas block. **[call]**
 4. Test plan results are a Markdown table; the pass rate and **Report a bug** are worked out when it's shown. **[call]**
 5. The Docs site and Snippets are off by default; public Docs site shows only documents switched on. **[call]**
+6. **A6.1–A6.2 (2026-11-24):** templates live as Markdown text in code (`src/lib/workflows/doc-templates.ts`: id, name, group, one-line purpose, body), not files read at run time, so the browser and the server share them. **Add document** shows **NetworkBase templates** (folded) by group in a workspace, each row with its purpose; the title typed above names the document ("Assumptions check – Pricing", path characters dropped; no title → the template's name) and the editor opens on the template's text. All groups show for now (choosing groups by category waits for Settings → Documents, A6.34). Parked parts use one line: "> Available when Money is added." **Assumptions check** (11.8) ships first: the intro, the table (Assumption · Depends on · Evidence · If it's wrong, what breaks · Cheapest test · Status) with an example row, and the words for Evidence and Status; its row actions (Make a task, Record a decision on Broken, load-bearing marks) wait for an interactive table. **[call]**
 
 ### 38.16 O1 · Assets (agreed 2026-11-18)
 

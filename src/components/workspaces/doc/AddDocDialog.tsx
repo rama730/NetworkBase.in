@@ -3,6 +3,8 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import type { DocSection } from "@/lib/workspaces/doc-sections";
 import { useMemo, useState } from "react";
+
+import { DOC_TEMPLATES, TEMPLATE_GROUPS, templateBody, templateFileName } from "@/lib/workflows/doc-templates";
 import { Check, FileText} from "lucide-react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -143,7 +145,7 @@ export function AddDocDialog({
             <DialogContent className="gap-3 p-4">
                 <DialogHeader>
                     <DialogTitle>Add document</DialogTitle>
-                    <DialogDescription>{org ? "Blank, or start from a template. You can also pick a Markdown file from Files." : "Start a new doc, or pick a Markdown file from Files."}</DialogDescription>
+                    <DialogDescription>Blank, or start from a template. You can also pick a Markdown file from Files.</DialogDescription>
                 </DialogHeader>
                 <form
                     className="flex gap-2"
@@ -159,6 +161,28 @@ export function AddDocDialog({
                         Add document
                     </Button>
                 </form>
+                {/* Report 38.15 W1 (A6.1): NetworkBase templates by group; the title above names the document ("Tech spec – Sign-in"). */}
+                {org?.mode !== "org" ? (
+                    <details className="rounded-[6px] border border-border" data-testid="nb-templates">
+                        <summary className="cursor-pointer px-2.5 py-2 text-[12px] font-medium text-muted-foreground">NetworkBase templates</summary>
+                        <div className="max-h-56 space-y-2 overflow-y-auto px-1.5 pb-2">
+                            {TEMPLATE_GROUPS.filter((g) => DOC_TEMPLATES.some((t) => t.group === g.id)).map((g) => (
+                                <div key={g.id} role="list" aria-label={g.label}>
+                                    <p className="px-1 pt-1 text-[11px] text-muted-foreground">{g.label}</p>
+                                    {DOC_TEMPLATES.filter((t) => t.group === g.id).map((t) => (
+                                        <button key={t.id} type="button" role="listitem" disabled={creating !== null}
+                                            onClick={() => void createDoc(t.id, async () => ({ filename: templateFileName(t.name, title), content: templateBody(t, title) }))}
+                                            className="flex w-full items-start gap-2.5 rounded-[5px] px-2 py-1.5 text-left transition-colors hover:bg-muted">
+                                            <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                            <span className="min-w-0 flex-1"><span className="block text-[13px] font-medium text-foreground">{t.name}</span><span className="block text-[12px] text-muted-foreground">{t.line}</span></span>
+                                            {creating === t.id ? <PixelBeat className="text-muted-foreground" /> : null}
+                                        </button>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    </details>
+                ) : null}
                 {/* Live-fix 26: in an organization the template choice is always offered, and says how to make one. */}
                 {org && templates.length === 0 ? <p className="text-[12px] text-muted-foreground">No templates yet. Turn one on from a document’s ⋯ → Options → Template.</p> : null}
                 {templates.length > 0 ? (

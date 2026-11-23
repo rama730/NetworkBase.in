@@ -163,3 +163,21 @@ test('phone and dark: no accessibility violations', async ({ page }) => {
   await page.screenshot({ path: 'test-results/doc-decisions/record-phone-dark.png' });
   expect(await axeViolations(page)).toEqual([]);
 });
+
+// Plan A6.1 (report 38.15 W1): New document → NetworkBase templates → the title names the document, the text is the template's.
+test('A6.1 W1: Add document offers NetworkBase templates by group; picking one makes “Assumptions check – Pricing” with its text', async ({ page }) => {
+  await open(page);
+  const bodies: string[] = [];
+  await page.route('https://upload.test/**', (route) => { bodies.push(route.request().postData() ?? ''); return route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"k"}' }); });
+  await page.evaluate(() => { (window as any).__actions.getWorkspaceNodes = async () => ({ nodes: [], nextCursor: null }); (window as any).__actions.readOrgDocsAction = async () => ({ success: true, mode: 'none' }); });
+  await rail(page).getByRole('button', { name: 'Add to Pages' }).click();
+  const d = page.getByRole('dialog', { name: 'Add document' });
+  await d.getByLabel('Document title').fill('Pricing');
+  await d.getByText('NetworkBase templates').click();
+  await expect(d.getByRole('list', { name: 'Startup and business' })).toContainText('Assumptions checkWhat has to be true, what it depends on, and the cheapest test.');
+  await page.screenshot({ path: 'test-results/doc-decisions/templates.png' });
+  await d.getByRole('listitem').filter({ hasText: 'Assumptions check' }).click();
+  await expect.poll(() => bodies.length).toBe(1);
+  expect(bodies[0]).toContain('# Assumptions check – Pricing\n\n_What has to be true for this to work?');
+  expect(bodies[0]).toContain('| Assumption | Depends on | Evidence |');
+});
