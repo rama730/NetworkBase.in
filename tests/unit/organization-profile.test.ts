@@ -116,3 +116,18 @@ test("27.9, decision 56: a badge is rechecked when the website or name changes",
   assert.equal(recheckVerification({ verified: true, domain: null }, { renamed: true }), "request_again", "a staff badge goes back to Requested");
   assert.equal(recheckVerification({ verified: false, domain: null }, { renamed: true }), "keep");
 });
+
+test("member settings §3: completed, workspace completed and left-after-completed read Completed; a reopened part shows its new period", async () => {
+  const { entryStatus } = await import("../../src/lib/organizations/profile-rules");
+  const { contributionDate } = await import("../../src/lib/profile/mix");
+  assert.equal(entryStatus({ endReason: "completed", endDate: "2026-11-18" } as never), "Completed");
+  assert.equal(entryStatus({ endReason: "workspace_completed", endDate: "2026-11-18" } as never), "Completed");
+  // Leaving after completing keeps the reason completed, so the chip stays Completed.
+  assert.equal(entryStatus({ endReason: "completed", endDate: "2026-12-01" } as never), "Completed");
+  assert.equal(entryStatus({ endReason: "left", endDate: "2026-12-01" } as never), "Left");
+  // Reopened: the earlier period ends in Nov, the current one starts in Jan (two ranges).
+  assert.deepEqual(contributionDate({ startDate: "2026-03-01", endDate: "2026-11-18" }), { now: false, top: "2026", sub: "Mar – Nov" });
+  const current = contributionDate({ startDate: "2027-01-10", currentlyActive: true });
+  assert.equal(current.now, true);
+  assert.match(current.sub, /Jan 2027/);
+});

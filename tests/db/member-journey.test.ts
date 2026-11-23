@@ -12,7 +12,9 @@ moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarde
 
 let journey: typeof import("../../src/lib/workspaces/member-journey");
 let access: typeof import("../../src/lib/data/workspace-access");
+let profile: typeof import("../../src/lib/profile/collaboration");
 before(async () => {
+  profile = await loadAppModule(() => import("../../src/lib/profile/collaboration"));
   journey = await loadAppModule(() => import("../../src/lib/workspaces/member-journey"));
   access = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
 });
@@ -221,4 +223,24 @@ test("security: only the person, or the owner or admin who did it while still al
   await sql.begin((tx) => addMember(tx, s.ws, viewer!, "viewer"));
   await sql`DELETE FROM undo_operations WHERE workspace_id = ${s.ws}`;
   await assert.rejects(journey.completePart(s.member, s.ws, s.member, { tasks: "keep", reviewsTo: viewer! }), /Hand your reviews/);
+});
+
+test("profile: the closing note, marked completed by, confirmed by, and the earlier period after a reopen", async () => {
+  const s = await setup();
+  await journey.completePart(s.owner, s.ws, s.member, { note: "Built the sign-in", tasks: "keep" });
+  await journey.decideCompletion(s.owner, s.ws, s.member, "confirm");
+  const own = async () => (await profile.getProfileContributions(s.member, { includePrivate: true })).contributions.find((c) => c.projectId === s.ws)!;
+  const done = await own();
+  assert.equal(done.endReason, "completed");
+  assert.equal(done.endNote, "Built the sign-in");
+  assert.ok(done.endedByName, "marked completed by the owner");
+  assert.ok(done.confirmedByName, "confirmed by");
+  assert.deepEqual(done.earlierPeriods, [], "the completed period is the entry itself");
+  await journey.reopenPart(s.member, s.ws);
+  const back = await own();
+  assert.equal(back.currentlyActive, true);
+  assert.equal(back.endNote, null);
+  assert.equal(back.earlierPeriods?.length, 1);
+  assert.equal(back.earlierPeriods?.[0]?.reason, "completed");
+  assert.ok(back.currentSince, "the current period's start");
 });

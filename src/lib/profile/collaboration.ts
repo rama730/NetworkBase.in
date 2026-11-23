@@ -141,6 +141,14 @@ export type ProfileCollaborationContribution = {
   showOnProfile?: boolean | null;
   /** How the membership ended (report §10.1); null on an ended entry reads as "left". */
   endReason?: "left" | "removed" | "term_ended" | "org_deleted" | "completed" | "workspace_completed" | null;
+  /** Member settings §3: the closing note, who marked it completed (when not the person), who confirmed it. */
+  endNote?: string | null;
+  endedByName?: string | null;
+  confirmedByName?: string | null;
+  /** Earlier periods here (completed, left, removed), oldest first; the current one is the entry's own dates. */
+  earlierPeriods?: Array<{ startDate: string | null; endDate: string | null; reason: string; note: string | null }>;
+  /** When the current period began, after a reopen or a rejoin ("Since Jan 2027"). */
+  currentSince?: string | null;
   /** History labels (report §24.5): a detached child "with CSE-3A (until Nov 2026)"; a deleted org's kept name. */
   formerOrg?: { title: string; until: string } | null;
   goneOrgTitle?: string | null;
@@ -211,6 +219,10 @@ type ProfileProjectRow = {
 };
 
 type ProfileContributionRow = {
+  end_note?: string | null;
+  ended_by_name?: string | null;
+  confirmed_by_name?: string | null;
+  member_periods?: Array<{ startedAt: string; endedAt: string; reason: string; note: string | null }> | null;
   nudge_dismissed_at?: Date | string | null;
   profile_order?: number | null;
   timeline_order?: number | null;
@@ -563,6 +575,13 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     visibility,
     projectKind: row.project_kind ?? null,
     endReason: (row.end_reason as ProfileCollaborationContribution["endReason"]) ?? null,
+    endNote: row.end_note ?? null,
+    endedByName: row.ended_by_name ?? null,
+    confirmedByName: row.confirmed_by_name ?? null,
+    // An ended entry's last period is the entry itself; an open one's periods are all earlier.
+    earlierPeriods: (row.member_periods ?? []).slice(0, row.ended_at ? -1 : undefined)
+      .map((p) => ({ startDate: toShortDate(p.startedAt), endDate: toShortDate(p.endedAt), reason: p.reason, note: p.note ?? null })),
+    currentSince: !row.ended_at && row.member_periods?.length ? (normalizedStages.find((s) => s.currentlyActive)?.startDate ?? null) : null,
     profileOrder: row.profile_order ?? null,
     timelineOrder: row.timeline_order ?? null,
     nudgeDismissed: Boolean(row.nudge_dismissed_at),
@@ -823,6 +842,14 @@ async function queryProfileContributionRows(profileId: string, options: {
       END AS work_record,
       contribution.verification_revoked_reason,
       contribution.end_reason,
+      -- Member settings §3: the closing note, "marked completed by", "confirmed by", and earlier periods here.
+      CASE WHEN contribution.end_reason IN ('completed', 'workspace_completed') THEN contribution.end_note END AS end_note,
+      CASE WHEN contribution.end_reason = 'completed' AND contribution.ended_by IS DISTINCT FROM contribution.profile_id THEN
+        (SELECT coalesce(nullif(trim(ep.full_name), ''), ep.username) FROM profiles ep WHERE ep.id = contribution.ended_by) END AS ended_by_name,
+      CASE WHEN contribution.end_reason IN ('completed', 'workspace_completed') THEN
+        (SELECT coalesce(nullif(trim(cp.full_name), ''), cp.username) FROM profiles cp WHERE cp.id = member.completion_confirmed_by) END AS confirmed_by_name,
+      (SELECT jsonb_agg(jsonb_build_object('startedAt', mp.started_at, 'endedAt', mp.ended_at, 'reason', mp.end_reason, 'note', mp.note) ORDER BY mp.ended_at)
+        FROM workspace_member_periods mp WHERE mp.workspace_id = contribution.workspace_id AND mp.user_id = contribution.profile_id) AS member_periods,
       ${includePrivate ? sql`contribution.nudge_dismissed_at` : sql`NULL::timestamptz`} AS nudge_dismissed_at,
       CASE WHEN project.kind = 'organization' THEN project.org_type END AS org_type,
       CASE WHEN project.kind = 'organization' THEN project.org_settings->'roleNames' END AS org_role_names,

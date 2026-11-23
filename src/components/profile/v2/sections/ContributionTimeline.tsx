@@ -134,7 +134,8 @@ export function ContributionTimeline({
     }
 
     const item = (c: Entry, compact: boolean, nested = false) => {
-        const date = contributionDate(c)
+        // Member settings §3: after a reopen or rejoin the date shows the current period; earlier ones list below.
+        const date = contributionDate({ ...c, startDate: c.currentSince ?? c.startDate })
         const kind = contributionKind(c)
         const pinned = Boolean(c.featured) && !compact
         const hidden = isOwner && c.visibility === 'private'
@@ -192,6 +193,20 @@ export function ContributionTimeline({
                     {status ? <span>{status}</span> : null}
                     {isOwner && c.verificationRevokedReason ? <span>Verification removed: {c.verificationRevokedReason}</span> : null}
                 </p>
+                {c.endNote || c.endedByName || c.confirmedByName ? (
+                    <p className="nb-pf-tl-sub" data-testid="completion-line">
+                        {c.endNote ? <span>&ldquo;{c.endNote}&rdquo;</span> : null}
+                        {c.endedByName ? <span>Marked completed by {c.endedByName}</span> : null}
+                        {c.confirmedByName ? <span>Confirmed by {c.confirmedByName}</span> : null}
+                    </p>
+                ) : null}
+                {!compact && c.earlierPeriods?.length ? (
+                    <p className="nb-pf-tl-sub" data-testid="earlier-periods">
+                        {c.earlierPeriods.map((p) => (
+                            <span key={`${p.startDate}-${p.endDate}`}>{contributionDate({ startDate: p.startDate, endDate: p.endDate }).sub || p.endDate} · {p.reason === 'left' ? 'Left' : p.reason === 'removed' ? 'Removed' : 'Completed'}</span>
+                        ))}
+                    </p>
+                ) : null}
                 {compact || editing ? (
                     plainSummary(c) ? <p className={cn('nb-pf-tl-story', editing && 'clamp2')}>{plainSummary(c)}</p> : null
                 ) : (
