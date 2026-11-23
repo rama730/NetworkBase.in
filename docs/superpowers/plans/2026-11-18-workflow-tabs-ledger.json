@@ -278,9 +278,9 @@
       "text": "A2.11 Roadmap: Timeline, Backlog, milestones — Journeys: T2 W8 (launch diamonds re-run at A3.1), W9, W10.",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "4eaede414 + fix 4d0ef8184 live 2026-11-23 (web+worker SUCCESS; full test:db 1263/1263, unit, browser roadmap-tab 7/7). Checked live in Chrome on wt-test-a2-3: Timeline opens on today with SSO sign-in's bar from its work's start (20 Nov) to its target (15 Dec), Alpha build as a diamond on 20 Dec, Offline mode as a one-day bar; Backlog lists WT-21 and WT-20 with type, priority, requests and created, and Move up reorders them. Roadmap is built (Add workflow lists it)."
     },
     {
       "key": "A3.1",
@@ -6828,9 +6828,9 @@
       "text": "Timeline",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: Timeline bars and diamonds (launch diamonds ship with A3.1)."
     },
     {
       "key": "38.9.W9",
@@ -6838,9 +6838,9 @@
       "text": "Backlog",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: Backlog hand order with Move up."
     },
     {
       "key": "38.9.W10",
@@ -6848,9 +6848,9 @@
       "text": "Game milestones",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: Alpha milestone diamond on the Timeline; milestone name on cards."
     },
     {
       "key": "38.9.W11",
@@ -6888,9 +6888,9 @@
       "text": "Types are Feature · Improvement · Fix · Milestone; Milestone names come from 22.4. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23 (Milestone names)."
     },
     {
       "key": "38.9.call3",
@@ -8318,9 +8318,9 @@
       "text": "A2.11 (2026-11-23): Timeline is T1's month grid opened on today: a bar runs from an item's first work start (the earliest start date among its work) to its targ",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23 (see A2.11)."
     },
     {
       "key": "38.10.call7",
