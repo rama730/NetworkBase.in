@@ -77,7 +77,10 @@ export function meetingWhen(startsAt: string, lengthMinutes: number, tz: string)
 /** W10: an iCalendar (RFC 5545) feed: one VEVENT per meeting, times in UTC, text escaped, lines folded at 75 octets. */
 export function icsCalendar(events: Array<{ uid: string; title: string; startsAt: string; lengthMinutes: number; url: string }>, now = new Date()) {
   const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-  const text = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  // Security review (A4.1b): every line-ending form is escaped and other control characters dropped, so a title
+  // (people type it) can never start a new property line in the feed.
+  const text = (s: string) =>
+    s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "");
   const fold = (line: string) => {
     const out: string[] = [];
     let rest = line;

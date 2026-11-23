@@ -38,7 +38,7 @@ test("icsCalendar: UTC times, escaped text, CRLF, folded long lines", async () =
   const { icsCalendar } = await import("../../src/lib/workflows/meetings");
   const ics = icsCalendar([{ uid: "d1@networkbase", title: "Weekly; team, sync", startsAt: "2027-01-07T04:30:00.000Z", lengthMinutes: 30, url: "https://networkbase.in/workspaces/acme?tab=docs&doc=" + "x".repeat(80) }], new Date("2026-11-23T00:00:00Z"));
   assert.match(ics, /^BEGIN:VCALENDAR\r\nVERSION:2\.0\r\n/);
-  assert.match(ics, /DTSTART:20270107T043000Z\r\nDTEND:20270107T050000Z\r\nSUMMARY:Weekly\; team\\, sync\r\n/);
+  assert.match(ics, /DTSTART:20270107T043000Z\r\nDTEND:20270107T050000Z\r\nSUMMARY:Weekly\\; team\\, sync\r\n/);
   assert.ok(ics.split("\r\n").every((l) => Buffer.byteLength(l, "utf8") <= 75), "lines fold at 75 octets");
   assert.match(ics, /\r\n /, "a folded line continues with a space");
   assert.match(ics, /END:VCALENDAR\r\n$/);
@@ -51,4 +51,13 @@ test("monthGrid: six weeks from Monday; meetings on their local day in time orde
   assert.equal(g[0]!.day, "2026-12-28");
   assert.deepEqual(g.find((d) => d.day === "2027-01-07")!.meetings.map((m) => [m.t, m.time]), [["a", "10:00"], ["b", "14:00"]]);
   assert.deepEqual(g.find((d) => d.day === "2027-02-01")!.meetings.map((m) => m.t), ["c"], "01:30 next day in Kolkata");
+});
+
+test("security review: icsCalendar never lets a title start a new line (CR, LF, CRLF, other control characters)", async () => {
+  const { icsCalendar } = await import("../../src/lib/workflows/meetings");
+  const title = "A\rATTENDEE:mailto:x@evil.test\nB\r\nC\u0007D; E, F";
+  const ics = icsCalendar([{ uid: "d1@networkbase", title, startsAt: "2027-01-07T04:30:00.000Z", lengthMinutes: 30, url: "https://networkbase.in/x" }], new Date("2026-11-23T00:00:00Z"));
+  const summary = ics.split("\r\n").find((l) => l.startsWith("SUMMARY:"));
+  assert.equal(summary, "SUMMARY:A\\nATTENDEE:mailto:x@evil.test\\nB\\nCD\\; E\\, F");
+  assert.ok(!ics.split("\r\n").some((l) => l.startsWith("ATTENDEE")), "no injected property line");
 });
