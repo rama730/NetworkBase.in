@@ -13,7 +13,9 @@ const question = z.object({
   options: z.array(z.string().trim().min(1).max(60)).max(12).optional(),
   required: z.boolean(),
 }).strict().refine((q) => q.kind !== "choice" || (q.options?.length ?? 0) >= 2, { message: "A choice needs at least 2 options" });
-const minutes = z.number().int().min(1).max(60 * 24 * 60).nullable();
+// Up to 30 working days (security review: keeps every deadline calculation short).
+export const MAX_CLOCK_MINUTES = 30 * 480;
+const minutes = z.number().int().min(1).max(MAX_CLOCK_MINUTES).nullable();
 export const requestTypeSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(40),

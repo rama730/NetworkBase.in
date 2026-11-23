@@ -221,7 +221,7 @@ export function RequestTypesDialog({ projectId, members, onClose }: { projectId:
     return (
       <Field label={label} htmlFor={`type-${key}`}>
         <div className="flex gap-2">
-          <input id={`type-${key}`} type="number" min={1} max={999} value={t.n} disabled={t.unit === "off"} aria-label={`${label}, number`}
+          <input id={`type-${key}`} type="number" min={1} max={t.unit === "days" ? 30 : 240} value={t.n} disabled={t.unit === "off"} aria-label={`${label}, number`}
             onChange={(e) => setDraft((d) => d && { ...d, [key]: toMinutes(e.target.value, t.unit === "off" ? "hours" : t.unit) })} className={cn(inputClassName(false), "w-20")} />
           <SelectWrap><select value={t.unit} aria-label={`${label}, unit`} onChange={(e) => setDraft((d) => d && { ...d, [key]: toMinutes(t.n || "1", e.target.value) })} className={selectClassName()}>
             <option value="hours">working hours</option><option value="days">working days</option><option value="off">Off</option>
@@ -327,7 +327,7 @@ export function WorkingHoursDialog({ projectId, hours, timeZone, onClose }: { pr
     const r = await saveWorkingHoursAction({ projectId, hours: draft, timeZone: zone });
     setBusy(false);
     if (!r.success) return void toast.error(r.error);
-    toast(`Working hours saved · ${r.recalculated} open ${r.recalculated === 1 ? "clock" : "clocks"} recalculated`);
+    toast("Working hours saved · open clocks are being recalculated");
     onClose(true);
   }
   return (

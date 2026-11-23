@@ -47,14 +47,15 @@ function* windows(from: Date, hours: WorkingHours, tz: string) {
   }
 }
 
-export function workingMinutesBetween(start: Date, end: Date, hours: WorkingHours, tz: string) {
+/** `cap` stops counting early (a long-breached clock needs no exact age); ponytail: its words top out there. */
+export function workingMinutesBetween(start: Date, end: Date, hours: WorkingHours, tz: string, cap = Infinity) {
   if (end <= start) return 0;
   let total = 0;
   for (const [open, close] of windows(start, hours, tz)) {
-    if (open >= end.getTime()) break;
+    if (open >= end.getTime() || total >= cap * 60_000) break;
     total += Math.max(0, Math.min(close, end.getTime()) - Math.max(open, start.getTime()));
   }
-  return Math.round(total / 60_000);
+  return Math.min(Math.round(total / 60_000), cap);
 }
 
 export function addWorkingMinutes(start: Date, minutes: number, hours: WorkingHours, tz: string) {
@@ -74,7 +75,7 @@ export type Clock = { state: "running" | "soon" | "breached" | "paused" | "stopp
 export function clockState(c: ClockInput & { now: Date }): Clock {
   if (!c.budgetMinutes) return { state: "off", leftMinutes: 0, usedMinutes: 0 };
   const end = c.stoppedAt ?? c.waitingSince ?? c.now;
-  const used = Math.max(0, workingMinutesBetween(c.startedAt, end, c.hours, c.tz) - c.pausedMinutes);
+  const used = Math.max(0, workingMinutesBetween(c.startedAt, end, c.hours, c.tz, c.budgetMinutes + c.pausedMinutes + 30 * 480) - c.pausedMinutes);
   const left = c.budgetMinutes - used;
   const state = c.stoppedAt ? "stopped" : c.waitingSince ? "paused" : left < 0 ? "breached" : used >= c.budgetMinutes * 0.8 ? "soon" : "running";
   return { state, leftMinutes: left, usedMinutes: used };

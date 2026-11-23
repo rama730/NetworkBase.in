@@ -31,7 +31,7 @@ async function open(page: Page, opts: { width?: number; canTriage?: boolean; emp
     ];
     (window as any).__actions = {
       readRequestsAction: async () => ({ success: true, projectKey: 'AC', requests, types, hours: { days: [1, 2, 3, 4, 5], from: '09:00', to: '17:00', holidays: [] }, timeZone: 'Asia/Kolkata', hoursSet: false, canTriage, canManage: canTriage, viewerId: 'u1' }),
-      saveWorkingHoursAction: async (input: unknown) => { calls.push(['hours', input]); return { success: true, recalculated: 3 }; },
+      saveWorkingHoursAction: async (input: unknown) => { calls.push(['hours', input]); return { success: true }; },
       readRequestTypesAction: async () => ({ success: true, types, active: types, canManage: canTriage }),
       acceptRequestAction: async (input: unknown) => { calls.push(['accept', input]); return { success: true }; },
       declineRequestAction: async (input: unknown) => { calls.push(['decline', input]); return { success: true }; },

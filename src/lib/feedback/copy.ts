@@ -502,6 +502,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Check the files for “{label}”": { "title": "Check the files for “{label}”", "type": "warning" },
   "Check the days and times: From comes before To": { "title": "Check the days and times", "description": "From comes before To.", "type": "warning" },
   "Pick a time zone from the list": { "title": "Pick a time zone from the list", "type": "warning" },
+  "Write the note in words": { "title": "Write the note in words", "type": "warning" },
   "Pick an open bug": { "title": "Pick an open bug", "type": "warning" },
   "Pick a bug in this workspace": { "title": "Pick a bug in this workspace", "type": "warning" },
 };

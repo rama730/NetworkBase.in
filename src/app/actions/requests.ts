@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
@@ -197,7 +198,8 @@ export async function saveRequestTypeAction(input: z.infer<typeof saveInput>) {
       savedId = next.id;
       return existing ? types.map((t) => (t.id === next.id ? next : t)) : [...types, next];
     });
-    await rescheduleWorkspaceClocks(projectId);
+    // Security review (A2.5): recalculating every open clock runs after the response, not inside it.
+    after(() => rescheduleWorkspaceClocks(projectId));
     return { success: true as const, id: savedId };
   } catch (error) {
     return fail(error, "Couldn’t save the request type");
@@ -236,8 +238,8 @@ export async function saveWorkingHoursAction(input: z.infer<typeof hoursInput>) 
       UPDATE workspaces SET time_zone = ${timeZone},
         workflow_settings = jsonb_set(coalesce(workflow_settings, '{}'::jsonb), '{workingHours}', ${JSON.stringify(clean)}::jsonb)
       WHERE id = ${projectId}::uuid`);
-    const n = await rescheduleWorkspaceClocks(projectId);
-    return { success: true as const, recalculated: n };
+    after(() => rescheduleWorkspaceClocks(projectId));
+    return { success: true as const };
   } catch (error) {
     return fail(error, "Couldn’t save the working hours");
   }

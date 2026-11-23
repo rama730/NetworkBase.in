@@ -67,3 +67,10 @@ test("hoursLine: runs of days with a dash, times and the zone, holidays counted"
   assert.equal(hoursLine(H, IST), "Mon–Fri 09:00–17:00 (Asia/Kolkata)");
   assert.equal(hoursLine({ ...H, days: [1, 2, 4, 6, 7], holidays: ["2026-12-25"] }, "UTC"), "Mon, Tue, Thu, Sat, Sun 09:00–17:00 (UTC) · 1 holiday");
 });
+
+test("security review: counting stops at the cap, so an old open request costs no more than a month past its budget", async () => {
+  const { workingMinutesBetween, clockState } = await import("../../src/lib/workflows/request-clock");
+  assert.equal(workingMinutesBetween(ist("2020-01-01T09:00"), ist("2026-11-23T10:00"), H, IST, 600), 600);
+  const old = clockState({ startedAt: ist("2020-01-01T09:00"), budgetMinutes: 240, pausedMinutes: 0, waitingSince: null, stoppedAt: null, hours: H, tz: IST, now: ist("2026-11-23T10:00") });
+  assert.deepEqual([old.state, old.leftMinutes], ["breached", -30 * 480]);
+});
