@@ -312,8 +312,12 @@ test("W6: a board meeting's motion needs quorum and votes within those present; 
   const node = (await sql`SELECT linked_node_id FROM workspace_documents WHERE id = ${first}`)[0]!.linked_node_id as string;
   assert.match((await lock.approvedMinutesRefusal(t.ws, node))!, /^These minutes were approved on \d+ \w+ and can’t be edited\.$/);
   await assert.rejects(lock.assertMinutesEditable(t.ws, node), /approved/);
+  // Live check (0117): the database refuses any new version or version switch, whichever path writes it.
+  await assert.rejects(sql`INSERT INTO file_versions (node_id, version, s3_key, size, mime_type) VALUES (${node}, 99, 'x', 1, 'text/markdown')`, /MINUTES_APPROVED/);
+  await assert.rejects(sql`UPDATE workspace_nodes SET current_version = coalesce(current_version, 0) + 1 WHERE id = ${node}`, /MINUTES_APPROVED/);
   const otherNode = (await sql`SELECT linked_node_id FROM workspace_documents WHERE id = ${second}`)[0]!.linked_node_id as string;
   assert.equal(await lock.approvedMinutesRefusal(t.ws, otherNode), null);
+  await sql`UPDATE workspace_nodes SET current_version = coalesce(current_version, 0) WHERE id = ${otherNode}`; // unapproved files still change
 });
 
 // Plan A4.16 (report 38.11 S8, call 5): Settings → Meetings.

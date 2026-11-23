@@ -119,7 +119,8 @@
     "drizzle/0113_profile_portfolio_pins.sql",
     "drizzle/0114_member_journey.sql",
     "drizzle/0115_meeting_series_reminders.sql",
-    "drizzle/0116_goal_check_ins.sql"
+    "drizzle/0116_goal_check_ins.sql",
+    "drizzle/0117_approved_minutes_lock.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
