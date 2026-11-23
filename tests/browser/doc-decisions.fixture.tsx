@@ -8,6 +8,7 @@ import { DecisionMetaLine, DocDecisionsBlock } from '@/components/workspaces/doc
 import { DocInsertMenu } from '@/components/workspaces/doc/DocInsertMenu';
 import { WorkspaceDocRail } from '@/components/workspaces/doc/WorkspaceDocRail';
 import { AddedWorkflowsContext } from '@/components/workspaces/workflows/useWorkspaceWorkflows';
+import { useWorkspaceDocList } from '@/hooks/workspaces/useWorkspaceDocData';
 
 // Report 38.3 F2 S4, W6, W7 (plan A0.6): a meeting's Decisions block, Record a decision, the rail's Decisions with
 // D-numbers and the editor's Insert → Decisions. Server actions answer from window.__actions.
@@ -29,6 +30,13 @@ function Editor() {
   return (<div className="space-y-2"><div className="flex justify-end"><DocInsertMenu projectId="w1" nodeId="n1" view={view} /></div><div ref={host} className="rounded border border-border" /></div>);
 }
 
+// A4.2: the decision header reads the document from the list, as the viewer does, so status changes show.
+function Header() {
+  const { data = [] } = useWorkspaceDocList('w1');
+  const doc = data.find((d) => d.slug === (w.__headerSlug ?? 'use-postgres'));
+  return doc ? <DecisionMetaLine projectId="w1" doc={doc} canEdit={w.__canEdit ?? true} /> : null;
+}
+
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
     <AddedWorkflowsContext.Provider value={['meetings']}>
@@ -37,7 +45,7 @@ createRoot(document.getElementById('root')!).render(
           <Editor />
           <h1 className="nb-section-title">Weekly</h1>
           <DocDecisionsBlock projectId="w1" docSlug="weekly" canEdit />
-          <DecisionMetaLine projectId="w1" doc={{ id: 'd2', slug: 'use-postgres', filename: 'Use Postgres.md', linkedNodeId: 'n2', section: 'decisions', date: '2026-11-12', decisionNumber: 2, decisionStatus: 'decided', fromDocId: 'w-id' }} />
+          <Header />
         </div>
         <WorkspaceDocRail projectId="w1" activeSlug="weekly" canEdit />
       </main>

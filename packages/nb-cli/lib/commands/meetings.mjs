@@ -39,7 +39,7 @@ export async function decisions(ctx) {
     return ctx.out.table([
       { title: "#", value: (x) => x.label },
       { title: "Decision", value: (x) => safe(x.title), flex: true },
-      { title: "Status", value: (x) => x.status },
+      { title: "Status", value: (x) => (x.supersededBy ? `superseded by ${x.supersededBy}` : x.status) },
       { title: "Date", value: (x) => x.date ?? "—", optional: true },
     ], r.decisions);
   });

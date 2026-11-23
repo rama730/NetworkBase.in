@@ -21,10 +21,26 @@ async function open(page: Page, { width = 1440, theme = 'light' } = {}) {
       getUploadPresignedUrl: async () => ({ url: 'https://upload.test/put', storageKey: 'k', token: 't', uploadIntentId: 'u' }),
       createFileNode: async (_p: string, _f: string, file: { name: string }) => ({ id: 'n9', name: file.name, path: `/Docs/${file.name}` }),
       linkWorkspaceDocAction: async () => { docs.push({ id: 'd9', slug: 'ship-friday', filename: 'Ship Friday.md', linkedNodeId: 'n9' }); return { success: true, slug: 'ship-friday', id: 'd9' }; },
-      recordDecisionAction: async (_p: string, input: { docSlug: string; fromDocSlug?: string }) => {
-        calls.push(['record', input.docSlug, input.fromDocSlug ?? null]);
-        Object.assign(docs.find((d) => d.slug === input.docSlug), { section: 'decisions', decisionNumber: 3, decisionStatus: 'decided', date: '2026-11-19', ...(input.fromDocSlug ? { fromDocId: 'w-id' } : {}) });
+      recordDecisionAction: async (_p: string, input: { docSlug: string; fromDocSlug?: string; supersedesSlug?: string }) => {
+        calls.push(['record', input.docSlug, input.fromDocSlug ?? null, ...(input.supersedesSlug ? [input.supersedesSlug] : [])]);
+        const made = docs.find((d) => d.slug === input.docSlug);
+        Object.assign(made, { section: 'decisions', decisionNumber: 3, decisionStatus: 'decided', date: '2026-11-19', ...(input.fromDocSlug ? { fromDocId: 'w-id' } : {}) });
+        if (input.supersedesSlug) {
+          const old = docs.find((d) => d.slug === input.supersedesSlug);
+          Object.assign(old, { decisionStatus: 'superseded', supersededBy: made.id });
+          made.supersedes = old.id;
+        }
         return { success: true, number: 3, label: 'D-003' };
+      },
+      setDecisionStatusAction: async (_p: string, input: { docSlug: string; status: string }) => {
+        calls.push(['status', input.docSlug, input.status]);
+        docs.find((d) => d.slug === input.docSlug).decisionStatus = input.status;
+        return { success: true };
+      },
+      reverseDecisionAction: async (_p: string, input: { docSlug: string; reason: string }) => {
+        calls.push(['reverse', input.docSlug, input.reason]);
+        Object.assign(docs.find((d) => d.slug === input.docSlug), { decisionStatus: 'reversed', reverseReason: input.reason });
+        return { success: true };
       },
     };
   });
@@ -44,6 +60,8 @@ test('S4 + S1: the block lists D-002 · title · Decided · date; the rail shows
 
 test('W6: Record a decision asks for one line, makes the document and files it as D-003 from this meeting', async ({ page }) => {
   await open(page);
+  const bodies: string[] = [];
+  await page.route('https://upload.test/**', (route) => { bodies.push(route.request().postData() ?? ''); return route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"k"}' }); });
   await block(page).getByRole('button', { name: 'Record a decision' }).click();
   const dialog = page.getByRole('dialog', { name: 'Record a decision' });
   await dialog.getByRole('button', { name: 'Record' }).click();
@@ -57,12 +75,68 @@ test('W6: Record a decision asks for one line, makes the document and files it a
   await expect(block(page).getByRole('button').first()).toContainText('D-003');
   await expect(rail(page)).toContainText('D-003 · Ship Friday');
   expect(await page.evaluate(() => (window as any).__calls)).toEqual([['record', 'ship-friday', 'weekly']]);
+  // A4.2, call 2: the ADR shape.
+  expect(bodies).toHaveLength(1);
+  expect(bodies[0]).toContain('# Ship Friday\n\n## Context\n\nThe launch window closes Monday.\n\n## Decision\n\nShip Friday\n\n## Consequences\n\n');
 });
 
-test('W6: a decision\'s page says D-002 · Decided · date · From: the meeting, which opens it', async ({ page }) => {
+// Plan A4.2 (report 38.11 W4, W7).
+test('W4: the status select moves the decision between Proposed and Decided', async ({ page }) => {
   await open(page);
   const meta = page.getByTestId('decision-meta');
-  await expect(meta).toContainText(/D-002\s*Decided\s*Nov 12\s*From: Weekly/);
+  await meta.getByLabel('Status').selectOption('proposed');
+  await expect(meta.getByLabel('Status')).toHaveValue('proposed');
+  expect(await page.evaluate(() => (window as any).__calls)).toEqual([['status', 'use-postgres', 'proposed']]);
+});
+
+test('W7: Supersede records D-003 in its place; D-002 then says Superseded by D-003, keeps its badge and loses Supersede and Reverse', async ({ page }) => {
+  await open(page);
+  const meta = page.getByTestId('decision-meta');
+  await meta.getByRole('button', { name: 'Supersede' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Supersede D-002' });
+  await expect(dialog).toContainText('It replaces D-002');
+  await dialog.getByLabel('Decision').fill('Ship Friday');
+  await page.screenshot({ path: 'test-results/doc-decisions/supersede-light.png' });
+  await dialog.getByRole('button', { name: 'Record' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(meta.getByTestId('decision-superseded-by')).toHaveText('Superseded by D-003');
+  await expect(meta).toContainText('Superseded');
+  await expect(meta.getByLabel('Status')).toHaveCount(0);
+  await expect(meta.getByRole('button', { name: 'Supersede' })).toHaveCount(0);
+  await expect(meta.getByRole('button', { name: 'Reverse' })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__calls)).toEqual([['record', 'ship-friday', null, 'use-postgres']]);
+  await meta.getByRole('button', { name: 'D-003' }).click();
+  expect(await page.evaluate(() => (window as any).__pushed)).toContain('doc=ship-friday');
+});
+
+test('W7: Reverse asks a reason, then the decision shows Reversed with it', async ({ page }) => {
+  await open(page);
+  const meta = page.getByTestId('decision-meta');
+  await meta.getByRole('button', { name: 'Reverse' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Reverse D-002' });
+  await dialog.getByRole('button', { name: 'Reverse' }).click();
+  await expect(dialog).toContainText("Say why it's reversed");
+  await dialog.getByLabel('Reason').fill('Search moved to Typesense');
+  await dialog.getByRole('button', { name: 'Reverse' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(meta.getByTestId('decision-reverse-reason')).toHaveText('Reversed: Search moved to Typesense');
+  await expect(meta.getByLabel('Status')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__calls)).toEqual([['reverse', 'use-postgres', 'Search moved to Typesense']]);
+});
+
+test('W4: people who can only read see the status as a badge, without Supersede or Reverse', async ({ page }) => {
+  await page.addInitScript(() => { (window as any).__canEdit = false; });
+  await open(page);
+  const meta = page.getByTestId('decision-meta');
+  await expect(meta).toContainText(/D-002\s*Decided\s*Nov 12/);
+  await expect(meta.getByRole('button', { name: 'Supersede' })).toHaveCount(0);
+});
+
+test('W6, S5: a decision\'s page says D-002 · status · date · From: the meeting, which opens it', async ({ page }) => {
+  await open(page);
+  const meta = page.getByTestId('decision-meta');
+  await expect(meta.getByLabel('Status')).toHaveValue('decided');
+  await expect(meta).toContainText(/D-002.*Nov 12\s*From: Weekly/);
   await meta.getByRole('button', { name: 'Weekly' }).click();
   expect(await page.evaluate(() => (window as any).__pushed)).toContain('doc=weekly');
 });

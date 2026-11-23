@@ -254,10 +254,11 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
         if (!permission.canEdit && project.kind === "organization" && readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).lifecycle === "draft") continue;
         if (!permission.canEdit && !membership && !isOwner && doc.empty && (project.kind === "organization" || project.parentId)) continue;
         if (permission.canReadPublished || permission.canEdit) {
-            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, meetingTitle, launchTitle } = normalizeWorkspaceDocSettings(doc.settings);
+            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, supersedes, supersededBy, reverseReason, meetingTitle, launchTitle } = normalizeWorkspaceDocSettings(doc.settings);
             const title = section === "meetings" ? meetingTitle : section === "launches" ? launchTitle : undefined;
             results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId, ...(section ? { section } : {}), ...(kind ? { kind } : {}), ...(date ? { date } : {}), ...(title ? { title } : {}),
-                ...(decisionNumber ? { decisionNumber, decisionStatus: decisionStatus ?? "decided" } : {}), ...(fromDocId ? { fromDocId } : {}) });
+                ...(decisionNumber ? { decisionNumber, decisionStatus: decisionStatus ?? "decided" } : {}), ...(fromDocId ? { fromDocId } : {}),
+                ...(supersedes ? { supersedes } : {}), ...(supersededBy ? { supersededBy } : {}), ...(reverseReason ? { reverseReason } : {}) });
         }
     }
     return results.sort((a, b) => {
@@ -1059,11 +1060,19 @@ async function assignDecisionNumber(projectId: string, docId: string, extra: Rec
     });
 }
 
-const recordDecisionSchema = z.object({ docSlug: docSlugSchema, fromDocSlug: z.string().min(1).max(200).transform((value) => normalizeWorkspaceDocSlug(value)).optional() });
+const recordDecisionSchema = z.object({
+    docSlug: docSlugSchema,
+    fromDocSlug: z.string().min(1).max(200).transform((value) => normalizeWorkspaceDocSlug(value)).optional(),
+    /** Report 38.11 W7 (A4.2): Supersede on an older decision records this one in its place. */
+    supersedesSlug: z.string().min(1).max(200).transform((value) => normalizeWorkspaceDocSlug(value)).optional(),
+});
+const STANDING = ["proposed", "decided"];
 
 /**
  * W6: Record a decision. The browser makes the document's file as any new document (createDocFile); this files it under
  * Decisions with the next D-number, Decided, today's date and the document it came from. Editors of both only.
+ * A4.2: when it supersedes an older decision that still stands, that one becomes Superseded with a link to this one (only
+ * once: a second Supersede of the same decision is refused); a decision recorded from a meeting tells its attendees.
  */
 export async function recordDecisionAction(projectId: string, input: unknown) {
     try {
@@ -1071,19 +1080,93 @@ export async function recordDecisionAction(projectId: string, input: unknown) {
         const parsed = recordDecisionSchema.parse(input);
         const context = await getDocProjectContext(projectId, userId, parsed.docSlug);
         if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents record decisions." };
-        let fromDocId: string | undefined;
+        let from: Awaited<ReturnType<typeof getDocProjectContext>> | null = null;
         if (parsed.fromDocSlug) {
-            const from = await getDocProjectContext(projectId, userId, parsed.fromDocSlug);
+            from = await getDocProjectContext(projectId, userId, parsed.fromDocSlug);
             if (!from.readme || !from.permission.canEdit) return { success: false as const, error: "Only people who can edit this document record its decisions." };
-            fromDocId = from.readme.id;
         }
-        const number = await assignDecisionNumber(projectId, context.readme.id, { date: new Date().toISOString().slice(0, 10), ...(fromDocId ? { fromDocId } : {}) });
-        await recordNodeEvent(projectId, userId, null, "project_readme.decision_recorded", { docSlug: parsed.docSlug, number });
+        let old: Awaited<ReturnType<typeof getDocProjectContext>> | null = null;
+        if (parsed.supersedesSlug) {
+            old = await getDocProjectContext(projectId, userId, parsed.supersedesSlug);
+            if (!old.readme || !old.permission.canEdit || !old.settings.decisionNumber) return { success: false as const, error: "Only people who can edit that decision supersede it." };
+            if (!STANDING.includes(old.settings.decisionStatus ?? "decided")) return { success: false as const, error: "That decision was already superseded or reversed." };
+        }
+        const oldId = old?.readme?.id;
+        const number = await assignDecisionNumber(projectId, context.readme.id, { date: new Date().toISOString().slice(0, 10), ...(from?.readme ? { fromDocId: from.readme.id } : {}), ...(oldId ? { supersedes: oldId } : {}) });
+        if (oldId) {
+            // Only a decision that still stands is superseded, so two people superseding it at once can't both win.
+            const moved = await db.update(workspaceDocuments)
+                .set({ settings: sql`${workspaceDocuments.settings} || ${JSON.stringify({ decisionStatus: "superseded", supersededBy: context.readme.id })}::jsonb`, updatedAt: new Date() })
+                .where(and(eq(workspaceDocuments.id, oldId), eq(workspaceDocuments.projectId, projectId), sql`coalesce(${workspaceDocuments.settings}->>'decisionStatus', 'decided') IN ('proposed', 'decided')`))
+                .returning({ id: workspaceDocuments.id });
+            if (!moved.length) return { success: false as const, error: "That decision was already superseded or reversed." };
+        }
+        await recordNodeEvent(projectId, userId, null, "project_readme.decision_recorded", { docSlug: parsed.docSlug, number, ...(parsed.supersedesSlug ? { supersedes: parsed.supersedesSlug } : {}) });
+        // Report 38.11 notifications: a decision recorded from a meeting reaches the people who attended (Summary).
+        const attendees = from?.settings.section === "meetings" ? (from.settings.attendeeIds ?? []).filter((id) => id !== userId) : [];
+        if (attendees.length) {
+            const { createNotification } = await import("@/lib/notifications/service");
+            const meeting = from!.settings.meetingTitle ?? from!.readme!.filename.replace(/\.md$/i, "");
+            for (const to of attendees) await createNotification({
+                recipientUserId: to, actorUserId: userId, kind: "project_task_activity", category: "tasks", importance: "more",
+                title: `${decisionLabel(number)} recorded in ${meeting}`,
+                href: `/workspaces/${encodeURIComponent(context.project.slug || projectId)}?tab=docs&doc=${encodeURIComponent(parsed.docSlug)}`,
+                entityRefs: { projectId, projectSlug: context.project.slug ?? null }, dedupeKey: `decision:${context.readme.id}:${to}`,
+            }).catch(() => undefined);
+        }
         revalidateProjectDoc(context.project);
         return { success: true as const, number, label: decisionLabel(number) };
     } catch (error) {
         logger.error("project_readme.decision_record_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t record the decision." };
+    }
+}
+
+const decisionStatusSchema = z.object({ docSlug: docSlugSchema, status: z.enum(["proposed", "decided"]) });
+
+/** Report 38.11 W4/S5 (A4.2): the header's status select moves a standing decision between Proposed and Decided. */
+export async function setDecisionStatusAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const parsed = decisionStatusSchema.parse(input);
+        const context = await getDocProjectContext(projectId, userId, parsed.docSlug);
+        if (!context.readme || !context.permission.canEdit || !context.settings.decisionNumber) return { success: false as const, error: "Only people who can edit this decision change its status." };
+        if (!STANDING.includes(context.settings.decisionStatus ?? "decided")) return { success: false as const, error: "A superseded or reversed decision keeps its status." };
+        // Re-checked in the update, so a Supersede or Reverse at the same moment is never undone.
+        const moved = await db.update(workspaceDocuments).set({ settings: sql`${workspaceDocuments.settings} || ${JSON.stringify({ decisionStatus: parsed.status })}::jsonb`, updatedAt: new Date() })
+            .where(and(eq(workspaceDocuments.id, context.readme.id), sql`coalesce(${workspaceDocuments.settings}->>'decisionStatus', 'decided') IN ('proposed', 'decided')`))
+            .returning({ id: workspaceDocuments.id });
+        if (!moved.length) return { success: false as const, error: "A superseded or reversed decision keeps its status." };
+        await recordNodeEvent(projectId, userId, null, "project_readme.decision_status", { docSlug: parsed.docSlug, status: parsed.status });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("project_readme.decision_status_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t change the status." };
+    }
+}
+
+const reverseDecisionSchema = z.object({ docSlug: docSlugSchema, reason: z.string().trim().min(1).max(500) });
+
+/** Report 38.11 W7 (A4.2): Reverse asks a reason; the decision stays (its D-number never changes) and shows Reversed. */
+export async function reverseDecisionAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const parsed = reverseDecisionSchema.safeParse(input);
+        if (!parsed.success) return { success: false as const, error: "Say why it's reversed." };
+        const context = await getDocProjectContext(projectId, userId, parsed.data.docSlug);
+        if (!context.readme || !context.permission.canEdit || !context.settings.decisionNumber) return { success: false as const, error: "Only people who can edit this decision reverse it." };
+        const moved = await db.update(workspaceDocuments)
+            .set({ settings: sql`${workspaceDocuments.settings} || ${JSON.stringify({ decisionStatus: "reversed", reverseReason: parsed.data.reason })}::jsonb`, updatedAt: new Date() })
+            .where(and(eq(workspaceDocuments.id, context.readme.id), sql`coalesce(${workspaceDocuments.settings}->>'decisionStatus', 'decided') IN ('proposed', 'decided')`))
+            .returning({ id: workspaceDocuments.id });
+        if (!moved.length) return { success: false as const, error: "That decision was already superseded or reversed." };
+        await recordNodeEvent(projectId, userId, null, "project_readme.decision_reversed", { docSlug: parsed.data.docSlug });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("project_readme.decision_reverse_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t reverse the decision." };
     }
 }
 

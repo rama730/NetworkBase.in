@@ -32,6 +32,22 @@ type RailDoc = { id: string; filename: string; section?: string; date?: string; 
 /** S4: a decision's D-number, never reused or changed (call 6). */
 export const decisionLabel = (n: number) => `D-${String(n).padStart(3, "0")}`;
 /** The workspace's next D-number: the highest plus one, so gaps stay gaps. */
+/** Report 38.11 call 2 (A4.2): every decision has the ADR shape: Context · Decision · Consequences. */
+export const decisionMarkdown = (decision: string, context = "") =>
+    `# ${decision}\n\n## Context\n\n${context.trim() ? `${context.trim()}\n` : ""}\n## Decision\n\n${decision}\n\n## Consequences\n\n`;
+
+/**
+ * Report 38.11 part 7 (A4.2): the decision that stands now for the topic `id` belongs to: follow Superseded by to the
+ * end; a reversed end means nothing stands. Loops (bad data) stop where they repeat.
+ */
+export function decisionChain<T extends { id: string; decisionStatus?: string; supersededBy?: string }>(decisions: T[], id: string): T | null {
+    const byId = new Map(decisions.map((d) => [d.id, d]));
+    const seen = new Set<string>();
+    let at = byId.get(id);
+    while (at?.supersededBy && byId.has(at.supersededBy) && !seen.has(at.id)) { seen.add(at.id); at = byId.get(at.supersededBy); }
+    return at && at.decisionStatus !== "reversed" ? at : null;
+}
+
 export const nextDecisionNumber = (existing: Array<number | null | undefined>) => Math.max(0, ...existing.filter((n): n is number => typeof n === "number")) + 1;
 const monthDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 

@@ -16,7 +16,8 @@ describe("nb meetings and decisions", () => {
       { slug: "w0", title: "Weekly · last", type: "blank", startsAt: at(-5), lengthMinutes: 30, finished: true, attendees: 3 },
     ];
     /** @type {any} */ (api.state).openActionItems = [{ number: 5, title: "Send the recap", due: null, assignee: null, meeting: "Weekly · last" }];
-    /** @type {any} */ (api.state).decisions = [{ number: 2, label: "D-002", title: "Ship on Fridays", status: "decided", date: "2026-11-20", slug: "d2" }];
+    /** @type {any} */ (api.state).decisions = [{ number: 2, label: "D-002", title: "Ship on Fridays", status: "decided", date: "2026-11-20", slug: "d2" },
+      { number: 1, label: "D-001", title: "Ship on Mondays", status: "superseded", date: "2026-11-02", slug: "d1", supersededBy: "D-002" }];
   });
   after(() => api.close());
   /** @param {string[]} args */
@@ -34,5 +35,6 @@ describe("nb meetings and decisions", () => {
     const r = await nb(["decisions", "list"]);
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, /D-002.*Ship on Fridays.*decided/);
+    assert.match(r.stdout, /D-001.*Ship on Mondays.*superseded by D-002/, "A4.2: what replaced it");
   });
 });

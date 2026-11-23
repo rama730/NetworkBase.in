@@ -19,8 +19,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (outside) return outside;
     const r = await listWorkspaceDocsAction(id);
     if (!r.success) return jsonError("Not found", 404, "NOT_FOUND");
+    const label = (n?: number) => (n ? `D-${String(n).padStart(3, "0")}` : null);
+    const byId = new Map(r.docs.map((d) => [d.id, d]));
     const decisions = r.docs.filter((d) => d.section === "decisions" && d.decisionNumber).sort((a, b) => (b.decisionNumber ?? 0) - (a.decisionNumber ?? 0))
-      .map((d) => ({ number: d.decisionNumber, label: `D-${String(d.decisionNumber).padStart(3, "0")}`, title: d.title ?? d.filename.replace(/\.md$/i, ""), status: d.decisionStatus ?? "decided", date: d.date ?? null, slug: d.slug }));
+      .map((d) => ({ number: d.decisionNumber, label: label(d.decisionNumber), title: d.title ?? d.filename.replace(/\.md$/i, ""), status: d.decisionStatus ?? "decided", date: d.date ?? null, slug: d.slug,
+        // A4.2: what replaced it, and why it was reversed.
+        supersededBy: label(d.supersededBy ? byId.get(d.supersededBy)?.decisionNumber : undefined), reverseReason: d.reverseReason ?? null }));
     return jsonSuccess({ decisions });
   } catch (error) {
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/workspaces/decisions", fallback: "Couldn’t read decisions" });

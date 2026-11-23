@@ -39,6 +39,10 @@ export type WorkspaceDocSettings = {
     decisionNumber?: number;
     decisionStatus?: DecisionStatus;
     fromDocId?: string;
+    /** Report 38.11 W7 (A4.2): the decision this one replaces, the one that replaced it, and why it was reversed. */
+    supersedes?: string;
+    supersededBy?: string;
+    reverseReason?: string;
     /** Report 38.10 (A3.1): a launch's stage, version label (matched to bugs' Fixed in) and when it launched. */
     launchStage?: "planning" | "getting_ready" | "launched" | "closed" | "cancelled";
     versionLabel?: string;
@@ -101,6 +105,7 @@ export type WorkspaceDocVersion = {
 };
 
 export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null; section?: DocSection; kind?: string; date?: string; decisionNumber?: number; decisionStatus?: DecisionStatus; fromDocId?: string;
+    supersedes?: string; supersededBy?: string; reverseReason?: string;
     /** A4.1 live check: a meeting's or launch's own title, shown instead of its file name. */
     title?: string };
 
@@ -149,6 +154,9 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(Number.isInteger(source.decisionNumber) && source.decisionNumber! > 0 ? { decisionNumber: source.decisionNumber } : {}),
         ...(DECISION_STATUSES.includes(source.decisionStatus as DecisionStatus) ? { decisionStatus: source.decisionStatus } : {}),
         ...(typeof source.fromDocId === "string" && /^[0-9a-f-]{36}$/i.test(source.fromDocId) ? { fromDocId: source.fromDocId } : {}),
+        ...(typeof source.supersedes === "string" && /^[0-9a-f-]{36}$/i.test(source.supersedes) ? { supersedes: source.supersedes } : {}),
+        ...(typeof source.supersededBy === "string" && /^[0-9a-f-]{36}$/i.test(source.supersededBy) ? { supersededBy: source.supersededBy } : {}),
+        ...(typeof source.reverseReason === "string" && source.reverseReason.trim() && source.reverseReason.length <= 500 ? { reverseReason: source.reverseReason.trim() } : {}),
         ...(["planning", "getting_ready", "launched", "closed", "cancelled"].includes(source.launchStage as string) ? { launchStage: source.launchStage } : {}),
         ...(typeof source.versionLabel === "string" && source.versionLabel.trim() && source.versionLabel.length <= 40 ? { versionLabel: source.versionLabel.trim() } : {}),
         ...(typeof source.launchedAt === "string" && Number.isFinite(Date.parse(source.launchedAt)) ? { launchedAt: source.launchedAt } : {}),

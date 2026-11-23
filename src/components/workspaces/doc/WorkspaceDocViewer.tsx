@@ -385,7 +385,7 @@ export function WorkspaceDocViewer({
                             {listed ? <MoveToSectionMenu projectId={project.id} docSlug={normalizedDocSlug} current={docSectionOf(listed, addedWorkflows)} date={listed.date} /> : null}
                         </div>
                     ) : null}
-                    {listed?.decisionNumber && docSectionOf(listed, addedWorkflows) === "decisions" ? <DecisionMetaLine projectId={project.id} doc={listed} /> : null}
+                    {listed?.decisionNumber && docSectionOf(listed, addedWorkflows) === "decisions" ? <DecisionMetaLine projectId={project.id} doc={listed} canEdit={payload.canEdit} /> : null}
                     {listed && docSectionOf(listed, addedWorkflows) === "launches" ? <LaunchHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
                     {listed && docSectionOf(listed, addedWorkflows) === "meetings" ? <MeetingHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
                     {/* Report 38.11 W9 (A4.1): Documents → Open action items. */}

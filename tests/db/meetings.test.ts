@@ -80,6 +80,12 @@ test("W1, W3: a weekly meeting is filed with its time and attendees (members onl
   const fire = await loadAppModule(() => import("../../src/lib/workflows/meeting-reminders"));
   await fire.fireDueDocumentReminders(); await fire.fireDueDocumentReminders();
   assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title = 'Weekly · Jan 7 starts at 10:00 · Open notes'`)[0]!.n, 1);
+  // W11: someone outside the workspace who can read the meeting never sees who attends.
+  await sql`UPDATE workspaces SET visibility = 'public' WHERE id = ${t.ws}`;
+  viewerId = t.outsider;
+  const outside = await docs.readMeetingAction(t.ws, "weekly-dec-3");
+  assert.ok(outside.success, JSON.stringify(outside));
+  assert.deepEqual([outside.member, outside.attendees], [false, []]);
   // Viewers can't make meetings.
   viewerId = t.viewer;
   await t.doc("viewer-try");
@@ -197,4 +203,46 @@ test("A4.1b part 8: My work's meetings today are mine, inside my day", async () 
   assert.ok(r.success);
   assert.deepEqual(r.meetings.map((m) => m.title), ["Today sync"]);
   assert.equal((await feed.readMyMeetingsTodayAction({ from: "2027-01-01T00:00:00Z", to: "2027-02-01T00:00:00Z" }) as { error?: string }).error, "Pick a day");
+});
+
+// Plan A4.2 (report 38.11 W4, W7): status, Supersede (once), Reverse with a reason, and the attendees' notice.
+test("W4, W7: a decision from a meeting tells its attendees; Proposed ↔ Decided; Supersede links both ways once; Reverse needs a reason", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  await t.doc("weekly");
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "weekly", type: "blank", title: "Weekly · Jan 7", startsAt: ist("2027-01-07T10:00:00"), lengthMinutes: 30, attendeeIds: [t.member], repeat: "none" })).success);
+  const a = await t.doc("use-postgres");
+  const first = await docs.recordDecisionAction(t.ws, { docSlug: "use-postgres", fromDocSlug: "weekly" });
+  assert.deepEqual(first, { success: true, number: 1, label: "D-001" });
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title = 'D-001 recorded in Weekly · Jan 7' AND importance = 'more'`)[0]!.n, 1);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.owner} AND title LIKE 'D-001%'`)[0]!.n, 0, "not the person who recorded it");
+
+  // Proposed ↔ Decided, editors only.
+  assert.ok((await docs.setDecisionStatusAction(t.ws, { docSlug: "use-postgres", status: "proposed" })).success);
+  assert.equal((await settingsOf(a)).decisionStatus, "proposed");
+  viewerId = t.viewer;
+  assert.equal((await docs.setDecisionStatusAction(t.ws, { docSlug: "use-postgres", status: "decided" }) as { error?: string }).error, "Only people who can edit this decision change its status.");
+  assert.equal((await docs.reverseDecisionAction(t.ws, { docSlug: "use-postgres", reason: "x" }) as { error?: string }).error, "Only people who can edit this decision reverse it.");
+  viewerId = t.owner;
+
+  // Supersede: the new one says what it replaces, the old one says what replaced it.
+  const b = await t.doc("use-sqlite");
+  assert.deepEqual(await docs.recordDecisionAction(t.ws, { docSlug: "use-sqlite", supersedesSlug: "use-postgres" }), { success: true, number: 2, label: "D-002" });
+  const [sa, sb] = [await settingsOf(a), await settingsOf(b)];
+  assert.deepEqual([sa.decisionStatus, sa.supersededBy, sb.decisionStatus, sb.supersedes], ["superseded", b, "decided", a]);
+  const listed = await docs.listWorkspaceDocsAction(t.ws);
+  assert.ok(listed.success);
+  assert.deepEqual(listed.docs.filter((d) => d.decisionNumber).map((d) => [d.decisionNumber, d.decisionStatus, d.supersededBy ?? null, d.supersedes ?? null]).sort(), [[1, "superseded", b, null], [2, "decided", null, a]]);
+  // Only once, and a superseded decision keeps its status.
+  await t.doc("use-mysql");
+  assert.equal((await docs.recordDecisionAction(t.ws, { docSlug: "use-mysql", supersedesSlug: "use-postgres" }) as { error?: string }).error, "That decision was already superseded or reversed.");
+  assert.equal((await docs.setDecisionStatusAction(t.ws, { docSlug: "use-postgres", status: "decided" }) as { error?: string }).error, "A superseded or reversed decision keeps its status.");
+
+  // Reverse asks a reason; then it's Reversed with it, once.
+  assert.equal((await docs.reverseDecisionAction(t.ws, { docSlug: "use-sqlite", reason: "  " }) as { error?: string }).error, "Say why it's reversed.");
+  assert.ok((await docs.reverseDecisionAction(t.ws, { docSlug: "use-sqlite", reason: "Too slow at 10k rows" })).success);
+  const rb = await settingsOf(b);
+  assert.deepEqual([rb.decisionStatus, rb.reverseReason, rb.decisionNumber], ["reversed", "Too slow at 10k rows", 2]);
+  assert.equal((await docs.reverseDecisionAction(t.ws, { docSlug: "use-sqlite", reason: "again" }) as { error?: string }).error, "That decision was already superseded or reversed.");
+  assert.equal((await docs.reverseDecisionAction(t.ws, { docSlug: "use-postgres", reason: "x" }) as { error?: string }).error, "That decision was already superseded or reversed.");
 });

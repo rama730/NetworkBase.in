@@ -61,3 +61,21 @@ test("security review: icsCalendar never lets a title start a new line (CR, LF, 
   assert.equal(summary, "SUMMARY:A\\nATTENDEE:mailto:x@evil.test\\nB\\nCD\\; E\\, F");
   assert.ok(!ics.split("\r\n").some((l) => l.startsWith("ATTENDEE")), "no injected property line");
 });
+
+// Plan A4.2: decisions use the ADR shape; the chain says which decision stands now.
+test("decisionMarkdown: Context · Decision · Consequences, with the context when given", async () => {
+  const { decisionMarkdown } = await import("../../src/lib/workspaces/doc-sections");
+  assert.equal(decisionMarkdown("Use Postgres", "  Search is slow  "), "# Use Postgres\n\n## Context\n\nSearch is slow\n\n## Decision\n\nUse Postgres\n\n## Consequences\n\n");
+  assert.equal(decisionMarkdown("Use Postgres"), "# Use Postgres\n\n## Context\n\n\n## Decision\n\nUse Postgres\n\n## Consequences\n\n");
+});
+
+test("decisionChain: D-9 superseded by D-15 → D-15; then by D-20 → D-20; a reversed end → none; a loop stops", async () => {
+  const { decisionChain } = await import("../../src/lib/workspaces/doc-sections");
+  const d = (id: string, decisionStatus: string, supersededBy?: string) => ({ id, decisionStatus, ...(supersededBy ? { supersededBy } : {}) });
+  assert.equal(decisionChain([d("9", "superseded", "15"), d("15", "decided")], "9")!.id, "15");
+  assert.equal(decisionChain([d("9", "superseded", "15"), d("15", "superseded", "20"), d("20", "proposed")], "9")!.id, "20");
+  assert.equal(decisionChain([d("9", "superseded", "15"), d("15", "reversed")], "9"), null);
+  assert.equal(decisionChain([d("9", "reversed")], "9"), null);
+  assert.ok(decisionChain([d("a", "superseded", "b"), d("b", "superseded", "a")], "a"), "a loop ends instead of spinning");
+  assert.equal(decisionChain([d("9", "decided")], "missing"), null);
+});
