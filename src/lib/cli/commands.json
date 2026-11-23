@@ -1914,6 +1914,138 @@
       ]
     },
     {
+      "name": "bugs list",
+      "summary": "The workspace's bugs, with their stages",
+      "usage": "nb bugs list [--stage new] [--status done]",
+      "flags": {
+        "stage": {
+          "type": "string",
+          "describe": "One stage: new, confirmed, fixing, fixed, verified…",
+          "valueName": "stage"
+        },
+        "status": {
+          "type": "string",
+          "describe": "Statuses to show (default: open)",
+          "valueName": "list"
+        },
+        "limit": {
+          "type": "string",
+          "describe": "At most this many",
+          "valueName": "n"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "bugs report",
+      "summary": "Report a bug (it waits at New)",
+      "usage": "nb bugs report \"<title>\" [--steps text] [--expected text] [--where web:firefox:132] [--severity major]",
+      "flags": {
+        "steps": {
+          "type": "string",
+          "describe": "What happened, step by step (\\n between steps)",
+          "valueName": "text"
+        },
+        "expected": {
+          "type": "string",
+          "describe": "What should have happened",
+          "valueName": "text"
+        },
+        "where": {
+          "type": "string",
+          "describe": "web:browser:version, app:platform:version, or words",
+          "valueName": "where"
+        },
+        "severity": {
+          "type": "string",
+          "describe": "urgent, major or minor (leave out for Not sure)",
+          "valueName": "level"
+        },
+        "found-in": {
+          "type": "string",
+          "describe": "The version it was found in",
+          "valueName": "version"
+        }
+      },
+      "examples": [
+        "nb bugs report \"Crash on export\" --steps \"Open file\\nExport\" --expected \"A PDF\" --where web:firefox:132"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "bugs move",
+      "summary": "Move a bug to Confirmed, Fixing, Fixed or Verified",
+      "usage": "nb bugs move <bug> <stage> [--backlog]",
+      "flags": {
+        "backlog": {
+          "type": "boolean",
+          "describe": "Joining the board: the Backlog, not the running sprint"
+        }
+      },
+      "examples": [
+        "nb bugs move 171 fixing"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "bugs close",
+      "summary": "Close a bug as Won't fix, Duplicate or Can't reproduce (asks first)",
+      "usage": "nb bugs close <bug> --reason wont_fix|duplicate|cant_reproduce [--of <bug>] [-m message]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "reason": {
+          "type": "string",
+          "describe": "wont_fix, duplicate or cant_reproduce",
+          "valueName": "reason"
+        },
+        "of": {
+          "type": "string",
+          "describe": "With duplicate: the bug it duplicates",
+          "valueName": "bug"
+        }
+      },
+      "examples": [
+        "nb bugs close 171 --reason duplicate --of 164",
+        "nb bugs close 171 --reason cant_reproduce -m \"Which browser?\""
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "bugs from",
+      "summary": "Turn tasks into bugs",
+      "usage": "nb bugs from <task…> [--stage confirmed]",
+      "flags": {
+        "stage": {
+          "type": "string",
+          "describe": "Where they start (default: Confirmed, Fixing once started, Fixed when done)",
+          "valueName": "stage"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "task done",
       "summary": "Finish a task (sends it for review when required)",
       "usage": "nb task done [task] [-m summary] [--check name=pass]",

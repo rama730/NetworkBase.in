@@ -537,6 +537,58 @@ export async function setPartOfAction(input: z.infer<typeof partOfSchema>) {
   }
 }
 
+// ---- Change type (report 38.6 rollout 3, plan A2.3) ----
+const changeTypeSchema = z.object({ projectId: z.string().uuid(), taskIds: z.array(z.string().uuid()).min(1).max(100), toType: z.string().min(1).max(40), stage: z.string().min(1).max(40).optional() });
+
+/**
+ * Turn plain tasks into another type (bugs today). The stage defaults to Confirmed, Fixing once work started, Fixed
+ * when done, and must keep the task's status (a type change never moves work). Leaving the board takes it out of its
+ * sprint, which only owners and admins do (decision 146). Assignments and projects keep their type.
+ */
+export async function changeTaskTypeAction(input: z.infer<typeof changeTypeSchema>) {
+  try {
+    const { projectId, taskIds, toType, stage } = changeTypeSchema.parse(input);
+    const user = await requireTaskWriter();
+    if (!user) return { success: false as const, error: "Sign in to continue" };
+    const { WORKFLOW_TYPES } = await import("@/lib/workflows/types");
+    const { WORKFLOW_CATALOG } = await import("@/lib/workflows/catalog");
+    const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+    const { changeTypeOptions } = await import("@/lib/workflows/bugs");
+    const { isOnBoard } = await import("@/lib/workflows/rules");
+    const type = WORKFLOW_TYPES[toType];
+    const entry = WORKFLOW_CATALOG.find((w) => w.types.includes(toType));
+    if (!type || !entry || toType !== "bug") return { success: false as const, error: "Tasks can change to a bug" };
+    if (!(await readWorkspaceWorkflows(projectId, user.id)).added.some((w) => w.workflow === entry.id)) return { success: false as const, error: `${entry.name} isn’t in this workspace` };
+    const via = await viaPayload();
+    await db.transaction(async (tx) => {
+      for (const taskId of taskIds) {
+        const locked = await lockTaskForWrite(tx, taskId, user.id);
+        if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
+        const [row] = await tx.select({ kind: tasks.kind }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        if (row?.kind === "assignment") throw new Error("Assignments keep their type");
+        if (locked.itemType !== "task") throw new Error(`${locked.taskNumber ? `#${locked.taskNumber}` : "This"} is already a ${WORKFLOW_TYPES[locked.itemType]?.label.toLowerCase() ?? locked.itemType}`);
+        const options = changeTypeOptions(locked.currentStatus);
+        const to = stage ?? options[0]!;
+        if (!options.includes(to)) throw new Error("Pick a stage that matches where the task is now");
+        const onBoard = isOnBoard(toType, to);
+        if (!onBoard && locked.previousSprintId && !locked.isLeader) throw new Error("This is in a sprint. Ask an owner or admin to change its type.");
+        await tx.update(tasks).set({ itemType: toType, stage: to, typeFields: {}, onBoard, ...(!onBoard && { sprintId: null }), updatedAt: new Date() }).where(eq(tasks.id, taskId));
+        if (!onBoard && locked.previousSprintId) {
+          await tx.update(sprintTaskMemberships).set({ removedAt: new Date(), removedBy: user.id })
+            .where(and(eq(sprintTaskMemberships.taskId, taskId), isNull(sprintTaskMemberships.removedAt)));
+          await tx.insert(taskActivityEvents).values({
+            taskId, projectId, sprintId: locked.previousSprintId, actorId: user.id, eventType: "removed_from_sprint",
+            payload: { ...via, version: 1, taskTitle: locked.title, taskNumber: locked.taskNumber, taskStatus: locked.currentStatus, reason: "moved_back", toStage: to, itemType: toType, nextSprintId: null },
+          });
+        }
+      }
+    });
+    return { success: true as const, count: taskIds.length };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t change the type" };
+  }
+}
+
 /** W3.4: Group into a project: a new project (Not started) holding the chosen tasks. */
 export async function groupIntoProjectAction(input: { projectId: string; taskIds: string[]; name: string }) {
   const name = String(input?.name ?? "").trim().slice(0, 200);

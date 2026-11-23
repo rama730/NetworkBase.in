@@ -1,5 +1,6 @@
 "use client";
 
+import { useBugsAdded } from "@/components/messages/useBugsAdded";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -471,13 +472,14 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     else panes.openThread(rootSeq);
   }, [onOpenThread, panes]);
   const openPinsTab = useCallback(() => setTab("pins"), [setTab]);
+  const bugs = useBugsAdded(isApplication ? null : channel?.project_id);
   const ctx = useMemo<ConversationContextValue>(() => ({
     channelId, meId, canAdmin: Boolean(channel?.can_admin), isDm: Boolean(isDirect),
     people, nameOf, channelNameOf, editingSeq, setEditingSeq, openThread, inThread: false,
-    openPinsTab, isMember, projectId: isApplication ? null : channel?.project_id ?? null,
+    openPinsTab, isMember, projectId: isApplication ? null : channel?.project_id ?? null, bugs,
     savedSeqs: saved.seqs, setSaved: (seq, on, remindAt) => void saved.setSaved(seq, on, remindAt), share: isApplication ? undefined : setShareSeq,
     blockedIds: oneToOne ? undefined : blockedIds, mutedIds: oneToOne ? undefined : mutedIds, openBlock: blockFlow.openBlock, toggleMute,
-  }), [blockFlow.openBlock, toggleMute, blockedIds, mutedIds, oneToOne, channel?.can_admin, channel?.project_id, channelId, channelNameOf, editingSeq, isApplication, isDirect, isMember, meId, nameOf, openPinsTab, openThread, people, saved]);
+  }), [blockFlow.openBlock, toggleMute, blockedIds, mutedIds, oneToOne, channel?.can_admin, bugs, channel?.project_id, channelId, channelNameOf, editingSeq, isApplication, isDirect, isMember, meId, nameOf, openPinsTab, openThread, people, saved]);
 
   const editLast = useCallback(() => {
     for (let i = conversation.messages.length - 1; i >= 0; i -= 1) {

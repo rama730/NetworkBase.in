@@ -50,14 +50,14 @@ export function BugSimilar({ projectId, title, projectKey, onMine }: { projectId
 }
 
 /** W2.3: What happened? · What did you expect? · Where · Found in · Severity (Not sure by default). Uncontrolled inputs. */
-export function BugDetailsFields() {
+export function BugDetailsFields({ initialSteps }: { initialSteps?: string } = {}) {
   const [kind, setKind] = useState<Where["kind"]>("web");
   const [severity, setSeverity] = useState<string>("");
   return (
     <div className="space-y-3.5" data-testid="bug-details">
       <SectionDivider title="Bug details" />
       <Field label="What happened?" htmlFor="bug-steps">
-        <textarea id="bug-steps" name="bugSteps" rows={3} maxLength={5000} placeholder={"Steps, one per line\n1. Open the payment page\n2. Click Pay"} className={cn(inputClassName(false), "min-h-[72px] resize-none py-2")} />
+        <textarea id="bug-steps" name="bugSteps" rows={3} maxLength={5000} defaultValue={initialSteps} placeholder={"Steps, one per line\n1. Open the payment page\n2. Click Pay"} className={cn(inputClassName(false), "min-h-[72px] resize-none py-2")} />
       </Field>
       <Field label="What did you expect?" htmlFor="bug-expected">
         <textarea id="bug-expected" name="bugExpected" rows={2} maxLength={2000} className={cn(inputClassName(false), "min-h-[52px] resize-none py-2")} />

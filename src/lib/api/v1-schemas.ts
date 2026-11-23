@@ -64,6 +64,8 @@ export const createTaskSchema = z.object({
   // Report 38.2 F1 (nb task create --type bug --stage new): the type and where it starts; checked by createTaskAction.
   itemType: z.string().regex(/^[a-z_]{1,40}$/).optional(),
   stage: z.string().regex(/^[a-z_]{1,40}$/).optional(),
+  // Report 38.6 W14 (A2.3): the type's own fields (a bug's severity, steps, expected, where); checked per type.
+  typeFields: z.record(z.string().max(40), z.unknown()).optional(),
   // Report 38.5 W12 (A1.5): a project's start, and the project a task is Part of.
   startDate: taskDueDateSchema.nullable().optional(),
   partOfId: z.string().uuid().nullable().optional(),
@@ -169,6 +171,9 @@ export const taskUpdateSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("stage"), projectId: z.string().uuid(), taskId: z.string().uuid(), stage: z.string().regex(/^[a-z_]{1,40}$/), sprintId: z.string().uuid().nullable().optional(), backlog: z.boolean().optional() }),
   z.object({ kind: z.literal("delete"), projectId: z.string().uuid(), taskId: z.string().uuid() }),
   z.object({ kind: z.literal("part_of"), projectId: z.string().uuid(), taskId: z.string().uuid(), partOfId: z.string().uuid().nullable() }),
+  // Report 38.6 W14 (A2.3): close a bug with its reason (an agent needs its person's yes), and turn a task into a bug.
+  z.object({ kind: z.literal("bug_close"), projectId: z.string().uuid(), taskId: z.string().uuid(), reason: z.enum(["wont_fix", "duplicate", "cant_reproduce"]), duplicateOfId: z.string().uuid().optional(), message: z.string().trim().max(2000).optional() }),
+  z.object({ kind: z.literal("change_type"), projectId: z.string().uuid(), taskId: z.string().uuid(), toType: z.literal("bug"), stage: z.string().regex(/^[a-z_]{1,40}$/).optional() }),
   z.object({ kind: z.literal("subtask_edit"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid(), title: z.string().trim().min(1).max(500) }),
   z.object({ kind: z.literal("subtask_delete"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid() }),
   z.object({ kind: z.literal("subtask_move"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid(), position: z.number().int().min(0).max(1000) }),

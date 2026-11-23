@@ -5,12 +5,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlarmClock, Archive, Ban, BellOff, Bookmark, BookmarkCheck, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
+  AlarmClock, Archive, Ban, BellOff, Bookmark, BookmarkCheck, Bug, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
   MoreHorizontal, Pencil, Pin, RotateCcw, Send, SmilePlus, SquareCheck, Trash2, Undo2, UserMinus, XCircle, type LucideIcon,
 } from "lucide-react";
 import { toast, feedbackError, deferredFeedback } from "@/lib/feedback";
 
-import { createTaskFromMessage, deleteMessage, editMessage, hideLinkPreview, listReactors, markUnread, pinMessage, react } from "@/app/actions/chat/messages";
+import { createTaskFromMessage, deleteMessage, reportBugFromMessage, editMessage, hideLinkPreview, listReactors, markUnread, pinMessage, react } from "@/app/actions/chat/messages";
 import { useConversationContext } from "@/components/messages/conversation-context";
 import { MessageBody, firstLink } from "@/components/messages/MessageBody";
 import { MessageCard } from "@/components/messages/cards/MessageCard";
@@ -40,6 +40,7 @@ import { applyReaction, patchPages, upsertMessage } from "@/lib/messaging/timeli
 import { laterTimes } from "@/lib/messaging/reminders";
 import { encodeMentions, parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
 import { pollOptions } from "@/lib/messaging/poll";
+import { bugFromMessage } from "@/lib/workflows/bugs";
 import type { ChatAttachmentView, ChatMessageView } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
@@ -58,6 +59,7 @@ function toViewerAttachment(attachment: ChatAttachmentView): ChatAttachmentV2 {
   return { id: attachment.asset_id, type, url, localUrl: attachment.local_url, filename: attachment.name || "file", sizeBytes: attachment.size, mimeType: attachment.mime, thumbnailUrl: null, width: attachment.width, height: attachment.height };
 }
 
+const CreateTaskModal = dynamic(() => import("@/components/workspaces/v2/tasks/CreateTaskModal"), { ssr: false });
 const EditBox = dynamic(() => import("@/components/messages/MessageEditBox").then((m) => m.EditBox), { ssr: false });
 
 type Action = { id: string; label: string; icon: LucideIcon; run: () => void; shortcut?: string; destructive?: boolean; group: 1 | 2 | 3 };
@@ -384,6 +386,10 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     toast.success("Task created");
   };
 
+  // Report 38.6 W10 (A2.3): Report as bug opens the New module on Bug, prefilled from the message.
+  const [bugDraft, setBugDraft] = useState<{ title: string; steps: string } | null>(null);
+  const openBugReport = () => setBugDraft(bugFromMessage(plain().trim() || message.attachments.map((a) => a.name || "file").join(", ")));
+
   // One list for the hover menu, the mobile sheet and the shortcuts, so they never drift.
   const list: Action[] = [];
   if (actions) {
@@ -394,6 +400,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     list.push({ id: "copy-link", label: "Copy link", icon: Link2, run: copyLink, group: 2 });
     if (!ctx.inThread) list.push({ id: "unread", label: "Mark unread", icon: MailOpen, run: () => void unread(), shortcut: "U", group: 2 });
     if (ctx.projectId && message.kind === "user" && !message.card && message.body) list.push({ id: "task", label: "Create task", icon: SquareCheck, run: () => void createTask(), group: 2 });
+    if (ctx.projectId && ctx.bugs && message.kind === "user" && !message.card && hasContent) list.push({ id: "bug", label: "Report as bug", icon: Bug, run: openBugReport, group: 2 });
     list.push({ id: "pin", label: message.pinned ? "Unpin" : "Pin to conversation", icon: Pin, run: () => void togglePin(), group: 2 });
     if (own && message.body && firstLink(message.body)) list.push({ id: "preview", label: message.link_preview_hidden ? "Restore link preview" : "Remove link preview", icon: message.link_preview_hidden ? Eye : EyeOff, run: () => void removePreview(!message.link_preview_hidden), group: 3 });
     if (own && !message.card) list.push({ id: "edit", label: "Edit message", icon: Pencil, run: startEdit, shortcut: "E", group: 3 });
@@ -759,6 +766,21 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
         // The app-wide report flow (docs/trust-and-safety-concept.md): a case staff see, with the 5 messages before it.
         <ReportDialog kind="chat_message" targetId={ctx.channelId} seq={message.seq} noun="message"
           personName={message.author?.full_name || message.author?.username || null} open={reportOpen} onOpenChange={setReportOpen} />
+      ) : null}
+      {bugDraft && ctx.projectId ? (
+        <CreateTaskModal isOpen onClose={() => setBugDraft(null)} projectId={ctx.projectId} types={["bug"]} initialType="bug" openedFrom="own"
+          initialTitle={bugDraft.title} initialSteps={bugDraft.steps} fromLine={`a message from ${authorName}`}
+          onCreate={async ({ draft, subtasks, attachments }) => {
+            const result = await reportBugFromMessage({
+              channelId: ctx.channelId, seq: message.seq, title: draft.title, typeFields: draft.typeFields, description: draft.description || undefined,
+              attachmentNodeIds: attachments.map((a) => a.id), subtasks: subtasks.map((t) => ({ title: t.title.trim(), completed: false })).filter((t) => t.title),
+              threadRootSeq: message.thread_root_seq ?? (ctx.inThread ? null : message.seq), operationId: crypto.randomUUID(),
+            });
+            if (!result.success) return { success: false, error: ("message" in result && result.message) || chatErrorMessage(result.error) };
+            if (!result.message.thread_root_seq) update((pages) => upsertMessage(pages, result.message));
+            toast.success("Bug reported");
+            return { success: true };
+          }} />
       ) : null}
     </div>
   );

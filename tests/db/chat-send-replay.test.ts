@@ -23,6 +23,8 @@ let viewerId = "";
 let projectId = "";
 let taskCreates = 0;
 let failTaskCreates = 0;
+let lastCreate: Record<string, unknown> | null = null;
+let createError = "boom";
 moduleStubs.set("@/lib/supabase/auth-user", { getAuthUser: async () => ({ id: viewerId }) });
 moduleStubs.set("@/lib/messaging/publish", { publishUser: () => undefined, publishUsers: () => undefined, publishChannel: () => undefined, publishSentMessage: () => undefined });
 moduleStubs.set("@/lib/messaging/send-bucket", { takeSendToken: () => true, takeReactToken: () => true });
@@ -30,7 +32,8 @@ moduleStubs.set("@/lib/redis", { getRedisClient: () => fakeRedis, rateLimit: asy
 moduleStubs.set("@/app/actions/workspace", {
   createTaskAction: async (data: { title: string }) => {
     taskCreates += 1;
-    if (failTaskCreates > 0) { failTaskCreates -= 1; return { success: false, error: "boom" }; }
+    lastCreate = data;
+    if (failTaskCreates > 0) { failTaskCreates -= 1; return { success: false, error: createError }; }
     const [task] = await sql`INSERT INTO tasks (workspace_id, title) VALUES (${projectId}, ${data.title}) RETURNING id`;
     return { success: true, task: { id: task!.id } };
   },
@@ -40,7 +43,7 @@ let messages: typeof import("../../src/app/actions/chat/messages");
 before(async () => {
   messages = await loadAppModule(() => import("../../src/app/actions/chat/messages"));
 });
-beforeEach(() => { store.clear(); taskCreates = 0; failTaskCreates = 0; });
+beforeEach(() => { store.clear(); taskCreates = 0; failTaskCreates = 0; lastCreate = null; createError = "boom"; });
 after(async () => { await sql.end(); await closeAppDb(); });
 
 async function projectChannel() {
@@ -108,5 +111,36 @@ test("retrying an also-to-channel reply posts the copy once", async () => {
     const retried = await messages.sendMessage(reply);
     assert.equal(retried.success && retried.alsoSent, true);
     assert.equal(await messageCount(f.channelId), afterFirst, "no second copy");
+  } finally { await f.cleanup(); }
+});
+
+// Report 38.6 W10 (plan A2.3): Report as bug makes a New bug from the message, links back to it and posts its card.
+test("Report as bug: a New bug with the message as What happened, a link back, one card; unknown messages refused", async () => {
+  const f = await projectChannel();
+  try {
+    viewerId = f.owner;
+    process.env.APP_URL = "https://nb.example";
+    const sent = await messages.sendMessage({ channelId: f.channelId, body: "Crash on export\nOpen a file, export" });
+    assert.ok(sent.success, JSON.stringify(sent));
+    const seq = (sent as { message: { seq: number } }).message.seq;
+    const base = await messageCount(f.channelId);
+    const input = { channelId: f.channelId, seq, title: "Crash on export", typeFields: { steps: "Crash on export\nOpen a file, export", severity: "major" }, operationId: crypto.randomUUID() };
+    const r = await messages.reportBugFromMessage(input);
+    assert.equal(r.success, true, JSON.stringify(r));
+    assert.deepEqual(lastCreate && { title: lastCreate.title, itemType: lastCreate.itemType, stage: lastCreate.stage, typeFields: lastCreate.typeFields },
+      { title: "Crash on export", itemType: "bug", stage: "new", typeFields: { steps: "Crash on export\nOpen a file, export", severity: "major" } });
+    const [link] = await sql`SELECT l.url, l.kind FROM task_links l JOIN tasks t ON t.id = l.task_id WHERE t.workspace_id = ${projectId}`;
+    assert.ok(String(link?.url).endsWith(`m=${seq}`) && link?.kind === "link", String(link?.url));
+    assert.equal(await messageCount(f.channelId), base + 1, "one card");
+    assert.equal((await messages.reportBugFromMessage(input)).success, true, "a repeat is the same bug");
+    assert.equal(taskCreates, 1);
+    const missing = await messages.reportBugFromMessage({ ...input, seq: seq + 50, operationId: crypto.randomUUID() });
+    assert.equal(missing.success === false && missing.error, "chat_message_not_found");
+    failTaskCreates = 1; createError = "Bugs isn’t in this workspace";
+    const off = await messages.reportBugFromMessage({ ...input, operationId: crypto.randomUUID() });
+    assert.equal(off.success === false && off.error, "chat_bugs_not_added");
+    viewerId = f.other;
+    const outsider = await messages.reportBugFromMessage({ ...input, operationId: crypto.randomUUID() });
+    assert.equal(outsider.success === false && outsider.error, "chat_task_needs_project", "not in the channel");
   } finally { await f.cleanup(); }
 });

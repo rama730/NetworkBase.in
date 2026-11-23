@@ -97,6 +97,73 @@ export async function createTaskFromMessage(input: { channelId: string; title: s
 
 class TaskCreateFailed extends Error {}
 
+/**
+ * Report 38.6 W10 (plan A2.3): Report as bug from a workspace channel message. The New module opens on Bug prefilled
+ * from the message; this files what it sends at New, names the message's files under What happened?, links back to the
+ * message, and posts the bug's card in the conversation (like Create task).
+ * ponytail: files are named and reached through the link, not copied into the workspace's Files.
+ */
+export async function reportBugFromMessage(input: {
+  channelId: string; seq: number; title: string; typeFields?: Record<string, unknown>; threadRootSeq?: number | null; operationId?: string;
+  /** What else the New module carries; createTaskAction checks them like any report. */
+  description?: string; attachmentNodeIds?: string[]; subtasks?: Array<{ title: string; completed: boolean }>;
+}) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq) || typeof input.title !== "string" || !input.title.trim()) return invalidInput;
+  if (input.typeFields !== undefined && (typeof input.typeFields !== "object" || input.typeFields === null || Array.isArray(input.typeFields))) return invalidInput;
+  if ((input.threadRootSeq != null && !isMessageSeq(input.threadRootSeq)) || (input.operationId !== undefined && !isUuid(input.operationId))) return invalidInput;
+  if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
+  try {
+    const projectId = await chatValue<string | null>(sql`
+      SELECT workspace_id AS value FROM chat_channels
+      WHERE id = ${input.channelId}::uuid AND app_private.chat_is_member(id, ${user.id}::uuid)
+    `);
+    if (!projectId) return { success: false as const, error: "chat_task_needs_project" };
+    const found = await chatRows<{ thread_root_seq: number | null }>(sql`
+      SELECT thread_root_seq::int AS thread_root_seq FROM chat_messages WHERE channel_id = ${input.channelId}::uuid AND channel_seq = ${input.seq} AND deleted_at IS NULL`);
+    if (!found[0]) return { success: false as const, error: "chat_message_not_found" };
+    const files = await chatRows<{ name: string }>(sql`
+      SELECT coalesce(nullif(name, ''), 'file') AS name FROM chat_attachments
+      WHERE channel_id = ${input.channelId}::uuid AND message_seq = ${input.seq} ORDER BY idx`);
+    const { withFiles } = await import("@/lib/workflows/bugs");
+    const { shareOrigin } = await import("@/lib/sharing/presentation");
+    const link = `${shareOrigin()}${messageHref(input.channelId, input.seq, found[0].thread_root_seq)}`;
+    const fields = { ...(input.typeFields ?? {}) };
+    const steps = withFiles(typeof fields.steps === "string" ? fields.steps : "", files.map((f) => f.name));
+    if (steps) fields.steps = steps; else delete fields.steps;
+    const { result: created } = await runIdempotent(
+      { namespace: "chat.bug-from-message", scopeId: `${user.id}:${input.channelId}`, key: input.operationId },
+      async () => {
+        const task = await createTaskAction({
+          projectId, title: input.title.trim().slice(0, 200), status: "todo", priority: "medium", itemType: "bug", stage: "new", typeFields: fields,
+          ...(input.description ? { description: input.description } : {}), ...(input.attachmentNodeIds?.length ? { attachmentNodeIds: input.attachmentNodeIds } : {}),
+          ...(input.subtasks?.length ? { subtasks: input.subtasks } : {}),
+        } as Parameters<typeof createTaskAction>[0]);
+        if (!task.success || !("task" in task) || !task.task) throw new BugCreateFailed(task.success ? "" : String(task.error ?? ""));
+        const { db } = await import("@/lib/db");
+        const { taskLinks } = await import("@/lib/db/schema");
+        // Task links are https only (0087); a local http server keeps the bug without the link.
+        if (link.startsWith("https://")) await db.insert(taskLinks).values({ taskId: task.task.id, url: link, title: "The message", kind: "link", createdBy: user.id }).onConflictDoNothing();
+        return { taskId: task.task.id };
+      },
+    );
+    const sent = await sendAs(
+      user,
+      { channelId: input.channelId, body: "", threadRootSeq: input.threadRootSeq, clientId: input.operationId ? `bug:${input.operationId}` : null },
+      { kind: "task", ref_id: created.taskId },
+    );
+    return sent;
+  } catch (error) {
+    // The New module shows the server's own words (Bug has no field …, Check the bug's …); Bugs not added has its own.
+    if (error instanceof BugCreateFailed) return { success: false as const, error: /isn’t in this workspace|was removed/.test(error.message) ? "chat_bugs_not_added" : "chat_bug_create_failed", message: error.message };
+    if (error instanceof IdempotencyConflictError) return { success: false as const, error: "chat_task_in_progress" };
+    return chatFailure(error, "report_bug");
+  }
+}
+
+class BugCreateFailed extends Error {}
+
 export async function editMessage(input: { channelId: string; seq: number; body: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;

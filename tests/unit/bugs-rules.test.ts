@@ -77,3 +77,53 @@ test("mergeOnDuplicate: the source's reporter and see-too people join the target
   const many = Array.from({ length: 499 }, (_, i) => `t${i}`);
   assert.equal(mergeOnDuplicate({ creatorId: "r1", alsoSeen: ["x", "y"] }, { creatorId: "r2", alsoSeen: many }).length, 500);
 });
+
+// Report 38.6 W10 (plan A2.3): Report as bug from a message.
+test("bugFromMessage and withFiles: first line is the title, the message is What happened, files are named", async () => {
+  const { bugFromMessage, withFiles } = await import("../../src/lib/workflows/bugs");
+  assert.deepEqual(bugFromMessage("\n  Export crashes  \nOpen a file\nExport"), { title: "Export crashes", steps: "Export crashes  \nOpen a file\nExport" });
+  const long = bugFromMessage("x".repeat(300));
+  assert.equal(long.title.length, 200);
+  assert.ok(long.title.endsWith("…"));
+  assert.equal(withFiles("Crash", ["log.txt", "shot.png"]), "Crash\n\nFiles in the message: log.txt, shot.png");
+  assert.equal(withFiles("", ["a.png"]), "Files in the message: a.png");
+  assert.equal(withFiles("Crash", []), "Crash");
+  assert.ok(withFiles("y".repeat(6000), ["a"]).length <= 5000);
+});
+
+// Report 38.6 rollout 3 (plan A2.3): Change type asks the stage; the default depends on where the task is.
+test("changeTypeStage: bugs start Confirmed, or Fixing when the task is in progress; done tasks become Fixed", async () => {
+  const { changeTypeStage } = await import("../../src/lib/workflows/bugs");
+  assert.equal(changeTypeStage("todo"), "confirmed");
+  assert.equal(changeTypeStage("in_progress"), "fixing");
+  assert.equal(changeTypeStage("in_review"), "fixing");
+  assert.equal(changeTypeStage("blocked"), "fixing");
+  assert.equal(changeTypeStage("done"), "fixed");
+});
+
+test("changeTypeOptions: the default first, then stages that keep the status; closing stages never offered", async () => {
+  const { changeTypeOptions } = await import("../../src/lib/workflows/bugs");
+  assert.deepEqual(changeTypeOptions("todo"), ["confirmed", "new"]);
+  assert.deepEqual(changeTypeOptions("in_progress"), ["fixing"]);
+  assert.deepEqual(changeTypeOptions("done"), ["fixed", "verified"]);
+});
+
+// Report 38.6 S2 extras (plan A2.3): search, Assigned to, Export CSV.
+test("filterBugs: words match the title or NB-n; Assigned to takes me, people and Unassigned", async () => {
+  const { filterBugs } = await import("../../src/lib/workflows/bugs");
+  const b = (id: string, title: string, taskNumber: number, assigneeId: string | null) => ({ id, title, taskNumber, assigneeId });
+  const all = [b("1", "Export crashes on Safari", 12, "me"), b("2", "Login loops", 13, null), b("3", "Export is slow", 140, "sam")];
+  assert.deepEqual(filterBugs(all, { q: "export", assignee: [] }, "me").map((x) => x.id), ["1", "3"]);
+  assert.deepEqual(filterBugs(all, { q: "NB-13", assignee: [] }, "me").map((x) => x.id), ["2"]);
+  assert.deepEqual(filterBugs(all, { q: "#140", assignee: [] }, "me").map((x) => x.id), ["3"]);
+  assert.deepEqual(filterBugs(all, { q: "", assignee: ["me", "none"] }, "me").map((x) => x.id), ["1", "2"]);
+  assert.deepEqual(filterBugs(all, { q: "export", assignee: ["sam"] }, "me").map((x) => x.id), ["3"]);
+});
+
+test("bugsCsv: one header row and one row per bug, in words", async () => {
+  const { bugsCsv } = await import("../../src/lib/workflows/bugs");
+  const rows = bugsCsv([{ taskNumber: 12, title: "Crash", stage: "fixing", assigneeName: "Sam", creatorName: "Ana", createdAt: "2026-11-20T10:00:00.000Z",
+    typeFields: { severity: "major", where: { kind: "web", browser: "Firefox", version: "132" }, fixedIn: "2.1", alsoSeen: ["a", "b"] } }], "NB");
+  assert.deepEqual(rows[0], ["Bug", "Title", "Stage", "Severity", "Where", "Reported by", "Assigned to", "See it too", "Fixed in", "Reported"]);
+  assert.deepEqual(rows[1], ["NB-12", "Crash", "Fixing", "Major", "Web · Firefox 132", "Ana", "Sam", 2, "2.1", "2026-11-20"]);
+});

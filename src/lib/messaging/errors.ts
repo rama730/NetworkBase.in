@@ -38,6 +38,8 @@ const MESSAGES: Record<string, string> = {
   chat_search_too_broad: "That search is too broad. Narrow it with In, From or dates.",
   chat_task_needs_project: "Tasks can only be created in workspace channels.",
   chat_task_create_failed: "The task couldn’t be created.",
+  chat_bug_create_failed: "The bug couldn’t be reported.",
+  chat_bugs_not_added: "Add Bugs to this workspace to report bugs here.",
   chat_task_in_progress: "That task is still being created. Try again in a moment.",
   chat_attachment_not_ready: "An attachment is still uploading.",
   chat_group_size: "Group messages have up to 9 people.",

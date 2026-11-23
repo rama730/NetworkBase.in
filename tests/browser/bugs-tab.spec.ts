@@ -13,11 +13,11 @@ async function open(page: Page, opts: { width?: number; canTriage?: boolean } = 
     (window as any).__calls = calls;
     const bug = (id: string, n: number, title: string, stage: string, tf: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
       id, taskNumber: n, title, stage, status: stage === 'fixed' || stage === 'verified' ? 'done' : stage === 'fixing' ? 'in_progress' : 'todo', priority: 'medium', sprintId: null,
-      assigneeId: null, assigneeName: null, creatorId: 'u2', creatorName: 'Dev', createdAt: '2026-11-20T09:00:00.000Z', updatedAt: '2026-11-21T09:00:00.000Z', typeFields: tf, ...extra });
+      assigneeId: null, assigneeName: null, creatorId: 'u2', creatorName: 'Dev', createdAt: '2026-11-20T09:00:00.000Z', updatedAt: '2026-11-21T09:00:00.000Z', typeFields: tf, pr: null, ...extra });
     const bugs = [
       bug('b1', 142, 'Payment gateway is down', 'new', { severity: 'urgent', where: { kind: 'web', browser: 'Chrome', version: '131' }, alsoSeen: ['u3', 'u4'] }, { createdAt: '2026-11-19T09:00:00.000Z' }),
       bug('b2', 143, 'Logo is blurry', 'new', {}),
-      bug('b3', 144, 'Export crashes', 'confirmed', { severity: 'major' }, { assigneeId: 'u1', assigneeName: 'Asha' }),
+      bug('b3', 144, 'Export crashes', 'confirmed', { severity: 'major' }, { assigneeId: 'u1', assigneeName: 'Asha', pr: { url: 'https://github.com/acme/app/pull/42', title: 'acme/app#42' } }),
       bug('b4', 145, 'Wrong total', 'fixed', { severity: 'minor', fixedIn: 'v2.4' }, { updatedAt: '2026-11-22T09:00:00.000Z' }),
       bug('b5', 146, 'Old crash', 'verified', { severity: 'major', fixedIn: 'v2.3' }),
     ];
@@ -148,4 +148,28 @@ test("A2.2: the card's Stage menu sends Won't fix and Can't reproduce through Cl
   await dialog.getByLabel('What do you need from the reporter?').fill('Which file?');
   await dialog.getByRole('button', { name: 'Close bug' }).click();
   await expect.poll(() => calls(page)).toEqual([['close', { projectId: '5f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f', taskId: 'b3', reason: 'cant_reproduce', message: 'Which file?' }]]);
+});
+
+test('A2.3: search by words or AC-n, Assigned to, Export CSV of what shows, and the PR chip', async ({ page }) => {
+  await open(page);
+  await expect(page.getByTestId('bug-pr')).toHaveText('acme/app#42');
+  await expect(page.getByTestId('bug-pr')).toHaveAttribute('href', 'https://github.com/acme/app/pull/42');
+  await page.getByLabel('Search bugs').fill('crash');
+  await expect(page.getByTestId('bug-card')).toHaveCount(2);
+  await page.getByLabel('Search bugs').fill('AC-142');
+  await expect(page.getByTestId('bug-card')).toHaveCount(1);
+  await page.getByLabel('Search bugs').fill('');
+  await page.getByRole('button', { name: /Assigned to/ }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Me' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('bug-card')).toHaveCount(1);
+  await expect(page.getByTestId('bug-card')).toContainText('Export crashes');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export CSV' }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('bugs-2026-11-23.csv');
+  const text = await (await import('node:fs/promises')).readFile((await file.path())!, 'utf8');
+  expect(text.split('\n').filter(Boolean)).toHaveLength(2);
+  expect(text).toContain('AC-144');
+  await page.screenshot({ path: 'test-results/bugs-tab/filters.png' });
 });

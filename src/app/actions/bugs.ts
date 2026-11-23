@@ -32,6 +32,8 @@ export type BugRow = {
   id: string; taskNumber: number | null; title: string; stage: string | null; status: string; priority: string; sprintId: string | null;
   assigneeId: string | null; assigneeName: string | null; creatorId: string | null; creatorName: string | null; createdAt: string; updatedAt: string;
   typeFields: Record<string, unknown>;
+  /** A2.3: the first pull request linked to the bug (task_links kind pull_request), for the card's chip. */
+  pr: { url: string; title: string | null } | null;
 };
 
 /** Every bug in the workspace (up to 1,000; the strip and the views are worked out from them). */
@@ -41,16 +43,18 @@ export async function readBugsAction(projectId: string) {
     const { canTriage, user } = await insider(projectId);
     const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
     const rows = Array.from(await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; status: string; priority: string; sprint_id: string | null;
-      assignee_id: string | null; assignee_name: string | null; creator_id: string | null; creator_name: string | null; created_at: Date; updated_at: Date; type_fields: Record<string, unknown> | null }>(sql`
+      assignee_id: string | null; assignee_name: string | null; creator_id: string | null; creator_name: string | null; created_at: Date; updated_at: Date; type_fields: Record<string, unknown> | null; pr_url: string | null; pr_title: string | null }>(sql`
       SELECT t.id, t.task_number, t.title, t.stage, t.status, t.priority, t.sprint_id, t.assignee_id, a.full_name AS assignee_name,
-        t.creator_id, c.full_name AS creator_name, t.created_at, t.updated_at, t.type_fields
+        t.creator_id, c.full_name AS creator_name, t.created_at, t.updated_at, t.type_fields, pr.url AS pr_url, pr.title AS pr_title
       FROM tasks t LEFT JOIN profiles a ON a.id = t.assignee_id LEFT JOIN profiles c ON c.id = t.creator_id
+      LEFT JOIN LATERAL (SELECT l.url, l.title FROM task_links l WHERE l.task_id = t.id AND l.kind = 'pull_request' ORDER BY l.created_at LIMIT 1) pr ON true
       WHERE t.workspace_id = ${projectId}::uuid AND t.item_type = 'bug' AND t.deleted_at IS NULL
       ORDER BY t.created_at DESC LIMIT 1000`));
     const bugs: BugRow[] = rows.map((r) => ({
       id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, status: r.status, priority: r.priority, sprintId: r.sprint_id,
       assigneeId: r.assignee_id, assigneeName: r.assignee_name, creatorId: r.creator_id, creatorName: r.creator_name,
       createdAt: new Date(r.created_at).toISOString(), updatedAt: new Date(r.updated_at).toISOString(), typeFields: r.type_fields ?? {},
+      pr: r.pr_url ? { url: r.pr_url, title: r.pr_title } : null,
     }));
     return { success: true as const, projectKey: ws?.key ?? null, bugs, canTriage, viewerId: user.id };
   } catch (error) {

@@ -24,6 +24,8 @@ export type ConversationContextValue = {
   isMember?: boolean;
   /** Project channels can turn messages into tasks. */
   projectId?: string | null;
+  /** Bugs is added to this channel's workspace: messages can be reported as bugs (38.6 W10). */
+  bugs?: boolean;
   /** Saved-for-later messages of this conversation, and the toggle. */
   savedSeqs?: ReadonlySet<number>;
   setSaved?: (seq: number, on: boolean, remindAt?: string | null) => void;

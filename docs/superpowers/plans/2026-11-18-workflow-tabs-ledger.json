@@ -8221,6 +8221,16 @@
       "status": "live",
       "test": "tests/db/bugs.test.ts",
       "evidence": "2026-11-23: close only through Close…, bare moves refused, Reopen from any Stage menu, comment first, closed bugs leave the views."
+    },
+    {
+      "key": "38.6.call12",
+      "section": "38.6",
+      "text": "A2.3 (2026-11-23): Report as bug shows on a workspace channel message's ⋯ only while Bugs is added there; it opens the New module on Bug with the first line as ",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

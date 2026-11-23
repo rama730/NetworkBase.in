@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { WORKFLOW_TYPES } from "@/lib/workflows/types";
+
 /**
  * Report 38.6 T3 part 5 and 7 (plan A2.1): a bug is a task with item_type "bug"; its own fields live in type_fields.
  * Severity sets priority (call 3); Not sure (null) is allowed when reporting and required away at Confirm (call 4).
@@ -100,4 +102,50 @@ export function mergeOnDuplicate(source: { creatorId: string | null; alsoSeen: s
   const out = [...target.alsoSeen];
   for (const id of [source.creatorId, ...source.alsoSeen]) if (id && id !== target.creatorId && !out.includes(id)) out.push(id);
   return out.slice(0, 500);
+}
+
+/** W10 (A2.3): a message prefills the New module — first line as the title (200 max), the message as What happened?. */
+export function bugFromMessage(text: string) {
+  const body = text.trim();
+  const first = body.split("\n")[0]!.trim();
+  return { title: first.length > 200 ? `${first.slice(0, 199)}…` : first, steps: body.slice(0, 5000) };
+}
+
+/** W10: the message's files are named under What happened? (they stay in the message, which the bug links to). */
+export function withFiles(steps: string, files: string[]) {
+  const tail = files.length ? `\n\nFiles in the message: ${files.join(", ")}` : "";
+  return `${steps.slice(0, 5000 - tail.length)}${tail}`.trim();
+}
+
+/** Rollout 3 (A2.3): Change type's default stage for a bug — Confirmed, Fixing once work started, Fixed when done. */
+export const changeTypeStage = (status: string) => (status === "done" ? "fixed" : status === "todo" || status === "backlog" ? "confirmed" : "fixing");
+
+const family = (status: string) => (status === "done" ? "done" : status === "todo" || status === "backlog" ? "todo" : "in_progress");
+/** The stages a task can become a bug at: the default first, then the others that keep its status (never a closing one). */
+export function changeTypeOptions(status: string) {
+  const first = changeTypeStage(status);
+  const rest = WORKFLOW_TYPES.bug!.stages.filter((s) => !s.closing && s.key !== first && family(s.status) === family(status)).map((s) => s.key);
+  return [first, ...rest];
+}
+
+/** S2 (A2.3): the tab's search (title words, or NB-12 / #12) and Assigned to (me, people, none). */
+export function filterBugs<T extends { title: string; taskNumber: number | null; assigneeId: string | null }>(bugs: T[], f: { q: string; assignee: string[] }, me: string | null) {
+  const q = f.q.trim().toLowerCase();
+  const num = /^(?:[a-z][a-z0-9]*-|#)?(\d+)$/i.exec(q)?.[1];
+  return bugs.filter((b) => (!q || (num ? b.taskNumber === Number(num) : q.split(/\s+/).every((w) => b.title.toLowerCase().includes(w))))
+    && (!f.assignee.length || f.assignee.some((a) => (a === "none" ? !b.assigneeId : (a === "me" ? me : a) === b.assigneeId))));
+}
+
+type CsvBug = { taskNumber: number | null; title: string; stage: string | null; assigneeName: string | null; creatorName: string | null; createdAt: string; typeFields: Record<string, unknown> };
+/** S2 (A2.3): Export CSV, the bugs shown, in words. */
+export function bugsCsv(bugs: CsvBug[], key: string | null) {
+  return [
+    ["Bug", "Title", "Stage", "Severity", "Where", "Reported by", "Assigned to", "See it too", "Fixed in", "Reported"],
+    ...bugs.map((b) => [
+      key && b.taskNumber ? `${key}-${b.taskNumber}` : b.taskNumber ? `#${b.taskNumber}` : "", b.title,
+      WORKFLOW_TYPES.bug!.stages.find((s) => s.key === b.stage)?.label ?? "New", severityLabel(b.typeFields.severity as string | null),
+      whereLabel(b.typeFields.where as Where | null) ?? "", b.creatorName ?? "", b.assigneeName ?? "",
+      Array.isArray(b.typeFields.alsoSeen) ? b.typeFields.alsoSeen.length : 0, String(b.typeFields.fixedIn ?? ""), b.createdAt.slice(0, 10),
+    ]),
+  ];
 }

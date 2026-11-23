@@ -7,6 +7,7 @@ import { projectTaskHref } from "@/lib/workspaces/task-presentation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Bug,
   Check,
   CheckCircle2,
   CheckSquare,
@@ -30,6 +31,10 @@ import { queryKeys } from "@/lib/query-keys";
 import { TaskStageControl } from "@/components/workspaces/v2/tasks/TaskStageControl";
 import { ProjectWork } from "@/components/workspaces/v2/tasks/PlannerParts";
 import { removeTaskFromWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
+import { changeTaskTypeAction } from "@/app/actions/task";
+import { changeTypeOptions } from "@/lib/workflows/bugs";
+import { WORKFLOW_TYPES } from "@/lib/workflows/types";
+import { useAddedWorkflows } from "@/components/workspaces/workflows/added-workflows";
 import { formatTaskId } from "@/lib/workspace-key";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
@@ -302,6 +307,17 @@ export default function TaskDetailPanel({
   );
   const completedSubtaskCount = resource.counts.completedSubtasks;
 
+  // Report 38.6 rollout 3 (A2.3): a plain task becomes a bug at a stage that keeps its status.
+  const bugsAdded = useAddedWorkflows().includes("bugs");
+  const changeToBug = async (stage: string) => {
+    const result = await changeTaskTypeAction({ projectId, taskIds: [resource.task.id], toType: "bug", stage });
+    if (!result.success) return void toast.error(result.error);
+    const onBoard = WORKFLOW_TYPES.bug!.stages.find((s) => s.key === stage)?.onBoard ?? true;
+    onTaskUpdated?.({ ...resource.task, itemType: "bug", stage, onBoard, ...(!onBoard && { sprintId: null }) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
+    toast.success(`Now a bug · ${WORKFLOW_TYPES.bug!.stages.find((s) => s.key === stage)?.label ?? stage}`);
+  };
+
   const confirmDeleteTask = async () => {
     setDeleteError(null);
     setIsDeleting(true);
@@ -482,6 +498,23 @@ export default function TaskDetailPanel({
                                 onSelect={() => void resource.taskMutations.moveToColumn(col.id)}
                               >
                                 {col.name}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+                    ) : null}
+                    {bugsAdded && canEditTask && !resource.task.itemType && resource.task.kind !== "assignment" ? (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <Bug className="size-4 mr-2" />
+                          Change to a bug
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="w-48 z-[220]">
+                            {changeTypeOptions(resource.task.status).map((stage) => (
+                              <DropdownMenuItem key={stage} onSelect={() => void changeToBug(stage)}>
+                                {WORKFLOW_TYPES.bug!.stages.find((s) => s.key === stage)?.label ?? stage}
                               </DropdownMenuItem>
                             ))}
                           </DropdownMenuSubContent>

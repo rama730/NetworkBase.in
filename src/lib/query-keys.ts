@@ -180,6 +180,8 @@ export const queryKeys = {
         ["project", projectId, "detail", "sprints"] as const,
       workflow: (projectId: string) =>
         ["project", projectId, "detail", "workflow"] as const,
+      addedWorkflows: (projectId: string) =>
+        ["project", projectId, "detail", "added-workflows"] as const,
       lastUpdate: (projectId: string) =>
         ["project", projectId, "detail", "last-update"] as const,
       recentActivity: (projectId: string) =>

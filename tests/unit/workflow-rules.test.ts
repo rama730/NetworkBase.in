@@ -116,15 +116,16 @@ test("the catalog: unique ids, known groups, own tabs only in Own tab, nothing b
     assert.equal(Boolean(w.tab), w.group === "own_tab", w.id);
     assert.ok(w.line.endsWith("."), w.id);
   }
-  // Built as their rounds ship: Project planner with T1 (A1.6).
-  assert.deepEqual(WORKFLOW_CATALOG.filter((w) => w.built).map((w) => w.id), ["project_planner"]);
+  // Built as their rounds ship: Bugs with T3 (A2.3), Project planner with T1 (A1.6).
+  assert.deepEqual(WORKFLOW_CATALOG.filter((w) => w.built).map((w) => w.id).sort(), ["bugs", "project_planner"]);
 });
 
 test("wizard suggestions: section 6 in order, built ones only, the first ticked (decision 5)", async () => {
   const { suggestedWorkflows, catalogEntry } = await import("../../src/lib/workflows/catalog");
   assert.deepEqual(suggestedWorkflows("startup"), [{ workflow: "project_planner", ticked: true }], "only what's built");
-  const bugs = catalogEntry("bugs")!, roadmap = catalogEntry("roadmap")!;
-  bugs.built = roadmap.built = true;
+  assert.deepEqual(suggestedWorkflows("web_app"), [{ workflow: "bugs", ticked: true }, { workflow: "project_planner", ticked: false }]);
+  const roadmap = catalogEntry("roadmap")!;
+  roadmap.built = true;
   try {
     assert.deepEqual(suggestedWorkflows("web_app"), [{ workflow: "bugs", ticked: true }, { workflow: "roadmap", ticked: false }, { workflow: "project_planner", ticked: false }]);
     assert.deepEqual(suggestedWorkflows("startup"), [{ workflow: "project_planner", ticked: true }, { workflow: "roadmap", ticked: false }]);
@@ -132,7 +133,7 @@ test("wizard suggestions: section 6 in order, built ones only, the first ticked 
     assert.deepEqual(suggestedWorkflows("learning"), [], "Course planner is parked");
     assert.deepEqual(suggestedWorkflows("unknown"), []);
   } finally {
-    bugs.built = roadmap.built = false;
+    roadmap.built = false;
   }
 });
 

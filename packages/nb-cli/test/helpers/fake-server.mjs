@@ -205,6 +205,13 @@ const exact = {
       s.updatedAt = now();
       return { data: { subtask: s } };
     }
+    // Typed items (report 38.6 W14): stage moves, closing a bug, turning a task into a bug.
+    if (req.body.kind === "stage" || req.body.kind === "bug_close" || req.body.kind === "change_type") {
+      state.lastUpdate = req.body;
+      if (req.body.kind === "change_type") Object.assign(t, { type: "bug", stage: req.body.stage ?? "confirmed" });
+      else Object.assign(t, { stage: req.body.kind === "stage" ? req.body.stage : req.body.reason });
+      return { data: { success: true, status: t.status } };
+    }
     if (req.body.kind === "edit") { /** @type {any} */ (t)[req.body.field === "dueDate" ? "dueDate" : req.body.field] = req.body.value; t.updatedAt = now(); return { data: { success: true, undoToken: crypto.randomUUID() } }; }
     if (req.body.kind === "assign") { t.assigneeUsername = req.body.assigneeId?.startsWith("aaaaaaaa") ? "tester" : req.body.assigneeId?.startsWith("bbbbbbbb") ? "sam" : null; t.updatedAt = now(); return { data: { success: true } }; }
     if (req.body.kind === "delete") { state.tasks.splice(state.tasks.indexOf(t), 1); return { data: { deleted: true } }; }

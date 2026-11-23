@@ -81,6 +81,8 @@ interface CreateTaskModalProps {
   initialType?: string;
   /** Report 38.4 W5: opened from a quick-add line, the typed title carries in and where it came from shows read-only. */
   initialTitle?: string;
+  /** Report 38.6 W10 (A2.3): Report as bug from a message brings the message as What happened?. */
+  initialSteps?: string;
   fromLine?: string;
   /** Report 38.5 W8: + on a Calendar day opens New with that due date (YYYY-MM-DD). */
   initialDueDate?: string;
@@ -132,6 +134,7 @@ export default function CreateTaskModal({
   projectKey = null,
   initialType,
   initialTitle = "",
+  initialSteps,
   fromLine,
   initialDueDate = "",
   initialStartDate = "",
@@ -409,7 +412,7 @@ export default function CreateTaskModal({
                 </Field>}
               </div>
               {/* Report 38.6 W2 (A2.1): a bug's own section. */}
-              {kind === "bug" ? <BugDetailsFields /> : null}
+              {kind === "bug" ? <BugDetailsFields initialSteps={initialSteps} /> : null}
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">

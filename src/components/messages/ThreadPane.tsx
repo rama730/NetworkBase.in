@@ -1,5 +1,6 @@
 "use client";
 
+import { useBugsAdded } from "@/components/messages/useBugsAdded";
 import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -279,14 +280,15 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   const blockedIds = useBlockedIds();
   const mutedIds = useMutedIds();
   const oneToOne = details.data?.kind === "dm";
+  const bugs = useBugsAdded(details.data?.project_id);
   const ctx = useMemo<ConversationContextValue>(() => ({
     channelId, meId, canAdmin: Boolean(details.data?.can_admin), isDm: details.data?.kind === "dm",
     people, nameOf: (id) => nameMap.get(id), channelNameOf: (id) => channelNames.get(id),
     editingSeq, setEditingSeq, openThread: () => undefined, inThread: true,
-    isMember, projectId: details.data?.project_id ?? null,
+    isMember, projectId: details.data?.project_id ?? null, bugs,
     savedSeqs: saved.seqs, setSaved: (seq, on, remindAt) => void saved.setSaved(seq, on, remindAt), share: setShareSeq,
     blockedIds: oneToOne ? undefined : blockedIds, mutedIds: oneToOne ? undefined : mutedIds,
-  }), [blockedIds, mutedIds, oneToOne, channelId, channelNames, details.data?.can_admin, details.data?.kind, details.data?.project_id, editingSeq, isMember, meId, nameMap, people, saved]);
+  }), [blockedIds, mutedIds, oneToOne, channelId, channelNames, details.data?.can_admin, details.data?.kind, bugs, details.data?.project_id, editingSeq, isMember, meId, nameMap, people, saved]);
 
   const editLast = useCallback(() => {
     const replies = thread.data?.replies ?? [];

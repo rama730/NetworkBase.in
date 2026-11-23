@@ -20,6 +20,7 @@ stubNextAfter();
 let tasksServer: typeof import("../../src/lib/workspaces/server/tasks");
 let bugs: typeof import("../../src/app/actions/bugs");
 let workflows: typeof import("../../src/lib/workflows/server");
+let taskActions: typeof import("../../src/app/actions/task");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -30,6 +31,7 @@ before(async () => {
   tasksServer = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
   bugs = await loadAppModule(() => import("../../src/app/actions/bugs"));
   workflows = await loadAppModule(() => import("../../src/lib/workflows/server"));
+  taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
 });
 const created: string[] = [];
 after(async () => {
@@ -191,4 +193,42 @@ test("A2.2 W6 and reopen: Can't reproduce needs a message and mentions the repor
   assert.deepEqual((await notes(t.member)).slice(-1), ["Closed as Won’t fix: Sometimes the app freezes (important)"]);
   assert.deepEqual(await bugs.reopenBugAction({ projectId: t.ws, taskId: bug, comment: "Customers keep hitting it" }), { success: true, stage: "confirmed" });
   assert.equal((await bugs.reopenBugAction({ projectId: t.ws, taskId: bug, comment: "again" })).success, false, "an open bug isn't reopened");
+});
+
+test("A2.3 Change type: tasks become bugs at the stage matching their status; sprints, assignments and rights hold", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const plain = async (title: string, status = "todo") => {
+    const r = await tasksServer.createTaskAction({ projectId: t.ws, title, status: "todo", priority: "medium" } as never);
+    const id = (r as { task: { id: string } }).task.id;
+    if (status !== "todo") await sql`UPDATE tasks SET status = ${status} WHERE id = ${id}`;
+    return id;
+  };
+  const a = await plain("Login loops"), b = await plain("Export broken", "in_progress"), c = await plain("Old crash", "done");
+  const r = await taskActions.changeTaskTypeAction({ projectId: t.ws, taskIds: [a, b, c], toType: "bug" });
+  assert.ok(r.success, JSON.stringify(r));
+  const rows = await sql`SELECT id, item_type, stage, status, on_board FROM tasks WHERE id IN ${sql([a, b, c])}`;
+  const by = (id: string) => rows.find((x) => x.id === id)!;
+  assert.deepEqual([a, b, c].map((id) => `${by(id).item_type}:${by(id).stage}:${by(id).status}:${by(id).on_board}`),
+    ["bug:confirmed:todo:false", "bug:fixing:in_progress:true", "bug:fixed:done:true"]);
+  assert.equal((await taskActions.changeTaskTypeAction({ projectId: t.ws, taskIds: [a], toType: "bug" })).success, false, "already a bug");
+  const d = await plain("Needs a stage");
+  assert.equal((await taskActions.changeTaskTypeAction({ projectId: t.ws, taskIds: [d], toType: "bug", stage: "fixed" }) as { error?: string }).error, "Pick a stage that matches where the task is now");
+  assert.equal((await taskActions.changeTaskTypeAction({ projectId: t.ws, taskIds: [d], toType: "bug", stage: "new" })).success, true, "a todo task can go to New");
+  // In a sprint: leaving the board is the owner's or an admin's call; the sprint keeps it as moved back.
+  const [{ id: sprint }] = await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status) VALUES (${t.ws}, ${t.owner}, 'S1', now() - interval '1 day', now() + interval '7 days', 'active') RETURNING id`;
+  const e = await plain("In a sprint");
+  await sql`UPDATE tasks SET sprint_id = ${sprint} WHERE id = ${e}`;
+  await sql`INSERT INTO sprint_task_memberships (workspace_id, sprint_id, task_id, added_by) VALUES (${t.ws}, ${sprint}, ${e}, ${t.owner})`;
+  viewerId = t.member;
+  assert.match(String((await taskActions.changeTaskTypeAction({ projectId: t.ws, taskIds: [e], toType: "bug" }) as { error?: string }).error), /Ask an owner or admin/);
+  viewerId = t.owner;
+  assert.equal((await taskActions.changeTaskTypeAction({ projectId: t.ws, taskIds: [e], toType: "bug" })).success, true);
+  assert.equal((await sql`SELECT sprint_id FROM tasks WHERE id = ${e}`)[0]!.sprint_id, null);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM task_activity_events WHERE task_id = ${e} AND event_type = 'removed_from_sprint'`)[0]!.n, 1);
+  viewerId = t.viewer;
+  assert.equal((await taskActions.changeTaskTypeAction({ projectId: t.ws, taskIds: [await (async () => { viewerId = t.owner; const id = await plain("Viewer try"); viewerId = t.viewer; return id; })()], toType: "bug" })).success, false, "viewers can't");
+  viewerId = t.owner;
+  await sql`UPDATE workspace_workflows SET hidden_at = now() WHERE workspace_id = ${t.ws}`;
+  assert.equal((await taskActions.changeTaskTypeAction({ projectId: t.ws, taskIds: [await plain("Hidden")], toType: "bug" }) as { error?: string }).error, "Bugs isn’t in this workspace");
 });

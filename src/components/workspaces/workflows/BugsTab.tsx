@@ -1,14 +1,16 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bug, Users } from "lucide-react";
+import { Bug, Download, GitPullRequest, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { confirmBugAction, readBugsAction, setBugFieldsAction, type BugRow } from "@/app/actions/bugs";
 import { createTaskAction } from "@/app/actions/workspace";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
+import { saveBlob, toCsvBlob } from "@/lib/download";
 import CreateTaskModal from "@/components/workspaces/v2/tasks/CreateTaskModal";
 import { CloseBugDialog } from "@/components/workspaces/v2/tasks/BugParts";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
@@ -17,7 +19,7 @@ import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { formatTaskId } from "@/lib/workspace-key";
-import { fixedGroups, openSeverityCounts, SEVERITIES, severityGroups, severityLabel, triageOrder, whereLabel, type Severity, type Where } from "@/lib/workflows/bugs";
+import { bugsCsv, filterBugs, fixedGroups, openSeverityCounts, SEVERITIES, severityGroups, severityLabel, triageOrder, whereLabel, type Severity, type Where } from "@/lib/workflows/bugs";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { buildTaskSubmitPayload } from "@/lib/workspaces/task-draft";
 import { normalizeAssignableMembers, normalizeSprintOptions } from "@/lib/workspaces/task-presentation";
@@ -65,10 +67,13 @@ export function BugsTab({ projectId, projectSlug, projectName, currentUserId, me
   const [fixedIn, setFixedIn] = useState<BugRow | null>(null);
   const [requested, setRequested] = useState<{ id: string; stage: string; nonce: number } | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  // A2.3: search (title words, or NB-12) and Assigned to.
+  const [q, setQ] = useState("");
+  const [assignee, setAssignee] = useState<string[]>([]);
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
 
   const all = data?.bugs ?? [];
-  const bugs = severity ? all.filter((b) => (severity === "notSure" ? !b.typeFields.severity : b.typeFields.severity === severity)) : all;
+  const bugs = filterBugs(severity ? all.filter((b) => (severity === "notSure" ? !b.typeFields.severity : b.typeFields.severity === severity)) : all, { q, assignee }, currentUserId);
   const counts = openSeverityCounts(all);
   const toTriage = all.filter((b) => b.stage === "new").length;
   const name = (b: BugRow) => (b.taskNumber && data?.projectKey ? formatTaskId(data.projectKey, b.taskNumber) : "");
@@ -86,6 +91,11 @@ export function BugsTab({ projectId, projectSlug, projectName, currentUserId, me
         <SeverityBadge severity={b.typeFields.severity as string | null} />
         {seen(b) ? <span className="inline-flex items-center gap-0.5"><Users aria-hidden="true" className="size-3" />{seen(b)} see it</span> : null}
         {b.typeFields.fixedIn ? <span className="font-mono">➜ {String(b.typeFields.fixedIn)}</span> : null}
+        {b.pr ? (
+          <a href={b.pr.url} target="_blank" rel="noreferrer" className="inline-flex h-5 items-center gap-1 rounded-[3px] border border-border px-1.5 font-mono text-[10px] text-foreground hover:bg-muted" data-testid="bug-pr">
+            <GitPullRequest aria-hidden="true" className="size-3" />{b.pr.title ?? "Pull request"}
+          </a>
+        ) : null}
         <span className="ml-auto truncate">{b.assigneeName ?? b.creatorName ?? ""}</span>
       </div>
       {canTriage ? (
@@ -115,6 +125,19 @@ export function BugsTab({ projectId, projectSlug, projectName, currentUserId, me
 
       <UnderlineTabs label="Bugs view" idPrefix="bugs-view" value={view} onChange={pickView} className="min-h-10"
         tabs={[{ key: "triage" as const, label: "Triage" }, { key: "board" as const, label: "Board" }, { key: "mine" as const, label: "Mine" }, { key: "fixed" as const, label: "Fixed" }]} />
+
+      <div className="flex flex-wrap items-center gap-2" data-testid="bugs-filters">
+        {/* The Tasks tab's filter field, as it is there. */}
+        <div className="relative flex items-center max-md:basis-full">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 size-3.5 text-muted-foreground" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter bugs…" aria-label="Search bugs"
+            className="nb-touch-target h-[34px] w-36 rounded-[5px] border border-border bg-card pl-8 pr-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:w-48 max-md:h-11 max-md:w-full" />
+        </div>
+        <FilterChipRow onClearAll={() => setAssignee([])} chips={[{ key: "assignee", name: "Assigned to", multi: true, selected: assignee, onChange: setAssignee,
+          options: [{ value: "me", label: "Me" }, ...assignable.filter((m) => m.id !== currentUserId).map((m) => ({ value: m.id, label: m.label })), { value: "none", label: "Unassigned" }] }]} />
+        <button type="button" disabled={!bugs.length} onClick={() => saveBlob(toCsvBlob(bugsCsv(bugs, data?.projectKey ?? null)), `bugs-${new Date().toISOString().slice(0, 10)}.csv`)}
+          className={cn(FORM_SECONDARY_CLASS, "ml-auto inline-flex items-center gap-1.5")}><Download aria-hidden="true" className="size-3.5" />Export CSV</button>
+      </div>
 
       <div id={`bugs-view-panel-${view}`} role="tabpanel" aria-labelledby={`bugs-view-tab-${view}`} className="space-y-4">
       {query.isLoading ? <div aria-hidden="true" className="nb-skeleton h-40 rounded-[8px]" /> : null}
