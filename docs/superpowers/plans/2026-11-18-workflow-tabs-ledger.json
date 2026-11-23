@@ -288,9 +288,9 @@
       "text": "A3.1 Launch document core — Goal: a launch is a document whose steps are tasks. Build: createLaunchAction, launch header, stage blocks, Ships block, What's new,",
       "kind": "unit",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "04f636f2b + 6770028c5 live 2026-11-23 (web+worker SUCCESS; full test:db 1263/1263 on origin+A3; browser launch-doc 5/5). Checked live in Chrome on wt-test-a2-3: Add workflow → Launch checklists added, Documents rail shows Launches; + New launch 'WT v2.4 SSO', 18 Dec, v2.4, Product launch → the document opens with its header (in 25 days, Planning, 0 of 18 steps) and seven numbered stage blocks of steps; Ships → Add item SSO sign-in → What's new drafts 'Added: SSO sign-in'; nb task start on 'Create buyer personas' → Getting ready; Launch now ('18 steps are still open') → Launched 23 Nov, SSO sign-in Launched, release notes copied, no Update posted; Close launch → Leave them → Closed; nb launches list against production; no console errors. Live-check fixes 9681fedbe (title instead of file name, open steps listed, 'Making N steps…')."
     },
     {
       "key": "A3.2",
@@ -298,9 +298,9 @@
       "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23: a Product launch made its seven stages and 18 steps live (see A3.1)."
     },
     {
       "key": "A3.3",
@@ -308,9 +308,9 @@
       "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "6770028c5 live 2026-11-23: preset in the New launch list; stages checked by tests/unit/launch-rules.test.ts against the source sections; Product launch made live end to end (A3.1/A3.2); this preset shares the same path."
     },
     {
       "key": "A3.4",
@@ -318,9 +318,9 @@
       "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "6770028c5 live 2026-11-23: preset in the New launch list; stages checked by tests/unit/launch-rules.test.ts against the source sections; Product launch made live end to end (A3.1/A3.2); this preset shares the same path."
     },
     {
       "key": "A3.5",
@@ -328,9 +328,9 @@
       "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "6770028c5 live 2026-11-23: preset in the New launch list; stages checked by tests/unit/launch-rules.test.ts against the source sections; Product launch made live end to end (A3.1/A3.2); this preset shares the same path."
     },
     {
       "key": "A3.6",
@@ -338,9 +338,9 @@
       "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "6770028c5 live 2026-11-23: preset in the New launch list; stages checked by tests/unit/launch-rules.test.ts against the source sections; Product launch made live end to end (A3.1/A3.2); this preset shares the same path."
     },
     {
       "key": "A3.7",
@@ -348,9 +348,9 @@
       "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "6770028c5 live 2026-11-23: preset in the New launch list; stages checked by tests/unit/launch-rules.test.ts against the source sections; Product launch made live end to end (A3.1/A3.2); this preset shares the same path."
     },
     {
       "key": "A3.8",
@@ -358,9 +358,9 @@
       "text": "A3.2–A3.8 One preset each — Goal of each: the preset's stages and default steps land exactly as its source section says. Per preset: write templates/launches/<i",
       "kind": "unit",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "6770028c5 live 2026-11-23: preset in the New launch list; stages checked by tests/unit/launch-rules.test.ts against the source sections; Product launch made live end to end (A3.1/A3.2); this preset shares the same path."
     },
     {
       "key": "A4.1",
@@ -6808,9 +6808,9 @@
       "text": "Testing and launch",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.9.W7",
@@ -6938,9 +6938,9 @@
       "text": "New launch",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.W2",
@@ -6948,9 +6948,9 @@
       "text": "Getting ready",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.W3",
@@ -6958,9 +6958,9 @@
       "text": "What ships",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.W4",
@@ -6968,9 +6968,9 @@
       "text": "What's new",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.W5",
@@ -6978,9 +6978,9 @@
       "text": "Launch day",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.W6",
@@ -6988,9 +6988,9 @@
       "text": "After launch and close",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.W7",
@@ -6998,9 +6998,9 @@
       "text": "Moving the date",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Built in A3.1; tests/db/launches.test.ts and tests/browser/launch-doc.spec.ts; not clicked live (the live launch was launched first). revisit 2026-11-24 with a second live launch (Move the date, Cancel)."
     },
     {
       "key": "38.10.W8",
@@ -7008,9 +7008,9 @@
       "text": "Cancel",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Built in A3.1; tests/db/launches.test.ts and tests/browser/launch-doc.spec.ts; not clicked live (the live launch was launched first). revisit 2026-11-24 with a second live launch (Move the date, Cancel)."
     },
     {
       "key": "38.10.W9",
@@ -7028,9 +7028,9 @@
       "text": "CLI",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.call1",
@@ -7038,9 +7038,9 @@
       "text": "Launches are documents with steps as tasks; the launch task kind from 11.5 is dropped. [call]",
       "kind": "call",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.call2",
@@ -7048,9 +7048,9 @@
       "text": "Launch checklists come with Roadmap automatically and can also be added on their own. [call]",
       "kind": "call",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.call3",
@@ -7058,9 +7058,9 @@
       "text": "Seven presets; steps start unassigned and undated. [call]",
       "kind": "call",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.call4",
@@ -7068,9 +7068,9 @@
       "text": "Launch now marks items Launched and offers a release Update, never posting it by itself. [call]",
       "kind": "call",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.call5",
@@ -8328,9 +8328,9 @@
       "text": "A3.1 (2026-11-23): Presets are data in code (src/lib/workflows/launches.ts), not Markdown files, so the browser can write the document and the server the steps ",
       "kind": "call",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     },
     {
       "key": "38.10.call8",
@@ -8338,9 +8338,9 @@
       "text": "A3.2–A3.8 (2026-11-23): the seven presets in the order Product launch · Feature release · App release · Store launch · Digital product launch · Content launch ·",
       "kind": "call",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (see A3.1)."
     }
   ]
 }
