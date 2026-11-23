@@ -88,7 +88,7 @@ test('Web address: the full link with Copy; the owner changes it, admins read wh
     await expect(block).toContainText('networkbase.in/org/cse-3b-data-structures-2026');
     await expect(block).not.toContainText('@');
     await block.getByRole('button', { name: 'Copy' }).click();
-    await expect(page.getByText('Link copied').first()).toBeVisible();
+    await expect(block.getByRole('button', { name: 'Copied' })).toBeVisible();
     await block.getByLabel('Change the address').fill('taken');
     await block.getByRole('button', { name: 'Change' }).click();
     await expect(block.getByRole('alert')).toHaveText('networkbase.in/org/taken is taken.');

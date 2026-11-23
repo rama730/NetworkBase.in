@@ -573,7 +573,7 @@ test('Network failed next pages retain cards and wait for an explicit retry; emp
  await page.getByRole('button',{name:'Retry loading more',exact:true}).click();
  expect(await page.evaluate(()=>(window as any).railsFixture.events.filter((event:string)=>event==='retry-page').length)).toBe(1);
  await open(page,'surface=network-layout&empty&suggested.location=Lisbon&q=Mira');
- await expect(page.getByText('No people match your search or filters.',{exact:true})).toBeVisible();
+ await expect(page.getByText('No people match your search or filters',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Reset search and filters',exact:true}).click();
  await expect(page.getByRole('searchbox',{name:'Search people'})).toHaveValue('');
  await expect(page.getByRole('group',{name:'Selected network filters'})).toHaveCount(0);
