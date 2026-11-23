@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { completeProjectAction, readProjectWorkAction, setTaskStageAction } from "@/app/actions/task";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { CloseBugDialog, ReopenBugDialog } from "@/components/workspaces/v2/tasks/BugParts";
 import { FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
@@ -25,7 +26,7 @@ const saveTick = (projectId: string, tick: boolean) => { try { window.localStora
  */
 export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, sprints, onMoved, compact = false, requested = null }: {
   projectId: string;
-  task: { id: string; itemType?: string; stage?: string | null; status: string; sprintId?: string | null };
+  task: { id: string; itemType?: string; stage?: string | null; status: string; sprintId?: string | null; title?: string };
   canEdit: boolean;
   /** A table cell (Projects' Active and All): the Stage menu without the "Shows in" line. */
   compact?: boolean;
@@ -40,6 +41,9 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
   const [tick, setTick] = useState(true);
   const [busy, setBusy] = useState(false);
   const [openWork, setOpenWork] = useState<number | null>(null);
+  // A2.2: a bug closes with its reason, and reopens with a comment, wherever its Stage menu is.
+  const [closing, setClosing] = useState<string | null>(null);
+  const [reopening, setReopening] = useState(false);
   const pickRef = useRef<(stage: string) => void>(() => undefined);
   useEffect(() => { if (requested) pickRef.current(requested.stage); }, [requested]);
   const type = task.itemType ? WORKFLOW_TYPES[task.itemType] : null;
@@ -77,6 +81,11 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
 
   async function pick(stage: string) {
     if (stage === task.stage) return;
+    if (task.itemType === "bug") {
+      const target = type!.stages.find((s) => s.key === stage);
+      if (target?.closing) return setClosing(stage);
+      if (["fixed", "verified", "wont_fix", "duplicate", "cant_reproduce"].includes(task.stage ?? "") && target?.status !== "done") return setReopening(true);
+    }
     // Report 38.5 W5.3: completing a project with open work asks what happens to it.
     if (task.itemType === "project" && stage === "completed") {
       const work = await readProjectWorkAction(projectId, task.id);
@@ -117,6 +126,14 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+      ) : null}
+      {closing ? (
+        <CloseBugDialog projectId={projectId} bug={{ id: task.id, title: task.title ?? "", label: task.title ? `“${task.title}”` : "this bug" }} reason={closing as never}
+          onDone={(done) => { setClosing(null); if (done) onMoved({ stage: closing, status: "done", onBoard: false, sprintId: null }); }} />
+      ) : null}
+      {reopening ? (
+        <ReopenBugDialog projectId={projectId} bug={{ id: task.id, label: task.title ? `“${task.title}”` : "this bug" }}
+          onDone={(done) => { setReopening(false); if (done) onMoved({ stage: "confirmed", status: "todo", onBoard: false, sprintId: null }); }} />
       ) : null}
       <Dialog open={openWork !== null} onOpenChange={(open) => { if (!open && !busy) setOpenWork(null); }}>
         <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="complete-project-dialog">

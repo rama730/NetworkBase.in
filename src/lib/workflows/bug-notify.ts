@@ -73,3 +73,21 @@ export async function notifyBugFixed(taskId: string, actorId: string) {
     }).catch((error) => logger.error("bugs.notify_failed", { module: "tasks", error: error instanceof Error ? error.message : String(error) }));
   }
 }
+
+/** Your bug was closed as Duplicate or Won't fix (Normal), to the reporter while they're still in the workspace. */
+export async function notifyBugClosed(taskId: string, actorId: string, words: string) {
+  const [bug] = Array.from(await db.execute<{ id: string; title: string; task_number: number | null; workspace_id: string; creator_id: string | null }>(sql`
+    SELECT id, title, task_number, workspace_id, creator_id FROM tasks WHERE id = ${taskId}::uuid`));
+  if (!bug?.creator_id || bug.creator_id === actorId) return;
+  const people = await leaders(bug.workspace_id, true);
+  const p = people.find((x) => x.id === bug.creator_id);
+  if (!p) return;
+  await createNotification({
+    recipientUserId: p.id, actorUserId: actorId, kind: "project_task_activity", category: "tasks", importance: "important",
+    title: `${words}: ${bug.title}`,
+    href: projectTaskHref(p.slug || bug.workspace_id, bug.id),
+    entityRefs: { projectId: bug.workspace_id, projectSlug: p.slug, taskId: bug.id },
+    preview: { contextLabel: bug.task_number && p.key ? `${p.key}-${bug.task_number}` : "Bug", contextKind: "task", secondaryText: "Bug" },
+    dedupeKey: `bug-closed:${bug.id}:${Date.now()}`,
+  }).catch((error) => logger.error("bugs.notify_failed", { module: "tasks", error: error instanceof Error ? error.message : String(error) }));
+}

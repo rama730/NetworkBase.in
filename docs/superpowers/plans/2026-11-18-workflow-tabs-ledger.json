@@ -8211,6 +8211,16 @@
       "status": "live",
       "test": "tests/db/bugs.test.ts",
       "evidence": "2026-11-23: unbuilt until A2.3, panel via Tasks, drops run the Stage menu, viewers report at New, what waits for A2.2/A2.3."
+    },
+    {
+      "key": "38.6.call11",
+      "section": "38.6",
+      "text": "A2.2 (2026-11-23): closing a bug always goes through Close… (the Triage row, X, or a closing stage in any Stage menu opens it); a bare stage move to Won't fix, ",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

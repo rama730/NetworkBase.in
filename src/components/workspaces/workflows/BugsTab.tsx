@@ -10,6 +10,7 @@ import { createTaskAction } from "@/app/actions/workspace";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import CreateTaskModal from "@/components/workspaces/v2/tasks/CreateTaskModal";
+import { CloseBugDialog } from "@/components/workspaces/v2/tasks/BugParts";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { TaskStageControl } from "@/components/workspaces/v2/tasks/TaskStageControl";
 import { toast } from "@/lib/feedback";
@@ -60,6 +61,7 @@ export function BugsTab({ projectId, projectSlug, projectName, currentUserId, me
   const [severity, setSeverity] = useState<string | null>(null);
   const [reporting, setReporting] = useState(false);
   const [confirming, setConfirming] = useState<BugRow | null>(null);
+  const [closingBug, setClosingBug] = useState<BugRow | null>(null);
   const [fixedIn, setFixedIn] = useState<BugRow | null>(null);
   const [requested, setRequested] = useState<{ id: string; stage: string; nonce: number } | null>(null);
   const [over, setOver] = useState<string | null>(null);
@@ -87,7 +89,7 @@ export function BugsTab({ projectId, projectSlug, projectName, currentUserId, me
         <span className="ml-auto truncate">{b.assigneeName ?? b.creatorName ?? ""}</span>
       </div>
       {canTriage ? (
-        <TaskStageControl projectId={projectId} task={{ id: b.id, itemType: "bug", stage: b.stage, status: b.status, sprintId: b.sprintId }} canEdit canPlanSprints={canPlanSprints}
+        <TaskStageControl projectId={projectId} task={{ id: b.id, itemType: "bug", stage: b.stage, status: b.status, sprintId: b.sprintId, title: b.title }} canEdit canPlanSprints={canPlanSprints}
           sprints={sprintOptions.map((s) => ({ id: s.id, name: s.name, status: s.status ?? "" }))} compact requested={requested?.id === b.id ? requested : null}
           onMoved={(m) => { void refresh(); if (m.stage === "fixed") setFixedIn(b); }} />
       ) : null}
@@ -140,8 +142,18 @@ export function BugsTab({ projectId, projectSlug, projectName, currentUserId, me
 
       {data && view === "triage" ? (
         <div className="divide-y divide-border rounded-[8px] border border-border bg-card" data-testid="bugs-triage">
-          {triageOrder(bugs).map((b) => (
-            <div key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-[13px]" data-testid="triage-row">
+          {triageOrder(bugs).map((b, i, list) => (
+            // A2.2 (S10 browser list): J/K move between rows, C confirms, X closes, Enter opens.
+            <div key={b.id} tabIndex={0} aria-label={`${name(b)} ${b.title}`} data-testid="triage-row"
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                const rows = [...(e.currentTarget.parentElement?.querySelectorAll<HTMLElement>("[data-testid=triage-row]") ?? [])];
+                if (e.key === "j" || e.key === "k") { e.preventDefault(); rows[Math.max(0, Math.min(list.length - 1, i + (e.key === "j" ? 1 : -1)))]?.focus(); }
+                if (e.key === "Enter") e.currentTarget.querySelector<HTMLAnchorElement>("a")?.click();
+                if (canTriage && e.key === "c") { e.preventDefault(); setConfirming(b); }
+                if (canTriage && e.key === "x") { e.preventDefault(); setClosingBug(b); }
+              }}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-[13px] outline-none focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
               <Link href={href(b)} className="min-w-0 flex-1 truncate font-medium hover:underline"><span className="mr-1.5 font-mono text-[11px] text-muted-foreground">{name(b)}</span>{b.title}</Link>
               <SeverityBadge severity={b.typeFields.severity as string | null} />
               <span className="text-[12px] text-muted-foreground">{whereLabel(b.typeFields.where as Where | null) ?? "—"}</span>
@@ -149,6 +161,7 @@ export function BugsTab({ projectId, projectSlug, projectName, currentUserId, me
               <span className="font-mono text-[11px] text-muted-foreground">{ago(b.createdAt)}</span>
               {seen(b) ? <span className="inline-flex items-center gap-0.5 text-[12px] text-muted-foreground"><Users aria-hidden="true" className="size-3" />{seen(b)}</span> : null}
               {canTriage ? <button type="button" onClick={() => setConfirming(b)} className={FORM_SECONDARY_CLASS}>Confirm</button> : null}
+              {canTriage ? <button type="button" onClick={() => setClosingBug(b)} className={FORM_SECONDARY_CLASS}>Close…</button> : null}
             </div>
           ))}
           {!triageOrder(bugs).length ? <p className="px-3 py-6 text-center text-[13px] text-muted-foreground">Nothing to triage.</p> : null}
@@ -183,6 +196,7 @@ export function BugsTab({ projectId, projectSlug, projectName, currentUserId, me
             return { success: true };
           }} />
       ) : null}
+      {closingBug ? <CloseBugDialog projectId={projectId} bug={{ id: closingBug.id, title: closingBug.title, label: name(closingBug) || "the bug" }} onDone={() => { setClosingBug(null); void refresh(); }} /> : null}
       {confirming ? <ConfirmBug projectId={projectId} bug={confirming} name={name(confirming)} members={assignable} onDone={() => { setConfirming(null); void refresh(); }} /> : null}
       {fixedIn ? <FixedIn projectId={projectId} bug={fixedIn} name={name(fixedIn)} onDone={() => { setFixedIn(null); void refresh(); }} /> : null}
     </section>

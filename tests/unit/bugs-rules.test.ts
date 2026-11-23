@@ -52,3 +52,28 @@ test("a link to a workflow tab opens it for the workspace's own people only (A2.
   assert.equal(resolveAllowedWorkspaceTab({ requestedTab: "bugs", isOwnerOrMember: true, isOrganization: true }), "dashboard");
   assert.equal(resolveAllowedWorkspaceTab({ requestedTab: "nonsense", isOwnerOrMember: true }), "dashboard");
 });
+
+// Report 38.6 part 7 (plan A2.2): duplicates.
+test("resolveDuplicateTarget: walks to the open original; refuses self and loops", async () => {
+  const { resolveDuplicateTarget } = await import("../../src/lib/workflows/bugs");
+  const bugs = new Map([
+    ["A", { stage: "new", duplicateOf: null }],
+    ["B", { stage: "duplicate", duplicateOf: "C" }],
+    ["C", { stage: "confirmed", duplicateOf: null }],
+    ["D", { stage: "duplicate", duplicateOf: "A" }],
+    ["E", { stage: "wont_fix", duplicateOf: null }],
+  ]);
+  assert.deepEqual(resolveDuplicateTarget("A", "B", bugs), { id: "C" }, "B is closed as a duplicate of C");
+  assert.deepEqual(resolveDuplicateTarget("A", "A", bugs), { error: "A bug can’t be a duplicate of itself" });
+  assert.deepEqual(resolveDuplicateTarget("A", "D", bugs), { error: "That bug is already a duplicate of this one" });
+  assert.deepEqual(resolveDuplicateTarget("A", "E", bugs), { error: "Pick an open bug" });
+  assert.deepEqual(resolveDuplicateTarget("A", "Z", bugs), { error: "Pick a bug in this workspace" });
+});
+
+test("mergeOnDuplicate: the source's reporter and see-too people join the target's, no repeats, capped at 500", async () => {
+  const { mergeOnDuplicate } = await import("../../src/lib/workflows/bugs");
+  assert.deepEqual(mergeOnDuplicate({ creatorId: "r1", alsoSeen: ["u1", "u2"] }, { creatorId: "r2", alsoSeen: ["u2", "u3"] }), ["u2", "u3", "r1", "u1"]);
+  assert.deepEqual(mergeOnDuplicate({ creatorId: "r2", alsoSeen: [] }, { creatorId: "r2", alsoSeen: [] }), [], "the target's own reporter isn't added");
+  const many = Array.from({ length: 499 }, (_, i) => `t${i}`);
+  assert.equal(mergeOnDuplicate({ creatorId: "r1", alsoSeen: ["x", "y"] }, { creatorId: "r2", alsoSeen: many }).length, 500);
+});

@@ -6,11 +6,11 @@ import { z } from "zod";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { assignTaskAction, setTaskStageAction } from "@/app/actions/task";
 import { db } from "@/lib/db";
-import { taskWatchers, tasks, workspaces } from "@/lib/db/schema";
+import { profiles, taskWatchers, tasks, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { assertAssignmentWrite } from "@/lib/organizations/assignments";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
-import { bugFieldsSchema, priorityForSeverity, type Severity } from "@/lib/workflows/bugs";
+import { bugFieldsSchema, mergeOnDuplicate, priorityForSeverity, resolveDuplicateTarget, type Severity } from "@/lib/workflows/bugs";
 import { lockTaskForWrite } from "@/lib/workspaces/task-transition-service";
 
 /**
@@ -165,13 +165,124 @@ export async function readBugAction(projectId: string, taskId: string) {
   try {
     id.parse(projectId); id.parse(taskId);
     const { user, canTriage } = await insider(projectId);
-    const [row] = await db.select({ typeFields: tasks.typeFields, creatorId: tasks.creatorId }).from(tasks)
+    const [row] = await db.select({ typeFields: tasks.typeFields, creatorId: tasks.creatorId, stage: tasks.stage }).from(tasks)
       .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), eq(tasks.itemType, "bug"), isNull(tasks.deletedAt))).limit(1);
     if (!row) throw new Error("Not found");
     const fields = (row.typeFields ?? {}) as Record<string, unknown>;
     const alsoSeen = Array.isArray(fields.alsoSeen) ? (fields.alsoSeen as string[]) : [];
-    return { success: true as const, fields, seeing: alsoSeen.includes(user.id), seenCount: alsoSeen.length, reporter: row.creatorId === user.id, canEdit: canTriage };
+    // A2.2: a duplicate names its original (in this workspace only).
+    const [original] = typeof fields.duplicateOf === "string" ? await db.select({ id: tasks.id, taskNumber: tasks.taskNumber, title: tasks.title, key: workspaces.key }).from(tasks)
+      .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
+      .where(and(eq(tasks.id, fields.duplicateOf), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1) : [];
+    return { success: true as const, fields, stage: row.stage, duplicateOf: original ? { id: original.id, label: original.key && original.taskNumber ? `${original.key}-${original.taskNumber}` : original.title, title: original.title } : null,
+      seeing: alsoSeen.includes(user.id), seenCount: alsoSeen.length, reporter: row.creatorId === user.id, canEdit: canTriage };
   } catch (error) {
     return fail(error, "Couldn’t load the bug");
+  }
+}
+
+const CLOSE = ["wont_fix", "duplicate", "cant_reproduce"] as const;
+
+/** A comment from the person acting, through the task comment rules (access, mentions and their notices). */
+async function comment(userId: string, taskId: string, projectId: string, content: string) {
+  const { createTaskCommentAs } = await import("@/lib/domain/task-comments");
+  const [profile] = await db.select({ fullName: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(eq(profiles.id, userId)).limit(1);
+  return createTaskCommentAs({ userId, profile: profile ?? null }, taskId, projectId, content);
+}
+const closeInput = z.object({
+  projectId: id, taskId: id, reason: z.enum(CLOSE),
+  duplicateOfId: id.optional(), message: z.string().trim().max(2000).optional(),
+});
+
+/**
+ * Report 38.6 W5–W6 and S7 (plan A2.2): Close… with a reason. Duplicate points at the open original (the chain is
+ * walked, loops refused) and moves the reporter and I see this too there; Can't reproduce needs a message, posted as
+ * a comment that mentions the reporter (call 6: nothing closes or reopens on its own). Members only.
+ */
+export async function closeBugAction(input: z.infer<typeof closeInput>) {
+  try {
+    const parsed = closeInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Pick a reason" };
+    const { projectId, taskId, reason, duplicateOfId, message } = parsed.data;
+    if (reason === "duplicate" && !duplicateOfId) return { success: false as const, error: "Pick the bug it duplicates" };
+    if (reason === "cant_reproduce" && !message) return { success: false as const, error: "Tell the reporter what you need" };
+    const { user, canTriage } = await insider(projectId);
+    if (!canTriage) throw new Error("Viewers can’t close bugs");
+    const all = await db.select({ id: tasks.id, stage: tasks.stage, typeFields: tasks.typeFields, creatorId: tasks.creatorId, taskNumber: tasks.taskNumber, title: tasks.title })
+      .from(tasks).where(and(eq(tasks.projectId, projectId), eq(tasks.itemType, "bug"), isNull(tasks.deletedAt)));
+    const bug = all.find((b) => b.id === taskId);
+    if (!bug) throw new Error("Not found");
+    let target: (typeof all)[number] | null = null;
+    if (reason === "duplicate") {
+      const chain = new Map(all.map((b) => [b.id, { stage: b.stage, duplicateOf: ((b.typeFields ?? {}) as { duplicateOf?: string }).duplicateOf ?? null }]));
+      const resolved = resolveDuplicateTarget(taskId, duplicateOfId!, chain);
+      if ("error" in resolved) return { success: false as const, error: resolved.error };
+      target = all.find((b) => b.id === resolved.id)!;
+    }
+    // Can't reproduce posts its message first: if that fails, nothing is closed.
+    if (reason === "cant_reproduce") {
+      const [reporter] = bug.creatorId ? await db.select({ name: profiles.fullName, username: profiles.username }).from(profiles).where(eq(profiles.id, bug.creatorId)).limit(1) : [];
+      const mention = !bug.creatorId || bug.creatorId === user.id ? "" : `@{${bug.creatorId}|${reporter?.name ?? reporter?.username ?? "Reporter"}} `;
+      const posted = await comment(user.id, taskId, projectId, `${mention}Details needed: ${message}`);
+      if (!posted.success) return { success: false as const, error: posted.error ?? "Couldn’t add the comment" };
+    }
+    // The reason goes on first: the stage move only accepts a closing stage it can find there.
+    await db.transaction(async (tx) => {
+      const locked = await lockTaskForWrite(tx, taskId, user.id);
+      if (locked.projectId !== projectId) throw new Error("Not found");
+      await assertAssignmentWrite(tx, taskId, { role: locked.orgRole, isHolder: locked.isHolder, onOrgBoard: locked.onOrgBoard }, "status");
+      await tx.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || ${JSON.stringify({ closeReason: reason, duplicateOf: target?.id ?? null })}::jsonb` }).where(eq(tasks.id, taskId));
+    });
+    const moved = await setTaskStageAction({ taskId, projectId, stage: reason, toBacklog: true });
+    if (!moved.success) {
+      await db.update(tasks).set({ typeFields: sql`${tasks.typeFields} - 'closeReason'` }).where(eq(tasks.id, taskId));
+      return moved;
+    }
+    const { notifyBugClosed } = await import("@/lib/workflows/bug-notify");
+    if (target) {
+      const seenOf = (b: (typeof all)[number]) => (Array.isArray((b.typeFields as { alsoSeen?: unknown })?.alsoSeen) ? ((b.typeFields as { alsoSeen: string[] }).alsoSeen) : []);
+      const merged = mergeOnDuplicate({ creatorId: bug.creatorId, alsoSeen: seenOf(bug) }, { creatorId: target.creatorId, alsoSeen: seenOf(target) });
+      await db.transaction(async (tx) => {
+        await tx.update(tasks).set({ typeFields: sql`jsonb_set(coalesce(${tasks.typeFields}, '{}'::jsonb), '{alsoSeen}', ${JSON.stringify(merged)}::jsonb)`, updatedAt: new Date() }).where(eq(tasks.id, target!.id));
+        await tx.execute(sql`INSERT INTO task_watchers (task_id, user_id)
+          SELECT ${target!.id}::uuid, u FROM (SELECT user_id AS u FROM task_watchers WHERE task_id = ${taskId}::uuid
+            UNION SELECT unnest(${`{${merged.join(",")}}`}::uuid[])) people ON CONFLICT DO NOTHING`);
+      });
+      const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+      await notifyBugClosed(taskId, user.id, `Closed as a duplicate of ${ws?.key && target.taskNumber ? `${ws.key}-${target.taskNumber}` : target.title}`);
+    } else if (reason === "wont_fix") {
+      await notifyBugClosed(taskId, user.id, "Closed as Won’t fix");
+    }
+    return { success: true as const, duplicateOf: target ? { id: target.id, taskNumber: target.taskNumber, title: target.title } : null };
+  } catch (error) {
+    return fail(error, "Couldn’t close the bug");
+  }
+}
+
+const reopenInput = z.object({ projectId: id, taskId: id, comment: z.string().trim().min(1).max(2000), details: z.boolean().optional() });
+
+/**
+ * W8.4 and W6.2 (call 7): Reopen a Fixed, Verified or closed bug to Confirmed with a comment (members); a reporter
+ * adding details to a Can't reproduce bug sends it back to New.
+ */
+export async function reopenBugAction(input: z.infer<typeof reopenInput>) {
+  try {
+    const parsed = reopenInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Say why it’s open again" };
+    const { projectId, taskId, comment: commentText, details } = parsed.data;
+    const { user, canTriage } = await insider(projectId);
+    const [bug] = await db.select({ stage: tasks.stage, creatorId: tasks.creatorId }).from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), eq(tasks.itemType, "bug"), isNull(tasks.deletedAt))).limit(1);
+    if (!bug) throw new Error("Not found");
+    if (!["fixed", "verified", ...CLOSE].includes(bug.stage ?? "")) throw new Error("This bug is open already");
+    const withDetails = Boolean(details) && bug.stage === "cant_reproduce" && bug.creatorId === user.id;
+    if (!withDetails && !canTriage) throw new Error("Viewers can’t reopen bugs");
+    const posted = await comment(user.id, taskId, projectId, commentText);
+    if (!posted.success) return { success: false as const, error: posted.error ?? "Couldn’t add the comment" };
+    await db.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) - 'closeReason' - 'duplicateOf'` }).where(eq(tasks.id, taskId));
+    const moved = await setTaskStageAction({ taskId, projectId, stage: withDetails ? "new" : "confirmed", toBacklog: true });
+    return moved.success ? { success: true as const, stage: withDetails ? "new" : "confirmed" } : moved;
+  } catch (error) {
+    return fail(error, "Couldn’t reopen the bug");
   }
 }

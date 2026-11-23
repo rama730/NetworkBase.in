@@ -28,6 +28,7 @@ async function open(page: Page, opts: { width?: number; canTriage?: boolean } = 
       setBugFieldsAction: async (input: { taskId: string; fields: unknown }) => { calls.push(['fields', input.taskId, input.fields]); return { success: true }; },
       similarBugsAction: async (input: { title: string }) => ({ success: true, bugs: /pay/i.test(input.title) ? [{ id: 'b1', taskNumber: 142, title: 'Payment gateway is down', stage: 'new', seen: 2, mine: false }] : [] }),
       seeTooAction: async (input: { taskId: string; on: boolean }) => { calls.push(['seeToo', input.taskId, input.on]); return { success: true, taskNumber: 142 }; },
+      closeBugAction: async (input: unknown) => { calls.push(['close', input]); return { success: true, duplicateOf: (input as { duplicateOfId?: string }).duplicateOfId ? { id: 'b1', taskNumber: 142, title: 'Payment gateway is down' } : null }; },
       createTaskAction: async (input: { title: string; itemType: string; stage: string; typeFields?: unknown }) => { calls.push(['create', input.title, input.itemType, input.stage, input.typeFields]); return { success: true, task: { id: 'n' } }; },
     };
   }, opts.canTriage ?? true);
@@ -111,4 +112,40 @@ test('W13 and viewers: a phone opens on Triage without Confirm for viewers; no a
   await expect(page.getByRole('button', { name: 'Confirm' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Report a bug' })).toBeVisible();
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('A2.2: Close… as Duplicate picks an open bug; the keys J/K move, X closes, C confirms', async ({ page }) => {
+  await open(page);
+  await page.getByRole('tab', { name: 'Triage' }).click();
+  await page.getByTestId('triage-row').nth(1).getByRole('button', { name: 'Close…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Close AC-143' });
+  await expect(dialog.getByRole('button', { name: 'Close bug' })).toBeDisabled();
+  await dialog.getByRole('radio', { name: 'Duplicate of…' }).click();
+  await dialog.getByLabel('Duplicate of').selectOption({ label: 'AC-142 · Payment gateway is down' });
+  await dialog.getByRole('button', { name: 'Close bug' }).click();
+  await expect.poll(() => calls(page)).toEqual([['close', { projectId: '5f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f', taskId: 'b2', reason: 'duplicate', duplicateOfId: 'b1' }]]);
+  await expect(page.getByTestId('toast')).toContainText('AC-143 closed as a duplicate of AC-142');
+
+  await page.getByTestId('triage-row').first().focus();
+  await page.keyboard.press('j');
+  await expect(page.getByTestId('triage-row').nth(1)).toBeFocused();
+  await page.keyboard.press('x');
+  await expect(page.getByRole('dialog', { name: 'Close AC-143' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByTestId('triage-row').nth(1).focus();
+  await page.keyboard.press('k');
+  await page.keyboard.press('c');
+  await expect(page.getByRole('dialog', { name: /Confirm AC-142/ })).toBeVisible();
+});
+
+test("A2.2: the card's Stage menu sends Won't fix and Can't reproduce through Close…", async ({ page }) => {
+  await open(page);
+  await page.getByLabel('Confirmed, 1').getByRole('button', { name: /Stage: Confirmed/ }).click();
+  await page.getByRole('menuitem', { name: 'Can’t reproduce' }).click();
+  const dialog = page.getByRole('dialog', { name: /Close “Export crashes”/ });
+  await expect(dialog.getByRole('radio', { name: 'Can’t reproduce' })).toHaveAttribute('aria-checked', 'true');
+  await expect(dialog.getByRole('button', { name: 'Close bug' })).toBeDisabled();
+  await dialog.getByLabel('What do you need from the reporter?').fill('Which file?');
+  await dialog.getByRole('button', { name: 'Close bug' }).click();
+  await expect.poll(() => calls(page)).toEqual([['close', { projectId: '5f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f', taskId: 'b3', reason: 'cant_reproduce', message: 'Which file?' }]]);
 });

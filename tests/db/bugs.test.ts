@@ -142,3 +142,53 @@ test("S5: the panel's fields save; a severity change writes priority; viewers re
   assert.equal((await bugs.readBugsAction(t.ws)).success, false);
   assert.equal((await bugs.similarBugsAction({ projectId: t.ws, title: "logo blurry" })).success, false);
 });
+
+test("A2.2 W5: Duplicate resolves the chain, merges reporter and see-too onto the original, refuses loops; bare closing moves are refused", async () => {
+  const t = await workspace();
+  viewerId = t.viewer;
+  const original = await report(t.ws, "Payment gateway is down");
+  const dupe = await report(t.ws, "Pay button broken");
+  viewerId = t.owner;
+  await bugs.seeTooAction({ projectId: t.ws, taskId: dupe, on: true });
+  const { setTaskStageAction } = await loadAppModule(() => import("../../src/app/actions/task"));
+  assert.equal((await setTaskStageAction({ taskId: dupe, projectId: t.ws, stage: "duplicate", toBacklog: true })).error, "Close a bug with Close…, so it says why");
+  viewerId = t.viewer;
+  assert.equal((await bugs.closeBugAction({ projectId: t.ws, taskId: dupe, reason: "wont_fix" })).success, false, "viewers can't close");
+  viewerId = t.member;
+  assert.deepEqual(await bugs.closeBugAction({ projectId: t.ws, taskId: dupe, reason: "duplicate" }), { success: false, error: "Pick the bug it duplicates" });
+  const closed = await bugs.closeBugAction({ projectId: t.ws, taskId: dupe, reason: "duplicate", duplicateOfId: original });
+  assert.ok(closed.success, JSON.stringify(closed));
+  assert.equal((await row(dupe)).stage, "duplicate");
+  assert.equal(((await row(dupe)).type_fields as { duplicateOf: string }).duplicateOf, original);
+  // The dupe's reporter is the viewer (also the original's reporter, so not added); the owner said they see it too.
+  assert.deepEqual(((await row(original)).type_fields as { alsoSeen: string[] }).alsoSeen, [t.owner]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM task_watchers WHERE task_id = ${original} AND user_id = ${t.owner}`)[0]!.n, 1);
+  // Test workspaces have no key, so the original is named by its title.
+  assert.deepEqual((await notes(t.viewer)).slice(-1), ["Closed as a duplicate of Payment gateway is down: Pay button broken (important)"]);
+  // A third bug closed as a duplicate of the closed one points at the open original; the original can't be a duplicate of its duplicate.
+  const third = await report(t.ws, "Checkout fails");
+  const chained = await bugs.closeBugAction({ projectId: t.ws, taskId: third, reason: "duplicate", duplicateOfId: dupe });
+  assert.ok(chained.success && chained.duplicateOf?.id === original);
+  assert.deepEqual(await bugs.closeBugAction({ projectId: t.ws, taskId: original, reason: "duplicate", duplicateOfId: dupe }), { success: false, error: "That bug is already a duplicate of this one" });
+});
+
+test("A2.2 W6 and reopen: Can't reproduce needs a message and mentions the reporter; members reopen to Confirmed; the reporter's details go to New", async () => {
+  const t = await workspace();
+  viewerId = t.member;
+  const bug = await report(t.ws, "Sometimes the app freezes");
+  viewerId = t.owner;
+  assert.deepEqual(await bugs.closeBugAction({ projectId: t.ws, taskId: bug, reason: "cant_reproduce" }), { success: false, error: "Tell the reporter what you need" });
+  assert.ok((await bugs.closeBugAction({ projectId: t.ws, taskId: bug, reason: "cant_reproduce", message: "Which browser?" })).success);
+  const [comment] = await sql`SELECT content FROM task_comments WHERE task_id = ${bug} ORDER BY created_at DESC LIMIT 1`;
+  assert.match(comment!.content, new RegExp(`^@\\{${t.member}\\|.*\\} Details needed: Which browser\\?$`));
+  assert.equal((await row(bug)).stage, "cant_reproduce");
+  viewerId = t.member;
+  assert.deepEqual(await bugs.reopenBugAction({ projectId: t.ws, taskId: bug, comment: "" }), { success: false, error: "Say why it’s open again" });
+  assert.deepEqual(await bugs.reopenBugAction({ projectId: t.ws, taskId: bug, comment: "Chrome 131 on a Mac", details: true }), { success: true, stage: "new" });
+  assert.equal(((await row(bug)).type_fields as { closeReason?: string }).closeReason, undefined);
+  viewerId = t.owner;
+  assert.ok((await bugs.closeBugAction({ projectId: t.ws, taskId: bug, reason: "wont_fix" })).success);
+  assert.deepEqual((await notes(t.member)).slice(-1), ["Closed as Won’t fix: Sometimes the app freezes (important)"]);
+  assert.deepEqual(await bugs.reopenBugAction({ projectId: t.ws, taskId: bug, comment: "Customers keep hitting it" }), { success: true, stage: "confirmed" });
+  assert.equal((await bugs.reopenBugAction({ projectId: t.ws, taskId: bug, comment: "again" })).success, false, "an open bug isn't reopened");
+});

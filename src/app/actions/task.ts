@@ -452,6 +452,12 @@ export async function setTaskStageAction(input: z.infer<typeof stageMoveSchema>)
         throw new Error("This task changed elsewhere. Reload and try again.");
       const [ws] = await tx.select({ on: workspaces.workflowsEnabled }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
       if (!ws?.on) throw new Error("Workflows aren’t on in this workspace.");
+      // Report 38.6 (A2.2): a bug closes with its reason (Close… / closeBugAction), which records it first; a bare
+      // stage move to Won't fix, Duplicate or Can't reproduce is refused.
+      if (locked.itemType === "bug" && ["wont_fix", "duplicate", "cant_reproduce"].includes(stage) && locked.stage !== stage) {
+        const [row] = await tx.select({ fields: tasks.typeFields }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        if ((row?.fields as Record<string, unknown> | null)?.closeReason !== stage) throw new Error("Close a bug with Close…, so it says why");
+      }
       const move = stageMove(locked.itemType, locked.stage, stage);
       // Leaving the board takes it out of its sprint, and only owners and admins change sprints (decision 146).
       if (move.leaves && locked.previousSprintId && !locked.isLeader) throw new Error("This is in a sprint. Ask an owner or admin to move it off the board.");

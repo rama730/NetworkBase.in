@@ -3,8 +3,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { readBugAction, seeTooAction, setBugFieldsAction, similarBugsAction } from "@/app/actions/bugs";
-import { Field, inputClassName, SectionDivider, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
+import { closeBugAction, readBugAction, readBugsAction, reopenBugAction, seeTooAction, setBugFieldsAction, similarBugsAction } from "@/app/actions/bugs";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, SectionDivider, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
@@ -126,6 +127,7 @@ export function BugPanelSection({ projectId, taskId }: { projectId: string; task
   const key = [...queryKeys.project.detail.tasksRoot(projectId), "bug", taskId];
   const query = useQuery({ queryKey: key, queryFn: () => readBugAction(projectId, taskId) });
   const data = query.data?.success ? query.data : null;
+  const [reopen, setReopen] = useState<"reopen" | "details" | null>(null);
   if (!data) return query.isLoading ? <div aria-hidden="true" className="nb-skeleton h-24 rounded-[6px]" /> : null;
   const f = data.fields as Record<string, unknown>;
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
@@ -172,6 +174,20 @@ export function BugPanelSection({ projectId, taskId }: { projectId: string; task
         {text("foundIn", "Found in")}
         {text("fixedIn", "Fixed in")}
       </div>
+      {data.duplicateOf ? <p className="text-[13px] text-muted-foreground" data-testid="bug-duplicate-of">Duplicate of <span className="font-medium text-foreground">{data.duplicateOf.label}</span>{data.duplicateOf.label !== data.duplicateOf.title ? ` · ${data.duplicateOf.title}` : ""}</p> : null}
+      {/* A2.2: Reopen (members) on Fixed, Verified or closed bugs; the reporter's Reopen with details on Can't reproduce. */}
+      {(() => {
+        const closedish = ["fixed", "verified", "wont_fix", "duplicate", "cant_reproduce"].includes(data.stage ?? "");
+        const details = data.stage === "cant_reproduce" && data.reporter;
+        if (!closedish || (!data.canEdit && !details)) return null;
+        return (
+          <div className="flex flex-wrap gap-2">
+            {details ? <button type="button" onClick={() => setReopen("details")} className="h-8 rounded-[5px] border border-primary/40 bg-primary/10 px-3 text-xs font-medium">Reopen with details</button> : null}
+            {data.canEdit ? <button type="button" onClick={() => setReopen("reopen")} className="h-8 rounded-[5px] border border-border px-3 text-xs font-medium hover:bg-muted">Reopen</button> : null}
+          </div>
+        );
+      })()}
+      {reopen ? <ReopenBugDialog projectId={projectId} bug={{ id: taskId, label: "this bug" }} details={reopen === "details"} onDone={() => setReopen(null)} /> : null}
       <div className="flex items-center gap-2 text-[13px]">
         <span className="text-muted-foreground">{data.seenCount ? `${data.seenCount} ${data.seenCount === 1 ? "person sees" : "people see"} this too` : "Nobody else has said they see this"}</span>
         {data.reporter ? null : (
@@ -179,5 +195,112 @@ export function BugPanelSection({ projectId, taskId }: { projectId: string; task
         )}
       </div>
     </div>
+  );
+}
+
+const CLOSE_REASONS = [
+  { key: "wont_fix", label: "Won’t fix" },
+  { key: "duplicate", label: "Duplicate of…" },
+  { key: "cant_reproduce", label: "Can’t reproduce" },
+] as const;
+type CloseReason = (typeof CLOSE_REASONS)[number]["key"];
+
+/**
+ * Report 38.6 S7 (plan A2.2): Close… with a reason. Duplicate picks the open bug it repeats; Can't reproduce asks the
+ * reporter what's needed (1–2,000 characters), posted as a comment that mentions them.
+ */
+export function CloseBugDialog({ projectId, bug, reason: preset, onDone }: {
+  projectId: string; bug: { id: string; title: string; label: string }; reason?: CloseReason | null; onDone: (closed: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [reason, setReason] = useState<CloseReason | null>(preset ?? null);
+  const [target, setTarget] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const list = useQuery({ queryKey: [...queryKeys.project.detail.tasksRoot(projectId), "bugs"], queryFn: () => readBugsAction(projectId), enabled: reason === "duplicate" });
+  const data = list.data?.success ? list.data : null;
+  const open = (data?.bugs ?? []).filter((b) => b.id !== bug.id && ["new", "confirmed", "fixing"].includes(b.stage ?? ""));
+  const ready = reason === "wont_fix" || (reason === "duplicate" && target) || (reason === "cant_reproduce" && message.trim());
+  async function close() {
+    if (!reason || !ready) return;
+    setBusy(true);
+    const r = await closeBugAction({ projectId, taskId: bug.id, reason, ...(reason === "duplicate" ? { duplicateOfId: target } : {}), ...(reason === "cant_reproduce" ? { message: message.trim() } : {}) });
+    setBusy(false);
+    if (!r.success) return void toast.error(r.error);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
+    toast(reason === "duplicate" && r.duplicateOf ? `${bug.label} closed as a duplicate of ${r.duplicateOf.taskNumber && data?.projectKey ? `${data.projectKey}-${r.duplicateOf.taskNumber}` : r.duplicateOf.title}` : `${bug.label} closed`);
+    onDone(true);
+  }
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onDone(false); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="close-bug-dialog">
+        <div className="border-b border-border px-6 py-4">
+          <DialogTitle className="text-base font-semibold">Close {bug.label}</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">{bug.title}</DialogDescription>
+        </div>
+        <div className="space-y-3.5 px-6 py-4">
+          <div role="radiogroup" aria-label="Reason" className="flex flex-wrap gap-1.5">
+            {CLOSE_REASONS.map((r) => (
+              <button key={r.key} type="button" role="radio" aria-checked={reason === r.key} onClick={() => setReason(r.key)}
+                className={cn("h-8 rounded-[5px] border px-3 text-xs font-medium", reason === r.key ? "border-primary bg-primary/10" : "border-border text-muted-foreground hover:bg-muted")}>{r.label}</button>
+            ))}
+          </div>
+          {reason === "duplicate" ? (
+            <Field label="Duplicate of" htmlFor="close-duplicate-of">
+              <SelectWrap>
+                <select id="close-duplicate-of" value={target} onChange={(e) => setTarget(e.target.value)} className={selectClassName()}>
+                  <option value="">Pick an open bug…</option>
+                  {open.map((b) => <option key={b.id} value={b.id}>{b.taskNumber && data?.projectKey ? `${data.projectKey}-${b.taskNumber} · ` : ""}{b.title}</option>)}
+                </select>
+              </SelectWrap>
+            </Field>
+          ) : null}
+          {reason === "cant_reproduce" ? (
+            <Field label="What do you need from the reporter?" htmlFor="close-message">
+              <textarea id="close-message" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} maxLength={2000} className={cn(inputClassName(false), "resize-none py-2")} placeholder="Which browser, and the steps that show it?" />
+            </Field>
+          ) : null}
+        </div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => onDone(false)}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !ready} onClick={() => void close()}>Close bug</button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** W8.4 and W6.2: Reopen with a comment (to Confirmed); the reporter's Reopen with details (to New). */
+export function ReopenBugDialog({ projectId, bug, details = false, onDone }: { projectId: string; bug: { id: string; label: string }; details?: boolean; onDone: (reopened: boolean) => void }) {
+  const queryClient = useQueryClient();
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function reopen() {
+    setBusy(true);
+    const r = await reopenBugAction({ projectId, taskId: bug.id, comment: text.trim(), ...(details ? { details: true } : {}) });
+    setBusy(false);
+    if (!r.success) return void toast.error(r.error);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
+    toast(`${bug.label} reopened · ${r.stage === "new" ? "New" : "Confirmed"}`);
+    onDone(true);
+  }
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onDone(false); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="reopen-bug-dialog">
+        <div className="border-b border-border px-6 py-4">
+          <DialogTitle className="text-base font-semibold">{details ? `Add details to ${bug.label}` : `Reopen ${bug.label}`}</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">{details ? "It goes back to New for triage." : "It goes back to Confirmed."}</DialogDescription>
+        </div>
+        <div className="px-6 py-4">
+          <Field label={details ? "The details" : "Why is it open again?"} htmlFor="reopen-comment">
+            <textarea id="reopen-comment" autoFocus value={text} onChange={(e) => setText(e.target.value)} rows={3} maxLength={2000} className={cn(inputClassName(false), "resize-none py-2")} />
+          </Field>
+        </div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => onDone(false)}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !text.trim()} onClick={() => void reopen()}>{details ? "Reopen with details" : "Reopen"}</button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

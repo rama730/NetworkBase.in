@@ -74,3 +74,30 @@ export function severityGroups<T extends Bugish>(bugs: T[]) {
     .map((g) => ({ name: g.name, bugs: bugs.filter((b) => sev(b) === g.key).sort((a, b) => STAGE_ORDER.indexOf(a.stage ?? "") - STAGE_ORDER.indexOf(b.stage ?? "")) }))
     .filter((g) => g.bugs.length);
 }
+
+/** Report 38.6 W5 (plan A2.2): where a Duplicate points: the open original at the end of the chain, never a loop. */
+export function resolveDuplicateTarget(bugId: string, targetId: string, bugs: Map<string, { stage: string | null; duplicateOf: string | null }>): { id: string } | { error: string } {
+  if (bugId === targetId) return { error: "A bug can’t be a duplicate of itself" };
+  const seen = new Set([bugId]);
+  let id = targetId;
+  for (let i = 0; i < 50; i++) {
+    const bug = bugs.get(id);
+    if (!bug) return { error: "Pick a bug in this workspace" };
+    if (seen.has(id)) return { error: "That bug is already a duplicate of this one" };
+    seen.add(id);
+    if (bug.stage === "duplicate" && bug.duplicateOf) {
+      if (bug.duplicateOf === bugId) return { error: "That bug is already a duplicate of this one" };
+      id = bug.duplicateOf;
+      continue;
+    }
+    return OPEN.has(bug.stage ?? "") ? { id } : { error: "Pick an open bug" };
+  }
+  return { error: "Pick an open bug" };
+}
+
+/** W5.2: the target's I see this too after a merge: its own, then the source's reporter and people; 500 at most. */
+export function mergeOnDuplicate(source: { creatorId: string | null; alsoSeen: string[] }, target: { creatorId: string | null; alsoSeen: string[] }) {
+  const out = [...target.alsoSeen];
+  for (const id of [source.creatorId, ...source.alsoSeen]) if (id && id !== target.creatorId && !out.includes(id)) out.push(id);
+  return out.slice(0, 500);
+}
