@@ -7,6 +7,7 @@ import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "
 import { db } from "@/lib/db";
 import { branches, profiles, saves, taskActivityEvents, tasks, workspaceNodeEvents, workspaceNodes } from "@/lib/db/schema";
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { orgTaskReadFilter } from "@/lib/organizations/assignments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const [taskRows, fileRows, branchRows, deletedRows] = await Promise.all([
       db.select({ at: taskActivityEvents.createdAt, type: taskActivityEvents.eventType, payload: taskActivityEvents.payload, actorId: taskActivityEvents.actorId, taskId: taskActivityEvents.taskId, taskNumber: tasks.taskNumber, taskTitle: tasks.title })
         .from(taskActivityEvents).innerJoin(tasks, eq(tasks.id, taskActivityEvents.taskId))
-        .where(and(eq(taskActivityEvents.projectId, id), q.task ? eq(taskActivityEvents.taskId, q.task) : undefined, since ? gte(taskActivityEvents.createdAt, since) : undefined, before ? lt(taskActivityEvents.createdAt, before) : undefined))
+        // The shared task read rule: an org's copies, and goals (objectives, key results) for members only (A5.1 review).
+        .where(and(eq(taskActivityEvents.projectId, id), orgTaskReadFilter(access, auth.user.id), q.task ? eq(taskActivityEvents.taskId, q.task) : undefined, since ? gte(taskActivityEvents.createdAt, since) : undefined, before ? lt(taskActivityEvents.createdAt, before) : undefined))
         .orderBy(desc(taskActivityEvents.createdAt)).limit(q.limit),
       q.task || !canReadWorkspaceTab(access, "files") ? Promise.resolve([]) : db.select({ at: workspaceNodeEvents.createdAt, type: workspaceNodeEvents.type, metadata: workspaceNodeEvents.metadata, actorId: workspaceNodeEvents.actorId, path: workspaceNodes.path })
         .from(workspaceNodeEvents).leftJoin(workspaceNodes, eq(workspaceNodes.id, workspaceNodeEvents.nodeId))
