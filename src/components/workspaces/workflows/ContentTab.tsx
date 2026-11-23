@@ -11,7 +11,7 @@ import { createTaskAction } from "@/app/actions/workspace";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import CreateTaskModal from "@/components/workspaces/v2/tasks/CreateTaskModal";
-import { ChannelMark, contentKey, ContentSettingsEditor, PlanContentDialog, useContent } from "@/components/workspaces/v2/tasks/ContentParts";
+import { ChannelMark, contentKey, ContentPerformance, ContentSettingsEditor, PlanContentDialog, useContent } from "@/components/workspaces/v2/tasks/ContentParts";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName } from "@/components/workspaces/v2/tasks/form-parts";
 import { TaskStageControl } from "@/components/workspaces/v2/tasks/TaskStageControl";
 import { TasksCalendar } from "@/components/workspaces/v2/tasks/TasksCalendar";
@@ -31,9 +31,9 @@ import { normalizeSprintOptions } from "@/lib/workspaces/task-presentation";
 /**
  * Report 38.8 T5 (plan A2.7): the Content tab. Title row with channel quick-adds; Calendar with the Ideas rail (T1's
  * Calendar part), This week, Board and To schedule. Planning an idea onto a day makes it Drafting (it joins the board).
- * Writing, editing and publishing arrive with A2.8; results and Performance with A2.9.
+ * A2.8 writing, editing and publishing; A2.9 results, Performance and the Overview card.
  */
-type View = "calendar" | "week" | "board" | "schedule";
+type View = "calendar" | "week" | "board" | "schedule" | "performance";
 const BOARD = ["idea", "drafting", "editing", "scheduled", "published"];
 const stageLabel = (s: string | null) => WORKFLOW_TYPES.content!.stages.find((x) => x.key === s)?.label ?? "Idea";
 
@@ -49,7 +49,7 @@ export function ContentTab({ projectId, projectSlug, projectName, currentUserId,
   useEffect(() => {
     let saved: string | null = null;
     try { saved = localStorage.getItem(`nb:content-view:${projectId}`); } catch { /* private window */ }
-    if (saved === "calendar" || saved === "week" || saved === "board" || saved === "schedule") setView(saved);
+    if (saved === "calendar" || saved === "week" || saved === "board" || saved === "schedule" || saved === "performance") setView(saved);
     else if (window.matchMedia("(max-width: 639px)").matches) setView("week");
   }, [projectId]);
   const pickView = (v: View) => { setView(v); try { localStorage.setItem(`nb:content-view:${projectId}`, v); } catch { /* private window */ } };
@@ -60,7 +60,8 @@ export function ContentTab({ projectId, projectSlug, projectName, currentUserId,
   const [weekStart, setWeekStart] = useState(mondayOf(localDayKey()));
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
 
-  const items = data?.items ?? [];
+  // W9.2: a Cancelled piece stays in history (its panel and Tasks) but leaves the tab's views.
+  const items = useMemo(() => (data?.items ?? []).filter((i) => i.stage !== "cancelled"), [data?.items]);
   const settings = data?.settings ?? null;
   const tz = data?.timeZone ?? "UTC";
   const live = (settings?.channels ?? []).filter((c) => !c.archived);
@@ -186,7 +187,7 @@ export function ContentTab({ projectId, projectSlug, projectName, currentUserId,
           ) : null}
 
           <UnderlineTabs label="Content view" idPrefix="content-view" value={view} onChange={pickView} className="min-h-10"
-            tabs={[{ key: "calendar" as const, label: "Calendar" }, { key: "week" as const, label: "This week" }, { key: "board" as const, label: "Board" }, { key: "schedule" as const, label: "To schedule" }]} />
+            tabs={[{ key: "calendar" as const, label: "Calendar" }, { key: "week" as const, label: "This week" }, { key: "board" as const, label: "Board" }, { key: "schedule" as const, label: "To schedule" }, { key: "performance" as const, label: "Performance" }]} />
 
           <div id={`content-view-panel-${view}`} role="tabpanel" aria-labelledby={`content-view-tab-${view}`} className="space-y-4">
             {view === "calendar" ? (
@@ -258,6 +259,7 @@ export function ContentTab({ projectId, projectSlug, projectName, currentUserId,
                 {!toSchedule.length ? <p className="px-3 py-6 text-center text-[13px] text-muted-foreground">Everything planned has a date.</p> : null}
               </div>
             ) : null}
+            {view === "performance" ? <ContentPerformance items={items} channels={settings.channels} timeZone={tz} thisMonday={mondayOf(localDayKey())} href={href} /> : null}
           </div>
         </>
       ) : null}

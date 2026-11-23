@@ -25,3 +25,22 @@ test("words: Idea, Drafting, Publish date, Channels; never posts for you", () =>
   assert.match(parts, /label="Publish date"/);
   assert.doesNotMatch(tab + parts, />[^<]*\b(?:auto-post|post for you)\b[^<]*</i);
 });
+
+// Plan A2.9: Results, Performance and the Overview card.
+test("Performance is a view; the chart is labelled SVG with a named legend, and the table sorts and has a caption", () => {
+  assert.match(tab, /\{ key: "schedule" as const, label: "To schedule" \}, \{ key: "performance" as const, label: "Performance" \}/);
+  assert.match(parts, /role="img" aria-label=\{`Posts per week by channel/);
+  assert.doesNotMatch(parts, /<svg viewBox/, "plain bars: SVG text would scale with the width");
+  assert.match(parts, /<ul className="flex flex-wrap gap-3 text-\[12px\]" aria-label="Channels">/);
+  assert.match(parts, /aria-sort=\{sort\.key === key/);
+  assert.match(parts, /<caption className="sr-only">Results by piece and channel<\/caption>/);
+  assert.match(parts, /background: CHART\[ci % CHART\.length\]/, "chart colours are tokens");
+});
+
+test("Results dialog: four optional numbers per channel in the shared dialog shell; the Overview card is a RailSection", () => {
+  assert.match(parts, /FORM_DIALOG_CLASS\} data-testid="results-dialog"/);
+  assert.match(parts, /const METRICS = \["views", "likes", "comments", "clicks"\] as const;/);
+  const card = fs.readFileSync("src/components/workspaces/dashboard/ContentOverviewCard.tsx", "utf8");
+  assert.match(card, /<RailSection title="Content" headingId="workspace-content-title"/);
+  assert.match(card, /publishing this week · \{s\.editing\} waiting for edit/);
+});

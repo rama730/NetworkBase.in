@@ -45,3 +45,41 @@ test("weekDays: Monday to Sunday headings with each piece by its publish time", 
   assert.deepEqual(days[2]!.items.map((i) => i.id), ["2", "1"], "Wednesday, earliest first");
   assert.equal(days.flatMap((d) => d.items).length, 2, "next week's piece isn't in this week");
 });
+
+// Report 38.8 part 7 (plan A2.9): results, Performance and the Overview card.
+test("resultsDue: 6 days no, 7 days yes, switched off no", async () => {
+  const { resultsDue } = await import("../../src/lib/workflows/content");
+  const now = new Date("2026-11-30T10:00:00Z");
+  assert.equal(resultsDue("2026-11-24T10:00:00Z", now, true), false);
+  assert.equal(resultsDue("2026-11-23T10:00:00Z", now, true), true);
+  assert.equal(resultsDue("2026-11-23T10:00:00Z", now, false), false);
+  assert.equal(resultsDue(null, now, true), false);
+});
+
+test("nbUpdateResults and performanceRows: an Update's likes and comments are live, views blank; typed numbers elsewhere", async () => {
+  const { nbUpdateResults, performanceRows, publishedAt } = await import("../../src/lib/workflows/content");
+  assert.deepEqual(nbUpdateResults({ likes: 4, comments: 2 }), { views: null, likes: 4, comments: 2, clicks: null });
+  const rows = performanceRows([{ id: "a", title: "Guide", live: { blog: { likes: 4, comments: 2 } },
+    typeFields: { published: { blog: { updateId: "u", at: "2026-11-20T10:00:00Z" }, linkedin: { link: "https://x", at: "2026-11-21T10:00:00Z" } }, results: { linkedin: { views: 900, clicks: 12 }, blog: { views: 5 } } } }]);
+  assert.deepEqual(rows.map((r) => [r.channel, r.views, r.likes, r.comments, r.clicks, r.live]), [["blog", null, 4, 2, null, true], ["linkedin", 900, null, null, 12, false]]);
+  assert.equal(publishedAt({ blog: { at: "2026-11-20T10:00:00Z" }, linkedin: { at: "2026-11-21T10:00:00Z" } }), "2026-11-21T10:00:00Z", "the last channel's time");
+  assert.equal(publishedAt({}), null);
+});
+
+test("postsPerWeek: counts by channel per Monday week in the workspace's zone; older weeks fall off", async () => {
+  const { postsPerWeek } = await import("../../src/lib/workflows/content");
+  const weeks = postsPerWeek([
+    { channel: "blog", at: "2026-11-23T10:00:00Z" }, { channel: "x", at: "2026-11-24T10:00:00Z" }, { channel: "x", at: "2026-11-25T10:00:00Z" },
+    { channel: "blog", at: "2026-11-22T20:00:00Z" }, // Monday 01:30 in Kolkata
+    { channel: "blog", at: "2026-01-01T10:00:00Z" },
+  ], "Asia/Kolkata", "2026-11-23", 2);
+  assert.deepEqual(weeks, [{ week: "2026-11-16", counts: {} }, { week: "2026-11-23", counts: { blog: 2, x: 2 } }]);
+});
+
+test("contentSummary: this week's publishing pieces, waiting for edit, and the next one", async () => {
+  const { contentSummary } = await import("../../src/lib/workflows/content");
+  const p = (title: string, stage: string, publishAt?: string) => ({ title, stage, typeFields: publishAt ? { publishAt } : {} });
+  const s = contentSummary([p("Old", "published", "2026-11-24T10:00:00Z"), p("Guide", "scheduled", "2026-11-26T10:00:00Z"), p("Post", "editing", "2026-11-25T10:00:00Z"),
+    p("Later", "drafting", "2026-12-10T10:00:00Z"), p("Idea", "idea")], new Date("2026-11-24T12:00:00Z"), "UTC", "2026-11-23");
+  assert.deepEqual(s, { thisWeek: 2, editing: 1, next: { title: "Post", at: "2026-11-25T10:00:00Z" } });
+});

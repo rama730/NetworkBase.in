@@ -248,9 +248,9 @@
       "text": "A2.8 Content: draft, edit, publish — Build: writeDraftAction, readyForEditAction (review queue), markPublishedAction (never fetches), publish reminder. Journeys",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts",
+      "evidence": "f39ae6b20 + fixes c7eda45de, f271f0dfd (security review: editor and asker lock as themselves) live 2026-11-23, web+worker SUCCESS. Checked live in Chrome on wt-test-a2-3 (WT-13): Write draft made morning-routine-reel.md in Documents and linked it (Open the draft opens it); Ready for edit with me as editor → Editing; Changes needed 'Shorter hook please' → Drafting with the note as a comment; Ready for edit → Approve → Scheduled, Completed on the board; Publish now row at 2026-11-26 04:30Z (10:00 Asia/Calcutta); Mark published Instagram → 'Published on 1 of 2' on the Content board; then X → Published, Publish now row closed. No console errors."
     },
     {
       "key": "A2.9",
@@ -6588,9 +6588,9 @@
       "text": "Writing",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts",
+      "evidence": "Live 2026-11-23 on WT-13: Write draft made and linked the document. "
     },
     {
       "key": "38.8.W6",
@@ -6598,9 +6598,9 @@
       "text": "Editing",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts",
+      "evidence": "Live 2026-11-23 on WT-13: Ready for edit, Changes needed with a note, Approve to Scheduled (Completed)."
     },
     {
       "key": "38.8.W7",
@@ -6608,9 +6608,9 @@
       "text": "Publishing",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts",
+      "evidence": "Live 2026-11-23 on WT-13: Publish now row at the publish time; Mark published one channel (1 of 2) then both → Published; reminder closed."
     },
     {
       "key": "38.8.W8",
@@ -6678,9 +6678,9 @@
       "text": "Publishing is a reminder plus Mark published; NetworkBase never posts to outside platforms; automatic Updates come in O2. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts",
+      "evidence": "Live 2026-11-23: Mark published takes links, never posts."
     },
     {
       "key": "38.8.call3",
@@ -6698,9 +6698,9 @@
       "text": "Editing uses the workspace review queue with the editor as reviewer; approval moves the piece to Scheduled (Completed on the board). [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts",
+      "evidence": "Live 2026-11-23: editor approves to Scheduled (call 11 narrows it)."
     },
     {
       "key": "38.8.call5",
@@ -8276,6 +8276,26 @@
       "key": "38.8.call11",
       "section": "38.8",
       "text": "A2.8 (2026-11-23): Editing is reviewed by the piece's editor (call 4 narrowed): the workspace review queue's reviewers are owners and admins, not a chosen edito",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "live",
+      "test": "tests/db/content.test.ts",
+      "evidence": "Live 2026-11-23 on WT-13 (see A2.8)."
+    },
+    {
+      "key": "38.8.call12",
+      "section": "38.8",
+      "text": "A2.8 security review and live check (2026-11-23): the editor's move and the asker's No (T4 call 5) are locked as the person acting, with all their own rules (me",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.8.call13",
+      "section": "38.8",
+      "text": "A2.9 (2026-11-23): Results are typed per published channel (views, likes, comments, clicks; whole numbers, all optional) by anyone who can edit; an Updates chan",
       "kind": "call",
       "milestone": "A2",
       "status": "todo",

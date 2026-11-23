@@ -206,6 +206,8 @@ export const taskUpdateSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("request_wait"), projectId: z.string().uuid(), taskId: z.string().uuid(), onUserId: z.string().uuid(), question: z.string().trim().min(1).max(2000) }),
   z.object({ kind: z.literal("request_resume"), projectId: z.string().uuid(), taskId: z.string().uuid() }),
   z.object({ kind: z.literal("request_deliver"), projectId: z.string().uuid(), taskId: z.string().uuid(), link: z.string().trim().max(2000).optional() }),
+  // Report 38.8 W12 (A2.9): mark a content piece published with a link per channel (never opened); finishing needs a yes.
+  z.object({ kind: z.literal("content_published"), projectId: z.string().uuid(), taskId: z.string().uuid(), links: z.record(z.string().regex(/^[a-z0-9-]{1,40}$/), z.object({ link: z.string().trim().max(2048) }).strict()) }),
   z.object({ kind: z.literal("subtask_edit"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid(), title: z.string().trim().min(1).max(500) }),
   z.object({ kind: z.literal("subtask_delete"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid() }),
   z.object({ kind: z.literal("subtask_move"), projectId: z.string().uuid(), taskId: z.string().uuid(), subtaskId: z.string().uuid(), position: z.number().int().min(0).max(1000) }),

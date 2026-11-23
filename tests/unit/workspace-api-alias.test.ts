@@ -55,6 +55,8 @@ const BORN_AFTER_RENAME = new Set([
   'src/app/api/v1/workspaces/[id]/workflows/route.ts',
   // Requests with their clocks, read-only (workflow tabs A2.6), 2026-11-23.
   'src/app/api/v1/workspaces/[id]/requests/route.ts',
+  // Content pieces and channels, read-only (workflow tabs A2.9), 2026-11-23.
+  'src/app/api/v1/workspaces/[id]/content/route.ts',
 ]);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 const routes = (dir: string): string[] => readdirSync(dir).flatMap((name) => {

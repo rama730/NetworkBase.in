@@ -63,12 +63,13 @@ export async function fireDueTaskReminders(limit = TASK_REMINDER_LIMIT) {
   for (const row of due) {
     if (!row.eligible) { await done(row.id); continue; }
     try {
-      // Report 38.8 W7.1 (A2.8): Publish now, to the writer at the publish time, unless it's published by then.
+      // Report 38.8 W7.1 (A2.8): Publish now, to the writer at the publish time, unless it's published by then; W8.1 (A2.9): Add results.
       if (row.note?.startsWith("content_publish:")) {
-        const { publishNoticeTitle } = await import("@/lib/workflows/content-reminders");
-        const title = publishNoticeTitle(row.title, row.stage);
-        if (title) await createNotification({
-          recipientUserId: row.user_id, kind: "project_task_activity", category: "tasks", importance: "important", title,
+        const { contentNotice } = await import("@/lib/workflows/content-reminders");
+        const notice = contentNotice(row.note, row.title, row.stage);
+        const title = notice?.title;
+        if (notice) await createNotification({
+          recipientUserId: row.user_id, kind: "project_task_activity", category: "tasks", importance: notice.importance, title: notice.title,
           href: projectTaskHref(row.slug || row.workspace_id, row.task_id),
           entityRefs: { projectId: row.workspace_id, projectSlug: row.slug, taskId: row.task_id },
           preview: { contextLabel: row.task_number && row.key ? `${row.key}-${row.task_number}` : "Content", contextKind: "task", secondaryText: "Content" },

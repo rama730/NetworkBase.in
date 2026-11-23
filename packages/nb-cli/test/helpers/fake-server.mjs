@@ -207,6 +207,7 @@ const exact = {
     }
     // Typed items (report 38.6 W14): stage moves, closing a bug, turning a task into a bug.
     if (String(req.body.kind).startsWith("request_")) { state.lastUpdate = req.body; return { data: { success: true } }; }
+    if (req.body.kind === "content_published") { state.lastUpdate = req.body; return { data: { success: true, state: "all" } }; }
     if (req.body.kind === "stage" || req.body.kind === "bug_close" || req.body.kind === "change_type") {
       state.lastUpdate = req.body;
       if (req.body.kind === "change_type") Object.assign(t, { type: "bug", stage: req.body.stage ?? "confirmed" });
@@ -721,6 +722,10 @@ const patterns = [
     types: [{ id: "aaaaaaaa-0000-4000-8000-000000000001", name: "General request", questions: [{ id: "need", label: "What do you need?", kind: "text", required: true }], firstReplyMinutes: 240, deliverMinutes: null },
       { id: "aaaaaaaa-0000-4000-8000-000000000002", name: "Design request", questions: [{ id: "what", label: "What’s needed", kind: "choice", options: ["Banner"], required: true }, { id: "brief", label: "Brief", kind: "long_text", required: true }], firstReplyMinutes: 480, deliverMinutes: 2400 }],
     requests: state.requests ?? [] } })],
+  // Content (report 38.8 W12): two channels, two types and whatever the test put on state.content.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/content$/, "GET", (_req, /** @type {any} */ state) => ({ data: { projectKey: "T", timeZone: "UTC",
+    channels: [{ id: "blog", name: "Blog", updates: true }, { id: "linkedin", name: "LinkedIn", updates: false }], types: [{ id: "article", name: "Article" }, { id: "post", name: "Post" }],
+    items: state.content ?? [] } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: (d.nodePath && state.files.get(d.nodePath)?.nodeId) ?? null })) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {
     const doc = state.docs.find((d) => d.slug === req.params[1]);

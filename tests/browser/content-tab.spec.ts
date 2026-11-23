@@ -23,6 +23,9 @@ async function open(page: Page, opts: { width?: number; setUp?: boolean; canEdit
       piece('c3', 203, 'Launch teaser', 'editing', { channels: ['instagram'], publishAt: '2026-11-27T12:30:00.000Z', editorId: 'u1' }, { dueDate: '2026-11-27' }),
       piece('c5', 205, 'Pricing post', 'scheduled', { channels: ['blog', 'linkedin'], publishAt: '2026-11-28T04:30:00.000Z', published: { linkedin: { link: 'https://www.linkedin.com/posts/p', at: '2026-11-28T05:00:00.000Z' } } }, { dueDate: '2026-11-28' }),
       piece('c4', 204, 'Customer story', 'drafting', { channels: ['blog'] }),
+      piece('c6', 206, 'Year in review', 'published', { channels: ['blog', 'linkedin'], publishAt: '2026-11-17T04:30:00.000Z',
+        published: { blog: { updateId: '9a9a9a9a-0000-4000-8000-000000000001', at: '2026-11-17T05:00:00.000Z' }, linkedin: { link: 'https://www.linkedin.com/posts/y', at: '2026-11-17T06:00:00.000Z' } },
+        results: { linkedin: { views: 900, likes: 31, comments: 4, clicks: 12 } } }, { dueDate: '2026-11-17', live: { blog: { likes: 4, comments: 2 } } }),
     ];
     (window as any).__actions = {
       readContentAction: async () => ({ success: true, projectKey: 'AC', settings: setUp ? settings : null, timeZone: 'Asia/Kolkata', items: setUp ? items : [], people: [{ id: 'u1', name: 'Asha' }, { id: 'u2', name: 'Dev' }], canEdit, canManage: canEdit, viewerId: 'u1' }),
@@ -34,6 +37,7 @@ async function open(page: Page, opts: { width?: number; setUp?: boolean; canEdit
       starterContentSettingsAction: async (setups: string[]) => ({ success: true, settings: { ...settings, setups, channels: setups.includes('social') ? settings.channels : settings.channels.slice(0, 1) } }),
       saveContentSettingsAction: async (input: unknown) => { calls.push(['settings', input]); return { success: true }; },
       addIdeaAction: async (input: unknown) => { calls.push(['idea', input]); return { success: true, id: 'n' }; },
+      saveResultsAction: async (input: unknown) => { calls.push(['results', input]); return { success: true }; },
       planContentAction: async (input: unknown) => { calls.push(['plan', input]); return { success: true, publishAt: '2026-11-28T04:30:00.000Z' }; },
     };
   }, { setUp: opts.setUp ?? true, canEdit: opts.canEdit ?? true });
@@ -151,4 +155,32 @@ test('A2.8 W7.4: a board card says Published on 1 of 2', async ({ page }) => {
   await open(page);
   await page.getByRole('tab', { name: 'Board' }).click();
   await expect(page.getByTestId('content-partial')).toHaveText('Published on 1 of 2');
+});
+
+test('A2.9 W8: Performance shows a row per published channel (an Update live) and the posts-per-week chart', async ({ page }) => {
+  await open(page);
+  await page.getByRole('tab', { name: 'Performance' }).click();
+  const view = page.getByTestId('content-performance');
+  await expect(view.getByTestId('performance-row')).toHaveCount(3);
+  await expect(view.getByRole('img', { name: /Posts per week by channel/ })).toBeVisible();
+  await expect(view.getByRole('row', { name: /Year in review Blog .* — 4 2 —/ })).toBeVisible();
+  await view.getByRole('button', { name: 'Views' }).click();
+  await expect(view.getByTestId('performance-row').first()).toContainText('900');
+  expect(await axeViolations(page)).toEqual([]);
+  await page.screenshot({ path: 'test-results/content-tab/performance.png' });
+});
+
+test('A2.9 W8: Results shows typed and live numbers; the dialog saves numbers for link channels only', async ({ page }) => {
+  await open(page, { panel: 'c6' });
+  await expect(page.getByTestId('content-results')).toContainText('900 views · 31 likes · 4 comments · 12 clicks');
+  await expect(page.getByTestId('content-results')).toContainText('— views · 4 likes · 2 comments · — clicks');
+  await page.getByTestId('content-panel-actions').getByRole('button', { name: 'Results…' }).click();
+  const dialog = page.getByTestId('results-dialog');
+  await expect(dialog.getByRole('group')).toHaveCount(1);
+  await dialog.getByLabel('Views').fill('1200');
+  await dialog.getByLabel('Clicks').fill('-3');
+  await expect(dialog.getByRole('button', { name: 'Save results' })).toBeDisabled();
+  await dialog.getByLabel('Clicks').fill('');
+  await dialog.getByRole('button', { name: 'Save results' }).click();
+  await expect.poll(async () => (await calls(page)).at(-1)).toEqual(['results', { projectId: PROJECT, taskId: 'c6', results: { linkedin: { views: 1200, likes: 31, comments: 4, clicks: null } } }]);
 });

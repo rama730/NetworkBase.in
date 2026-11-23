@@ -548,6 +548,11 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "That channel isn’t on this piece": { "title": "That channel isn’t on this piece", "type": "warning" },
   "Links start with http:// or https://": { "title": "Links start with http:// or https://", "type": "warning" },
   "Pick an Update from this workspace": { "title": "Pick an Update from this workspace", "type": "warning" },
+  "Check the numbers": { "title": "Check the numbers", "type": "warning" },
+  "Results are whole numbers, 0 or more": { "title": "Results are whole numbers, 0 or more", "type": "warning" },
+  "Viewers can’t add results": { "title": "Viewers can’t add results", "type": "warning" },
+  "Add results once that channel is published": { "title": "Add results once that channel is published", "type": "warning" },
+  "An Update’s likes and comments fill its results": { "title": "An Update’s likes and comments fill its results", "type": "warning" },
   "Pick an open bug": { "title": "Pick an open bug", "type": "warning" },
   "Pick a bug in this workspace": { "title": "Pick a bug in this workspace", "type": "warning" },
 };

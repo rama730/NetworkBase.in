@@ -332,6 +332,8 @@ export async function updateTaskFieldAction(
         }
       }
     }
+    // Report 38.8 W9.1 (A2.8 live check): a content piece's publish time follows its Publish date.
+    if (field === "dueDate") await (await import("@/lib/workflows/content-reminders")).publishAtFollowsDue(taskId);
     revalidatePath(`/workspaces/${result.projectId}`);
     // The client patches this server version in, so the next drag's version check matches.
     return { success: true, updatedAt: result.updatedAt.toISOString() };

@@ -35,6 +35,8 @@ async function insider(projectId: string) {
 export type ContentRow = {
   id: string; taskNumber: number | null; title: string; stage: string | null; status: string; sprintId: string | null; dueDate: string | null;
   assigneeId: string | null; assigneeName: string | null; createdAt: string; typeFields: Record<string, unknown>;
+  /** Call 3 (A2.9): an Updates channel's Update likes and comments, read live. */
+  live?: Record<string, { likes: number; comments: number }>;
 };
 
 /** The tab's read: settings, the time zone, and every live piece (ideas, planned, and the last 60 days published). */
@@ -54,6 +56,16 @@ export async function readContentAction(projectId: string) {
       id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, status: r.status, sprintId: r.sprint_id, dueDate: r.due_date ? r.due_date.slice(0, 10) : null,
       assigneeId: r.assignee_id, assigneeName: r.assignee_name, createdAt: new Date(r.created_at).toISOString(), typeFields: r.type_fields ?? {},
     }));
+    // Call 3 (A2.9): likes and comments of the Updates a piece was published as, read live.
+    const updateIds = items.flatMap((i) => Object.values((i.typeFields.published ?? {}) as Record<string, { updateId?: string }>).map((v) => v?.updateId)).filter((v): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v));
+    if (updateIds.length) {
+      const counts = new Map(Array.from(await db.execute<{ id: string; like_count: number; comment_count: number }>(sql`
+        SELECT id, like_count, comment_count FROM workspace_updates WHERE workspace_id = ${projectId}::uuid AND deleted_at IS NULL AND id IN (${sql.join(updateIds.map((u) => sql`${u}::uuid`), sql`, `)})`)).map((u) => [u.id, { likes: u.like_count, comments: u.comment_count }]));
+      for (const i of items) for (const [channel, v] of Object.entries((i.typeFields.published ?? {}) as Record<string, { updateId?: string }>)) {
+        const c = v?.updateId ? counts.get(v.updateId) : undefined;
+        if (c) i.live = { ...i.live, [channel]: c };
+      }
+    }
     const { tz } = await readWorkingHours(projectId);
     // A2.8: who can edit pieces (Ready for edit's list): the owner and members who aren't viewers.
     const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
@@ -325,6 +337,10 @@ export async function markPublishedAction(input: z.infer<typeof publishInput>) {
     if (state === "all" && piece.stage !== "published") {
       const moved = await setTaskStageAction({ taskId, projectId, stage: "published" });
       if (!moved.success) return moved;
+    } else {
+      // A2.9: a channel added after Published moves the 7-day results reminder (the stage move does it otherwise).
+      const { scheduleContentReminder } = await import("@/lib/workflows/content-reminders");
+      await scheduleContentReminder(taskId);
     }
     return { success: true as const, state };
   } catch (error) {
@@ -342,5 +358,42 @@ export async function readRecentUpdatesAction(projectId: string) {
     return { success: true as const, updates: rows.map((r) => ({ id: r.id, text: r.content.replace(/\s+/g, " ").slice(0, 80), at: new Date(r.created_at).toISOString() })) };
   } catch (error) {
     return fail(error, "Couldn’t load Updates");
+  }
+}
+
+const resultsInput = z.object({ projectId: id, taskId: id, results: z.unknown().optional(), reminder: z.boolean().optional() });
+
+/**
+ * W8 (A2.9): Results per published channel (numbers ≥ 0, members), and the piece's 7-day reminder switch. An Updates
+ * channel's likes and comments come from its Update (call 3), so only its views and clicks would be typed; none here.
+ */
+export async function saveResultsAction(input: z.infer<typeof resultsInput>) {
+  try {
+    const parsed = resultsInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Check the numbers" };
+    const { projectId, taskId, reminder } = parsed.data;
+    const { resultsSchema } = await import("@/lib/workflows/content");
+    const results = parsed.data.results === undefined ? undefined : resultsSchema.safeParse(parsed.data.results);
+    if (results && !results.success) return { success: false as const, error: "Results are whole numbers, 0 or more" };
+    const { canEdit } = await insider(projectId);
+    if (!canEdit) throw new Error("Viewers can’t add results");
+    const piece = await contentPiece(projectId, taskId);
+    const published = (piece.fields.published ?? {}) as Record<string, { updateId?: string }>;
+    const patch: Record<string, unknown> = {};
+    if (results?.success) {
+      for (const channel of Object.keys(results.data)) {
+        if (!published[channel]) throw new Error("Add results once that channel is published");
+        if (published[channel]!.updateId) throw new Error("An Update’s likes and comments fill its results");
+      }
+      patch.results = { ...((piece.fields.results ?? {}) as Record<string, unknown>), ...results.data };
+    }
+    if (reminder !== undefined) patch.resultsReminder = reminder;
+    if (!Object.keys(patch).length) return { success: true as const };
+    await merge(taskId, patch);
+    const { scheduleContentReminder } = await import("@/lib/workflows/content-reminders");
+    await scheduleContentReminder(taskId);
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "Couldn’t save the results");
   }
 }

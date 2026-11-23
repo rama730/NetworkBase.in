@@ -72,7 +72,7 @@ test("defaultStageFor: Tasks opens at the join stage, the own tab at the first",
 test("the registry matches the F1 stage table", () => {
   assert.deepEqual(stagesOf("bug").map((s) => s.key), ["new", "confirmed", "fixing", "fixed", "verified", "wont_fix", "duplicate", "cant_reproduce"]);
   assert.deepEqual(stagesOf("request").map((s) => s.label), ["New", "Accepted", "In progress", "In review", "Delivered", "Declined"]);
-  assert.deepEqual(stagesOf("content").map((s) => s.label), ["Idea", "Drafting", "Editing", "Scheduled", "Published"]);
+  assert.deepEqual(stagesOf("content").map((s) => s.label), ["Idea", "Drafting", "Editing", "Scheduled", "Published", "Cancelled"]);
   assert.equal(workflowType("bug").icon, "Bug");
   assert.equal(stagesOf("task").length, 0);
 });
@@ -117,7 +117,7 @@ test("the catalog: unique ids, known groups, own tabs only in Own tab, nothing b
     assert.ok(w.line.endsWith("."), w.id);
   }
   // Built as their rounds ship: Bugs with T3 (A2.3), Requests with T4 (A2.6), Project planner with T1 (A1.6).
-  assert.deepEqual(WORKFLOW_CATALOG.filter((w) => w.built).map((w) => w.id).sort(), ["bugs", "project_planner", "requests"]);
+  assert.deepEqual(WORKFLOW_CATALOG.filter((w) => w.built).map((w) => w.id).sort(), ["bugs", "content", "project_planner", "requests"]);
 });
 
 test("wizard suggestions: section 6 in order, built ones only, the first ticked (decision 5)", async () => {

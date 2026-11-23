@@ -3,14 +3,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createElement, useState } from "react";
 
-import { approveContentAction, changesNeededAction, linkContentDraftAction, markPublishedAction, planContentAction, readContentAction, readRecentUpdatesAction, readyForEditAction, saveContentSettingsAction, starterContentSettingsAction } from "@/app/actions/content";
+import { approveContentAction, changesNeededAction, linkContentDraftAction, markPublishedAction, planContentAction, readContentAction, readRecentUpdatesAction, readyForEditAction, saveContentSettingsAction, saveResultsAction, starterContentSettingsAction } from "@/app/actions/content";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { channelIcon } from "@/components/workspaces/workflows/channel-icons";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, SectionDivider, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
-import type { ContentChannel, ContentSettings, Setup } from "@/lib/workflows/content";
+import { performanceRows, postsPerWeek as postsPerWeekFor, type ChannelResults, type ContentChannel, type ContentSettings, type Setup } from "@/lib/workflows/content";
 
 /** Report 38.8 W1–W4, S7, S10 (plan A2.7): the setup and channels editor, the New module's section, Plan, the panel. */
 export const contentKey = (projectId: string) => [...queryKeys.project.detail.tasksRoot(projectId), "content"];
@@ -228,7 +228,7 @@ export function PlanContentDialog({ projectId, piece, day: initialDay, defaultTi
 export function ContentPanelSection({ projectId, taskId }: { projectId: string; taskId: string }) {
   const queryClient = useQueryClient();
   const { data, query } = useContent(projectId);
-  const [dialog, setDialog] = useState<"edit" | "changes" | "publish" | null>(null);
+  const [dialog, setDialog] = useState<"edit" | "changes" | "publish" | "results" | null>(null);
   const [busy, setBusy] = useState(false);
   if (!data) return query.isLoading ? <div aria-hidden="true" className="nb-skeleton h-20 rounded-[6px]" /> : null;
   const piece = data.items.find((i) => i.id === taskId);
@@ -281,6 +281,18 @@ export function ContentPanelSection({ projectId, taskId }: { projectId: string; 
         {Object.keys(published).length ? <><dt className="text-muted-foreground">Published at</dt><dd className="space-y-0.5" data-testid="content-published">
           {channels.map((c) => <p key={c.id} className="flex items-center gap-1.5"><ChannelMark channel={c} />{published[c.id]?.link ? <a href={published[c.id]!.link} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">{published[c.id]!.link}</a> : published[c.id]?.updateId ? <span>an Update here</span> : <span className="text-muted-foreground">not yet</span>}</p>)}
         </dd></> : null}
+        {(() => {
+          // W8 (A2.9): Results per published channel; an Update's likes and comments are live (call 3).
+          const rows = performanceRows([piece]);
+          if (!rows.length) return null;
+          const n = (v: number | null) => (v == null ? "—" : v.toLocaleString());
+          return <><dt className="text-muted-foreground">Results</dt><dd className="space-y-0.5" data-testid="content-results">
+            {rows.map((r) => { const c = channels.find((x) => x.id === r.channel); return (
+              <p key={r.channel} className="flex flex-wrap items-center gap-x-2">{c ? <ChannelMark channel={c} /> : r.channel}
+                <span className="font-mono text-[12px] text-muted-foreground">{n(r.views)} views · {n(r.likes)} likes · {n(r.comments)} comments · {n(r.clicks)} clicks</span></p>
+            ); })}
+          </dd></>;
+        })()}
       </dl>
       {data.canEdit ? (
         <div className="flex flex-wrap gap-1.5" data-testid="content-panel-actions">
@@ -292,7 +304,14 @@ export function ContentPanelSection({ projectId, taskId }: { projectId: string; 
           </> : null}
           {piece.stage === "editing" && !isEditor ? <p className="text-xs text-muted-foreground">With {editor?.name ?? "the editor"} for edit</p> : null}
           {piece.stage === "scheduled" || piece.stage === "published" ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog("publish")}>Mark published…</button> : null}
+          {channels.some((c) => published[c.id]?.link) ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog("results")}>Results…</button> : null}
         </div>
+      ) : null}
+      {data.canEdit && (piece.stage === "scheduled" || piece.stage === "published") && !f.results ? (
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={f.resultsReminder !== false} disabled={busy} onChange={(e) => void run(saveResultsAction({ projectId, taskId, reminder: e.target.checked }), e.target.checked ? "You’ll be reminded" : "No results reminder")} />
+          Remind the writer to add results a week after publishing
+        </label>
       ) : null}
       {dialog === "edit" ? <EditorDialog people={data.people.filter((p) => p.id !== piece.assigneeId || data.canManage)} busy={busy} onClose={() => setDialog(null)}
         onSave={(editorId, note) => void run(readyForEditAction({ projectId, taskId, editorId, ...(note ? { note } : {}) }), "Sent for edit")} /> : null}
@@ -300,6 +319,8 @@ export function ContentPanelSection({ projectId, taskId }: { projectId: string; 
         onSave={(note) => void run(changesNeededAction({ projectId, taskId, note }), "Sent back to Drafting")} /> : null}
       {dialog === "publish" ? <PublishDialog projectId={projectId} channels={channels} published={published} busy={busy} onClose={() => setDialog(null)}
         onSave={(links) => void run(markPublishedAction({ projectId, taskId, links }), "Marked published")} /> : null}
+      {dialog === "results" ? <ResultsDialog channels={channels.filter((c) => published[c.id]?.link)} current={(f.results ?? {}) as Record<string, ChannelResults>} busy={busy} onClose={() => setDialog(null)}
+        onSave={(results) => void run(saveResultsAction({ projectId, taskId, results }), "Results saved")} /> : null}
     </div>
   );
 }
@@ -373,5 +394,113 @@ function PublishDialog({ projectId, channels, published, busy, onClose, onSave }
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const METRICS = ["views", "likes", "comments", "clicks"] as const;
+/** W8.2 and S8: four optional numbers per published channel (an Updates channel fills its own). */
+function ResultsDialog({ channels, current, busy, onClose, onSave }: {
+  channels: ContentChannel[]; current: Record<string, ChannelResults>; busy: boolean; onClose: () => void; onSave: (results: Record<string, ChannelResults>) => void;
+}) {
+  const [values, setValues] = useState<Record<string, Record<string, string>>>(() => Object.fromEntries(channels.map((c) => [c.id, Object.fromEntries(METRICS.map((m) => [m, current[c.id]?.[m] != null ? String(current[c.id]![m]) : ""]))])));
+  const bad = Object.values(values).some((v) => Object.values(v).some((x) => x.trim() && !/^\d{1,12}$/.test(x.trim())));
+  const send = () => onSave(Object.fromEntries(channels.map((c) => [c.id, Object.fromEntries(METRICS.map((m) => [m, values[c.id]![m]!.trim() ? Number(values[c.id]![m]) : null]))])));
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="results-dialog">
+        <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">Results</DialogTitle><DialogDescription className="text-xs text-muted-foreground">Type what each channel shows. Every number is optional.</DialogDescription></div>
+        <div className="space-y-4 px-6 py-4">
+          {channels.map((c) => (
+            <fieldset key={c.id} className="space-y-1.5">
+              <legend className="text-[13px] font-medium"><ChannelMark channel={c} /></legend>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {METRICS.map((m) => (
+                  <Field key={m} label={m[0]!.toUpperCase() + m.slice(1)} htmlFor={`results-${c.id}-${m}`}>
+                    <input id={`results-${c.id}-${m}`} inputMode="numeric" value={values[c.id]![m]} onChange={(e) => setValues({ ...values, [c.id]: { ...values[c.id]!, [m]: e.target.value } })} className={cn(inputClassName(false), "font-mono")} />
+                  </Field>
+                ))}
+              </div>
+            </fieldset>
+          ))}
+          {bad ? <p className="text-xs text-destructive">Results are whole numbers, 0 or more.</p> : null}
+        </div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || bad} onClick={send}>Save results</button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const CHART = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "var(--muted-foreground)"];
+type SortKey = "title" | "channel" | "at" | "views" | "likes" | "comments" | "clicks";
+/**
+ * S9 (A2.9): Performance. A table of every published channel (column sort) and a posts-per-week chart by channel (plain
+ * stacked bars with a count on each week, legend with icons and names; the table is the readable version). Covers the tab's read: pieces published in the last 60 days.
+ */
+export function ContentPerformance({ items, channels, timeZone, thisMonday, href }: {
+  items: Parameters<typeof performanceRows>[0]; channels: ContentChannel[]; timeZone: string; thisMonday: string; href: (id: string) => string;
+}) {
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "at", desc: true });
+  const rows = performanceRows(items);
+  const name = (id: string) => channels.find((c) => c.id === id)?.name ?? id;
+  const sorted = [...rows].sort((a, b) => {
+    const x = sort.key === "channel" ? name(a.channel) : a[sort.key], y = sort.key === "channel" ? name(b.channel) : b[sort.key];
+    const c = x == null ? (y == null ? 0 : -1) : y == null ? 1 : typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y));
+    return sort.desc ? -c : c;
+  });
+  const weeks = postsPerWeekFor(rows, timeZone, thisMonday);
+  const used = channels.filter((c) => rows.some((r) => r.channel === c.id));
+  const max = Math.max(1, ...weeks.map((w) => Object.values(w.counts).reduce((a, b) => a + b, 0)));
+  if (!rows.length) return <p className="py-8 text-center text-[13px] text-muted-foreground" data-testid="content-performance">Results show here once pieces are published.</p>;
+  const head = (key: SortKey, label: string, num = false) => (
+    <th scope="col" aria-sort={sort.key === key ? (sort.desc ? "descending" : "ascending") : "none"} className={cn("px-3 py-2 font-medium", num && "text-right")}>
+      <button type="button" className="hover:underline" onClick={() => setSort({ key, desc: sort.key === key ? !sort.desc : num || key === "at" })}>{label}{sort.key === key ? (sort.desc ? " ↓" : " ↑") : ""}</button>
+    </th>
+  );
+  const n = (v: number | null) => (v == null ? "—" : v.toLocaleString());
+  return (
+    <div className="space-y-4" data-testid="content-performance">
+      <figure className="space-y-2 rounded-[8px] border border-border bg-card p-3">
+        <figcaption className="text-[13px] font-semibold">Posts per week</figcaption>
+        <div className="flex h-40 items-end gap-2" role="img" aria-label={`Posts per week by channel, last ${weeks.length} weeks`}>
+          {weeks.map((w) => {
+            const total = Object.values(w.counts).reduce((x, y) => x + y, 0);
+            return (
+              <div key={w.week} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
+                {total ? <span className="font-mono text-[11px] text-muted-foreground">{total}</span> : null}
+                <div className="flex w-full max-w-10 flex-col-reverse overflow-hidden rounded-[3px]" style={{ height: `${(total / max) * 80}%` }}>
+                  {used.map((c, ci) => (w.counts[c.id] ? <div key={c.id} title={`${c.name}: ${w.counts[c.id]} in the week of ${w.week}`} style={{ height: `${(w.counts[c.id]! / total) * 100}%`, background: CHART[ci % CHART.length] }} /> : null))}
+                </div>
+                <span className="truncate font-mono text-[10px] text-muted-foreground">{new Date(`${w.week}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>
+              </div>
+            );
+          })}
+        </div>
+        <ul className="flex flex-wrap gap-3 text-[12px]" aria-label="Channels">
+          {used.map((c, ci) => <li key={c.id} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-[2px]" style={{ background: CHART[ci % CHART.length] }} /><ChannelMark channel={c} /></li>)}
+        </ul>
+      </figure>
+      <div className="overflow-x-auto rounded-[8px] border border-border bg-card">
+        <table className="w-full min-w-[640px] text-left text-[13px]">
+          <caption className="sr-only">Results by piece and channel</caption>
+          <thead className="border-b border-border text-[12px] text-muted-foreground"><tr>
+            {head("title", "Piece")}{head("channel", "Channel")}{head("at", "Published")}{head("views", "Views", true)}{head("likes", "Likes", true)}{head("comments", "Comments", true)}{head("clicks", "Clicks", true)}
+          </tr></thead>
+          <tbody className="divide-y divide-border">
+            {sorted.map((r) => { const c = channels.find((x) => x.id === r.channel); return (
+              <tr key={`${r.taskId}:${r.channel}`} data-testid="performance-row">
+                <td className="px-3 py-2"><a href={href(r.taskId)} className="font-medium hover:underline">{r.title}</a></td>
+                <td className="px-3 py-2">{c ? <ChannelMark channel={c} /> : r.channel}</td>
+                <td className="px-3 py-2 font-mono text-[12px]">{new Date(r.at).toLocaleDateString(undefined, { timeZone, day: "numeric", month: "short" })}</td>
+                {(["views", "likes", "comments", "clicks"] as const).map((m) => <td key={m} className="px-3 py-2 text-right font-mono text-[12px]">{n(r[m])}</td>)}
+              </tr>
+            ); })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">Pieces published in the last 60 days. An Update’s likes and comments are live; everything else is typed in Results.</p>
+    </div>
   );
 }

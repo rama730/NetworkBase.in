@@ -161,5 +161,88 @@ test("A2.8 W5–W7: draft, Ready for edit, Changes needed, the editor's approval
   const [update] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content) VALUES (${t.ws}, ${t.member}, 'Our pricing guide is out') RETURNING id`;
   const all = await content.markPublishedAction({ projectId: t.ws, taskId: id, links: { blog: { updateId: update!.id } } });
   assert.deepEqual([all.success && all.state, (await row(id)).stage], ["all", "published"]);
-  assert.deepEqual(await reminders(), [], "nothing left to remind once published");
+  assert.deepEqual(await reminders(), ["content_publish:results:writer"], "Publish now is gone once published; Add results waits a week (A2.9)");
+});
+
+test("A2.9 W8: results reminder a week after publishing, Results saved per channel, live Update numbers, switch off", async () => {
+  const t = await workspace();
+  await sql`UPDATE workspaces SET time_zone = 'UTC' WHERE id = ${t.ws}`;
+  viewerId = t.owner;
+  const starter = await content.starterContentSettingsAction(["blog", "social"]);
+  assert.ok(starter.success && (await content.saveContentSettingsAction({ projectId: t.ws, settings: starter.settings })).success);
+  viewerId = t.member;
+  const soon = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  const made = await tasksServer.createTaskAction({ projectId: t.ws, title: "Launch post", status: "todo", priority: "medium", itemType: "content", stage: "drafting",
+    dueDate: soon, assigneeId: t.member, typeFields: { channels: ["blog", "linkedin"], contentType: "article" } } as never);
+  const id = (made as { task: { id: string } }).task.id;
+  await sql`UPDATE tasks SET stage = 'scheduled', status = 'done' WHERE id = ${id}`;
+  const pending = async () => (await sql`SELECT note, remind_at FROM task_reminders WHERE task_id = ${id} AND sent_at IS NULL ORDER BY note`).map((r) => r.note);
+  assert.equal((await content.saveResultsAction({ projectId: t.ws, taskId: id, results: { linkedin: { views: 3 } } }) as { error?: string }).error, "Add results once that channel is published");
+  const [update] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, like_count, comment_count) VALUES (${t.ws}, ${t.member}, 'Launch!', 4, 2) RETURNING id`;
+  assert.ok((await content.markPublishedAction({ projectId: t.ws, taskId: id, links: { blog: { updateId: update!.id }, linkedin: { link: "https://www.linkedin.com/posts/launch" } } })).success);
+  assert.equal((await row(id)).stage, "published");
+  assert.deepEqual(await pending(), ["content_publish:results"], "Add results waits a week; Publish now is gone");
+  const [r] = await sql`SELECT extract(epoch FROM remind_at - now())::int AS s FROM task_reminders WHERE task_id = ${id} AND sent_at IS NULL`;
+  assert.ok(Math.abs(r!.s - 7 * 86_400) < 120, "seven days after publishing");
+  // Not the person's own reminder: their list stays empty.
+  const own = await loadAppModule(() => import("../../src/lib/domain/task-reminders"));
+  assert.equal((await own.listTaskReminders(t.member, id)).length, 0);
+  // Call 3: the Update's likes and comments are live; typed results can't overwrite them.
+  const read = await content.readContentAction(t.ws);
+  assert.ok(read.success);
+  assert.deepEqual(read.items.find((i) => i.id === id)!.live, { blog: { likes: 4, comments: 2 } });
+  assert.equal((await content.saveResultsAction({ projectId: t.ws, taskId: id, results: { blog: { views: 3 } } }) as { error?: string }).error, "An Update’s likes and comments fill its results");
+  assert.equal((await content.saveResultsAction({ projectId: t.ws, taskId: id, results: { linkedin: { views: -1 } } }) as { error?: string }).error, "Results are whole numbers, 0 or more");
+  viewerId = t.viewer;
+  assert.equal((await content.saveResultsAction({ projectId: t.ws, taskId: id, results: { linkedin: { views: 3 } } }) as { error?: string }).error, "Viewers can’t add results");
+  // The reminder fires once, at Summary level, to the writer.
+  await sql`UPDATE task_reminders SET remind_at = now() - interval '1 minute' WHERE task_id = ${id} AND sent_at IS NULL`;
+  await own.fireDueTaskReminders(); await own.fireDueTaskReminders();
+  const sent = await sql`SELECT importance FROM user_notifications WHERE user_id = ${t.member} AND title = 'Add results: Launch post'`;
+  assert.deepEqual(sent.map((x) => x.importance), ["more"]);
+  // Typed results close it; switching the reminder off keeps it closed.
+  viewerId = t.member;
+  assert.ok((await content.saveResultsAction({ projectId: t.ws, taskId: id, results: { linkedin: { views: 900, likes: 31, comments: 4, clicks: 12 } } })).success);
+  assert.deepEqual(((await row(id)).type_fields as { results: unknown }).results, { linkedin: { views: 900, likes: 31, comments: 4, clicks: 12 } });
+  await sql`UPDATE tasks SET type_fields = type_fields - 'results' WHERE id = ${id}`;
+  assert.ok((await content.saveResultsAction({ projectId: t.ws, taskId: id, reminder: true })).success);
+  assert.deepEqual(await pending(), [], "Add results comes once per piece");
+  assert.ok((await content.saveResultsAction({ projectId: t.ws, taskId: id, reminder: false })).success);
+  assert.deepEqual(await pending(), []);
+});
+
+test("W9.1 (A2.8 live check): changing the Publish date in the panel moves the publish time and its reminder, keeping the time of day", async () => {
+  const t = await workspace();
+  await sql`UPDATE workspaces SET time_zone = 'Asia/Kolkata' WHERE id = ${t.ws}`;
+  viewerId = t.owner;
+  const starter = await content.starterContentSettingsAction(["social"]);
+  assert.ok(starter.success && (await content.saveContentSettingsAction({ projectId: t.ws, settings: starter.settings })).success);
+  const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  const made = await tasksServer.createTaskAction({ projectId: t.ws, title: "Teaser", status: "todo", priority: "medium", itemType: "content", stage: "drafting",
+    dueDate: day(3), assigneeId: t.owner, typeFields: { channels: ["x"], publishTime: "18:15" } } as never);
+  const id = (made as { task: { id: string } }).task.id;
+  const moved = await taskActions.updateTaskFieldAction(id, "dueDate", `${day(10)}T00:00:00.000Z`, t.ws);
+  assert.ok(moved.success, JSON.stringify(moved));
+  const after = (await row(id)).type_fields as { publishAt: string };
+  assert.equal(after.publishAt, new Date(`${day(10)}T12:45:00.000Z`).toISOString(), "18:15 in Kolkata on the new day");
+  assert.deepEqual((await sql`SELECT remind_at FROM task_reminders WHERE task_id = ${id} AND sent_at IS NULL`).map((r) => new Date(r.remind_at).toISOString()), [after.publishAt]);
+  assert.ok((await taskActions.updateTaskFieldAction(id, "dueDate", null, t.ws)).success);
+  assert.equal(((await row(id)).type_fields as { publishAt: unknown }).publishAt, null, "no date, no publish time");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${id} AND sent_at IS NULL`)[0]!.n, 0);
+});
+
+test("W9.2: Cancel keeps a piece in history, off the board, with no Publish now", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const starter = await content.starterContentSettingsAction(["social"]);
+  assert.ok(starter.success && (await content.saveContentSettingsAction({ projectId: t.ws, settings: starter.settings })).success);
+  const made = await tasksServer.createTaskAction({ projectId: t.ws, title: "Dropped", status: "todo", priority: "medium", itemType: "content", stage: "drafting",
+    dueDate: new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10), assigneeId: t.owner, typeFields: { channels: ["x"] } } as never);
+  const id = (made as { task: { id: string } }).task.id;
+  assert.equal((await sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${id} AND sent_at IS NULL`)[0]!.n, 1);
+  const moved = await taskActions.setTaskStageAction({ projectId: t.ws, taskId: id, stage: "cancelled" });
+  assert.ok(moved.success, JSON.stringify(moved));
+  const r = await row(id);
+  assert.deepEqual([r.stage, r.status, r.on_board], ["cancelled", "done", false]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${id} AND sent_at IS NULL`)[0]!.n, 0);
 });
