@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createElement, useState } from "react";
 
-import { planContentAction, readContentAction, saveContentSettingsAction, starterContentSettingsAction } from "@/app/actions/content";
+import { approveContentAction, changesNeededAction, linkContentDraftAction, markPublishedAction, planContentAction, readContentAction, readRecentUpdatesAction, readyForEditAction, saveContentSettingsAction, starterContentSettingsAction } from "@/app/actions/content";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { channelIcon } from "@/components/workspaces/workflows/channel-icons";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, SectionDivider, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
@@ -221,9 +221,15 @@ export function PlanContentDialog({ projectId, piece, day: initialDay, defaultTi
   );
 }
 
-/** S7: the piece's channels, publish time in the workspace's zone, type, keyword, audience and brief. */
+/**
+ * S7: the piece's channels, publish time in the workspace's zone, type, keyword, audience and brief; and A2.8's
+ * Write draft, Ready for edit, the editor's Approve / Changes needed, Mark published and what was published where.
+ */
 export function ContentPanelSection({ projectId, taskId }: { projectId: string; taskId: string }) {
+  const queryClient = useQueryClient();
   const { data, query } = useContent(projectId);
+  const [dialog, setDialog] = useState<"edit" | "changes" | "publish" | null>(null);
+  const [busy, setBusy] = useState(false);
   if (!data) return query.isLoading ? <div aria-hidden="true" className="nb-skeleton h-20 rounded-[6px]" /> : null;
   const piece = data.items.find((i) => i.id === taskId);
   if (!piece) return null;
@@ -231,6 +237,35 @@ export function ContentPanelSection({ projectId, taskId }: { projectId: string; 
   const channels = (Array.isArray(f.channels) ? (f.channels as string[]) : []).map((c) => data.settings?.channels.find((x) => x.id === c)).filter(Boolean) as ContentChannel[];
   const type = data.settings?.types.find((t) => t.id === f.contentType);
   const when = typeof f.publishAt === "string" ? new Date(f.publishAt).toLocaleString(undefined, { timeZone: data.timeZone, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
+  const published = (f.published ?? {}) as Record<string, { link?: string; updateId?: string }>;
+  const editor = data.people.find((p) => p.id === f.editorId);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
+  async function run(p: Promise<{ success: boolean; error?: string }>, done: string) {
+    setBusy(true);
+    const r = await p;
+    setBusy(false);
+    if (!r.success) return void toast.error(r.error ?? "Couldn’t update the piece");
+    toast(done);
+    setDialog(null);
+    await refresh();
+  }
+  async function writeDraft() {
+    setBusy(true);
+    try {
+      const { createDocFile } = await import("@/components/organizations/OrgDocParts");
+      const slug = piece!.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "draft";
+      const made = await createDocFile(projectId, `${slug}.md`, `# ${piece!.title}\n\n${f.brief ? `> ${String(f.brief)}\n\n` : ""}`);
+      const r = await linkContentDraftAction({ projectId, taskId, docId: made.id, slug: made.slug });
+      if (!r.success) return void toast.error(r.error);
+      toast("Draft made · it’s in Documents");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn’t make the draft");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const isEditor = f.editorId === data.viewerId || data.canManage;
   return (
     <div className="space-y-2 pt-1" data-testid="content-panel">
       <div className="border-b border-border/60 pb-2"><h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">Content details</h3></div>
@@ -238,10 +273,105 @@ export function ContentPanelSection({ projectId, taskId }: { projectId: string; 
         <dt className="text-muted-foreground">Channels</dt><dd className="flex flex-wrap gap-2">{channels.length ? channels.map((c) => <ChannelMark key={c.id} channel={c} />) : "—"}</dd>
         <dt className="text-muted-foreground">Publishes</dt><dd>{when ? `${when} (${data.timeZone})` : "No date yet"}</dd>
         <dt className="text-muted-foreground">Type</dt><dd>{type?.name ?? "—"}</dd>
+        {f.draftSlug ? <><dt className="text-muted-foreground">Draft</dt><dd><a href={`/workspaces/${encodeURIComponent(projectId)}?tab=docs&doc=${encodeURIComponent(String(f.draftSlug))}`} className="text-primary hover:underline">Open the draft</a></dd></> : null}
+        {editor ? <><dt className="text-muted-foreground">Editor</dt><dd>{editor.name}</dd></> : null}
         {f.keyword ? <><dt className="text-muted-foreground">Keyword</dt><dd>{String(f.keyword)}</dd></> : null}
         {f.audience ? <><dt className="text-muted-foreground">Audience</dt><dd>{String(f.audience)}</dd></> : null}
         {f.brief ? <><dt className="text-muted-foreground">Brief</dt><dd className="whitespace-pre-wrap">{String(f.brief)}</dd></> : null}
+        {Object.keys(published).length ? <><dt className="text-muted-foreground">Published at</dt><dd className="space-y-0.5" data-testid="content-published">
+          {channels.map((c) => <p key={c.id} className="flex items-center gap-1.5"><ChannelMark channel={c} />{published[c.id]?.link ? <a href={published[c.id]!.link} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">{published[c.id]!.link}</a> : published[c.id]?.updateId ? <span>an Update here</span> : <span className="text-muted-foreground">not yet</span>}</p>)}
+        </dd></> : null}
       </dl>
+      {data.canEdit ? (
+        <div className="flex flex-wrap gap-1.5" data-testid="content-panel-actions">
+          {piece.stage === "drafting" && !f.draftSlug ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => void writeDraft()}>Write draft</button> : null}
+          {piece.stage === "drafting" ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog("edit")}>Ready for edit…</button> : null}
+          {piece.stage === "editing" && isEditor ? <>
+            <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => void run(approveContentAction({ projectId, taskId }), "Approved · Scheduled")}>Approve</button>
+            <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog("changes")}>Changes needed…</button>
+          </> : null}
+          {piece.stage === "editing" && !isEditor ? <p className="text-xs text-muted-foreground">With {editor?.name ?? "the editor"} for edit</p> : null}
+          {piece.stage === "scheduled" || piece.stage === "published" ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog("publish")}>Mark published…</button> : null}
+        </div>
+      ) : null}
+      {dialog === "edit" ? <EditorDialog people={data.people.filter((p) => p.id !== piece.assigneeId || data.canManage)} busy={busy} onClose={() => setDialog(null)}
+        onSave={(editorId, note) => void run(readyForEditAction({ projectId, taskId, editorId, ...(note ? { note } : {}) }), "Sent for edit")} /> : null}
+      {dialog === "changes" ? <NoteDialog title="Changes needed" label="What needs changing?" action="Send back" busy={busy} onClose={() => setDialog(null)}
+        onSave={(note) => void run(changesNeededAction({ projectId, taskId, note }), "Sent back to Drafting")} /> : null}
+      {dialog === "publish" ? <PublishDialog projectId={projectId} channels={channels} published={published} busy={busy} onClose={() => setDialog(null)}
+        onSave={(links) => void run(markPublishedAction({ projectId, taskId, links }), "Marked published")} /> : null}
     </div>
+  );
+}
+
+function EditorDialog({ people, busy, onClose, onSave }: { people: Array<{ id: string; name: string }>; busy: boolean; onClose: () => void; onSave: (editorId: string, note: string) => void }) {
+  const [editor, setEditor] = useState("");
+  const [note, setNote] = useState("");
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="ready-for-edit-dialog">
+        <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">Ready for edit</DialogTitle><DialogDescription className="text-xs text-muted-foreground">The editor approves it to Scheduled or sends it back with a note.</DialogDescription></div>
+        <div className="space-y-3.5 px-6 py-4">
+          <Field label="Editor" htmlFor="edit-editor"><SelectWrap><select id="edit-editor" value={editor} onChange={(e) => setEditor(e.target.value)} className={selectClassName()}>
+            <option value="">Pick the editor…</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select></SelectWrap></Field>
+          <Field label="Note (optional)" htmlFor="edit-note"><textarea id="edit-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} className={cn(inputClassName(false), "resize-none py-2")} /></Field>
+        </div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !editor} onClick={() => onSave(editor, note.trim())}>Send for edit</button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NoteDialog({ title, label, action, busy, onClose, onSave }: { title: string; label: string; action: string; busy: boolean; onClose: () => void; onSave: (note: string) => void }) {
+  const [note, setNote] = useState("");
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="content-note-dialog">
+        <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">{title}</DialogTitle><DialogDescription className="sr-only">{label}</DialogDescription></div>
+        <div className="px-6 py-4"><Field label={label} htmlFor="content-note"><textarea id="content-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} className={cn(inputClassName(false), "resize-none py-2")} /></Field></div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !note.trim()} onClick={() => onSave(note.trim())}>{action}</button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** W7.2–7.3: a link per channel (http or https; NetworkBase never opens it), or an Update for an Updates channel. */
+function PublishDialog({ projectId, channels, published, busy, onClose, onSave }: {
+  projectId: string; channels: ContentChannel[]; published: Record<string, { link?: string; updateId?: string }>; busy: boolean; onClose: () => void;
+  onSave: (links: Record<string, { link: string } | { updateId: string }>) => void;
+}) {
+  const updates = useQuery({ queryKey: [...queryKeys.project.detail.tasksRoot(projectId), "recent-updates"], queryFn: () => readRecentUpdatesAction(projectId), enabled: channels.some((c) => c.updates) });
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(channels.map((c) => [c.id, published[c.id]?.link ?? published[c.id]?.updateId ?? ""])));
+  const filled = Object.entries(values).filter(([id, v]) => v.trim() && !published[id]);
+  const send = () => onSave(Object.fromEntries(filled.map(([id, v]) => [id, channels.find((c) => c.id === id)?.updates && !/^https?:/i.test(v) ? { updateId: v } : { link: v.trim() }])));
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="mark-published-dialog">
+        <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">Mark published</DialogTitle><DialogDescription className="text-xs text-muted-foreground">Post it yourself, then add where it went. Channels can be marked later.</DialogDescription></div>
+        <div className="space-y-3 px-6 py-4">
+          {channels.map((c) => (
+            <Field key={c.id} label={c.name} htmlFor={`publish-${c.id}`}>
+              {c.updates ? (
+                <SelectWrap><select id={`publish-${c.id}`} value={values[c.id] ?? ""} disabled={Boolean(published[c.id])} onChange={(e) => setValues({ ...values, [c.id]: e.target.value })} className={selectClassName()}>
+                  <option value="">Pick the Update you posted…</option>
+                  {(updates.data?.success ? updates.data.updates : []).map((u) => <option key={u.id} value={u.id}>{u.text}</option>)}
+                </select></SelectWrap>
+              ) : <input id={`publish-${c.id}`} value={values[c.id] ?? ""} disabled={Boolean(published[c.id])} onChange={(e) => setValues({ ...values, [c.id]: e.target.value })} placeholder="https://…" className={inputClassName(false)} />}
+            </Field>
+          ))}
+        </div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !filled.length} onClick={send}>Mark published</button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

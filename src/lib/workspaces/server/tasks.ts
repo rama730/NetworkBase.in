@@ -1518,6 +1518,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       const { scheduleRequestClock } = await import("@/lib/workflows/request-clock-server");
       await scheduleRequestClock(createdTask.id);
     }
+    if (itemType === "content") await (await import("@/lib/workflows/content-reminders")).scheduleContentReminder(createdTask.id);
     if (itemType !== "task") (await import("@/lib/workflows/server")).announceWaiting(validated.projectId);
 
     await wakeEmailWorker();

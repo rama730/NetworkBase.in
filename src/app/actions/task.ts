@@ -1031,6 +1031,8 @@ export async function assignTaskAction(
     // Report 38.7 W7.2 (A2.5): a request's warnings follow its handler.
     const { scheduleRequestClock } = await import("@/lib/workflows/request-clock-server");
     await scheduleRequestClock(taskId);
+    // A2.8: a content piece's Publish now goes to its new writer.
+    await (await import("@/lib/workflows/content-reminders")).scheduleContentReminder(taskId);
     revalidatePath(`/workspaces/${result.projectId}`);
     return { success: true, updatedAt: result.updatedAt.toISOString() };
   } catch (error: any) {

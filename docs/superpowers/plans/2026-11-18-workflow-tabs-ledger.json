@@ -8271,6 +8271,16 @@
       "status": "live",
       "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
       "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
+    },
+    {
+      "key": "38.8.call11",
+      "section": "38.8",
+      "text": "A2.8 (2026-11-23): Editing is reviewed by the piece's editor (call 4 narrowed): the workspace review queue's reviewers are owners and admins, not a chosen edito",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

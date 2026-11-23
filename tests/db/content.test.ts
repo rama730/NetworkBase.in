@@ -91,3 +91,55 @@ test("W1–W4: owners set up channels; ideas sit off the board; a piece's channe
   const read = await content.readContentAction(t.ws);
   assert.ok(read.success && read.items.length === 2 && read.timeZone === "Asia/Kolkata" && read.settings?.channels.length === 8);
 });
+
+test("A2.8 W5–W7: draft, Ready for edit, Changes needed, the editor's approval (no second review), Publish now, Mark published", async () => {
+  const t = await workspace();
+  await sql`UPDATE workspaces SET time_zone = 'UTC', task_review_required = true WHERE id = ${t.ws}`;
+  viewerId = t.owner;
+  const starter = await content.starterContentSettingsAction(["blog", "social"]);
+  assert.ok(starter.success && (await content.saveContentSettingsAction({ projectId: t.ws, settings: starter.settings })).success);
+  viewerId = t.member;
+  const soon = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+  const made = await tasksServer.createTaskAction({ projectId: t.ws, title: "Pricing guide", status: "todo", priority: "medium", itemType: "content", stage: "drafting",
+    dueDate: soon, assigneeId: t.member, typeFields: { channels: ["blog", "linkedin"], contentType: "article" } } as never);
+  assert.ok(made.success, JSON.stringify(made));
+  const id = (made as { task: { id: string } }).task.id;
+  const reminders = async () => (await sql`SELECT user_id, note FROM task_reminders WHERE task_id = ${id} AND sent_at IS NULL`).map((r) => `${r.note}:${r.user_id === t.member ? "writer" : "?"}`);
+  assert.deepEqual(await reminders(), ["content_publish:now:writer"], "Publish now waits for the writer at the publish time");
+  // Write draft links a document of this workspace.
+  const [doc] = await sql`INSERT INTO workspace_documents (workspace_id, filename, slug) VALUES (${t.ws}, 'pricing-guide.md', 'pricing-guide') RETURNING id`;
+  assert.ok((await content.linkContentDraftAction({ projectId: t.ws, taskId: id, docId: doc!.id, slug: "pricing-guide" })).success);
+  assert.equal(((await row(id)).type_fields as { draftSlug: string }).draftSlug, "pricing-guide");
+  assert.equal((await content.readyForEditAction({ projectId: t.ws, taskId: id, editorId: t.member }) as { error?: string }).error, "Pick an editor other than the writer");
+  assert.ok((await content.readyForEditAction({ projectId: t.ws, taskId: id, editorId: t.owner, note: "Check the numbers" })).success);
+  assert.equal((await row(id)).stage, "editing");
+  assert.ok((await sql`SELECT title FROM user_notifications WHERE user_id = ${t.owner} AND title = 'Ready for edit: Pricing guide'`).length === 1);
+  assert.equal((await content.approveContentAction({ projectId: t.ws, taskId: id }) as { error?: string }).error, "Only its editor approves this piece");
+  viewerId = t.owner;
+  assert.equal((await content.changesNeededAction({ projectId: t.ws, taskId: id, note: " " }) as { error?: string }).error, "Say what needs changing");
+  assert.ok((await content.changesNeededAction({ projectId: t.ws, taskId: id, note: "Add the 2026 prices" })).success);
+  assert.equal((await row(id)).stage, "drafting");
+  assert.ok((await sql`SELECT 1 FROM task_comments WHERE task_id = ${id} AND content = 'Changes needed: Add the 2026 prices'`).length === 1);
+  viewerId = t.member;
+  assert.ok((await content.readyForEditAction({ projectId: t.ws, taskId: id, editorId: t.owner })).success);
+  viewerId = t.owner;
+  assert.ok((await content.approveContentAction({ projectId: t.ws, taskId: id })).success);
+  const approved = (await sql`SELECT stage, status, review_status FROM tasks WHERE id = ${id}`)[0]!;
+  assert.deepEqual([approved.stage, approved.status, approved.review_status], ["scheduled", "done", "none"], "the editor's yes is the review");
+  assert.ok((await sql`SELECT 1 FROM user_notifications WHERE user_id = ${t.member} AND title = 'Approved: Pricing guide'`).length === 1);
+  assert.deepEqual(await reminders(), ["content_publish:now:writer"]);
+  // Publish now fires once, to the writer.
+  await sql`UPDATE task_reminders SET remind_at = now() - interval '1 minute' WHERE task_id = ${id} AND note LIKE 'content_publish:%'`;
+  const fire = await loadAppModule(() => import("../../src/lib/domain/task-reminders"));
+  await fire.fireDueTaskReminders(); await fire.fireDueTaskReminders();
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title = 'Publish now: Pricing guide'`)[0]!.n, 1);
+  // Mark published: one channel, then the other (an Update of this workspace for the Blog channel).
+  viewerId = t.member;
+  assert.equal((await content.markPublishedAction({ projectId: t.ws, taskId: id, links: { linkedin: { link: "javascript:alert(1)" } } }) as { error?: string }).error, "Links start with http:// or https://");
+  const one = await content.markPublishedAction({ projectId: t.ws, taskId: id, links: { linkedin: { link: "https://www.linkedin.com/posts/pricing" } } });
+  assert.deepEqual([one.success && one.state, (await row(id)).stage], ["partial", "scheduled"]);
+  const [update] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content) VALUES (${t.ws}, ${t.member}, 'Our pricing guide is out') RETURNING id`;
+  const all = await content.markPublishedAction({ projectId: t.ws, taskId: id, links: { blog: { updateId: update!.id } } });
+  assert.deepEqual([all.success && all.state, (await row(id)).stage], ["all", "published"]);
+  assert.deepEqual(await reminders(), [], "nothing left to remind once published");
+});

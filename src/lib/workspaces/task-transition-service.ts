@@ -464,6 +464,8 @@ export async function afterTaskTransition(
     const { scheduleRequestClock } = await import("@/lib/workflows/request-clock-server");
     await scheduleRequestClock(taskId);
   }
+  // Report 38.8 W7.1 (A2.8): a content piece's Publish now follows its stage and writer.
+  if (locked.itemType === "content") await (await import("@/lib/workflows/content-reminders")).scheduleContentReminder(taskId);
   if (locked.itemType && locked.itemType !== "task") (await import("@/lib/workflows/server")).announceWaiting(locked.projectId);
   const warnings =
     result.status === "done"

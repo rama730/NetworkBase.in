@@ -55,7 +55,12 @@ export async function readContentAction(projectId: string) {
       assigneeId: r.assignee_id, assigneeName: r.assignee_name, createdAt: new Date(r.created_at).toISOString(), typeFields: r.type_fields ?? {},
     }));
     const { tz } = await readWorkingHours(projectId);
-    return { success: true as const, projectKey: ws?.key ?? null, settings: await readContentSettings(projectId), timeZone: tz, items, canEdit, canManage, viewerId: user.id };
+    // A2.8: who can edit pieces (Ready for edit's list): the owner and members who aren't viewers.
+    const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
+      SELECT p.id, coalesce(p.full_name, p.username, 'Someone') AS name FROM profiles p
+      WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${projectId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${projectId}::uuid AND role <> 'viewer')
+      ORDER BY p.full_name`));
+    return { success: true as const, projectKey: ws?.key ?? null, settings: await readContentSettings(projectId), timeZone: tz, items, people, canEdit, canManage, viewerId: user.id };
   } catch (error) {
     return fail(error, "Couldn’t load content");
   }
@@ -131,8 +136,196 @@ export async function planContentAction(input: z.infer<typeof planInput>) {
       const [has] = await db.select({ n: sql<number>`count(*)::int` }).from(taskSubtasks).where(eq(taskSubtasks.taskId, taskId));
       if (steps.length && !has?.n) await db.insert(taskSubtasks).values(steps.map((title, position) => ({ taskId, title, position, createdBy: user.id })));
     }
+    // W9.1: moving a piece moves its Publish now.
+    await (await import("@/lib/workflows/content-reminders")).scheduleContentReminder(taskId);
     return { success: true as const, publishAt };
   } catch (error) {
     return fail(error, "Couldn’t plan the piece");
+  }
+}
+
+// ---- A2.8: draft, edit, publish (report 38.8 W5–W7, calls 2–4) ----
+const draftInput = z.object({ projectId: id, taskId: id, docId: id, slug: z.string().trim().min(1).max(200) });
+
+async function contentPiece(projectId: string, taskId: string) {
+  const [piece] = await db.select({ stage: tasks.stage, typeFields: tasks.typeFields, assigneeId: tasks.assigneeId, title: tasks.title }).from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), eq(tasks.itemType, "content"), isNull(tasks.deletedAt))).limit(1);
+  if (!piece) throw new Error("Not found");
+  return { ...piece, fields: (piece.typeFields ?? {}) as Record<string, unknown> };
+}
+const merge = (taskId: string, patch: Record<string, unknown>) =>
+  db.execute(sql`UPDATE tasks SET type_fields = coalesce(type_fields, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb, updated_at = now() WHERE id = ${taskId}::uuid`);
+async function comment(userId: string, taskId: string, projectId: string, content: string) {
+  const { createTaskCommentAs } = await import("@/lib/domain/task-comments");
+  const { profiles } = await import("@/lib/db/schema");
+  const [profile] = await db.select({ fullName: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(eq(profiles.id, userId)).limit(1);
+  return createTaskCommentAs({ userId, profile: profile ?? null }, taskId, projectId, content);
+}
+
+/** W5.1: Write draft links the document the browser just made (in Docs) to the piece. */
+export async function linkContentDraftAction(input: z.infer<typeof draftInput>) {
+  try {
+    const parsed = draftInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Couldn’t link the draft" };
+    const { projectId, taskId, docId, slug } = parsed.data;
+    const { canEdit } = await insider(projectId);
+    if (!canEdit) throw new Error("Viewers can’t write drafts");
+    await contentPiece(projectId, taskId);
+    const { workspaceDocuments } = await import("@/lib/db/schema");
+    const [doc] = await db.select({ id: workspaceDocuments.id }).from(workspaceDocuments).where(and(eq(workspaceDocuments.id, docId), eq(workspaceDocuments.projectId, projectId))).limit(1);
+    if (!doc) throw new Error("That document isn’t in this workspace");
+    await merge(taskId, { draftDocId: docId, draftSlug: slug });
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "Couldn’t link the draft");
+  }
+}
+
+const editInput = z.object({ projectId: id, taskId: id, editorId: id, note: z.string().trim().max(2000).optional() });
+
+/**
+ * W6.1: Ready for edit names the editor (not the writer, unless an owner or admin edits their own) and moves the piece
+ * to Editing; the editor is told. Call 4 (A2.8): the editor's Approve is the piece's review.
+ */
+export async function readyForEditAction(input: z.infer<typeof editInput>) {
+  try {
+    const parsed = editInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Pick an editor" };
+    const { projectId, taskId, editorId, note } = parsed.data;
+    const { user, canEdit, canManage } = await insider(projectId);
+    if (!canEdit) throw new Error("Viewers can’t send pieces for edit");
+    const piece = await contentPiece(projectId, taskId);
+    if (piece.stage !== "drafting") throw new Error("Only a piece in Drafting goes for edit");
+    const access = await getWorkspaceAccessById(projectId, editorId);
+    if (!(access.isOwner || (access.isMember && access.memberRole !== "viewer"))) throw new Error("Pick an editor who can edit here");
+    if (editorId === piece.assigneeId && !(canManage && editorId === user.id)) throw new Error("Pick an editor other than the writer");
+    const moved = await setTaskStageAction({ taskId, projectId, stage: "editing", toBacklog: true });
+    if (!moved.success) return moved;
+    await merge(taskId, { editorId });
+    if (note) await comment(user.id, taskId, projectId, `Ready for edit: ${note}`);
+    await notifyContentPerson(taskId, user.id, editorId, "Ready for edit");
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "Couldn’t send it for edit");
+  }
+}
+
+async function notifyContentPerson(taskId: string, actorId: string, to: string | null, words: string) {
+  if (!to || to === actorId) return;
+  const { createNotification } = await import("@/lib/notifications/service");
+  const { projectTaskHref } = await import("@/lib/workspaces/task-presentation");
+  const [t] = Array.from(await db.execute<{ title: string; task_number: number | null; workspace_id: string; slug: string | null; key: string | null }>(sql`
+    SELECT t.title, t.task_number, t.workspace_id, w.slug, w.key FROM tasks t JOIN workspaces w ON w.id = t.workspace_id WHERE t.id = ${taskId}::uuid`));
+  if (!t) return;
+  const access = await getWorkspaceAccessById(t.workspace_id, to);
+  if (!(access.isOwner || access.isMember)) return;
+  await createNotification({
+    recipientUserId: to, actorUserId: actorId, kind: "project_task_activity", category: "tasks", importance: "important", title: `${words}: ${t.title}`,
+    href: projectTaskHref(t.slug || t.workspace_id, taskId), entityRefs: { projectId: t.workspace_id, projectSlug: t.slug, taskId },
+    preview: { contextLabel: t.task_number && t.key ? `${t.key}-${t.task_number}` : "Content", contextKind: "task", secondaryText: "Content" },
+    dedupeKey: `content-${words.toLowerCase().replace(/\W+/g, "-")}:${taskId}:${Date.now()}`,
+  }).catch(() => undefined);
+}
+
+/** W6.2: the editor (or an owner or admin) approves: Scheduled, Completed on the board; the writer is told. */
+export async function approveContentAction(input: { projectId: string; taskId: string }) {
+  try {
+    const projectId = id.parse(input?.projectId), taskId = id.parse(input?.taskId);
+    const { user, canManage } = await insider(projectId);
+    const piece = await contentPiece(projectId, taskId);
+    if (piece.stage !== "editing") throw new Error("Only a piece in Editing is approved");
+    if (piece.fields.editorId !== user.id && !canManage) throw new Error("Only its editor approves this piece");
+    // The editor's yes is the review (call 4), so the workspace review switch doesn't hold it a second time.
+    const { afterTaskTransition, lockTaskForWrite, transitionTaskTx } = await import("@/lib/workspaces/task-transition-service");
+    const { locked, result } = await db.transaction(async (tx) => {
+      const locked = await lockTaskForWrite(tx, taskId, user.id);
+      return { locked, result: await transitionTaskTx(tx, { ...locked, reviewRequired: false }, { taskId, userId: user.id, stage: "scheduled" }) };
+    });
+    await afterTaskTransition(user, locked, taskId, result);
+    await notifyContentPerson(taskId, user.id, piece.assigneeId, "Approved");
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "Couldn’t approve the piece");
+  }
+}
+
+/** W6.2: Changes needed (a note, required) goes back to Drafting with the note as a comment; the writer is told. */
+export async function changesNeededAction(input: { projectId: string; taskId: string; note: string }) {
+  try {
+    const projectId = id.parse(input?.projectId), taskId = id.parse(input?.taskId);
+    const note = String(input?.note ?? "").trim().slice(0, 2000);
+    if (!note) return { success: false as const, error: "Say what needs changing" };
+    const { user, canManage } = await insider(projectId);
+    const piece = await contentPiece(projectId, taskId);
+    if (piece.stage !== "editing") throw new Error("Only a piece in Editing gets changes");
+    if (piece.fields.editorId !== user.id && !canManage) throw new Error("Only its editor asks for changes");
+    const posted = await comment(user.id, taskId, projectId, `Changes needed: ${note}`);
+    if (!posted.success) return { success: false as const, error: posted.error ?? "Couldn’t post the note" };
+    const moved = await setTaskStageAction({ taskId, projectId, stage: "drafting", toBacklog: true });
+    if (!moved.success) return moved;
+    await notifyContentPerson(taskId, user.id, piece.assigneeId, "Changes needed");
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "Couldn’t send it back");
+  }
+}
+
+const publishInput = z.object({
+  projectId: id, taskId: id,
+  links: z.record(z.string().regex(/^[a-z0-9-]{1,40}$/), z.union([z.object({ link: z.string().trim().max(2048) }).strict(), z.object({ updateId: id }).strict()])),
+});
+
+/**
+ * W7.2–7.4 and call 2: Mark published takes a link per channel (http or https, never fetched) or, for a NetworkBase
+ * Updates channel, the Update posted here. Published once every live channel has one; otherwise "Published on 1 of 2".
+ */
+export async function markPublishedAction(input: z.infer<typeof publishInput>) {
+  try {
+    const parsed = publishInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Check the links" };
+    const { projectId, taskId, links } = parsed.data;
+    const { canEdit } = await insider(projectId);
+    if (!canEdit) throw new Error("Viewers can’t mark pieces published");
+    const piece = await contentPiece(projectId, taskId);
+    if (piece.stage !== "scheduled" && piece.stage !== "published") throw new Error("A piece is published once it’s Scheduled");
+    const settings = await readContentSettings(projectId);
+    const channels = Array.isArray(piece.fields.channels) ? (piece.fields.channels as string[]) : [];
+    const published = { ...((piece.fields.published ?? {}) as Record<string, unknown>) };
+    const at = new Date().toISOString();
+    for (const [channel, value] of Object.entries(links)) {
+      if (!channels.includes(channel)) throw new Error("That channel isn’t on this piece");
+      if ("link" in value) {
+        if (!/^https?:\/\/\S+$/i.test(value.link)) throw new Error("Links start with http:// or https://");
+        published[channel] = { link: value.link, at };
+      } else {
+        const { workspaceUpdates } = await import("@/lib/db/schema");
+        const [u] = await db.select({ id: workspaceUpdates.id }).from(workspaceUpdates).where(and(eq(workspaceUpdates.id, value.updateId), eq(workspaceUpdates.projectId, projectId), isNull(workspaceUpdates.deletedAt))).limit(1);
+        if (!u) throw new Error("Pick an Update from this workspace");
+        published[channel] = { updateId: value.updateId, at };
+      }
+    }
+    await merge(taskId, { published });
+    const { publishState } = await import("@/lib/workflows/content");
+    const state = publishState(channels, published, settings?.channels ?? []);
+    if (state === "all" && piece.stage !== "published") {
+      const moved = await setTaskStageAction({ taskId, projectId, stage: "published" });
+      if (!moved.success) return moved;
+    }
+    return { success: true as const, state };
+  } catch (error) {
+    return fail(error, "Couldn’t mark it published");
+  }
+}
+
+/** The Update picker for a NetworkBase Updates channel: this workspace's last 20 Updates. */
+export async function readRecentUpdatesAction(projectId: string) {
+  try {
+    id.parse(projectId);
+    await insider(projectId);
+    const rows = Array.from(await db.execute<{ id: string; content: string; created_at: Date }>(sql`
+      SELECT id, content, created_at FROM workspace_updates WHERE workspace_id = ${projectId}::uuid AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 20`));
+    return { success: true as const, updates: rows.map((r) => ({ id: r.id, text: r.content.replace(/\s+/g, " ").slice(0, 80), at: new Date(r.created_at).toISOString() })) };
+  } catch (error) {
+    return fail(error, "Couldn’t load Updates");
   }
 }

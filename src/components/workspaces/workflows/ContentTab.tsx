@@ -104,6 +104,12 @@ export function ContentTab({ projectId, projectSlug, projectName, currentUserId,
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
         <span className="font-mono">{name(r)}</span>{marks(r)}
         {typeof r.typeFields.publishAt === "string" ? <span className="font-mono">{new Date(r.typeFields.publishAt).toLocaleString(undefined, { timeZone: tz, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span> : null}
+        {(() => {
+          // W7.4: "Published on 1 of 2" until every channel has its link.
+          const chs = Array.isArray(r.typeFields.channels) ? (r.typeFields.channels as string[]).filter((c) => !settings?.channels.find((x) => x.id === c)?.archived) : [];
+          const done = chs.filter((c) => (r.typeFields.published as Record<string, unknown> | undefined)?.[c]).length;
+          return done > 0 && done < chs.length ? <span className="font-mono" data-testid="content-partial">Published on {done} of {chs.length}</span> : null;
+        })()}
         <span className="ml-auto truncate">{r.assigneeName ?? ""}</span>
       </div>
       {data?.canEdit ? (r.stage === "idea"
