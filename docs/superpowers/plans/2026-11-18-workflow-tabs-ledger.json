@@ -258,9 +258,9 @@
       "text": "A2.9 Content: results + Performance — Journeys: T5 W8, W12.",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts",
+      "evidence": "7bd4b9de9 + efd459fa7 live 2026-11-23 (web+worker SUCCESS; full test:db 1253/1253, unit 3737, CLI 364, browser content-tab 11/11). Checked live in Chrome on wt-test-a2-3: WT-13 'Remind the writer' off/on → content_publish:results row at 2026-11-30 11:40Z (7 d after the last channel); Results… saved Instagram 1,200 views / 85 likes and X 300 views → reminder closed, switch hidden; Performance shows both rows and the posts-per-week bars; Overview card '0 publishing this week · 0 waiting for edit'; nb content list/ideas/add against production (WT-15 Drafting 10:00 IST with the Article checklist, WT-16 idea). W9.1 panel date +2 weeks moved publishAt to 7 Dec 10:00 IST and its reminder; W9.2 WT-14 → Canceled (off the board, no reminders). Live-check fixes (local, ship with A2.10): nb content list leaves canceled pieces out; Results follow the channel order. Not live-checked: an Updates-channel piece (posting a test Update would be public on Discover; needs the user's OK) — covered by tests/db/content.test.ts and the browser spec."
     },
     {
       "key": "A2.10",
@@ -6618,9 +6618,9 @@
       "text": "Results",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts",
+      "evidence": "Live 2026-11-23 on WT-13: results reminder row, Results dialog saved, Performance table and chart."
     },
     {
       "key": "38.8.W9",
@@ -6628,9 +6628,9 @@
       "text": "Moving and cancelling",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts",
+      "evidence": "Live 2026-11-23 on WT-14: panel Publish date moved the publish time and reminder (fix f271f0dfd+7bd4b9de9); Canceled off the board, reminders closed."
     },
     {
       "key": "38.8.W10",
@@ -6658,9 +6658,9 @@
       "text": "CLI and agents",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts",
+      "evidence": "Live 2026-11-23: nb content list, ideas, add (Drafting with publish time; idea) against production; published covered by packages/nb-cli/test/content.test.mjs."
     },
     {
       "key": "38.8.call1",
@@ -6688,9 +6688,9 @@
       "text": "For a NetworkBase Updates channel, Mark published picks the Update; its likes and comments fill results, views stay blank. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts",
+      "evidence": "Built in A2.9 (live Update likes/comments, typed results refused for Update channels); tests/db/content.test.ts covers it. Live check needs a test Update, which would be public on Discover: asked the user 2026-11-23. revisit 2026-11-24 (with the user's OK, or when Updates can be posted privately)."
     },
     {
       "key": "38.8.call4",
@@ -6738,9 +6738,9 @@
       "text": "A results reminder comes 7 days after publishing (on by default, per piece). [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts",
+      "evidence": "Live 2026-11-23: Add results row 7 days after publishing, switchable per piece, closed once typed."
     },
     {
       "key": "38.8.call9",
@@ -8288,9 +8288,9 @@
       "text": "A2.8 security review and live check (2026-11-23): the editor's move and the asker's No (T4 call 5) are locked as the person acting, with all their own rules (me",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts",
+      "evidence": "Live 2026-11-23: editor/asker lock fix deployed (f271f0dfd); panel Publish date follows (W9.1)."
     },
     {
       "key": "38.8.call13",
@@ -8298,14 +8298,24 @@
       "text": "A2.9 (2026-11-23): Results are typed per published channel (views, likes, comments, clicks; whole numbers, all optional) by anyone who can edit; an Updates chan",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts",
+      "evidence": "Live 2026-11-23 (see A2.9); the Updates-channel part awaits the user's OK to post a test Update."
     },
     {
       "key": "38.9.call7",
       "section": "38.9",
       "text": "A2.10 (2026-11-23): Roadmap ships in two units (A2.10 the tab with Now · Next · Later and By stage, the item panel, work through Part of, Built by, the automati",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.9.call8",
+      "section": "38.9",
+      "text": "A2.11 (2026-11-23): Timeline is T1's month grid opened on today: a bar runs from an item's first work start (the earliest start date among its work) to its targ",
       "kind": "call",
       "milestone": "A2",
       "status": "todo",
