@@ -54,7 +54,7 @@
 .nbs-navlist .nbs-nl.only-phone { display: none; }
 
 /* ---------- document column ---------- */
-.nbs-doc { display: grid; gap: 24px; max-width: 900px; margin: 0 auto; }
+.nbs-doc { display: grid; gap: 24px; width: 100%; max-width: 900px; margin: 0 auto; }
 .nbs-flash { animation: nbs-flash 1.6s var(--nb-ease); }
 @keyframes nbs-flash { 0%, 40% { background: var(--nbs-tint); } 100% { background: transparent; } }
 

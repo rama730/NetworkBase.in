@@ -82,3 +82,16 @@ test("the deletion countdown has 30 squares and counts whole days left", () => {
   assert.deepEqual(deletionDays("2026-11-24T00:00:00Z", NOW), { left: 1, total: 30 });
   assert.deepEqual(deletionDays("2026-11-01T00:00:00Z", NOW), { left: 0, total: 30 });
 });
+
+import { dayCells } from "@/lib/settings/day";
+
+test("the day strip marks quiet hours (also across midnight), the pause and now", () => {
+  const cells = dayCells({ quiet: { enabled: true, startMinute: 22 * 60, endMinute: 7 * 60 }, nowHour: 15, pauseEndHour: 19 });
+  assert.equal(cells.length, 24);
+  assert.deepEqual(cells.map((c, h) => (c.quiet ? h : -1)).filter((h) => h >= 0), [0, 1, 2, 3, 4, 5, 6, 22, 23]);
+  assert.deepEqual(cells.map((c, h) => (c.pause ? h : -1)).filter((h) => h >= 0), [15, 16, 17, 18]);
+  assert.deepEqual(cells.map((c, h) => (c.now ? h : -1)).filter((h) => h >= 0), [15]);
+  const day = dayCells({ quiet: { enabled: true, startMinute: 9 * 60, endMinute: 12 * 60 }, nowHour: 0, pauseEndHour: null });
+  assert.deepEqual(day.map((c, h) => (c.quiet ? h : -1)).filter((h) => h >= 0), [9, 10, 11]);
+  assert.equal(dayCells({ quiet: { enabled: false, startMinute: 0, endMinute: 600 }, nowHour: 3, pauseEndHour: null }).some((c) => c.quiet), false);
+});
