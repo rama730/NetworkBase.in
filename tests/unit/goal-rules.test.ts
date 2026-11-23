@@ -56,3 +56,15 @@ test("goalsMarkdown: title, guide, the period's block, which parses with its per
   assert.deepEqual(parseLiveBlocks(md).map((b) => [b.kind, b.period]), [["goals", "2027-Q1"]]);
   assert.deepEqual(parseLiveBlocks('{% project.goals period="bad" %}').map((b) => b.period), [null]);
 });
+
+test("check-ins due: since the last check-in day, in the workspace's zone", async () => {
+  const { lastCheckInDay, checkInDue } = await import("../../src/lib/workflows/goals");
+  assert.equal(lastCheckInDay("2027-02-17", 1), "2027-02-15", "Wednesday → Monday");
+  assert.equal(lastCheckInDay("2027-02-15", 1), "2027-02-15", "Monday itself");
+  assert.equal(lastCheckInDay("2027-02-14", 1), "2027-02-08", "Sunday → the Monday before");
+  assert.equal(lastCheckInDay("2027-02-17", 5), "2027-02-12", "Friday check-ins");
+  assert.equal(checkInDue(null, "2027-02-17", 1), true);
+  assert.equal(checkInDue("2027-02-15T03:00:00Z", "2027-02-17", 1), false);
+  assert.equal(checkInDue("2027-02-14T20:00:00Z", "2027-02-17", 1, "UTC"), true);
+  assert.equal(checkInDue("2027-02-14T20:00:00Z", "2027-02-17", 1, "Asia/Kolkata"), false, "already Monday 01:30 in Kolkata");
+});

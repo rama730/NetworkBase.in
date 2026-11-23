@@ -1,6 +1,7 @@
 "use client";
 
 import { TodaysMeetings } from "@/components/my-work/TodaysMeetings";
+import { GoalCheckIns } from "@/components/my-work/GoalCheckIns";
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -737,6 +738,7 @@ export default function MyWorkTasksTab({ isActive = true, day = null, onDay, pin
             {tools}
             {chipRow}
             <TodaysMeetings />
+            <GoalCheckIns />
             {nextCard}
             {nothingMatches ? (
                 <div className="nb-empty-state nb-grid-ground nb-mw-empty" style={{ ["--n" as string]: 3 }}>

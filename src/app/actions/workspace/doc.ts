@@ -2246,6 +2246,10 @@ export async function readGoalsAction(projectId: string, docSlug: string) {
         const settings = g.goalSettings((ws?.settings as Record<string, unknown> | null)?.goals);
         const range = g.periodRange(period, settings);
         const pace = g.expectedPace(range.start, range.end, new Date());
+        const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
+        const { zonedParts } = await import("@/lib/workflows/request-clock");
+        const tz = (await readWorkingHours(projectId)).tz;
+        const today = zonedParts(new Date(), tz).day;
         const items = await db.select({ id: tasks.id, number: tasks.taskNumber, title: tasks.title, type: tasks.itemType, stage: tasks.stage, partOfId: tasks.partOfId, fields: tasks.typeFields,
             assigneeId: tasks.assigneeId, assigneeName: profiles.fullName }).from(tasks).leftJoin(profiles, eq(profiles.id, tasks.assigneeId))
             .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), eq(tasks.sourceDocId, context.readme!.id), inArray(tasks.itemType, ["objective", "key_result"])))
@@ -2254,12 +2258,16 @@ export async function readGoalsAction(projectId: string, docSlug: string) {
         const history = krIds.length ? Array.from(await db.execute<{ task_id: string; value: string; created_at: Date }>(sql`
             SELECT task_id, value, created_at FROM (SELECT task_id, value, created_at, row_number() OVER (PARTITION BY task_id ORDER BY created_at DESC) AS n
             FROM key_result_check_ins WHERE task_id IN (${sql.join(krIds.map((i) => sql`${i}::uuid`), sql`, `)})) h WHERE n <= 8 ORDER BY created_at`)) : [];
+        const linked = await measuredValues(projectId, items.map((i) => ({ id: i.id, measuredBy: ((i.fields ?? {}) as Record<string, unknown>).measuredBy as { kind: string; ref?: string } | undefined })), range);
         const shapeKr = (i: (typeof items)[number]) => {
             const f = (i.fields ?? {}) as Record<string, unknown>;
-            const kr = { start: Number(f.start ?? 0), target: Number(f.target ?? 0), current: f.current == null ? null : Number(f.current), direction: (f.direction === "decrease" ? "decrease" : "increase") as "increase" | "decrease" };
+            const live = linked.get(i.id);
+            const kr = { start: Number(f.start ?? 0), target: Number(f.target ?? 0), current: live ? live.value : f.current == null ? null : Number(f.current), direction: (f.direction === "decrease" ? "decrease" : "increase") as "increase" | "decrease" };
             const progress = g.krProgress(kr);
             const override = f.statusOverride as { status: "on_track" | "at_risk" | "off_track"; reason: string } | null | undefined;
             return { id: i.id, number: i.number, title: i.title, assigneeId: i.assigneeId, assigneeName: i.assigneeName, ...kr, unit: String(f.unit ?? ""),
+                measuredBy: live ? { kind: live.kind, from: live.from } : null,
+                due: !context.settings.closedAt && i.stage === "active" && g.checkInDue((f.checkedInAt as string | null) ?? null, today, settings.checkInDay, tz),
                 confidence: (f.confidence as number | null) ?? null, checkedInAt: (f.checkedInAt as string | null) ?? null, progress,
                 status: override?.status ?? g.goalStatus(progress, pace, settings.bands), override: override ?? null, result: i.stage === "done" || i.stage === "missed" ? (i.stage as "done" | "missed") : null,
                 history: history.filter((h) => h.task_id === i.id).map((h) => ({ value: Number(h.value), at: new Date(h.created_at).toISOString() })) };
@@ -2274,12 +2282,46 @@ export async function readGoalsAction(projectId: string, docSlug: string) {
         const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
             SELECT p.id, coalesce(p.full_name, p.username, 'Someone') AS name FROM profiles p
             WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${projectId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${projectId}::uuid) ORDER BY p.full_name`));
-        return { success: true as const, period, label: g.periodLabel(period), week: g.weekOf(range.start, range.end, new Date()), pace, canEdit: context.permission.canEdit && !context.settings.closedAt,
+        // W3: what a key result can be measured by (projects and roadmap items in this workspace).
+        const sources = await db.select({ id: tasks.id, title: tasks.title, type: tasks.itemType }).from(tasks)
+            .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), inArray(tasks.itemType, ["project", "roadmap_item"]))).orderBy(asc(tasks.title)).limit(200);
+        return { success: true as const, period, label: g.periodLabel(period), sources: sources.map((x) => ({ id: x.id, title: x.title, kind: x.type === "project" ? "project" as const : "roadmap" as const })), week: g.weekOf(range.start, range.end, new Date()), pace, canEdit: context.permission.canEdit && !context.settings.closedAt,
             closedAt: context.settings.closedAt ?? null, viewerId: actor, objectives, people };
     } catch (error) {
         logger.error("goals.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t load the goals." };
     }
+}
+
+/**
+ * W7 (A5.1b): a linked key result's current value, worked out on read: a project's or roadmap item's completion (its
+ * work tasks done, canceled ones left out), tasks done with a label in the period, or open urgent bugs right now.
+ */
+async function measuredValues(projectId: string, krs: Array<{ id: string; measuredBy?: { kind: string; ref?: string } }>, range: { start: string; end: string }) {
+    const out = new Map<string, { kind: string; value: number; from: string | null }>();
+    for (const kr of krs) {
+        const m = kr.measuredBy;
+        if (!m || m.kind === "checkins") continue;
+        if ((m.kind === "project" || m.kind === "roadmap") && m.ref && /^[0-9a-f-]{36}$/i.test(m.ref)) {
+            const [row] = Array.from(await db.execute<{ title: string | null; done: number; total: number }>(sql`
+                SELECT (SELECT title FROM tasks WHERE id = ${m.ref}::uuid AND workspace_id = ${projectId}::uuid AND deleted_at IS NULL) AS title,
+                  count(*) FILTER (WHERE status = 'done')::int AS done, count(*)::int AS total
+                FROM tasks WHERE part_of_id = ${m.ref}::uuid AND workspace_id = ${projectId}::uuid AND deleted_at IS NULL AND coalesce(stage, '') <> 'cancelled'`));
+            // A deleted project or roadmap item: the value stays where it was (edge case in part 2).
+            if (row?.title) out.set(kr.id, { kind: m.kind, value: row.total ? Math.round((100 * row.done) / row.total) : 0, from: row.title });
+        } else if (m.kind === "label" && m.ref) {
+            const [row] = Array.from(await db.execute<{ n: number }>(sql`
+                SELECT count(*)::int AS n FROM tasks WHERE workspace_id = ${projectId}::uuid AND deleted_at IS NULL AND status = 'done' AND ${m.ref} = ANY(labels)
+                  AND completed_at >= ${range.start}::date AND completed_at < ${range.end}::date`));
+            out.set(kr.id, { kind: m.kind, value: row?.n ?? 0, from: m.ref });
+        } else if (m.kind === "bugs") {
+            const [row] = Array.from(await db.execute<{ n: number }>(sql`
+                SELECT count(*)::int AS n FROM tasks WHERE workspace_id = ${projectId}::uuid AND deleted_at IS NULL AND item_type = 'bug'
+                  AND stage IN ('new', 'confirmed', 'fixing') AND type_fields->>'severity' = 'urgent'`));
+            out.set(kr.id, { kind: m.kind, value: row?.n ?? 0, from: null });
+        }
+    }
+    return out;
 }
 
 async function addGoalItem(projectId: string, userId: string, docSlug: string, fields: { title: string; itemType: "objective" | "key_result"; typeFields: Record<string, unknown>; partOfId?: string; assigneeId?: string | null }) {
@@ -2313,17 +2355,47 @@ export async function addKeyResultAction(projectId: string, input: unknown) {
     try {
         const userId = await requireUserId();
         const data = z.object({ docSlug: docSlugSchema, objectiveId: z.string().uuid(), title: z.string().trim().min(1, "Name the key result").max(200),
-            direction: z.enum(["increase", "decrease"]), unit: z.string().trim().max(20), start: z.number().finite(), target: z.number().finite(), assigneeId: z.string().uuid().nullish() }).parse(input);
+            direction: z.enum(["increase", "decrease"]), unit: z.string().trim().max(20), start: z.number().finite(), target: z.number().finite(), assigneeId: z.string().uuid().nullish(),
+            measuredBy: z.object({ kind: z.enum(["checkins", "project", "roadmap", "label", "bugs"]), ref: z.string().trim().max(200).optional() }).optional() }).parse(input);
+        // W7 (A5.1b): a linked key result names something in this workspace.
+        const m = data.measuredBy;
+        if (m && (m.kind === "project" || m.kind === "roadmap")) {
+            const [linked] = m.ref && /^[0-9a-f-]{36}$/i.test(m.ref) ? await db.select({ id: tasks.id }).from(tasks)
+                .where(and(eq(tasks.id, m.ref), eq(tasks.projectId, projectId), eq(tasks.itemType, m.kind === "project" ? "project" : "roadmap_item"), isNull(tasks.deletedAt))).limit(1) : [];
+            if (!linked) return { success: false as const, error: m.kind === "project" ? "Pick a project in this workspace." : "Pick a roadmap item in this workspace." };
+        }
+        if (m?.kind === "label" && !m.ref) return { success: false as const, error: "Name the label." };
         const [objective] = await db.select({ id: tasks.id }).from(tasks)
             .where(and(eq(tasks.id, data.objectiveId), eq(tasks.projectId, projectId), eq(tasks.itemType, "objective"), isNull(tasks.deletedAt))).limit(1);
         if (!objective) return { success: false as const, error: "Objective not found." };
         if (data.direction === "increase" ? data.target < data.start : data.target > data.start) return { success: false as const, error: data.direction === "increase" ? "The target is below the start: pick Decrease." : "The target is above the start: pick Increase." };
         return await addGoalItem(projectId, userId, data.docSlug, { title: data.title, itemType: "key_result", partOfId: objective.id, assigneeId: data.assigneeId,
-            typeFields: { direction: data.direction, unit: data.unit, start: data.start, target: data.target, current: data.start } });
+            typeFields: { direction: data.direction, unit: data.unit, start: data.start, target: data.target, current: data.start, ...(m && m.kind !== "checkins" ? { measuredBy: m } : {}) } });
     } catch (error) {
         if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the key result." };
         logger.error("goals.kr_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t add the key result." };
+    }
+}
+
+/** Report 38.12 S4 (A5.1b): the Overview card: this period's goals document in numbers. Null when there is none. */
+export async function readGoalsSummaryAction(projectId: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const g = await import("@/lib/workflows/goals");
+        const [ws] = await db.select({ settings: workspaces.workflowSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const period = g.periodOf(new Date().toISOString().slice(0, 10), g.goalSettings((ws?.settings as Record<string, unknown> | null)?.goals));
+        const [doc] = await db.select({ slug: workspaceDocuments.slug }).from(workspaceDocuments)
+            .where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.settings}->>'section' = 'goals'`, sql`${workspaceDocuments.settings}->>'period' = ${period}`)).limit(1);
+        if (!doc || !actor) return { success: true as const, summary: null };
+        const r = await readGoalsAction(projectId, doc.slug);
+        if (!r.success) return { success: true as const, summary: null };
+        const count = (s: string) => r.objectives.filter((o) => o.status === s).length;
+        return { success: true as const, summary: { slug: doc.slug, label: r.label.split(" ")[0]!, objectives: r.objectives.length, onTrack: count("on_track"), atRisk: count("at_risk"), offTrack: count("off_track"),
+            due: r.objectives.reduce((n, o) => n + o.keyResults.filter((k) => k.due).length, 0) } };
+    } catch (error) {
+        logger.error("goals.summary_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load the goals." };
     }
 }
 

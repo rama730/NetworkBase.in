@@ -2360,6 +2360,48 @@
       ]
     },
     {
+      "name": "goals list",
+      "summary": "This period's objectives and key results with progress and status",
+      "usage": "nb goals list [--mine]",
+      "flags": {
+        "mine": {
+          "type": "boolean",
+          "describe": "Only what you own"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "goals checkin",
+      "summary": "Check in on a key result: its value and your confidence",
+      "usage": "nb goals checkin <key result> --value <n> --confidence <1-10> [--note text]",
+      "flags": {
+        "value": {
+          "type": "string",
+          "describe": "The new value"
+        },
+        "confidence": {
+          "type": "string",
+          "describe": "1–10"
+        },
+        "note": {
+          "type": "string",
+          "describe": "A short note"
+        }
+      },
+      "examples": [
+        "nb goals checkin NB-301 --value 42 --confidence 7 --note \"Two teams joined\""
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "task done",
       "summary": "Finish a task (sends it for review when required)",
       "usage": "nb task done [task] [-m summary] [--check name=pass]",

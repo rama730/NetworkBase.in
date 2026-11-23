@@ -725,6 +725,9 @@ const patterns = [
   // Meetings and decisions (report 38.11 W12): whatever the test put on state.
   [/^\/api\/v1\/workspaces\/([^/]+)\/meetings$/, "GET", (_req, /** @type {any} */ state) => ({ data: { timeZone: "UTC", meetings: state.meetings ?? [], openActionItems: state.openActionItems ?? [] } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/decisions$/, "GET", (_req, /** @type {any} */ state) => ({ data: { decisions: state.decisions ?? [] } })],
+  // Goals (report 38.12 W10): whatever the test put on state.goals; a check-in is recorded on state.checkins.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/goals$/, "GET", (_req, /** @type {any} */ state) => ({ data: state.goals ?? { period: "2027-Q1", label: null, objectives: [] } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/goals$/, "POST", (req, /** @type {any} */ state) => { (state.checkins ??= []).push(req.body); return { data: { checkedIn: true } }; }],
   // Launches (report 38.10 W10): whatever the test put on state.launches.
   [/^\/api\/v1\/workspaces\/([^/]+)\/launches$/, "GET", (_req, /** @type {any} */ state) => ({ data: { launches: state.launches ?? [] } })],
   // Roadmap (report 38.9 W12): whatever the test put on state.roadmap.

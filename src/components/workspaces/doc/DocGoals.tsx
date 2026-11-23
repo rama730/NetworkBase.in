@@ -11,7 +11,7 @@ import { useOpenDocAfter } from "@/components/workspaces/doc/DocMeeting";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
-import { goalsMarkdown, nextPeriod, periodLabel, periodOf, STATUS_WORD, type GoalStatus } from "@/lib/workflows/goals";
+import { goalsMarkdown, MEASURED_BY, nextPeriod, periodLabel, periodOf, STATUS_WORD, type GoalStatus, type MeasuredKind } from "@/lib/workflows/goals";
 
 const goalsKey = (projectId: string, docSlug: string) => [...queryKeys.project.detail.tasksRoot(projectId), "goals", docSlug];
 type Data = Extract<Awaited<ReturnType<typeof readGoalsAction>>, { success: true }>;
@@ -98,6 +98,7 @@ export function GoalsBlock({ projectId, docSlug }: { projectId: string; docSlug:
                   <Gauge aria-hidden="true" className="size-3.5 text-muted-foreground" />
                   <span className="min-w-0 flex-1 text-[13px] text-foreground">{k.title}</span>
                   <span className="font-mono text-[11px] text-muted-foreground">{fmt(k.current)} / {fmt(k.target)}{k.unit ? ` ${k.unit}` : ""}{k.direction === "decrease" ? " · lower is better" : ""}</span>
+                  {k.measuredBy ? <span className="text-[11px] text-muted-foreground" data-testid="kr-measured">{k.measuredBy.kind === "bugs" ? "open urgent bugs" : k.measuredBy.kind === "label" ? `done with “${k.measuredBy.from}”` : `from ${k.measuredBy.from}`}</span> : null}
                   <Bar value={k.progress} label={`${k.title} progress`} />
                   {k.confidence ? <span className="font-mono text-[11px] text-muted-foreground" title="Confidence">{k.confidence}/10</span> : null}
                   {k.result ? <StatusBadge state={k.result}>{STATUS_WORD[k.result]}</StatusBadge> : badge(k.status, k.override)}
@@ -118,7 +119,7 @@ export function GoalsBlock({ projectId, docSlug }: { projectId: string; docSlug:
           <input aria-label="New objective" value={adding} maxLength={200} disabled={busy} onChange={(e) => setAdding(e.target.value)} placeholder="Objective (Enter to add)" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" />
         </form>
       ) : null}
-      {dialog?.kind === "kr" ? <KeyResultDialog people={data.people} count={dialog.count} busy={busy} onClose={() => setDialog(null)}
+      {dialog?.kind === "kr" ? <KeyResultDialog people={data.people} sources={data.sources} count={dialog.count} busy={busy} onClose={() => setDialog(null)}
         onSave={(v) => void run(() => addKeyResultAction(projectId, { docSlug, objectiveId: dialog.objectiveId, ...v }), "Key result added")} /> : null}
       {dialog?.kind === "checkin" ? <CheckInDialog kr={dialog.kr} busy={busy} onClose={() => setDialog(null)}
         onSave={(v) => void run(() => checkInAction(projectId, { taskId: dialog.kr.id, ...v }), "Checked in")} /> : null}
@@ -147,15 +148,18 @@ function Shell({ title, description, testId, busy, onClose, onSave, saveLabel, c
 }
 
 /** W3: name, Increase / Decrease, unit, start, target, assigned to; a soft note outside 2–4 key results. */
-function KeyResultDialog({ people, count, busy, onClose, onSave }: { people: Array<{ id: string; name: string }>; count: number; busy: boolean; onClose: () => void;
-  onSave: (v: { title: string; direction: "increase" | "decrease"; unit: string; start: number; target: number; assigneeId: string | null }) => void }) {
-  const [v, setV] = useState({ title: "", direction: "increase" as "increase" | "decrease", unit: "", start: "0", target: "", assigneeId: "" });
+function KeyResultDialog({ people, sources, count, busy, onClose, onSave }: { people: Array<{ id: string; name: string }>; sources: Array<{ id: string; title: string; kind: "project" | "roadmap" }>; count: number; busy: boolean; onClose: () => void;
+  onSave: (v: { title: string; direction: "increase" | "decrease"; unit: string; start: number; target: number; assigneeId: string | null; measuredBy?: { kind: MeasuredKind; ref?: string } }) => void }) {
+  const [v, setV] = useState({ title: "", direction: "increase" as "increase" | "decrease", unit: "", start: "0", target: "", assigneeId: "", kind: "checkins" as MeasuredKind, ref: "" });
+  const refs = sources.filter((x) => x.kind === v.kind);
   const [error, setError] = useState<string | null>(null);
   const save = () => {
     if (!v.title.trim()) return setError("Name the key result");
     const start = Number(v.start), target = Number(v.target);
     if (v.target === "" || !Number.isFinite(start) || !Number.isFinite(target)) return setError("Give a start and a target");
-    onSave({ title: v.title.trim(), direction: v.direction, unit: v.unit.trim(), start, target, assigneeId: v.assigneeId || null });
+    if (v.kind !== "checkins" && v.kind !== "bugs" && !v.ref.trim()) return setError(v.kind === "label" ? "Name the label" : "Pick what it's measured by");
+    onSave({ title: v.title.trim(), direction: v.direction, unit: v.unit.trim(), start, target, assigneeId: v.assigneeId || null,
+      ...(v.kind !== "checkins" ? { measuredBy: { kind: v.kind, ...(v.ref.trim() ? { ref: v.ref.trim() } : {}) } } : {}) });
   };
   return (
     <Shell title="New key result" description={count >= 5 ? "This objective has 5 key results; most need 2–4." : count === 0 ? "Aim for 2–4 numbers that prove the objective." : undefined} testId="kr-dialog" busy={busy} onClose={onClose} onSave={save} saveLabel="Add key result">
@@ -166,6 +170,18 @@ function KeyResultDialog({ people, count, busy, onClose, onSave }: { people: Arr
         <Field label="Start" htmlFor="kr-start"><input id="kr-start" inputMode="decimal" value={v.start} onChange={(e) => setV({ ...v, start: e.target.value })} className={`${inputClassName(false)} font-mono`} /></Field>
         <Field label="Target" htmlFor="kr-target"><input id="kr-target" inputMode="decimal" value={v.target} onChange={(e) => setV({ ...v, target: e.target.value })} className={`${inputClassName(false)} font-mono`} /></Field>
       </div>
+      <Field label="Measured by" htmlFor="kr-measured"><SelectWrap><select id="kr-measured" value={v.kind} onChange={(e) => {
+        const kind = e.target.value as MeasuredKind;
+        // Open urgent bugs: lower is better, as a count (W7).
+        setV({ ...v, kind, ref: "", ...(kind === "bugs" ? { direction: "decrease" as const, unit: "bugs" } : kind === "project" || kind === "roadmap" ? { unit: "%", start: "0", target: "100" } : {}) });
+      }} className={selectClassName()}>{MEASURED_BY.map((m) => <option key={m.kind} value={m.kind}>{m.label}</option>)}</select></SelectWrap></Field>
+      {v.kind === "project" || v.kind === "roadmap" ? (
+        <Field label={v.kind === "project" ? "Project" : "Roadmap item"} htmlFor="kr-ref"><SelectWrap><select id="kr-ref" value={v.ref} onChange={(e) => setV({ ...v, ref: e.target.value })} className={selectClassName()}>
+          <option value="">{refs.length ? "Pick one" : "None in this workspace yet"}</option>{refs.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+        </select></SelectWrap></Field>
+      ) : v.kind === "label" ? (
+        <Field label="Label" htmlFor="kr-ref"><input id="kr-ref" maxLength={40} value={v.ref} onChange={(e) => setV({ ...v, ref: e.target.value })} placeholder="onboarding" className={inputClassName(false)} /></Field>
+      ) : null}
       <Field label="Assigned to" htmlFor="kr-assignee"><SelectWrap><select id="kr-assignee" value={v.assigneeId} onChange={(e) => setV({ ...v, assigneeId: e.target.value })} className={selectClassName()}><option value="">Nobody yet</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></SelectWrap></Field>
     </Shell>
   );
@@ -176,6 +192,7 @@ const confidenceWord = (n: number) => (n <= 3 ? "Low" : n <= 7 ? "Medium" : "Hig
 /** S2: the value, a confidence 1–10 with words, a note; past check-ins as a small line and a table for screen readers. */
 function CheckInDialog({ kr, busy, onClose, onSave }: { kr: Kr; busy: boolean; onClose: () => void; onSave: (v: { value: number; confidence: number; note?: string }) => void }) {
   const [value, setValue] = useState(kr.current == null ? "" : String(kr.current));
+  const linked = Boolean(kr.measuredBy);
   const [confidence, setConfidence] = useState(kr.confidence ?? 5);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -185,7 +202,7 @@ function CheckInDialog({ kr, busy, onClose, onSave }: { kr: Kr; busy: boolean; o
   const points = h.map((x, i) => `${h.length > 1 ? (i / (h.length - 1)) * 160 : 80},${hi === lo ? 20 : 36 - ((x.value - lo) / (hi - lo)) * 32}`).join(" ");
   return (
     <Shell title={`Check in: ${kr.title}`} description={`Target ${fmt(kr.target)}${kr.unit ? ` ${kr.unit}` : ""} · now ${fmt(kr.current)}`} testId="checkin-dialog" busy={busy} onClose={onClose} onSave={save} saveLabel="Check in">
-      <Field label="New value" htmlFor="checkin-value" required error={error ?? undefined}><input id="checkin-value" autoFocus inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} className={`${inputClassName(Boolean(error))} font-mono`} /></Field>
+      <Field label={linked ? "Value (worked out for you)" : "New value"} htmlFor="checkin-value" required={!linked} error={error ?? undefined}><input id="checkin-value" autoFocus={!linked} readOnly={linked} inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} className={`${inputClassName(Boolean(error))} font-mono`} /></Field>
       <Field label={`Confidence: ${confidence}/10 · ${confidenceWord(confidence)}`} htmlFor="checkin-confidence"><input id="checkin-confidence" type="range" min={1} max={10} value={confidence} onChange={(e) => setConfidence(Number(e.target.value))} className="w-full" /></Field>
       <Field label="Note" htmlFor="checkin-note"><textarea id="checkin-note" rows={2} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className={`${inputClassName(false)} h-auto py-2`} /></Field>
       {h.length ? (

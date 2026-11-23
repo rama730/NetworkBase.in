@@ -112,9 +112,33 @@ export const keyResultFieldsSchema = z.object({
   current: z.number().finite().nullish(),
   confidence: z.number().int().min(1).max(10).nullish(),
   checkedInAt: z.string().nullish(),
+  /** W7 (A5.1b): where the current value comes from; check-ins when missing. */
+  measuredBy: z.object({ kind: z.enum(["checkins", "project", "roadmap", "label", "bugs"]), ref: z.string().trim().max(200).optional() }).nullish(),
   statusOverride: z.object({ status: z.enum(["on_track", "at_risk", "off_track"]), reason: z.string().trim().min(1).max(200) }).nullish(),
 }).strict();
 
 /** W1: "Goals · Q1 2027": a short guide (from the OKRs reference) and the period's goals block. */
 export const goalsMarkdown = (period: string) =>
   `# Goals · ${periodLabel(period)}\n\n_An objective is a direction; its key results are numbers that prove you got there. Aim for 2–4 key results each, and check in every week._\n\n${goalsBlockLine(period)}\n`;
+
+export const MEASURED_BY = [
+  { kind: "checkins", label: "A number we check in" }, { kind: "project", label: "A project's completion" }, { kind: "roadmap", label: "A roadmap item's work" },
+  { kind: "label", label: "Tasks done with a label" }, { kind: "bugs", label: "Open urgent bugs" },
+] as const;
+export type MeasuredKind = (typeof MEASURED_BY)[number]["kind"];
+
+/**
+ * W4 (A5.1b): the most recent check-in day (1 = Monday … 7 = Sunday) on or before `today` (YYYY-MM-DD, the workspace's
+ * day); a key result is due when its last check-in is older than that day.
+ */
+export function lastCheckInDay(today: string, checkInDay: number) {
+  const d = new Date(`${today}T00:00:00Z`);
+  const iso = ((d.getUTCDay() + 6) % 7) + 1;
+  d.setUTCDate(d.getUTCDate() - ((iso - checkInDay + 7) % 7));
+  return d.toISOString().slice(0, 10);
+}
+export const checkInDue = (checkedInAt: string | null, today: string, checkInDay: number, tz = "UTC") => {
+  if (!checkedInAt) return true;
+  const local = new Date(checkedInAt).toLocaleDateString("en-CA", { timeZone: tz });
+  return local < lastCheckInDay(today, checkInDay);
+};

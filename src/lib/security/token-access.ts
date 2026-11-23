@@ -183,6 +183,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   // A workspace’s meetings and decisions, read-only (report 38.11 W12, nb meetings list, nb decisions list).
   { pattern: route(`/api/v1/workspaces/${ID}/meetings`), read: "task:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/decisions`), read: "task:read", agent: "path" },
+  // This period's goals; checking in writes (report 38.12 W10, nb goals list / checkin).
+  { pattern: route(`/api/v1/workspaces/${ID}/goals`), read: "task:read", write: "task:write", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/manifest`), read: "file:read", agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/image`), read: "workspace:read" },
   // One workspace, its activity and sprints, and updates (report A2.5, A8.7, D25).

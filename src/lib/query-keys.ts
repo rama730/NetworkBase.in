@@ -285,6 +285,7 @@ export const queryKeys = {
     /** Report 38.11 part 8 (A4.1b): meetings today; and the person's .ics link state. */
     meetingsToday: () => ["my-work", "meetings-today"] as const,
     meetingFeed: () => ["my-work", "meeting-feed"] as const,
+    goalCheckIns: () => ["my-work", "goal-check-ins"] as const,
     toReview: () => ["my-work", "to-review"] as const,
     members: () => ["my-work", "members"] as const,
     sprints: () => ["my-work", "sprints"] as const,

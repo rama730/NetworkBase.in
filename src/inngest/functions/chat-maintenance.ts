@@ -70,6 +70,8 @@ export const chatDue = inngest.createFunction(
     if (event.name !== "chat/due.wake") {
       // A1.6: "Ends in 3 days" for projects, once a project and end date (the hourly run only; dedupe keys hold).
       await step.run("projects-ending", async () => (await import("@/lib/workflows/planner-notify")).notifyProjectsEndingSoon());
+      // A5.1b: "Check in on 3 key results" on each workspace's check-in day (dedupe keys hold).
+      await step.run("goal-checkins", async () => (await import("@/lib/workflows/goals-notify")).notifyGoalCheckIns());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

@@ -117,3 +117,73 @@ test("W2–W5: objectives and key results (off the board), check-ins move curren
   const board = await sql`SELECT count(*)::int AS n FROM tasks WHERE workspace_id = ${t.ws} AND on_board AND item_type IN ('objective', 'key_result')`;
   assert.equal(board[0]!.n, 0);
 });
+
+// Plan A5.1b (report 38.12 W7): measured by a project, a label or open urgent bugs, worked out on read.
+test("W7: a key result measured by a project's completion, tasks done with a label, or open urgent bugs", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  await sql`INSERT INTO workspace_workflows (workspace_id, workflow, added_by) VALUES (${t.ws}, 'project_planner', ${t.owner}), (${t.ws}, 'bugs', ${t.owner})`;
+  await goalsDoc(t, "goals-q1", "2027-Q1");
+  const make = async (input: Record<string, unknown>) => {
+    const r = await tasksServer.createTaskAction({ projectId: t.ws, status: "todo", priority: "medium", assigneeId: null, dueDate: null, ...input } as never);
+    assert.ok(r.success && "task" in r && r.task, JSON.stringify(r));
+    return (r as { task: { id: string } }).task.id;
+  };
+  const project = await make({ title: "Website relaunch", itemType: "project", stage: "in_progress" });
+  const w1 = await make({ title: "Design", partOfId: project });
+  await make({ title: "Build", partOfId: project });
+  await sql`UPDATE tasks SET status = 'done', completed_at = '2027-02-02' WHERE id = ${w1}`;
+  const labelled = await make({ title: "Onboarding email" });
+  await sql`UPDATE tasks SET status = 'done', labels = '{onboarding}', completed_at = '2027-02-03' WHERE id = ${labelled}`;
+  await make({ title: "Crash on save", itemType: "bug", stage: "new", typeFields: { severity: "urgent" } });
+  await make({ title: "Typo", itemType: "bug", stage: "new", typeFields: { severity: "minor" } });
+
+  const o = await docs.addObjectiveAction(t.ws, { docSlug: "goals-q1", title: "Ship well" });
+  assert.ok(o.success);
+  const add = (title: string, measuredBy: Record<string, unknown>, direction: "increase" | "decrease", start: number, target: number) =>
+    docs.addKeyResultAction(t.ws, { docSlug: "goals-q1", objectiveId: o.id, title, direction, unit: "", start, target, measuredBy });
+  assert.equal((await add("Bad ref", { kind: "project", ref: o.id }, "increase", 0, 100) as { error?: string }).error, "Pick a project in this workspace.", "an objective isn't a project");
+  assert.ok((await add("Relaunch done", { kind: "project", ref: project }, "increase", 0, 100)).success);
+  assert.ok((await add("Onboarding tasks", { kind: "label", ref: "onboarding" }, "increase", 0, 4)).success);
+  assert.ok((await add("Urgent bugs", { kind: "bugs" }, "decrease", 3, 0)).success);
+  const read = await docs.readGoalsAction(t.ws, "goals-q1");
+  assert.ok(read.success);
+  assert.deepEqual(read.objectives[0]!.keyResults.map((k) => [k.title, k.current, k.measuredBy?.from ?? null, k.progress]),
+    [["Relaunch done", 50, "Website relaunch", 50], ["Onboarding tasks", 1, "onboarding", 25], ["Urgent bugs", 1, null, 66]]);
+  assert.deepEqual(read.sources.map((x) => [x.title, x.kind]), [["Website relaunch", "project"]]);
+});
+
+// Plan A5.1b (report 38.12 W4, S4, part 8): check-ins due, the Overview card, My work, the check-in day notice.
+test("W4 and S4: due check-ins count on the Overview card and in My work; the notice goes on the check-in day from 09:00, once", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const g = await import("../../src/lib/workflows/goals");
+  const period = g.periodOf(new Date().toISOString().slice(0, 10), {});
+  await goalsDoc(t, "goals-now", period);
+  const o = await docs.addObjectiveAction(t.ws, { docSlug: "goals-now", title: "Grow" });
+  assert.ok(o.success);
+  const kr = await docs.addKeyResultAction(t.ws, { docSlug: "goals-now", objectiveId: o.id, title: "Teams", direction: "increase", unit: "", start: 0, target: 10, assigneeId: t.member });
+  assert.ok(kr.success);
+  const summary = await docs.readGoalsSummaryAction(t.ws);
+  assert.ok(summary.success && summary.summary);
+  assert.deepEqual([summary.summary.objectives, summary.summary.due, summary.summary.slug], [1, 1, "goals-now"]);
+  viewerId = t.member;
+  const mine = await (await loadAppModule(() => import("../../src/app/actions/goal-checkins"))).readMyGoalCheckInsAction();
+  assert.ok(mine.success);
+  assert.deepEqual(mine.checkIns.map((c) => c.count), [1]);
+  assert.ok((await docs.checkInAction(t.ws, { taskId: kr.id, value: 2, confidence: 6 })).success);
+  const after = await (await loadAppModule(() => import("../../src/app/actions/goal-checkins"))).readMyGoalCheckInsAction();
+  assert.ok(after.success);
+  assert.equal(after.checkIns.length, 0, "checked in: nothing due");
+
+  // The notice: only on the check-in day (Monday) from 09:00 in the workspace's zone, once.
+  await sql`UPDATE tasks SET type_fields = type_fields - 'checkedInAt' WHERE id = ${kr.id}`;
+  const notify = (await loadAppModule(() => import("../../src/lib/workflows/goals-notify"))).notifyGoalCheckIns;
+  const count = async () => (await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title = 'Check in on 1 key result'`)[0]!.n;
+  await notify(new Date("2027-02-16T05:00:00Z")); // Tuesday
+  await notify(new Date("2027-02-15T02:00:00Z")); // Monday 07:30 in Kolkata
+  assert.equal(await count(), 0);
+  await notify(new Date("2027-02-15T05:00:00Z")); // Monday 10:30
+  await notify(new Date("2027-02-15T06:00:00Z"));
+  assert.equal(await count(), 1);
+});
