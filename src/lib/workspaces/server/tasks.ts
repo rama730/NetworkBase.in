@@ -1169,6 +1169,28 @@ async function checkNewItemType(projectId: string, userId: string, type: string,
 }
 
 
+/** Report 38.8 (A2.7): channels and type from the workspace's content settings; publishAt and the due date kept together. */
+async function checkContentFields(projectId: string, fields: Record<string, unknown>, dueDate: unknown) {
+  const { readContentSettings } = await import("@/lib/workflows/content-store");
+  const { defaultPublishAt, checklistFor } = await import("@/lib/workflows/content");
+  const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
+  const { zonedParts } = await import("@/lib/workflows/request-clock");
+  const settings = await readContentSettings(projectId);
+  if (!settings) return { error: "Set up Content’s channels first" } as const;
+  const channels = Array.isArray(fields.channels) ? (fields.channels as string[]) : [];
+  for (const c of channels) if (!settings.channels.some((x) => x.id === c && !x.archived)) return { error: "Pick channels from this workspace’s list" } as const;
+  const type = fields.contentType ? settings.types.find((t) => t.id === fields.contentType) : undefined;
+  if (fields.contentType && !type) return { error: "Pick a type from this workspace’s list" } as const;
+  const { tz } = await readWorkingHours(projectId);
+  let publishAt = typeof fields.publishAt === "string" ? fields.publishAt : null;
+  const dueDay = dueDate instanceof Date ? dueDate.toISOString().slice(0, 10) : typeof dueDate === "string" && dueDate ? dueDate.slice(0, 10) : null;
+  const { publishTime, ...rest } = fields as Record<string, unknown> & { publishTime?: string };
+  if (!publishAt && dueDay) publishAt = defaultPublishAt(dueDay, typeof publishTime === "string" ? publishTime : settings.defaultTime, tz);
+  fields = rest;
+  const due = publishAt ? new Date(`${zonedParts(new Date(publishAt), tz).day}T00:00:00.000Z`) : null;
+  return { fields: { ...fields, channels, publishAt }, dueDate: due, checklist: checklistFor(type) } as const;
+}
+
 /** Report 38.7 (A2.4): the request's type (an active one; the first when left out), its answers, and its files here. */
 async function checkRequestAnswers(projectId: string, fields: Record<string, unknown>) {
   const { readRequestTypes } = await import("@/lib/workflows/request-store");
@@ -1235,6 +1257,15 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         if ("error" in asked) return { success: false, error: asked.error };
         typeFields = asked.fields;
         requestTriagers = asked.triagerIds;
+      }
+      // Report 38.8 (A2.7): a content piece's channels and type exist here; its publish time and due date agree (call 7);
+      // one made at Drafting gets its type's checklist as subtasks (call 5).
+      if (itemType === "content") {
+        const placed = await checkContentFields(validated.projectId, typeFields, validated.dueDate ?? null);
+        if ("error" in placed) return { success: false, error: placed.error };
+        typeFields = placed.fields;
+        validated.dueDate = placed.dueDate ? placed.dueDate.toISOString() : null;
+        if (stage === "drafting" && !validated.subtasks?.length && placed.checklist.length) validated.subtasks = placed.checklist.map((title) => ({ title, completed: false }));
       }
       // Report 38.6 call 3 (A2.1): a bug's severity sets its priority; Not sure leaves it.
       if (itemType === "bug") validated.priority = (priorityForSeverity(typeFields.severity as never) ?? validated.priority) as typeof validated.priority;

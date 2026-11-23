@@ -8261,6 +8261,16 @@
       "status": "live",
       "test": "tests/db/requests.test.ts (A2.6); tests/browser/requests-tab.spec.ts; packages/nb-cli/test/requests.test.mjs",
       "evidence": "cd61cf627 + 1d94a412a live 2026-11-23 (web+worker SUCCESS; full test:db 1248/1248, CLI 360, unit 3714). Checked live on wt-test-a2-3: CLI new (type + --field + need-by), list with clocks, accept, wait (comment posted, clock paused, warnings cleared), deliver; panel Resume, Deliver… with link (Requests · Delivered, link shown), Did this solve it? Yes/No in the panel and My asks (No reopened to In progress with the note as a comment; Yes → Delivered · Solved), My work shows 'Did this solve it?' and its count moves; Overview card '0 new · 0 breaching soon · 1 delivered this week'. Live-check fix: waiting shows without a clock (1d94a412a). Logs clean."
+    },
+    {
+      "key": "38.8.call10",
+      "section": "38.8",
+      "text": "A2.7 (2026-11-23): Content ships in three units (A2.7 setup, ideas, Calendar, This week, Board, To schedule; A2.8 Write draft, Ready for edit, Mark published an",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

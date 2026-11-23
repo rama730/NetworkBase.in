@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { createElement, useMemo, useState } from "react";
+import { createElement, useMemo, useState, type ReactNode } from "react";
 
 import { readCalendarAction } from "@/app/actions/workspace";
 import { setTaskDatesAction, updateTaskFieldAction } from "@/app/actions/task";
@@ -17,7 +17,7 @@ import { agendaDays, calendarCells, daysBetween, dueOn, localDayKey, mondayOf, m
 import { matchesFilters, setCount, type TaskFilters } from "@/lib/workspaces/task-filters";
 import { taskDueDateKey } from "@/lib/workspaces/task-presentation";
 
-type Item = { id: string; taskNumber: number | null; title: string; status: string; dueDate: string | null; startDate?: string | null; itemType?: string; assigneeId: string | null; priority: string; sprintId: string | null };
+type Item = { id: string; taskNumber: number | null; title: string; status: string; dueDate: string | null; startDate?: string | null; itemType?: string; stage?: string | null; assigneeId: string | null; priority: string; sprintId: string | null };
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthTitle = (month: string) => new Date(`${month}-01T00:00:00Z`).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
 const dayTitle = (key: string) => new Date(`${key}T00:00:00Z`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
@@ -28,9 +28,11 @@ const addDays = (key: string, n: number) => new Date(Date.parse(`${key}T00:00:00
  * one to another day moves its due date with Undo; + on a day opens New with that date; No date holds the rest. Phones
  * get an agenda (W10). Opening an item is the keyboard and menu path for every drag.
  */
-export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, onOpenTask, onNewOnDay }: {
+export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, onOpenTask, onNewOnDay, onlyType, rail, onMoveItem }: {
   projectId: string; scope: string; filters: TaskFilters; viewerId: string | null; canEdit: boolean;
   onOpenTask: (item: Item) => void; onNewOnDay: (key: string) => void;
+  /** A2.7 (Content's calendar, report 38.8 S3): one type only, its own rail in place of No date, its own move. */
+  onlyType?: string; rail?: ReactNode; onMoveItem?: (item: { id: string; stage?: string | null }, day: string | null) => boolean;
 }) {
   const queryClient = useQueryClient();
   const phone = useMediaQuery("(max-width: 639px)");
@@ -45,13 +47,14 @@ export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, on
   const key = [...queryKeys.project.detail.tasksRoot(projectId), "calendar", range.from, range.to, scope];
   const query = useQuery({ queryKey: key, queryFn: () => readCalendarAction(projectId, { ...range, scope }), staleTime: 15_000 });
   const data = query.data?.success ? query.data : null;
-  const narrow = (list: Item[]) => (setCount(filters) ? list.filter((i) => matchesFilters(i, filters, viewerId)) : list);
+  const narrow = (list: Item[]) => (setCount(filters) ? list.filter((i) => matchesFilters(i, filters, viewerId)) : list).filter((i) => !onlyType || i.itemType === onlyType);
   const items = useMemo(() => narrow((data?.items ?? []) as Item[]), [data, filters, viewerId]);
   const noDate = useMemo(() => narrow((data?.noDate ?? []) as Item[]), [data, filters, viewerId]);
   const editable = canEdit && Boolean(data?.canEdit);
 
   async function moveTo(itemId: string, day: string | null) {
     const item = [...(data?.items ?? []), ...(data?.noDate ?? [])].find((i) => i.id === itemId) as Item | undefined;
+    if (onMoveItem && onMoveItem(item ?? { id: itemId }, day)) return;
     if (!item || taskDueDateKey(item.dueDate) === day) return;
     const set = async (value: string | null) => {
       const r = await updateTaskFieldAction(item.id, "dueDate", value, projectId);
@@ -151,14 +154,14 @@ export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, on
               </div>
             )}
           </div>
-          <aside aria-label="No date" className="w-full shrink-0 lg:w-56" {...drop("")}
+          {rail ?? <aside aria-label="No date" className="w-full shrink-0 lg:w-56" {...drop("")}
             onDrop={(e) => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData("text/plain"); if (id) void moveTo(id, null); }}>
             <button type="button" aria-expanded={trayOpen} onClick={() => setTrayOpen(!trayOpen)} className="flex w-full items-center gap-1 py-1 text-left text-[12px] font-medium text-foreground">
               <ChevronDown aria-hidden="true" className={cn("size-3.5 transition-transform duration-[180ms]", !trayOpen && "-rotate-90")} />
               No date <span className="font-mono text-[11px] text-muted-foreground">{data?.noDateCount ?? 0}</span>
             </button>
             {trayOpen ? <div className="mt-1 space-y-1">{noDate.map((i) => chip(i))}{!noDate.length && !query.isLoading ? <p className="text-[12px] text-muted-foreground">Everything here has a date</p> : null}</div> : null}
-          </aside>
+          </aside>}
         </div>
       )}
     </section>

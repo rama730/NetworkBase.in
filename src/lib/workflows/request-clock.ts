@@ -29,6 +29,17 @@ function wall(y: number, m: number, d: number, h: number, min: number, tz: strin
   t = guess - offset(t);
   return t;
 }
+/** A wall-clock day and time in a zone as an instant (content's publish time, A2.7). */
+export function zonedInstant(day: string, hhmm: string, tz: string) {
+  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
+  const [h, min] = hhmm.split(":").map(Number) as [number, number];
+  return new Date(wall(y, m, d, h, min, tz));
+}
+/** The local day ("YYYY-MM-DD") and time ("HH:MM") of an instant in a zone. */
+export function zonedParts(at: Date, tz: string) {
+  const p = parts(at, tz);
+  return { day: isoDay(p.y, p.m, p.d), time: `${String(p.h).padStart(2, "0")}:${String(p.min).padStart(2, "0")}` };
+}
 const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
 const isoDay = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 

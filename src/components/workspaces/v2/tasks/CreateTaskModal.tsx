@@ -13,6 +13,7 @@ import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { footerLine, moduleTabs, sectionsFor, sprintApplies, startingStages } from "@/lib/workflows/create-rules";
 import { BugDetailsFields, BugSimilar, readBugFields } from "@/components/workspaces/v2/tasks/BugParts";
 import { readRequestFields, RequestDetailsFields } from "@/components/workspaces/v2/tasks/RequestParts";
+import { ContentDetailsFields, readContentFields } from "@/components/workspaces/v2/tasks/ContentParts";
 import { defaultStageFor } from "@/lib/workflows/rules";
 import { workflowType } from "@/lib/workflows/types";
 import {
@@ -86,6 +87,8 @@ interface CreateTaskModalProps {
   initialSteps?: string;
   /** Only the initial type's tab (Report as bug from chat files a bug, nothing else). */
   lockType?: boolean;
+  /** Report 38.8 W4 (A2.7): a channel's quick-add opens Content with that channel picked. */
+  initialChannels?: string[];
   fromLine?: string;
   /** Report 38.5 W8: + on a Calendar day opens New with that due date (YYYY-MM-DD). */
   initialDueDate?: string;
@@ -139,6 +142,7 @@ export default function CreateTaskModal({
   initialTitle = "",
   initialSteps,
   lockType = false,
+  initialChannels,
   fromLine,
   initialDueDate = "",
   initialStartDate = "",
@@ -260,6 +264,7 @@ export default function CreateTaskModal({
         ...(partOf && kind !== "project" ? { partOfId: partOf.id } : {}),
         ...(kind === "bug" ? { typeFields: readBugFields(formData) } : {}),
         ...(kind === "request" ? { typeFields: readRequestFields(formData, attachments.map((a) => a.id)) } : {}),
+        ...(kind === "content" ? { typeFields: readContentFields(formData, dueDate.trim() || null) } : {}),
       };
 
       const parsed = taskEditorDraftSchema.safeParse(draft);
@@ -420,6 +425,8 @@ export default function CreateTaskModal({
               {kind === "bug" ? <BugDetailsFields initialSteps={initialSteps} /> : null}
               {/* Report 38.7 S6 (A2.4): a request's type and its questions. */}
               {kind === "request" ? <RequestDetailsFields projectId={projectId} /> : null}
+              {/* Report 38.8 W4 (A2.7): a content piece's channels, type and publish time. */}
+              {kind === "content" ? <ContentDetailsFields projectId={projectId} initialChannels={initialChannels} /> : null}
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">
