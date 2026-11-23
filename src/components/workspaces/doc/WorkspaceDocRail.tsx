@@ -334,6 +334,13 @@ export function WorkspaceDocMobileBar({
                     );
                 })
             )}
+            {/* Report 38.11 W11 (A4.1): phones reach Calendar and Open action items from the Meetings row too. */}
+            {shownSection === "meetings" && sections.length ? ([["calendar", "Calendar"], ["actions", "Open action items"]] as const).map(([v, label]) => (
+                <button key={v} type="button" onClick={() => rail.openView(v)} aria-pressed={rail.view === v} data-testid={`mobile-meetings-${v}`}
+                    className={cn("nb-touch-target inline-flex h-[32px] shrink-0 items-center rounded-[5px] border px-3 text-[12px] font-medium max-md:snap-start", rail.view === v ? ACTIVE_ITEM : IDLE_ITEM)}>
+                    {label}
+                </button>
+            )) : null}
             {canEdit ? (
                 <AddDocButton onClick={() => rail.openAdd(sections.length ? shownSection : undefined)} className="nb-touch-target h-[32px] w-[32px] shrink-0" />
             ) : null}
