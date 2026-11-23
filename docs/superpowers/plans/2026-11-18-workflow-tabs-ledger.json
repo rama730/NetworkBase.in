@@ -548,9 +548,9 @@
       "text": "A5.3 Ideas ranked block + Start building — Journeys: D4 W1–W9; switch on User interview's Save as idea and re-run A4.12.",
       "kind": "unit",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/ideas.test.ts; tests/browser/ideas-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (1bfccd78d): Add workflow → Ideas; Ideas doc; WT template shop scored 4·3·2 = 24; Start validating (0 of 3); Start building → task #57; nb task done 57 → idea Launched; nb ideas add/list."
     },
     {
       "key": "A5.4",
@@ -7458,9 +7458,9 @@
       "text": "Score = Impact × Ease × Confidence (1–5 each); unscored ideas rank last. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/ideas.test.ts; tests/browser/ideas-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (1bfccd78d): Add workflow → Ideas; Ideas doc; WT template shop scored 4·3·2 = 24; Start validating (0 of 3); Start building → task #57; nb task done 57 → idea Launched; nb ideas add/list."
     },
     {
       "key": "38.13.call2",
@@ -7468,9 +7468,9 @@
       "text": "Validating adds the workspace's validation steps as subtasks. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/ideas.test.ts; tests/browser/ideas-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (1bfccd78d): Add workflow → Ideas; Ideas doc; WT template shop scored 4·3·2 = 24; Start validating (0 of 3); Start building → task #57; nb task done 57 → idea Launched; nb ideas add/list."
     },
     {
       "key": "38.13.call3",
@@ -7478,9 +7478,9 @@
       "text": "Start building makes a project, a roadmap item or a task, linked both ways. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/ideas.test.ts; tests/browser/ideas-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (1bfccd78d): Add workflow → Ideas; Ideas doc; WT template shop scored 4·3·2 = 24; Start validating (0 of 3); Start building → task #57; nb task done 57 → idea Launched; nb ideas add/list."
     },
     {
       "key": "38.13.call4",
@@ -7488,9 +7488,9 @@
       "text": "An idea becomes Launched by itself when what it became completes or launches. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/ideas.test.ts; tests/browser/ideas-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (1bfccd78d): Add workflow → Ideas; Ideas doc; WT template shop scored 4·3·2 = 24; Start validating (0 of 3); Start building → task #57; nb task done 57 → idea Launched; nb ideas add/list."
     },
     {
       "key": "38.13.call5",
@@ -7498,9 +7498,9 @@
       "text": "Ideas are never public. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/ideas.test.ts; tests/browser/ideas-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (1bfccd78d): Add workflow → Ideas; Ideas doc; WT template shop scored 4·3·2 = 24; Start validating (0 of 3); Start building → task #57; nb task done 57 → idea Launched; nb ideas add/list."
     },
     {
       "key": "38.14.call1",
@@ -8421,6 +8421,26 @@
       "status": "live",
       "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
       "evidence": "Live 2026-11-24 (ea10af933, 739adf020)."
+    },
+    {
+      "key": "38.13.call6",
+      "section": "38.13",
+      "text": "A5.3 (2026-11-24): Ideas' + makes an Ideas document at once (members only) holding the ranked block {% project.ranked type=\"idea\" %}. The block (S1): # · Idea (",
+      "kind": "call",
+      "milestone": "A5",
+      "status": "live",
+      "test": "tests/db/ideas.test.ts; tests/browser/ideas-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (1bfccd78d): Add workflow → Ideas; Ideas doc; WT template shop scored 4·3·2 = 24; Start validating (0 of 3); Start building → task #57; nb task done 57 → idea Launched; nb ideas add/list."
+    },
+    {
+      "key": "38.14.call5",
+      "section": "38.14",
+      "text": "A5.4 (2026-11-24): Off-site's + opens Plan an off-site (name, from–to, place, invite from the members); the browser writes the document (title, Agenda with a he",
+      "kind": "call",
+      "milestone": "A5",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }
