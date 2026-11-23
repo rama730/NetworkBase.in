@@ -198,9 +198,9 @@
       "text": "A2.3 Bugs: chat + Change type + CLI/MCP — Build: reportBugFromMessageAction, changeTaskTypeAction, nb bugs, networkbasebugreport/close. Journeys: T3 W10, W14, W",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/chat-send-replay.test.ts; tests/db/bugs.test.ts; tests/browser/bugs-tab.spec.ts; packages/nb-cli/test/bugs.test.mjs",
+      "evidence": "a81b0648b deployed 2026-11-23; local: tests/db/chat-send-replay (Report as bug), tests/db/bugs (Change type), tests/browser/bugs-tab A2.3 (search, Assigned to, CSV, PR chip) chromium+webkit. Signed-in Chrome check pending: Chrome extension disconnected at deploy time; wt-test-a2-3 kept for it. revisit 2026-11-24"
     },
     {
       "key": "A2.4",
@@ -6168,9 +6168,9 @@
       "text": "Report as bug from chat",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/chat-send-replay.test.ts; tests/db/bugs.test.ts; tests/browser/bugs-tab.spec.ts; packages/nb-cli/test/bugs.test.mjs",
+      "evidence": "a81b0648b deployed 2026-11-23; local: tests/db/chat-send-replay (Report as bug), tests/db/bugs (Change type), tests/browser/bugs-tab A2.3 (search, Assigned to, CSV, PR chip) chromium+webkit. Signed-in Chrome check pending: Chrome extension disconnected at deploy time; wt-test-a2-3 kept for it. revisit 2026-11-24"
     },
     {
       "key": "38.6.W11",
@@ -6208,9 +6208,9 @@
       "text": "CLI and an agent",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "packages/nb-cli/test/bugs.test.mjs",
+      "evidence": "a81b0648b live 2026-11-23 (web+worker SUCCESS). Live on production wt-test-a2-3 via the CLI: nb bugs report (New, unassigned, steps and where saved), bugs from (to do → Confirmed off board, started → Fixing), move confirmed→fixing, PR link, close asks (no = nothing, yes = Won't fix). Bug hunt: web/worker logs clean of A2.3 errors."
     },
     {
       "key": "38.6.W15",
@@ -6228,9 +6228,9 @@
       "text": "Outside reporting, Incidents and the public good-first-issues list stay parked. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "n/a-live",
+      "test": "none (parked)",
+      "evidence": "Parked by call: outside reporting, Incidents, good-first-issues page are not built."
     },
     {
       "key": "38.6.call2",
@@ -6238,9 +6238,9 @@
       "text": "Found in and Fixed in are version text until launches exist (T2, D2); no auto-verify. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/bugs-rules.test.ts (fixedGroups)",
+      "evidence": "Found in / Fixed in are text (A2.1 fields, Fixed tab groups); no auto-verify; live 2026-11-23."
     },
     {
       "key": "38.6.call3",
@@ -6248,9 +6248,9 @@
       "text": "Severity sets priority; on bugs, priority is shown read-only \"from severity\". [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/bugs-rules.test.ts (priorityForSeverity); tests/db/bugs.test.ts",
+      "evidence": "Built A2.1 (priority from severity; panel shows it read-only \"from severity\"); live with A2.1 and checked again via the CLI 2026-11-23 (major → high)."
     },
     {
       "key": "38.6.call4",
@@ -6258,9 +6258,9 @@
       "text": "Severity can be Not sure when reporting; it's required at Confirm. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts (W4 Confirm)",
+      "evidence": "A2.1: Not sure allowed at report, required at Confirm; live 2026-11-23."
     },
     {
       "key": "38.6.call5",
@@ -6268,9 +6268,9 @@
       "text": "New bugs notify owners and admins (no separate triage person setting). [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts (W2 notices)",
+      "evidence": "A2.1 notifyBugReported to owners and admins; live 2026-11-23."
     },
     {
       "key": "38.6.call6",
@@ -6278,9 +6278,9 @@
       "text": "Can't reproduce asks the reporter in a comment; nothing closes or reopens on its own. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts (A2.2 W6)",
+      "evidence": "A2.2: Can’t reproduce posts a comment mentioning the reporter; live 2026-11-23."
     },
     {
       "key": "38.6.call7",
@@ -6288,9 +6288,9 @@
       "text": "Reopening goes to Confirmed with a comment; a reporter adding details reopens to New. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts (A2.2 reopen)",
+      "evidence": "A2.2: Reopen to Confirmed with comment; reporter details reopen to New; live 2026-11-23."
     },
     {
       "key": "38.6.call8",
@@ -6298,9 +6298,9 @@
       "text": "Report as bug sits beside Create task on chat messages. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/chat-send-replay.test.ts; tests/db/bugs.test.ts; tests/browser/bugs-tab.spec.ts; packages/nb-cli/test/bugs.test.mjs",
+      "evidence": "a81b0648b deployed 2026-11-23; local: tests/db/chat-send-replay (Report as bug), tests/db/bugs (Change type), tests/browser/bugs-tab A2.3 (search, Assigned to, CSV, PR chip) chromium+webkit. Signed-in Chrome check pending: Chrome extension disconnected at deploy time; wt-test-a2-3 kept for it. revisit 2026-11-24"
     },
     {
       "key": "38.6.call9",
@@ -6308,9 +6308,9 @@
       "text": "Existing tasks can be changed to bugs by people who can edit them. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts (A2.3 Change type); packages/nb-cli/test/bugs.test.mjs",
+      "evidence": "a81b0648b live 2026-11-23 (web+worker SUCCESS). Live on production wt-test-a2-3 via the CLI: nb bugs report (New, unassigned, steps and where saved), bugs from (to do → Confirmed off board, started → Fixing), move confirmed→fixing, PR link, close asks (no = nothing, yes = Won't fix). Bug hunt: web/worker logs clean of A2.3 errors."
     },
     {
       "key": "38.7.W1",
@@ -8228,9 +8228,9 @@
       "text": "A2.3 (2026-11-23): Report as bug shows on a workspace channel message's ⋯ only while Bugs is added there; it opens the New module on Bug with the first line as ",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/chat-send-replay.test.ts; tests/db/bugs.test.ts; tests/browser/bugs-tab.spec.ts; packages/nb-cli/test/bugs.test.mjs",
+      "evidence": "a81b0648b deployed 2026-11-23; local: tests/db/chat-send-replay (Report as bug), tests/db/bugs (Change type), tests/browser/bugs-tab A2.3 (search, Assigned to, CSV, PR chip) chromium+webkit. Signed-in Chrome check pending: Chrome extension disconnected at deploy time; wt-test-a2-3 kept for it. revisit 2026-11-24"
     }
   ]
 }
