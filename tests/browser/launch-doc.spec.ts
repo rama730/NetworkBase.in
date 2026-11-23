@@ -76,9 +76,11 @@ test('W7–W8 in Getting ready: Move the date asks to move steps; Cancel launch'
   await expect.poll(async () => (await calls(page)).at(-1)).toEqual(['cancel', { docSlug: 'v2-4', backlogSteps: true }]);
 });
 
-test('S7: the New launch sheet needs a name and a date and previews the preset', async ({ page }) => {
+test('S7 and A3.2: the New launch sheet needs a name and a date and previews the preset (Product launch first)', async ({ page }) => {
   await open(page, { sheet: true });
   const d = page.getByTestId('new-launch-dialog');
+  await expect(d.getByTestId('launch-preset-preview')).toHaveText('Stages: Market research · Goal identification · Marketing plan · Sales and support training · Testing and beta testing · Launch day · After launch · 18 steps, unassigned and undated');
+  await d.getByLabel('Preset').selectOption({ label: 'Blank' });
   await expect(d.getByTestId('launch-preset-preview')).toHaveText('Stages: Checklist · 0 steps, unassigned and undated');
   await expect(d.getByRole('button', { name: 'Create' })).toBeDisabled();
   await d.getByLabel('Name').fill('v2.4: Faster sign-in');

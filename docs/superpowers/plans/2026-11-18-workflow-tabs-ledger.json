@@ -8331,6 +8331,16 @@
       "status": "todo",
       "test": "",
       "evidence": ""
+    },
+    {
+      "key": "38.10.call8",
+      "section": "38.10",
+      "text": "A3.2–A3.8 (2026-11-23): the seven presets in the order Product launch · Feature release · App release · Store launch · Digital product launch · Content launch ·",
+      "kind": "call",
+      "milestone": "A3",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

@@ -119,3 +119,13 @@ test("W7–W8: moving the date shifts dated steps when asked; Cancel sends items
   assert.deepEqual([r.stage, (r.type_fields as { launchDocId?: string }).launchDocId ?? null, (await settingsOf(id)).launchStage], ["planned", null, "cancelled"]);
   assert.equal((await docs.launchAction(t.ws, { docSlug: "v3", markItems: true }) as { error?: string }).error, "This launch was canceled.");
 });
+
+test("A3.2: a Product launch lands its 18 steps in seven blocks, unassigned and undated", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const id = await t.doc("big-launch");
+  assert.ok((await docs.createLaunchAction(t.ws, { docSlug: "big-launch", date: "2027-01-15", preset: "product" })).success);
+  const rows = await sql`SELECT source_block AS b, count(*)::int AS n, count(assignee_id)::int AS a, count(due_date)::int AS d FROM tasks WHERE source_doc_id = ${id} GROUP BY source_block ORDER BY source_block`;
+  assert.deepEqual(rows.map((r) => [r.b, r.n]), [["launch1", 3], ["launch2", 2], ["launch3", 3], ["launch4", 2], ["launch5", 2], ["launch6", 3], ["launch7", 3]]);
+  assert.equal(rows.reduce((n, r) => n + r.a + r.d, 0), 0);
+});

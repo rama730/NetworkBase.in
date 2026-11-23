@@ -34,5 +34,35 @@ test("launchMarkdown: a heading and a fixed-key task-rows block per stage, then 
   const md = launchMarkdown(launchPreset("blank")!, "v2.4: Faster sign-in");
   assert.match(md, /^# v2\.4: Faster sign-in\n/);
   assert.deepEqual(parseLiveBlocks(md).map((b) => [b.kind, b.key, b.label]), [["task_rows", "launch1", "Checklist"]]);
+  assert.match(md, /## 1\. Checklist\n/);
   assert.match(md, /## What’s new\n\n### Added\n\n### Improved\n\n### Fixed\n$/);
+});
+
+// Plan A3.2: the Product launch preset (11.5).
+test("Product launch: seven stages in Notion's order, each with a why and starter steps, blocks launch1–launch7", async () => {
+  const { launchMarkdown, launchPreset } = await import("../../src/lib/workflows/launches");
+  const { parseLiveBlocks } = await import("../../src/lib/workspaces/doc-live-blocks");
+  const p = launchPreset("product")!;
+  assert.deepEqual(p.stages.map((s) => s.name), ["Market research", "Goal identification", "Marketing plan", "Sales and support training", "Testing and beta testing", "Launch day", "After launch"]);
+  assert.ok(p.stages.every((s) => s.why && s.steps.length >= 2));
+  assert.deepEqual(p.stages[0]!.steps.slice(0, 2), ["Create buyer personas", "Competitive analysis"], "11.5's sketch");
+  const md = launchMarkdown(p, "v2.4");
+  assert.deepEqual(parseLiveBlocks(md).map((b) => b.key), ["launch1", "launch2", "launch3", "launch4", "launch5", "launch6", "launch7"]);
+  assert.match(md, /## 1\. Market research\n\n_Who it’s for and what they need\._\n/);
+});
+
+// Plans A3.3–A3.8: every preset's stages exactly as its source section; steps start unassigned (they're titles only).
+test("presets A3.3–A3.8: stages as 11.5, 20.4, 22.4 and 25.5 list them; Blank is one Checklist; ids unique", async () => {
+  const { LAUNCH_PRESETS, launchPreset } = await import("../../src/lib/workflows/launches");
+  const stages = (id: string) => launchPreset(id)!.stages.map((s) => s.name).join(" · ");
+  assert.equal(stages("feature"), "Build done · QA · Docs · Announce · Watch");
+  assert.equal(stages("app"), "Build and test · Store listing · Privacy · Submit for review · Release · After release");
+  assert.equal(stages("store"), "3+ months before · 1 month before · Launch week · After launch");
+  assert.equal(stages("digital"), "Make · Listing · Launch · After");
+  assert.equal(stages("content"), "Script · Record · Edit · Publish · Promote");
+  assert.equal(stages("blank"), "Checklist");
+  assert.deepEqual(LAUNCH_PRESETS.map((p) => p.name), ["Product launch", "Feature release", "App release", "Store launch", "Digital product launch", "Content launch", "Blank"]);
+  assert.equal(new Set(LAUNCH_PRESETS.map((p) => p.id)).size, 7);
+  assert.deepEqual(launchPreset("store")!.stages[0]!.steps, ["Store page", "Capsule art", "Trailer", "Wishlist campaign"], "22.4");
+  assert.deepEqual(launchPreset("app")!.stages[2]!.steps, ["Store privacy labels", "Data-safety form", "Privacy policy link"], "20.4");
 });

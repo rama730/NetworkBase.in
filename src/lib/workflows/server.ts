@@ -81,6 +81,10 @@ export async function addWorkflow(workspaceId: string, userId: string, workflow:
       set: { hiddenAt: null, hiddenBy: null, addedBy: userId, addedAt: sql`now()` },
       setWhere: sql`${workspaceWorkflows.hiddenAt} IS NOT NULL`,
     }).returning({ id: workspaceWorkflows.id });
+  // Report 38.10 call 2 (A3.8): Launch checklists come with Roadmap (unless they were added, or hidden, before).
+  if (row && workflow === "roadmap" && catalogEntry("launches")?.built) {
+    await db.insert(workspaceWorkflows).values({ workspaceId, workflow: "launches", addedBy: userId }).onConflictDoNothing();
+  }
   if (row) announce(workspaceId);
   return { name: entry.name, alreadyAdded: !row, undoSeconds: UNDO_SECONDS };
 }

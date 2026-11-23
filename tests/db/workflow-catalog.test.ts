@@ -93,7 +93,7 @@ test("owners and admins add; adding twice is a no-op; members, viewers and outsi
 test("workflows whose round isn't built, and unknown ones, are refused", async () => {
   const t = await workspace();
   viewerId = t.owner;
-  assert.match(errorOf(await actions.addWorkflowAction({ workspaceId: t.ws, workflow: "launches" })), /coming later/);
+  assert.match(errorOf(await actions.addWorkflowAction({ workspaceId: t.ws, workflow: "meetings" })), /coming later/);
   assert.match(errorOf(await actions.addWorkflowAction({ workspaceId: t.ws, workflow: "pipeline" })), /Unknown workflow/);
 });
 
@@ -194,7 +194,7 @@ test("W8: an organization pushes a workflow to every workspace; members can't; R
   viewerId = t.admin;
   const pushed = await actions.pushWorkflowAction({ orgId: t.org, workflow: "bugs" });
   assert.deepEqual(pushed.success && [pushed.name, pushed.workspaces], ["Bugs", 2]);
-  assert.match(errorOf(await actions.pushWorkflowAction({ orgId: t.org, workflow: "launches" })), /coming later/);
+  assert.match(errorOf(await actions.pushWorkflowAction({ orgId: t.org, workflow: "meetings" })), /coming later/);
   const list = await actions.readOrgWorkflowsAction(t.org);
   assert.deepEqual(list.success && [list.workspaces, list.rows], [2, [{ workflow: "bugs", pushed: true }]]);
 
@@ -223,8 +223,8 @@ test("W9: the wizard's ticked workflows are added for the new workspace's owner 
   viewerId = t.owner;
   const pushedList = await actions.orgPushedWorkflowsAction(t.org);
   assert.deepEqual(pushedList.success && [pushedList.by, pushedList.workflows], ["Northgate CS", ["bugs"]]);
-  const made = await actions.addWorkflowsOnCreateAction(t.ws, ["bugs", "project_planner", "launches"]);
-  assert.deepEqual(made.success && made.added, ["project_planner"], "Bugs is pushed already; Launch checklists aren't built");
+  const made = await actions.addWorkflowsOnCreateAction(t.ws, ["bugs", "project_planner", "meetings"]);
+  assert.deepEqual(made.success && made.added, ["project_planner"], "Bugs is pushed already; Meetings aren't built");
   const [ws] = await sql`SELECT workflows_enabled FROM workspaces WHERE id = ${t.ws}`;
   assert.equal(ws!.workflows_enabled, true);
   assert.deepEqual((await added(t.ws)).sort(), ["bugs", "project_planner"]);
@@ -233,4 +233,11 @@ test("W9: the wizard's ticked workflows are added for the new workspace's owner 
   const own = await actions.addWorkflowsOnCreateAction(plain.ws, ["bugs"]);
   assert.deepEqual(own.success && own.added, ["bugs"]);
   assert.deepEqual(await added(plain.ws), ["bugs"]);
+});
+
+test("A3.8 call 2: adding Roadmap brings Launch checklists along", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  assert.ok((await actions.addWorkflowAction({ workspaceId: t.ws, workflow: "roadmap" })).success);
+  assert.deepEqual((await added(t.ws)).filter((w) => w === "roadmap" || w === "launches").sort(), ["launches", "roadmap"]);
 });
