@@ -43,6 +43,8 @@ export type WorkspaceDocSettings = {
     launchStage?: "planning" | "getting_ready" | "launched" | "closed" | "cancelled";
     versionLabel?: string;
     launchedAt?: string;
+    /** A3 live check: the launch's name as typed (lists and notices show it, not the file name). */
+    launchTitle?: string;
 };
 
 export type DecisionStatus = "proposed" | "decided" | "superseded" | "reversed";
@@ -140,6 +142,7 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(["planning", "getting_ready", "launched", "closed", "cancelled"].includes(source.launchStage as string) ? { launchStage: source.launchStage } : {}),
         ...(typeof source.versionLabel === "string" && source.versionLabel.trim() && source.versionLabel.length <= 40 ? { versionLabel: source.versionLabel.trim() } : {}),
         ...(typeof source.launchedAt === "string" && Number.isFinite(Date.parse(source.launchedAt)) ? { launchedAt: source.launchedAt } : {}),
+        ...(typeof source.launchTitle === "string" && source.launchTitle.trim() && source.launchTitle.length <= 120 ? { launchTitle: source.launchTitle.trim() } : {}),
     };
 }
 

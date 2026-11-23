@@ -1445,7 +1445,7 @@ export async function readDocRowKeysAction(projectId: string, docSlug: string) {
 
 // ── Report 38.10 D2 (plan A3.1): launch checklists ──────────────────────────────────────────────────────────────────
 const launchDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the launch date");
-const createLaunchSchema = z.object({ docSlug: docSlugSchema, date: launchDateSchema, preset: z.string().regex(/^[a-z_]{1,40}$/), versionLabel: z.string().trim().max(40).optional() });
+const createLaunchSchema = z.object({ docSlug: docSlugSchema, date: launchDateSchema, preset: z.string().regex(/^[a-z_]{1,40}$/), versionLabel: z.string().trim().max(40).optional(), title: z.string().trim().max(120).optional() });
 
 async function launchDoc(projectId: string, userId: string, docSlug: string, needEdit = true) {
     const context = await getDocProjectContext(projectId, userId, docSlug);
@@ -1476,7 +1476,7 @@ export async function createLaunchAction(projectId: string, input: unknown) {
         if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents make launches." };
         const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
         if (!availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("launches")) return { success: false as const, error: "Add Launch checklists first." };
-        await writeLaunchSettings(context.readme.id, { section: "launches", kind: preset.id, date: data.date, launchStage: "planning", ...(data.versionLabel ? { versionLabel: data.versionLabel } : {}) });
+        await writeLaunchSettings(context.readme.id, { section: "launches", kind: preset.id, date: data.date, launchStage: "planning", ...(data.versionLabel ? { versionLabel: data.versionLabel } : {}), ...(data.title ? { launchTitle: data.title } : {}) });
         const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
         for (const [i, stage] of preset.stages.entries()) {
             for (const [p, title] of stage.steps.entries()) {
@@ -1502,7 +1502,7 @@ export async function readLaunchAction(projectId: string, docSlug: string) {
         if (!context.readme || !(context.permission.canReadPublished || context.permission.canEdit) || context.settings.section !== "launches") return { success: false as const, error: "Launch not found." };
         const insider = actor === context.project.ownerId || Boolean(context.membership);
         const { launchProgress, whatsNew } = await import("@/lib/workflows/launches");
-        const steps = await db.select({ status: tasks.status, stage: tasks.stage, dueDate: tasks.dueDate }).from(tasks)
+        const steps = await db.select({ title: tasks.title, status: tasks.status, stage: tasks.stage, dueDate: tasks.dueDate }).from(tasks)
             .where(and(eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt))).limit(MAX_BLOCK_ROWS * 10);
         const ships = insider ? Array.from(await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; item_type: string | null }>(sql`
             SELECT id, task_number, title, stage, type_fields->>'itemType' AS item_type FROM tasks
@@ -1518,6 +1518,7 @@ export async function readLaunchAction(projectId: string, docSlug: string) {
             date: context.settings.date ?? null, stage: context.settings.launchStage ?? "planning", preset: context.settings.kind ?? null, versionLabel: version,
             launchedAt: context.settings.launchedAt ?? null, progress: launchProgress(steps),
             openSteps: steps.filter((s) => s.status !== "done" && s.stage !== "cancelled").length,
+            openTitles: insider ? steps.filter((s) => s.status !== "done" && s.stage !== "cancelled").slice(0, 5).map((s) => s.title) : [],
             overdue: steps.filter((s) => s.status !== "done" && s.dueDate && s.dueDate.toISOString().slice(0, 10) < today).length,
             ships: ships.map((s) => ({ id: s.id, number: s.task_number, title: s.title, stage: s.stage, itemType: s.item_type ?? "feature" })),
             whatsNew: whatsNew(ships.map((s) => ({ title: s.title, itemType: s.item_type })), bugs.map((b) => ({ title: b.title, fixedIn: b.fixed_in })), version),
@@ -1570,7 +1571,7 @@ export async function launchAction(projectId: string, input: unknown) {
         const people = await db.selectDistinct({ id: tasks.assigneeId }).from(tasks).where(and(eq(tasks.sourceDocId, context.readme!.id), isNull(tasks.deletedAt), sql`${tasks.assigneeId} IS NOT NULL`, sql`${tasks.assigneeId} <> ${userId}::uuid`));
         if (people.length) {
             const { createNotification } = await import("@/lib/notifications/service");
-            const name = context.readme!.filename.replace(/\.md$/i, "");
+            const name = context.settings.launchTitle ?? context.readme!.filename.replace(/\.md$/i, "");
             for (const p of people) await createNotification({
                 recipientUserId: p.id!, actorUserId: userId, kind: "project_task_activity", category: "tasks", importance: "more", title: `Launched: ${name}`,
                 href: `/workspaces/${encodeURIComponent(context.project.slug || projectId)}?tab=docs&doc=${encodeURIComponent(data.docSlug)}`,
@@ -1579,7 +1580,7 @@ export async function launchAction(projectId: string, input: unknown) {
         }
         const w = read.success ? read.whatsNew : { added: [], improved: [], fixed: [] };
         const group = (label: string, list: string[]) => (list.length ? `**${label}**\n${list.map((t) => `- ${t}`).join("\n")}\n` : "");
-        const update = [`${context.readme!.filename.replace(/\.md$/i, "")} is out.`, group("Added", w.added), group("Improved", w.improved), group("Fixed", w.fixed)].filter(Boolean).join("\n");
+        const update = [`${context.settings.launchTitle ?? context.readme!.filename.replace(/\.md$/i, "")} is out.`, group("Added", w.added), group("Improved", w.improved), group("Fixed", w.fixed)].filter(Boolean).join("\n");
         revalidateProjectDoc(context.project);
         return { success: true as const, marked, update };
     } catch (error) {

@@ -48,7 +48,7 @@ export async function readRoadmapAction(projectId: string) {
       work_start: string | null; requests: number; launch_slug: string | null; launch_file: string | null; launch_date: string | null }>(sql`
       SELECT t.id, t.task_number, t.title, t.stage, t.status, t.priority, t.due_date::text AS due_date, t.assignee_id, a.full_name AS assignee_name, t.created_at, t.type_fields,
         coalesce(w.done, 0)::int AS done, coalesce(w.total, 0)::int AS total, bp.projects, w.work_start::text AS work_start, coalesce(w.requests, 0)::int AS requests,
-        l.slug AS launch_slug, l.filename AS launch_file, l.settings->>'date' AS launch_date
+        l.slug AS launch_slug, coalesce(l.settings->>'launchTitle', l.filename) AS launch_file, l.settings->>'date' AS launch_date
       FROM tasks t LEFT JOIN profiles a ON a.id = t.assignee_id
       LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE x.status = 'done') AS done, count(*) AS total, min(x.start_date) AS work_start,
           count(*) FILTER (WHERE x.item_type = 'request') AS requests FROM tasks x
@@ -76,7 +76,7 @@ export async function readRoadmapAction(projectId: string) {
       .map((p) => ({ id: p.id, title: p.title, taskNumber: p.task_number }));
     // A3.1: the workspace's open launches (Timeline diamonds, the Overview card's next launch).
     const launches = Array.from(await db.execute<{ slug: string; filename: string; date: string | null; stage: string | null }>(sql`
-      SELECT slug, filename, settings->>'date' AS date, settings->>'launchStage' AS stage FROM workspace_documents
+      SELECT slug, coalesce(settings->>'launchTitle', filename) AS filename, settings->>'date' AS date, settings->>'launchStage' AS stage FROM workspace_documents
       WHERE workspace_id = ${projectId}::uuid AND settings->>'section' = 'launches' AND coalesce(settings->>'launchStage', 'planning') <> 'cancelled' ORDER BY settings->>'date' LIMIT 100`))
       .map((l) => ({ slug: l.slug, name: l.filename.replace(/\.md$/i, ""), date: l.date, stage: l.stage ?? "planning" }));
     return { success: true as const, projectKey: ws?.key ?? null, items, projects, launches, canEdit, viewerId: user.id };
@@ -188,7 +188,7 @@ export async function readRoadmapLaunchesAction(projectId: string) {
     id.parse(projectId);
     await insider(projectId);
     const rows = Array.from(await db.execute<{ slug: string; filename: string; date: string | null; stage: string | null; version: string | null; done: number; total: number }>(sql`
-      SELECT d.slug, d.filename, d.settings->>'date' AS date, d.settings->>'launchStage' AS stage, d.settings->>'versionLabel' AS version,
+      SELECT d.slug, coalesce(d.settings->>'launchTitle', d.filename) AS filename, d.settings->>'date' AS date, d.settings->>'launchStage' AS stage, d.settings->>'versionLabel' AS version,
         count(t.id) FILTER (WHERE t.status = 'done')::int AS done, count(t.id)::int AS total
       FROM workspace_documents d LEFT JOIN tasks t ON t.source_doc_id = d.id AND t.deleted_at IS NULL AND t.stage IS DISTINCT FROM 'cancelled'
       WHERE d.workspace_id = ${projectId}::uuid AND d.settings->>'section' = 'launches'

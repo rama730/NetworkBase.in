@@ -13,7 +13,7 @@ async function open(page: Page, opts: { stage?: string; sheet?: boolean; launche
     (window as any).__calls = calls;
     (window as any).__actions = {
       readLaunchAction: async () => ({ success: true, docId: 'd1', canEdit: true, member: true, date: '2026-12-18', stage, preset: 'blank', versionLabel: 'v2.4', launchedAt,
-        progress: { done: 14, total: 31, text: '14 of 31 steps' }, openSteps: 17, overdue: 2,
+        progress: { done: 14, total: 31, text: '14 of 31 steps' }, openSteps: 17, openTitles: ['Press kit', 'Demo'], overdue: 2,
         ships: [{ id: 'r1', number: 150, title: 'SSO sign-in', stage: 'testing', itemType: 'feature' }],
         whatsNew: { added: ['SSO sign-in'], improved: [], fixed: ['Login typo'] } }),
       readRoadmapAction: async () => ({ success: true, projectKey: 'AC', launches: [], projects: [], canEdit: true, viewerId: 'u1',
@@ -48,6 +48,7 @@ test('W5: Launch now says what is open, marks items and never posts', async ({ p
   await page.getByRole('button', { name: 'Launch now' }).click();
   const d = page.getByTestId('launch-dialog');
   await expect(d).toContainText('17 steps are still open.');
+  await expect(d.getByTestId('launch-open-steps')).toHaveText(/Press kit.*Demo.*and 15 more/);
   await expect(d).toContainText('nothing is posted');
   await d.getByRole('button', { name: 'Launch' }).click();
   await expect.poll(async () => (await calls(page)).at(-1)).toEqual(['launch', { docSlug: 'v2-4', markItems: true }]);

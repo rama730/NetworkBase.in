@@ -64,7 +64,7 @@ test("W1–W5: a launch is filed with its preset's steps; the first step startin
   viewerId = t.owner;
   const id = await t.doc("v2-4");
   assert.equal((await docs.createLaunchAction(t.ws, { docSlug: "v2-4", date: "2026-12-12", preset: "nope" }) as { error?: string }).error, "Pick a preset");
-  assert.ok((await docs.createLaunchAction(t.ws, { docSlug: "v2-4", date: "2026-12-12", preset: "test_two", versionLabel: "v2.4" })).success);
+  assert.ok((await docs.createLaunchAction(t.ws, { docSlug: "v2-4", date: "2026-12-12", preset: "test_two", versionLabel: "v2.4", title: "v2.4: Faster sign-in" })).success);
   const s = await settingsOf(id);
   assert.deepEqual([s.section, s.kind, s.date, s.launchStage, s.versionLabel], ["launches", "test_two", "2026-12-12", "planning", "v2.4"]);
   const steps = await sql`SELECT id, title, source_block, assignee_id, due_date, status FROM tasks WHERE source_doc_id = ${id} ORDER BY source_block, source_position`;
@@ -92,7 +92,7 @@ test("W1–W5: a launch is filed with its preset's steps; the first step startin
   assert.match(launched.update, /\*\*Added\*\*\n- SSO/);
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_updates WHERE workspace_id = ${t.ws}`)[0]!.n, updatesBefore, "never posts an Update");
   assert.deepEqual((await sql`SELECT stage FROM tasks WHERE id IN (${sso}, ${search})`).map((r) => r.stage), ["launched", "launched"]);
-  assert.deepEqual((await sql`SELECT title, importance FROM user_notifications WHERE user_id = ${t.member} AND title LIKE 'Launched:%'`).map((r) => `${r.title}|${r.importance}`), ["Launched: v2-4|more"]);
+  assert.deepEqual((await sql`SELECT title, importance FROM user_notifications WHERE user_id = ${t.member} AND title LIKE 'Launched:%'`).map((r) => `${r.title}|${r.importance}`), ["Launched: v2.4: Faster sign-in|more"]);
   const after1 = await settingsOf(id);
   assert.equal(after1.launchStage, "launched");
   assert.ok(after1.launchedAt);

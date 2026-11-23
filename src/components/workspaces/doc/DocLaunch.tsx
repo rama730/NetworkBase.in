@@ -39,7 +39,7 @@ export function NewLaunchDialog({ projectId, open, onOpenChange }: { projectId: 
     try {
       const { createDocFile } = await import("@/components/organizations/OrgDocParts");
       const made = await createDocFile(projectId, docFile(name), launchMarkdown(chosen, name.trim()));
-      const r = await createLaunchAction(projectId, { docSlug: made.slug, date, preset, ...(version.trim() ? { versionLabel: version.trim() } : {}) });
+      const r = await createLaunchAction(projectId, { docSlug: made.slug, date, preset, title: name.trim(), ...(version.trim() ? { versionLabel: version.trim() } : {}) });
       if (!r.success) throw new Error(r.error);
       await queryClient.invalidateQueries();
       const params = new URLSearchParams(searchParams?.toString() ?? "");
@@ -71,7 +71,7 @@ export function NewLaunchDialog({ projectId, open, onOpenChange }: { projectId: 
         </div>
         <div className={FORM_FOOTER_CLASS}>
           <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => onOpenChange(false)}>Cancel</button>
-          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !name.trim() || !date} onClick={() => void create()}>Create</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !name.trim() || !date} onClick={() => void create()}>{busy ? `Making ${chosen.stages.reduce((n, s) => n + s.steps.length, 0)} steps…` : "Create"}</button>
         </div>
       </DialogContent>
     </Dialog>
@@ -159,7 +159,7 @@ export function LaunchHeader({ projectId, docSlug }: { projectId: string; docSlu
         </div>
       ) : null}
 
-      {dialog === "launch" ? <LaunchDialog openSteps={data.openSteps} ships={data.ships.length} busy={busy} onClose={() => setDialog(null)} onLaunch={async (markItems, postUpdate) => {
+      {dialog === "launch" ? <LaunchDialog openSteps={data.openSteps} openTitles={data.openTitles} ships={data.ships.length} busy={busy} onClose={() => setDialog(null)} onLaunch={async (markItems, postUpdate) => {
         const r = await run(launchAction(projectId, { docSlug, markItems }), "Launched");
         if (r && "update" in r && typeof r.update === "string" && postUpdate) {
           try { await navigator.clipboard.writeText(r.update); toast("The release notes are copied · paste them into an Update"); } catch { toast("Write the release Update from What’s new"); }
@@ -174,7 +174,7 @@ export function LaunchHeader({ projectId, docSlug }: { projectId: string; docSlu
   );
 }
 
-function LaunchDialog({ openSteps, ships, busy, onClose, onLaunch }: { openSteps: number; ships: number; busy: boolean; onClose: () => void; onLaunch: (markItems: boolean, postUpdate: boolean) => void }) {
+function LaunchDialog({ openSteps, openTitles, ships, busy, onClose, onLaunch }: { openSteps: number; openTitles: string[]; ships: number; busy: boolean; onClose: () => void; onLaunch: (markItems: boolean, postUpdate: boolean) => void }) {
   const [mark, setMark] = useState(true);
   const [post, setPost] = useState(true);
   return (
@@ -182,6 +182,7 @@ function LaunchDialog({ openSteps, ships, busy, onClose, onLaunch }: { openSteps
       <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="launch-dialog">
         <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">Launch now</DialogTitle><DialogDescription className="text-xs text-muted-foreground">{openSteps ? `${openSteps} ${openSteps === 1 ? "step is" : "steps are"} still open.` : "Every step is done."}</DialogDescription></div>
         <div className="space-y-2.5 px-6 py-4 text-[13px]">
+          {openTitles.length ? <ul className="list-disc pl-5 text-xs text-muted-foreground" aria-label="Open steps" data-testid="launch-open-steps">{openTitles.map((t) => <li key={t}>{t}</li>)}{openSteps > openTitles.length ? <li>and {openSteps - openTitles.length} more</li> : null}</ul> : null}
           <label className="flex items-center gap-2"><input type="checkbox" checked={mark} onChange={(e) => setMark(e.target.checked)} disabled={!ships} />Mark the {ships} roadmap {ships === 1 ? "item" : "items"} Launched</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={post} onChange={(e) => setPost(e.target.checked)} />Copy release notes for an Update (nothing is posted)</label>
         </div>
