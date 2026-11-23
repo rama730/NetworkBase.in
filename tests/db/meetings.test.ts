@@ -216,6 +216,11 @@ test("W4, W7: a decision from a meeting tells its attendees; Proposed ↔ Decide
   assert.deepEqual(first, { success: true, number: 1, label: "D-001" });
   assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title = 'D-001 recorded in Weekly · Jan 7' AND importance = 'more'`)[0]!.n, 1);
   assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.owner} AND title LIKE 'D-001%'`)[0]!.n, 0, "not the person who recorded it");
+  // Security review: a decision only leaders can read isn't announced to a member who can't open it.
+  const hidden = await t.doc("leaders-only");
+  await sql`UPDATE workspace_documents SET settings = settings || '{"visibilityOverride":"leaders_only"}'::jsonb WHERE id = ${hidden}`;
+  assert.ok((await docs.recordDecisionAction(t.ws, { docSlug: "leaders-only", fromDocSlug: "weekly" })).success);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title = 'D-002 recorded in Weekly · Jan 7'`)[0]!.n, 0);
 
   // Proposed ↔ Decided, editors only.
   assert.ok((await docs.setDecisionStatusAction(t.ws, { docSlug: "use-postgres", status: "proposed" })).success);
@@ -227,12 +232,12 @@ test("W4, W7: a decision from a meeting tells its attendees; Proposed ↔ Decide
 
   // Supersede: the new one says what it replaces, the old one says what replaced it.
   const b = await t.doc("use-sqlite");
-  assert.deepEqual(await docs.recordDecisionAction(t.ws, { docSlug: "use-sqlite", supersedesSlug: "use-postgres" }), { success: true, number: 2, label: "D-002" });
+  assert.deepEqual(await docs.recordDecisionAction(t.ws, { docSlug: "use-sqlite", supersedesSlug: "use-postgres" }), { success: true, number: 3, label: "D-003" });
   const [sa, sb] = [await settingsOf(a), await settingsOf(b)];
   assert.deepEqual([sa.decisionStatus, sa.supersededBy, sb.decisionStatus, sb.supersedes], ["superseded", b, "decided", a]);
   const listed = await docs.listWorkspaceDocsAction(t.ws);
   assert.ok(listed.success);
-  assert.deepEqual(listed.docs.filter((d) => d.decisionNumber).map((d) => [d.decisionNumber, d.decisionStatus, d.supersededBy ?? null, d.supersedes ?? null]).sort(), [[1, "superseded", b, null], [2, "decided", null, a]]);
+  assert.deepEqual(listed.docs.filter((d) => d.decisionNumber && d.decisionNumber !== 2).map((d) => [d.decisionNumber, d.decisionStatus, d.supersededBy ?? null, d.supersedes ?? null]).sort(), [[1, "superseded", b, null], [3, "decided", null, a]]);
   // Only once, and a superseded decision keeps its status.
   await t.doc("use-mysql");
   assert.equal((await docs.recordDecisionAction(t.ws, { docSlug: "use-mysql", supersedesSlug: "use-postgres" }) as { error?: string }).error, "That decision was already superseded or reversed.");
@@ -242,7 +247,63 @@ test("W4, W7: a decision from a meeting tells its attendees; Proposed ↔ Decide
   assert.equal((await docs.reverseDecisionAction(t.ws, { docSlug: "use-sqlite", reason: "  " }) as { error?: string }).error, "Say why it's reversed.");
   assert.ok((await docs.reverseDecisionAction(t.ws, { docSlug: "use-sqlite", reason: "Too slow at 10k rows" })).success);
   const rb = await settingsOf(b);
-  assert.deepEqual([rb.decisionStatus, rb.reverseReason, rb.decisionNumber], ["reversed", "Too slow at 10k rows", 2]);
+  assert.deepEqual([rb.decisionStatus, rb.reverseReason, rb.decisionNumber], ["reversed", "Too slow at 10k rows", 3]);
   assert.equal((await docs.reverseDecisionAction(t.ws, { docSlug: "use-sqlite", reason: "again" }) as { error?: string }).error, "That decision was already superseded or reversed.");
   assert.equal((await docs.reverseDecisionAction(t.ws, { docSlug: "use-postgres", reason: "x" }) as { error?: string }).error, "That decision was already superseded or reversed.");
+});
+
+// Plan A4.9 (report 38.11 W6, call 6): motions, votes within those present, quorum, the decision, approved minutes lock.
+test("W6: a board meeting's motion needs quorum and votes within those present; a pass records its decision once; approved minutes refuse changes and file edits", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const first = await t.doc("board-1");
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "board-1", type: "board", title: "Board · Jan 7", startsAt: ist("2027-01-07T10:00:00"), lengthMinutes: 60, attendeeIds: [t.owner, t.member, t.viewer], repeat: "monthly", boardSize: 3 })).success);
+  assert.equal((await settingsOf(first)).boardSize, 3);
+
+  assert.equal((await docs.addMotionAction(t.ws, { docSlug: "board-1", text: "Approve the budget", proposedBy: t.outsider }) as { error?: string }).error, "Pick people who attend this meeting.");
+  const added = await docs.addMotionAction(t.ws, { docSlug: "board-1", text: "Approve the budget", proposedBy: t.owner, secondedBy: t.member });
+  assert.ok(added.success);
+  const motionId = added.motionId;
+  const vote = (v: { for: number; against: number; abstain: number }) => docs.recordVoteAction(t.ws, { docSlug: "board-1", motionId, ...v }) as Promise<{ success: boolean; error?: string; result?: string }>;
+  assert.equal((await vote({ for: 1, against: 0, abstain: 0 })).error, "Not quorate: 0 present, 2 needed.");
+  assert.deepEqual(await docs.markPresentAction(t.ws, { docSlug: "board-1", present: [t.owner, t.member, t.outsider] }), { success: true, present: [t.owner, t.member] });
+  assert.equal((await vote({ for: 2, against: 0, abstain: 1 })).error, "The votes add up to more than the 2 present.");
+  assert.deepEqual(await vote({ for: 2, against: 0, abstain: 0 }), { success: true, result: "passed" });
+  assert.equal((await vote({ for: 0, against: 2, abstain: 0 })).error, "This motion was already voted on.");
+
+  // The passed motion records a Decided decision from this meeting, once.
+  await t.doc("approve-the-budget");
+  assert.deepEqual(await docs.recordDecisionAction(t.ws, { docSlug: "approve-the-budget", fromDocSlug: "board-1", motionId }), { success: true, number: 1, label: "D-001" });
+  const read = await docs.readMeetingAction(t.ws, "board-1");
+  assert.ok(read.success && "board" in read && read.board);
+  assert.deepEqual(read.board.motions.map((m) => [m.result, m.votes, m.decision?.label]), [["passed", { for: 2, against: 0, abstain: 0 }, "D-001"]]);
+  await t.doc("again");
+  assert.equal((await docs.recordDecisionAction(t.ws, { docSlug: "again", fromDocSlug: "board-1", motionId }) as { error?: string }).error, "Only a passed motion without a decision gets one.");
+
+  // Viewers can't record anything.
+  viewerId = t.viewer;
+  assert.equal((await docs.addMotionAction(t.ws, { docSlug: "board-1", text: "x" }) as { error?: string }).error, "Only people who can edit this meeting record motions and votes.");
+  viewerId = t.owner;
+
+  // The next meeting (Finish) keeps the board size; there it approves the last minutes, which then can't change.
+  await t.doc("board-2");
+  assert.ok((await docs.finishMeetingAction(t.ws, { docSlug: "board-1", carryOver: false, nextDocSlug: "board-2", nextTitle: "Board · Feb 7" })).success);
+  const second = (await sql`SELECT id FROM workspace_documents WHERE workspace_id = ${t.ws} AND slug = 'board-2'`)[0]!.id as string;
+  assert.equal((await settingsOf(second)).boardSize, 3);
+  const nextRead = await docs.readMeetingAction(t.ws, "board-2");
+  assert.ok(nextRead.success && "board" in nextRead && nextRead.board);
+  assert.deepEqual(nextRead.board.toApprove, { slug: "board-1", title: "Board · Jan 7" });
+  const approved = await docs.approveMinutesAction(t.ws, { docSlug: "board-2" });
+  assert.ok(approved.success && approved.approvedSlug === "board-1");
+  assert.ok((await settingsOf(first)).approvedAt);
+  assert.equal((await docs.approveMinutesAction(t.ws, { docSlug: "board-2" }) as { error?: string }).error, "Those minutes are already approved.");
+  assert.equal((await docs.addMotionAction(t.ws, { docSlug: "board-1", text: "Late change" }) as { error?: string }).error, "These minutes are approved and can't change.");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title = 'Minutes approved: Board · Jan 7'`)[0]!.n, 1);
+  // File writes refuse the approved minutes' file (every client goes through these checks).
+  const lock = await loadAppModule(() => import("../../src/lib/workspaces/minutes-lock"));
+  const node = (await sql`SELECT linked_node_id FROM workspace_documents WHERE id = ${first}`)[0]!.linked_node_id as string;
+  assert.match((await lock.approvedMinutesRefusal(t.ws, node))!, /^These minutes were approved on \d+ \w+ and can’t be edited\.$/);
+  await assert.rejects(lock.assertMinutesEditable(t.ws, node), /approved/);
+  const otherNode = (await sql`SELECT linked_node_id FROM workspace_documents WHERE id = ${second}`)[0]!.linked_node_id as string;
+  assert.equal(await lock.approvedMinutesRefusal(t.ws, otherNode), null);
 });

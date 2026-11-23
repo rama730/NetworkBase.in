@@ -445,6 +445,8 @@ export async function deleteFileVersionAction(
 
   // Deleting a version destroys history: the same capability as permanent delete.
   await assertWorkspaceManageFilesAccess(projectId, user.id);
+  // A4.9: approved minutes keep every version.
+  await (await import("@/lib/workspaces/minutes-lock")).assertMinutesEditable(projectId, nodeId);
 
   const mutation = await withTransientFileLease(
     { projectId, nodeId, userId: user.id },

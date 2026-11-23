@@ -33,6 +33,8 @@ export const MEETING_TYPES: MeetingType[] = [
   { id: "incident", name: "Incident review", line: "Timeline, root cause, actions and lessons.", sections: ["Linked bug", "Timeline", "Root cause", "Lessons"], actionItems: true, actionItemsLabel: "Actions", decisions: false,
     guide: { Timeline: "_Blameless: say what happened and what let it happen, not who._" } },
   { id: "playtest", name: "Playtest", line: "What the tester saw, enjoyed and got stuck on.", sections: ["Build", "Tester", "Minutes played", "What I saw", "Fun moments", "Confusion", "Bugs", "Ideas"], actionItems: false, decisions: false },
+  { id: "board", name: "Board meeting", line: "Motions and votes, quorum, minutes to approve.", sections: ["Agenda", "Reports", "Motions", "Minutes"], actionItems: false, decisions: true,
+    guide: { Motions: "_Motions and votes are recorded in the panel at the top._" } },
   { id: "blank", name: "Blank", line: "Notes and action items.", sections: ["Notes"], actionItems: true, decisions: false },
 ];
 export const meetingType = (id: string) => MEETING_TYPES.find((t) => t.id === id) ?? null;
@@ -137,3 +139,15 @@ export function monthGrid<T extends { startsAt: string | null }>(month: string, 
   const placed = meetings.filter((m) => m.startsAt).map((m) => ({ m, ...zonedParts(new Date(m.startsAt!), tz) })).sort((a, b) => a.m.startsAt!.localeCompare(b.m.startsAt!));
   return days.map((day) => ({ day, inMonth: day.startsWith(month), meetings: placed.filter((p) => p.day === day).map((p) => ({ ...p.m, time: p.time })) }));
 }
+
+/** Report 38.11 call 6 (A4.9): quorum is a majority of the board's size; with no size set, anyone present is enough. */
+export const quorum = (boardSize: number | null | undefined, present: number) => {
+  const needed = boardSize && boardSize > 0 ? Math.floor(boardSize / 2) + 1 : 1;
+  return { needed, met: present >= needed };
+};
+
+/** A motion passes with more For than Against (abstentions don't count); a tie fails. */
+export const motionResult = (votesFor: number, against: number): "passed" | "failed" => (votesFor > against ? "passed" : "failed");
+
+/** Server rule: the votes recorded can't add up to more people than are marked present. */
+export const voteFits = (v: { for: number; against: number; abstain: number }, present: number) => v.for + v.against + v.abstain <= present;

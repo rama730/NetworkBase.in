@@ -4,16 +4,24 @@ import { openApp } from './app-bundle';
 import { axeViolations } from './axe';
 
 // Report 38.11 D1 W1, W3, W5, W8, W9 (plan A4.1).
-async function open(page: Page, opts: { view?: string; now?: string; finished?: boolean; series?: boolean } = {}) {
+async function open(page: Page, opts: { view?: string; now?: string; finished?: boolean; series?: boolean; board?: boolean } = {}) {
   await page.clock.setFixedTime(new Date(opts.now ?? '2027-01-07T04:40:00Z'));
   await page.setViewportSize({ width: 1100, height: 900 });
-  await page.addInitScript(({ finished, series }) => {
+  await page.addInitScript(({ finished, series, board }) => {
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
       readMeetingAction: async () => ({ success: true, canEdit: true, member: true, type: 'blank', title: 'Weekly · Jan 7', startsAt: '2027-01-07T04:30:00.000Z', lengthMinutes: 30,
         timeZone: 'Asia/Kolkata', attendees: [{ id: 'u2', name: 'Dev', avatarUrl: null }], seriesRule: series ? 'weekly' : null, seriesTitle: series ? 'Weekly' : null, seriesId: series ? 's1' : null,
-        finishedAt: finished ? '2027-01-07T05:00:00.000Z' : null, openActionItems: 0 }),
+        finishedAt: finished ? '2027-01-07T05:00:00.000Z' : null, openActionItems: 0,
+        ...(board ? { type: 'board', attendees: [{ id: '11111111-1111-4111-8111-111111111111', name: 'Asha', avatarUrl: null }, { id: '22222222-2222-4222-8222-222222222222', name: 'Dev', avatarUrl: null }, { id: '33333333-3333-4333-8333-333333333333', name: 'Mia', avatarUrl: null }],
+          board: { size: 3, present: (window as any).__present ?? [], presentCount: ((window as any).__present ?? []).length, approvedAt: null, toApprove: { slug: 'board-dec', title: 'Board · Dec 7' },
+            motions: [{ id: 'm1', text: 'Approve the 2027 budget', proposedBy: '11111111-1111-4111-8111-111111111111', secondedBy: '22222222-2222-4222-8222-222222222222', votes: null, result: null, decision: null },
+              { id: 'm2', text: 'Move the office', proposedBy: null, secondedBy: null, votes: { for: 1, against: 2, abstain: 0 }, result: 'failed', decision: null }] } } : {}) }),
+      markPresentAction: async (_p: string, input: { present: string[] }) => { calls.push(['present', input.present.length]); (window as any).__present = input.present; return { success: true, present: input.present }; },
+      recordVoteAction: async (_p: string, input: unknown) => { calls.push(['vote', input]); return { success: true, result: 'failed' }; },
+      addMotionAction: async (_p: string, input: unknown) => { calls.push(['motion', input]); return { success: true, motionId: 'm3' }; },
+      approveMinutesAction: async (_p: string, input: unknown) => { calls.push(['approve', input]); return { success: true, approvedSlug: 'board-dec', approvedAt: '2027-01-07T05:00:00.000Z' }; },
       readMeetingFeedAction: async () => ({ success: true, hasLink: false, since: null }),
       newMeetingFeedAction: async () => { calls.push(['feed']); return { success: true, path: '/api/feeds/meetings/abcdefghijklmnopqrstuvwx' }; },
       readMeetingsAction: async () => ({ success: true, projectKey: 'AC', timeZone: 'Asia/Kolkata', viewerId: 'u1',
@@ -28,7 +36,7 @@ async function open(page: Page, opts: { view?: string; now?: string; finished?: 
           { id: 'c', number: 3, title: 'Three', status: 'done', reviewStatus: 'none', dueDate: null, completedAt: null, position: 3, itemType: 'task', assignee: null, canTick: true }] }),
       endSeriesAction: async (_p: string, input: unknown) => { calls.push(['end', input]); return { success: true }; },
     };
-  }, { finished: opts.finished ?? false, series: opts.series ?? false });
+  }, { finished: opts.finished ?? false, series: opts.series ?? false, board: opts.board ?? false });
   await openApp(page, 'tests/browser/meeting-doc.fixture.tsx', opts.view ? { path: `/?view=${opts.view}` } : undefined);
 }
 const calls = (page: Page) => page.evaluate(() => (window as any).__calls);
@@ -71,7 +79,7 @@ test('S1: New meeting has type, default title, date and time in the zone, length
   const d = page.getByTestId('new-meeting-dialog');
   // A4.3–A4.14: type cards with an icon and one line; Weekly first, Blank last; the title follows the type.
   const types = d.getByRole('radiogroup', { name: 'Type' }).getByRole('radio');
-  await expect(types).toHaveCount(12);
+  await expect(types).toHaveCount(13);
   await expect(types.first()).toHaveAttribute('aria-checked', 'true');
   await expect(types.first()).toContainText('WeeklyAgenda, notes, decisions and action items.');
   await expect(d.getByLabel('Title')).toHaveAttribute('placeholder', 'Weekly · Jan 7');
@@ -108,4 +116,60 @@ test('S7 and W10: the Meetings calendar shows meetings on their days in time ord
   await expect(cal.getByLabel('Your calendar link')).toHaveValue(/\/api\/feeds\/meetings\/abcdefghijklmnopqrstuvwx$/);
   expect(await axeViolations(page)).toEqual([]);
   await page.screenshot({ path: 'test-results/meeting-doc/calendar.png' });
+});
+
+// Plan A4.9 (report 38.11 W6, S3).
+test('W6 and S3: the board panel shows the quorum, present, motions with counts and result; Record vote needs quorum; + Motion; Approve last minutes', async ({ page }) => {
+  await open(page, { board: true });
+  const panel = page.getByTestId('board-panel');
+  await expect(panel.getByTestId('board-quorum')).toHaveText('Quorum: 0 present of 3 · 2 needed · Not quorate');
+  const motions = panel.getByTestId('motion');
+  await expect(motions.first()).toContainText('Approve the 2027 budgetProposed by Asha · seconded by Dev');
+  await expect(motions.nth(1)).toContainText(/Move the office\s*Failed/);
+  await expect(motions.nth(1)).toContainText('For 1 · Against 2 · Abstain 0');
+  await expect(motions.nth(1).getByRole('button', { name: 'Record vote' })).toHaveCount(0);
+  // Not quorate: the vote can't be recorded.
+  await motions.first().getByRole('button', { name: 'Record vote' }).click();
+  const vote = page.getByTestId('vote-dialog');
+  await expect(vote.getByRole('alert')).toHaveText("Not quorate: 0 present, 2 needed. Mark who's present first.");
+  await expect(vote.getByRole('button', { name: 'Record vote' })).toBeDisabled();
+  await vote.getByRole('button', { name: 'Cancel' }).click();
+  // Mark two present → quorate; votes over those present are refused before sending.
+  await panel.getByLabel('Asha').check();
+  await expect(panel.getByTestId('board-quorum')).toContainText('1 present');
+  await panel.getByLabel('Dev').check();
+  await expect(panel.getByTestId('board-quorum')).toHaveText('Quorum: 2 present of 3 · 2 needed · Quorate');
+  await motions.first().getByRole('button', { name: 'Record vote' }).click();
+  await vote.getByLabel('For').fill('2');
+  await vote.getByLabel('Abstain').fill('1');
+  await expect(vote.getByRole('alert')).toHaveText('The votes add up to 3, more than the 2 present.');
+  await vote.getByLabel('Abstain').fill('0');
+  await vote.getByLabel('For').fill('0');
+  await vote.getByLabel('Against').fill('2');
+  await expect(vote).toContainText('Result: Failed · 2 present');
+  await page.screenshot({ path: 'test-results/meeting-doc/board-vote.png' });
+  await vote.getByRole('button', { name: 'Record vote' }).click();
+  await expect(vote).toHaveCount(0);
+  // + Motion and Approve last minutes.
+  await panel.getByRole('button', { name: 'Motion' }).click();
+  const md = page.getByTestId('motion-dialog');
+  await md.getByRole('button', { name: 'Add motion' }).click();
+  await expect(md).toContainText('Write the motion');
+  await md.getByLabel('Motion').fill('Hire a treasurer');
+  await md.getByLabel('Proposed by').selectOption({ label: 'Mia' });
+  await md.getByLabel('Seconded by').selectOption({ label: 'Mia' });
+  await md.getByRole('button', { name: 'Add motion' }).click();
+  await expect(md).toContainText('Someone else seconds the motion');
+  await md.getByLabel('Seconded by').selectOption({ label: 'Asha' });
+  await md.getByRole('button', { name: 'Add motion' }).click();
+  await expect(md).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Approve last minutes (Board · Dec 7)' }).click();
+  await page.screenshot({ path: 'test-results/meeting-doc/board-panel.png' });
+  const c = await calls(page);
+  expect(c.filter((x: unknown[]) => x[0] !== 'present')).toEqual([
+    ['vote', { docSlug: 'weekly-jan-7', motionId: 'm1', for: 0, against: 2, abstain: 0 }],
+    ['motion', { docSlug: 'weekly-jan-7', text: 'Hire a treasurer', proposedBy: '33333333-3333-4333-8333-333333333333', secondedBy: '11111111-1111-4111-8111-111111111111' }],
+    ['approve', { docSlug: 'weekly-jan-7' }],
+  ]);
+  expect(await axeViolations(page)).toEqual([]);
 });

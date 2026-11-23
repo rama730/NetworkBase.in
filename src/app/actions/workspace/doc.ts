@@ -1065,6 +1065,8 @@ const recordDecisionSchema = z.object({
     fromDocSlug: z.string().min(1).max(200).transform((value) => normalizeWorkspaceDocSlug(value)).optional(),
     /** Report 38.11 W7 (A4.2): Supersede on an older decision records this one in its place. */
     supersedesSlug: z.string().min(1).max(200).transform((value) => normalizeWorkspaceDocSlug(value)).optional(),
+    /** A4.9: the passed board motion this decision records. */
+    motionId: z.string().uuid().optional(),
 });
 const STANDING = ["proposed", "decided"];
 
@@ -1085,6 +1087,10 @@ export async function recordDecisionAction(projectId: string, input: unknown) {
             from = await getDocProjectContext(projectId, userId, parsed.fromDocSlug);
             if (!from.readme || !from.permission.canEdit) return { success: false as const, error: "Only people who can edit this document record its decisions." };
         }
+        if (parsed.motionId) {
+            const motion = from?.settings.motions?.find((m) => m.id === parsed.motionId);
+            if (!from || from.settings.kind !== "board" || from.settings.approvedAt || motion?.result !== "passed" || motion.decisionDocId) return { success: false as const, error: "Only a passed motion without a decision gets one." };
+        }
         let old: Awaited<ReturnType<typeof getDocProjectContext>> | null = null;
         if (parsed.supersedesSlug) {
             old = await getDocProjectContext(projectId, userId, parsed.supersedesSlug);
@@ -1101,9 +1107,19 @@ export async function recordDecisionAction(projectId: string, input: unknown) {
                 .returning({ id: workspaceDocuments.id });
             if (!moved.length) return { success: false as const, error: "That decision was already superseded or reversed." };
         }
+        if (parsed.motionId && from?.readme) {
+            const decisionId = context.readme.id;
+            const linked = await updateMeetingSettings(from.readme.id, (s) => {
+                const motion = s.motions?.find((m) => m.id === parsed.motionId);
+                if (motion?.result !== "passed" || motion.decisionDocId) return { error: "That motion already has its decision." };
+                return { patch: { motions: s.motions!.map((m) => (m.id === motion.id ? { ...m, decisionDocId: decisionId } : m)) }, result: null };
+            });
+            if ("error" in linked) return { success: false as const, error: linked.error };
+        }
         await recordNodeEvent(projectId, userId, null, "project_readme.decision_recorded", { docSlug: parsed.docSlug, number, ...(parsed.supersedesSlug ? { supersedes: parsed.supersedesSlug } : {}) });
         // Report 38.11 notifications: a decision recorded from a meeting reaches the people who attended (Summary).
-        const attendees = from?.settings.section === "meetings" ? (from.settings.attendeeIds ?? []).filter((id) => id !== userId) : [];
+        // Security review (A4.2): only attendees who are still members and can read the new decision are told.
+        const attendees = from?.settings.section === "meetings" ? await readersOf(projectId, parsed.docSlug, (from.settings.attendeeIds ?? []).filter((id) => id !== userId)) : [];
         if (attendees.length) {
             const { createNotification } = await import("@/lib/notifications/service");
             const meeting = from!.settings.meetingTitle ?? from!.readme!.filename.replace(/\.md$/i, "");
@@ -1766,6 +1782,8 @@ const meetingSchema = z.object({
     docSlug: docSlugSchema, type: z.string().regex(/^[a-z_]{1,40}$/), title: z.string().trim().min(1).max(120),
     startsAt: z.string().refine((v) => Number.isFinite(Date.parse(v)), "Pick the date and time"), lengthMinutes: z.number().int().min(5).max(600),
     attendeeIds: z.array(z.string().uuid()).max(100), repeat: z.enum(["none", "weekly", "biweekly", "weekdays", "monthly"]),
+    /** A4.9: a board meeting's size, for its quorum. */
+    boardSize: z.number().int().min(1).max(100).optional(),
 });
 
 async function meetingDoc(projectId: string, userId: string | null, docSlug: string, needEdit = true) {
@@ -1776,6 +1794,16 @@ async function meetingDoc(projectId: string, userId: string | null, docSlug: str
     return context;
 }
 /** Attendees are members (or the owner) of the workspace; anyone else is dropped. */
+/** The people among `ids` who are still members and may read the document (the page's own read rule). */
+async function readersOf(projectId: string, docSlug: string, ids: string[]) {
+    const out: string[] = [];
+    for (const id of await memberIds(projectId, ids)) {
+        const c = await getDocProjectContext(projectId, id, docSlug);
+        if (c.readme && (c.permission.canReadPublished || c.permission.canEdit)) out.push(id);
+    }
+    return out;
+}
+
 async function memberIds(projectId: string, ids: string[]) {
     if (!ids.length) return [];
     const rows = Array.from(await db.execute<{ id: string }>(sql`
@@ -1825,10 +1853,10 @@ export async function createMeetingAction(projectId: string, input: unknown) {
         let seriesId: string | undefined;
         if (data.repeat !== "none") {
             const [series] = await db.insert(workspaceMeetingSeries).values({ projectId, meetingType: type.id, title: data.title, rule: data.repeat, startsTime: zonedParts(new Date(startsAt), tz).time,
-                lengthMinutes: data.lengthMinutes, attendeeIds, createdBy: userId }).returning({ id: workspaceMeetingSeries.id });
+                lengthMinutes: data.lengthMinutes, attendeeIds, ...(data.boardSize ? { boardSize: data.boardSize } : {}), createdBy: userId }).returning({ id: workspaceMeetingSeries.id });
             seriesId = series!.id;
         }
-        await writeLaunchSettings(context.readme.id, { section: "meetings", kind: type.id, meetingTitle: data.title, date: zonedParts(new Date(startsAt), tz).day, startsAt, lengthMinutes: data.lengthMinutes, attendeeIds, ...(seriesId ? { seriesId } : {}) });
+        await writeLaunchSettings(context.readme.id, { section: "meetings", kind: type.id, meetingTitle: data.title, date: zonedParts(new Date(startsAt), tz).day, startsAt, lengthMinutes: data.lengthMinutes, attendeeIds, ...(seriesId ? { seriesId } : {}), ...(data.boardSize ? { boardSize: data.boardSize } : {}) });
         await scheduleMeetingReminders(context.readme.id, startsAt, attendeeIds);
         await tellAttendees(projectId, userId, attendeeIds, data.title, data.docSlug, context.project);
         await recordNodeEvent(projectId, userId, null, "project_readme.meeting_created", { docSlug: data.docSlug, type: type.id });
@@ -1860,11 +1888,177 @@ export async function readMeetingAction(projectId: string, docSlug: string) {
             startsAt: s.startsAt ?? null, lengthMinutes: s.lengthMinutes ?? 30, timeZone: (await readWorkingHours(projectId)).tz,
             attendees: attendees.map((a) => ({ id: a.id, name: a.name ?? "Someone", avatarUrl: a.avatarUrl })), seriesRule: series && !series.endedAt ? series.rule : null, seriesTitle: series?.title ?? null,
             seriesId: s.seriesId ?? null, finishedAt: s.finishedAt ?? null, openActionItems: open?.n ?? 0,
+            ...(s.kind === "board" ? await boardView(projectId, context.readme.id, s, insider, context.permission.canEdit) : {}),
         };
     } catch (error) {
         logger.error("meetings.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t load the meeting." };
     }
+}
+
+/**
+ * Report 38.11 W6 (A4.9): board meetings. Settings change under a row lock, so two people recording at once never lose
+ * each other's motions. Only people who can edit the meeting record motions, votes and who is present.
+ */
+async function updateMeetingSettings<T>(docId: string, change: (s: ReturnType<typeof normalizeWorkspaceDocSettings>) => { patch: Record<string, unknown>; result: T } | { error: string }) {
+    return db.transaction(async (tx) => {
+        const [row] = Array.from(await tx.execute<{ settings: unknown }>(sql`SELECT settings FROM workspace_documents WHERE id = ${docId}::uuid FOR UPDATE`));
+        const current = normalizeWorkspaceDocSettings(row?.settings);
+        const out = change(current);
+        if ("error" in out) return out;
+        await tx.update(workspaceDocuments).set({ settings: normalizeWorkspaceDocSettings({ ...current, ...out.patch }), updatedAt: new Date() }).where(eq(workspaceDocuments.id, docId));
+        return { result: out.result };
+    });
+}
+
+async function boardContext(projectId: string, userId: string, docSlug: string) {
+    const context = await getDocProjectContext(projectId, userId, docSlug);
+    if (!context.readme || context.settings.section !== "meetings" || context.settings.kind !== "board") return { error: "Board meeting not found." } as const;
+    if (!context.permission.canEdit) return { error: "Only people who can edit this meeting record motions and votes." } as const;
+    if (context.settings.approvedAt) return { error: "These minutes are approved and can't change." } as const;
+    return { context } as const;
+}
+
+const motionSchema = z.object({ docSlug: docSlugSchema, text: z.string().trim().min(1, "Write the motion").max(500), proposedBy: z.string().uuid().optional(), secondedBy: z.string().uuid().optional() });
+
+/** + Motion: its text, and who proposed and seconded it (attendees only). */
+export async function addMotionAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const parsed = motionSchema.safeParse(input);
+        if (!parsed.success) return { success: false as const, error: parsed.error.issues[0]?.message ?? "Check the motion." };
+        const b = await boardContext(projectId, userId, parsed.data.docSlug);
+        if ("error" in b) return { success: false as const, error: b.error! };
+        const attendees = b.context.settings.attendeeIds ?? [];
+        for (const who of [parsed.data.proposedBy, parsed.data.secondedBy]) if (who && !attendees.includes(who)) return { success: false as const, error: "Pick people who attend this meeting." };
+        if (parsed.data.proposedBy && parsed.data.proposedBy === parsed.data.secondedBy) return { success: false as const, error: "Someone else seconds the motion." };
+        const id = crypto.randomUUID();
+        const r = await updateMeetingSettings(b.context.readme!.id, (s) => ({ patch: { motions: [...(s.motions ?? []), { id, text: parsed.data.text, ...(parsed.data.proposedBy ? { proposedBy: parsed.data.proposedBy } : {}), ...(parsed.data.secondedBy ? { secondedBy: parsed.data.secondedBy } : {}) }] }, result: id }));
+        if ("error" in r) return { success: false as const, error: r.error };
+        revalidateProjectDoc(b.context.project);
+        return { success: true as const, motionId: id };
+    } catch (error) {
+        logger.error("meetings.motion_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t add the motion." };
+    }
+}
+
+const presentSchema = z.object({ docSlug: docSlugSchema, present: z.array(z.string().uuid()).max(100) });
+
+/** Who is present (attendees only), for the quorum line and the vote limit. */
+export async function markPresentAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const parsed = presentSchema.parse(input);
+        const b = await boardContext(projectId, userId, parsed.docSlug);
+        if ("error" in b) return { success: false as const, error: b.error! };
+        const attendees = new Set(b.context.settings.attendeeIds ?? []);
+        const present = [...new Set(parsed.present)].filter((id) => attendees.has(id));
+        await updateMeetingSettings(b.context.readme!.id, () => ({ patch: { present }, result: null }));
+        revalidateProjectDoc(b.context.project);
+        return { success: true as const, present };
+    } catch (error) {
+        logger.error("meetings.present_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t save who’s present." };
+    }
+}
+
+const voteSchema = z.object({ docSlug: docSlugSchema, motionId: z.string().uuid(), for: z.number().int().min(0).max(1000), against: z.number().int().min(0).max(1000), abstain: z.number().int().min(0).max(1000) });
+
+/**
+ * Record vote: the counts can't add up to more than those present, and nothing passes without quorum. More For than
+ * Against passes; the browser then records the decision (D-number) and links it to the motion. A motion votes once.
+ */
+export async function recordVoteAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const parsed = voteSchema.parse(input);
+        const b = await boardContext(projectId, userId, parsed.docSlug);
+        if ("error" in b) return { success: false as const, error: b.error! };
+        const { quorum, motionResult, voteFits } = await import("@/lib/workflows/meetings");
+        const r = await updateMeetingSettings(b.context.readme!.id, (s) => {
+            const motions = s.motions ?? [];
+            const motion = motions.find((m) => m.id === parsed.motionId);
+            if (!motion) return { error: "Motion not found." };
+            if (motion.result) return { error: "This motion was already voted on." };
+            const present = s.present?.length ?? 0;
+            const q = quorum(s.boardSize, present);
+            if (!q.met) return { error: `Not quorate: ${present} present, ${q.needed} needed.` };
+            const votes = { for: parsed.for, against: parsed.against, abstain: parsed.abstain };
+            if (!voteFits(votes, present)) return { error: `The votes add up to more than the ${present} present.` };
+            const result = motionResult(votes.for, votes.against);
+            return { patch: { motions: motions.map((m) => (m.id === motion.id ? { ...m, votes, result } : m)) }, result };
+        });
+        if ("error" in r) return { success: false as const, error: r.error };
+        await recordNodeEvent(projectId, userId, null, "project_readme.motion_voted", { docSlug: parsed.docSlug, result: r.result });
+        revalidateProjectDoc(b.context.project);
+        return { success: true as const, result: r.result };
+    } catch (error) {
+        logger.error("meetings.vote_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t record the vote." };
+    }
+}
+
+/**
+ * Approve last minutes: at a board meeting, approves the previous meeting of its series; from then on that meeting's
+ * file refuses edits ("Approved Dec 10"), and its motions and present list stay as they were.
+ */
+export async function approveMinutesAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const { docSlug } = z.object({ docSlug: docSlugSchema }).parse(input);
+        const context = await getDocProjectContext(projectId, userId, docSlug);
+        if (!context.readme || context.settings.kind !== "board" || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit this board meeting approve minutes." };
+        const previous = await previousBoardMeeting(projectId, context.readme.id, context.settings);
+        if (!previous) return { success: false as const, error: "There are no earlier minutes in this series to approve." };
+        const approvedAt = new Date().toISOString();
+        const [moved] = await db.update(workspaceDocuments)
+            .set({ settings: sql`${workspaceDocuments.settings} || ${JSON.stringify({ approvedAt, approvedBy: userId })}::jsonb`, updatedAt: new Date() })
+            .where(and(eq(workspaceDocuments.id, previous.id), sql`NOT (${workspaceDocuments.settings} ? 'approvedAt')`)).returning({ id: workspaceDocuments.id });
+        if (!moved) return { success: false as const, error: "Those minutes are already approved." };
+        await recordNodeEvent(projectId, userId, null, "project_readme.minutes_approved", { docSlug: previous.slug });
+        // Report 38.11 notifications: minutes approved reach the attendees (Summary).
+        const { createNotification } = await import("@/lib/notifications/service");
+        for (const to of await readersOf(projectId, previous.slug, (previous.settings.attendeeIds ?? []).filter((id) => id !== userId))) await createNotification({
+            recipientUserId: to, actorUserId: userId, kind: "project_task_activity", category: "tasks", importance: "more", title: `Minutes approved: ${previous.settings.meetingTitle ?? previous.slug}`,
+            href: `/workspaces/${encodeURIComponent(context.project.slug || projectId)}?tab=docs&doc=${encodeURIComponent(previous.slug)}`,
+            entityRefs: { projectId, projectSlug: context.project.slug ?? null }, dedupeKey: `minutes:${previous.id}:${to}`,
+        }).catch(() => undefined);
+        revalidateProjectDoc(context.project);
+        return { success: true as const, approvedSlug: previous.slug, approvedAt };
+    } catch (error) {
+        logger.error("meetings.approve_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t approve the minutes." };
+    }
+}
+
+/** A4.9: what the board panel shows: size, present, motions (names for members only), approval, and minutes to approve. */
+async function boardView(projectId: string, docId: string, s: ReturnType<typeof normalizeWorkspaceDocSettings>, insider: boolean, canEdit: boolean) {
+    const decisions = (s.motions ?? []).map((m) => m.decisionDocId).filter((id): id is string => Boolean(id));
+    const numbers = decisions.length ? await db.select({ id: workspaceDocuments.id, slug: workspaceDocuments.slug, n: sql<number | null>`(${workspaceDocuments.settings}->>'decisionNumber')::int` })
+        .from(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), inArray(workspaceDocuments.id, decisions))) : [];
+    const previous = canEdit ? await previousBoardMeeting(projectId, docId, s) : null;
+    return {
+        board: {
+            size: s.boardSize ?? null, present: insider ? s.present ?? [] : [], presentCount: (s.present ?? []).length, approvedAt: s.approvedAt ?? null,
+            motions: (s.motions ?? []).map((m) => {
+                const d = numbers.find((x) => x.id === m.decisionDocId);
+                return { id: m.id, text: m.text, proposedBy: insider ? m.proposedBy ?? null : null, secondedBy: insider ? m.secondedBy ?? null : null, votes: m.votes ?? null, result: m.result ?? null,
+                    decision: d?.n ? { slug: d.slug, label: `D-${String(d.n).padStart(3, "0")}` } : null };
+            }),
+            toApprove: previous && !previous.settings.approvedAt ? { slug: previous.slug, title: previous.settings.meetingTitle ?? previous.slug } : null,
+        },
+    };
+}
+
+/** The board meeting just before this one in its series (by start), if any. */
+async function previousBoardMeeting(projectId: string, docId: string, s: ReturnType<typeof normalizeWorkspaceDocSettings>) {
+    if (!s.seriesId || !s.startsAt) return null;
+    const [row] = await db.select({ id: workspaceDocuments.id, slug: workspaceDocuments.slug, settings: workspaceDocuments.settings }).from(workspaceDocuments)
+        .where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.id} <> ${docId}::uuid`, sql`${workspaceDocuments.settings}->>'seriesId' = ${s.seriesId}`,
+            sql`(${workspaceDocuments.settings}->>'startsAt')::timestamptz < ${s.startsAt}::timestamptz`))
+        .orderBy(sql`(${workspaceDocuments.settings}->>'startsAt')::timestamptz DESC`).limit(1);
+    return row ? { id: row.id, slug: row.slug, settings: normalizeWorkspaceDocSettings(row.settings) } : null;
 }
 
 const finishSchema = z.object({ docSlug: docSlugSchema, carryOver: z.boolean(), nextDocSlug: docSlugSchema.optional(), nextTitle: z.string().trim().min(1).max(120).optional() });
@@ -1898,7 +2092,7 @@ export async function finishMeetingAction(projectId: string, input: unknown) {
                         : and(eq(tasks.sourceDocId, context.readme!.id), eq(tasks.sourceBlock, "actions"))));
                 const carried = data.carryOver ? carryRows(rows).map((r) => r.id) : [];
                 await writeLaunchSettings(nextCtx.readme.id, { section: "meetings", kind: s.kind ?? series.meetingType, meetingTitle: data.nextTitle ?? series.title, date: zonedParts(new Date(startsAt), tz).day, startsAt,
-                    lengthMinutes: series.lengthMinutes, attendeeIds: series.attendeeIds, seriesId: series.id, ...(carried.length ? { carriedTaskIds: carried } : {}) });
+                    lengthMinutes: series.lengthMinutes, attendeeIds: series.attendeeIds, seriesId: series.id, ...(carried.length ? { carriedTaskIds: carried } : {}), ...(series.boardSize ? { boardSize: series.boardSize } : {}) });
                 await scheduleMeetingReminders(nextCtx.readme.id, startsAt, series.attendeeIds);
                 next = { docSlug: data.nextDocSlug, startsAt, carried: carried.length };
             }

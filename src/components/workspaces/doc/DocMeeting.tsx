@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clapperboard, FileText, Gamepad2, Handshake, MessagesSquare, Mic, MoreHorizontal, RotateCcw, Rocket, Siren, Target, Timer, type LucideIcon } from "lucide-react";
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clapperboard, FileText, Gamepad2, Gavel, Handshake, MessagesSquare, Mic, MoreHorizontal, RotateCcw, Rocket, Siren, Target, Timer, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
@@ -12,6 +12,7 @@ import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_S
 import { WORKSPACE_DOC_LIST_QUERY_KEY, WORKSPACE_DOCS_QUERY_KEY } from "@/hooks/workspaces/useWorkspaceDocData";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
+import { BoardPanel } from "@/components/workspaces/doc/DocBoard";
 import { cn } from "@/lib/utils";
 import { newMeetingFeedAction, readMeetingFeedAction, stopMeetingFeedAction } from "@/app/actions/meeting-feed";
 import { defaultTitle, isNow, MEETING_TYPES, meetingMarkdown, meetingType, meetingWhen, monthGrid, nextOccurrence, REPEAT_LABEL, REPEAT_RULES, type RepeatRule } from "@/lib/workflows/meetings";
@@ -46,7 +47,7 @@ function useOpenDocAfter(projectId: string) {
 
 /** S1: each meeting type's card icon. */
 const TYPE_ICON: Record<string, LucideIcon> = { weekly: CalendarDays, standup: Timer, planning: Target, retro: RotateCcw, kickoff: Rocket, client: Handshake,
-  recording: Mic, shoot: Clapperboard, interview: MessagesSquare, incident: Siren, playtest: Gamepad2, blank: FileText };
+  recording: Mic, shoot: Clapperboard, interview: MessagesSquare, incident: Siren, playtest: Gamepad2, board: Gavel, blank: FileText };
 
 /** S1 and W1: type, title, date and time (the workspace's zone), length, attendees, repeat. */
 export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -61,6 +62,7 @@ export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId:
   const [length, setLength] = useState(30);
   const [attendees, setAttendees] = useState<string[]>([]);
   const [repeat, setRepeat] = useState<"none" | RepeatRule>("none");
+  const [boardSize, setBoardSize] = useState(5);
   const [busy, setBusy] = useState(false);
   const chosen = meetingType(type)!;
   const shownTitle = title.trim() || defaultTitle(chosen, day);
@@ -70,7 +72,7 @@ export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId:
       const { createDocFile } = await import("@/components/organizations/OrgDocParts");
       const names = (data?.people ?? []).filter((p) => attendees.includes(p.id)).map((p) => p.name);
       const made = await createDocFile(projectId, fileFor(shownTitle, day), meetingMarkdown(chosen, shownTitle, names));
-      const r = await createMeetingAction(projectId, { docSlug: made.slug, type, title: shownTitle, startsAt: zonedInstant(day, time, tz).toISOString(), lengthMinutes: length, attendeeIds: attendees, repeat });
+      const r = await createMeetingAction(projectId, { docSlug: made.slug, type, title: shownTitle, startsAt: zonedInstant(day, time, tz).toISOString(), lengthMinutes: length, attendeeIds: attendees, repeat, ...(type === "board" ? { boardSize } : {}) });
       if (!r.success) throw new Error(r.error);
       toast("Meeting made · attendees are told");
       onOpenChange(false);
@@ -114,6 +116,11 @@ export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId:
           <Field label="Repeat" htmlFor="meeting-repeat"><SelectWrap><select id="meeting-repeat" value={repeat} onChange={(e) => setRepeat(e.target.value as "none" | RepeatRule)} className={selectClassName()}>
             <option value="none">Doesn’t repeat</option>{REPEAT_RULES.map((r) => <option key={r} value={r}>{REPEAT_LABEL[r]}</option>)}
           </select></SelectWrap></Field>
+          {type === "board" ? (
+            <Field label="Board size" htmlFor="meeting-board-size" hint="Quorum is a majority of the board.">
+              <input id="meeting-board-size" type="number" min={1} max={100} inputMode="numeric" value={boardSize} onChange={(e) => setBoardSize(Math.min(100, Math.max(1, Math.floor(Number(e.target.value) || 1))))} className={cn(inputClassName(false), "font-mono")} />
+            </Field>
+          ) : null}
           <fieldset className="space-y-1.5">
             <legend className="text-[13px] font-medium">Attendees</legend>
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2" data-testid="meeting-attendees">
@@ -207,6 +214,7 @@ export function MeetingHeader({ projectId, docSlug }: { projectId: string; docSl
           {data.attendees.length ? `Attendees: ${data.attendees.map((a) => a.name).join(", ")}` : "No attendees yet"} · <span className="font-mono">{data.openActionItems}</span> open action {data.openActionItems === 1 ? "item" : "items"}
         </p>
       ) : null}
+      {"board" in data && data.board ? <BoardPanel projectId={projectId} docSlug={docSlug} title={data.title} board={data.board} attendees={data.attendees} canEdit={data.canEdit} onOpenDoc={openDoc} /> : null}
       {dialog === "finish" ? <FinishDialog openItems={data.openActionItems} next={data.seriesRule && data.startsAt ? meetingWhen(nextOccurrence(data.seriesRule as RepeatRule, data.startsAt, data.timeZone), data.lengthMinutes, data.timeZone) : null}
         busy={busy} onClose={() => setDialog(null)} onFinish={(carry) => void finish(carry)} /> : null}
       {dialog === "move" && data.startsAt ? <MoveMeetingDialog startsAt={data.startsAt} timeZone={data.timeZone} busy={busy} onClose={() => setDialog(null)}

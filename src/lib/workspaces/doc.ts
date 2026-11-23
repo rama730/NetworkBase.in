@@ -57,7 +57,35 @@ export type WorkspaceDocSettings = {
     finishedAt?: string;
     carriedTaskIds?: string[];
     meetingTitle?: string;
+    /** Report 38.11 W6 (A4.9): a board meeting's size, who is present, its motions, and when its minutes were approved. */
+    boardSize?: number;
+    present?: string[];
+    motions?: Motion[];
+    approvedAt?: string;
+    approvedBy?: string;
 };
+
+export type Motion = {
+    id: string; text: string; proposedBy?: string; secondedBy?: string;
+    votes?: { for: number; against: number; abstain: number }; result?: "passed" | "failed"; decisionDocId?: string;
+};
+const UUID = /^[0-9a-f-]{36}$/i;
+const count = (n: unknown) => (Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 1000 ? (n as number) : null);
+function readMotions(value: unknown): Motion[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const out: Motion[] = [];
+    for (const m of value.slice(0, 100) as Array<Record<string, unknown>>) {
+        if (!m || typeof m.id !== "string" || !UUID.test(m.id) || typeof m.text !== "string" || !m.text.trim() || m.text.length > 500) continue;
+        const v = m.votes as Record<string, unknown> | undefined;
+        const votes = v && count(v.for) !== null && count(v.against) !== null && count(v.abstain) !== null ? { for: v.for as number, against: v.against as number, abstain: v.abstain as number } : undefined;
+        out.push({ id: m.id, text: m.text.trim(),
+            ...(typeof m.proposedBy === "string" && UUID.test(m.proposedBy) ? { proposedBy: m.proposedBy } : {}),
+            ...(typeof m.secondedBy === "string" && UUID.test(m.secondedBy) ? { secondedBy: m.secondedBy } : {}),
+            ...(votes ? { votes } : {}), ...(m.result === "passed" || m.result === "failed" ? { result: m.result } : {}),
+            ...(typeof m.decisionDocId === "string" && UUID.test(m.decisionDocId) ? { decisionDocId: m.decisionDocId } : {}) });
+    }
+    return out;
+}
 
 export type DecisionStatus = "proposed" | "decided" | "superseded" | "reversed";
 const DECISION_STATUSES: DecisionStatus[] = ["proposed", "decided", "superseded", "reversed"];
@@ -166,6 +194,11 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(Array.isArray(source.attendeeIds) ? { attendeeIds: source.attendeeIds.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 100) } : {}),
         ...(typeof source.seriesId === "string" && /^[0-9a-f-]{36}$/i.test(source.seriesId) ? { seriesId: source.seriesId } : {}),
         ...(typeof source.finishedAt === "string" && Number.isFinite(Date.parse(source.finishedAt)) ? { finishedAt: source.finishedAt } : {}),
+        ...(Number.isInteger(source.boardSize) && source.boardSize! >= 1 && source.boardSize! <= 100 ? { boardSize: source.boardSize } : {}),
+        ...(Array.isArray(source.present) ? { present: source.present.filter((id): id is string => typeof id === "string" && UUID.test(id)).slice(0, 100) } : {}),
+        ...(readMotions(source.motions) ? { motions: readMotions(source.motions) } : {}),
+        ...(typeof source.approvedAt === "string" && Number.isFinite(Date.parse(source.approvedAt)) ? { approvedAt: source.approvedAt } : {}),
+        ...(typeof source.approvedBy === "string" && UUID.test(source.approvedBy) ? { approvedBy: source.approvedBy } : {}),
         ...(typeof source.meetingTitle === "string" && source.meetingTitle.trim() && source.meetingTitle.length <= 120 ? { meetingTitle: source.meetingTitle.trim() } : {}),
         ...(Array.isArray(source.carriedTaskIds) ? { carriedTaskIds: source.carriedTaskIds.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 200) } : {}),
     };

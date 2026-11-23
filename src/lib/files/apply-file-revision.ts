@@ -16,6 +16,7 @@ import {
   type FileRevisionMode,
 } from "@/lib/files/revision-policy";
 import { viaColumns } from "@/lib/server/request-via";
+import { assertMinutesEditable } from "@/lib/workspaces/minutes-lock";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -91,6 +92,8 @@ export async function applyFileRevision(
     });
     if (!current || current.deletedAt) throw new Error("File not found");
     if (current.type !== "file") throw new Error("Only file nodes support versions");
+    // Report 38.11 W6 (A4.9): approved board minutes take no new versions, from any client.
+    await assertMinutesEditable(input.projectId, input.nodeId, tx);
     const operationId = typeof input.eventMetadata?.operationId === "string" ? input.eventMetadata.operationId : null;
     if(operationId) {
       const committed = await tx.query.workspaceNodeEvents.findFirst({where:and(eq(workspaceNodeEvents.projectId,input.projectId),eq(workspaceNodeEvents.actorId,input.actorUserId),sql`${workspaceNodeEvents.metadata}->>'operationId' = ${operationId}`)});

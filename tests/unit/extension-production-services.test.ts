@@ -45,7 +45,9 @@ function load(file: string, mocks: Record<string, unknown>) {
           }
         : name === "@/lib/db/schema"
           ? schema
-          : mocks[name] || (name === "@/lib/server/request-via" ? { viaPayload: async () => ({}), viaColumns: async () => ({}), requestVia: async () => null } : {}),
+          : mocks[name] || (name === "@/lib/server/request-via" ? { viaPayload: async () => ({}), viaColumns: async () => ({}), requestVia: async () => null }
+            // A4.9: approved board minutes; these files aren't any.
+            : name === "@/lib/workspaces/minutes-lock" ? { assertMinutesEditable: async () => undefined } : {}),
     Date,
     Set,
     Map,

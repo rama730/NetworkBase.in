@@ -9,6 +9,8 @@ const TONES: Record<string, Tone> = {
     approved: 'success', done: 'success', completed: 'success', verified: 'success',
     // A decision's state (report 38.3 S4).
     proposed: 'info', decided: 'success', superseded: 'neutral', reversed: 'warning',
+    // A board motion's result (report 38.11 W6): a failed motion is an ordinary outcome, not an error.
+    passed: 'success', failed: 'neutral',
     returned: 'danger', missing: 'danger', suspended: 'danger', late: 'danger', blocked: 'danger',
 }
 

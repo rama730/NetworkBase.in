@@ -85,7 +85,7 @@ test("type bodies: headings in order, guides, Decisions, a named Action items bl
   const { meetingMarkdown, meetingType, MEETING_TYPES, defaultTitle } = await import("../../src/lib/workflows/meetings");
   const { parseLiveBlocks } = await import("../../src/lib/workspaces/doc-live-blocks");
   const heads = (md: string) => md.split("\n").filter((l) => l.startsWith("## ")).map((l) => l.slice(3));
-  assert.deepEqual(MEETING_TYPES.map((t) => t.id), ["weekly", "standup", "planning", "retro", "kickoff", "client", "recording", "shoot", "interview", "incident", "playtest", "blank"]);
+  assert.deepEqual(MEETING_TYPES.map((t) => t.id), ["weekly", "standup", "planning", "retro", "kickoff", "client", "recording", "shoot", "interview", "incident", "playtest", "board", "blank"]);
   const weekly = meetingMarkdown(meetingType("weekly")!, "Weekly · Dec 3");
   assert.deepEqual(heads(weekly), ["Agenda", "Notes", "Decisions", "Action items"]);
   assert.deepEqual(parseLiveBlocks(weekly).map((b) => [b.kind, b.key]), [["decisions", null], ["task_rows", "actions"]]);
@@ -109,4 +109,20 @@ test("type bodies: headings in order, guides, Decisions, a named Action items bl
   assert.match(standup, /## Asha\n\n\*\*Yesterday:\*\* \n\n\*\*Today:\*\* \n\n\*\*Blockers:\*\* \n/);
   assert.deepEqual(heads(meetingMarkdown(meetingType("standup")!, "S")), ["Everyone"]);
   assert.equal(defaultTitle(meetingType("retro")!, "2026-12-03"), "Retrospective · Dec 3");
+});
+
+// Plan A4.9 (report 38.11 W6, call 6): Board meetings: majority quorum, simple-majority motions, votes within those present.
+test("board rules: quorum is a majority of the board; a motion passes on more For than Against; votes can't exceed those present", async () => {
+  const { quorum, motionResult, voteFits, meetingMarkdown, meetingType } = await import("../../src/lib/workflows/meetings");
+  assert.deepEqual(quorum(7, 4), { needed: 4, met: true });
+  assert.deepEqual(quorum(7, 3), { needed: 4, met: false });
+  assert.deepEqual(quorum(6, 3), { needed: 4, met: false });
+  assert.deepEqual(quorum(null, 2), { needed: 1, met: true }, "no board size: anyone present is enough");
+  assert.equal(motionResult(3, 2), "passed");
+  assert.equal(motionResult(2, 2), "failed", "a tie fails");
+  assert.equal(motionResult(0, 0), "failed");
+  assert.equal(voteFits({ for: 3, against: 1, abstain: 0 }, 4), true);
+  assert.equal(voteFits({ for: 3, against: 1, abstain: 1 }, 4), false);
+  const md = meetingMarkdown(meetingType("board")!, "Board · Dec 3");
+  assert.deepEqual(md.split("\n").filter((l) => l.startsWith("## ")).map((l) => l.slice(3)), ["Agenda", "Reports", "Motions", "Minutes", "Decisions"]);
 });
