@@ -268,9 +268,9 @@
       "text": "A2.10 Roadmap: tab, Now/Next/Later, work, auto stage (38.9) — \"Ships in\" hidden until launches exist. Journeys: T2 W1–W5, W7, W11, W12 (W6 re-run at A3.1).",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "04fc43318 live 2026-11-23 (web+worker SUCCESS; full test:db 1259/1259, unit 3746, CLI 366, browser roadmap-tab). Checked live in Chrome on wt-test-a2-3 (Roadmap added by SQL; built:false until A2.11): empty Now·Next·Later with the hint and New item; New item → WT-17 'SSO sign-in' (outcome) in Next, Backlog, off the board; Move to Now → Planned with Undo; nb task create --part-of 17 → Work tab lists WT-18 and the board card shows the Part of chip; nb task start 18 → WT-17 In progress by itself; panel progress '0% · 0 of 1 work tasks done'; WT-19 via nb roadmap add (Later, Backlog) → Won't do… 'Not this year' → Completed, off the roadmap board; Overview card 'Now: 1 · Next: 0 · 0 in testing'; nb roadmap list against production; no console errors. Live-check fix (local, ships with A2.11): the New module footer for roadmap items."
     },
     {
       "key": "A2.11",
@@ -6758,9 +6758,9 @@
       "text": "First look",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: empty columns, hint, New item."
     },
     {
       "key": "38.9.W2",
@@ -6768,9 +6768,9 @@
       "text": "Capturing an item",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: WT-17 made in Next at Backlog; footer wording fixed after the check."
     },
     {
       "key": "38.9.W3",
@@ -6778,9 +6778,9 @@
       "text": "Moving between columns",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: Move to Now → Planned, Undo toast."
     },
     {
       "key": "38.9.W4",
@@ -6788,9 +6788,9 @@
       "text": "Adding work",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: work linked via nb task create --part-of; Work tab lists it."
     },
     {
       "key": "38.9.W5",
@@ -6798,9 +6798,9 @@
       "text": "Work starts",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: nb task start moved WT-17 to In progress by itself."
     },
     {
       "key": "38.9.W6",
@@ -6818,9 +6818,9 @@
       "text": "Won't do",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: Won't do with a reason on WT-19."
     },
     {
       "key": "38.9.W8",
@@ -6868,9 +6868,9 @@
       "text": "CLI and agents",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23: nb roadmap list/add, nb task create --part-of against production."
     },
     {
       "key": "38.9.call1",
@@ -6878,9 +6878,9 @@
       "text": "Roadmap's main view is Now · Next · Later (a column field); quarters and target dates are optional. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23 (column field drives the board)."
     },
     {
       "key": "38.9.call2",
@@ -6898,9 +6898,9 @@
       "text": "An item moves to In progress by itself when its first work task starts; Testing is by hand; Launched comes from its launch (D2) or by hand. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23 (automatic In progress)."
     },
     {
       "key": "38.9.call4",
@@ -8308,9 +8308,9 @@
       "text": "A2.10 (2026-11-23): Roadmap ships in two units (A2.10 the tab with Now · Next · Later and By stage, the item panel, work through Part of, Built by, the automati",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Live 2026-11-23 (see A2.10)."
     },
     {
       "key": "38.9.call8",
