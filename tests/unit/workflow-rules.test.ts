@@ -72,7 +72,7 @@ test("defaultStageFor: Tasks opens at the join stage, the own tab at the first",
 test("the registry matches the F1 stage table", () => {
   assert.deepEqual(stagesOf("bug").map((s) => s.key), ["new", "confirmed", "fixing", "fixed", "verified", "wont_fix", "duplicate", "cant_reproduce"]);
   assert.deepEqual(stagesOf("request").map((s) => s.label), ["New", "Accepted", "In progress", "In review", "Delivered", "Declined"]);
-  assert.deepEqual(stagesOf("content").map((s) => s.label), ["Idea", "Drafting", "Editing", "Scheduled", "Published", "Cancelled"]);
+  assert.deepEqual(stagesOf("content").map((s) => s.label), ["Idea", "Drafting", "Editing", "Scheduled", "Published", "Canceled"]);
   assert.equal(workflowType("bug").icon, "Bug");
   assert.equal(stagesOf("task").length, 0);
 });

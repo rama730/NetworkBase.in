@@ -50,7 +50,7 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
       s("idea", "Idea", "todo", false), s("drafting", "Drafting", "in_progress", true), s("editing", "Editing", "in_progress", true),
       s("scheduled", "Scheduled", "done", true), s("published", "Published", "done", true),
       // Report 38.8 W9.2 (A2.9): Cancel keeps a piece in history, off the board.
-      s("cancelled", "Cancelled", "done", false, true),
+      s("cancelled", "Canceled", "done", false, true),
     ],
   },
 };
