@@ -63,6 +63,9 @@ export type WorkspaceDocSettings = {
     motions?: Motion[];
     approvedAt?: string;
     approvedBy?: string;
+    /** Report 38.12 (A5.1): a goals document's period ('2027-Q1') and when the period was closed. */
+    period?: string;
+    closedAt?: string;
 };
 
 export type Motion = {
@@ -199,6 +202,8 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(readMotions(source.motions) ? { motions: readMotions(source.motions) } : {}),
         ...(typeof source.approvedAt === "string" && Number.isFinite(Date.parse(source.approvedAt)) ? { approvedAt: source.approvedAt } : {}),
         ...(typeof source.approvedBy === "string" && UUID.test(source.approvedBy) ? { approvedBy: source.approvedBy } : {}),
+        ...(typeof source.period === "string" && /^\d{4}(-(Q[1-4]|H[12]|0[1-9]|1[0-2]))?$/.test(source.period) ? { period: source.period } : {}),
+        ...(typeof source.closedAt === "string" && Number.isFinite(Date.parse(source.closedAt)) ? { closedAt: source.closedAt } : {}),
         ...(typeof source.meetingTitle === "string" && source.meetingTitle.trim() && source.meetingTitle.length <= 120 ? { meetingTitle: source.meetingTitle.trim() } : {}),
         ...(Array.isArray(source.carriedTaskIds) ? { carriedTaskIds: source.carriedTaskIds.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 200) } : {}),
     };

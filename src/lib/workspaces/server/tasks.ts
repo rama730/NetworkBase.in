@@ -1278,12 +1278,16 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     if (validated.startDate && validated.dueDate && Date.parse(validated.startDate) > Date.parse(validated.dueDate)) {
       return { success: false, error: "The start date is after the due date" };
     }
+    // Report 38.12 (A5.1): a key result is always Part of an objective, and only key results are.
+    if (itemType === "key_result" && !validated.partOfId) return { success: false, error: "A key result is Part of an objective" };
     if (validated.partOfId) {
       if (access.project.kind === "organization") return { success: false, error: "Projects aren’t available in organizations" };
       if (!canBePartOf(itemType)) return { success: false, error: "A project can’t be Part of another project" };
       const [parent] = await db.select({ itemType: tasks.itemType }).from(tasks)
         .where(and(eq(tasks.id, validated.partOfId), eq(tasks.projectId, validated.projectId), isNull(tasks.deletedAt))).limit(1);
-      if (!parent || !canBeParent(parent.itemType)) return { success: false, error: "Part of must be a project in this workspace" };
+      if (itemType === "key_result" ? parent?.itemType !== "objective" : !parent || !canBeParent(parent.itemType)) {
+        return { success: false, error: itemType === "key_result" ? "A key result is Part of an objective" : "Part of must be a project in this workspace" };
+      }
     }
     // Decision 146 and report 38.4 call 3: owners and admins plan sprints; a member's pick goes to the Backlog instead.
     let backlogged = false;

@@ -10,6 +10,7 @@ import { toast } from "@/lib/feedback";
 
 import { AddDocDialog } from "@/components/workspaces/doc/AddDocDialog";
 import { RecordDecisionDialog } from "@/components/workspaces/doc/DocDecisions";
+import { NewGoalsDialog } from "@/components/workspaces/doc/DocGoals";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc";
 import type { WorkspaceDocListItem } from "@/lib/workspaces/doc";
@@ -103,6 +104,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
             {/* Report 38.10 W1 (A3.1): Launches' + makes a launch (name, date, preset), not a blank document. */}
             {addSection === "launches" ? <NewLaunchDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
                 : addSection === "meetings" ? <NewMeetingDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
+                : addSection === "goals" ? <NewGoalsDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
                 : <AddDocDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} section={addSection} />}
             <RecordDecisionDialog projectId={projectId} open={recording} onOpenChange={setRecording} />
             <ConfirmDialog

@@ -17,6 +17,7 @@ import {
   unique,
   customType,
   doublePrecision,
+  numeric,
   date,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -1137,6 +1138,17 @@ export const workspaceDocumentReminders = pgTable("workspace_document_reminders"
 export const meetingFeedTokens = pgTable("meeting_feed_tokens", {
   userId: uuid("user_id").primaryKey().references(() => profiles.id, { onDelete: "cascade" }),
   tokenHash: text("token_hash").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Workflow tabs A5.1 (report 38.12, migration 0116): a key result's check-ins; the newest is its current value.
+export const keyResultCheckIns = pgTable("key_result_check_ins", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  value: numeric("value").notNull(),
+  confidence: smallint("confidence").notNull(),
+  note: text("note"),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

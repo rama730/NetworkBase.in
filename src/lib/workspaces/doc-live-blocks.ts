@@ -5,8 +5,9 @@
 export const MAX_BLOCK_ROWS = 200;
 export const FOLD_AFTER_DAYS = 7;
 
-export type LiveBlockKind = "task_rows" | "decisions" | "unknown";
-export type LiveBlock = { kind: LiveBlockKind; key: string | null; label: string | null; raw: string };
+export type LiveBlockKind = "task_rows" | "decisions" | "goals" | "unknown";
+/** `period` is the goals block's (report 38.12, A5.1). */
+export type LiveBlock = { kind: LiveBlockKind; key: string | null; label: string | null; raw: string; period?: string | null };
 
 const BLOCK = /\{%\s*project\.([a-z_]+)([^%]*)%\}/gi;
 const attr = (params: string, name: string) => params.match(new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`, "i"))?.[1] ?? null;
@@ -18,9 +19,11 @@ export function parseLiveBlocks(markdown: string): LiveBlock[] {
     const name = match[1]!.toLowerCase();
     const params = match[2] ?? "";
     if (["roles", "contributors", "files", "tasks", "sprints", "projects"].includes(name)) return [];
-    const kind: LiveBlockKind = name === "task_rows" ? "task_rows" : name === "decisions" ? "decisions" : "unknown";
+    const kind: LiveBlockKind = name === "task_rows" ? "task_rows" : name === "decisions" ? "decisions" : name === "goals" ? "goals" : "unknown";
     const key = attr(params, "key");
-    return [{ kind, key: key && /^[a-z0-9]{4,12}$/.test(key) ? key : null, label: kind === "task_rows" ? attr(params, "label") || "Action items" : null, raw: match[0] }];
+    const period = kind === "goals" ? attr(params, "period") : null;
+    return [{ kind, key: key && /^[a-z0-9]{4,12}$/.test(key) ? key : null, label: kind === "task_rows" ? attr(params, "label") || "Action items" : null, raw: match[0],
+      ...(kind === "goals" ? { period: period && /^\d{4}(-(Q[1-4]|H[12]|0[1-9]|1[0-2]))?$/.test(period) ? period : null } : {}) }];
   });
 }
 
@@ -38,6 +41,8 @@ export function newBlockKey(existing: string[]) {
 export const liveBlockLine = (kind: "task_rows", key: string, label: string) => `{% project.${kind} key="${key}" label="${label.replace(/"/g, "")}" %}`;
 /** S4: the decisions recorded from this document. */
 export const DECISIONS_BLOCK_LINE = "{% project.decisions %}";
+/** Report 38.12 W1 (A5.1): a period's goals block. */
+export const goalsBlockLine = (period: string) => `{% project.goals period="${period}" %}`;
 
 /** B9: adding rows follows the document's edit permission; ticking follows the task's. */
 export const canAddRows = (doc: { canEdit: boolean }) => doc.canEdit;

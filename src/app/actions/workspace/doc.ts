@@ -24,6 +24,7 @@ import {
     workspaces,
     tasks,
     workspaceMeetingSeries,
+    keyResultCheckIns,
     workspaceDocumentReminders,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -1246,6 +1247,8 @@ export async function unlinkWorkspaceDocAction(projectId: string, docSlug: strin
         if (!context.permission.canEdit) {
             return { success: false as const, error: "Only workspace members can remove a document." };
         }
+        // Security review (A4.9): approved minutes stay a document, so their lock can't be dropped by unlinking.
+        if (context.settings.approvedAt) return { success: false as const, error: "Approved minutes stay in Documents." };
 
         await db.delete(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, docSlug)));
 
@@ -1565,10 +1568,14 @@ async function launchDoc(projectId: string, userId: string, docSlug: string, nee
     return context;
 }
 async function writeLaunchSettings(docId: string, patch: Record<string, unknown>) {
-    const [row] = await db.select({ settings: workspaceDocuments.settings }).from(workspaceDocuments).where(eq(workspaceDocuments.id, docId)).limit(1);
-    const next = normalizeWorkspaceDocSettings({ ...(row?.settings as object ?? {}), ...patch });
-    await db.update(workspaceDocuments).set({ settings: next, updatedAt: new Date() }).where(eq(workspaceDocuments.id, docId));
-    return next;
+    return db.transaction(async (tx) => {
+        const [row] = Array.from(await tx.execute<{ settings: Record<string, unknown> | null }>(sql`SELECT settings FROM workspace_documents WHERE id = ${docId}::uuid FOR UPDATE`));
+        // Security review (A4.9): approved minutes keep their settings (time, attendees, motions) as approved.
+        if (row?.settings && typeof row.settings.approvedAt === "string") throw new Error("These minutes are approved and can't change.");
+        const next = normalizeWorkspaceDocSettings({ ...(row?.settings ?? {}), ...patch });
+        await tx.update(workspaceDocuments).set({ settings: next, updatedAt: new Date() }).where(eq(workspaceDocuments.id, docId));
+        return next;
+    });
 }
 
 /**
@@ -1846,6 +1853,7 @@ export async function createMeetingAction(projectId: string, input: unknown) {
         if (!(await readMeetingSettings(projectId)).types.includes(type.id)) return { success: false as const, error: "That meeting type is switched off in Settings → Meetings." };
         const context = await getDocProjectContext(projectId, userId, data.docSlug);
         if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents make meetings." };
+        if (context.settings.section === "meetings" || context.settings.approvedAt) return { success: false as const, error: "That document is already a meeting." };
         const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
         if (!availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("meetings")) return { success: false as const, error: "Add Meetings and decisions first." };
         const attendeeIds = await memberIds(projectId, data.attendeeIds);
@@ -2014,6 +2022,9 @@ export async function approveMinutesAction(projectId: string, input: unknown) {
         if (!context.readme || context.settings.kind !== "board" || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit this board meeting approve minutes." };
         const previous = await previousBoardMeeting(projectId, context.readme.id, context.settings);
         if (!previous) return { success: false as const, error: "There are no earlier minutes in this series to approve." };
+        // Security review: approving is an edit of the earlier minutes, so it needs edit rights there too.
+        const earlier = await getDocProjectContext(projectId, userId, previous.slug);
+        if (!earlier.readme || !earlier.permission.canEdit || earlier.settings.section !== "meetings" || earlier.settings.kind !== "board") return { success: false as const, error: "Only people who can edit the earlier minutes approve them." };
         const approvedAt = new Date().toISOString();
         const [moved] = await db.update(workspaceDocuments)
             .set({ settings: sql`${workspaceDocuments.settings} || ${JSON.stringify({ approvedAt, approvedBy: userId })}::jsonb`, updatedAt: new Date() })
@@ -2182,5 +2193,189 @@ export async function readMeetingsAction(projectId: string) {
     } catch (error) {
         logger.error("meetings.list_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t load meetings." };
+    }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Report 38.12 D3 (plan A5.1a): quarterly goals. One goals document per period (section Goals); its block lists the
+ * period's objectives and key results (tasks that never go on the board). Goals are for members only, never public.
+ * ---------------------------------------------------------------------------------------------------------------- */
+const PERIOD_RE = /^\d{4}(-(Q[1-4]|H[12]|0[1-9]|1[0-2]))?$/;
+
+async function goalsContext(projectId: string, userId: string | null, docSlug: string) {
+    const context = await getDocProjectContext(projectId, userId, docSlug);
+    const insider = Boolean(userId) && (userId === context.project.ownerId || Boolean(context.membership));
+    if (!context.readme || !insider || context.settings.section !== "goals") return null;
+    return context;
+}
+
+/** W1: the browser makes the file (goalsMarkdown); this files it under Goals for its period, members only. One per period. */
+export async function createGoalsDocAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: docSlugSchema, period: z.string().regex(PERIOD_RE, "Pick a period") }).parse(input);
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents set goals." };
+        if (context.settings.section || context.settings.approvedAt) return { success: false as const, error: "That document is already filed in a section." };
+        const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+        if (!availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("goals")) return { success: false as const, error: "Add Quarterly goals first." };
+        const [taken] = await db.select({ id: workspaceDocuments.id }).from(workspaceDocuments)
+            .where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.id} <> ${context.readme.id}::uuid`, sql`${workspaceDocuments.settings}->>'section' = 'goals'`, sql`${workspaceDocuments.settings}->>'period' = ${data.period}`)).limit(1);
+        const { periodLabel } = await import("@/lib/workflows/goals");
+        if (taken) return { success: false as const, error: `${periodLabel(data.period)} already has a goals document.` };
+        await writeLaunchSettings(context.readme.id, { section: "goals", period: data.period, visibilityOverride: "members_only" });
+        await recordNodeEvent(projectId, userId, null, "project_readme.goals_created", { docSlug: data.docSlug, period: data.period });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the period." };
+        logger.error("goals.create_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t make the goals document." };
+    }
+}
+
+/** S1: the block: period header, objectives with progress and status, their key results with check-ins. */
+export async function readGoalsAction(projectId: string, docSlug: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const context = await goalsContext(projectId, actor, docSlug);
+        if (!context) return { success: false as const, error: "Goals are for workspace members." };
+        const g = await import("@/lib/workflows/goals");
+        const period = context.settings.period!;
+        const [ws] = await db.select({ settings: workspaces.workflowSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const settings = g.goalSettings((ws?.settings as Record<string, unknown> | null)?.goals);
+        const range = g.periodRange(period, settings);
+        const pace = g.expectedPace(range.start, range.end, new Date());
+        const items = await db.select({ id: tasks.id, number: tasks.taskNumber, title: tasks.title, type: tasks.itemType, stage: tasks.stage, partOfId: tasks.partOfId, fields: tasks.typeFields,
+            assigneeId: tasks.assigneeId, assigneeName: profiles.fullName }).from(tasks).leftJoin(profiles, eq(profiles.id, tasks.assigneeId))
+            .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), eq(tasks.sourceDocId, context.readme!.id), inArray(tasks.itemType, ["objective", "key_result"])))
+            .orderBy(asc(tasks.createdAt));
+        const krIds = items.filter((i) => i.type === "key_result").map((i) => i.id);
+        const history = krIds.length ? Array.from(await db.execute<{ task_id: string; value: string; created_at: Date }>(sql`
+            SELECT task_id, value, created_at FROM (SELECT task_id, value, created_at, row_number() OVER (PARTITION BY task_id ORDER BY created_at DESC) AS n
+            FROM key_result_check_ins WHERE task_id IN (${sql.join(krIds.map((i) => sql`${i}::uuid`), sql`, `)})) h WHERE n <= 8 ORDER BY created_at`)) : [];
+        const shapeKr = (i: (typeof items)[number]) => {
+            const f = (i.fields ?? {}) as Record<string, unknown>;
+            const kr = { start: Number(f.start ?? 0), target: Number(f.target ?? 0), current: f.current == null ? null : Number(f.current), direction: (f.direction === "decrease" ? "decrease" : "increase") as "increase" | "decrease" };
+            const progress = g.krProgress(kr);
+            const override = f.statusOverride as { status: "on_track" | "at_risk" | "off_track"; reason: string } | null | undefined;
+            return { id: i.id, number: i.number, title: i.title, assigneeId: i.assigneeId, assigneeName: i.assigneeName, ...kr, unit: String(f.unit ?? ""),
+                confidence: (f.confidence as number | null) ?? null, checkedInAt: (f.checkedInAt as string | null) ?? null, progress,
+                status: override?.status ?? g.goalStatus(progress, pace, settings.bands), override: override ?? null, result: i.stage === "done" || i.stage === "missed" ? (i.stage as "done" | "missed") : null,
+                history: history.filter((h) => h.task_id === i.id).map((h) => ({ value: Number(h.value), at: new Date(h.created_at).toISOString() })) };
+        };
+        const objectives = items.filter((i) => i.type === "objective").map((o) => {
+            const krs = items.filter((k) => k.type === "key_result" && k.partOfId === o.id).map(shapeKr);
+            const progress = g.objectiveProgress(krs.map((k) => k.progress));
+            const override = ((o.fields ?? {}) as Record<string, unknown>).statusOverride as { status: "on_track" | "at_risk" | "off_track"; reason: string } | null | undefined;
+            return { id: o.id, number: o.number, title: o.title, assigneeId: o.assigneeId, assigneeName: o.assigneeName, progress,
+                status: override?.status ?? g.goalStatus(progress, pace, settings.bands), override: override ?? null, keyResults: krs };
+        });
+        const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
+            SELECT p.id, coalesce(p.full_name, p.username, 'Someone') AS name FROM profiles p
+            WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${projectId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${projectId}::uuid) ORDER BY p.full_name`));
+        return { success: true as const, period, label: g.periodLabel(period), week: g.weekOf(range.start, range.end, new Date()), pace, canEdit: context.permission.canEdit && !context.settings.closedAt,
+            closedAt: context.settings.closedAt ?? null, viewerId: actor, objectives, people };
+    } catch (error) {
+        logger.error("goals.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load the goals." };
+    }
+}
+
+async function addGoalItem(projectId: string, userId: string, docSlug: string, fields: { title: string; itemType: "objective" | "key_result"; typeFields: Record<string, unknown>; partOfId?: string; assigneeId?: string | null }) {
+    const context = await goalsContext(projectId, userId, docSlug);
+    if (!context || !context.permission.canEdit || context.settings.closedAt) return { success: false as const, error: "Only people who can edit these goals add to them." };
+    if (fields.assigneeId && !(await memberIds(projectId, [fields.assigneeId])).length) return { success: false as const, error: "Assign someone in this workspace." };
+    const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
+    const created = await createTaskAction({ projectId, title: fields.title, status: "in_progress", priority: "medium", assigneeId: fields.assigneeId ?? null, dueDate: null,
+        itemType: fields.itemType, stage: "active", typeFields: { period: context.settings.period, ...fields.typeFields }, ...(fields.partOfId ? { partOfId: fields.partOfId } : {}) });
+    if (!created.success || !("task" in created) || !created.task) return { success: false as const, error: ("error" in created && created.error) || "Couldn’t add it." };
+    await db.update(tasks).set({ sourceDocId: context.readme!.id, sourceBlock: "goals" }).where(eq(tasks.id, created.task.id));
+    revalidateProjectDoc(context.project);
+    return { success: true as const, id: created.task.id };
+}
+
+/** W2: + Objective (a one-line add). */
+export async function addObjectiveAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: docSlugSchema, title: z.string().trim().min(1, "Name the objective").max(200), assigneeId: z.string().uuid().nullish() }).parse(input);
+        return await addGoalItem(projectId, userId, data.docSlug, { title: data.title, itemType: "objective", typeFields: {}, assigneeId: data.assigneeId });
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the objective." };
+        logger.error("goals.objective_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t add the objective." };
+    }
+}
+
+/** W3: + Key result under an objective: direction, unit, start, target, assigned to (measured by check-ins in A5.1a). */
+export async function addKeyResultAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: docSlugSchema, objectiveId: z.string().uuid(), title: z.string().trim().min(1, "Name the key result").max(200),
+            direction: z.enum(["increase", "decrease"]), unit: z.string().trim().max(20), start: z.number().finite(), target: z.number().finite(), assigneeId: z.string().uuid().nullish() }).parse(input);
+        const [objective] = await db.select({ id: tasks.id }).from(tasks)
+            .where(and(eq(tasks.id, data.objectiveId), eq(tasks.projectId, projectId), eq(tasks.itemType, "objective"), isNull(tasks.deletedAt))).limit(1);
+        if (!objective) return { success: false as const, error: "Objective not found." };
+        if (data.direction === "increase" ? data.target < data.start : data.target > data.start) return { success: false as const, error: data.direction === "increase" ? "The target is below the start: pick Decrease." : "The target is above the start: pick Increase." };
+        return await addGoalItem(projectId, userId, data.docSlug, { title: data.title, itemType: "key_result", partOfId: objective.id, assigneeId: data.assigneeId,
+            typeFields: { direction: data.direction, unit: data.unit, start: data.start, target: data.target, current: data.start } });
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the key result." };
+        logger.error("goals.kr_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t add the key result." };
+    }
+}
+
+/** A goal item and whether this person may check in or set its status: its assignee, or someone who can edit the goals. */
+async function goalItemFor(projectId: string, userId: string, taskId: string, type: "objective" | "key_result" | null) {
+    const [item] = await db.select({ id: tasks.id, type: tasks.itemType, assigneeId: tasks.assigneeId, docId: tasks.sourceDocId, fields: tasks.typeFields }).from(tasks)
+        .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt), inArray(tasks.itemType, type ? [type] : ["objective", "key_result"]))).limit(1);
+    if (!item?.docId) return { error: "Not found." } as const;
+    const [doc] = await db.select({ slug: workspaceDocuments.slug }).from(workspaceDocuments).where(eq(workspaceDocuments.id, item.docId)).limit(1);
+    const context = doc ? await goalsContext(projectId, userId, doc.slug) : null;
+    if (!context) return { error: "Not found." } as const;
+    if (context.settings.closedAt) return { error: "This period is closed." } as const;
+    if (item.assigneeId !== userId && !context.permission.canEdit) return { error: "Only its owner or people who can edit these goals do this." } as const;
+    return { item, context } as const;
+}
+
+/** W4: Check in: the value, a confidence 1–10 and a note. The newest check-in is the current value; a status set by hand ends. */
+export async function checkInAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ taskId: z.string().uuid(), value: z.number().finite(), confidence: z.number().int().min(1).max(10), note: z.string().trim().max(1000).optional() }).parse(input);
+        const found = await goalItemFor(projectId, userId, data.taskId, "key_result");
+        if ("error" in found) return { success: false as const, error: found.error! };
+        const at = new Date();
+        await db.transaction(async (tx) => {
+            await tx.insert(keyResultCheckIns).values({ taskId: data.taskId, value: String(data.value), confidence: data.confidence, note: data.note || null, createdBy: userId, createdAt: at });
+            await tx.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || ${JSON.stringify({ current: data.value, confidence: data.confidence, checkedInAt: at.toISOString(), statusOverride: null })}::jsonb`, updatedAt: at })
+                .where(eq(tasks.id, data.taskId));
+        });
+        revalidateProjectDoc(found.context.project);
+        return { success: true as const };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the check-in." };
+        logger.error("goals.checkin_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t check in." };
+    }
+}
+
+/** W5: set the status by hand with a reason (until the next check-in); null goes back to the worked-out status. */
+export async function setGoalStatusAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ taskId: z.string().uuid(), status: z.enum(["on_track", "at_risk", "off_track"]).nullable(), reason: z.string().trim().max(200).optional() }).parse(input);
+        if (data.status && !data.reason) return { success: false as const, error: "Say why." };
+        const found = await goalItemFor(projectId, userId, data.taskId, null);
+        if ("error" in found) return { success: false as const, error: found.error! };
+        await db.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || ${JSON.stringify({ statusOverride: data.status ? { status: data.status, reason: data.reason } : null })}::jsonb`, updatedAt: new Date() })
+            .where(eq(tasks.id, data.taskId));
+        revalidateProjectDoc(found.context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("goals.status_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t set the status." };
     }
 }

@@ -432,6 +432,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Couldn’t change push notifications": { "title": "Couldn’t change push notifications" },
   // Workflow tabs A1.3–A1.4 (report 38.5): projects, Part of and the Timeline.
   "Part of must be a project in this workspace": { "title": "Part of must be a project in this workspace" },
+  "A key result is Part of an objective": { "title": "A key result is Part of an objective" },
   "A project can’t be Part of another project": { "title": "A project can’t be Part of another project" },
   "Projects aren’t available in organizations": { "title": "Projects aren’t available in organizations", "type": "warning" },
   "Assignments can’t be Part of a project": { "title": "Assignments can’t be Part of a project", "type": "warning" },

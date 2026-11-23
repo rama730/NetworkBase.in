@@ -11,6 +11,8 @@ const TONES: Record<string, Tone> = {
     proposed: 'info', decided: 'success', superseded: 'neutral', reversed: 'warning',
     // A board motion's result (report 38.11 W6): a failed motion is an ordinary outcome, not an error.
     passed: 'success', failed: 'neutral',
+    // A goal's status (report 38.12): words always shown with the tone.
+    on_track: 'success', at_risk: 'warning', off_track: 'danger', missed: 'neutral',
     returned: 'danger', missing: 'danger', suspended: 'danger', late: 'danger', blocked: 'danger',
 }
 

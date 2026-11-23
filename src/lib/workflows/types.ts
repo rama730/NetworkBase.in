@@ -61,6 +61,15 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
       s("testing", "Testing", "in_progress", false), s("launched", "Launched", "done", false), s("wont_do", "Won’t do", "done", false, true),
     ],
   },
+  // Report 38.12 D3 (A5.1): objectives and key results live in a goals document and never sit on the board.
+  objective: {
+    id: "objective", label: "Objective", icon: "Target", joinStage: null, doneStage: "done",
+    stages: [s("active", "Active", "in_progress", false), s("done", "Done", "done", false, true), s("missed", "Missed", "done", false, true)],
+  },
+  key_result: {
+    id: "key_result", label: "Key result", icon: "Gauge", joinStage: null, doneStage: "done",
+    stages: [s("active", "Active", "in_progress", false), s("done", "Done", "done", false, true), s("missed", "Missed", "done", false, true)],
+  },
 };
 
 export function workflowType(id: string): WorkflowType {

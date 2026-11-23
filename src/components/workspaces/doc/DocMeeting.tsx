@@ -26,7 +26,7 @@ const CHIP = "inline-flex h-5 items-center rounded-[3px] border border-border px
 const fileFor = (title: string, day: string) => `${title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "meeting"}-${day}.md`;
 const useMeetings = (projectId: string, enabled = true) => useQuery({ queryKey: meetingsKey(projectId), queryFn: () => readMeetingsAction(projectId), enabled, staleTime: 30_000 });
 
-function useOpenDocAfter(projectId: string) {
+export function useOpenDocAfter(projectId: string) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

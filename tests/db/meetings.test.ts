@@ -301,6 +301,11 @@ test("W6: a board meeting's motion needs quorum and votes within those present; 
   assert.ok((await settingsOf(first)).approvedAt);
   assert.equal((await docs.approveMinutesAction(t.ws, { docSlug: "board-2" }) as { error?: string }).error, "Those minutes are already approved.");
   assert.equal((await docs.addMotionAction(t.ws, { docSlug: "board-1", text: "Late change" }) as { error?: string }).error, "These minutes are approved and can't change.");
+  // Security review: the approved minutes can't be unlinked (dropping the lock), moved or re-filed as a new meeting.
+  assert.equal((await docs.unlinkWorkspaceDocAction(t.ws, "board-1") as { error?: string }).error, "Approved minutes stay in Documents.");
+  assert.equal((await docs.moveMeetingAction(t.ws, { docSlug: "board-1", startsAt: ist("2027-01-09T10:00:00") })).success, false);
+  assert.equal((await docs.createMeetingAction(t.ws, { docSlug: "board-1", type: "board", title: "Again", startsAt: ist("2027-01-09T10:00:00"), lengthMinutes: 60, attendeeIds: [], repeat: "none" }) as { error?: string }).error, "That document is already a meeting.");
+  assert.ok((await settingsOf(first)).approvedAt);
   assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title = 'Minutes approved: Board · Jan 7'`)[0]!.n, 1);
   // File writes refuse the approved minutes' file (every client goes through these checks).
   const lock = await loadAppModule(() => import("../../src/lib/workspaces/minutes-lock"));
