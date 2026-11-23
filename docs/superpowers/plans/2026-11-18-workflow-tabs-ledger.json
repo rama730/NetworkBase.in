@@ -6688,9 +6688,9 @@
       "text": "For a NetworkBase Updates channel, Mark published picks the Update; its likes and comments fill results, views stay blank. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts",
-      "evidence": "Built in A2.9 (live Update likes/comments, typed results refused for Update channels); tests/db/content.test.ts covers it. Live check needs a test Update, which would be public on Discover: asked the user 2026-11-23. revisit 2026-11-24 (with the user's OK, or when Updates can be posted privately)."
+      "evidence": "Live 2026-11-23 (user approved one public test Update): posted 'Test post: checking a content workflow. Please ignore.' in wt-test-a2-3 and liked it once; WT-15 Blog launch note → Scheduled → Mark published picked that Update for the Blog channel → Published; panel Results '— views · 1 likes · 0 comments · — clicks' read live; no Results… button (an Update fills its own); Performance row 'Blog launch note · Blog · 23 Nov · — 1 0 —'; Add results reminder set for 2026-11-30 14:26Z."
     },
     {
       "key": "38.8.call4",
