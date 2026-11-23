@@ -274,7 +274,7 @@ test("task file move dialog is roomy and layered above the detail panel", () => 
   assert.doesNotMatch(panel, /(?<!max-md:)overflow-x-auto/);
   assert.match(dialogs, /overlayClassName="z-\[300\]/);
   assert.match(dialogs, /className="z-\[301\]/);
-  assert.match(dialogs, /className="z-\[301\] flex max-h-\[88vh\] flex-col sm:max-w-\[460px\]/);
+  assert.match(dialogs, /className="z-\[301\] flex max-h-\[88vh\] flex-col/);
   assert.match(dialogs, /h-\[min\(58vh,28rem\)\]/);
   assert.doesNotMatch(row, /<Dialog/);
   assert.doesNotMatch(row, /onSelect=\{\(event\) => \{\s*event\.preventDefault\(\);\s*setIsMoveModalOpen/);

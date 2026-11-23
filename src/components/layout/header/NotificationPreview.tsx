@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import Link from "next/link";
 import { useRef, type KeyboardEvent } from "react";
@@ -194,7 +195,7 @@ export default function NotificationPreview(props: NotificationPreviewProps) {
                             </Link>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1" role="tablist" aria-label="Notification filter" aria-orientation="horizontal">
+                    <div className="nb-seg" data-fill="" role="tablist" aria-label="Notification filter" aria-orientation="horizontal">
                         {FILTERS.map((filter, index) => (
                             <button
                                 key={filter.id}
@@ -207,19 +208,14 @@ export default function NotificationPreview(props: NotificationPreviewProps) {
                                 tabIndex={activeFilter === filter.id ? 0 : -1}
                                 onClick={() => onFilterChange(filter.id)}
                                 onKeyDown={(event) => handleFilterKeyDown(event, index)}
-                                className={cn(
-                                    "nb-touch-target nb-ui-label relative flex h-7 flex-1 items-center justify-center rounded-[6px] px-3 font-medium transition-[background-color,color,box-shadow] duration-[130ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                    activeFilter === filter.id
-                                        ? "bg-card text-foreground shadow-2xs dark:bg-zinc-800"
-                                        : "text-muted-foreground hover:text-foreground",
-                                )}
                             >
                                 <span>{filter.label}</span>
                                 {filter.id === "unread" && unreadCount > 0 ? (
-                                    <span className="ml-1.5 font-mono text-[11px] font-semibold text-primary">({unreadCount})</span>
+                                    <span className="nb-seg-n">{unreadCount}</span>
                                 ) : null}
                             </button>
                         ))}
+                        <TabMarker />
                     </div>
                 </div>
                 <div id="notifications-filter-panel" role="tabpanel" aria-labelledby={`notifications-filter-${activeFilter}`} className="min-h-0 flex-1 overflow-y-auto overscroll-contain app-scroll app-scroll-y [overflow-anchor:none]">

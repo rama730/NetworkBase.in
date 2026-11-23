@@ -37,7 +37,7 @@ export function TeamTaskDialog({ projectId, members, open, onOpenChange, onCreat
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto">
+            <DialogContent className="max-h-[90dvh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Team task</DialogTitle>
                     <DialogDescription>One shared task per team. Anyone on the team can move it or tick its steps.</DialogDescription>

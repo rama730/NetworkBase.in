@@ -244,7 +244,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                     {h.submissionType === 'file' ? (
                         <div onDragOver={(e) => { if (canAttach) { e.preventDefault(); setDragging(true) } }} onDragLeave={() => setDragging(false)}
                             onDrop={(e) => { if (!canAttach) return; e.preventDefault(); setDragging(false); void attach(Array.from(e.dataTransfer.files)) }}
-                            className={cn('space-y-1 rounded-md p-3 text-center text-[13px] text-muted-foreground', canAttach && 'border border-dashed', dragging ? 'border-primary' : 'border-border')}>
+                            data-drop-target={canAttach || undefined} className={cn('space-y-1 rounded-md border border-border p-3 text-center text-[13px] text-muted-foreground', canAttach && 'border-dashed', dragging && 'nb-drop-over')}>
                             {uploading ? <p role="status">Adding {uploading.join(', ')}…</p> : (
                                 <p className="flex flex-wrap items-center justify-center gap-2">
                                     {canAttach ? (h.files.length ? 'Drop another file, or' : 'Drop your file here, or') : null}

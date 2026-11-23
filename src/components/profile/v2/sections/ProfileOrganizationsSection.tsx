@@ -32,12 +32,12 @@ export function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolea
     return () => { live = false; };
   }, [open]);
   const saved = () => setSavedAt(Date.now());
-  const toggle = (row: MyProfileOrganization) => startTransition(async () => {
+  // The Show switch flips at once and, if this fails, flips back with Try again beside it (controls round 2).
+  const toggle = async (row: MyProfileOrganization) => {
     const result = await (await actions()).updateMyOrgMembershipAction(row.orgId, { show_on_profile: !row.showOnProfile });
-    if (!result.success) return void toast.error(result.error);
-    setRows((current) => current?.map((r) => (r.orgId === row.orgId ? { ...r, showOnProfile: !r.showOnProfile } : r)) ?? null);
-    saved();
-  });
+    if (result.success) setRows((current) => current?.map((r) => (r.orgId === row.orgId ? { ...r, showOnProfile: !r.showOnProfile } : r)) ?? null);
+    return result;
+  };
   const move = (index: number, by: -1 | 1) => startTransition(async () => {
     if (!rows) return;
     const next = [...rows];
@@ -50,7 +50,7 @@ export function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolea
   });
   return (
     <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) router.refresh(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="confirm">
         <DialogHeader>
           <DialogTitle>Manage organizations</DialogTitle>
           <DialogDescription>Turning one off hides it, its contribution and its workspaces from others. Nothing is deleted.</DialogDescription>
@@ -68,7 +68,7 @@ export function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolea
                 <WorkspaceAvatar project={{ id: row.orgId, title: row.title, coverImage: row.coverImage }} size="row" kind="organization" />
                 <span className="min-w-0 flex-1"><span className="block truncate font-medium">{row.title}</span><span className="text-[12px] text-muted-foreground">{row.role}</span></span>
                 <label className="flex items-center gap-1.5 text-[13px]">
-                  <SettingsSwitch checked={row.showOnProfile} disabled={pending} onCheckedChange={() => toggle(row)} aria-label={`Show ${row.title} on my profile`} />
+                  <SettingsSwitch checked={row.showOnProfile} onCheckedChange={() => toggle(row)} aria-label={`Show ${row.title} on my profile`} />
                   Show
                 </label>
                 <Link href={profileEditHref("experience", "overview", { contribution: row.contributionId ?? undefined })} className="text-[13px] text-primary hover:underline">Edit contribution</Link>

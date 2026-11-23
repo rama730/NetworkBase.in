@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useMemo, useRef, useState } from "react";
@@ -372,46 +373,29 @@ export default function SubtasksTab({
         {/* Filter Segmented Control */}
         {subtasks.length > 0 ? (
           <div className="flex items-center justify-between pt-0.5">
-            <div className="inline-flex h-[32px] items-center rounded-[5px] border border-border bg-muted/30 p-0.5 gap-0.5">
+            <div className="nb-seg" data-size="sm" role="group" aria-label="Show">
               <button
                 type="button"
                 aria-pressed={filter === "all"}
                 onClick={() => setFilter("all")}
-                className={cn(
-                  "nb-touch-target h-6 min-h-6 rounded-[3px] px-2 text-xs font-medium transition-colors",
-                  filter === "all"
-                    ? "bg-card text-foreground shadow-2xs font-semibold"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
               >
-                All ({subtasks.length})
+                All <span className="nb-seg-n">{subtasks.length}</span>
               </button>
               <button
                 type="button"
                 aria-pressed={filter === "open"}
                 onClick={() => setFilter("open")}
-                className={cn(
-                  "nb-touch-target h-6 min-h-6 rounded-[3px] px-2 text-xs font-medium transition-colors",
-                  filter === "open"
-                    ? "bg-card text-foreground shadow-2xs font-semibold"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
               >
-                Open ({openSubtasks.length})
+                Open <span className="nb-seg-n">{openSubtasks.length}</span>
               </button>
               <button
                 type="button"
                 aria-pressed={filter === "completed"}
                 onClick={() => setFilter("completed")}
-                className={cn(
-                  "nb-touch-target h-6 min-h-6 rounded-[3px] px-2 text-xs font-medium transition-colors",
-                  filter === "completed"
-                    ? "bg-card text-foreground shadow-2xs font-semibold"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
               >
-                Done ({completedSubtasks.length})
+                Done <span className="nb-seg-n">{completedSubtasks.length}</span>
               </button>
+              <TabMarker />
             </div>
             {completedCount > 0 && openSubtasks.length === 0 ? (
               <span className="font-mono text-[11px] font-medium text-emerald-600 dark:text-emerald-400">

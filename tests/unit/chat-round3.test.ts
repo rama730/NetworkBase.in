@@ -110,8 +110,9 @@ test("round 4: Latest sits between list and composer, statuses beside names, spe
   assert.match(row, /usePersonPresence\(grouped \? null : message\.author\?\.id\)/);
   assert.match(row, /authorPresence\.status\?\.emoji \|\| "💬"/);
   const card = src("src/components/presence/PersonHoverCard.tsx");
-  assert.match(card, /size=\{48\}/);
-  assert.match(card, /text-\[15px\] font-semibold/);
+  // Controls round 2: the card is a small profile band (56 px picture, serif name, stat cells for what you share).
+  assert.match(card, /size=\{56\}/);
+  assert.match(card, /nb-hcard-name/);
   assert.doesNotMatch(card, /rounded-md bg-muted/);
   // Headline and location only for public profiles, yourself, or a shared project.
   assert.match(src("src/app/actions/chat/members.ts"), /profile\?\.visibility === "public" \|\| input\.userId === user\.id \|\| sharedProjects\.length > 0/);

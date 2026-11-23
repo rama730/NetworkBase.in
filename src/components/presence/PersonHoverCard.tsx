@@ -18,13 +18,14 @@ import { profileHref } from "@/lib/routing/identifiers";
 import { ReportDialog } from "@/components/reports/ReportDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { padCount } from "@/lib/ui/tab-marker";
 
 type Person = { id: string; username: string | null; full_name: string | null; avatar_url: string | null };
 
 /**
- * The person card (spec §12): 48px square avatar, 14px gap, 15px semibold name, one line under it
- * (location, else headline, else @username), then status, presence and their local time, and two
- * compact actions. A plain card: no inner wells.
+ * The person card (controls round 2): a small piece of their profile. The gridded band with the eyebrow, a 56px
+ * picture, the serif name and @handle; their headline; status, presence and local time; stat cells for what you
+ * share; Message, View profile, Report and Block.
  */
 function CardBody({ person, onReport, onBlock, blocked }: { person: Person; onReport: () => void; onBlock: () => void; blocked: boolean }) {
   const { user } = useAuth();
@@ -37,19 +38,21 @@ function CardBody({ person, onReport, onBlock, blocked }: { person: Person; onRe
   const clock = (zone?: string) => now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: zone });
   // Their time only when their clock differs from yours.
   const theirTime = timeZone && clock(timeZone) !== clock() ? `${clock(timeZone)} local time` : null;
+  const shared = context.data ? [["Shared workspaces", context.data.sharedProjects.length], ["Shared channels", context.data.sharedChannels.length]] as const : null;
   return (
-    <div className="flex w-[320px] max-w-[calc(100vw-24px)] flex-col gap-4 p-5">
-      <div className="flex items-center gap-3.5">
-        <PresenceAvatar userId={person.id} identity={identity} size={48} />
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-[15px] font-semibold leading-tight text-foreground">{name}</span>
-          {location ? <span className="nb-meta truncate">{location}</span>
-            : headline ? <span className="nb-compact line-clamp-2 text-muted-foreground">{headline}</span>
-            : person.username ? <span className="nb-meta truncate">@{person.username}</span> : null}
+    <div className="nb-hcard">
+      <div className="nb-hcard-band">
+        <p className="nb-hcard-eyebrow">{location ? `Profile · ${location}` : "Profile"}</p>
+        <div className="nb-hcard-id">
+          <PresenceAvatar userId={person.id} identity={identity} size={56} />
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="nb-hcard-name">{name}</span>
+            {person.username ? <span className="nb-meta truncate">@{person.username}</span> : null}
+          </div>
         </div>
       </div>
-      {location && headline ? <p className="nb-compact -mt-2 line-clamp-2 text-muted-foreground">{headline}</p> : null}
-      <div className="flex flex-col gap-1.5">
+      {headline ? <p className="nb-hcard-line">{headline}</p> : null}
+      <div className="nb-hcard-presence">
         {presence.status ? (
           <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="nb-compact line-clamp-2 text-foreground" />
         ) : null}
@@ -60,7 +63,12 @@ function CardBody({ person, onReport, onBlock, blocked }: { person: Person; onRe
           <span className="truncate">{presence.loaded ? [presence.availabilityText, theirTime].filter(Boolean).join(" · ") : "\u00a0"}</span>
         </span>
       </div>
-      <div className="flex gap-2">
+      {shared ? (
+        <div className="nb-hcard-stats">
+          {shared.map(([label, n]) => <div key={label}>{label}<b>{padCount(n)}</b></div>)}
+        </div>
+      ) : null}
+      <div className="nb-hcard-acts">
         {user?.id !== person.id ? (
           <Button asChild size="sm" className="flex-1 pointer-coarse:h-11">
             <Link href={`/messages?userId=${person.id}`} onClick={(event) => messageUserInWindow(person.id, event)}>Message</Link>
@@ -71,12 +79,12 @@ function CardBody({ person, onReport, onBlock, blocked }: { person: Person; onRe
         </Button>
         {/* Report the person from their card (trust and safety §5.1); never yourself, never signed out. */}
         {user && user.id !== person.id ? (
-          <Button type="button" variant="ghost" size="icon-sm" onClick={onReport} aria-label={`Report ${name}`} title="Report" className="shrink-0 text-muted-foreground pointer-coarse:size-11">
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onReport} aria-label={`Report ${name}`} className="shrink-0 text-muted-foreground pointer-coarse:size-11">
             <Flag className="size-4" aria-hidden="true" />
           </Button>
         ) : null}
         {user && user.id !== person.id ? (
-          <Button type="button" variant="ghost" size="icon-sm" onClick={onBlock} aria-label={`${blocked ? "Unblock" : "Block"} ${name}`} title={blocked ? "Unblock" : "Block"} className="shrink-0 text-muted-foreground pointer-coarse:size-11">
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onBlock} aria-label={`${blocked ? "Unblock" : "Block"} ${name}`} className="shrink-0 text-muted-foreground pointer-coarse:size-11">
             <Ban className="size-4" aria-hidden="true" />
           </Button>
         ) : null}
@@ -112,7 +120,7 @@ export function PersonHoverCard({ person, children, label, className, focusable 
         tabIndex={focusable ? undefined : -1}
         aria-hidden={focusable ? undefined : true}
         aria-label={label === undefined ? `About ${person.full_name || person.username || "this person"}` : label || undefined}
-        onPointerEnter={(event) => event.pointerType === "mouse" && schedule(true, 450)}
+        onPointerEnter={(event) => event.pointerType === "mouse" && schedule(true, 400)}
         onPointerLeave={(event) => event.pointerType === "mouse" && schedule(false, 200)}
       >
         {children}
@@ -125,7 +133,7 @@ export function PersonHoverCard({ person, children, label, className, focusable 
           collisionPadding={12}
           onPointerEnter={() => timer.current && clearTimeout(timer.current)}
           onPointerLeave={() => schedule(false, 200)}
-          className="z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-md outline-none"
+          className="z-50 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md outline-none"
         >
           <CardBody person={person} blocked={blockedIds.has(person.id)} onReport={() => { setOpen(false); setReporting(true); }} onBlock={() => { setOpen(false); setBlockAsk((n) => n + 1); }} />
         </Popover.Content>

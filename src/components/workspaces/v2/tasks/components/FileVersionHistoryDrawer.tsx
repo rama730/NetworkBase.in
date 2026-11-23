@@ -198,7 +198,7 @@ export function FileVersionHistoryDrawer({
         chip "does nothing".
       */}
       <DialogContent
-        className="z-[300] max-w-xl"
+        className="z-[300]"
         overlayClassName="z-[299]"
         showCloseButton={false}
       >

@@ -563,7 +563,7 @@ export default function UpdatesTab({
         {isPhone ? (
           <>
             <Dialog open={Boolean(detailUpdate)} onOpenChange={(open) => { if (!open) closeDetail(); }}>
-              <DialogContent presentation="right-drawer" className="gap-0 overflow-y-auto p-4">
+              <DialogContent presentation="right-drawer" size="side" className="gap-0 overflow-y-auto p-4">
                 <DialogTitle className="sr-only">Update</DialogTitle>
                 {detailUpdate ? (
                   <UpdateDetailPanel
@@ -582,7 +582,7 @@ export default function UpdatesTab({
               </DialogContent>
             </Dialog>
             <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
-              <DialogContent presentation="right-drawer" className="overflow-y-auto p-4">
+              <DialogContent presentation="right-drawer" size="side" className="overflow-y-auto p-4">
                 <DialogTitle className="nb-card-title">Shortcuts</DialogTitle>
                 <UpdatesRightRail
                   updates={visibleUpdates}

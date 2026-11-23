@@ -90,7 +90,7 @@ export function PlannerBoardLanes({ projectId, workflow, tasks, canEdit, onOpenT
                     <div key={col.id} aria-label={`${lane.title}, ${colName(col)}`} data-testid="board-lane-cell"
                       onDragOver={(e) => { if (!canEdit) return; e.preventDefault(); setOver(cell); }} onDragLeave={() => setOver((o) => (o === cell ? null : o))}
                       onDrop={(e) => { e.preventDefault(); setOver(null); const t = tasks.find((x) => x.id === e.dataTransfer.getData("text/plain")); if (t) void move(t, lane.id, col.id); }}
-                      className={cn("min-h-16 space-y-2 rounded-[6px] p-1 transition-colors duration-[180ms]", over === cell && "bg-primary/10 outline outline-1 outline-primary/40")}>
+                      data-drop-target={canEdit || undefined} className={cn("min-h-16 space-y-2 rounded-[6px] p-1 transition-colors duration-[180ms]", over === cell && "nb-drop-over")}>
                       <span className="block px-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">{colName(col)}</span>
                       {cards.map((t) => (
                         <div key={t.id} draggable={canEdit} onDragStart={(e) => { e.dataTransfer.setData("text/plain", t.id); e.dataTransfer.effectAllowed = "move"; }} className={cn(canEdit && "cursor-grab")}>

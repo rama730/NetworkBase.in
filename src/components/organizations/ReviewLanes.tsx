@@ -164,7 +164,7 @@ function ReturnDialog({ pending, recentReasons, onCancel, onReturn }: { pending:
     const who = pending?.row.who ?? ''
     return (
         <Dialog open={Boolean(pending)} onOpenChange={(open) => { if (!open) { setForId(null); onCancel() } }}>
-            <DialogContent className="sm:max-w-[480px]">
+            <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Return {who}’s work?</DialogTitle>
                     <DialogDescription>They get a notification. Their card moves back to In progress, marked Returned.</DialogDescription>

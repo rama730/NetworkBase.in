@@ -107,7 +107,7 @@ function InviteEmailDialog({ orgId, data, open, onOpenChange, onSent }: { orgId:
     })
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+            <DialogContent className="max-h-[90dvh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Invite by email</DialogTitle>
                     <DialogDescription>{data.invitesLeft === 0 ? 'No invites left today.' : `${data.invitesLeft} left today.`}</DialogDescription>

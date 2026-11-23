@@ -188,7 +188,7 @@ export function TaskSearchPicker({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent
-        className="max-w-lg overflow-hidden rounded-[12px] border border-[#DBD5C8] bg-white p-0 shadow-lg dark:border-border dark:bg-card"
+        className="overflow-hidden rounded-[12px] border border-[#DBD5C8] bg-white p-0 shadow-lg dark:border-border dark:bg-card"
         showCloseButton={false}
         data-testid="task-search-picker"
       >

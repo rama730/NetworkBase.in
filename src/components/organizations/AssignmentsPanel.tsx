@@ -781,7 +781,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZo
     })
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
+            <DialogContent size="wide" className="max-h-[90dvh] max-w-2xl overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{row.title}</DialogTitle>
                     <DialogDescription>{due(row.dueDate)} · {countsLine(row)}</DialogDescription>

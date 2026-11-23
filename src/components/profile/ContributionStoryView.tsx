@@ -549,7 +549,7 @@ export function ContributionStoryView({
           if (!open) setImageIndex(null);
         }}
       >
-        <DialogContent
+        <DialogContent size="wide"
           className="flex max-h-[90dvh] w-[calc(100%-32px)] max-w-5xl flex-col overflow-hidden p-4"
           onKeyDown={(e) => {
             if (e.key === "ArrowLeft") {

@@ -30,9 +30,10 @@ test("Notification dropdown shell architecture: segmented tab bar, stable scroll
     // 2. Unread badge rendered as subtle drafting pill
     assert.match(previewSource, /rounded-full bg-primary\/10 px-2 py-0\.5 font-mono text-\[11px\] font-medium text-primary/);
 
-    // 3. Segmented tab bar with clean active surface and unread count
-    assert.match(previewSource, /rounded-lg bg-muted\/60 p-1/);
-    assert.match(previewSource, /activeFilter === filter\.id\s*\?\s*"bg-card text-foreground shadow-2xs dark:bg-zinc-800"/);
+    // 3. Segmented tab bar (controls round 2): hairline cells across the width, the clay marker, the unread count in mono
+    assert.match(previewSource, /className="nb-seg" data-fill="" role="tablist"/);
+    assert.match(previewSource, /<TabMarker \/>/);
+    assert.match(previewSource, /<span className="nb-seg-n">\{unreadCount\}<\/span>/);
 
     // 4. Scroll panel has overflow-anchor: none to prevent layout jumps
     assert.match(previewSource, /\[overflow-anchor:none\]/);

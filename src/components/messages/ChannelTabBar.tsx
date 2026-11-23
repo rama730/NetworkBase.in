@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckSquare, Copy, ExternalLink, FileText, Files, LayoutTemplate, Link2, MessageSquare, Pin, Plus, SlidersHorizontal, X } from "lucide-react";
@@ -119,6 +120,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
             </div>
           );
         })}
+          <TabMarker overlap />
       </div>
 
       {bookmarks.length ? (

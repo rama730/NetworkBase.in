@@ -146,7 +146,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="max-w-md p-0 overflow-hidden gap-0 border border-border bg-card">
+            <DialogContent size="confirm" className="p-0 overflow-hidden gap-0 border border-border bg-card">
                 <DialogHeader className="border-b border-border px-4 py-4">
                     <DialogTitle>{`${ownerDisplayName}'s Connections${totalConnections === null ? '' : ` (${totalConnections})`}`}</DialogTitle>
                     <DialogDescription className="sr-only">

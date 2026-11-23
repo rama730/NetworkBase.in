@@ -5,6 +5,8 @@ import { QueryProvider } from '@/components/providers/query-provider';
 import { SharedConfirmHost } from '@/components/ui/SharedConfirmHost';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipLayer } from '@/components/ui/TooltipLayer';
+import { DragArming } from '@/components/ui/DragArming';
 import type { User } from '@supabase/supabase-js';
 
 interface AuthRouteProvidersProps {
@@ -22,6 +24,8 @@ export function AuthRouteProviders({ children, initialUser, initialProfile = nul
         </AuthProvider>
         <Toaster />
         <SharedConfirmHost />
+        <TooltipLayer />
+        <DragArming />
       </TooltipProvider>
     </QueryProvider>
   );

@@ -50,7 +50,7 @@ function groups() {
 export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-[460px]">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogTitle>Keyboard shortcuts</DialogTitle>
         <DialogDescription>Shortcuts don’t fire while you’re typing, except in the message box.</DialogDescription>
         {groups().map((group) => (

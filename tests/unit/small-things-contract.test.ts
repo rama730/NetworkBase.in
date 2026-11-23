@@ -50,3 +50,30 @@ test("a 'use client' file has no import above the directive (Next refuses to bui
   const bad = files.filter((f) => { const s = execSync(`cat ${JSON.stringify(f)}`, { encoding: "utf8" }); return /^\s*import\b/m.test(s.slice(0, s.search(/^["']use client["']/m))); });
   assert.deepEqual(bad, []);
 });
+
+test("K1: square everywhere — tags 3 px, the switch is square, chosen chips and Saved show the pixel tick", async () => {
+  const css = execSync("cat src/app/globals.css", { encoding: "utf8" });
+  assert.match(css, /\.nb-tag \{[^}]*border-radius:3px/);
+  const sw = execSync("cat src/components/settings/ui/SettingsSwitch.tsx", { encoding: "utf8" });
+  assert.match(sw, /rounded-\[4px\]/);
+  assert.doesNotMatch(sw, /rounded-full/);
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const React = await import("react");
+  const { SavedTick } = await import("../../src/components/ui/SavedTick");
+  const html = renderToStaticMarkup(React.createElement(SavedTick));
+  assert.match(html, /class="nb-px"/);
+  assert.match(execSync("cat src/components/onboarding/ChipSelector.tsx", { encoding: "utf8" }), /isSelected \? <PixelIcon name="check"/);
+});
+
+test("K2/K3: every tab list and segmented row carries the one clay marker", () => {
+  const lists = filesWith('role="tablist"').filter((f) => !/EditWorkspaceModal|ReviewQueueParts|app\/\(site\)\/page\.tsx|ContentParts|ContentTab/.test(f));
+  assert.deepEqual(lists.filter((f) => !execSync(`cat ${JSON.stringify(f)}`, { encoding: "utf8" }).includes("<TabMarker")), []);
+  const segs = filesWith('className="nb-seg');
+  assert.deepEqual(segs.filter((f) => !execSync(`cat ${JSON.stringify(f)}`, { encoding: "utf8" }).includes("<TabMarker")), []);
+});
+
+test("K4: a centered dialog either takes a size or stays width-less; only `wide` ones keep their own width", () => {
+  const bad = execSync(`grep -rnE "<DialogContent[^>]*className=\\"[^\\"]*max-w-" src --include='*.tsx' || true`, { encoding: "utf8" }).split("\n").filter(Boolean)
+    .filter((l) => !/size="wide"|right-drawer|bottom-sheet|ContentParts|ContentTab/.test(l));
+  assert.deepEqual(bad, []);
+});

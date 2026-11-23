@@ -538,7 +538,7 @@ export default function DiscoverClient({
                     if (!open) thread.close();
                 }}
             >
-                <DialogContent presentation="right-drawer" showCloseButton={false} className="w-full max-w-lg overflow-y-auto p-4">
+                <DialogContent presentation="right-drawer" size="side" showCloseButton={false} className="w-full overflow-y-auto p-4">
                     <DialogTitle className="sr-only">Update thread</DialogTitle>
                     <DialogDescription className="sr-only">An update and its comments.</DialogDescription>
                     {thread.selected ? (

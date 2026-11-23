@@ -249,7 +249,7 @@ export default function EditWorkspaceModal({ project, isOpen, onClose, onSaved }
             <Dialog open={isOpen} onOpenChange={(open) => {
                 if (!open) handleAttemptClose();
             }}>
-                <DialogContent
+                <DialogContent size="wide"
                     showCloseButton={false}
                     className="w-full max-w-5xl h-[85vh] p-0 rounded-lg border border-border bg-card shadow-2xl flex flex-col overflow-hidden"
                 >

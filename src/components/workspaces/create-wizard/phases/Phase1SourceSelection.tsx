@@ -1,4 +1,5 @@
 'use client';
+import { TabMarker } from "@/components/ui/TabMarker";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCreateLocation, WherePicker } from '@/components/organizations/CreateLocation';
@@ -1176,6 +1177,7 @@ export default function Phase1SourceSelection({
                                         >
                                             Browse repositories
                                         </button>
+                                        <TabMarker overlap />
                                     </div>
                                 )}
 

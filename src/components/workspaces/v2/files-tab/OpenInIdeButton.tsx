@@ -304,9 +304,9 @@ export function OpenInIdeButton({
 
       {/* Fallback Setup Modal */}
       <Dialog open={fallbackOpen} onOpenChange={setFallbackOpen}>
-        <DialogContent
+        <DialogContent size="confirm"
           overlayClassName="z-[250]"
-          className="z-[251] sm:max-w-[400px]"
+          className="z-[251]"
         >
           <DialogHeader className="text-left">
             <Image

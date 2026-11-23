@@ -723,7 +723,7 @@ export default function IntegrationsSettings() {
     </SettingsSectionCard>
 
     <Dialog open={replacementConfirmOpen} onOpenChange={setReplacementConfirmOpen}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Replace the unavailable GitHub account?</DialogTitle>
           <DialogDescription>

@@ -49,7 +49,7 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="flex h-[560px] max-h-[85vh] w-[860px] max-w-[95vw] flex-col overflow-hidden border border-border p-0 sm:max-w-3xl">
+      <DialogContent size="wide" showCloseButton={false} className="flex h-[560px] max-h-[85vh] w-[860px] max-w-[95vw] flex-col overflow-hidden border border-border p-0 sm:max-w-3xl">
         <DialogTitle className="sr-only">Copy from another channel</DialogTitle>
         {/* Phones: the list on top, the preview below (side by side leaves ~90px for the preview). */}
         <div className="flex h-full min-h-0 flex-1 flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">

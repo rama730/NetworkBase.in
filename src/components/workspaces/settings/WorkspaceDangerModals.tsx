@@ -45,7 +45,7 @@ export function WorkspaceArchiveModal({
         <Dialog open={open} onOpenChange={(nextOpen) => {
             if (!loading) onOpenChange(nextOpen);
         }}>
-            <DialogContent className="max-w-lg rounded-[12px] p-0 overflow-hidden border-border bg-card">
+            <DialogContent className="rounded-[12px] p-0 overflow-hidden border-border bg-card">
                 <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
                     <div className="flex items-center gap-2">
                         <div className="flex size-8 items-center justify-center rounded-[5px] border border-border bg-muted/50 text-foreground">
@@ -189,7 +189,7 @@ export function WorkspaceTransferOwnershipModal({
                 onOpenChange(nextOpen);
             }
         }}>
-            <DialogContent className="max-w-lg rounded-[12px] p-0 overflow-hidden border-border bg-card">
+            <DialogContent className="rounded-[12px] p-0 overflow-hidden border-border bg-card">
                 <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
                     <div className="flex items-center gap-2">
                         <div className="flex size-8 items-center justify-center rounded-[5px] border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
@@ -359,7 +359,7 @@ export function WorkspaceDeleteModal({
                 onOpenChange(nextOpen);
             }
         }}>
-            <DialogContent className="max-w-lg rounded-[12px] p-0 overflow-hidden border-border bg-card">
+            <DialogContent className="rounded-[12px] p-0 overflow-hidden border-border bg-card">
                 <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
                     <div className="flex items-center gap-2">
                         <div className="flex size-8 items-center justify-center rounded-[5px] border border-destructive/30 bg-destructive/10 text-destructive">

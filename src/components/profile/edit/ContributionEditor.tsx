@@ -2358,7 +2358,7 @@ export function ContributionEditor({
           if (!open) setPreview(null);
         }}
       >
-        <DialogContent className="max-h-[90dvh] max-w-4xl overflow-auto">
+        <DialogContent size="wide" className="max-h-[90dvh] max-w-4xl overflow-auto">
           <DialogTitle>
             {preview === "draft" ? "Preview private draft" : "View as visitor"}
           </DialogTitle>

@@ -1253,11 +1253,11 @@ export function FolderListView({
           aria-live="polite"
           aria-label={`Upload to ${folderPath(folderId)}`}
           onClick={resetDragState}
-          className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#FCF0EA]/75 dark:bg-[#D14E24]/10 backdrop-blur-xs border-2 border-dashed border-[#D14E24] rounded-[12px] cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] animate-in fade-in-50 duration-[130ms]"
+          className="absolute inset-0 z-40 flex flex-col items-center justify-center nb-drop-hint cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] animate-in fade-in-50 duration-[130ms]"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative flex flex-col items-center gap-2.5 p-6 rounded-[12px] bg-card shadow-xl border border-[#DBD5C8] dark:border-white/10 cursor-default"
+            className="relative flex flex-col items-center gap-2.5 p-6 rounded-[8px] bg-card shadow-xl border border-border cursor-default"
           >
             <button
               type="button"

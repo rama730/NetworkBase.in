@@ -253,7 +253,7 @@ export function TrustInbox() {
                 </>
             ) : null}
             <Dialog open={help} onOpenChange={setHelp}>
-                <DialogContent className="max-w-[380px]">
+                <DialogContent size="confirm">
                     <DialogHeader><DialogTitle>Keyboard shortcuts</DialogTitle><DialogDescription>They work whenever you’re not typing.</DialogDescription></DialogHeader>
                     <dl className="grid grid-cols-[88px_1fr] gap-y-1.5 text-[13px]">
                         {[['J / K', 'Next / previous case'], ['Enter', 'Open the case'], ['1 / 2', 'No rule broken / Take action'], ['R', 'Pick the rule'], ['⌘ Enter', 'Send decision'],

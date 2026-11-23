@@ -401,7 +401,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       </div> : null}
 
       <Dialog open={setupOpen} onOpenChange={(open) => { void handleSetupOpenChange(open); }}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>
               {pendingFactor ? "Verify your authenticator app" : "Set up an authenticator app"}
@@ -526,7 +526,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       <Dialog open={!!revealedRecoveryCodes} onOpenChange={(open) => { if (!open) setRevealedRecoveryCodes(null); }}>
         {/* Shown once: only the button closes this, so a stray Esc or click outside cannot throw the codes away. */}
         <DialogContent
-          className="sm:max-w-lg"
+          
           showCloseButton={false}
           onEscapeKeyDown={(event) => event.preventDefault()}
           onPointerDownOutside={(event) => event.preventDefault()}

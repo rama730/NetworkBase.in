@@ -34,7 +34,7 @@ export function RevisionControlModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-card p-6 rounded-[8px] border border-border shadow-xl">
+      <DialogContent size="confirm" className="bg-card p-6 rounded-[8px] border border-border shadow-xl">
         <DialogHeader className="mb-2">
           <DialogTitle className="text-sm font-semibold text-foreground">Save a new version</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">

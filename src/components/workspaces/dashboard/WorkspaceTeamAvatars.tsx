@@ -174,7 +174,7 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
                 {total} {total === 1 ? "member" : "members"}
             </button>
             <Dialog open={rosterOpen} onOpenChange={setRosterOpen}>
-                <DialogContent presentation="right-drawer" className="gap-0 p-0 sm:max-w-[360px]">
+                <DialogContent presentation="right-drawer" size="side" className="gap-0 p-0">
                     <DialogTitle className="nb-card-title border-b border-border px-4 py-4">Team</DialogTitle>
                     <ul className="app-scroll app-scroll-y flex-1 divide-y divide-border overflow-y-auto">
                         {avatars.map((avatar) => (

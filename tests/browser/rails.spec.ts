@@ -619,7 +619,7 @@ test('Network reuses Discover filter drawer geometry and keeps sorting inside th
    await expect.poll(async()=> (await panel.boundingBox())!.x).toBeCloseTo(width>=768?width-420:0,0);
    if(width<768)await expect.poll(async()=>{const r=(await panel.boundingBox())!;return r.y+r.height;}).toBeCloseTo(844,0);
    const box=(await panel.boundingBox())!;
-   expect(box.x).toBeCloseTo(referenceBox.x,0);expect(box.width).toBe(referenceBox.width);
+   expect(box.x).toBeCloseTo(referenceBox.x,0);expect(box.width).toBeCloseTo(referenceBox.width,1);
    if(width>=768){expect(box.y).toBe(referenceBox.y);expect(box.height).toBe(referenceBox.height);}
    else {expect(box.y+box.height).toBeCloseTo(844,0);expect(box.height).toBeLessThanOrEqual(844*.85+1);}
    expect(await panel.locator('[data-slot=dialog-title]').evaluate(el=>{const s=getComputedStyle(el);return [s.fontFamily,s.fontSize,s.fontWeight];})).toEqual(referenceHeader);

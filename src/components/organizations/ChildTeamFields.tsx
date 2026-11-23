@@ -83,7 +83,7 @@ function OrgPeoplePicker({ open, onOpenChange, target, limit, onAdd }: { open: b
 
     return (
         <Dialog open={open} onOpenChange={(next) => { if (!next) setTicked([]); onOpenChange(next) }}>
-            <DialogContent className="max-w-lg">
+            <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Add people to {target}</DialogTitle>
                     <DialogDescription>From {org?.title}. Search by name, title or skill, for example &quot;Section B&quot;.</DialogDescription>

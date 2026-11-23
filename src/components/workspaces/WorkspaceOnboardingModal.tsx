@@ -24,7 +24,7 @@ export function WorkspaceOnboardingModal({
 }: ProjectOnboardingModalProps) {
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-card border-border text-foreground">
+            <DialogContent className="p-0 overflow-hidden bg-card border-border text-foreground">
                 <div className="p-6">
                     <DialogHeader>
                         <div className="relative mx-auto mb-4 flex size-12 items-center justify-center rounded-[6px] bg-primary/10">

@@ -1,6 +1,8 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { TabMarker } from '@/components/ui/TabMarker';
+import { padCount } from '@/lib/ui/tab-marker';
 
 // Board/review report §5: one tab style for "which kind" choices — the profile's Overview · Portfolio look: plain
 // text, an orange line under the chosen one, a hairline under the row. Arrow keys, Home and End move between tabs.
@@ -51,10 +53,11 @@ export function UnderlineTabs<K extends string>({ tabs, value, onChange, onInten
                         )}
                     >
                         {t.label}
-                        {t.count !== undefined ? <span className={cn('nb-tab-count ml-1.5', t.warn && t.count > 0 && 'bg-[var(--status-warning-soft)] text-[var(--status-warning)]')}>{t.count}</span> : null}
+                        {t.count !== undefined ? <span className={cn('nb-tab-count ml-1.5', t.warn && t.count > 0 && 'bg-[var(--status-warning-soft)] text-[var(--status-warning)]')}><span aria-hidden="true">{padCount(t.count)}</span></span> : null}
                     </button>
                 );
             })}
+            <TabMarker overlap />
         </div>
     );
 }

@@ -1,4 +1,5 @@
 'use client'
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
@@ -91,16 +92,16 @@ export function InboxList(p: Props) {
                         className="h-8 min-w-0 flex-1 rounded-[5px] border border-input bg-card px-2.5 text-[13px]" />
                     <FilterMenu filters={p.filters} setFilters={p.setFilters} />
                 </div>
-                <div role="tablist" aria-label="Views" className="flex flex-wrap gap-1">
+                <div role="tablist" aria-label="Views" className="nb-seg" data-size="sm">
                     {VIEWS.map((v) => {
                         const n = v.count && p.counts ? v.count(p.counts) : 0
                         return (
-                            <button key={v.id} type="button" role="tab" aria-selected={view === v.id} onClick={() => p.setFilters({ view: v.id, due: undefined })}
-                                className={`rounded-[5px] px-2 py-1 text-[12px] font-medium ${view === v.id ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
-                                {v.label}{n ? <span className="ml-1 font-mono tabular-nums">{n}</span> : null}
+                            <button key={v.id} type="button" role="tab" aria-selected={view === v.id} onClick={() => p.setFilters({ view: v.id, due: undefined })}>
+                                {v.label}{n ? <span className="nb-seg-n">{n}</span> : null}
                             </button>
                         )
                     })}
+                    <TabMarker />
                 </div>
             </div>
             {p.checked.length ? (

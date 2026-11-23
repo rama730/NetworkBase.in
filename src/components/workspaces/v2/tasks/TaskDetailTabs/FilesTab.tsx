@@ -247,8 +247,9 @@ export default function FilesTab({
         data-loading={isLoading ? "true" : "false"}
         className={cn(
           "relative flex-1 overflow-y-auto px-4 py-4 min-h-0 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms]",
-          isDragActive && "bg-primary/5",
+          isDragActive && "nb-drop-over",
         )}
+        data-drop-target=""
         onDragEnter={handleDropZoneDragEnter}
         onDragOver={handleDropZoneDragOver}
         onDragLeave={handleDropZoneDragLeave}

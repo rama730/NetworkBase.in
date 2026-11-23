@@ -1,4 +1,6 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
+import { padCount } from "@/lib/ui/tab-marker";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
@@ -261,12 +263,14 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                                 {tab.label}
                                                 {count !== null ? (
                                                     <span className="nb-meta">
-                                                        {count}
+                                                        <span aria-hidden="true">{padCount(count)}</span>
+                                                        <span className="sr-only">{count}</span>
                                                     </span>
                                                 ) : null}
                                             </button>
                                         );
                                     })}
+                                    <TabMarker overlap />
                                 </div>
                                 <div className="nb-network-controls mb-2 flex max-w-full min-w-0 flex-wrap items-center gap-2">
                                     <SearchField

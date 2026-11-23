@@ -361,7 +361,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", ini
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent
+            <DialogContent size="wide"
                 showCloseButton={false}
                 data-command-palette-dialog=""
                 overlayClassName="bg-black/45 backdrop-blur-[2px]"

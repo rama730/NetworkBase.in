@@ -58,3 +58,15 @@
 
 ## Verify and ship
 Unit suite, tsc, lint, the full browser suite; a fresh whole-branch review; cherry-pick only this plan's commits (and the My Work header + draw-in) onto origin/main in a worktree; test there; push; watch Railway; check live.
+
+## Controls round 2 (approved 2026-11-23, prototype https://claude.ai/artifact/FfmCti5Tgg4JMaBt7dEFCH v2)
+Shared parts first, then the call sites; each family closes with a contract rule in tests/unit/small-things-contract.test.ts.
+- **K1 Square + pixel tick.** `.nb-tag` 3 px (user decision 2026-11-23, replaces D-C; update org-design-contract); `choiceChipClass` square with `PixelTick` when on; `SettingsSwitch` square (4 px track, square knob); `SavedTick` mono uppercase with `PixelTick`.
+- **K2 Tabs.** `TabMarker` (one sliding 2 px clay line, 300 ms, finds the open tab by aria-selected / data-state / aria-current) inside every tab list: `UnderlineTabs`, ui `TabsList`, `ProfileTabBar`, My work, and the hand-made lists. Tab counts two-digit mono (`padCount`). Pill-style lists (admin trust sections, notification filter) become segmented (K3).
+- **K3 Segmented + chips.** `Segmented` (radiogroup of hairline cells with the marker); `FilterChipRow` chips square 3 px with pixel ticks.
+- **K4 Dialogs.** `DialogContent size`: confirm 420, form 560 (default), wide (opt-out for viewers/diffs); one motion (rise 6 px 220 ms in, 150 ms out; side panel slides 28 px); close as a corner cell; optional `eyebrow` cell row; serif titles.
+- **K5 Tooltips.** One `TooltipLayer` mounted once: styled ink tooltip for every icon-only button (its aria-label, plus `data-kbd`) and for cut-off `.truncate` text; 500 ms first, instant while warm, at once on keyboard focus, long press on touch; moves `title` aside while shown. ui `Tooltip` delay 500 ms, same look.
+- **K6 Hover cards.** `PersonHoverCard`: 400 ms open, 200 ms grace, a small profile band (gridded band, serif name, handle, stat cells, Message / View profile).
+- **K7 Buttons.** `nb-icon-button`, `nb-pf-btn`, `nb-pf-ib` share the Button sizes, radius, hover step and press.
+- **K8 Drop targets.** `DropZoneOverlay` + `.nb-drop` states (armed dashed grey, over clay dash + band grid, says where it goes); board lanes and the dragged card's ghost.
+- **K9 Instant toggles.** `useOptimisticToggle` (flip now, roll back on failure) + `InlineRetry` (red NOT SAVED line with Try again); SettingsSwitch users and pin/follow toggles routed.

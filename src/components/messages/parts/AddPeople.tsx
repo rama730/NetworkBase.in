@@ -73,7 +73,7 @@ export function AddPeople({ channelId, autoFocus = false }: { channelId: string;
 export function AddPeopleDialog({ channelId, title, onClose }: { channelId: string; title: string; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[460px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Add people to {title}</DialogTitle>
           <DialogDescription>They’ll see the conversation history.</DialogDescription>

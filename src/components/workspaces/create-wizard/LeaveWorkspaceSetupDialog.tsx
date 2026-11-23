@@ -21,10 +21,10 @@ type LeaveProjectSetupDialogProps = {
 export default function LeaveWorkspaceSetupDialog({ open, onOpenChange, onLeave }: LeaveProjectSetupDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
+      <DialogContent size="confirm"
         showCloseButton={false}
         aria-describedby="leave-project-setup-description"
-        className="w-[calc(100vw-2rem)] max-w-[28rem] gap-0 overflow-hidden rounded-xl border border-border bg-card p-0 shadow-[0_24px_70px_rgba(23,27,30,0.18)]"
+        className="w-[calc(100vw-2rem)] gap-0 overflow-hidden rounded-xl border border-border bg-card p-0 shadow-[0_24px_70px_rgba(23,27,30,0.18)]"
       >
         <DialogHeader className="px-5 pb-5 pt-5 text-left sm:px-6 sm:pb-6 sm:pt-6">
           <div className="flex items-start justify-between gap-4">

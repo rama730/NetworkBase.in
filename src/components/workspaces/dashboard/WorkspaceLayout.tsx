@@ -1,4 +1,6 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
+import { padCount } from "@/lib/ui/tab-marker";
 
 import { Fragment, useState, useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent } from "react";
 import Link from "next/link";
@@ -552,10 +554,9 @@ export default function WorkspaceLayout({
                                         <span data-testid={`tab-badge-${tab.id}`} className="ml-1 size-1.5 rounded-full bg-primary"><span className="sr-only">(new)</span></span>
                                     ) : tabBadges[tab.id] ? (
                                         <span data-testid={`tab-badge-${tab.id}`} className="nb-tab-count ml-1">
-                                            {tabBadges[tab.id]}<span className="sr-only"> waiting</span>
+                                            <span aria-hidden="true">{padCount(Number(tabBadges[tab.id]))}</span><span className="sr-only">{tabBadges[tab.id]} waiting</span>
                                         </span>
                                     ) : null}
-                                    {isActive ? <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" /> : null}
                                 </button>
                                 </Fragment>
                             );
@@ -574,6 +575,7 @@ export default function WorkspaceLayout({
                                 <span className="max-[1099px]:sr-only">Add workflow</span>
                             </button>
                         ) : null}
+                        <TabMarker overlap />
                     </div>
                 </div>
             </div>

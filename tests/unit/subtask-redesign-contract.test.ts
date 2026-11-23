@@ -15,8 +15,10 @@ test("subtasks use an accessible grouped checklist with explicit creation and re
   assert.doesNotMatch(tab, /role="progressbar"/);
   assert.match(tab, /role="checkbox"/);
   assert.match(tab, /aria-checked=\{subtask\.completed\}/);
-  assert.match(tab, /Open \(\{openSubtasks\.length\}\)/);
-  assert.match(tab, /Done \(\{completedSubtasks\.length\}\)/);
+  // Controls round 2: the filter is a segmented row; counts are mono beside the label.
+  assert.match(tab, /className="nb-seg"/);
+  assert.match(tab, /Open <span className="nb-seg-n">\{openSubtasks\.length\}<\/span>/);
+  assert.match(tab, /Done <span className="nb-seg-n">\{completedSubtasks\.length\}<\/span>/);
   assert.match(tab, /Add a subtask…/);
   assert.match(tab, /onUpdateSubtask/);
   assert.match(tab, /onBlur=\{\(\) => void saveTitle\(subtask\)\}/);

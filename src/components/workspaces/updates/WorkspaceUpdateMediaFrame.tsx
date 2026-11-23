@@ -200,7 +200,7 @@ export function WorkspaceUpdateMediaViewer({
 
     return (
         <Dialog open={Boolean(item && src)} onOpenChange={onOpenChange}>
-            <DialogContent
+            <DialogContent size="wide"
                 className="max-h-[92vh] w-[min(94vw,1040px)] overflow-hidden rounded-[12px] border border-border bg-card p-0 text-foreground shadow-2xl sm:max-w-[min(94vw,1040px)]"
                 overlayClassName="bg-black/80"
             >

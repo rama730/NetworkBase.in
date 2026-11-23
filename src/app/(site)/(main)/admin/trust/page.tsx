@@ -1,3 +1,4 @@
+import { TabMarker } from "@/components/ui/TabMarker";
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { UserRound } from 'lucide-react'
@@ -26,11 +27,11 @@ const OLD_TABS: Record<string, string> = {
 
 function Sections({ tab, current, items }: { tab: string; current: string; items: Array<[string, string]> }) {
     return (
-        <div role="tablist" aria-label="Section" className="mt-4 flex gap-1">
+        <div role="tablist" aria-label="Section" className="nb-seg mt-4" data-size="sm">
             {items.map(([id, label]) => (
-                <Link key={id} role="tab" aria-selected={current === id} href={`/admin/trust?tab=${tab}&section=${id}`}
-                    className={`rounded-[5px] px-2.5 py-1.5 text-[13px] font-medium ${current === id ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-muted'}`}>{label}</Link>
+                <Link key={id} role="tab" aria-selected={current === id} href={`/admin/trust?tab=${tab}&section=${id}`}>{label}</Link>
             ))}
+            <TabMarker />
         </div>
     )
 }

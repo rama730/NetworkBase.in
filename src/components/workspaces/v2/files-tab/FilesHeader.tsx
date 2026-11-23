@@ -495,7 +495,7 @@ export function FilesViewsMenu({
   return (
     <>
       <Dialog open={keysOpen} onOpenChange={setKeysOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent size="confirm">
           <DialogTitle>Keyboard shortcuts</DialogTitle>
           <DialogDescription>On Files screens, while you aren’t typing.</DialogDescription>
           <dl className="divide-y divide-border rounded-md border border-border">

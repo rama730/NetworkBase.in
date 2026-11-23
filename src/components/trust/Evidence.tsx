@@ -1,4 +1,5 @@
 'use client'
+import { TabMarker } from "@/components/ui/TabMarker";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState, type ReactNode } from 'react'
@@ -200,13 +201,13 @@ export function Evidence({ caseId, kind, reason, snapshot, live, liveState, targ
                 <h2 id="evidence-title" className="text-[15px] font-semibold">What was reported</h2>
                 <span className="text-[12px] text-muted-foreground">{liveState === null ? 'Checking for changes…' : liveState === 'deleted' ? 'Deleted since' : liveState === 'edited' ? 'Edited since' : 'Unchanged'}</span>
                 {edited ? (
-                    <div role="tablist" aria-label="Version" className="ml-auto flex gap-1">
+                    <div role="tablist" aria-label="Version" className="nb-seg ml-auto" data-size="sm">
                         {(['reported', 'now', 'changes'] as const).map((v) => (
-                            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}
-                                className={`rounded-[5px] px-2 py-1 text-[12px] font-medium ${view === v ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
+                            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}>
                                 {v === 'reported' ? 'As reported' : v === 'now' ? 'Now' : 'Changes'}
                             </button>
                         ))}
+                        <TabMarker />
                     </div>
                 ) : null}
             </div>

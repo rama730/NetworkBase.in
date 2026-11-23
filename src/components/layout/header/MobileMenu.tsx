@@ -43,7 +43,7 @@ export default function MobileMenu(props: {
     return (
         <>
             <Dialog open={props.isOpen} onOpenChange={(open) => { if (!open) props.onClose(); }}>
-                <DialogContent
+                <DialogContent size="wide"
                     id="mobile-menu"
                     showCloseButton={false}
                     onClick={closeOnNavigate}

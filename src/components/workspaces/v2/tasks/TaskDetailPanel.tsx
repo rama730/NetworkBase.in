@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import { ClassQuestions } from "@/components/organizations/ClassQuestions";
 import { Button } from "@/components/ui/button";
@@ -631,6 +632,7 @@ export default function TaskDetailPanel({
                   ) : null}
                 </button>
               ))}
+                <TabMarker overlap />
             </div>
           </div>
 
@@ -754,8 +756,11 @@ export default function TaskDetailPanel({
                 {/* Decision 16: a copy has two conversations; private is the default, the worse mistake being the other. */}
                 {normalizedTask.assignmentId ? (
                   <div className="flex flex-wrap items-center gap-2 px-6 pt-4 text-sm max-md:px-4" role="group" aria-label="Conversation">
-                    <Button type="button" size="sm" variant={conversation === "private" ? "default" : "outline"} aria-pressed={conversation === "private"} onClick={() => setConversation("private")}>Private with admins</Button>
-                    <Button type="button" size="sm" variant={conversation === "class" ? "default" : "outline"} aria-pressed={conversation === "class"} onClick={() => setConversation("class")}>Class questions</Button>
+                    <span className="nb-seg" data-size="sm">
+                      <button type="button" aria-pressed={conversation === "private"} onClick={() => setConversation("private")}>Private with admins</button>
+                      <button type="button" aria-pressed={conversation === "class"} onClick={() => setConversation("class")}>Class questions</button>
+                      <TabMarker />
+                    </span>
                     <span className="basis-full text-[12px] text-muted-foreground">{conversation === "private" ? "Only you, your group and the organization’s admins see this." : "Everyone with this assignment sees this."}</span>
                   </div>
                 ) : null}

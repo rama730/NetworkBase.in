@@ -75,7 +75,7 @@ export function useBlockFlow(source: BlockSource = 'profile') {
     const dialog = (
         <>
             <Dialog open={mode !== null} onOpenChange={(next) => !next && close()}>
-                <DialogContent className="max-w-[460px]">
+                <DialogContent>
                     {mode === 'block' ? (
                         <>
                             <DialogHeader>

@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils'
 import { GENDER_LABELS, ONBOARDING_GENDER_VALUES, type OnboardingGenderIdentity } from '@/lib/onboarding/contracts'
 import { choiceChipClass } from '@/components/onboarding/ChipSelector'
+import { PixelIcon } from '@/components/auth/pixel'
 
 interface GenderChoiceProps {
   value: OnboardingGenderIdentity | ''
@@ -34,6 +35,7 @@ export function GenderChoice({ value, onChange, name = 'genderIdentity' }: Gende
               onChange={() => onChange(option)}
               className="sr-only"
             />
+            {value === option ? <PixelIcon name="check" className="mr-1.5" /> : null}
             {GENDER_LABELS[option]}
           </label>
         ))}

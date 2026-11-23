@@ -57,7 +57,7 @@ export function ShareDialog({ channelId, seq, onClose }: { channelId: string; se
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[460px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Share message</DialogTitle>
           <DialogDescription>Mentions in the shared copy won’t notify anyone again.</DialogDescription>

@@ -162,7 +162,7 @@ function OrgFilePeek({ orgId, orgTitle, file, href, onClose }: { orgId: string; 
     }, [file.id, orgId])
     return (
         <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-            <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
+            <DialogContent size="wide" className="max-h-[90dvh] max-w-3xl overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{file.name}</DialogTitle>
                     <DialogDescription>From {orgTitle} · Read-only · <Link href={href} className="nb-link">Open in {orgTitle}</Link></DialogDescription>

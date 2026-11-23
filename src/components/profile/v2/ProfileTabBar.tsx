@@ -2,6 +2,8 @@
 
 import { useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { useStickyBar } from './useStickyBar'
+import { TabMarker } from '@/components/ui/TabMarker'
+import { padCount } from '@/lib/ui/tab-marker'
 
 export type ProfileTabBarTab<K extends string> = { key: K; label: string; count?: number; dirty?: boolean }
 
@@ -63,10 +65,11 @@ export function ProfileTabBar<K extends string>({
                                 onFocus={() => onIntent?.(tab.key)}
                             >
                                 {tab.label}
-                                {tab.count != null ? <span className="n">{tab.count}</span> : null}
+                                {tab.count != null ? <span className="n"><span aria-hidden="true">{padCount(tab.count)}</span><span className="sr-only">{tab.count}</span></span> : null}
                                 {tab.dirty ? <i className="dot" title="Unsaved changes" aria-label="Unsaved changes" /> : null}
                             </button>
                         ))}
+                        <TabMarker />
                     </div>
                     {action ? <span className="nb-pf-tb-act">{action}</span> : null}
                 </div>

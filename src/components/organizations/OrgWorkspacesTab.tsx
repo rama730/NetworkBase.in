@@ -1,4 +1,5 @@
 'use client'
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -58,8 +59,6 @@ type Place = Record<(typeof KEYS)[number], string | null>
 const PAGE = 20
 const SORTS: ReadonlyArray<[Sort, string]> = [['attention', 'Needs attention first'], ['active', 'Recently active'], ['name', 'Name'], ['overdue', 'Most overdue'], ['newest', 'Newest']]
 const REASONS: ReadonlyArray<[AttentionKind, string]> = [['overdue', 'Overdue'], ['quiet', 'Quiet 7 days'], ['lead', 'Needs a workspace lead'], ['group', 'Group work']]
-// One 28px toolbar (spec §05): small selects and buttons, one pressed look (the paper well).
-const pressed = 'aria-pressed:bg-muted aria-pressed:text-foreground'
 const people = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`
 const visWord = (v: string | null) => visibilityLabel(v)
 const ago = (iso: string) => formatDistanceToNow(new Date(iso), { addSuffix: true })
@@ -374,7 +373,7 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
                         <select aria-label="Sort" className="nb-select" data-size="sm" value={sort} onChange={(e) => go({ wsort: e.target.value })}>
                             {SORTS.filter(([k]) => isAdmin || k !== 'attention').map(([k, label]) => <option key={k} value={k}>{label}</option>)}
                         </select>
-                        {isAdmin ? <Button type="button" size="sm" variant="outline" aria-pressed={mine} onClick={() => go({ wmine: mine ? null : '1' })} className={pressed}>Mine</Button> : null}
+                        {isAdmin ? <Button type="button" size="sm" variant="outline" aria-pressed={mine} onClick={() => go({ wmine: mine ? null : '1' })} className="aria-pressed:bg-muted aria-pressed:text-foreground">Mine</Button> : null}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className={filtersOn ? 'bg-muted text-foreground' : undefined}>Filters{filtersOn ? ` · ${filtersOn}` : ''}</Button></DropdownMenuTrigger>
                             {/* Menus, not native selects inside a menu (spec §10). */}
@@ -408,9 +407,9 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
                         </DropdownMenu>
                         {filtersOn ? <Button type="button" size="sm" variant="ghost" onClick={() => go({ wvis: null, wstage: null, wlead: null, wsprint: null, wseats: null })}>Clear</Button> : null}
                         {phone ? null : (
-                            <span role="group" aria-label="View" className="inline-flex h-[var(--ui-control-height-sm)] overflow-hidden rounded-md border border-border text-[13px]">
-                                {(['list', 'cards'] as const).map((v) => <button key={v} type="button" aria-pressed={layout === v} onClick={() => go({ wview: v === 'cards' ? null : v })}
-                                    className={cn('px-2.5 text-muted-foreground hover:text-foreground', pressed)}>{v === 'list' ? 'List' : 'Cards'}</button>)}
+                            <span role="group" aria-label="View" className="nb-seg" data-size="sm">
+                                {(['list', 'cards'] as const).map((v) => <button key={v} type="button" aria-pressed={layout === v} onClick={() => go({ wview: v === 'cards' ? null : v })}>{v === 'list' ? 'List' : 'Cards'}</button>)}
+                                <TabMarker />
                             </span>
                         )}
                         {newButton('New', 'ml-auto md:hidden')}
@@ -590,7 +589,7 @@ function RequestsPanel({ requests, onClose, onDone }: { requests: OrgWorkspaceRe
     })
     return (
         <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-            <DialogContent presentation="right-drawer" className="sm:max-w-[420px]">
+            <DialogContent presentation="right-drawer" size="side">
                 <DialogHeader>
                     <DialogTitle>{withCount('Requests', open.length)}</DialogTitle>
                     <DialogDescription>Workspaces asking to join or leave the organization.</DialogDescription>

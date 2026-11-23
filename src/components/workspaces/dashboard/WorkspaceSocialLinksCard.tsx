@@ -731,7 +731,7 @@ export function WorkspaceLinksManager({
             onConfirm={() => onOpenChange?.(false)}
         />
         <Dialog open={open} onOpenChange={requestOpenChange}>
-            <DialogContent className="max-h-[min(90dvh,48rem)] w-[calc(100vw-1rem)] min-w-0 max-w-2xl overflow-x-hidden overflow-y-auto p-4 sm:w-[calc(100vw-2rem)] sm:p-6">
+            <DialogContent size="wide" className="max-h-[min(90dvh,48rem)] w-[calc(100vw-1rem)] min-w-0 max-w-2xl overflow-x-hidden overflow-y-auto p-4 sm:w-[calc(100vw-2rem)] sm:p-6">
                 <DialogHeader className="min-w-0">
                     <DialogTitle>Workspace links</DialogTitle>
                     <DialogDescription>Add the destinations people need. Services and icons are detected from each URL.</DialogDescription>

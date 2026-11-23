@@ -573,11 +573,11 @@ export function FileView({
           role="dialog"
           aria-label="Drop to save as new version"
           onClick={resetDragState}
-          className="absolute inset-0 z-20 flex items-center justify-center rounded-[12px] border-2 border-dashed border-[#D14E24] bg-[#FCF0EA]/80 dark:bg-[#D14E24]/10 cursor-pointer"
+          className="nb-drop-hint absolute inset-0 z-20 flex items-center justify-center cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative flex flex-col items-center gap-2.5 p-6 rounded-[12px] bg-card shadow-xl border border-border cursor-default text-sm font-medium text-foreground"
+            className="relative flex flex-col items-center gap-2.5 p-6 rounded-[8px] bg-card shadow-xl border border-border cursor-default text-sm font-medium text-foreground"
           >
             <button
               type="button"

@@ -21,7 +21,7 @@ export type FilterChip = {
   extra?: boolean;
 };
 
-const CHIP = "nb-touch-target inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[5px] border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:h-11";
+const CHIP = "nb-touch-target inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[3px] border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:h-11";
 
 /**
  * Report 38.4 S5 (shared part): Assigned to · Type · Due · the tab's own chips · + Filter. A set chip reads "Name: value"
@@ -73,7 +73,7 @@ export function FilterChipRow({ chips, onClearAll }: { chips: FilterChip[]; onCl
       {shown.map((c) => {
         const value = label(c);
         return (
-          <div key={c.key} className={cn("inline-flex shrink-0 items-center rounded-[5px] border", value ? "border-foreground/25 bg-muted" : "border-border bg-card")}>
+          <div key={c.key} className={cn("inline-flex shrink-0 items-center rounded-[3px] border", value ? "border-foreground/25 bg-muted" : "border-border bg-card")}>
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button type="button" className={cn(CHIP, "border-0 bg-transparent text-foreground hover:bg-muted", value && "pr-1.5")} aria-label={value ? `${c.name}: ${value}` : c.name}>

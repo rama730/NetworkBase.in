@@ -1092,7 +1092,7 @@ button.nb-cell-conn:hover { background:var(--status-warning-soft); }
 .nb-project-card-footer { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-top:auto; padding-top:12px; border-top:1px solid var(--border); }
 /* Tag and icon button: components layer, so aria-pressed:/text- utilities apply. */
 @layer components {
-  .nb-tag { display:inline-flex; align-items:center; gap:5px; min-height:22px; padding:3px 8px; border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px; line-height:1.3; color:var(--secondary-foreground); }
+  .nb-tag { display:inline-flex; align-items:center; gap:5px; min-height:22px; padding:3px 8px; border:1px solid var(--border); border-radius:3px; background:var(--card); font-size:12px; line-height:1.3; color:var(--secondary-foreground); }
   .nb-icon-button { display:inline-flex; align-items:center; justify-content:center; min-width:28px; min-height:28px; border-radius:5px; color:var(--muted-foreground); }
   .nb-icon-button:hover { background:var(--muted); color:var(--foreground); }
   /* A toggle that's on (Follow): clay, and a fill that differs from hover. */
@@ -2583,7 +2583,7 @@ html[data-reduce-motion="true"] .nb-pixel-beat > i { animation: none !important;
 .nb-upload-bar.is-on-image > .pct { color: #fff; }
 
 /* Saved in place: a tick that pops once, beside what saved. */
-.nb-saved { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--status-success); animation: nb-pf-pop 260ms var(--nb-ease) both, nb-saved-out 400ms var(--nb-ease) 4s forwards; }
+.nb-saved { display: inline-flex; align-items: center; gap: 7px; font: 500 11px/1 var(--font-mono, ui-monospace), ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--status-success); animation: nb-pf-pop 260ms var(--nb-ease) both, nb-saved-out 400ms var(--nb-ease) 4s forwards; }
 @keyframes nb-saved-out { to { opacity: 0; } }
 .nb-saved > svg { animation: nb-saved-tick 300ms var(--nb-ease) both; }
 @keyframes nb-saved-tick { from { transform: scale(.4); opacity: 0; } }
@@ -2621,3 +2621,88 @@ html[data-reduce-motion="true"] .nb-pixel-burst { display: none; }
 }
 /* One keyboard-hint shape everywhere; its colours follow where it sits. */
 :where(kbd) { padding: 1px 5px; border-radius: 3px; font-family: var(--font-mono, ui-monospace), ui-monospace, monospace; font-size: 10.5px; font-weight: 500; line-height: 1.4; }
+
+/* Controls round 2 (prototype FfmCti5Tgg4JMaBt7dEFCH v2) ------------------------------------------------------------ */
+/* The one clay marker: slides to the open tab in every tab list and segmented row; the tabs drop their own line. */
+[data-marker] { position: relative; }
+.nb-tab-marker { position: absolute; left: 0; bottom: 0; z-index: 1; height: 2px; width: 0; opacity: 0; background: var(--nb-brand); pointer-events: none; transition: transform 300ms var(--nb-ease), width 300ms var(--nb-ease); }
+.nb-tab-marker[data-overlap] { bottom: -1px; }
+html[data-reduce-motion="true"] .nb-tab-marker { transition: none; }
+@media (prefers-reduced-motion: reduce) { .nb-tab-marker { transition: none; } }
+[data-marker] [role="tab"][aria-selected="true"], [data-marker] [role="tab"][data-state="active"] { border-bottom-color: transparent !important; box-shadow: none !important; }
+/* Segmented: a row of hairline cells; the clay marker sits under the one that's on (add <TabMarker /> inside). */
+.nb-seg { display: inline-flex; width: fit-content; max-width: 100%; overflow-x: auto; scrollbar-width: none; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); }
+.nb-seg::-webkit-scrollbar { display: none; }
+.nb-seg[data-fill] { display: flex; width: 100%; }
+.nb-seg[data-fill] > :is(button, a) { flex: 1 1 0; }
+.nb-seg > :is(button, a) { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 7px; height: calc(var(--ui-control-height) - 2px); padding: 0 12px; border: 0; border-right: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--muted-foreground); font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap; text-decoration: none; cursor: pointer; transition: color 130ms var(--nb-ease), background-color 130ms var(--nb-ease); }
+.nb-seg > :is(button, a):last-of-type { border-right: 0; }
+.nb-seg > :is(button, a) svg { width: 14px; height: 14px; flex: none; }
+.nb-seg > :is(button, a):hover { color: var(--foreground); }
+.nb-seg > :is([aria-selected="true"], [aria-checked="true"], [aria-pressed="true"], [aria-current="page"]) { color: var(--foreground); background: color-mix(in srgb, var(--secondary) 70%, transparent); }
+.nb-seg > :is(button, a):focus-visible { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--foreground); }
+.nb-seg[data-size="sm"] > :is(button, a) { height: calc(var(--ui-control-height-sm) - 2px); padding: 0 10px; font-size: 12.5px; }
+.nb-seg .nb-seg-n { font: 11px var(--font-mono, ui-monospace), ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+.nb-seg > [aria-selected="true"] .nb-seg-n, .nb-seg > [aria-pressed="true"] .nb-seg-n { color: var(--nb-brand); }
+/* Dialogs: three sizes, one motion, one header (eyebrow cell row, close cell, serif title). */
+@layer components {
+  .nb-dlg-title { font: 400 24px/1.12 var(--font-serif, Georgia), Georgia, serif; letter-spacing: -.005em; text-wrap: balance; color: var(--foreground); }
+}
+[data-slot="dialog-content"][data-presentation="center"] { border-radius: var(--radius-lg); }
+[data-slot="dialog-content"][data-size="confirm"] { max-width: min(420px, calc(100vw - 16px)); }
+[data-slot="dialog-content"][data-size="form"] { max-width: min(560px, calc(100vw - 16px)); }
+[data-slot="dialog-content"][data-size="side"] { max-width: min(440px, 100vw); }
+.nb-dlg-x { position: absolute; top: 0; right: 0; z-index: 2; display: inline-grid; place-items: center; width: 44px; height: 40px; padding: 0; border: 0; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); border-top-right-radius: calc(var(--radius-lg) - 1px); background: transparent; color: var(--muted-foreground); cursor: pointer; transition: color 130ms var(--nb-ease), background-color 130ms var(--nb-ease); }
+.nb-dlg-x:hover { background: var(--secondary); color: var(--foreground); }
+.nb-dlg-x:focus-visible { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--foreground); }
+[data-presentation="right-drawer"] > .nb-dlg-x, [data-presentation="bottom-sheet"] > .nb-dlg-x { border-top-right-radius: 0; }
+.nb-dlg-eyebrow { position: absolute; inset: 0 0 auto; z-index: 1; display: flex; align-items: center; gap: 10px; height: 40px; margin: 0; padding: 0 56px 0 16px; border-bottom: 1px solid var(--border); font: 500 11px/1 var(--font-mono, ui-monospace), ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--muted-foreground); }
+.nb-dlg-eyebrow::before { content: ""; width: 8px; height: 8px; flex: none; background: var(--nb-brand); }
+[data-slot="dialog-content"][data-eyebrow] { padding-top: 60px; }
+@keyframes nb-dlg-in { from { opacity: 0; transform: translateY(6px) scale(.985); } }
+@keyframes nb-dlg-out { to { opacity: 0; transform: translateY(4px) scale(.99); } }
+@keyframes nb-side-in { from { opacity: 0; transform: translateX(28px); } }
+@keyframes nb-side-out { to { opacity: 0; transform: translateX(28px); } }
+[data-slot="dialog-content"][data-presentation="center"][data-state="open"] { animation: nb-dlg-in 220ms var(--nb-ease) both; }
+[data-slot="dialog-content"][data-presentation="center"][data-state="closed"] { animation: nb-dlg-out 150ms cubic-bezier(.4, 0, 1, 1) both; }
+[data-slot="dialog-content"][data-presentation="right-drawer"][data-state="open"] { animation: nb-side-in 220ms var(--nb-ease) both; }
+[data-slot="dialog-content"][data-presentation="right-drawer"][data-state="closed"] { animation: nb-side-out 150ms cubic-bezier(.4, 0, 1, 1) both; }
+html[data-reduce-motion="true"] [data-slot="dialog-content"] { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { [data-slot="dialog-content"] { animation-duration: 1ms !important; } }
+/* Tooltips: one small ink label (TooltipLayer and ui Tooltip). */
+.nb-tip { position: fixed; z-index: 400; display: flex; align-items: center; gap: 8px; max-width: 280px; padding: 5px 8px; border-radius: 3px; background: var(--foreground); color: var(--background); font-size: 12px; line-height: 1.4; pointer-events: none; opacity: 0; transform: translateY(2px); transition: opacity 120ms var(--nb-ease), transform 120ms var(--nb-ease); }
+.nb-tip[data-side="bottom"] { transform: translateY(-2px); }
+.nb-tip[data-on] { opacity: 1; transform: none; }
+.nb-tip kbd { padding: 1px 5px; border: 1px solid color-mix(in srgb, var(--background) 30%, transparent); border-radius: 3px; background: transparent; font: 500 10.5px/1.4 var(--font-mono, ui-monospace), ui-monospace, monospace; color: color-mix(in srgb, var(--background) 75%, transparent); }
+@media (prefers-reduced-motion: reduce) { .nb-tip { transition: none; } }
+/* Person hover card: a small piece of their profile. */
+.nb-hcard { display: flex; flex-direction: column; width: 320px; max-width: calc(100vw - 24px); }
+.nb-hcard-band { position: relative; isolation: isolate; display: grid; gap: 12px; padding: 14px 16px 16px; border-bottom: 1px solid var(--border); background: var(--pf-band-bg); color: var(--pf-band-fg); }
+.nb-hcard-band::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-size: 16px 16px; background-image: linear-gradient(var(--pf-band-line) 1px, transparent 1px), linear-gradient(90deg, var(--pf-band-line) 1px, transparent 1px); mask-image: linear-gradient(180deg, #000 30%, transparent 96%); }
+.nb-hcard-eyebrow { display: flex; align-items: center; gap: 10px; margin: 0; font: 500 10.5px/1 var(--font-mono, ui-monospace), ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--pf-band-2); }
+.nb-hcard-eyebrow::before { content: ""; width: 8px; height: 8px; flex: none; background: var(--nb-brand); }
+.nb-hcard-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.nb-hcard-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 26px/1 var(--font-serif, Georgia), Georgia, serif; }
+.nb-hcard-band .nb-meta { color: var(--pf-band-2); }
+.nb-hcard-line { margin: 0; padding: 12px 16px 0; font-size: 13px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.nb-hcard-presence { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 12px; }
+.nb-hcard-stats { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
+.nb-hcard-stats > div { display: grid; gap: 6px; padding: 10px 16px; border-right: 1px solid var(--border); font: 500 10px/1 var(--font-mono, ui-monospace), ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--muted-foreground); }
+.nb-hcard-stats > div:last-child { border-right: 0; }
+.nb-hcard-stats b { font: 400 24px/1 var(--font-serif, Georgia), Georgia, serif; letter-spacing: 0; text-transform: none; color: var(--foreground); }
+.nb-hcard-acts { display: flex; gap: 8px; padding: 12px 16px 14px; border-top: 1px solid var(--border); }
+/* Buttons: one icon-button size (32, 44 on touch), one press (1 px down), one hover step, for the one-off button classes too. */
+@layer components {
+  .nb-icon-button { min-width: 32px; min-height: 32px; }
+  :is(.nb-icon-button, .nb-pf-ib, .nb-mw-ib, .nb-pf-btn, .nb-pf-btn-sm) { transition: background-color 130ms var(--nb-ease), color 130ms var(--nb-ease), border-color 130ms var(--nb-ease), transform 130ms var(--nb-ease); }
+  :is(.nb-icon-button, .nb-pf-ib, .nb-mw-ib, .nb-pf-btn, .nb-pf-btn-sm):active:not(:disabled) { transform: translateY(1px); }
+}
+/* Drop targets: dashed grey while a drag is on; clay dash, a light clay fill and the 16 px band grid when it's over. */
+html[data-dragging] [data-drop-target] { outline: 1.5px dashed var(--muted-foreground); outline-offset: -2px; }
+.nb-drop-over, html[data-dragging] [data-drop-target].nb-drop-over { outline: 1.5px dashed var(--nb-brand); outline-offset: -2px; background-color: color-mix(in srgb, var(--nb-brand) 7%, var(--card)); background-size: 16px 16px; background-image: linear-gradient(var(--pf-band-line) 1px, transparent 1px), linear-gradient(90deg, var(--pf-band-line) 1px, transparent 1px); }
+.nb-drop-hint { border: 1.5px dashed var(--nb-brand); border-radius: var(--radius-lg); background-color: color-mix(in srgb, var(--nb-brand) 7%, color-mix(in srgb, var(--card) 88%, transparent)); background-size: 16px 16px; background-image: linear-gradient(var(--pf-band-line) 1px, transparent 1px), linear-gradient(90deg, var(--pf-band-line) 1px, transparent 1px); }
+/* Instant toggles: a failed save flips back and says so in place. */
+.nb-retry { display: inline-flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 3px; background: color-mix(in srgb, var(--destructive) 9%, transparent); color: var(--destructive); font-size: 12.5px; white-space: nowrap; }
+.nb-retry b { font: 500 10.5px var(--font-mono, ui-monospace), ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+.nb-retry button { padding: 0; border: 0; background: none; color: var(--foreground); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.nb-retry button:focus-visible { background: color-mix(in srgb, var(--primary) 14%, transparent); }

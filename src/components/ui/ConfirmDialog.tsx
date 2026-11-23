@@ -101,6 +101,7 @@ export function ConfirmDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
+        size="confirm"
         role="alertdialog"
         data-confirm-dialog=""
         showCloseButton={showCloseButton}

@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -145,6 +146,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
                 </button>
               ))}
               <h2 ref={heading} tabIndex={-1} className="sr-only">{label}</h2>
+                <TabMarker />
             </div>
             {/* Which conversation, even with both panes open. */}
             {where ? <span className="truncate px-1 text-[12px] text-muted-foreground">{where}</span> : null}

@@ -287,7 +287,7 @@ function DecisionForm({ c, label, onSent }: { c: CaseDetail; label: string; onSe
                 <Button className="w-full" disabled={!canSend} onClick={() => (severe ? setConfirm(true) : send())}>{pending ? 'Sending…' : 'Send decision'}<Kbd>⌘↵</Kbd></Button>
             </fieldset>
             <Dialog open={confirm} onOpenChange={setConfirm}>
-                <DialogContent className="max-w-[460px]">
+                <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{accountValue?.action === 'ban' ? `Ban ${personName}?` : 'Remove this workspace?'}</DialogTitle>
                         <DialogDescription>{consequences}</DialogDescription>
@@ -300,7 +300,7 @@ function DecisionForm({ c, label, onSent }: { c: CaseDetail; label: string; onSe
             </Dialog>
             {stepUp.dialog}
             <Dialog open={Boolean(preview)} onOpenChange={(next) => !next && setPreview(null)}>
-                <DialogContent className="max-w-[680px]">
+                <DialogContent size="wide" className="max-w-[680px]">
                     <DialogHeader><DialogTitle>{preview?.subject}</DialogTitle><DialogDescription>Exactly what {personName} gets, from notifications@ with replies to support@.</DialogDescription></DialogHeader>
                     {preview ? <iframe title="Email preview" sandbox="" srcDoc={preview.html} className="h-[60vh] w-full rounded-[5px] border border-border bg-white" /> : null}
                 </DialogContent>

@@ -292,7 +292,7 @@ function CaseMenu({ c, onMerged }: { c: CaseDetail; onMerged: () => void }) {
             </DropdownMenu>
             {stepUp.dialog}
             <Dialog open={dialog !== null} onOpenChange={(next) => !next && setDialog(null)}>
-                <DialogContent className="max-w-[420px]">
+                <DialogContent size="confirm">
                     <DialogHeader>
                         <DialogTitle>{dialog ? title[dialog] : ''}</DialogTitle>
                         <DialogDescription>{dialog ? description[dialog] : ''}</DialogDescription>

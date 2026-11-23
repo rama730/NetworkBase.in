@@ -30,7 +30,7 @@ export function NewCaseDialog({ trigger, what = '' }: { trigger: ReactNode; what
     return (
         <Dialog open={open} onOpenChange={(next) => { setOpen(next); setError(null) }}>
             <DialogTrigger asChild>{trigger}</DialogTrigger>
-            <DialogContent className="max-w-[460px]">
+            <DialogContent>
                 <DialogHeader>
                     <DialogTitle>New case</DialogTitle>
                     <DialogDescription>For reports that came by email, legal requests, or something you found yourself.</DialogDescription>

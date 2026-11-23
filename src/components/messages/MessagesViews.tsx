@@ -1,4 +1,6 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
+import { padCount } from "@/lib/ui/tab-marker";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
@@ -688,9 +690,10 @@ export function InboxView() {
             onClick={() => selectFilter(f.id)}
             className={`nb-tab -mb-px inline-flex min-h-10 flex-none items-center gap-1.5 border-b-2 text-[13px] font-medium pointer-coarse:min-h-11 ${filter === f.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
-            {f.label}{counts[f.id] ? <span className="nb-tab-count">{counts[f.id] > 99 ? "99+" : counts[f.id]}<span className="sr-only"> unread</span></span> : null}
+            {f.label}{counts[f.id] ? <span className="nb-tab-count">{counts[f.id] > 99 ? "99+" : <><span aria-hidden="true">{padCount(counts[f.id])}</span><span className="sr-only">{counts[f.id]}</span></>}<span className="sr-only"> unread</span></span> : null}
           </button>
         ))}
+          <TabMarker overlap />
       </div>
       <div id="inbox-panel" role="tabpanel" aria-labelledby={`inbox-tab-${filter}`}>
       {filter === "threads" ? (

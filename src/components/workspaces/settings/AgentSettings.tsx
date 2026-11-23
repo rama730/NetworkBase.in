@@ -40,17 +40,19 @@ export function AgentSettings({ projectId }: { projectId: string }) {
   });
   const [saving, setSaving] = useState(false);
 
-  async function save(change: { policy?: Policy; paused?: boolean; labels?: LabelSetting; membersChooseLabels?: boolean }) {
+  /** `inline`: called by a switch, which shows success itself and a failure beside it (controls round 2). */
+  async function save(change: { policy?: Policy; paused?: boolean; labels?: LabelSetting; membersChooseLabels?: boolean }, inline = false) {
     if (saving) return;
     setSaving(true);
     try {
       const result = await updateWorkspaceAgentSettingsAction({ projectId, ...change });
       if (!result.success) throw new Error(result.error);
       client.setQueryData(key(projectId), (old: typeof settings.data) => (old ? { ...old, ...result } : old));
-      toast.success(change.paused === true ? "Agents are paused here" : change.paused === false ? "Agents can work here again" : "Agent setting saved");
+      if (!inline) toast.success(change.paused === true ? "Agents are paused here" : change.paused === false ? "Agents can work here again" : "Agent setting saved");
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t save agent settings", "Couldn’t save agent settings"));
       void settings.refetch();
+      if (inline) throw error;
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t save agent settings", "Couldn’t save agent settings"));
     } finally {
       setSaving(false);
     }
@@ -91,7 +93,7 @@ export function AgentSettings({ projectId }: { projectId: string }) {
               aria-describedby={`agents-paused-help-${projectId}`}
               checked={settings.data.paused}
               disabled={saving}
-              onCheckedChange={(paused: boolean) => void save({ paused })}
+              onCheckedChange={(paused: boolean) => save({ paused }, true)}
             />
           </div>
           <div className="border-t border-border pt-4">
@@ -121,7 +123,7 @@ export function AgentSettings({ projectId }: { projectId: string }) {
                 </p>
               </div>
               <SettingsSwitch id={`members-choose-${projectId}`} aria-describedby={`members-choose-help-${projectId}`} checked={settings.data.membersChooseLabels} disabled={saving || !settings.data.canChangeLabels}
-                onCheckedChange={(membersChooseLabels: boolean) => void save({ membersChooseLabels })} />
+                onCheckedChange={(membersChooseLabels: boolean) => save({ membersChooseLabels }, true)} />
             </div>
           ) : null}
           </div>

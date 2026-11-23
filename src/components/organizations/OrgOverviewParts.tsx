@@ -489,7 +489,7 @@ function OrgPeople({ orgId, canOpen, summary }: { orgId: string; canOpen: boolea
         <>
             <button type="button" className="group block w-full space-y-2 text-left" onClick={() => setOpen(true)}>{summary}</button>
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent size="confirm">
                     <DialogHeader>
                         <DialogTitle>People</DialogTitle>
                         <DialogDescription>Everyone in this organization.</DialogDescription>

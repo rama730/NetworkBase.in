@@ -33,7 +33,7 @@ export function AssignmentDropSheets({ sheet, onClose, onChanged, onOpenTask, on
   if (!sheet) return null;
   return (
     <Dialog open={open} onOpenChange={change}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[520px]">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         {sheet.kind === "hand_in" ? <HandInSheet task={sheet.task} onClose={onClose} onChanged={onChanged} onOpenTask={onOpenTask} />
           : sheet.kind === "block" ? <BlockSheet task={sheet.task} onCancel={onClose} onConfirm={async (note) => { await onBlock(sheet.task, sheet.columnId, note); onClose(); }} />
             : sheet.kind === "publish" ? <PublishSheet task={sheet.task} onClose={onClose} onChanged={onChanged} />

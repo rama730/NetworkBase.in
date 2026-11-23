@@ -223,7 +223,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                 </div>
             </div>
             <Dialog open={Boolean(statement)} onOpenChange={(open) => !open && setStatement(null)}>
-                <DialogContent className="max-h-[min(80vh,42rem)] overflow-y-auto sm:max-w-2xl rounded-[12px] border-border bg-card">
+                <DialogContent size="wide" className="max-h-[min(80vh,42rem)] overflow-y-auto sm:max-w-2xl rounded-[12px] border-border bg-card">
                     <DialogHeader>
                         <DialogTitle className="nb-card-title text-foreground">
                             {statement?.title}

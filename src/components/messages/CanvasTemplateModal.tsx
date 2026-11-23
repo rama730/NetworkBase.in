@@ -60,7 +60,7 @@ export function CanvasTemplateModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="flex h-[600px] max-h-[88vh] w-[880px] max-w-[95vw] flex-col overflow-hidden border border-border p-0 sm:max-w-4xl">
+      <DialogContent size="wide" showCloseButton={false} className="flex h-[600px] max-h-[88vh] w-[880px] max-w-[95vw] flex-col overflow-hidden border border-border p-0 sm:max-w-4xl">
         <DialogTitle className="sr-only">Note templates</DialogTitle>
         {/* Phones: the list on top, the preview below. */}
         <div className="flex h-full min-h-0 flex-1 flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">

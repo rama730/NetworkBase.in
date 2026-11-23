@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -63,7 +64,7 @@ export function QuestionCard({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent overlayClassName="z-[300]" className="z-[301] max-h-[90dvh] w-full max-w-[480px] gap-4 overflow-y-auto max-sm:bottom-0 max-sm:top-auto max-sm:translate-y-0 max-sm:rounded-b-none">
+      <DialogContent overlayClassName="z-[300]" className="z-[301] max-h-[90dvh] w-full gap-4 overflow-y-auto max-sm:bottom-0 max-sm:top-auto max-sm:translate-y-0 max-sm:rounded-b-none">
         <div className="flex items-center justify-between gap-3">
           <span className="nb-micro text-muted-foreground">QUESTION {index + 1} OF {questions.length}</span>
           <div className="flex flex-wrap justify-end gap-1" role="tablist" aria-label="Questions">
@@ -72,6 +73,7 @@ export function QuestionCard({
                 {x.header}
               </button>
             ))}
+              <TabMarker />
           </div>
         </div>
         {from ? <p className="nb-compact text-muted-foreground">{from}</p> : null}

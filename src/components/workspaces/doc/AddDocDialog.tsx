@@ -140,7 +140,7 @@ export function AddDocDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[520px] gap-3 p-4">
+            <DialogContent className="gap-3 p-4">
                 <DialogHeader>
                     <DialogTitle>Add document</DialogTitle>
                     <DialogDescription>{org ? "Blank, or start from a template. You can also pick a Markdown file from Files." : "Start a new doc, or pick a Markdown file from Files."}</DialogDescription>

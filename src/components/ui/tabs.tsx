@@ -4,6 +4,7 @@ import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 
 import { cn } from "@/lib/utils"
+import { TabMarker } from "@/components/ui/TabMarker"
 
 function Tabs({
   className,
@@ -20,6 +21,7 @@ function Tabs({
 
 function TabsList({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
@@ -30,7 +32,10 @@ function TabsList({
         className
       )}
       {...props}
-    />
+    >
+      {children}
+      <TabMarker overlap />
+    </TabsPrimitive.List>
   )
 }
 

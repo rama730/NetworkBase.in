@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -248,6 +249,7 @@ export default function MyWorkDrawer() {
                                 <Count value={tab.count} hot={tab.id === "requests" && tab.count > 0} label={tab.id === "tasks" ? `${tab.count} tasks assigned to you` : `${tab.count} pending invitations`} />
                             </button>;
                         })}
+                        <TabMarker overlap />
                     </div>
 
                     <div id={`workspace-${activeTab}-panel`} role="tabpanel" aria-labelledby={`workspace-${activeTab}-tab`} className="nb-mw-body" data-dir={dir ?? undefined}>

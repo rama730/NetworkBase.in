@@ -74,7 +74,7 @@ export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[460px]">
+      <DialogContent>
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-md bg-muted text-muted-foreground">

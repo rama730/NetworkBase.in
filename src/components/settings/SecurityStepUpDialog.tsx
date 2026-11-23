@@ -81,7 +81,7 @@ export default function SecurityStepUpDialog({
   if (!method) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="confirm">
           <DialogHeader>
             <DialogTitle>Add a way to verify first</DialogTitle>
             <DialogDescription>
@@ -144,7 +144,7 @@ export default function SecurityStepUpDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="confirm">
         <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>

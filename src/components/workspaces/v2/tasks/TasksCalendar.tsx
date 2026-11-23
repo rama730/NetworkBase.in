@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
@@ -113,8 +114,7 @@ export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, on
   const step = (n: number) => (view === "week" ? setWeekStart(addDays(weekStart, 7 * n)) : setMonth(shiftMonth(month, n)));
   const title = view === "week" ? `${dayTitle(weekStart)} – ${dayTitle(addDays(weekStart, 6))}` : monthTitle(month);
   const toggle = (m: "month" | "week" | "agenda", label: string) => (
-    <button type="button" aria-pressed={view === m} onClick={() => setMode(m === "agenda" ? "month" : m)}
-      className={cn("nb-touch-target h-[30px] rounded-[5px] px-2.5 text-xs font-medium", view === m ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</button>
+    <button type="button" aria-pressed={view === m} onClick={() => setMode(m === "agenda" ? "month" : m)}>{label}</button>
   );
 
   return (
@@ -124,8 +124,9 @@ export function TasksCalendar({ projectId, scope, filters, viewerId, canEdit, on
         <h3 className="min-w-40 text-center text-[14px] font-semibold text-foreground" aria-live="polite">{title}</h3>
         <button type="button" aria-label="Next" onClick={() => step(1)} className="nb-touch-target inline-flex size-[30px] items-center justify-center rounded-[5px] border border-border bg-card hover:bg-muted"><ChevronRight className="size-4" /></button>
         <button type="button" onClick={() => { setMonth(monthOf(today)); setWeekStart(mondayOf(today)); }} className="nb-touch-target h-[30px] rounded-[5px] border border-border bg-card px-2.5 text-xs font-medium hover:bg-muted">Today</button>
-        <div className="ml-auto flex items-center gap-1 rounded-[6px] border border-border bg-card p-0.5" role="group" aria-label="Calendar view">
+        <div className="nb-seg ml-auto" data-size="sm" role="group" aria-label="Calendar view">
           {phone ? <>{toggle("agenda", "Agenda")}{toggle("week", "Week")}</> : <>{toggle("month", "Month")}{toggle("week", "Week")}</>}
+          <TabMarker />
         </div>
       </div>
       {query.isError || (query.data && !query.data.success) ? (

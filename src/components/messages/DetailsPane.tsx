@@ -1,4 +1,6 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
+import { padCount } from "@/lib/ui/tab-marker";
 import { CharCount } from "@/components/ui/CharCount";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -524,9 +526,10 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
             onKeyDown={(event) => tabKeys(event, index)}
             className={`nb-tab -mb-px inline-flex min-h-10 items-center gap-1.5 border-b-2 text-[13px] font-medium capitalize ${tab === value ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
-            {value === "members" ? <>Members <span className="nb-tab-count">{channel.member_count > 999 ? "999+" : channel.member_count}</span></> : "About"}
+            {value === "members" ? <>Members <span className="nb-tab-count">{channel.member_count > 999 ? "999+" : <><span aria-hidden="true">{padCount(channel.member_count)}</span><span className="sr-only">{channel.member_count}</span></>}</span></> : "About"}
           </button>
         ))}
+          <TabMarker overlap />
       </div>
       <div ref={setScroller} id="details-panel" role="tabpanel" aria-labelledby={`details-tab-${tab}`} className="app-scroll app-scroll-y min-h-0 flex-1">
         {tab === "members" ? <Members channel={channel} meId={meId} onAdd={() => setAdding(true)} onJoin={join} scrollParent={scroller} /> : (

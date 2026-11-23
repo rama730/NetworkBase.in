@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Search, X } from "lucide-react";
@@ -213,6 +214,7 @@ export function UnderlineTabs<T extends string>({ tabs, value, onChange, label }
           {t.label}
         </button>
       ))}
+        <TabMarker overlap />
     </div>
   );
 }

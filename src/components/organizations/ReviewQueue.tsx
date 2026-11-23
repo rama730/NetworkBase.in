@@ -1,4 +1,5 @@
 'use client'
+import { TabMarker } from "@/components/ui/TabMarker";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -256,9 +257,10 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                     <button type="button" aria-pressed={!mineOnly} className={toggle(!mineOnly)} onClick={() => setMineOnly(false)}>All</button>
                 </span>
             ) : null}
-            <span className="inline-flex gap-1" role="group" aria-label="Layout">
-                <button type="button" aria-pressed={view === 'lanes'} className={toggle(view === 'lanes')} onClick={() => setView('lanes')}>Lanes</button>
-                <button type="button" aria-pressed={view === 'one'} className={toggle(view === 'one')} onClick={() => setView('one')}>One at a time</button>
+            <span className="nb-seg" data-size="sm" role="group" aria-label="Layout">
+                <button type="button" aria-pressed={view === 'lanes'} onClick={() => setView('lanes')}>Lanes</button>
+                <button type="button" aria-pressed={view === 'one'} onClick={() => setView('one')}>One at a time</button>
+                <TabMarker />
             </span>
             <span className="ml-auto max-md:basis-full" />
             {tabs ? <span className="max-md:order-first max-md:w-full">{tabs(waitingCount)}</span> : (
@@ -407,7 +409,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                 </div>
             )}
             <Dialog open={keysOpen} onOpenChange={setKeysOpen}>
-                <DialogContent className="max-w-sm">
+                <DialogContent size="confirm">
                     <DialogHeader><DialogTitle>Keyboard shortcuts</DialogTitle><DialogDescription>Not while you’re typing.</DialogDescription></DialogHeader>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
                         {[['J', 'Next'], ['K', 'Previous'], ['A', 'Approve'], ['R', 'Return'], ['Esc', 'Back to the board'], ['?', 'These shortcuts']].map(([k, v]) => (

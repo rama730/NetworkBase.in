@@ -82,7 +82,7 @@ export function WorkspaceUpdateLikersModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[440px] gap-0 p-0 overflow-hidden sm:rounded-[12px]">
+            <DialogContent size="confirm" className="gap-0 p-0 overflow-hidden sm:rounded-[12px]">
                 <DialogHeader className="border-b border-border px-5 py-4 text-left">
                     <DialogTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
                         <Heart className="h-4 w-4 fill-rose-500 text-rose-500" aria-hidden="true" />

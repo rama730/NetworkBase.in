@@ -26,7 +26,8 @@ export function BranchesSettings({ projectId }: { projectId: string }) {
   });
   const [saving, setSaving] = useState(false);
   if (!setting.data?.canChange) return null;
-  async function change(enabled: boolean) {
+  /** `inline`: called by the switch, which shows success itself and a failure beside it (controls round 2). */
+  async function change(enabled: boolean, inline = false) {
     setSaving(true);
     try {
       const res = await setBranchesEnabledAction(projectId, enabled);
@@ -34,8 +35,9 @@ export function BranchesSettings({ projectId }: { projectId: string }) {
       client.setQueryData(key(projectId), { ...setting.data!, enabled });
       void client.invalidateQueries({ queryKey: ["files-history-enabled", projectId] });
       void client.invalidateQueries({ queryKey: ["project", projectId, "protection"] });
-      toast.success(enabled ? "History is on: every change to the files is a save" : "History is off; what's recorded stays");
+      if (!inline) toast.success(enabled ? "History is on: every change to the files is a save" : "History is off; what's recorded stays");
     } catch (error) {
+      if (inline) throw error;
       toast.error(feedbackError(error instanceof Error ? error.message : "", "Couldn’t change History"));
     } finally {
       setSaving(false);
@@ -50,7 +52,7 @@ export function BranchesSettings({ projectId }: { projectId: string }) {
             Also turns on change sets. Turning it off keeps what&apos;s recorded. <a href="/docs/files/branches" className="underline underline-offset-2 hover:text-foreground">What&apos;s this?</a>
           </p>
         </div>
-        <SettingsSwitch id={`branches-${projectId}`} aria-describedby={`branches-help-${projectId}`} checked={setting.data.enabled} disabled={saving} onCheckedChange={(on: boolean) => void change(on)} />
+        <SettingsSwitch id={`branches-${projectId}`} aria-describedby={`branches-help-${projectId}`} checked={setting.data.enabled} disabled={saving} onCheckedChange={(on: boolean) => change(on, true)} />
       </div>
     </SettingsCard>
   );
@@ -92,16 +94,20 @@ export function ProtectMainSettings({ projectId }: { projectId: string }) {
   const data = query.data;
   if (!data?.canChange) return null;
   const rules = data.rules as Rules;
-  async function change(patch: Partial<Rules>, done: string) {
+  async function change(patch: Partial<Rules>, done: string, inline = false) {
     setSaving(true);
     try {
       const res = await setProtectionAction(projectId, patch);
-      if (needsStepUp(res as never, () => void change(patch, done))) return;
+      // Step-up asks who you are, then saves again itself; the switch shows this one as not saved until then.
+      if (needsStepUp(res as never, () => void change(patch, done))) return inline ? { success: false as const, error: "Confirm it’s you to change this." } : undefined;
       if (!res.success) throw new Error(res.error);
       client.setQueryData(protectionKey(projectId), { ...data!, rules: res.data.rules });
-      toast.success(done);
+      if (!inline) toast.success(done);
+      return undefined;
     } catch (error) {
+      if (inline) throw error;
       toast.error(feedbackError(error instanceof Error ? error.message : "", "Couldn’t change main’s protection"));
+      return undefined;
     } finally {
       setSaving(false);
     }
@@ -121,7 +127,7 @@ export function ProtectMainSettings({ projectId }: { projectId: string }) {
       <div className="space-y-3">
         {row("protect", "Change main only through merge requests", "Edits, uploads and pushes to main go to a new branch with a merge request instead.",
           <SettingsSwitch id={`protect-${projectId}`} aria-describedby={`protect-help-${projectId}`} checked={on} disabled={saving}
-            onCheckedChange={(v: boolean) => void change(v ? { requireMergeRequest: true, approvals: Math.max(rules.approvals, 1) } : { requireMergeRequest: false }, v ? "main is protected" : "main takes direct changes again")} />)}
+            onCheckedChange={(v: boolean) => change(v ? { requireMergeRequest: true, approvals: Math.max(rules.approvals, 1) } : { requireMergeRequest: false }, v ? "main is protected" : "main takes direct changes again", true)} />)}
         {on ? (
           <>
             {row("approvals", "Approvals needed", "Reviews that approve before it can merge. You can’t approve your own.",
@@ -130,7 +136,7 @@ export function ProtectMainSettings({ projectId }: { projectId: string }) {
                 {[0, 1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>)}
             {row("reapprove", "New saves need approval again", "An approval counts only for the branch’s latest save.",
-              <SettingsSwitch id={`reapprove-${projectId}`} aria-describedby={`reapprove-help-${projectId}`} checked={rules.reapproveOnNewSaves} disabled={saving} onCheckedChange={(v: boolean) => void change({ reapproveOnNewSaves: v }, "Saved")} />)}
+              <SettingsSwitch id={`reapprove-${projectId}`} aria-describedby={`reapprove-help-${projectId}`} checked={rules.reapproveOnNewSaves} disabled={saving} onCheckedChange={(v: boolean) => change({ reapproveOnNewSaves: v }, "Saved", true)} />)}
             {row("checks", "Checks that must pass", "Names your build posts (nb merge-request check), separated by commas. Empty for none.",
               <input id={`checks-${projectId}`} aria-describedby={`checks-help-${projectId}`} className={`${selectClass} w-44 font-mono`} placeholder="build, test" disabled={saving}
                 value={checks ?? rules.requiredChecks.join(", ")} onChange={(e) => setChecks(e.target.value)}

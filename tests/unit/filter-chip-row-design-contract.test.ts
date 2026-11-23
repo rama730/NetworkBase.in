@@ -7,8 +7,8 @@ import { test } from "node:test";
 const row = readFileSync("src/components/ui/FilterChipRow.tsx", "utf8");
 const tab = readFileSync("src/components/workspaces/v2/TasksTab.tsx", "utf8");
 
-test("chips use the 5 px badge shape and the shared menu parts, never round pills", () => {
-  assert.match(row, /rounded-\[5px\]/);
+test("chips are square (3 px, controls round 2) and use the shared menu parts, never round pills", () => {
+  assert.match(row, /rounded-\[3px\]/);
   assert.doesNotMatch(row, /rounded-full/);
   assert.match(row, /DropdownMenuCheckboxItem/);
   assert.match(row, /presentation="bottom-sheet"/, "phones get one Filters sheet (W9)");

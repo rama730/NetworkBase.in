@@ -27,7 +27,7 @@ export function useUploadCollisionDecision() {
   }, []);
   const uploadCollisionDialog = (
     <Dialog open={!!pending} onOpenChange={open => { if (!open) finish("cancel"); }}>
-      <DialogContent className="sm:max-w-[460px] rounded-[12px] border border-[#DBD5C8] dark:border-white/10">
+      <DialogContent className="rounded-[12px] border border-[#DBD5C8] dark:border-white/10">
         <DialogHeader>
           <DialogTitle>Some files have the same name</DialogTitle>
           <DialogDescription className="text-xs text-zinc-600 dark:text-zinc-400">

@@ -68,7 +68,7 @@ export function FileTransfersProvider({
       {children}
       <ConfirmDialog {...leaveDialog} title="An upload is still running. Leave anyway?" description="Files that haven’t finished uploading will stop." confirmLabel="Leave" cancelLabel="Stay" variant="destructive" />
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85dvh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogTitle>Uploads and downloads</DialogTitle>
           <DialogDescription>
             Uploads in this Files session. Keep this page open while uploads are

@@ -1243,7 +1243,7 @@ export default function TasksTab({
 
       {isAddSectionOpen ? (
         <Dialog open={isAddSectionOpen} onOpenChange={setIsAddSectionOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent size="confirm">
             <form onSubmit={submitNewColumn}>
               <DialogHeader>
                 <DialogTitle>Add column</DialogTitle>

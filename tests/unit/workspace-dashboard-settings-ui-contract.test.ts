@@ -63,8 +63,8 @@ test("project detail keeps identity and team in the header while the dashboard s
   assert.match(stats, /followersCount/);
   assert.match(stats, /font-mono tabular-nums/);
   assert.match(links, /h-\[var\(--ui-control-height\)\]/);
-  assert.match(tooltip, /rounded-sm/);
-  assert.match(tooltip, /px-\[7px\] py-1/);
+  assert.match(tooltip, /rounded-\[3px\]/);
+  assert.match(tooltip, /px-2 py-\[5px\]/);
   assert.doesNotMatch(tooltip, /TooltipPrimitive\.Arrow/);
   assert.doesNotMatch(tooltip, /zoom-in-95/);
 

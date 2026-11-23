@@ -65,6 +65,8 @@ function DialogContent({
   showCloseButton = true,
   overlayClassName,
   presentation = "center",
+  size,
+  eyebrow,
   onEscapeKeyDown,
   onOpenAutoFocus,
   onCloseAutoFocus,
@@ -73,6 +75,13 @@ function DialogContent({
   showCloseButton?: boolean
   overlayClassName?: string
   presentation?: "center" | "right-drawer" | "bottom-sheet"
+  /**
+   * Controls round 2: three sizes. `confirm` 420, `form` 560 (the default for a centered dialog), `side` 440 for a side
+   * panel; `wide` keeps the caller's own width (viewers, pickers, diffs).
+   */
+  size?: "confirm" | "form" | "side" | "wide"
+  /** The mono eyebrow in the header's cell row ("Members · remove"). */
+  eyebrow?: React.ReactNode
 }) {
   // Radix returns focus only to a Trigger. Dialogs opened from state have none, so focus would fall to <body>:
   // remember what had focus when this one opened and give it back on close (unless the caller handled it).
@@ -84,6 +93,9 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         data-presentation={presentation}
+        // A caller that still sets its own width (the 640 px task forms) keeps it; everyone else gets `form`.
+        data-size={size ?? (presentation === "center" && !/max-w-/.test(String(className ?? "")) ? "form" : undefined)}
+        data-eyebrow={eyebrow ? "" : undefined}
         aria-describedby={undefined}
         ref={(node) => {
           contentRef.current = node
@@ -120,11 +132,12 @@ function DialogContent({
         )}
         {...props}
       >
+        {eyebrow ? <p className="nb-dlg-eyebrow">{eyebrow}</p> : null}
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="absolute top-3 right-3 inline-flex size-[var(--ui-control-height)] items-center justify-center rounded-md text-muted-foreground transition-[color,background-color,opacity,box-shadow] duration-[130ms] hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground focus-visible:outline-none disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="nb-dlg-x disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
             <span className="sr-only">Close</span>
@@ -171,7 +184,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-[17px] leading-[1.28] font-semibold tracking-[-0.01em]", className)}
+      className={cn("nb-dlg-title", className)}
       {...props}
     />
   )

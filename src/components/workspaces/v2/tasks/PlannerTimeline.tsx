@@ -1,4 +1,5 @@
 "use client";
+import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, FolderKanban, MoreHorizontal } from "lucide-react";
@@ -170,11 +171,11 @@ export function PlannerTimeline({ projectId, canEdit, sprints, viewerId, onOpen,
   return (
     <section aria-label="Timeline" className="space-y-3" data-testid="planner-timeline">
       <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Zoom" className="inline-flex rounded-[5px] border border-border p-0.5">
+        <div role="group" aria-label="Zoom" className="nb-seg" data-size="sm">
           {ZOOMS.map((z) => (
-            <button key={z} type="button" aria-pressed={zoom === z} onClick={() => setZoom(z)}
-              className={cn("h-7 rounded-[3px] px-2.5 text-xs", zoom === z ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>{z[0]!.toUpperCase() + z.slice(1)}</button>
+            <button key={z} type="button" aria-pressed={zoom === z} onClick={() => setZoom(z)}>{z[0]!.toUpperCase() + z.slice(1)}</button>
           ))}
+          <TabMarker />
         </div>
         <div className="inline-flex items-center">
           <button type="button" aria-label="Earlier" onClick={() => setAnchor(addDayKeys(anchor, zoom === "week" ? -7 : zoom === "month" ? -30 : -91))} className="nb-touch-target inline-flex size-7 items-center justify-center rounded-md hover:bg-muted"><ChevronLeft className="size-4" /></button>

@@ -182,7 +182,7 @@ export function V3AttachmentPicker({
         if (!open) onClose();
       }}
     >
-      <DialogContent
+      <DialogContent size="wide"
         data-composer-portal="true"
         data-testid="v3-attachment-picker"
         showCloseButton={false}

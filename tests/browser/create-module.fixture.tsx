@@ -9,6 +9,8 @@ const subs = new Set<() => void>();
 w.__router = { subscribe: (f: () => void) => { subs.add(f); return () => subs.delete(f); }, get: () => '/', push: () => undefined };
 const q = new URLSearchParams(location.search);
 w.__created = [];
+// The bug form looks for similar open bugs once a title has 4 letters: the fixture has none.
+w.__actions = { similarBugsAction: async () => ({ success: true, bugs: [], projectKey: null }) };
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>

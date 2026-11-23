@@ -90,7 +90,7 @@ export function ActiveTable({ data }: { data: Awaited<ReturnType<typeof readActi
                 </section>
             ) : null)}
             <Dialog open={Boolean(lifting)} onOpenChange={(next) => { if (!next) { setLifting(null); setReason('') } }}>
-                <DialogContent className="max-w-[420px]">
+                <DialogContent size="confirm">
                     <DialogHeader>
                         <DialogTitle>Lift {lifting?.action.toLowerCase()} for {lifting?.what}</DialogTitle>
                         <DialogDescription>It ends now and they get a notice. The reason stays in the audit log.</DialogDescription>
@@ -143,7 +143,7 @@ export function VerificationList({ rows, onDone }: { rows: Awaited<ReturnType<ty
                 )
             })}
             <Dialog open={Boolean(declining)} onOpenChange={(next) => !next && setDeclining(null)}>
-                <DialogContent className="max-w-[420px]">
+                <DialogContent size="confirm">
                     <DialogHeader><DialogTitle>Decline {declining?.title}</DialogTitle><DialogDescription>The owner is told it wasn’t verified this time. Add a note if it helps them.</DialogDescription></DialogHeader>
                     <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note to the owner" aria-label="Note" className={`${FIELD} py-2`} />
                     <DialogFooter>

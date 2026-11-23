@@ -70,7 +70,7 @@ export function ReportDialog({ kind, targetId, seq, noun, personName, joinCode, 
     return (
         <Dialog open={open} onOpenChange={close}>
             {/* Fixed header and footer, one scrolling body: the dialog always fits the screen (spec: dialog, paper footer). */}
-            <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[460px]">
+            <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0">
                 {sent ? (
                     <>
                         <DialogHeader className="px-6 pt-5 pb-4 pr-14">

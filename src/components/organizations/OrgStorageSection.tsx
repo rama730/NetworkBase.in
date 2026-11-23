@@ -139,7 +139,7 @@ function LargeFilesDialog({ orgId, base, open, onOpenChange, onChanged }: { orgI
     }
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[85dvh] max-w-xl overflow-y-auto">
+            <DialogContent className="max-h-[85dvh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Large files</DialogTitle>
                     <DialogDescription>Largest first. Moving one to Trash frees its space when Trash is emptied.</DialogDescription>

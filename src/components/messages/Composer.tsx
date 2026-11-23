@@ -1048,7 +1048,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
       <input ref={mediaInput} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
       <Dialog open={link !== null} onOpenChange={(open) => !open && setLink(null)}>
-        <DialogContent className="sm:max-w-[460px]">
+        <DialogContent>
           <DialogTitle>{link?.url ? "Edit link" : "Add link"}</DialogTitle>
           <form
             className="space-y-3"

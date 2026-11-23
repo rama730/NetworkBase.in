@@ -136,7 +136,7 @@ export function StatusPicker() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent showCloseButton={false} className="flex max-h-[90vh] w-[480px] max-w-[95vw] flex-col gap-0 overflow-hidden p-0">
+      <DialogContent size="wide" showCloseButton={false} className="flex max-h-[90vh] w-[480px] max-w-[95vw] flex-col gap-0 overflow-hidden p-0">
         <div className="flex items-center justify-between px-6 pb-3 pt-5">
           <DialogTitle className="text-[20px] font-bold">Set a status</DialogTitle>
           <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="grid size-11 place-items-center rounded-lg text-muted-foreground hover:bg-muted">

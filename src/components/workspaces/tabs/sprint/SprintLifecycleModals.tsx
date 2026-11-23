@@ -136,7 +136,7 @@ export function SprintLifecycleModals({
   return (
     <Dialog open onOpenChange={(open) => !open && close()}>
       <DialogContent
-        className="max-w-lg"
+        
         showCloseButton={!isMutating}
         onCloseAutoFocus={(event) => {
           if (openerRef.current) {

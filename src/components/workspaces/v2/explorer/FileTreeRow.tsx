@@ -208,7 +208,7 @@ export const FileTreeRow = React.memo(function FileTreeRow({
                 isSelected
                     ? "bg-[#F3F0EA] dark:bg-white/10 text-[#141A1E] dark:text-foreground font-medium"
                     : "hover:bg-[#F3F0EA]/60 dark:hover:bg-white/5 text-[#374349] dark:text-muted-foreground",
-                dropHighlight && "ring-1 ring-inset ring-[#D14E24] bg-[#FCF0EA]/75 dark:bg-[#D14E24]/20"
+                dropHighlight && "nb-drop-over"
             )}
             style={{ paddingLeft: 0 }} 
             onClick={(e) => {

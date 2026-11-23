@@ -52,7 +52,7 @@ export default function ChipSelector({ options, selected, onToggle, labelledBy, 
               onClick={() => onToggle(option.value)}
               className={choiceChipClass(isSelected)}
             >
-              <PixelIcon name={isSelected ? 'check' : 'plus'} className="mr-1.5" />
+              {isSelected ? <PixelIcon name="check" className="mr-1.5" /> : null}
               {option.label}
             </button>
           )
