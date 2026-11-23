@@ -100,7 +100,9 @@ export type WorkspaceDocVersion = {
     deletedAt: string | null;
 };
 
-export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null; section?: DocSection; kind?: string; date?: string; decisionNumber?: number; decisionStatus?: DecisionStatus; fromDocId?: string };
+export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null; section?: DocSection; kind?: string; date?: string; decisionNumber?: number; decisionStatus?: DecisionStatus; fromDocId?: string;
+    /** A4.1 live check: a meeting's or launch's own title, shown instead of its file name. */
+    title?: string };
 
 export type WorkspaceDocPublishedPayload = {
     projectId: string;

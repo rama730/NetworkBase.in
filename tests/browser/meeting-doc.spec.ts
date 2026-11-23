@@ -13,11 +13,15 @@ async function open(page: Page, opts: { view?: string; now?: string; finished?: 
     (window as any).__actions = {
       readMeetingAction: async () => ({ success: true, canEdit: true, member: true, type: 'blank', title: 'Weekly · Jan 7', startsAt: '2027-01-07T04:30:00.000Z', lengthMinutes: 30,
         timeZone: 'Asia/Kolkata', attendees: [{ id: 'u2', name: 'Dev', avatarUrl: null }], seriesRule: series ? 'weekly' : null, seriesTitle: series ? 'Weekly' : null, seriesId: series ? 's1' : null,
-        finishedAt: finished ? '2027-01-07T05:00:00.000Z' : null, openActionItems: 2 }),
+        finishedAt: finished ? '2027-01-07T05:00:00.000Z' : null, openActionItems: 0 }),
       readMeetingsAction: async () => ({ success: true, projectKey: 'AC', timeZone: 'Asia/Kolkata', viewerId: 'u1', meetings: [], people: [{ id: 'u1', name: 'Asha' }, { id: 'u2', name: 'Dev' }],
         openActionItems: [{ id: 't1', number: 5, title: 'Fix the login typo', status: 'todo', dueDate: '2027-01-10', assigneeId: 'u2', assigneeName: 'Dev', meeting: { slug: 'weekly-jan-7', title: 'Weekly · Jan 7' } }] }),
       finishMeetingAction: async (_p: string, input: unknown) => { calls.push(['finish', input]); return { success: true, alreadyFinished: false, next: null }; },
       moveMeetingAction: async (_p: string, input: unknown) => { calls.push(['move', input]); return { success: true }; },
+      readDocRowsAction: async () => ({ success: true, hidden: 0, canAdd: true, canSeeTasks: true, projectKey: 'AC', member: true, canPlanSprints: true,
+        rows: [{ id: 'a', number: 1, title: 'One', status: 'todo', reviewStatus: 'none', dueDate: null, completedAt: null, position: 1, itemType: 'task', assignee: null, canTick: true },
+          { id: 'b', number: 2, title: 'Two', status: 'in_progress', reviewStatus: 'none', dueDate: null, completedAt: null, position: 2, itemType: 'task', assignee: null, canTick: true },
+          { id: 'c', number: 3, title: 'Three', status: 'done', reviewStatus: 'none', dueDate: null, completedAt: null, position: 3, itemType: 'task', assignee: null, canTick: true }] }),
       endSeriesAction: async (_p: string, input: unknown) => { calls.push(['end', input]); return { success: true }; },
     };
   }, { finished: opts.finished ?? false, series: opts.series ?? false });

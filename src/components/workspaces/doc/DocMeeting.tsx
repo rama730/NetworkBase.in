@@ -5,7 +5,7 @@ import { CalendarClock, MoreHorizontal } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-import { createMeetingAction, endSeriesAction, finishMeetingAction, moveMeetingAction, readMeetingAction, readMeetingsAction } from "@/app/actions/workspace/doc";
+import { createMeetingAction, endSeriesAction, finishMeetingAction, moveMeetingAction, readDocRowsAction, readMeetingAction, readMeetingsAction } from "@/app/actions/workspace/doc";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
@@ -117,7 +117,10 @@ export function MeetingHeader({ projectId, docSlug }: { projectId: string; docSl
   const queryClient = useQueryClient();
   const openDoc = useOpenDocAfter(projectId);
   const query = useQuery({ queryKey: meetingKey(projectId, docSlug), queryFn: () => readMeetingAction(projectId, docSlug), refetchInterval: 60_000 });
-  const data = query.data?.success ? query.data : null;
+  // A4.1 live check: the open count shares the Action items list's data (same key), so adding or ticking a row shows here.
+  const rows = useQuery({ queryKey: ["doc-rows", projectId, docSlug, "actions"], queryFn: () => readDocRowsAction(projectId, docSlug, "actions"), staleTime: 15_000 });
+  const base = query.data?.success ? query.data : null;
+  const data = base && rows.data?.success ? { ...base, openActionItems: rows.data.rows.filter((r) => r.status !== "done").length } : base;
   const [dialog, setDialog] = useState<"finish" | "move" | null>(null);
   const [busy, setBusy] = useState(false);
   if (!data) return query.isLoading ? <div aria-hidden="true" className="nb-skeleton mb-3 h-12 rounded-[8px]" /> : null;

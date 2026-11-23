@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
@@ -57,6 +56,9 @@ export type DocRailState = {
     openAdd: (section?: DocSection) => void;
     askRemove: (doc: WorkspaceDocListItem | null) => void;
     dialogs: React.JSX.Element;
+    /** Report 38.11 W9 (A4.1 live check): the Open action items view (state, not the URL: the page drops unknown params). */
+    showActions: boolean;
+    openActions: () => void;
 };
 
 // One state machine for the desktop rail and the mobile bar: select, add, remove.
@@ -70,9 +72,11 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     const [addSection, setAddSection] = useState<DocSection | null>(null);
     const [recording, setRecording] = useState(false);
     const [removing, setRemoving] = useState<WorkspaceDocListItem | null>(null);
+    const [showActions, setShowActions] = useState(false);
 
     // Opening a doc is a history entry; leaving a removed doc replaces it.
     const navigate = (slug: string | null, replace = false) => {
+        setShowActions(false);
         const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
         params.set("tab", "docs");
         params.delete("from"); // own docs, not an org doc opened in place
@@ -117,7 +121,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
         // Decisions' + records one (S4): it gets the next D-number rather than being an unnumbered page.
         if (section === "decisions") return setRecording(true);
         setAddSection(section ?? null); setAddOpen(true);
-    }, askRemove: setRemoving, dialogs };
+    }, askRemove: setRemoving, dialogs, showActions, openActions: () => setShowActions(true) };
 }
 
 function AddDocButton({ onClick, className }: { onClick: () => void; className?: string }) {
@@ -211,9 +215,10 @@ export function WorkspaceDocRail({
                             ) : section.name ? <p key={`group:${section.name}`} className="px-1 pt-2 text-[11px] text-muted-foreground">{section.name}</p> : null,
                             // Report 38.11 W9 (A4.1): every open action item across meetings.
                             section.id === "meetings" && !collapsed.includes(section.id) ? (
-                                <Link key="meetings:actions" href={{ query: { tab: "docs", view: "actions" } }} className="block px-1 py-1 text-[12px] text-muted-foreground hover:text-foreground" data-testid="rail-open-action-items">
+                                <button key="meetings:actions" type="button" onClick={() => rail.openActions()} aria-pressed={rail.showActions}
+                                    className={cn("block w-full px-1 py-1 text-left text-[12px] hover:text-foreground", rail.showActions ? "font-semibold text-foreground" : "text-muted-foreground")} data-testid="rail-open-action-items">
                                     Open action items
-                                </Link>
+                                </button>
                             ) : null,
                             section.id && canEdit && section.docs.length === 0 && !collapsed.includes(section.id) ? (
                                 <button key={`empty:${section.id}`} type="button" onClick={() => rail.openAdd(section.id!)} className="block w-full px-1 py-1 text-left text-[12px] text-muted-foreground hover:text-foreground">
@@ -235,7 +240,7 @@ export function WorkspaceDocRail({
                                         )}
                                     >
                                         <FileText className={cn("size-3.5 shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} />
-                                        <span className="min-w-0 flex-1 truncate">{doc.prefix ? <span className="font-mono text-[11px] text-muted-foreground">{doc.prefix} · </span> : null}{docTitle(doc.filename)}</span>
+                                        <span className="min-w-0 flex-1 truncate">{doc.prefix ? <span className="font-mono text-[11px] text-muted-foreground">{doc.prefix} · </span> : null}{doc.title ?? docTitle(doc.filename)}</span>
                                         <OrgDocChips item={org?.mode === "org" ? orgById.get(doc.id) : undefined} />
                                     </button>
                                     {canEdit ? (
@@ -320,7 +325,7 @@ export function WorkspaceDocMobileBar({
                             )}
                         >
                             <FileText className="size-3.5 shrink-0 mr-1.5 text-muted-foreground" />
-                            <span className="truncate">{docTitle(doc.filename)}</span>
+                            <span className="truncate">{doc.title ?? docTitle(doc.filename)}</span>
                         </button>
                     );
                 })

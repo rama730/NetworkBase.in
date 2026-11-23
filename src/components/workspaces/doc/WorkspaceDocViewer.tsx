@@ -24,7 +24,6 @@ import { MoveToSectionMenu } from "@/components/workspaces/doc/MoveToSectionMenu
 import { DecisionMetaLine } from "@/components/workspaces/doc/DocDecisions";
 import { LaunchHeader } from "@/components/workspaces/doc/DocLaunch";
 import { MeetingHeader, OpenActionItems } from "@/components/workspaces/doc/DocMeeting";
-import { useSearchParams } from "next/navigation";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { docSectionOf } from "@/lib/workspaces/doc-sections";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
@@ -188,7 +187,7 @@ export function WorkspaceDocViewer({
     const listed = rail.docs.find((doc) => doc.slug === normalizedDocSlug);
     const addedWorkflows = useAddedWorkflows();
     const title = docTitle(orgDoc?.filename ?? listed?.filename ?? "");
-    const actionsView = useSearchParams()?.get("view") === "actions";
+    const actionsView = rail.showActions;
     const fileHref = payload.linkedNode ? `/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}` : null;
     
     const version = payload.version;
