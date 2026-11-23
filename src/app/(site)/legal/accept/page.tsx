@@ -2,7 +2,6 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { AuthAlert, AuthShell } from "@/components/auth/AuthShell";
 import { AUTH_PANELS } from "@/components/auth/auth-panels";
 import { Button } from "@/components/ui/button";
@@ -63,7 +62,7 @@ export default function LegalAcceptancePage() {
   if (checking) {
     return (
       <AuthShell title="Before you continue" description="Checking your agreement…" panel={panel}>
-        <div className="h-40 animate-pulse rounded-md bg-muted" aria-busy="true" />
+        <div className="h-40 nb-skeleton rounded-[4px]" aria-busy="true" />
       </AuthShell>
     );
   }
@@ -90,8 +89,8 @@ export default function LegalAcceptancePage() {
           <span>I am at least 18 years old, accept the <a href="/terms" target="_blank" className={docLink}>Terms of Service</a> and <a href="/eula" target="_blank" className={docLink}>EULA</a>, and acknowledge the <a href="/privacy" target="_blank" className={docLink}>Privacy Policy</a>.</span>
         </label>
         {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
-        <Button type="button" disabled={!confirmed || submitting} onClick={() => void continueToNetworkBase()} className="h-11 w-full font-medium">
-          {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null} Agree and continue
+        <Button pending={submitting} type="button" disabled={!confirmed || submitting} onClick={() => void continueToNetworkBase()} className="h-11 w-full font-medium">
+           Agree and continue
         </Button>
       </div>
     </AuthShell>

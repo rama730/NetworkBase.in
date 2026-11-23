@@ -447,7 +447,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
 function AuthorizeFallback() {
     return (
         <AuthShell title="Connect your editor" description="Preparing the connection…" panel={AUTHORIZE_PANEL}>
-            <div className="h-40 animate-pulse rounded-md bg-muted" aria-busy="true" />
+            <div className="h-40 nb-skeleton rounded-[4px]" aria-busy="true" />
         </AuthShell>
     )
 }

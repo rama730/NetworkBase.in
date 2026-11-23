@@ -15,7 +15,7 @@ export default function WorkspaceDetailLoading() {
                 <div className="px-4 pb-4 pt-5 sm:px-6 max-md:pt-4">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div className="flex min-w-0 items-center gap-3">
-                            <Skeleton className="size-16 shrink-0 rounded-lg border border-border max-md:size-12" />
+                            <Skeleton kind="tile" className="size-16 shrink-0 rounded-lg border border-border max-md:size-12" />
                             <div className="min-w-0 space-y-1.5">
                                 <div className="flex items-center gap-2">
                                     <Skeleton className="h-6 w-52 max-w-full rounded-sm" />

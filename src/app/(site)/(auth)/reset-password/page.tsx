@@ -141,8 +141,8 @@ export default function ResetPasswordPage() {
         >
             {status === 'loading' ? (
                 <div className="space-y-4" aria-busy="true">
-                    <div className="h-11 animate-pulse rounded-md bg-muted" />
-                    <div className="h-11 animate-pulse rounded-md bg-muted" />
+                    <div className="h-11 nb-skeleton rounded-[4px]" />
+                    <div className="h-11 nb-skeleton rounded-[4px]" />
                 </div>
             ) : null}
 

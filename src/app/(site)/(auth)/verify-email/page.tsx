@@ -103,7 +103,7 @@ function VerifyEmailPageInner() {
 function VerifyEmailPageFallback() {
     return (
         <AuthShell title="Verify your email" description="Checking your account…" panel={AUTH_PANELS.verify}>
-            <div className="h-11 animate-pulse rounded-md bg-muted" aria-busy="true" />
+            <div className="h-11 nb-skeleton rounded-[4px]" aria-busy="true" />
         </AuthShell>
     )
 }
