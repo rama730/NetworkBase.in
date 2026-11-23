@@ -792,6 +792,13 @@
       "when": 1795384337195,
       "tag": "0113_profile_portfolio_pins",
       "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1795384337196,
+      "tag": "0114_member_journey",
+      "breakpoints": true
     }
   ]
 }

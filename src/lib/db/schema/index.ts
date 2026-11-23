@@ -892,6 +892,10 @@ export const workspaces = pgTable(
       .notNull(),
     maxCollaborators: text("max_collaborators"),
     lifecycleStages: jsonb("lifecycle_stages").$type<string[]>().default([]),
+    /** The owner lets members hide "with Claude Code" on their own work (0114, member settings §2). */
+    membersChooseLabels: boolean("members_choose_labels").default(false).notNull(),
+    /** Roles (0114, member settings §5): what each role may do; null = today's rules. */
+    roleAbilities: jsonb("role_abilities").$type<Partial<Record<"admin" | "member" | "viewer", Partial<Record<string, boolean>>>>>(),
     currentStageIndex: integer("current_stage_index").default(0),
     stageCompletionDates: jsonb("stage_completion_dates")
       .$type<Record<string, string>>()
@@ -1048,6 +1052,16 @@ export const workspaceMembers = pgTable(
     /** The welcome panel was closed (0050, report §26.7, DB4); null shows it once after joining. */
     welcomeDismissedAt: timestamp("welcome_dismissed_at", { withTimezone: true }),
     unitId: uuid("unit_id").references((): AnyPgColumn => workspaceOpenRoles.id, { onDelete: "set null" }),
+    /** Completing your part (0114, member settings §3): you stay a member, read-only, until you reopen it. */
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedBy: uuid("completed_by").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
+    completionNote: text("completion_note"),
+    completionConfirmedBy: uuid("completion_confirmed_by").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
+    completionConfirmedAt: timestamp("completion_confirmed_at", { withTimezone: true }),
+    /** Your settings (0114, §2): stricter than the workspace only. */
+    hideAgentLabel: boolean("hide_agent_label").default(false).notNull(),
+    agentsBlockedAt: timestamp("agents_blocked_at", { withTimezone: true }),
+    viewPrefs: jsonb("view_prefs").$type<{ defaultTab?: string; density?: "compact" | "comfortable" }>().default({}).notNull(),
   },
   (t) => ({
     unitIdx: index("workspace_members_unit_idx").on(t.unitId).where(sql`${t.unitId} IS NOT NULL`),
@@ -1068,6 +1082,25 @@ export const workspaceMembers = pgTable(
     ),
   }),
 );
+
+/** Finished periods of a person in a workspace (0114, §6): reopening or rejoining never rewrites earlier dates. */
+export const workspaceMemberPeriods = pgTable("workspace_member_periods", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  role: text("role").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
+  endReason: text("end_reason", { enum: ["completed", "workspace_completed", "left", "removed"] }).notNull(),
+  note: text("note"),
+  endedBy: uuid("ended_by").references(() => profiles.id, { onDelete: "set null" }),
+  confirmedBy: uuid("confirmed_by").references(() => profiles.id, { onDelete: "set null" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  personIdx: index("workspace_member_periods_person_idx").on(t.projectId, t.userId, t.endedAt.desc()),
+  userIdx: index("workspace_member_periods_user_idx").on(t.userId, t.endedAt.desc()),
+}));
 
 // ============================================================================
 // ORGANIZATIONS (0241): server-only tables, no browser grants.
@@ -1416,7 +1449,7 @@ export const profileContributions = pgTable(
     /** Org admins revoke a "Verified by <org>" with a reason (0248). */
     verificationRevokedReason: text("verification_revoked_reason"),
     /** How the membership ended (0049, report §10.1): left, removed, term_ended or org_deleted; null reads as left. */
-    endReason: text("end_reason", { enum: ["left", "removed", "term_ended", "org_deleted"] }),
+    endReason: text("end_reason", { enum: ["left", "removed", "term_ended", "org_deleted", "completed", "workspace_completed"] }),
     endedBy: uuid("ended_by").references(() => profiles.id, { onDelete: "set null" }),
     /** The reason the admin wrote, kept for Former (report §36.4). */
     endNote: text("end_note"),
