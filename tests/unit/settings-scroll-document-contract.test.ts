@@ -14,11 +14,13 @@ test("personal settings render as one navigable scroll document", () => {
   assert.match(route, /return <SettingsDocument \/>/, "All personal settings should share one document");
 
   for (const section of ["account", "security", "privacy", "notifications", "appearance", "integrations", "privacy-policies", "delete-account"]) {
-    assert.match(document, new RegExp(`id="settings-${section}"`), `${section} should have a stable scroll target`);
+    // Each section's id is `settings-<section>` (DocumentSection builds it from `section`).
+    assert.match(document, /const id = `settings-\$\{section\}`/);
+    assert.match(document, new RegExp(`section="${section}"`), `${section} should have a stable scroll target`);
   }
 
-  assert.ok(document.indexOf('id="settings-privacy-policies"') > document.indexOf('id="settings-integrations"'), "Privacy should follow Integrations");
-  assert.ok(document.indexOf('id="settings-delete-account"') > document.indexOf('id="settings-privacy-policies"'), "Delete account should be the final settings action");
+  assert.ok(document.indexOf('section="privacy-policies"') > document.indexOf('section="integrations"'), "Privacy should follow Integrations");
+  assert.ok(document.indexOf('section="delete-account"') > document.indexOf('section="privacy-policies"'), "Delete account should be the final settings action");
 
   assert.match(layout, /root\.scrollTo\(\{ top, behavior: smooth && !reducedMotion\(\) \? "smooth" : "auto" \}\)/, "a jump scrolls the settings pane itself");
   assert.doesNotMatch(layout, /scrollIntoView\(/, "scrollIntoView would also scroll the application shell around the pane");
@@ -30,8 +32,12 @@ test("personal settings render as one navigable scroll document", () => {
   assert.doesNotMatch(document, /scrollIntoView|useSearchParams/, "The settings document should not compete with the layout scroll controller");
   assert.match(layout, /data-scroll-root="route"/);
   assert.match(layout, /md:w-\[var\(--nb-sidebar-width\)\]/, "Section navigation should use the same width as the main sidebar");
-  assert.match(layout, /nb-nav-link/, "Settings should reuse the application's navigation buttons");
-  assert.match(layout, /<h1 id="settings-navigation-title" className="nb-micro max-md:sr-only">Settings<\/h1>/);
+  // Settings mix (2026-11-23): the nav is hairline cells with mono counters and the sliding marker; Delete sits apart.
+  assert.match(layout, /className=\{cn\("nbs-nl"/, "nav links are the mix cells");
+  assert.match(layout, /nbs-marker/, "one marker slides to the section you're in");
+  assert.match(layout, /nbs-navfoot/, "Delete account sits apart at the bottom");
+  assert.match(layout, /<SettingsFind onJump=\{findJump\} \/>/, "Find a setting lives in the nav head");
+  assert.match(layout, /<h1 id="settings-navigation-title" className="nbs-eyebrow max-md:sr-only">Settings<\/h1>/);
   assert.doesNotMatch(document, /title="Settings"/, "The page title belongs in the navigation column");
   assert.match(layout, /<div ref=\{scrollRootRef\} data-scroll-root="route"[^\n]*className="relative min-w-0 min-h-0 flex-1 app-scroll app-scroll-y/);
   assert.doesNotMatch(layout, /position: fixed|nb-settings-local-nav-panel|<details/, "Navigation should participate in the full-height page layout");
@@ -90,12 +96,11 @@ test("sign out is located in account settings after cache management and removed
   assert.doesNotMatch(layout, />Sign out</, "Settings navigation must not render a Sign Out button");
   assert.doesNotMatch(layout, /\bonSignOut\b/, "Settings layout navigation should not accept onSignOut");
 
-  assert.match(account, /title="Storage on this device"/, "Account settings must include Storage on this device");
-  assert.match(account, /title="Sign out"/, "Account settings must include Sign out section");
-
-  const cacheIndex = account.indexOf('title="Storage on this device"');
+  // Settings mix: one "This device" group, Storage then Sign out.
+  assert.match(account, /title="This device"/, "Account settings must include This device");
+  const cacheIndex = account.indexOf('title="Storage"');
   const signoutIndex = account.indexOf('title="Sign out"');
-  assert.ok(cacheIndex > 0 && signoutIndex > cacheIndex, "Sign out must be placed directly after Storage on this device in Account settings");
+  assert.ok(account.indexOf('title="This device"') < cacheIndex && cacheIndex > 0 && signoutIndex > cacheIndex, "Sign out must be placed directly after Storage in This device");
 
   assert.match(account, /SignOutConfirmDialog/, "Account settings should use the shared sign-out confirmation");
   assert.match(account, /onConfirm=\{signOut\}/, "Account settings should call signOut when confirmed");

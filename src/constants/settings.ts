@@ -1,11 +1,13 @@
 import type { SettingsTab } from "@/constants/routes";
 
-export const SETTINGS_SECTION_META: Record<SettingsTab, { title: string; description: string }> = {
-    account: { title: "Account", description: "Signed-in identity and local application data" },
-    security: { title: "Security", description: "Sign-in methods, trusted devices, and recent activity" },
-    privacy: { title: "Privacy", description: "Profile visibility, interactions, and blocked accounts" },
-    notifications: { title: "Notifications", description: "In-app and device delivery preferences" },
-    appearance: { title: "Appearance", description: "Theme, accent color, and density" },
-    integrations: { title: "Integrations", description: "Account sign-in methods and connected services" },
-    "privacy-policies": { title: "Legal and data", description: "Terms, policies, cookies, and your data rights" },
+/** Section names (nav), the serif line that heads each section, and the plain line under it (settings mix). */
+export const SETTINGS_SECTION_META: Record<SettingsTab | "delete-account", { title: string; headline: string; description: string }> = {
+    account: { title: "Account", headline: "Your account.", description: "Your email, your standing, and this device. Name, username and picture live on your profile." },
+    security: { title: "Security", headline: "Signing in, safely.", description: "How you sign in, where you’re signed in, and what changed." },
+    privacy: { title: "Privacy", headline: "Who sees you, who reaches you.", description: "Your profile, messages and requests, what others see of your activity, and who you’ve blocked." },
+    notifications: { title: "Notifications", headline: "What reaches you, and when.", description: "What you hear about, when nothing is sent, and where it arrives." },
+    appearance: { title: "Appearance", headline: "How NetworkBase looks.", description: "Theme, accent and spacing. Saved to your account, so every device matches." },
+    integrations: { title: "Integrations", headline: "Tools connected to your account.", description: "GitHub, and the CLI, agents and editors you’ve signed in, with the tokens they use. Ways to sign in are in Security." },
+    "privacy-policies": { title: "Legal and data", headline: "Agreements and your data.", description: "What you accepted, the policies behind it, and your data to take with you." },
+    "delete-account": { title: "Delete account", headline: "Delete your account.", description: "Your account and everything in it are removed after 30 days. You can cancel until then." },
 };

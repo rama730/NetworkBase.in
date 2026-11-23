@@ -20,7 +20,7 @@ const MOCKS: Record<string, string> = {
   '@/hooks/use-auth': `export const useAuth=()=>window.__auth;`,
 };
 
-let built: { script: string; css: string; sans: Buffer; mono: Buffer } | null = null;
+let built: { script: string; css: string; sans: Buffer; mono: Buffer; serif: Buffer } | null = null;
 export async function buildRealSettings() {
   if (built) return built;
   const bundle = await build({
@@ -41,9 +41,10 @@ export async function buildRealSettings() {
     } }, serverActionsPlugin],
   });
   const result = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
-  const [sans, mono] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2')]);
-  const css = `@font-face{font-family:'Instrument Sans';src:url('/sans.ttf');font-weight:400 700;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 800;}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';}` + result.css;
-  built = { script: bundle.outputFiles![0]!.text, css, sans, mono };
+  const [sans, mono, serif, settingsCss] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2'), readFile('src/app/fonts/InstrumentSerif.woff2'), readFile('src/app/(site)/(main)/settings/settings.css', 'utf8')]);
+  // The Settings route's own sheet (settings mix) comes after the app's, as the route layout imports it.
+  const css = `@font-face{font-family:'Instrument Sans';src:url('/sans.ttf');font-weight:400 700;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 800;}@font-face{font-family:'Instrument Serif';src:url('/serif.ttf');}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';--font-instrument-serif:'Instrument Serif';}` + result.css + settingsCss;
+  built = { script: bundle.outputFiles![0]!.text, css, sans, mono, serif };
   return built;
 }
 
@@ -107,7 +108,7 @@ export async function openRealSettings(page: Page, api: Api = {}) {
   await page.route(origin + '/**', async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (url.pathname === '/sans.ttf' || url.pathname === '/mono.ttf') return route.fulfill({ contentType: 'font/ttf', body: url.pathname === '/sans.ttf' ? assets.sans : assets.mono });
+    if (url.pathname === '/sans.ttf' || url.pathname === '/mono.ttf' || url.pathname === '/serif.ttf') return route.fulfill({ contentType: 'font/ttf', body: url.pathname === '/sans.ttf' ? assets.sans : url.pathname === '/serif.ttf' ? assets.serif : assets.mono });
     if (url.pathname === '/app.js') return route.fulfill({ contentType: 'application/javascript', body: assets.script });
     if (url.pathname === '/app.css') return route.fulfill({ contentType: 'text/css', body: assets.css });
     if (url.pathname.startsWith('/api/')) {

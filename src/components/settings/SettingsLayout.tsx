@@ -2,39 +2,84 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { Bell, Lock, Palette, Plug, Scale, Shield, Trash2, User, type LucideIcon } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { SETTINGS_SECTION_META } from "@/constants/settings";
 import { isReducedMotionEnabled } from "@/lib/theme/appearance";
 import { resolveSettingsTarget, sectionFromElementId, settingsSectionHref, settingsSectionId, type SettingsSection } from "@/lib/settings/navigation";
+import { SettingsFind } from "@/components/settings/mix/SettingsFind";
+import { useSettingsSummary } from "@/components/settings/mix/useSettingsSummary";
+import { padCount } from "@/lib/ui/tab-marker";
 import { cn } from "@/lib/utils";
 
-type SettingsItem = { title: string; section: SettingsSection; href: string; icon: LucideIcon; danger?: boolean };
+type SettingsItem = { title: string; section: SettingsSection; href: string; danger?: boolean };
 const settingsItems: SettingsItem[] = [
-  { title: SETTINGS_SECTION_META.account.title, section: "account", href: settingsSectionHref("account"), icon: User },
-  { title: SETTINGS_SECTION_META.security.title, section: "security", href: settingsSectionHref("security"), icon: Shield },
-  { title: SETTINGS_SECTION_META.privacy.title, section: "privacy", href: settingsSectionHref("privacy"), icon: Lock },
-  { title: SETTINGS_SECTION_META.notifications.title, section: "notifications", href: settingsSectionHref("notifications"), icon: Bell },
-  { title: SETTINGS_SECTION_META.appearance.title, section: "appearance", href: settingsSectionHref("appearance"), icon: Palette },
-  { title: SETTINGS_SECTION_META.integrations.title, section: "integrations", href: settingsSectionHref("integrations"), icon: Plug },
-  { title: SETTINGS_SECTION_META["privacy-policies"].title, section: "privacy-policies", href: settingsSectionHref("privacy-policies"), icon: Scale },
-  { title: "Delete account", section: "delete-account", href: settingsSectionHref("delete-account"), icon: Trash2, danger: true },
+  { title: SETTINGS_SECTION_META.account.title, section: "account", href: settingsSectionHref("account") },
+  { title: SETTINGS_SECTION_META.security.title, section: "security", href: settingsSectionHref("security") },
+  { title: SETTINGS_SECTION_META.privacy.title, section: "privacy", href: settingsSectionHref("privacy") },
+  { title: SETTINGS_SECTION_META.notifications.title, section: "notifications", href: settingsSectionHref("notifications") },
+  { title: SETTINGS_SECTION_META.appearance.title, section: "appearance", href: settingsSectionHref("appearance") },
+  { title: SETTINGS_SECTION_META.integrations.title, section: "integrations", href: settingsSectionHref("integrations") },
+  { title: SETTINGS_SECTION_META["privacy-policies"].title, section: "privacy-policies", href: settingsSectionHref("privacy-policies") },
 ];
+const deleteItem: SettingsItem = { title: SETTINGS_SECTION_META["delete-account"].title, section: "delete-account", href: settingsSectionHref("delete-account"), danger: true };
 
 // How long a jump keeps correcting itself while content above it loads and changes height.
 const ALIGN_WINDOW_MS = 4000;
 // While a smooth scroll runs, the highlight stays on the section that was asked for.
 const SMOOTH_SCROLL_MS = 900;
 
+/**
+ * The section nav (settings mix): hairline cells with a mono counter, a state only where something needs you
+ * (VERIFY, 2FA OFF, PAUSED, a deletion date), and the clay marker sliding to the section you're in. Delete account
+ * sits apart at the bottom; on a phone the nav is one sticky strip.
+ */
 function SettingsNav({ activeSection, onNavigate }: { activeSection: SettingsSection; onNavigate: (event: MouseEvent<HTMLAnchorElement>, item: SettingsItem) => void }) {
-  return <nav aria-label="Settings sections" className="flex gap-1 overflow-x-auto pr-1 md:flex-col md:overflow-visible">{settingsItems.map((item) => {
-    const Icon = item.icon;
-    const active = activeSection === item.section;
-    return <Link key={item.section} href={item.href} aria-current={active ? "location" : undefined} onClick={(event) => onNavigate(event, item)} className={cn("nb-nav-link min-w-0 shrink-0 focus-visible:brightness-95 md:shrink", item.danger && "text-[var(--status-danger)]")}>
-      <Icon className="size-4 shrink-0" aria-hidden="true" />
-      <span className="min-w-0 whitespace-nowrap md:truncate">{item.title}</span>
+  const { states } = useSettingsSummary();
+  const listRef = useRef<HTMLElement>(null);
+  const markerRef = useRef<HTMLSpanElement>(null);
+  const link = (item: SettingsItem, index: number, className?: string) => {
+    const state = states[item.section as keyof typeof states];
+    return <Link key={`${item.section}-${className ?? ""}`} href={item.href} aria-current={activeSection === item.section ? "location" : undefined} onClick={(event) => onNavigate(event, item)} className={cn("nbs-nl", item.danger && "danger", className)}>
+      <span className="n" aria-hidden="true">{padCount(index + 1)}</span>
+      <span className="t">{item.title}</span>
+      <span className="s">{state ? <><span className="sr-only">, </span>{state}</> : null}</span>
     </Link>;
-  })}</nav>;
+  };
+  // The marker follows the current link: down the left edge on a wide screen, along the bottom of the strip on a phone.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const marker = markerRef.current;
+    if (!list || !marker) return;
+    const place = () => {
+      const current = list.querySelector<HTMLElement>('.nbs-nl[aria-current="location"]:not([hidden])');
+      if (!current || current.offsetParent === null) { marker.style.opacity = "0"; return; }
+      const strip = getComputedStyle(list).display === "flex";
+      marker.style.opacity = "1";
+      if (strip) {
+        marker.style.width = `${current.offsetWidth}px`;
+        marker.style.height = "";
+        marker.style.transform = `translateX(${current.offsetLeft}px)`;
+        // Keep the current cell in view by scrolling the strip itself, never its ancestors.
+        if (current.offsetLeft < list.scrollLeft || current.offsetLeft + current.offsetWidth > list.scrollLeft + list.clientWidth) list.scrollLeft = Math.max(0, current.offsetLeft - 16);
+      } else {
+        marker.style.width = "";
+        marker.style.height = `${current.offsetHeight}px`;
+        marker.style.transform = `translateY(${current.offsetTop}px)`;
+      }
+    };
+    place();
+    const sizes = new ResizeObserver(place);
+    sizes.observe(list);
+    return () => sizes.disconnect();
+  }, [activeSection, states]);
+  return <>
+    <nav ref={listRef} aria-label="Settings sections" className="nbs-navlist">
+      {settingsItems.map((item, index) => link(item, index))}
+      {link(deleteItem, settingsItems.length, "only-phone")}
+      <span ref={markerRef} className="nbs-marker" aria-hidden="true" />
+    </nav>
+    <div className="nbs-navfoot">{link(deleteItem, settingsItems.length)}</div>
+  </>;
 }
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
@@ -67,9 +112,27 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     alignTo(elementId, smooth);
     if (!focus) return;
     const target = document.getElementById(elementId);
-    const heading = target?.matches("h2, h3") ? target : target?.querySelector<HTMLElement>("h2");
-    heading?.focus({ preventScroll: true });
+    if (!target) return;
+    // A section: its heading takes focus. One setting inside a section: the setting itself, tinted for a moment.
+    const section = target.hasAttribute("data-settings-section");
+    const focusable = target.matches("h2, h3") ? target : section ? target.querySelector<HTMLElement>("h2") : target;
+    if (focusable && !focusable.matches("h2, h3, a, button, input, select, textarea, [tabindex]")) focusable.setAttribute("tabindex", "-1");
+    focusable?.focus({ preventScroll: true });
+    if (!section) {
+      target.classList.remove("nbs-flash");
+      void target.offsetWidth;
+      target.classList.add("nbs-flash");
+      window.setTimeout(() => target.classList.remove("nbs-flash"), 1700);
+    }
   }, [alignTo]);
+
+  /** "Find a setting" chose a row: same as following its link. */
+  const findJump = useCallback((elementId: string) => {
+    const section = sectionFromElementId(elementId);
+    if (section) setActiveSection(section);
+    window.history.replaceState(window.history.state, "", `/settings#${elementId}`);
+    jumpTo(elementId, { smooth: true, focus: true });
+  }, [jumpTo]);
 
   // Land on what the address points at: a #hash, or the older ?tab= form (rewritten to a #hash so the address
   // and the highlight agree). Runs again if the address changes without a reload (Back, a link in the page).
@@ -171,12 +234,12 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <section className="flex h-full min-h-0 w-full flex-col bg-card md:flex-row" aria-labelledby="settings-navigation-title">
-      <div className="w-full min-h-0 shrink-0 overflow-y-auto border-b border-border bg-card px-3 py-3 md:w-[var(--nb-sidebar-width)] md:border-b-0 md:border-r md:py-4">
-        <div className="space-y-3 px-2 pr-3 md:mb-3">
-          {/* On a phone the page title is read but not drawn: the chips below are the whole header. */}
-          <h1 id="settings-navigation-title" className="nb-micro max-md:sr-only">Settings</h1>
-          <div className="hidden h-px w-full bg-border md:block" aria-hidden="true" />
+    <section className="nbs flex h-full min-h-0 w-full flex-col bg-background md:flex-row" aria-labelledby="settings-navigation-title">
+      <div className="nbs-nav w-full shrink-0 border-b border-border bg-card md:w-[var(--nb-sidebar-width)] md:border-b-0 md:border-r">
+        <div className="nbs-nav-head">
+          {/* On a phone the page title is read but not drawn: the strip below is the whole header. */}
+          <h1 id="settings-navigation-title" className="nbs-eyebrow max-md:sr-only">Settings</h1>
+          <SettingsFind onJump={findJump} />
         </div>
         <SettingsNav activeSection={activeSection} onNavigate={handleNavigate} />
       </div>
