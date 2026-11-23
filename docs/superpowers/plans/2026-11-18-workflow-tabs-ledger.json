@@ -528,9 +528,9 @@
       "text": "A5.1 Goals document + objectives + key results + check-ins — Build: migration keyresultcheckins + workspaces.workflowsettings; goals block; checkInAction; pace ",
       "kind": "unit",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24: A5.1a (b25b1c6ed) + A5.1b (ea10af933); Overview card \"Q4: 1 objective · 1 on track · 0 at risk · 0 check-ins due\" in Chrome."
     },
     {
       "key": "A5.2",
@@ -538,9 +538,9 @@
       "text": "A5.2 Close period + carry forward — Journeys: D3 W6 (W8 Contributes to moves to B4.3, which needs org objectives).",
       "kind": "unit",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (ea10af933): Close period journey in Chrome."
     },
     {
       "key": "A5.3",
@@ -7348,9 +7348,9 @@
       "text": "Close period",
       "kind": "journey",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (ea10af933): Set Q3 2026 goals (last period), Close period → KR missed final 0, objective missed, carried into Q4 2026 at 0/10; Q3 closed."
     },
     {
       "key": "38.12.W7",
@@ -7358,9 +7358,9 @@
       "text": "Measured by",
       "kind": "journey",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24: measured by project/label/bugs worked out on read (DB test; UI select in Chrome)."
     },
     {
       "key": "38.12.W8",
@@ -7378,9 +7378,9 @@
       "text": "Phone",
       "kind": "journey",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24: folding objectives; phone dialog without a11y violations (browser test)."
     },
     {
       "key": "38.12.W10",
@@ -7388,9 +7388,9 @@
       "text": "CLI and agents",
       "kind": "journey",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "packages/nb-cli/test/goals.test.mjs",
+      "evidence": "Live 2026-11-24: nb goals list / --mine and nb goals checkin NB-51 --value 35 --confidence 7 against production (62% on track)."
     },
     {
       "key": "38.12.call1",
@@ -7428,9 +7428,9 @@
       "text": "Measured by: check-ins, a project, a roadmap item's work, tasks with a label, or open urgent bugs. Money and volunteer hours wait (parked tabs). [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24: measured-by kinds."
     },
     {
       "key": "38.12.call5",
@@ -7438,9 +7438,9 @@
       "text": "Close period marks Done or Missed and carries chosen goals forward as new items. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24: Close period, Done or Missed, carry forward."
     },
     {
       "key": "38.12.call6",
@@ -8408,9 +8408,9 @@
       "text": "A5.1b (2026-11-24): Measured by in + Key result (W7): a number we check in (default), a project's completion or a roadmap item's work (its work tasks done, canc",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (ea10af933, 739adf020)."
     },
     {
       "key": "38.12.call9",
@@ -8418,9 +8418,9 @@
       "text": "A5.2 (2026-11-24): Close period shows on the goals block once the period has ended (Set goals also offers last period, for goals set late). The dialog (S3) list",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (ea10af933, 739adf020)."
     }
   ]
 }
