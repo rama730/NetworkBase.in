@@ -40,11 +40,11 @@ More
     requests deliver, content list, content ideas, content add,
     content published, roadmap list, roadmap add, launches list, meetings list,
     decisions list, goals list, goals checkin, ideas list, ideas add,
-    task review, task resubmit, task edit, task note, task remind, task watch,
-    task star, task assign, task report, task delete, task open, task pull,
-    subtask list, subtask add, subtask check, subtask uncheck, subtask edit,
-    subtask delete, subtask move, comment add, comment edit, comment delete,
-    comment list, comment resolve
+    offsites list, task review, task resubmit, task edit, task note,
+    task remind, task watch, task star, task assign, task report, task delete,
+    task open, task pull, subtask list, subtask add, subtask check,
+    subtask uncheck, subtask edit, subtask delete, subtask move, comment add,
+    comment edit, comment delete, comment list, comment resolve
   Classes
     assignment list, class progress, class announcements, assignment view,
     assignment pull, assignment hand-in, assignment unsubmit,

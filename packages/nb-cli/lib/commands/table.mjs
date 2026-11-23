@@ -302,6 +302,7 @@ export const COMMANDS = [
   { group: "Tasks", name: "ideas add", summary: "Add an idea, scored or not", usage: "nb ideas add \"<name>\" [--impact 1-5] [--ease 1-5] [--confidence 1-5] [--pitch text]", module: "ideas", fn: "add",
     flags: { impact: { type: "string", describe: "1–5" }, ease: { type: "string", describe: "1–5" }, confidence: { type: "string", describe: "1–5" }, pitch: { type: "string", describe: "One line" } },
     examples: ["nb ideas add \"Template shop\" --impact 4 --ease 3 --confidence 2"] },
+  { group: "Tasks", name: "offsites list", summary: "Off-sites coming up with who's going", usage: "nb offsites list", module: "offsites", fn: "list" },
   { group: "Tasks", name: "task done", summary: "Finish a task (sends it for review when required)", usage: "nb task done [task] [-m summary] [--check name=pass]", module: "tasks", fn: "done",
     flags: { ...MESSAGE, check: { type: "string", multiple: true, describe: "A check you ran: name=pass|fail[:note]", valueName: "check" } } },
   { group: "Tasks", name: "task review", summary: "Approve or ask for changes (reviewers)", usage: "nb task review <task> approve|changes [-m reason]", module: "tasks", fn: "review", flags: { ...MESSAGE } },

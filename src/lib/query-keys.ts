@@ -286,6 +286,7 @@ export const queryKeys = {
     meetingsToday: () => ["my-work", "meetings-today"] as const,
     meetingFeed: () => ["my-work", "meeting-feed"] as const,
     goalCheckIns: () => ["my-work", "goal-check-ins"] as const,
+    offsiteInvites: () => ["my-work", "offsite-invites"] as const,
     toReview: () => ["my-work", "to-review"] as const,
     members: () => ["my-work", "members"] as const,
     sprints: () => ["my-work", "sprints"] as const,

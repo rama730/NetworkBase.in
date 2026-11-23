@@ -66,6 +66,13 @@ export type WorkspaceDocSettings = {
     /** Report 38.12 (A5.1): a goals document's period ('2027-Q1') and when the period was closed. */
     period?: string;
     closedAt?: string;
+    /** Report 38.14 (A5.4): an off-site's name, dates, place, who's invited and their answers. */
+    offsiteTitle?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    place?: string;
+    invitedIds?: string[];
+    answers?: Record<string, "going" | "cant">;
 };
 
 export type Motion = {
@@ -204,6 +211,13 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(typeof source.approvedBy === "string" && UUID.test(source.approvedBy) ? { approvedBy: source.approvedBy } : {}),
         ...(typeof source.period === "string" && /^\d{4}(-(Q[1-4]|H[12]|0[1-9]|1[0-2]))?$/.test(source.period) ? { period: source.period } : {}),
         ...(typeof source.closedAt === "string" && Number.isFinite(Date.parse(source.closedAt)) ? { closedAt: source.closedAt } : {}),
+        ...(typeof source.offsiteTitle === "string" && source.offsiteTitle.trim() && source.offsiteTitle.length <= 120 ? { offsiteTitle: source.offsiteTitle.trim() } : {}),
+        ...(typeof source.dateFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.dateFrom) ? { dateFrom: source.dateFrom } : {}),
+        ...(typeof source.dateTo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.dateTo) ? { dateTo: source.dateTo } : {}),
+        ...(typeof source.place === "string" && source.place.trim() && source.place.length <= 200 ? { place: source.place.trim() } : {}),
+        ...(Array.isArray(source.invitedIds) ? { invitedIds: source.invitedIds.filter((id): id is string => typeof id === "string" && UUID.test(id)).slice(0, 200) } : {}),
+        ...(source.answers && typeof source.answers === "object" && !Array.isArray(source.answers)
+            ? { answers: Object.fromEntries(Object.entries(source.answers as Record<string, unknown>).filter(([k, v]) => UUID.test(k) && (v === "going" || v === "cant")).slice(0, 200)) as Record<string, "going" | "cant"> } : {}),
         ...(typeof source.meetingTitle === "string" && source.meetingTitle.trim() && source.meetingTitle.length <= 120 ? { meetingTitle: source.meetingTitle.trim() } : {}),
         ...(Array.isArray(source.carriedTaskIds) ? { carriedTaskIds: source.carriedTaskIds.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 200) } : {}),
     };

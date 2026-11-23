@@ -257,9 +257,9 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
         if (!permission.canEdit && project.kind === "organization" && readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).lifecycle === "draft") continue;
         if (!permission.canEdit && !membership && !isOwner && doc.empty && (project.kind === "organization" || project.parentId)) continue;
         if (permission.canReadPublished || permission.canEdit) {
-            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, supersedes, supersededBy, reverseReason, meetingTitle, launchTitle, period } = normalizeWorkspaceDocSettings(doc.settings);
+            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, supersedes, supersededBy, reverseReason, meetingTitle, launchTitle, period, offsiteTitle } = normalizeWorkspaceDocSettings(doc.settings);
             // A5.1 live check: a goals document shows "Goals · Q4 2026", not its file name.
-            const title = section === "meetings" ? meetingTitle : section === "launches" ? launchTitle : section === "goals" && period ? `Goals · ${goalPeriodLabel(period)}` : undefined;
+            const title = section === "meetings" ? meetingTitle : section === "launches" ? launchTitle : section === "goals" && period ? `Goals · ${goalPeriodLabel(period)}` : section === "offsite" ? offsiteTitle : undefined;
             results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId, ...(section ? { section } : {}), ...(kind ? { kind } : {}), ...(date ? { date } : {}), ...(title ? { title } : {}),
                 ...(decisionNumber ? { decisionNumber, decisionStatus: decisionStatus ?? "decided" } : {}), ...(fromDocId ? { fromDocId } : {}),
                 ...(supersedes ? { supersedes } : {}), ...(supersededBy ? { supersededBy } : {}), ...(reverseReason ? { reverseReason } : {}) });
@@ -2745,5 +2745,121 @@ export async function saveAsIdeaAction(projectId: string, input: unknown) {
     } catch (error) {
         if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the idea." };
         return { success: false as const, error: "Couldn’t save the idea." };
+    }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Report 38.14 D5 (plan A5.4): team off-sites. A document in the Off-site section with dates, a place, who's invited
+ * and their answers; its checklists' rows are tasks (one "Book travel" per invitee, assigned to them). Members only.
+ * ---------------------------------------------------------------------------------------------------------------- */
+const offsiteSchema = z.object({
+    docSlug: docSlugSchema, name: z.string().trim().min(1, "Name the off-site").max(120),
+    dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the dates"), dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the dates"),
+    place: z.string().trim().max(200).optional(), invitedIds: z.array(z.string().uuid()).max(200),
+});
+
+/** W1: the browser makes the file (offsiteMarkdown); this files it under Off-site and adds the checklist rows. */
+export async function createOffsiteAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = offsiteSchema.parse(input);
+        if (data.dateTo < data.dateFrom) return { success: false as const, error: "The end date is before the start." };
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents plan an off-site." };
+        if (context.settings.section || context.settings.approvedAt) return { success: false as const, error: "That document is already filed in a section." };
+        const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+        if (!availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("offsite")) return { success: false as const, error: "Add Team off-site first." };
+        const invited = await memberIds(projectId, [...new Set(data.invitedIds)]);
+        await writeLaunchSettings(context.readme.id, { section: "offsite", offsiteTitle: data.name, date: data.dateFrom, dateFrom: data.dateFrom, dateTo: data.dateTo,
+            ...(data.place ? { place: data.place } : {}), invitedIds: invited, answers: {}, visibilityOverride: "members_only" });
+        const people = invited.length ? Array.from(await db.execute<{ id: string; name: string }>(sql`
+            SELECT id, coalesce(full_name, username, 'Someone') AS name FROM profiles WHERE id IN (${sql.join(invited.map((i) => sql`${i}::uuid`), sql`, `)})`)) : [];
+        const { OFFSITE_BLOCKS, travelRows } = await import("@/lib/workflows/offsite");
+        const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
+        for (const block of OFFSITE_BLOCKS) {
+            const rows = [...(block.key === "travel" ? travelRows(invited.map((id) => ({ id, name: people.find((p) => p.id === id)?.name ?? "Someone" }))) : []), ...block.rows.map((title) => ({ title, assigneeId: null as string | null }))];
+            let position = 0;
+            for (const row of rows) {
+                const made = await createTaskAction({ projectId, title: row.title, status: "todo", priority: "medium", assigneeId: row.assigneeId, dueDate: null });
+                if (made.success && "task" in made && made.task) await db.update(tasks).set({ sourceDocId: context.readme.id, sourceBlock: block.key, sourcePosition: ++position }).where(eq(tasks.id, made.task.id));
+            }
+        }
+        // Invitees are told (Normal), except whoever planned it.
+        const { createNotification } = await import("@/lib/notifications/service");
+        for (const to of invited.filter((id) => id !== userId)) await createNotification({ recipientUserId: to, actorUserId: userId, kind: "project_task_activity", category: "tasks", importance: "important",
+            title: `Off-site: ${data.name} · are you going?`, href: `/workspaces/${encodeURIComponent(context.project.slug || projectId)}?tab=docs&doc=${encodeURIComponent(data.docSlug)}`,
+            entityRefs: { projectId, projectSlug: context.project.slug ?? null }, dedupeKey: `offsite:${context.readme.id}:${to}` }).catch(() => undefined);
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the off-site." };
+        logger.error("offsite.create_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t plan the off-site." };
+    }
+}
+
+/** S1 header and Who's coming: dates, place, answers grouped (invitees still in the workspace only), the viewer's own. */
+export async function readOffsiteAction(projectId: string, docSlug: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const context = await getDocProjectContext(projectId, actor, docSlug);
+        const insider = Boolean(actor) && (actor === context.project.ownerId || Boolean(context.membership));
+        if (!context.readme || !insider || context.settings.section !== "offsite") return { success: false as const, error: "Off-sites are for workspace members." };
+        const s = context.settings;
+        const invited = await memberIds(projectId, s.invitedIds ?? []);
+        const people = invited.length ? Array.from(await db.execute<{ id: string; name: string }>(sql`
+            SELECT id, coalesce(full_name, username, 'Someone') AS name FROM profiles WHERE id IN (${sql.join(invited.map((i) => sql`${i}::uuid`), sql`, `)}) ORDER BY full_name`)) : [];
+        const answers = s.answers ?? {};
+        const { offsiteCounts } = await import("@/lib/workflows/offsite");
+        return { success: true as const, name: s.offsiteTitle ?? context.readme.filename.replace(/\.md$/i, ""), dateFrom: s.dateFrom ?? null, dateTo: s.dateTo ?? null, place: s.place ?? null,
+            counts: offsiteCounts(invited, answers), people: people.map((p) => ({ ...p, answer: answers[p.id] ?? null })), mine: actor && invited.includes(actor) ? answers[actor] ?? "none" : null };
+    } catch (error) {
+        logger.error("offsite.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load the off-site." };
+    }
+}
+
+/** W2 and call 2: Going / Can't go, by invitees only, kept on the document (no new version). */
+export async function answerOffsiteAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: docSlugSchema, answer: z.enum(["going", "cant"]) }).parse(input);
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || context.settings.section !== "offsite" || !(context.settings.invitedIds ?? []).includes(userId) || !(await memberIds(projectId, [userId])).length) {
+            return { success: false as const, error: "Only people invited to this off-site answer." };
+        }
+        await updateMeetingSettings(context.readme.id, (s) => ({ patch: { answers: { ...(s.answers ?? {}), [userId]: data.answer } }, result: null }));
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("offsite.answer_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t save your answer." };
+    }
+}
+
+/** Part 8: the Overview card and My work: off-sites in the next 30 days, with unanswered counts and the viewer's own answer. */
+export async function readUpcomingOffsitesAction(projectId: string, withinDays = 30) {
+    try {
+        const actor = await requireUserId();
+        const access = await getWorkspaceAccessById(projectId, actor);
+        if (!access.project || !(access.isOwner || access.isMember)) return { success: false as const, error: "Not found" };
+        const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
+        const { zonedParts } = await import("@/lib/workflows/request-clock");
+        const today = zonedParts(new Date(), (await readWorkingHours(projectId)).tz).day;
+        const rows = Array.from(await db.execute<{ slug: string; settings: Record<string, unknown> }>(sql`
+            SELECT slug, settings FROM workspace_documents WHERE workspace_id = ${projectId}::uuid AND settings->>'section' = 'offsite'
+              AND settings->>'dateTo' >= ${today} AND settings->>'dateFrom' <= (${today}::date + ${Math.min(Math.max(1, Math.floor(withinDays)), 3650)}::int)::text ORDER BY settings->>'dateFrom' LIMIT 50`));
+        const { offsiteCounts, daysUntil } = await import("@/lib/workflows/offsite");
+        const out = [];
+        for (const r of rows) {
+            const s = normalizeWorkspaceDocSettings(r.settings);
+            const invited = await memberIds(projectId, s.invitedIds ?? []);
+            out.push({ slug: r.slug, name: s.offsiteTitle ?? r.slug, dateFrom: s.dateFrom ?? null, dateTo: s.dateTo ?? null, place: s.place ?? null, days: daysUntil(s.dateFrom!, today), counts: offsiteCounts(invited, s.answers ?? {}),
+                mine: invited.includes(actor) ? (s.answers ?? {})[actor] ?? "none" : null });
+        }
+        return { success: true as const, offsites: out };
+    } catch (error) {
+        logger.error("offsite.upcoming_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load off-sites." };
     }
 }

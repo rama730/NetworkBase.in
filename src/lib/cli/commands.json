@@ -2443,6 +2443,17 @@
       ]
     },
     {
+      "name": "offsites list",
+      "summary": "Off-sites coming up with who's going",
+      "usage": "nb offsites list",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "task done",
       "summary": "Finish a task (sends it for review when required)",
       "usage": "nb task done [task] [-m summary] [--check name=pass]",

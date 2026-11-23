@@ -29,6 +29,7 @@ import { docSectionOf } from "@/lib/workspaces/doc-sections";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
 import { useMainProtected, useSaveToBranch } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import type { Workspace } from "@/types/discover";
+import { OffsiteHeader } from "@/components/workspaces/doc/DocOffsite";
 
 const WorkspaceDocRenderer = dynamic(
     () => import("@/components/workspaces/doc/WorkspaceDocRenderer").then((mod) => mod.WorkspaceDocRenderer),
@@ -388,6 +389,7 @@ export function WorkspaceDocViewer({
                     {listed?.decisionNumber && docSectionOf(listed, addedWorkflows) === "decisions" ? <DecisionMetaLine projectId={project.id} doc={listed} canEdit={payload.canEdit} /> : null}
                     {listed && docSectionOf(listed, addedWorkflows) === "launches" ? <LaunchHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
                     {listed && docSectionOf(listed, addedWorkflows) === "meetings" ? <MeetingHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
+                    {listed && docSectionOf(listed, addedWorkflows) === "offsite" ? <OffsiteHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
                     {/* Report 38.11 W9 (A4.1): Documents → Open action items. */}
                     {meetingsView === "actions" ? <OpenActionItems projectId={project.id} projectSlug={project.slug ?? project.id} />
                         : meetingsView === "calendar" ? <MeetingsCalendar projectId={project.id} projectSlug={project.slug ?? project.id} canAdd={payload.canEdit} onNew={() => rail.openAdd("meetings")} />
