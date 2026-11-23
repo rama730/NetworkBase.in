@@ -183,7 +183,7 @@ async function ResolvedProjectDashboard({
         redirect(`${canonicalBase}/${encodeURIComponent(project.slug || project.id)}${queryStringOf(_searchParams)}`);
     }
     // Your view (member settings Part 1): your own first tab and task card density, for you only.
-    const viewPrefs = user && capabilities.isMember && !project.organization ? await readViewPrefs(project.id, user.id).catch(() => null) : null;
+    const viewPrefs = user && (capabilities.isOwner || capabilities.isMember) && !project.organization ? await readViewPrefs(project.id, user.id).catch(() => null) : null;
     if (viewPrefs?.defaultTab && viewPrefs.defaultTab !== 'overview' && !firstParam(_searchParams?.tab)) {
         redirect(`${canonicalBase}/${encodeURIComponent(project.slug || project.id)}?tab=${encodeURIComponent(viewPrefs.defaultTab)}`);
     }

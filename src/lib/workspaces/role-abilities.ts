@@ -11,7 +11,7 @@ export type AbilityRole = "admin" | "member" | "viewer";
 export const ROLE_ABILITIES = [
   { key: "tasks.create", label: "Create tasks", help: "Add tasks to the board.", write: true, defaults: { admin: true, member: true, viewer: false } },
   { key: "tasks.edit", label: "Edit and move tasks", help: "Change, assign and move tasks.", write: true, defaults: { admin: true, member: true, viewer: false } },
-  { key: "tasks.delete", label: "Delete tasks", help: "Today only the owner deletes tasks.", write: true, defaults: { admin: false, member: false, viewer: false } },
+  { key: "tasks.delete", label: "Delete tasks", help: "Off for everyone but the owner unless you turn it on.", write: true, defaults: { admin: false, member: false, viewer: false } },
   { key: "files.upload", label: "Upload files", help: "Add and change workspace files. A member's own upload switch still applies.", write: true, defaults: { admin: true, member: true, viewer: false } },
   { key: "members.invite", label: "Invite people", help: "Invite someone into an open role.", write: true, defaults: { admin: true, member: false, viewer: false } },
   { key: "files.see", label: "See Files", help: "Open the Files tab and its files.", write: false, defaults: { admin: true, member: true, viewer: true } },
