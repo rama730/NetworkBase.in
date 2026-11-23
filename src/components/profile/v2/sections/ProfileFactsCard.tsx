@@ -2,11 +2,11 @@
 
 import Link from 'next/link'
 import { Fragment, useId, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, Check, ExternalLink, Link2, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
+import { useMutualPreview } from '../useMutualPreview'
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { normalizeSocialLinks } from '@/lib/profile/normalization'
@@ -70,17 +70,7 @@ export function ProfileFactsCard({
     const vm = normalizeProfile(profile)
     const first = (profile?.fullName || profile?.username || 'them').split(/\s+/)[0]
     const visitor = !isOwner
-    const mutuals = useQuery({
-        queryKey: ['profile', 'mutual-preview', profile?.id],
-        queryFn: async () => {
-            const { readPersonSharedConnectionsAction } = await import('@/app/actions/connections')
-            const result = await readPersonSharedConnectionsAction({ targetId: profile.id })
-            if (!result.success) throw new Error(result.error)
-            return result.summary
-        },
-        enabled: Boolean(visitor && isAuthenticated && profile?.id && mutualCount > 0),
-        staleTime: 60_000,
-    })
+    const mutuals = useMutualPreview(profile?.id, Boolean(visitor && isAuthenticated && mutualCount > 0))
     if (!vm) return null
     const edit = (section: ProfileEditSection, extra?: Record<string, string>) => onEditSection ? () => onEditSection(section, extra) : undefined
 

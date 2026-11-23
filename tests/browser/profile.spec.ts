@@ -742,6 +742,26 @@ test('a blocked Save on the phone bar takes you to the field and says why', asyn
   expect(await page.evaluate(()=>(window as any).profileFixture.calls.length)).toBe(0);
 });
 
+test('a line separates the stats from the tabs, on the profile and in Edit profile', async ({page}) => {
+  const top = () => page.locator('.nb-pf-tabbar').first().evaluate(el => { const s = getComputedStyle(el); return [s.borderTopWidth, s.borderTopColor]; });
+  const [w, c] = await top();
+  expect(w).toBe('1px');
+  expect(c).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+  await page.getByRole('button',{name:'Edit profile',exact:true}).click();
+  const [w2, c2] = await top();
+  expect(w2).toBe('1px');
+  expect(c2).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+});
+
+test('a signed-in visitor sees mutual connections: the Mutual stat with faces, and People you both know', async ({page}) => {
+  await page.evaluate(()=>{const f=(window as any).profileFixture;f.viewer=true;f.mutual=5;f.refresh();});
+  const stat = page.getByRole('button',{name:'View 5 mutual connections'});
+  await expect(stat).toContainText('5');
+  await expect(stat.locator('.faces > *')).toHaveCount(2);
+  await expect(page.getByRole('heading',{name:'People you both know'})).toBeVisible();
+  await expect(page.getByText('Priya Nair')).toBeVisible();
+});
+
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
   await page.evaluate(()=>history.back());const ask=page.getByRole('alertdialog',{name:'Discard unsaved changes?'});await expect(ask).toBeVisible();await ask.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(ask).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit/);await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');

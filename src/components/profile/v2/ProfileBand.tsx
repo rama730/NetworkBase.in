@@ -275,7 +275,7 @@ export function ProfileBand(props: ProfileBandProps) {
             ) : (
                 <div className="nb-pf-stats" data-cols={statItems.length} style={{ ['--cols' as string]: statItems.length }}>
                     {statItems.map(([label, n, go, faces]) => (
-                        <button key={label} type="button" className="nb-pf-stat" onClick={go} disabled={!go} aria-label={`View ${n} ${label.toLowerCase()}`}>
+                        <button key={label} type="button" className="nb-pf-stat" onClick={go} disabled={!go} aria-label={`View ${n} ${label === 'Mutual' ? 'mutual connections' : label.toLowerCase()}`}>
                             <b>{n}</b>{faces}<span>{label}</span>
                         </button>
                     ))}

@@ -33,6 +33,7 @@ import { profileSharePath } from '@/lib/sharing/presentation'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
 const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false })
 
+import { useMutualPreview } from './useMutualPreview'
 import { ProfileBand } from './ProfileBand'
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { ContributionTimeline } from './sections/ContributionTimeline'
@@ -497,6 +498,13 @@ export function ProfileV2Client({
             />
         </ComponentErrorBoundary>
     )
+    // The band's Mutual stat shows the first faces of the people you both know (same request as the right card).
+    const mutualPreview = useMutualPreview(profile.id, Boolean(!isOwner && viewerUser && !lockedShell && safeStats.mutualCount > 0))
+    const mutualPeople = mutualPreview.data?.people ?? []
+    const mutualFaces = mutualPeople.length ? (
+        <span className="faces" aria-hidden="true">{mutualPeople.slice(0, 3).map((p) => <UserAvatar key={p.id} identity={p} className="size-[18px]" roundedClassName="rounded-[4px]" sizes="18px" />)}</span>
+    ) : undefined
+
     const renderMainContent = () => {
         // Spec (private profile): under the band, what's hidden and how to see it.
         if (lockedShell) {
@@ -638,6 +646,7 @@ export function ProfileV2Client({
                         onMessage={() => { if (!messageUserInWindow(safeProfile.id)) router.push(`/messages?userId=${safeProfile.id}`); }}
                         onToggleBlock={handleToggleBlock}
                         mutualCount={safeStats.mutualCount}
+                        mutualFaces={mutualFaces}
                         stats={{ ...safeStats, contributionsCount: collaborationContributions.filter((c) => isOwner || c.visibility === 'public').length }}
                     />}
                 tabs={lockedShell ? null : (

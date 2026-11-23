@@ -2146,7 +2146,7 @@ button.nb-pf-tag[aria-checked="false"] { background: var(--pf-band-chip); color:
 .nb-pf-tabwrap { --gap: 8px; position: sticky; top: calc(var(--nb-pf-stick) + var(--gap)); z-index: 15; margin-top: -1px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--background); }
 .nb-pf-tabwrap::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: calc(var(--gap) + 1px); background: var(--background); opacity: 0; pointer-events: none; }
 .nb-pf-tabwrap[data-stuck]::before { opacity: 1; }
-.nb-pf-tabbar { border: 1px solid var(--border); border-top-color: transparent; border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--card); transition: border-radius 240ms var(--nb-ease), border-color 240ms var(--nb-ease), box-shadow 240ms var(--nb-ease); }
+.nb-pf-tabbar { border: 1px solid var(--border); border-top-color: var(--pf-band-cell); border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--card); transition: border-radius 240ms var(--nb-ease), border-color 240ms var(--nb-ease), box-shadow 240ms var(--nb-ease); }
 .nb-pf-tabwrap[data-stuck] .nb-pf-tabbar { border-top-color: var(--border); border-radius: var(--radius-lg); box-shadow: 0 10px 22px -16px rgb(20 26 30 / 45%); }
 .nb-pf-tb { display: flex; align-items: stretch; min-height: 44px; overflow: clip; border-radius: 0 0 calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px); transition: border-radius 240ms var(--nb-ease); }
 /* The first tab's underline follows the bar's rounded corner instead of running square into it. */
@@ -2174,7 +2174,7 @@ button.nb-pf-tag[aria-checked="false"] { background: var(--pf-band-chip); color:
 }
 .nb-pf-hit { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 0; border: 0; border-radius: 3px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .nb-pf-hit:hover { outline: 1px dashed color-mix(in srgb, var(--pf-band-fg) 40%, transparent); outline-offset: 3px; }
-.nb-pf-stat .faces { display: inline-flex; }
+.nb-pf-stat .faces { display: inline-flex; align-self: center; margin-left: 4px; }
 .nb-pf-stat .faces > * { width: 18px; height: 18px; margin-left: -4px; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 2px var(--pf-band-bg); }
 .nb-pf-stat .faces > *:first-child { margin-left: 0; }
 .nb-pf-stat[disabled] { cursor: default; }
