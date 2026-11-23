@@ -56,9 +56,9 @@ export type DocRailState = {
     openAdd: (section?: DocSection) => void;
     askRemove: (doc: WorkspaceDocListItem | null) => void;
     dialogs: React.JSX.Element;
-    /** Report 38.11 W9 (A4.1 live check): the Open action items view (state, not the URL: the page drops unknown params). */
-    showActions: boolean;
-    openActions: () => void;
+    /** Report 38.11 W9–W10 (A4.1): Open action items or the Meetings calendar (state, not the URL: the page drops unknown params). */
+    view: "actions" | "calendar" | null;
+    openView: (view: "actions" | "calendar") => void;
 };
 
 // One state machine for the desktop rail and the mobile bar: select, add, remove.
@@ -72,11 +72,11 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     const [addSection, setAddSection] = useState<DocSection | null>(null);
     const [recording, setRecording] = useState(false);
     const [removing, setRemoving] = useState<WorkspaceDocListItem | null>(null);
-    const [showActions, setShowActions] = useState(false);
+    const [view, setView] = useState<"actions" | "calendar" | null>(null);
 
     // Opening a doc is a history entry; leaving a removed doc replaces it.
     const navigate = (slug: string | null, replace = false) => {
-        setShowActions(false);
+        setView(null);
         const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
         params.set("tab", "docs");
         params.delete("from"); // own docs, not an org doc opened in place
@@ -121,7 +121,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
         // Decisions' + records one (S4): it gets the next D-number rather than being an unnumbered page.
         if (section === "decisions") return setRecording(true);
         setAddSection(section ?? null); setAddOpen(true);
-    }, askRemove: setRemoving, dialogs, showActions, openActions: () => setShowActions(true) };
+    }, askRemove: setRemoving, dialogs, view, openView: setView };
 }
 
 function AddDocButton({ onClick, className }: { onClick: () => void; className?: string }) {
@@ -215,10 +215,14 @@ export function WorkspaceDocRail({
                             ) : section.name ? <p key={`group:${section.name}`} className="px-1 pt-2 text-[11px] text-muted-foreground">{section.name}</p> : null,
                             // Report 38.11 W9 (A4.1): every open action item across meetings.
                             section.id === "meetings" && !collapsed.includes(section.id) ? (
-                                <button key="meetings:actions" type="button" onClick={() => rail.openActions()} aria-pressed={rail.showActions}
-                                    className={cn("block w-full px-1 py-1 text-left text-[12px] hover:text-foreground", rail.showActions ? "font-semibold text-foreground" : "text-muted-foreground")} data-testid="rail-open-action-items">
-                                    Open action items
-                                </button>
+                                <div key="meetings:views" className="flex flex-wrap gap-x-3 px-1 py-1">
+                                    {([["calendar", "Calendar"], ["actions", "Open action items"]] as const).map(([v, label]) => (
+                                        <button key={v} type="button" onClick={() => rail.openView(v)} aria-pressed={rail.view === v}
+                                            className={cn("text-left text-[12px] hover:text-foreground", rail.view === v ? "font-semibold text-foreground" : "text-muted-foreground")} data-testid={v === "actions" ? "rail-open-action-items" : "rail-meetings-calendar"}>
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
                             ) : null,
                             section.id && canEdit && section.docs.length === 0 && !collapsed.includes(section.id) ? (
                                 <button key={`empty:${section.id}`} type="button" onClick={() => rail.openAdd(section.id!)} className="block w-full px-1 py-1 text-left text-[12px] text-muted-foreground hover:text-foreground">

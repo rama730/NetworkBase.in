@@ -32,3 +32,23 @@ test("meetingMarkdown: the type's sections then the Action items block with its 
   assert.deepEqual(parseLiveBlocks(md).map((b) => [b.kind, b.key]), [["task_rows", "actions"]]);
   assert.equal(defaultTitle(meetingType("blank")!, "2026-12-03"), "Meeting · Dec 3");
 });
+
+// Plan A4.1b: the .ics feed and the month grid.
+test("icsCalendar: UTC times, escaped text, CRLF, folded long lines", async () => {
+  const { icsCalendar } = await import("../../src/lib/workflows/meetings");
+  const ics = icsCalendar([{ uid: "d1@networkbase", title: "Weekly; team, sync", startsAt: "2027-01-07T04:30:00.000Z", lengthMinutes: 30, url: "https://networkbase.in/workspaces/acme?tab=docs&doc=" + "x".repeat(80) }], new Date("2026-11-23T00:00:00Z"));
+  assert.match(ics, /^BEGIN:VCALENDAR\r\nVERSION:2\.0\r\n/);
+  assert.match(ics, /DTSTART:20270107T043000Z\r\nDTEND:20270107T050000Z\r\nSUMMARY:Weekly\; team\\, sync\r\n/);
+  assert.ok(ics.split("\r\n").every((l) => Buffer.byteLength(l, "utf8") <= 75), "lines fold at 75 octets");
+  assert.match(ics, /\r\n /, "a folded line continues with a space");
+  assert.match(ics, /END:VCALENDAR\r\n$/);
+});
+
+test("monthGrid: six weeks from Monday; meetings on their local day in time order", async () => {
+  const { monthGrid } = await import("../../src/lib/workflows/meetings");
+  const g = monthGrid("2027-01", [{ startsAt: "2027-01-07T08:30:00.000Z", t: "b" }, { startsAt: "2027-01-07T04:30:00.000Z", t: "a" }, { startsAt: "2027-01-31T20:00:00.000Z", t: "c" }, { startsAt: null, t: "x" }], "Asia/Kolkata");
+  assert.equal(g.length, 42);
+  assert.equal(g[0]!.day, "2026-12-28");
+  assert.deepEqual(g.find((d) => d.day === "2027-01-07")!.meetings.map((m) => [m.t, m.time]), [["a", "10:00"], ["b", "14:00"]]);
+  assert.deepEqual(g.find((d) => d.day === "2027-02-01")!.meetings.map((m) => m.t), ["c"], "01:30 next day in Kolkata");
+});

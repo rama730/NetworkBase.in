@@ -29,6 +29,8 @@ const NON_V1_ALLOWLIST = new Set<string>([
   // OAuth for the hosted MCP server: editors find these addresses in the discovery documents (RFC 8414).
   "src/app/api/oauth/register/route.ts",
   "src/app/api/oauth/token/route.ts",
+  // Report 38.11 W10 (A4.1b): a calendar app subscribes to this fixed .ics address; it isn't a JSON API.
+  "src/app/api/feeds/meetings/[token]/route.ts",
 ]);
 
 function main() {

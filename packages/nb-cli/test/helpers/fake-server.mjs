@@ -722,6 +722,9 @@ const patterns = [
     types: [{ id: "aaaaaaaa-0000-4000-8000-000000000001", name: "General request", questions: [{ id: "need", label: "What do you need?", kind: "text", required: true }], firstReplyMinutes: 240, deliverMinutes: null },
       { id: "aaaaaaaa-0000-4000-8000-000000000002", name: "Design request", questions: [{ id: "what", label: "What’s needed", kind: "choice", options: ["Banner"], required: true }, { id: "brief", label: "Brief", kind: "long_text", required: true }], firstReplyMinutes: 480, deliverMinutes: 2400 }],
     requests: state.requests ?? [] } })],
+  // Meetings and decisions (report 38.11 W12): whatever the test put on state.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/meetings$/, "GET", (_req, /** @type {any} */ state) => ({ data: { timeZone: "UTC", meetings: state.meetings ?? [], openActionItems: state.openActionItems ?? [] } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/decisions$/, "GET", (_req, /** @type {any} */ state) => ({ data: { decisions: state.decisions ?? [] } })],
   // Launches (report 38.10 W10): whatever the test put on state.launches.
   [/^\/api\/v1\/workspaces\/([^/]+)\/launches$/, "GET", (_req, /** @type {any} */ state) => ({ data: { launches: state.launches ?? [] } })],
   // Roadmap (report 38.9 W12): whatever the test put on state.roadmap.

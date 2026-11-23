@@ -73,3 +73,39 @@ export function meetingWhen(startsAt: string, lengthMinutes: number, tz: string)
   const day = start.toLocaleDateString("en-GB", { timeZone: tz, weekday: "short", day: "numeric", month: "short" });
   return `${day} · ${zonedParts(start, tz).time}–${zonedParts(end, tz).time} (${tz})`;
 }
+
+/** W10: an iCalendar (RFC 5545) feed: one VEVENT per meeting, times in UTC, text escaped, lines folded at 75 octets. */
+export function icsCalendar(events: Array<{ uid: string; title: string; startsAt: string; lengthMinutes: number; url: string }>, now = new Date()) {
+  const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const text = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  const fold = (line: string) => {
+    const out: string[] = [];
+    let rest = line;
+    while (Buffer.byteLength(rest, "utf8") > 75) {
+      let cut = 75;
+      while (Buffer.byteLength(rest.slice(0, cut), "utf8") > 75) cut -= 1;
+      out.push(rest.slice(0, cut));
+      rest = ` ${rest.slice(cut)}`;
+    }
+    out.push(rest);
+    return out.join("\r\n");
+  };
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NetworkBase//Meetings//EN", "CALSCALE:GREGORIAN", "X-WR-CALNAME:NetworkBase meetings"];
+  for (const e of events) {
+    const start = new Date(e.startsAt);
+    lines.push("BEGIN:VEVENT", `UID:${e.uid}`, `DTSTAMP:${stamp(now)}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start.getTime() + e.lengthMinutes * 60_000))}`,
+      `SUMMARY:${text(e.title)}`, `URL:${e.url}`, "END:VEVENT");
+  }
+  lines.push("END:VCALENDAR");
+  return `${lines.map(fold).join("\r\n")}\r\n`;
+}
+
+/** S7: the days of a month (Monday first) with the meetings on each, in the workspace's zone. */
+export function monthGrid<T extends { startsAt: string | null }>(month: string, meetings: T[], tz: string) {
+  const first = new Date(`${month}-01T00:00:00Z`);
+  const lead = (first.getUTCDay() + 6) % 7;
+  const start = new Date(first.getTime() - lead * 86_400_000);
+  const days = Array.from({ length: 42 }, (_, i) => new Date(start.getTime() + i * 86_400_000).toISOString().slice(0, 10));
+  const placed = meetings.filter((m) => m.startsAt).map((m) => ({ m, ...zonedParts(new Date(m.startsAt!), tz) })).sort((a, b) => a.m.startsAt!.localeCompare(b.m.startsAt!));
+  return days.map((day) => ({ day, inMonth: day.startsWith(month), meetings: placed.filter((p) => p.day === day).map((p) => ({ ...p.m, time: p.time })) }));
+}

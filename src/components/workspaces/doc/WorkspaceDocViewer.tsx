@@ -23,7 +23,7 @@ import { OrgDocHeader, uploadWorkspaceFile, useOrgDocs } from "@/components/orga
 import { MoveToSectionMenu } from "@/components/workspaces/doc/MoveToSectionMenu";
 import { DecisionMetaLine } from "@/components/workspaces/doc/DocDecisions";
 import { LaunchHeader } from "@/components/workspaces/doc/DocLaunch";
-import { MeetingHeader, OpenActionItems } from "@/components/workspaces/doc/DocMeeting";
+import { MeetingHeader, MeetingsCalendar, OpenActionItems } from "@/components/workspaces/doc/DocMeeting";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { docSectionOf } from "@/lib/workspaces/doc-sections";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
@@ -187,7 +187,7 @@ export function WorkspaceDocViewer({
     const listed = rail.docs.find((doc) => doc.slug === normalizedDocSlug);
     const addedWorkflows = useAddedWorkflows();
     const title = docTitle(orgDoc?.filename ?? listed?.filename ?? "");
-    const actionsView = rail.showActions;
+    const meetingsView = addedWorkflows.includes("meetings") ? rail.view : null;
     const fileHref = payload.linkedNode ? `/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}` : null;
     
     const version = payload.version;
@@ -389,7 +389,9 @@ export function WorkspaceDocViewer({
                     {listed && docSectionOf(listed, addedWorkflows) === "launches" ? <LaunchHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
                     {listed && docSectionOf(listed, addedWorkflows) === "meetings" ? <MeetingHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
                     {/* Report 38.11 W9 (A4.1): Documents → Open action items. */}
-                    {actionsView && addedWorkflows.includes("meetings") ? <OpenActionItems projectId={project.id} projectSlug={project.slug ?? project.id} /> : renderer}
+                    {meetingsView === "actions" ? <OpenActionItems projectId={project.id} projectSlug={project.slug ?? project.id} />
+                        : meetingsView === "calendar" ? <MeetingsCalendar projectId={project.id} projectSlug={project.slug ?? project.id} canAdd={payload.canEdit} onNew={() => rail.openAdd("meetings")} />
+                        : renderer}
                 </div>
                 <WorkspaceDocRail
                     projectId={project.id}

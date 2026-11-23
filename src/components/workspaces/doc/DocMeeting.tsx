@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, MoreHorizontal } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
@@ -13,7 +13,8 @@ import { WORKSPACE_DOC_LIST_QUERY_KEY, WORKSPACE_DOCS_QUERY_KEY } from "@/hooks/
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
-import { defaultTitle, isNow, MEETING_TYPES, meetingMarkdown, meetingType, meetingWhen, nextOccurrence, REPEAT_LABEL, REPEAT_RULES, type RepeatRule } from "@/lib/workflows/meetings";
+import { newMeetingFeedAction, readMeetingFeedAction, stopMeetingFeedAction } from "@/app/actions/meeting-feed";
+import { defaultTitle, isNow, MEETING_TYPES, meetingMarkdown, meetingType, meetingWhen, monthGrid, nextOccurrence, REPEAT_LABEL, REPEAT_RULES, type RepeatRule } from "@/lib/workflows/meetings";
 import { zonedInstant, zonedParts } from "@/lib/workflows/request-clock";
 import { localDayKey } from "@/lib/workflows/planner";
 
@@ -266,5 +267,91 @@ export function OpenActionItems({ projectId, projectSlug }: { projectId: string;
         </div>
       ) : <p className="py-6 text-center text-[13px] text-muted-foreground">No open action items. Items added in meetings show here until they’re done.</p>}
     </section>
+  );
+}
+
+/** S7 and W10 (A4.1b): the Meetings calendar (meetings on their days, in the workspace's zone) and your .ics link. */
+export function MeetingsCalendar({ projectId, projectSlug, canAdd, onNew }: { projectId: string; projectSlug: string; canAdd: boolean; onNew: () => void }) {
+  const query = useMeetings(projectId);
+  const data = query.data?.success ? query.data : null;
+  const [month, setMonth] = useState(() => localDayKey().slice(0, 7));
+  const shift = (n: number) => { const [y, m] = month.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, m - 1 + n, 1)); setMonth(d.toISOString().slice(0, 7)); };
+  if (!data) return query.isLoading ? <div aria-hidden="true" className="nb-skeleton h-64 rounded-[8px]" /> : null;
+  const today = localDayKey();
+  const days = monthGrid(month, data.meetings, data.timeZone);
+  const docHref = (slug: string) => `/workspaces/${encodeURIComponent(projectSlug)}?tab=docs&doc=${encodeURIComponent(slug)}`;
+  const label = new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+  return (
+    <section aria-label="Meetings calendar" className="space-y-3" data-testid="meetings-calendar">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="mr-2 text-[16px] font-semibold">Meetings</h2>
+        <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className="nb-touch-target inline-flex size-[30px] items-center justify-center rounded-[5px] border border-border bg-card hover:bg-muted"><ChevronLeft className="size-4" /></button>
+        <span className="min-w-32 text-center text-[13px] font-medium" aria-live="polite">{label}</span>
+        <button type="button" aria-label="Next month" onClick={() => shift(1)} className="nb-touch-target inline-flex size-[30px] items-center justify-center rounded-[5px] border border-border bg-card hover:bg-muted"><ChevronRight className="size-4" /></button>
+        <button type="button" onClick={() => setMonth(today.slice(0, 7))} className={FORM_SECONDARY_CLASS}>Today</button>
+        <div className="ml-auto flex items-center gap-2">{canAdd ? <button type="button" onClick={onNew} className={FORM_PRIMARY_CLASS}>New meeting</button> : null}</div>
+      </div>
+      <div className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-border bg-card text-[12px] max-sm:hidden" role="group" aria-label={`Meetings in ${label}`}>
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <div key={d} aria-hidden="true" className="border-b border-border px-2 py-1.5 font-mono text-[11px] text-muted-foreground">{d}</div>)}
+        {days.map((d) => (
+          <div key={d.day} role="group" aria-label={new Date(`${d.day}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}
+            className={cn("min-h-20 space-y-1 border-b border-r border-border/60 p-1.5", !d.inMonth && "bg-muted/30 text-muted-foreground")}>
+            <span className={cn("font-mono text-[11px]", d.day === today && "font-semibold text-primary")}>{Number(d.day.slice(8))}</span>
+            {d.meetings.map((m) => (
+              <a key={m.docId} href={docHref(m.slug)} data-testid="calendar-meeting" className={cn("block truncate rounded-[3px] border border-border px-1 py-0.5 hover:bg-muted", m.finished && "text-muted-foreground")}>
+                <span className="font-mono">{m.time}</span> {m.title}
+              </a>
+            ))}
+          </div>
+        ))}
+      </div>
+      {/* Phone: the month as a list by date (W11). */}
+      <ul className="space-y-1 sm:hidden" aria-label={`Meetings in ${label}`}>
+        {days.filter((d) => d.inMonth && d.meetings.length).flatMap((d) => d.meetings.map((m) => (
+          <li key={m.docId}><a href={docHref(m.slug)} className="flex gap-2 rounded-[5px] border border-border bg-card px-2 py-1.5 text-[13px]"><span className="font-mono text-[12px] text-muted-foreground">{d.day.slice(5)} {m.time}</span>{m.title}</a></li>
+        )))}
+      </ul>
+      <p className="text-xs text-muted-foreground">Times in {data.timeZone}.</p>
+      <FeedLink />
+    </section>
+  );
+}
+
+/** W10 and call 7: your personal, read-only .ics link (shown once; a new one stops the old). */
+function FeedLink() {
+  const query = useQuery({ queryKey: queryKeys.myWork.meetingFeed(), queryFn: () => readMeetingFeedAction() });
+  const [link, setLink] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const has = query.data?.success && query.data.hasLink;
+  async function make() {
+    setBusy(true);
+    const r = await newMeetingFeedAction();
+    setBusy(false);
+    if (!r.success) return void toast.error(r.error);
+    const url = `${window.location.origin}${r.path}`;
+    setLink(url);
+    const { copyText } = await import("@/lib/clipboard");
+    try { await copyText(url); toast("Calendar link copied · add it to your calendar app as a subscription"); } catch { toast("Copy the link below into your calendar app"); }
+    void query.refetch();
+  }
+  async function stop() {
+    setBusy(true);
+    const r = await stopMeetingFeedAction();
+    setBusy(false);
+    if (!r.success) return void toast.error(r.error);
+    setLink(null);
+    toast("Calendar link stopped");
+    void query.refetch();
+  }
+  return (
+    <div className="space-y-1.5 rounded-[8px] border border-border bg-card p-3" data-testid="meeting-feed">
+      <p className="text-[13px] font-medium">Your calendar link</p>
+      <p className="text-xs text-muted-foreground">Meetings you attend, in any calendar app that subscribes to a link. Times and titles only; read-only.{has && !link ? " A link is on; making a new one stops the old." : ""}</p>
+      {link ? <input readOnly value={link} aria-label="Your calendar link" onFocus={(e) => e.currentTarget.select()} className={cn(inputClassName(false), "font-mono text-[12px]")} /> : null}
+      <div className="flex gap-2">
+        <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => void make()}>{has ? "New link" : "Get my link"}</button>
+        {has ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => void stop()}>Stop the link</button> : null}
+      </div>
+    </div>
   );
 }

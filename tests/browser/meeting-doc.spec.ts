@@ -14,7 +14,11 @@ async function open(page: Page, opts: { view?: string; now?: string; finished?: 
       readMeetingAction: async () => ({ success: true, canEdit: true, member: true, type: 'blank', title: 'Weekly · Jan 7', startsAt: '2027-01-07T04:30:00.000Z', lengthMinutes: 30,
         timeZone: 'Asia/Kolkata', attendees: [{ id: 'u2', name: 'Dev', avatarUrl: null }], seriesRule: series ? 'weekly' : null, seriesTitle: series ? 'Weekly' : null, seriesId: series ? 's1' : null,
         finishedAt: finished ? '2027-01-07T05:00:00.000Z' : null, openActionItems: 0 }),
-      readMeetingsAction: async () => ({ success: true, projectKey: 'AC', timeZone: 'Asia/Kolkata', viewerId: 'u1', meetings: [], people: [{ id: 'u1', name: 'Asha' }, { id: 'u2', name: 'Dev' }],
+      readMeetingFeedAction: async () => ({ success: true, hasLink: false, since: null }),
+      newMeetingFeedAction: async () => { calls.push(['feed']); return { success: true, path: '/api/feeds/meetings/abcdefghijklmnopqrstuvwx' }; },
+      readMeetingsAction: async () => ({ success: true, projectKey: 'AC', timeZone: 'Asia/Kolkata', viewerId: 'u1',
+        meetings: [{ docId: 'd1', slug: 'weekly-jan-7', title: 'Weekly · Jan 7', type: 'blank', startsAt: '2027-01-07T04:30:00.000Z', lengthMinutes: 30, attendeeIds: ['u2'], finished: false },
+          { docId: 'd2', slug: 'retro', title: 'Retro', type: 'blank', startsAt: '2027-01-07T09:00:00.000Z', lengthMinutes: 60, attendeeIds: [], finished: true }], people: [{ id: 'u1', name: 'Asha' }, { id: 'u2', name: 'Dev' }],
         openActionItems: [{ id: 't1', number: 5, title: 'Fix the login typo', status: 'todo', dueDate: '2027-01-10', assigneeId: 'u2', assigneeName: 'Dev', meeting: { slug: 'weekly-jan-7', title: 'Weekly · Jan 7' } }] }),
       finishMeetingAction: async (_p: string, input: unknown) => { calls.push(['finish', input]); return { success: true, alreadyFinished: false, next: null }; },
       moveMeetingAction: async (_p: string, input: unknown) => { calls.push(['move', input]); return { success: true }; },
@@ -76,4 +80,20 @@ test('S6 and W9: Open action items lists item, assignee, due and meeting', async
   await open(page, { view: 'actions' });
   await expect(page.getByTestId('open-action-row')).toHaveText(/Fix the login typo.*Dev.*2027-01-10.*Weekly · Jan 7/);
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('S7 and W10: the Meetings calendar shows meetings on their days in time order; Get my link makes a calendar link', async ({ page }) => {
+  await open(page, { view: 'calendar' });
+  const cal = page.getByTestId('meetings-calendar');
+  await expect(cal).toContainText('January 2027');
+  const day = cal.getByRole('group', { name: 'Thursday 7 January' });
+  await expect(day.getByTestId('calendar-meeting')).toHaveText(['10:00 Weekly · Jan 7', '14:30 Retro']);
+  await cal.getByRole('button', { name: 'Next month' }).click();
+  await expect(cal).toContainText('February 2027');
+  await expect(cal.getByTestId('calendar-meeting')).toHaveCount(0);
+  await cal.getByRole('button', { name: 'Get my link' }).click();
+  await expect.poll(async () => (await calls(page)).at(-1)).toEqual(['feed']);
+  await expect(cal.getByLabel('Your calendar link')).toHaveValue(/\/api\/feeds\/meetings\/abcdefghijklmnopqrstuvwx$/);
+  expect(await axeViolations(page)).toEqual([]);
+  await page.screenshot({ path: 'test-results/meeting-doc/calendar.png' });
 });

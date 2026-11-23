@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { Toaster } from '@/components/ui/sonner';
-import { MeetingHeader, NewMeetingDialog, OpenActionItems } from "@/components/workspaces/doc/DocMeeting";
+import { MeetingHeader, MeetingsCalendar, NewMeetingDialog, OpenActionItems } from "@/components/workspaces/doc/DocMeeting";
 
 // Report 38.11 D1 (plan A4.1): the meeting header, New meeting and Open action items.
 const w = window as any;
@@ -16,6 +16,7 @@ createRoot(document.getElementById('root')!).render(
     <main className="max-w-3xl p-6">
       {view === 'new' ? <NewMeetingDialog projectId={P} open onOpenChange={() => undefined} />
         : view === 'actions' ? <OpenActionItems projectId={P} projectSlug="acme" />
+        : view === 'calendar' ? <MeetingsCalendar projectId={P} projectSlug="acme" canAdd onNew={() => { w.__newMeeting = true; }} />
         : <MeetingHeader projectId={P} docSlug="weekly-jan-7" />}
     </main>
     <Toaster />

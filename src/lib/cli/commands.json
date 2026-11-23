@@ -2329,6 +2329,37 @@
       ]
     },
     {
+      "name": "meetings list",
+      "summary": "Meetings coming up (or past) with their time",
+      "usage": "nb meetings list [--week | --past]",
+      "flags": {
+        "week": {
+          "type": "boolean",
+          "describe": "Only the next 7 days"
+        },
+        "past": {
+          "type": "boolean",
+          "describe": "Meetings already held, newest first"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "decisions list",
+      "summary": "Decisions by D-number with their status",
+      "usage": "nb decisions list",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "task done",
       "summary": "Finish a task (sends it for review when required)",
       "usage": "nb task done [task] [-m summary] [--check name=pass]",

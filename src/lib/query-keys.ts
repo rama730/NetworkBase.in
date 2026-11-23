@@ -282,6 +282,9 @@ export const queryKeys = {
     root: () => ["my-work"] as const,
     ideProjects: (userId: string | null) => ["my-work", "ide-projects", userId] as const,
     summary: () => ["my-work", "summary"] as const,
+    /** Report 38.11 part 8 (A4.1b): meetings today; and the person's .ics link state. */
+    meetingsToday: () => ["my-work", "meetings-today"] as const,
+    meetingFeed: () => ["my-work", "meeting-feed"] as const,
     toReview: () => ["my-work", "to-review"] as const,
     members: () => ["my-work", "members"] as const,
     sprints: () => ["my-work", "sprints"] as const,

@@ -19,6 +19,8 @@ moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarde
 stubNextAfter();
 
 let docs: typeof import("../../src/app/actions/workspace/doc");
+let feed: typeof import("../../src/app/actions/meeting-feed");
+let feedRoute: typeof import("../../src/app/api/feeds/meetings/[token]/route");
 let taskActions: typeof import("../../src/app/actions/task");
 let tasksServer: typeof import("../../src/lib/workspaces/server/tasks");
 before(async () => {
@@ -29,6 +31,8 @@ before(async () => {
     getViewerIdentityContext: async () => ({ user: viewerId ? { id: viewerId } : null, userId: viewerId || null, profile: null }),
   });
   docs = await loadAppModule(() => import("../../src/app/actions/workspace/doc"));
+  feed = await loadAppModule(() => import("../../src/app/actions/meeting-feed"));
+  feedRoute = await loadAppModule(() => import("../../src/app/api/feeds/meetings/[token]/route"));
   taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
   tasksServer = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
 });
@@ -140,4 +144,57 @@ test("security review: the meetings list shows only meetings this person may rea
   const member = await docs.readMeetingsAction(t.ws);
   assert.ok(member.success);
   assert.deepEqual([member.meetings.length, member.openActionItems.length], [0, 0]);
+});
+
+test("A4.1b W10: the .ics feed holds my meetings only (times and titles), honours visibility, and stops", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  await t.doc("mine");
+  await t.doc("not-mine");
+  await t.doc("secret");
+  const at = ist("2027-04-05T10:00:00");
+  for (const [slug, attendees] of [["mine", [t.member]], ["not-mine", [t.owner]], ["secret", [t.member]]] as const)
+    assert.ok((await docs.createMeetingAction(t.ws, { docSlug: slug, type: "blank", title: `Meeting ${slug}`, startsAt: at, lengthMinutes: 45, attendeeIds: [...attendees], repeat: "none" })).success);
+  await sql`UPDATE workspace_documents SET settings = settings || '{"visibilityOverride":"leaders_only"}'::jsonb WHERE workspace_id = ${t.ws} AND slug = 'secret'`;
+  viewerId = t.member;
+  assert.deepEqual(await feed.readMeetingFeedAction(), { success: true, hasLink: false, since: null });
+  const made = await feed.newMeetingFeedAction();
+  assert.ok(made.success);
+  const token = made.path.split("/").pop()!;
+  const get = (tok: string) => feedRoute.GET(new Request(`https://x.test/api/feeds/meetings/${tok}`), { params: Promise.resolve({ token: tok }) });
+  const res = await get(token);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") ?? "", /text\/calendar/);
+  const body = await res.text();
+  assert.match(body, /SUMMARY:Meeting mine\r\n/);
+  assert.match(body, /DTSTART:20270405T043000Z\r\nDTEND:20270405T051500Z/);
+  assert.doesNotMatch(body, /not-mine|secret/, "only meetings I attend, and no leaders-only ones for a member");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM meeting_feed_tokens WHERE token_hash = ${token}`)[0]!.n, 0, "only the hash is stored");
+  assert.equal((await get("x".repeat(32))).status, 404);
+  // A new link stops the old one; Stop ends it.
+  const again = await feed.newMeetingFeedAction();
+  assert.ok(again.success);
+  assert.equal((await get(token)).status, 404);
+  assert.ok((await feed.stopMeetingFeedAction()).success);
+  assert.equal((await get(again.path.split("/").pop()!)).status, 404);
+  // Someone who leaves the workspace gets nothing from it.
+  const third = await feed.newMeetingFeedAction();
+  assert.ok(third.success);
+  await sql`DELETE FROM workspace_members WHERE workspace_id = ${t.ws} AND user_id = ${t.member}`;
+  assert.doesNotMatch(await (await get(third.path.split("/").pop()!)).text(), /Meeting mine/);
+});
+
+test("A4.1b part 8: My work's meetings today are mine, inside my day", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  await t.doc("today-sync");
+  await t.doc("tomorrow-sync");
+  const now = Date.now();
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "today-sync", type: "blank", title: "Today sync", startsAt: new Date(now + 3_600_000).toISOString(), lengthMinutes: 30, attendeeIds: [t.member], repeat: "none" })).success);
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "tomorrow-sync", type: "blank", title: "Tomorrow sync", startsAt: new Date(now + 30 * 3_600_000).toISOString(), lengthMinutes: 30, attendeeIds: [t.member], repeat: "none" })).success);
+  viewerId = t.member;
+  const r = await feed.readMyMeetingsTodayAction({ from: new Date(now - 3_600_000).toISOString(), to: new Date(now + 20 * 3_600_000).toISOString() });
+  assert.ok(r.success);
+  assert.deepEqual(r.meetings.map((m) => m.title), ["Today sync"]);
+  assert.equal((await feed.readMyMeetingsTodayAction({ from: "2027-01-01T00:00:00Z", to: "2027-02-01T00:00:00Z" }) as { error?: string }).error, "Pick a day");
 });
