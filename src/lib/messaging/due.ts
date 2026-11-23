@@ -78,6 +78,10 @@ export async function dueTimesWithinNextHour(limit = 200) {
       -- Task reminders (report C2, 0088) ride the same job.
       SELECT remind_at FROM task_reminders
       WHERE sent_at IS NULL AND remind_at > now() AND remind_at <= now() + interval '65 minutes'
+      UNION ALL
+      -- Meeting reminders (report 38.11 call 4, A4.1).
+      SELECT remind_at FROM workspace_document_reminders
+      WHERE sent_at IS NULL AND remind_at > now() AND remind_at <= now() + interval '65 minutes'
     ) due
     ORDER BY at LIMIT ${limit}
   `);

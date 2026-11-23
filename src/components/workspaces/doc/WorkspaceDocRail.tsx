@@ -1,4 +1,6 @@
 "use client";
+
+import Link from "next/link";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
@@ -23,6 +25,7 @@ import { docTitle } from "@/lib/organizations/doc-rules";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { railSections, type DocSection } from "@/lib/workspaces/doc-sections";
 import { NewLaunchDialog } from "@/components/workspaces/doc/DocLaunch";
+import { NewMeetingDialog } from "@/components/workspaces/doc/DocMeeting";
 
 const EMPTY_LINE: Record<DocSection, string> = {
     pages: "+ New page", meetings: "+ New meeting", decisions: "+ Record a decision", launches: "+ New launch",
@@ -95,6 +98,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
         <>
             {/* Report 38.10 W1 (A3.1): Launches' + makes a launch (name, date, preset), not a blank document. */}
             {addSection === "launches" ? <NewLaunchDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
+                : addSection === "meetings" ? <NewMeetingDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
                 : <AddDocDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} section={addSection} />}
             <RecordDecisionDialog projectId={projectId} open={recording} onOpenChange={setRecording} />
             <ConfirmDialog
@@ -205,6 +209,12 @@ export function WorkspaceDocRail({
                                     ) : null}
                                 </div>
                             ) : section.name ? <p key={`group:${section.name}`} className="px-1 pt-2 text-[11px] text-muted-foreground">{section.name}</p> : null,
+                            // Report 38.11 W9 (A4.1): every open action item across meetings.
+                            section.id === "meetings" && !collapsed.includes(section.id) ? (
+                                <Link key="meetings:actions" href={{ query: { tab: "docs", view: "actions" } }} className="block px-1 py-1 text-[12px] text-muted-foreground hover:text-foreground" data-testid="rail-open-action-items">
+                                    Open action items
+                                </Link>
+                            ) : null,
                             section.id && canEdit && section.docs.length === 0 && !collapsed.includes(section.id) ? (
                                 <button key={`empty:${section.id}`} type="button" onClick={() => rail.openAdd(section.id!)} className="block w-full px-1 py-1 text-left text-[12px] text-muted-foreground hover:text-foreground">
                                     {EMPTY_LINE[section.id]}

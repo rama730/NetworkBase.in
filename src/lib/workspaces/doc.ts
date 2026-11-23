@@ -45,6 +45,14 @@ export type WorkspaceDocSettings = {
     launchedAt?: string;
     /** A3 live check: the launch's name as typed (lists and notices show it, not the file name). */
     launchTitle?: string;
+    /** Report 38.11 (A4.1): a meeting's start, length, attendees, series, finish, and the action items carried into it. */
+    startsAt?: string;
+    lengthMinutes?: number;
+    attendeeIds?: string[];
+    seriesId?: string;
+    finishedAt?: string;
+    carriedTaskIds?: string[];
+    meetingTitle?: string;
 };
 
 export type DecisionStatus = "proposed" | "decided" | "superseded" | "reversed";
@@ -143,6 +151,13 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(typeof source.versionLabel === "string" && source.versionLabel.trim() && source.versionLabel.length <= 40 ? { versionLabel: source.versionLabel.trim() } : {}),
         ...(typeof source.launchedAt === "string" && Number.isFinite(Date.parse(source.launchedAt)) ? { launchedAt: source.launchedAt } : {}),
         ...(typeof source.launchTitle === "string" && source.launchTitle.trim() && source.launchTitle.length <= 120 ? { launchTitle: source.launchTitle.trim() } : {}),
+        ...(typeof source.startsAt === "string" && Number.isFinite(Date.parse(source.startsAt)) ? { startsAt: source.startsAt } : {}),
+        ...(Number.isInteger(source.lengthMinutes) && source.lengthMinutes! >= 5 && source.lengthMinutes! <= 600 ? { lengthMinutes: source.lengthMinutes } : {}),
+        ...(Array.isArray(source.attendeeIds) ? { attendeeIds: source.attendeeIds.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 100) } : {}),
+        ...(typeof source.seriesId === "string" && /^[0-9a-f-]{36}$/i.test(source.seriesId) ? { seriesId: source.seriesId } : {}),
+        ...(typeof source.finishedAt === "string" && Number.isFinite(Date.parse(source.finishedAt)) ? { finishedAt: source.finishedAt } : {}),
+        ...(typeof source.meetingTitle === "string" && source.meetingTitle.trim() && source.meetingTitle.length <= 120 ? { meetingTitle: source.meetingTitle.trim() } : {}),
+        ...(Array.isArray(source.carriedTaskIds) ? { carriedTaskIds: source.carriedTaskIds.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 200) } : {}),
     };
 }
 

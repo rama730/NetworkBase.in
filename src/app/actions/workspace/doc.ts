@@ -23,6 +23,8 @@ import {
     workspaceSprints,
     workspaces,
     tasks,
+    workspaceMeetingSeries,
+    workspaceDocumentReminders,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { toIsoString as toIso } from "@/lib/utils/date";
@@ -1291,17 +1293,21 @@ const blockKeySchema = z.string().regex(/^[a-z0-9]{4,12}$/);
 export type DocRow = {
     id: string; number: number | null; title: string; status: string; reviewStatus: string; dueDate: string | null; completedAt: string | null;
     position: number | null; itemType: string; assignee: { id: string; name: string | null; avatarUrl: string | null } | null; canTick: boolean;
+    /** Report 38.11 W5 (A4.1): an open action item carried over from the meeting before (the same task). */
+    carried?: boolean;
 };
 
 /** A block's rows in order; `visible` applies the organization's task read rule (others' copies) when one is given. */
-async function blockRows(docId: string, blockKey: string, readFilter?: SQL) {
+async function blockRows(docId: string, blockKey: string, readFilter?: SQL, carriedIds: string[] = []) {
     return db.select({
         visible: readFilter ? sql<boolean>`coalesce((${readFilter}), false)` : sql<boolean>`true`,
-        id: tasks.id, number: tasks.taskNumber, title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus,
+        id: tasks.id, projectId: tasks.projectId, number: tasks.taskNumber, title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus,
         dueDate: tasks.dueDate, completedAt: tasks.completedAt, position: tasks.sourcePosition, itemType: tasks.itemType,
         assigneeId: tasks.assigneeId, assigneeName: profiles.fullName, assigneeAvatar: profiles.avatarUrl,
     }).from(tasks).leftJoin(profiles, eq(profiles.id, tasks.assigneeId))
-        .where(and(eq(tasks.sourceDocId, docId), eq(tasks.sourceBlock, blockKey), isNull(tasks.deletedAt)))
+        .where(and(isNull(tasks.deletedAt), carriedIds.length
+            ? sql`((${tasks.sourceDocId} = ${docId} AND ${tasks.sourceBlock} = ${blockKey}) OR ${tasks.id} IN (${sql.join(carriedIds.map((id) => sql`${id}::uuid`), sql`, `)}))`
+            : and(eq(tasks.sourceDocId, docId), eq(tasks.sourceBlock, blockKey))))
         .orderBy(asc(tasks.sourcePosition)).limit(MAX_BLOCK_ROWS);
 }
 
@@ -1316,7 +1322,10 @@ export async function readDocRowsAction(projectId: string, docSlug: string, bloc
         const role = actor === context.project.ownerId ? "owner" : context.membership?.role ?? null;
         const leader = role === "owner" || role === "admin";
         const canSeeTasks = insider || normalizeWorkspacePublicTabVisibility(context.project.publicTabVisibility).tasks;
-        const all = await blockRows(context.readme.id, key, orgTaskReadFilter(await getWorkspaceAccessById(projectId, actor), actor));
+        // A4.1: a meeting's Action items also list the open items carried into it (kept in this workspace only).
+        const carried = key === "actions" ? (context.settings.carriedTaskIds ?? []) : [];
+        const all = (await blockRows(context.readme.id, key, orgTaskReadFilter(await getWorkspaceAccessById(projectId, actor), actor), carried))
+            .filter((r) => !carried.includes(r.id) || r.projectId === projectId);
         const readable = all.filter((r) => r.visible);
         const { rows, hidden: tabHidden } = visibleRows(readable, { canSeeTasks });
         const hidden = tabHidden + all.length - readable.length;
@@ -1328,6 +1337,7 @@ export async function readDocRowsAction(projectId: string, docSlug: string, bloc
                 assignee: r.assigneeId && insider ? { id: r.assigneeId, name: r.assigneeName, avatarUrl: r.assigneeAvatar } : null,
                 // B9: the task's own rule (the transition re-checks): its assignee, an unassigned one, or a leader; never viewers.
                 canTick: insider && role !== "viewer" && (leader || !r.assigneeId || r.assigneeId === actor),
+                ...(carried.includes(r.id) ? { carried: true } : {}),
             })),
         };
     } catch (error) {
@@ -1663,5 +1673,229 @@ export async function cancelLaunchAction(projectId: string, input: unknown) {
         return { success: true as const };
     } catch (error) {
         return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t cancel the launch." };
+    }
+}
+
+// ── Report 38.11 D1 (plan A4.1): meetings ────────────────────────────────────────────────────────────────────────────
+const MEETING_REMINDER_MINUTES = 15;
+const meetingSchema = z.object({
+    docSlug: docSlugSchema, type: z.string().regex(/^[a-z_]{1,40}$/), title: z.string().trim().min(1).max(120),
+    startsAt: z.string().refine((v) => Number.isFinite(Date.parse(v)), "Pick the date and time"), lengthMinutes: z.number().int().min(5).max(600),
+    attendeeIds: z.array(z.string().uuid()).max(100), repeat: z.enum(["none", "weekly", "biweekly", "weekdays", "monthly"]),
+});
+
+async function meetingDoc(projectId: string, userId: string | null, docSlug: string, needEdit = true) {
+    const context = await getDocProjectContext(projectId, userId, docSlug);
+    if (!context.readme) throw new Error("That meeting isn’t here any more.");
+    if (needEdit && !context.permission.canEdit) throw new Error("Only people who can edit this meeting change it.");
+    if (context.settings.section !== "meetings") throw new Error("That document isn’t a meeting.");
+    return context;
+}
+/** Attendees are members (or the owner) of the workspace; anyone else is dropped. */
+async function memberIds(projectId: string, ids: string[]) {
+    if (!ids.length) return [];
+    const rows = Array.from(await db.execute<{ id: string }>(sql`
+        SELECT id FROM profiles WHERE id IN (${sql.join(ids.map((i) => sql`${i}::uuid`), sql`, `)})
+          AND (id = (SELECT owner_id FROM workspaces WHERE id = ${projectId}::uuid) OR id IN (SELECT user_id FROM workspace_members WHERE workspace_id = ${projectId}::uuid))`));
+    return ids.filter((i) => rows.some((r) => r.id === i));
+}
+/** W3: a reminder per attendee before the start (rewritten whenever the meeting moves). */
+async function scheduleMeetingReminders(docId: string, startsAt: string, attendeeIds: string[]) {
+    const { reminderAt } = await import("@/lib/workflows/meetings");
+    await db.delete(workspaceDocumentReminders).where(and(eq(workspaceDocumentReminders.docId, docId), isNull(workspaceDocumentReminders.sentAt)));
+    const at = reminderAt(startsAt, MEETING_REMINDER_MINUTES);
+    if (!at || Date.parse(at) <= Date.now() || !attendeeIds.length) return;
+    await db.insert(workspaceDocumentReminders).values(attendeeIds.map((userId) => ({ docId, userId, remindAt: new Date(at) })));
+    const { wakeChatDueIfSoon } = await import("@/inngest/wake");
+    await wakeChatDueIfSoon(new Date(at));
+}
+async function tellAttendees(projectId: string, actorId: string, attendeeIds: string[], title: string, docSlug: string, project: { slug: string | null }) {
+    const { createNotification } = await import("@/lib/notifications/service");
+    for (const to of attendeeIds.filter((id) => id !== actorId)) await createNotification({
+        recipientUserId: to, actorUserId: actorId, kind: "project_task_activity", category: "tasks", importance: "important", title: `Invited: ${title}`,
+        href: `/workspaces/${encodeURIComponent(project.slug || projectId)}?tab=docs&doc=${encodeURIComponent(docSlug)}`,
+        entityRefs: { projectId, projectSlug: project.slug ?? null }, dedupeKey: `meeting-invite:${docSlug}:${to}`,
+    }).catch(() => undefined);
+}
+
+/**
+ * W1: the browser makes the document's file from the type (meetingMarkdown); this files it under Meetings with its
+ * start, length and attendees, starts a series when it repeats, schedules the reminders and tells the attendees.
+ */
+export async function createMeetingAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = meetingSchema.parse(input);
+        const { meetingType } = await import("@/lib/workflows/meetings");
+        const type = meetingType(data.type);
+        if (!type) return { success: false as const, error: "Pick a meeting type" };
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents make meetings." };
+        const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+        if (!availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("meetings")) return { success: false as const, error: "Add Meetings and decisions first." };
+        const attendeeIds = await memberIds(projectId, data.attendeeIds);
+        const startsAt = new Date(data.startsAt).toISOString();
+        const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
+        const { zonedParts } = await import("@/lib/workflows/request-clock");
+        const { tz } = await readWorkingHours(projectId);
+        let seriesId: string | undefined;
+        if (data.repeat !== "none") {
+            const [series] = await db.insert(workspaceMeetingSeries).values({ projectId, meetingType: type.id, title: data.title, rule: data.repeat, startsTime: zonedParts(new Date(startsAt), tz).time,
+                lengthMinutes: data.lengthMinutes, attendeeIds, createdBy: userId }).returning({ id: workspaceMeetingSeries.id });
+            seriesId = series!.id;
+        }
+        await writeLaunchSettings(context.readme.id, { section: "meetings", kind: type.id, meetingTitle: data.title, date: zonedParts(new Date(startsAt), tz).day, startsAt, lengthMinutes: data.lengthMinutes, attendeeIds, ...(seriesId ? { seriesId } : {}) });
+        await scheduleMeetingReminders(context.readme.id, startsAt, attendeeIds);
+        await tellAttendees(projectId, userId, attendeeIds, data.title, data.docSlug, context.project);
+        await recordNodeEvent(projectId, userId, null, "project_readme.meeting_created", { docSlug: data.docSlug, type: type.id });
+        revalidateProjectDoc(context.project);
+        return { success: true as const, seriesId: seriesId ?? null };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the meeting." };
+        logger.error("meetings.create_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t make the meeting." };
+    }
+}
+
+/** S2: the meeting header: when, type, attendees, series, finished, open action items. */
+export async function readMeetingAction(projectId: string, docSlug: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const context = await getDocProjectContext(projectId, actor, docSlug);
+        if (!context.readme || !(context.permission.canReadPublished || context.permission.canEdit) || context.settings.section !== "meetings") return { success: false as const, error: "Meeting not found." };
+        const insider = actor === context.project.ownerId || Boolean(context.membership);
+        const s = context.settings;
+        const [series] = s.seriesId ? await db.select({ rule: workspaceMeetingSeries.rule, endedAt: workspaceMeetingSeries.endedAt, title: workspaceMeetingSeries.title }).from(workspaceMeetingSeries)
+            .where(and(eq(workspaceMeetingSeries.id, s.seriesId), eq(workspaceMeetingSeries.projectId, projectId))).limit(1) : [];
+        const attendees = insider && s.attendeeIds?.length ? await db.select({ id: profiles.id, name: profiles.fullName, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, s.attendeeIds)) : [];
+        const [open] = Array.from(await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM tasks WHERE deleted_at IS NULL AND status <> 'done'
+            AND ((source_doc_id = ${context.readme.id}::uuid AND source_block = 'actions')${s.carriedTaskIds?.length ? sql` OR id IN (${sql.join(s.carriedTaskIds.map((i) => sql`${i}::uuid`), sql`, `)})` : sql``})`));
+        const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
+        return {
+            success: true as const, canEdit: context.permission.canEdit, member: insider, type: s.kind ?? "blank", title: s.meetingTitle ?? context.readme.filename.replace(/\.md$/i, ""),
+            startsAt: s.startsAt ?? null, lengthMinutes: s.lengthMinutes ?? 30, timeZone: (await readWorkingHours(projectId)).tz,
+            attendees: attendees.map((a) => ({ id: a.id, name: a.name ?? "Someone", avatarUrl: a.avatarUrl })), seriesRule: series && !series.endedAt ? series.rule : null, seriesTitle: series?.title ?? null,
+            seriesId: s.seriesId ?? null, finishedAt: s.finishedAt ?? null, openActionItems: open?.n ?? 0,
+        };
+    } catch (error) {
+        logger.error("meetings.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load the meeting." };
+    }
+}
+
+const finishSchema = z.object({ docSlug: docSlugSchema, carryOver: z.boolean(), nextDocSlug: docSlugSchema.optional(), nextTitle: z.string().trim().min(1).max(120).optional() });
+/**
+ * W5 and call 3: Finish meeting. Marks it finished; in a live series the browser has made the next meeting's file
+ * (nextDocSlug) and this files it at the next date with the same attendees, carrying the open action items (the
+ * same tasks, listed in both). Finishing twice changes nothing.
+ */
+export async function finishMeetingAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = finishSchema.parse(input);
+        const context = await meetingDoc(projectId, userId, data.docSlug);
+        if (context.settings.finishedAt) return { success: true as const, alreadyFinished: true, next: null };
+        const s = context.settings;
+        await writeLaunchSettings(context.readme!.id, { finishedAt: new Date().toISOString() });
+        await db.delete(workspaceDocumentReminders).where(and(eq(workspaceDocumentReminders.docId, context.readme!.id), isNull(workspaceDocumentReminders.sentAt)));
+        let next: { docSlug: string; startsAt: string; carried: number } | null = null;
+        const [series] = s.seriesId ? await db.select().from(workspaceMeetingSeries).where(and(eq(workspaceMeetingSeries.id, s.seriesId), eq(workspaceMeetingSeries.projectId, projectId))).limit(1) : [];
+        if (series && !series.endedAt && s.startsAt && data.nextDocSlug) {
+            const nextCtx = await getDocProjectContext(projectId, userId, data.nextDocSlug);
+            if (nextCtx.readme && nextCtx.permission.canEdit && !nextCtx.settings.section) {
+                const { carryRows, nextOccurrence } = await import("@/lib/workflows/meetings");
+                const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
+                const { zonedParts } = await import("@/lib/workflows/request-clock");
+                const { tz } = await readWorkingHours(projectId);
+                const startsAt = nextOccurrence(series.rule, s.startsAt, tz);
+                const rows = await db.select({ id: tasks.id, status: tasks.status, stage: tasks.stage }).from(tasks)
+                    .where(and(isNull(tasks.deletedAt), eq(tasks.projectId, projectId), s.carriedTaskIds?.length
+                        ? sql`((${tasks.sourceDocId} = ${context.readme!.id} AND ${tasks.sourceBlock} = 'actions') OR ${tasks.id} IN (${sql.join(s.carriedTaskIds.map((i) => sql`${i}::uuid`), sql`, `)}))`
+                        : and(eq(tasks.sourceDocId, context.readme!.id), eq(tasks.sourceBlock, "actions"))));
+                const carried = data.carryOver ? carryRows(rows).map((r) => r.id) : [];
+                await writeLaunchSettings(nextCtx.readme.id, { section: "meetings", kind: s.kind ?? series.meetingType, meetingTitle: data.nextTitle ?? series.title, date: zonedParts(new Date(startsAt), tz).day, startsAt,
+                    lengthMinutes: series.lengthMinutes, attendeeIds: series.attendeeIds, seriesId: series.id, ...(carried.length ? { carriedTaskIds: carried } : {}) });
+                await scheduleMeetingReminders(nextCtx.readme.id, startsAt, series.attendeeIds);
+                next = { docSlug: data.nextDocSlug, startsAt, carried: carried.length };
+            }
+        }
+        revalidateProjectDoc(context.project);
+        return { success: true as const, alreadyFinished: false, next };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the meeting." };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t finish the meeting." };
+    }
+}
+
+const seriesSchema = z.object({ docSlug: docSlugSchema });
+/** W8: End the series: no more meetings are made; past and this one stay. */
+export async function endSeriesAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = seriesSchema.parse(input);
+        const context = await meetingDoc(projectId, userId, data.docSlug);
+        if (!context.settings.seriesId) return { success: false as const, error: "This meeting doesn’t repeat." };
+        await db.update(workspaceMeetingSeries).set({ endedAt: new Date() }).where(and(eq(workspaceMeetingSeries.id, context.settings.seriesId), eq(workspaceMeetingSeries.projectId, projectId)));
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t end the series." };
+    }
+}
+
+const moveMeetingSchema = z.object({ docSlug: docSlugSchema, startsAt: z.string().refine((v) => Number.isFinite(Date.parse(v)), "Pick the date and time"), lengthMinutes: z.number().int().min(5).max(600).optional() });
+/** W8: Edit this meeting: a new time for this one only (the series keeps its rule); reminders follow. */
+export async function moveMeetingAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = moveMeetingSchema.parse(input);
+        const context = await meetingDoc(projectId, userId, data.docSlug);
+        if (context.settings.finishedAt) return { success: false as const, error: "A finished meeting keeps its time." };
+        const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
+        const { zonedParts } = await import("@/lib/workflows/request-clock");
+        const startsAt = new Date(data.startsAt).toISOString();
+        await writeLaunchSettings(context.readme!.id, { startsAt, date: zonedParts(new Date(startsAt), (await readWorkingHours(projectId)).tz).day, ...(data.lengthMinutes ? { lengthMinutes: data.lengthMinutes } : {}) });
+        await scheduleMeetingReminders(context.readme!.id, startsAt, context.settings.attendeeIds ?? []);
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the time." };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t move the meeting." };
+    }
+}
+
+/** S7 and W9: the workspace's meetings (calendar, Overview, My work) and every open action item across them. Members only. */
+export async function readMeetingsAction(projectId: string) {
+    try {
+        const actor = await requireUserId();
+        const access = await getWorkspaceAccessById(projectId, actor);
+        if (!access.project || !(access.isOwner || access.isMember)) return { success: false as const, error: "Not found" };
+        const docs = Array.from(await db.execute<{ id: string; slug: string; filename: string; settings: Record<string, unknown> }>(sql`
+            SELECT id, slug, filename, settings FROM workspace_documents WHERE workspace_id = ${projectId}::uuid AND settings->>'section' = 'meetings'
+            ORDER BY settings->>'startsAt' DESC NULLS LAST LIMIT 500`));
+        const meetings = docs.map((d) => ({ docId: d.id, slug: d.slug, title: typeof d.settings.meetingTitle === "string" ? d.settings.meetingTitle : d.filename.replace(/\.md$/i, ""), type: String(d.settings.kind ?? "blank"),
+            startsAt: typeof d.settings.startsAt === "string" ? d.settings.startsAt : null, lengthMinutes: typeof d.settings.lengthMinutes === "number" ? d.settings.lengthMinutes : 30,
+            attendeeIds: Array.isArray(d.settings.attendeeIds) ? (d.settings.attendeeIds as string[]) : [], finished: Boolean(d.settings.finishedAt) }));
+        const byDoc = new Map(meetings.map((m) => [m.docId, m]));
+        const open = docs.length ? Array.from(await db.execute<{ id: string; task_number: number | null; title: string; status: string; due_date: string | null; assignee_id: string | null; assignee_name: string | null; source_doc_id: string }>(sql`
+            SELECT t.id, t.task_number, t.title, t.status, t.due_date::text AS due_date, t.assignee_id, p.full_name AS assignee_name, t.source_doc_id
+            FROM tasks t LEFT JOIN profiles p ON p.id = t.assignee_id
+            WHERE t.workspace_id = ${projectId}::uuid AND t.deleted_at IS NULL AND t.status <> 'done' AND t.source_block = 'actions'
+              AND t.source_doc_id IN (${sql.join(docs.map((d) => sql`${d.id}::uuid`), sql`, `)})
+            ORDER BY t.due_date NULLS LAST, t.created_at LIMIT 500`)) : [];
+        const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
+        const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
+            SELECT p.id, coalesce(p.full_name, p.username, 'Someone') AS name FROM profiles p
+            WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${projectId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${projectId}::uuid)
+            ORDER BY p.full_name`));
+        return {
+            success: true as const, projectKey: ws?.key ?? null, timeZone: (await readWorkingHours(projectId)).tz, viewerId: actor, meetings, people,
+            openActionItems: open.map((r) => ({ id: r.id, number: r.task_number, title: r.title, status: r.status, dueDate: r.due_date ? r.due_date.slice(0, 10) : null,
+                assigneeId: r.assignee_id, assigneeName: r.assignee_name, meeting: byDoc.get(r.source_doc_id) ? { slug: byDoc.get(r.source_doc_id)!.slug, title: byDoc.get(r.source_doc_id)!.title } : null })),
+        };
+    } catch (error) {
+        logger.error("meetings.list_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load meetings." };
     }
 }

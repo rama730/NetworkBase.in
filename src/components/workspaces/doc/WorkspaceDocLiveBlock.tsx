@@ -161,6 +161,7 @@ function Row({ row, taskKey, projectSlug, canEdit, first, last, onTick, onMove, 
         onChange={onTick} aria-label={`${done ? "Mark as not done" : "Complete"}: ${row.title}`} />
       <a href={href} className={cn("min-w-0 flex-1 truncate text-[13px] text-foreground hover:underline", done && !inReview && "text-muted-foreground line-through")}>{row.title}</a>
       {inReview ? <span className="text-[11px] text-muted-foreground">In review</span> : null}
+      {row.carried ? <span className="inline-flex h-5 shrink-0 items-center rounded-[3px] border border-border px-1.5 text-[10px] text-muted-foreground" data-testid="row-carried">Carried over</span> : null}
       {taskKey || row.number ? <span className="font-mono text-[11px] text-muted-foreground">{taskKey || `#${row.number}`}</span> : null}
       {row.assignee ? <span className="max-w-[8rem] truncate text-[12px] text-muted-foreground">{row.assignee.name ?? "Someone"}</span> : null}
       {row.dueDate ? <span className="font-mono text-[11px] text-muted-foreground">{shortDate(row.dueDate)}</span> : null}

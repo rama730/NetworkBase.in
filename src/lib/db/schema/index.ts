@@ -1102,6 +1102,44 @@ export const workspaceMemberPeriods = pgTable("workspace_member_periods", {
   userIdx: index("workspace_member_periods_user_idx").on(t.userId, t.endedAt.desc()),
 }));
 
+// Workflow tabs A4.1 (0115, report 38.11): meeting series, document reminders, personal .ics feed tokens. Server only.
+export const workspaceMeetingSeries = pgTable("workspace_meeting_series", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  meetingType: text("meeting_type").notNull(),
+  title: text("title").notNull(),
+  rule: text("rule", { enum: ["weekly", "biweekly", "weekdays", "monthly"] }).notNull(),
+  startsTime: text("starts_time").notNull(),
+  lengthMinutes: integer("length_minutes").notNull(),
+  attendeeIds: uuid("attendee_ids").array().default(sql`'{}'::uuid[]`).notNull(),
+  boardSize: integer("board_size"),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  workspaceIdx: index("workspace_meeting_series_workspace_idx").on(t.projectId).where(sql`ended_at IS NULL`),
+}));
+
+export const workspaceDocumentReminders = pgTable("workspace_document_reminders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  docId: uuid("doc_id").notNull().references(() => workspaceDocuments.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  remindAt: timestamp("remind_at", { withTimezone: true }).notNull(),
+  kind: text("kind").default("meeting_start").notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  dueIdx: index("workspace_document_reminders_due_idx").on(t.remindAt).where(sql`sent_at IS NULL`),
+  docIdx: index("workspace_document_reminders_doc_idx").on(t.docId),
+}));
+
+export const meetingFeedTokens = pgTable("meeting_feed_tokens", {
+  userId: uuid("user_id").primaryKey().references(() => profiles.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ============================================================================
 // ORGANIZATIONS (0241): server-only tables, no browser grants.
 // ============================================================================

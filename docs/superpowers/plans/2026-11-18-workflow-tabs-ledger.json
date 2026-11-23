@@ -8341,6 +8341,16 @@
       "status": "live",
       "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
       "evidence": "Live 2026-11-23 (see A3.1)."
+    },
+    {
+      "key": "38.11.call9",
+      "section": "38.11",
+      "text": "A4.1 (2026-11-23): A4.1 ships in two parts. A4.1a: Meetings' + opens New meeting (type, title defaulting to \"Meeting · Jan 7\", date and time in the workspace's ",
+      "kind": "call",
+      "milestone": "A4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

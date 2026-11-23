@@ -23,6 +23,8 @@ import { OrgDocHeader, uploadWorkspaceFile, useOrgDocs } from "@/components/orga
 import { MoveToSectionMenu } from "@/components/workspaces/doc/MoveToSectionMenu";
 import { DecisionMetaLine } from "@/components/workspaces/doc/DocDecisions";
 import { LaunchHeader } from "@/components/workspaces/doc/DocLaunch";
+import { MeetingHeader, OpenActionItems } from "@/components/workspaces/doc/DocMeeting";
+import { useSearchParams } from "next/navigation";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { docSectionOf } from "@/lib/workspaces/doc-sections";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
@@ -186,6 +188,7 @@ export function WorkspaceDocViewer({
     const listed = rail.docs.find((doc) => doc.slug === normalizedDocSlug);
     const addedWorkflows = useAddedWorkflows();
     const title = docTitle(orgDoc?.filename ?? listed?.filename ?? "");
+    const actionsView = useSearchParams()?.get("view") === "actions";
     const fileHref = payload.linkedNode ? `/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}` : null;
     
     const version = payload.version;
@@ -385,7 +388,9 @@ export function WorkspaceDocViewer({
                     ) : null}
                     {listed?.decisionNumber && docSectionOf(listed, addedWorkflows) === "decisions" ? <DecisionMetaLine projectId={project.id} doc={listed} /> : null}
                     {listed && docSectionOf(listed, addedWorkflows) === "launches" ? <LaunchHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
-                    {renderer}
+                    {listed && docSectionOf(listed, addedWorkflows) === "meetings" ? <MeetingHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
+                    {/* Report 38.11 W9 (A4.1): Documents → Open action items. */}
+                    {actionsView && addedWorkflows.includes("meetings") ? <OpenActionItems projectId={project.id} projectSlug={project.slug ?? project.id} /> : renderer}
                 </div>
                 <WorkspaceDocRail
                     projectId={project.id}

@@ -62,8 +62,10 @@ export const chatDue = inngest.createFunction(
     const reminders = await step.run("fire-reminders", () => fireDueReminders());
     // Task reminders (report C2, 0088): the same job, so no new function or scheduled runs.
     const tasks = await step.run("fire-task-reminders", () => fireDueTaskReminders());
+    // Meeting reminders (report 38.11 call 4, A4.1): the same job too.
+    const docs = await step.run("fire-document-reminders", async () => (await import("@/lib/workflows/meeting-reminders")).fireDueDocumentReminders());
     // More was due than one run takes: the rest goes now rather than at the next hourly run.
-    if (scheduled.due >= DUE_MESSAGE_LIMIT || reminders.reminders >= DUE_REMINDER_LIMIT || tasks.due >= TASK_REMINDER_LIMIT) await step.sendEvent("drain-more", { name: "chat/due.wake", data: {} });
+    if (scheduled.due >= DUE_MESSAGE_LIMIT || reminders.reminders >= DUE_REMINDER_LIMIT || tasks.due >= TASK_REMINDER_LIMIT || docs.docDue >= 200) await step.sendEvent("drain-more", { name: "chat/due.wake", data: {} });
     // Only the hourly run arms: this is the on-time guarantee for anything scheduled far ahead, so it uses Inngest's own retries.
     if (event.name !== "chat/due.wake") {
       // A1.6: "Ends in 3 days" for projects, once a project and end date (the hourly run only; dedupe keys hold).
@@ -72,6 +74,6 @@ export const chatDue = inngest.createFunction(
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }
     if (scheduled.due || reminders.reminders) logger.info("chat.due.completed", { module: "chat", count: scheduled.sent + reminders.reminders });
-    return { ...scheduled, ...reminders, ...tasks };
+    return { ...scheduled, ...reminders, ...tasks, ...docs };
   },
 );

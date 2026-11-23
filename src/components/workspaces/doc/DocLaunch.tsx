@@ -168,7 +168,8 @@ export function LaunchHeader({ projectId, docSlug }: { projectId: string; docSlu
       {dialog === "launch" ? <LaunchDialog openSteps={data.openSteps} openTitles={data.openTitles} ships={data.ships.length} busy={busy} onClose={() => setDialog(null)} onLaunch={async (markItems, postUpdate) => {
         const r = await run(launchAction(projectId, { docSlug, markItems }), "Launched");
         if (r && "update" in r && typeof r.update === "string" && postUpdate) {
-          try { await navigator.clipboard.writeText(r.update); toast("The release notes are copied · paste them into an Update"); } catch { toast("Write the release Update from What’s new"); }
+          const { copyText } = await import("@/lib/clipboard");
+          try { await copyText(r.update); toast("The release notes are copied · paste them into an Update"); } catch { toast("Write the release Update from What’s new"); }
         }
       }} /> : null}
       {dialog === "close" ? <ChoiceDialog title="Close launch" text={data.openSteps ? `${data.openSteps} steps are still open.` : "Every step is done."} choices={data.openSteps ? [["leave", "Leave them"], ["backlog", "Move them to the Backlog"]] : [["leave", "Close"]]} busy={busy}
