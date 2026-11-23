@@ -187,7 +187,7 @@ export function BugPanelSection({ projectId, taskId }: { projectId: string; task
           </div>
         );
       })()}
-      {reopen ? <ReopenBugDialog projectId={projectId} bug={{ id: taskId, label: "this bug" }} details={reopen === "details"} onDone={() => setReopen(null)} /> : null}
+      {reopen ? <ReopenBugDialog projectId={projectId} bug={{ id: taskId, label: `“${data.title}”` }} details={reopen === "details"} onDone={() => setReopen(null)} /> : null}
       <div className="flex items-center gap-2 text-[13px]">
         <span className="text-muted-foreground">{data.seenCount ? `${data.seenCount} ${data.seenCount === 1 ? "person sees" : "people see"} this too` : "Nobody else has said they see this"}</span>
         {data.reporter ? null : (

@@ -128,11 +128,11 @@ export function TaskStageControl({ projectId, task, canEdit, canPlanSprints, spr
         </DropdownMenu>
       ) : null}
       {closing ? (
-        <CloseBugDialog projectId={projectId} bug={{ id: task.id, title: task.title ?? "", label: task.title ? `“${task.title}”` : "this bug" }} reason={closing as never}
+        <CloseBugDialog projectId={projectId} bug={{ id: task.id, title: task.title ?? "", label: task.title ? `“${task.title}”` : "The bug" }} reason={closing as never}
           onDone={(done) => { setClosing(null); if (done) onMoved({ stage: closing, status: "done", onBoard: false, sprintId: null }); }} />
       ) : null}
       {reopening ? (
-        <ReopenBugDialog projectId={projectId} bug={{ id: task.id, label: task.title ? `“${task.title}”` : "this bug" }}
+        <ReopenBugDialog projectId={projectId} bug={{ id: task.id, label: task.title ? `“${task.title}”` : "The bug" }}
           onDone={(done) => { setReopening(false); if (done) onMoved({ stage: "confirmed", status: "todo", onBoard: false, sprintId: null }); }} />
       ) : null}
       <Dialog open={openWork !== null} onOpenChange={(open) => { if (!open && !busy) setOpenWork(null); }}>

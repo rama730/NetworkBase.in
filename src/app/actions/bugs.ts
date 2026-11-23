@@ -165,7 +165,7 @@ export async function readBugAction(projectId: string, taskId: string) {
   try {
     id.parse(projectId); id.parse(taskId);
     const { user, canTriage } = await insider(projectId);
-    const [row] = await db.select({ typeFields: tasks.typeFields, creatorId: tasks.creatorId, stage: tasks.stage }).from(tasks)
+    const [row] = await db.select({ typeFields: tasks.typeFields, creatorId: tasks.creatorId, stage: tasks.stage, title: tasks.title }).from(tasks)
       .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), eq(tasks.itemType, "bug"), isNull(tasks.deletedAt))).limit(1);
     if (!row) throw new Error("Not found");
     const fields = (row.typeFields ?? {}) as Record<string, unknown>;
@@ -174,7 +174,7 @@ export async function readBugAction(projectId: string, taskId: string) {
     const [original] = typeof fields.duplicateOf === "string" ? await db.select({ id: tasks.id, taskNumber: tasks.taskNumber, title: tasks.title, key: workspaces.key }).from(tasks)
       .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
       .where(and(eq(tasks.id, fields.duplicateOf), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1) : [];
-    return { success: true as const, fields, stage: row.stage, duplicateOf: original ? { id: original.id, label: original.key && original.taskNumber ? `${original.key}-${original.taskNumber}` : original.title, title: original.title } : null,
+    return { success: true as const, fields, stage: row.stage, title: row.title, duplicateOf: original ? { id: original.id, label: original.key && original.taskNumber ? `${original.key}-${original.taskNumber}` : original.title, title: original.title } : null,
       seeing: alsoSeen.includes(user.id), seenCount: alsoSeen.length, reporter: row.creatorId === user.id, canEdit: canTriage };
   } catch (error) {
     return fail(error, "Couldn’t load the bug");
