@@ -2660,7 +2660,9 @@ html[data-reduce-motion="true"] .nb-pixel-burst { display: none; }
 /* The one clay marker: slides to the open tab in every tab list and segmented row; the tabs drop their own line. */
 [data-marker] { position: relative; }
 .nb-tab-marker { position: absolute; left: 0; bottom: 0; z-index: 1; height: 2px; width: 0; opacity: 0; background: var(--nb-brand); pointer-events: none; transition: transform 300ms var(--nb-ease), width 300ms var(--nb-ease); }
-.nb-tab-marker[data-overlap] { bottom: -1px; }
+/* Underline tabs: the marker sits at the row's bottom edge, inside it. Placed 1px below, a row that scrolls sideways clipped
+   half of it and showed 1px (user, 2026-11-23: "should show a proper thickness", like Profile's). */
+.nb-tab-marker[data-overlap] { bottom: 0; }
 html[data-reduce-motion="true"] .nb-tab-marker { transition: none; }
 @media (prefers-reduced-motion: reduce) { .nb-tab-marker { transition: none; } }
 [data-marker] [role="tab"][aria-selected="true"], [data-marker] [role="tab"][data-state="active"] { border-bottom-color: transparent !important; box-shadow: none !important; }

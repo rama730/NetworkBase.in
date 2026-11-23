@@ -7,8 +7,8 @@ const OPEN = '[role="tab"][aria-selected="true"], [role="tab"][data-state="activ
 
 /**
  * The one clay marker (controls round 2): put it inside any tab list or segmented row and it slides, 300 ms, to the open
- * tab. The list's tabs then drop their own underline (globals.css, [data-marker]). `overlap` sits it on the list's
- * bottom hairline, for underline tabs.
+ * tab. The list's tabs then drop their own underline (globals.css, [data-marker]). `overlap` marks underline tabs; the
+ * marker stays inside the row's bottom edge at its full 2px (a row that scrolls clips anything below it).
  */
 export function TabMarker({ overlap = false }: { overlap?: boolean }) {
   const ref = useRef<HTMLSpanElement>(null);
