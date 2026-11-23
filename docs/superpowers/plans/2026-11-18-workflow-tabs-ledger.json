@@ -8321,6 +8321,16 @@
       "status": "todo",
       "test": "",
       "evidence": ""
+    },
+    {
+      "key": "38.10.call7",
+      "section": "38.10",
+      "text": "A3.1 (2026-11-23): Presets are data in code (src/lib/workflows/launches.ts), not Markdown files, so the browser can write the document and the server the steps ",
+      "kind": "call",
+      "milestone": "A3",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

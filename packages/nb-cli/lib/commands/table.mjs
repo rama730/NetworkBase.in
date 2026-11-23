@@ -288,6 +288,8 @@ export const COMMANDS = [
     flags: { type: { type: "string", describe: "feature, improvement, fix or milestone", valueName: "type" }, column: { type: "string", describe: "now, next or later (default next)", valueName: "column" },
       milestone: { type: "string", describe: "With --type milestone: Concept, Prototype, Vertical slice, Alpha, Beta or Release", valueName: "name" }, outcome: { type: "string", describe: "What changes for people (one line)", valueName: "text" } },
     examples: ["nb roadmap add \"SSO sign-in\" --type feature --column next --outcome \"People sign in with their company account\""] },
+  { group: "Tasks", name: "launches list", summary: "Launches with their date, stage and steps", usage: "nb launches list [--all]", module: "launches", fn: "list",
+    flags: { all: { type: "boolean", describe: "Closed and canceled launches too" } } },
   { group: "Tasks", name: "task done", summary: "Finish a task (sends it for review when required)", usage: "nb task done [task] [-m summary] [--check name=pass]", module: "tasks", fn: "done",
     flags: { ...MESSAGE, check: { type: "string", multiple: true, describe: "A check you ran: name=pass|fail[:note]", valueName: "check" } } },
   { group: "Tasks", name: "task review", summary: "Approve or ask for changes (reviewers)", usage: "nb task review <task> approve|changes [-m reason]", module: "tasks", fn: "review", flags: { ...MESSAGE } },

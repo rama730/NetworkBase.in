@@ -19,7 +19,8 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { formatTaskId } from "@/lib/workspace-key";
 import { addDayKeys, barGeometry, daysBetween, localDayKey, timelineRange, ZOOM_DAY_PX } from "@/lib/workflows/planner";
-import { backlogOrder, COLUMN_LABEL, COLUMNS, ITEM_TYPE_LABEL, onColumnBoard, timelineSpan, type Column } from "@/lib/workflows/roadmap";
+import { backlogOrder, COLUMN_LABEL, COLUMNS, ITEM_TYPE_LABEL, nextLaunch, onColumnBoard, timelineSpan, type Column } from "@/lib/workflows/roadmap";
+import { countdown } from "@/lib/workflows/launches";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { buildTaskSubmitPayload } from "@/lib/workspaces/task-draft";
 import { normalizeSprintOptions } from "@/lib/workspaces/task-presentation";
@@ -89,6 +90,7 @@ export function RoadmapTab({ projectId, projectSlug, projectName, members, sprin
         <span className="font-mono text-[11px] text-muted-foreground">{name(r)}</span>
         <span className="ml-auto truncate text-[11px] text-muted-foreground">{r.assigneeName ?? ""}</span>
       </div>
+      {r.launch ? <p className="truncate text-[11px] text-muted-foreground" data-testid="ships-in">Ships in <span className="font-medium text-foreground">{r.launch.name}</span>{r.launch.date ? <span className="font-mono"> · {r.launch.date}</span> : null}</p> : null}
       {r.progress !== null ? (
         <div className="flex items-center gap-2" aria-label={`${r.progress}% of its work done`}>
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${r.progress}%` }} /></div>
@@ -123,7 +125,7 @@ export function RoadmapTab({ projectId, projectSlug, projectName, members, sprin
     <section aria-label="Roadmap" className="space-y-4" data-testid="roadmap-tab">
       <div className="flex flex-wrap items-center gap-3 border-b border-border pb-3">
         <h2 className="inline-flex items-center gap-2 text-[20px] font-semibold tracking-tight"><MapIcon aria-hidden="true" className="size-5" />Roadmap</h2>
-        <span className="font-mono text-[12px] text-muted-foreground" data-testid="roadmap-counts">{inColumn("now").length} now · {inColumn("next").length} next</span>
+        <span className="font-mono text-[12px] text-muted-foreground" data-testid="roadmap-counts">{inColumn("now").length} now · {inColumn("next").length} next{(() => { const n = nextLaunch(data?.launches ?? [], localDayKey()); return n ? ` · next launch ${countdown(n.date!, localDayKey())}` : ""; })()}</span>
         <div className="ml-auto flex items-center gap-2">
           {data?.canEdit ? <button type="button" onClick={() => setCreating("next")} className={FORM_PRIMARY_CLASS}>New item</button> : null}
         </div>
@@ -138,7 +140,7 @@ export function RoadmapTab({ projectId, projectSlug, projectName, members, sprin
             tabs={[{ key: "columns" as const, label: "Now · Next · Later" }, { key: "stages" as const, label: "By stage" }, { key: "timeline" as const, label: "Timeline" }, { key: "backlog" as const, label: "Backlog" }]} />
           <div id={`roadmap-view-panel-${view}`} role="tabpanel" aria-labelledby={`roadmap-view-tab-${view}`} className="space-y-3">
             {!live.length && (view === "columns" || view === "stages") ? <p className="text-[13px] text-muted-foreground" data-testid="roadmap-empty">Put what you’re building now in Now. Work tasks go on the Tasks board.</p> : null}
-            {view === "timeline" ? <RoadmapTimeline items={live} href={href} name={name} /> : null}
+            {view === "timeline" ? <RoadmapTimeline items={live} launches={data.launches} projectSlug={projectSlug} href={href} name={name} /> : null}
             {view === "backlog" ? <RoadmapBacklog items={items.filter((i) => (i.stage ?? "backlog") === "backlog")} canEdit={Boolean(data.canEdit)} href={href} name={name}
               onMove={async (taskId, beforeId) => { const r = await moveBacklogAction({ projectId, taskId, beforeId }); if (!r.success) return void toast.error(r.error); await refresh(); }} /> : null}
             {view === "timeline" || view === "backlog" ? null : view === "columns" ? <div className="grid gap-3 md:grid-cols-3">{COLUMNS.map(column)}</div> : (
@@ -173,7 +175,9 @@ export function RoadmapTab({ projectId, projectSlug, projectName, members, sprin
 }
 
 /** W8 and S4 (A2.11): T1's month grid; items as bars from their first work start to the target date, milestones as diamonds. */
-function RoadmapTimeline({ items, href, name }: { items: RoadmapRow[]; href: (id: string) => string; name: (r: RoadmapRow) => string }) {
+function RoadmapTimeline({ items, launches, projectSlug, href, name }: {
+  items: RoadmapRow[]; launches: Array<{ slug: string; name: string; date: string | null; stage: string }>; projectSlug: string; href: (id: string) => string; name: (r: RoadmapRow) => string;
+}) {
   const today = localDayKey();
   const range = timelineRange("month", today);
   const px = ZOOM_DAY_PX.month;
@@ -196,6 +200,18 @@ function RoadmapTimeline({ items, href, name }: { items: RoadmapRow[]; href: (id
             <div className="relative flex-1">{months.map((m) => <span key={m.key} className="absolute top-1.5 font-mono" style={{ left: m.left * px + 4 }}>{new Date(`${m.key}T00:00:00`).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</span>)}</div>
           </div>
           <ul>
+            {/* A3.1 (T2 W8): launches as Clay diamonds on their own row. */}
+            {launches.some((l) => l.date) ? (
+              <li className="flex h-9 items-center border-b border-border/60" data-testid="timeline-launches">
+                <div className="sticky left-0 z-10 flex h-full w-[220px] shrink-0 items-center border-r border-border/60 bg-card px-3 text-[12px] font-semibold text-muted-foreground">Launches</div>
+                <div className="relative h-full flex-1">
+                  {launches.filter((l) => l.date).map((l) => { const g = barGeometry(l.date!, l.date!, range); return g && "left" in g ? (
+                    <a key={l.slug} href={`/workspaces/${encodeURIComponent(projectSlug)}?tab=docs&doc=${encodeURIComponent(l.slug)}`} role="img" aria-label={`Launch ${l.name} on ${l.date}`} title={`${l.name} · ${l.date}`}
+                      className="absolute top-3 size-3 rotate-45 bg-primary" style={{ left: g.left * px + px / 2 - 6 }} />
+                  ) : null; })}
+                </div>
+              </li>
+            ) : null}
             {dated.map(({ r, span }) => {
               const g = span!.kind === "diamond" ? barGeometry(span!.date, span!.date, range) : barGeometry(span!.start, span!.end, range);
               return (

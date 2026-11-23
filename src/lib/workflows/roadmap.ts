@@ -85,3 +85,8 @@ export function backlogOrder<T extends { createdAt: string; typeFields: Record<s
     return b.createdAt.localeCompare(a.createdAt);
   });
 }
+
+/** A3.1 S7: the next launch that hasn't launched, today or later ("next launch v2.4 in 23 days"). */
+export function nextLaunch(launches: Array<{ name: string; date: string | null; stage: string }>, today: string) {
+  return launches.filter((l) => l.date && l.date >= today && (l.stage === "planning" || l.stage === "getting_ready")).sort((a, b) => a.date!.localeCompare(b.date!))[0] ?? null;
+}

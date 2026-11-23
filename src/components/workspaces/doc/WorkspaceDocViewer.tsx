@@ -22,6 +22,7 @@ import { WorkspaceDocRail, WorkspaceDocMobileBar, useDocRail } from "@/component
 import { OrgDocHeader, uploadWorkspaceFile, useOrgDocs } from "@/components/organizations/OrgDocParts";
 import { MoveToSectionMenu } from "@/components/workspaces/doc/MoveToSectionMenu";
 import { DecisionMetaLine } from "@/components/workspaces/doc/DocDecisions";
+import { LaunchHeader } from "@/components/workspaces/doc/DocLaunch";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { docSectionOf } from "@/lib/workspaces/doc-sections";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
@@ -383,6 +384,7 @@ export function WorkspaceDocViewer({
                         </div>
                     ) : null}
                     {listed?.decisionNumber && docSectionOf(listed, addedWorkflows) === "decisions" ? <DecisionMetaLine projectId={project.id} doc={listed} /> : null}
+                    {listed && docSectionOf(listed, addedWorkflows) === "launches" ? <LaunchHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
                     {renderer}
                 </div>
                 <WorkspaceDocRail

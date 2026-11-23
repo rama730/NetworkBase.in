@@ -106,6 +106,7 @@ export function RoadmapPanelSection({ projectId, taskId }: { projectId: string; 
             </select></SelectWrap>
           ) : !builtBy.length ? "—" : null}
         </dd>
+        {item.launch ? <><dt className="text-muted-foreground">Ships in</dt><dd>{item.launch.name}{item.launch.date ? <span className="font-mono text-[12px] text-muted-foreground"> · {item.launch.date}</span> : null}</dd></> : null}
         <dt className="text-muted-foreground">Progress</dt>
         <dd className="font-mono text-[12px]" data-testid="roadmap-progress">{item.progress === null ? "No work yet" : `${item.progress}% · ${item.workCount - item.openWork} of ${item.workCount} work tasks done`}</dd>
         {item.stage === "wont_do" && f.wontDoReason ? <><dt className="text-muted-foreground">Won’t do</dt><dd className="whitespace-pre-wrap">{String(f.wontDoReason)}</dd></> : null}

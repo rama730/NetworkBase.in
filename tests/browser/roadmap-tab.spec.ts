@@ -13,16 +13,16 @@ async function open(page: Page, opts: { width?: number; empty?: boolean; canEdit
     (window as any).__calls = calls;
     const item = (id: string, n: number, title: string, stage: string, tf: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({ id, taskNumber: n, title, stage,
       status: stage === 'launched' || stage === 'wont_do' ? 'done' : stage === 'in_progress' || stage === 'testing' ? 'in_progress' : 'todo', priority: 'medium', dueDate: null,
-      assigneeId: 'u1', assigneeName: 'Asha', createdAt: '2026-11-20T09:00:00.000Z', typeFields: tf, progress: null, workCount: 0, openWork: 0, workStart: null, requests: 0, ...extra });
+      assigneeId: 'u1', assigneeName: 'Asha', createdAt: '2026-11-20T09:00:00.000Z', typeFields: tf, progress: null, workCount: 0, openWork: 0, workStart: null, requests: 0, launch: null, ...extra });
     const items = empty ? [] : [
-      item('r1', 150, 'SSO sign-in', 'in_progress', { column: 'now', itemType: 'feature', outcome: 'People sign in with their company account', builtBy: ['p1'] }, { progress: 50, workCount: 4, openWork: 2, workStart: '2026-11-10', dueDate: '2026-12-15' }),
+      item('r1', 150, 'SSO sign-in', 'in_progress', { column: 'now', itemType: 'feature', outcome: 'People sign in with their company account', builtBy: ['p1'] }, { progress: 50, workCount: 4, openWork: 2, workStart: '2026-11-10', dueDate: '2026-12-15', launch: { slug: 'v2-4', name: 'v2.4', date: '2026-12-18' } }),
       item('r2', 151, 'Faster search', 'planned', { column: 'next', itemType: 'improvement' }),
       item('r3', 152, 'Alpha build', 'backlog', { column: 'later', itemType: 'milestone', milestone: 'Alpha' }, { dueDate: '2026-12-20' }),
       item('r5', 154, 'Dark mode', 'backlog', { itemType: 'improvement' }, { requests: 3, createdAt: '2026-11-22T09:00:00.000Z' }),
       item('r4', 153, 'Old export', 'launched', { column: 'now', itemType: 'fix' }),
     ];
     (window as any).__actions = {
-      readRoadmapAction: async () => ({ success: true, projectKey: 'AC', items, projects: [{ id: 'p1', title: 'Auth rework', taskNumber: 90 }, { id: 'p2', title: 'Search index', taskNumber: 91 }], canEdit, viewerId: 'u1' }),
+      readRoadmapAction: async () => ({ success: true, projectKey: 'AC', items, launches: empty ? [] : [{ slug: 'v2-4', name: 'v2.4', date: '2026-12-18', stage: 'planning' }], projects: [{ id: 'p1', title: 'Auth rework', taskNumber: 90 }, { id: 'p2', title: 'Search index', taskNumber: 91 }], canEdit, viewerId: 'u1' }),
       moveRoadmapColumnAction: async (input: unknown) => { calls.push(['column', input]); return { success: true, stage: 'planned' }; },
       setRoadmapFieldsAction: async (input: unknown) => { calls.push(['fields', input]); return { success: true }; },
       moveBacklogAction: async (input: unknown) => { calls.push(['backlog', input]); return { success: true }; },
@@ -43,7 +43,8 @@ test('W1: an empty roadmap shows three columns, the hint and New item', async ({
 
 test('W2–W3: cards sit in their columns (Launched leaves); Move to Now from the card menu; By stage', async ({ page }) => {
   await open(page);
-  await expect(page.getByTestId('roadmap-counts')).toHaveText('1 now · 1 next');
+  await expect(page.getByTestId('roadmap-counts')).toHaveText('1 now · 1 next · next launch in 23 days');
+  await expect(page.getByTestId('ships-in')).toHaveText('Ships in v2.4 · 2026-12-18');
   const now = page.getByRole('region', { name: 'Now' });
   await expect(now.getByTestId('roadmap-card')).toHaveCount(1);
   await expect(now).toContainText(/SSO sign-in.*People sign in.*Feature.*In progress.*50%/);
@@ -95,6 +96,7 @@ test('A2.11 W8: Timeline draws bars from the first work start, milestones as dia
   await expect(tl.getByLabel('Milestone Alpha on 2026-12-20')).toBeVisible();
   await expect(tl.getByTitle('SSO sign-in · 2026-11-10 → 2026-12-15')).toHaveText('50%');
   await expect(page.getByTestId('timeline-no-dates')).toContainText('Faster search');
+  await expect(tl.getByRole('img', { name: 'Launch v2.4 on 2026-12-18' })).toBeVisible();
   expect(await axeViolations(page)).toEqual([]);
   await page.screenshot({ path: 'test-results/roadmap-tab/timeline.png' });
 });

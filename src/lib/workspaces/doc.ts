@@ -39,6 +39,10 @@ export type WorkspaceDocSettings = {
     decisionNumber?: number;
     decisionStatus?: DecisionStatus;
     fromDocId?: string;
+    /** Report 38.10 (A3.1): a launch's stage, version label (matched to bugs' Fixed in) and when it launched. */
+    launchStage?: "planning" | "getting_ready" | "launched" | "closed" | "cancelled";
+    versionLabel?: string;
+    launchedAt?: string;
 };
 
 export type DecisionStatus = "proposed" | "decided" | "superseded" | "reversed";
@@ -133,6 +137,9 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(Number.isInteger(source.decisionNumber) && source.decisionNumber! > 0 ? { decisionNumber: source.decisionNumber } : {}),
         ...(DECISION_STATUSES.includes(source.decisionStatus as DecisionStatus) ? { decisionStatus: source.decisionStatus } : {}),
         ...(typeof source.fromDocId === "string" && /^[0-9a-f-]{36}$/i.test(source.fromDocId) ? { fromDocId: source.fromDocId } : {}),
+        ...(["planning", "getting_ready", "launched", "closed", "cancelled"].includes(source.launchStage as string) ? { launchStage: source.launchStage } : {}),
+        ...(typeof source.versionLabel === "string" && source.versionLabel.trim() && source.versionLabel.length <= 40 ? { versionLabel: source.versionLabel.trim() } : {}),
+        ...(typeof source.launchedAt === "string" && Number.isFinite(Date.parse(source.launchedAt)) ? { launchedAt: source.launchedAt } : {}),
     };
 }
 

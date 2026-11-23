@@ -1442,3 +1442,225 @@ export async function readDocRowKeysAction(projectId: string, docSlug: string) {
         return { success: false as const, error: "Couldn’t count the lists." };
     }
 }
+
+// ── Report 38.10 D2 (plan A3.1): launch checklists ──────────────────────────────────────────────────────────────────
+const launchDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the launch date");
+const createLaunchSchema = z.object({ docSlug: docSlugSchema, date: launchDateSchema, preset: z.string().regex(/^[a-z_]{1,40}$/), versionLabel: z.string().trim().max(40).optional() });
+
+async function launchDoc(projectId: string, userId: string, docSlug: string, needEdit = true) {
+    const context = await getDocProjectContext(projectId, userId, docSlug);
+    if (!context.readme) throw new Error("That launch isn’t here any more.");
+    if (needEdit && !context.permission.canEdit) throw new Error("Only people who can edit this launch change it.");
+    if (context.settings.section !== "launches") throw new Error("That document isn’t a launch.");
+    return context;
+}
+async function writeLaunchSettings(docId: string, patch: Record<string, unknown>) {
+    const [row] = await db.select({ settings: workspaceDocuments.settings }).from(workspaceDocuments).where(eq(workspaceDocuments.id, docId)).limit(1);
+    const next = normalizeWorkspaceDocSettings({ ...(row?.settings as object ?? {}), ...patch });
+    await db.update(workspaceDocuments).set({ settings: next, updatedAt: new Date() }).where(eq(workspaceDocuments.id, docId));
+    return next;
+}
+
+/**
+ * W1: the browser makes the document's file from the preset (launchMarkdown); this files it under Launches with its
+ * date, preset and Planning, and adds the preset's steps as unassigned, undated tasks in their stage's block (call 3).
+ */
+export async function createLaunchAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = createLaunchSchema.parse(input);
+        const { launchPreset, stageBlockKey } = await import("@/lib/workflows/launches");
+        const preset = launchPreset(data.preset);
+        if (!preset) return { success: false as const, error: "Pick a preset" };
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents make launches." };
+        const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+        if (!availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("launches")) return { success: false as const, error: "Add Launch checklists first." };
+        await writeLaunchSettings(context.readme.id, { section: "launches", kind: preset.id, date: data.date, launchStage: "planning", ...(data.versionLabel ? { versionLabel: data.versionLabel } : {}) });
+        const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
+        for (const [i, stage] of preset.stages.entries()) {
+            for (const [p, title] of stage.steps.entries()) {
+                const made = await createTaskAction({ projectId, title, status: "todo", priority: "medium", assigneeId: null, dueDate: null });
+                if (made.success && "task" in made && made.task) await db.update(tasks).set({ sourceDocId: context.readme.id, sourceBlock: stageBlockKey(i), sourcePosition: p + 1 }).where(eq(tasks.id, made.task.id));
+            }
+        }
+        await recordNodeEvent(projectId, userId, null, "project_readme.launch_created", { docSlug: data.docSlug, preset: preset.id });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the launch." };
+        logger.error("launches.create_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t make the launch." };
+    }
+}
+
+/** S1–S4: the launch's header, progress, what ships and the What's new draft. Readers of the document only. */
+export async function readLaunchAction(projectId: string, docSlug: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const context = await getDocProjectContext(projectId, actor, docSlug);
+        if (!context.readme || !(context.permission.canReadPublished || context.permission.canEdit) || context.settings.section !== "launches") return { success: false as const, error: "Launch not found." };
+        const insider = actor === context.project.ownerId || Boolean(context.membership);
+        const { launchProgress, whatsNew } = await import("@/lib/workflows/launches");
+        const steps = await db.select({ status: tasks.status, stage: tasks.stage, dueDate: tasks.dueDate }).from(tasks)
+            .where(and(eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt))).limit(MAX_BLOCK_ROWS * 10);
+        const ships = insider ? Array.from(await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; item_type: string | null }>(sql`
+            SELECT id, task_number, title, stage, type_fields->>'itemType' AS item_type FROM tasks
+            WHERE workspace_id = ${projectId}::uuid AND item_type = 'roadmap_item' AND deleted_at IS NULL AND type_fields->>'launchDocId' = ${context.readme.id}
+            ORDER BY task_number`)) : [];
+        const version = context.settings.versionLabel ?? null;
+        const bugs = insider && version ? Array.from(await db.execute<{ title: string; fixed_in: string | null }>(sql`
+            SELECT title, type_fields->>'fixedIn' AS fixed_in FROM tasks WHERE workspace_id = ${projectId}::uuid AND item_type = 'bug' AND deleted_at IS NULL
+              AND lower(trim(type_fields->>'fixedIn')) = lower(${version})`)) : [];
+        const today = new Date().toISOString().slice(0, 10);
+        return {
+            success: true as const, docId: context.readme.id, canEdit: context.permission.canEdit, member: insider,
+            date: context.settings.date ?? null, stage: context.settings.launchStage ?? "planning", preset: context.settings.kind ?? null, versionLabel: version,
+            launchedAt: context.settings.launchedAt ?? null, progress: launchProgress(steps),
+            openSteps: steps.filter((s) => s.status !== "done" && s.stage !== "cancelled").length,
+            overdue: steps.filter((s) => s.status !== "done" && s.dueDate && s.dueDate.toISOString().slice(0, 10) < today).length,
+            ships: ships.map((s) => ({ id: s.id, number: s.task_number, title: s.title, stage: s.stage, itemType: s.item_type ?? "feature" })),
+            whatsNew: whatsNew(ships.map((s) => ({ title: s.title, itemType: s.item_type })), bugs.map((b) => ({ title: b.title, fixedIn: b.fixed_in })), version),
+        };
+    } catch (error) {
+        logger.error("launches.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load the launch." };
+    }
+}
+
+const shipsSchema = z.object({ docSlug: docSlugSchema, itemId: z.string().uuid(), on: z.boolean() });
+/** W3: Add item / Remove: a roadmap item ships in this launch (T2's launchDocId; one launch per item). */
+export async function setLaunchShipsAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = shipsSchema.parse(input);
+        const context = await launchDoc(projectId, userId, data.docSlug);
+        const { lockTaskForWrite } = await import("@/lib/workspaces/task-transition-service");
+        await db.transaction(async (tx) => {
+            const locked = await lockTaskForWrite(tx, data.itemId, userId);
+            if (locked.projectId !== projectId || locked.itemType !== "roadmap_item") throw new Error("Pick a roadmap item from this workspace");
+            await tx.update(tasks).set({ typeFields: data.on ? sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || ${JSON.stringify({ launchDocId: context.readme!.id })}::jsonb` : sql`${tasks.typeFields} - 'launchDocId'`, updatedAt: new Date() }).where(eq(tasks.id, data.itemId));
+        });
+        return { success: true as const };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t change what ships." };
+    }
+}
+
+const launchSchema = z.object({ docSlug: docSlugSchema, markItems: z.boolean() });
+/**
+ * W5 and call 4: Launch now. Launched; the items that ship become Launched when asked (each move is the editor's own,
+ * with its checks). Returns the release Update's text to prefill; it never posts.
+ */
+export async function launchAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = launchSchema.parse(input);
+        const context = await launchDoc(projectId, userId, data.docSlug);
+        if (context.settings.launchStage === "launched" || context.settings.launchStage === "closed") return { success: false as const, error: "It’s launched already." };
+        if (context.settings.launchStage === "cancelled") return { success: false as const, error: "This launch was canceled." };
+        await writeLaunchSettings(context.readme!.id, { launchStage: "launched", launchedAt: new Date().toISOString() });
+        const read = await readLaunchAction(projectId, data.docSlug);
+        let marked = 0;
+        if (data.markItems && read.success) {
+            const { setTaskStageAction } = await import("@/app/actions/task");
+            for (const item of read.ships.filter((s) => s.stage !== "launched" && s.stage !== "wont_do")) if ((await setTaskStageAction({ projectId, taskId: item.id, stage: "launched" })).success) marked += 1;
+        }
+        // Part 8: people with steps hear it launched (Summary); roadmap assignees hear it from their item's move.
+        const people = await db.selectDistinct({ id: tasks.assigneeId }).from(tasks).where(and(eq(tasks.sourceDocId, context.readme!.id), isNull(tasks.deletedAt), sql`${tasks.assigneeId} IS NOT NULL`, sql`${tasks.assigneeId} <> ${userId}::uuid`));
+        if (people.length) {
+            const { createNotification } = await import("@/lib/notifications/service");
+            const name = context.readme!.filename.replace(/\.md$/i, "");
+            for (const p of people) await createNotification({
+                recipientUserId: p.id!, actorUserId: userId, kind: "project_task_activity", category: "tasks", importance: "more", title: `Launched: ${name}`,
+                href: `/workspaces/${encodeURIComponent(context.project.slug || projectId)}?tab=docs&doc=${encodeURIComponent(data.docSlug)}`,
+                entityRefs: { projectId, projectSlug: context.project.slug ?? null }, dedupeKey: `launch-launched:${context.readme!.id}:${p.id}`,
+            }).catch(() => undefined);
+        }
+        const w = read.success ? read.whatsNew : { added: [], improved: [], fixed: [] };
+        const group = (label: string, list: string[]) => (list.length ? `**${label}**\n${list.map((t) => `- ${t}`).join("\n")}\n` : "");
+        const update = [`${context.readme!.filename.replace(/\.md$/i, "")} is out.`, group("Added", w.added), group("Improved", w.improved), group("Fixed", w.fixed)].filter(Boolean).join("\n");
+        revalidateProjectDoc(context.project);
+        return { success: true as const, marked, update };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t launch." };
+    }
+}
+
+const closeSchema = z.object({ docSlug: docSlugSchema, remaining: z.enum(["leave", "backlog"]) });
+/**
+ * W6 and call 6: Close launch, with what happens to open steps: leave them, or move them to the Backlog (out of their
+ * sprints). Steps are plain tasks with no Canceled state, so "Cancel them" isn't offered (call 7).
+ */
+export async function closeLaunchAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = closeSchema.parse(input);
+        const context = await launchDoc(projectId, userId, data.docSlug);
+        if (context.settings.launchStage !== "launched") return { success: false as const, error: "Close a launch once it’s launched." };
+        await settleOpenSteps(projectId, context.readme!.id, data.remaining);
+        await writeLaunchSettings(context.readme!.id, { launchStage: "closed" });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t close the launch." };
+    }
+}
+async function settleOpenSteps(projectId: string, docId: string, remaining: "leave" | "backlog") {
+    if (remaining === "leave") return;
+    const open = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.sourceDocId, docId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`, sql`${tasks.sprintId} IS NOT NULL`));
+    const { updateTaskFieldAction } = await import("@/app/actions/task");
+    for (const s of open) await updateTaskFieldAction(s.id, "sprintId", null, projectId);
+}
+
+const moveDateSchema = z.object({ docSlug: docSlugSchema, date: launchDateSchema, shiftSteps: z.boolean() });
+/** W7: a new launch date; the steps' due dates move by the same days when asked (undated steps stay undated). */
+export async function moveLaunchDateAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = moveDateSchema.parse(input);
+        const context = await launchDoc(projectId, userId, data.docSlug);
+        const before = context.settings.date;
+        await writeLaunchSettings(context.readme!.id, { date: data.date });
+        let moved = 0;
+        if (data.shiftSteps && before) {
+            const days = Math.round((Date.parse(`${data.date}T00:00:00Z`) - Date.parse(`${before}T00:00:00Z`)) / 86_400_000);
+            const steps = await db.select({ id: tasks.id, dueDate: tasks.dueDate }).from(tasks).where(and(eq(tasks.sourceDocId, context.readme!.id), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`));
+            const { shiftDates } = await import("@/lib/workflows/launches");
+            const { updateTaskFieldAction } = await import("@/app/actions/task");
+            for (const s of shiftDates(steps.map((x) => ({ id: x.id, dueDate: x.dueDate ? x.dueDate.toISOString() : null })), days)) {
+                if (s.dueDate && (await updateTaskFieldAction(s.id, "dueDate", `${s.dueDate}T00:00:00.000Z`, projectId)).success) moved += 1;
+            }
+        }
+        revalidateProjectDoc(context.project);
+        return { success: true as const, moved };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the date." };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t move the launch." };
+    }
+}
+
+const cancelSchema = z.object({ docSlug: docSlugSchema, backlogSteps: z.boolean() });
+/** W8: Cancel launch: the items it shipped go back to Planned and stop pointing at it; open steps go to the Backlog when asked. */
+export async function cancelLaunchAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = cancelSchema.parse(input);
+        const context = await launchDoc(projectId, userId, data.docSlug);
+        if (context.settings.launchStage === "launched" || context.settings.launchStage === "closed") return { success: false as const, error: "A launched launch is closed, not canceled." };
+        const read = await readLaunchAction(projectId, data.docSlug);
+        if (read.success) {
+            const { setTaskStageAction } = await import("@/app/actions/task");
+            for (const item of read.ships) {
+                await setLaunchShipsAction(projectId, { docSlug: data.docSlug, itemId: item.id, on: false });
+                if (item.stage === "testing" || item.stage === "in_progress") await setTaskStageAction({ projectId, taskId: item.id, stage: "planned" });
+            }
+        }
+        if (data.backlogSteps) await settleOpenSteps(projectId, context.readme!.id, "backlog");
+        await writeLaunchSettings(context.readme!.id, { launchStage: "cancelled" });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t cancel the launch." };
+    }
+}

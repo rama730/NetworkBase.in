@@ -178,6 +178,8 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/workspaces/${ID}/content`), read: "task:read", agent: "path" },
   // A workspace’s roadmap items, read-only (report 38.9 W12, nb roadmap list).
   { pattern: route(`/api/v1/workspaces/${ID}/roadmap`), read: "task:read", agent: "path" },
+  // A workspace’s launches, read-only (report 38.10 W10, nb launches list).
+  { pattern: route(`/api/v1/workspaces/${ID}/launches`), read: "task:read", agent: "path" },
   { pattern: route(`/api/v1/workspaces/${ID}/manifest`), read: "file:read", agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/image`), read: "workspace:read" },
   // One workspace, its activity and sprints, and updates (report A2.5, A8.7, D25).

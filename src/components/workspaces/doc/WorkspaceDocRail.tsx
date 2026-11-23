@@ -22,6 +22,7 @@ import { FromOrgDocs, OrgDocChips, useOrgDocs } from "@/components/organizations
 import { docTitle } from "@/lib/organizations/doc-rules";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { railSections, type DocSection } from "@/lib/workspaces/doc-sections";
+import { NewLaunchDialog } from "@/components/workspaces/doc/DocLaunch";
 
 const EMPTY_LINE: Record<DocSection, string> = {
     pages: "+ New page", meetings: "+ New meeting", decisions: "+ Record a decision", launches: "+ New launch",
@@ -92,7 +93,9 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
 
     const dialogs = (
         <>
-            <AddDocDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} section={addSection} />
+            {/* Report 38.10 W1 (A3.1): Launches' + makes a launch (name, date, preset), not a blank document. */}
+            {addSection === "launches" ? <NewLaunchDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
+                : <AddDocDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} section={addSection} />}
             <RecordDecisionDialog projectId={projectId} open={recording} onOpenChange={setRecording} />
             <ConfirmDialog
                 open={removing !== null}
