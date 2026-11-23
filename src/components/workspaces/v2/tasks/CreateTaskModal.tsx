@@ -12,6 +12,7 @@ import type { WorkspaceNode } from "@/lib/db/schema";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { footerLine, moduleTabs, sectionsFor, sprintApplies, startingStages } from "@/lib/workflows/create-rules";
 import { BugDetailsFields, BugSimilar, readBugFields } from "@/components/workspaces/v2/tasks/BugParts";
+import { readRequestFields, RequestDetailsFields } from "@/components/workspaces/v2/tasks/RequestParts";
 import { defaultStageFor } from "@/lib/workflows/rules";
 import { workflowType } from "@/lib/workflows/types";
 import {
@@ -255,6 +256,7 @@ export default function CreateTaskModal({
         ...(sectionsFor(kind).startDate && formData.get("startDate") ? { startDate: String(formData.get("startDate")) } : {}),
         ...(partOf && kind !== "project" ? { partOfId: partOf.id } : {}),
         ...(kind === "bug" ? { typeFields: readBugFields(formData) } : {}),
+        ...(kind === "request" ? { typeFields: readRequestFields(formData, attachments.map((a) => a.id)) } : {}),
       };
 
       const parsed = taskEditorDraftSchema.safeParse(draft);
@@ -393,7 +395,7 @@ export default function CreateTaskModal({
                 {partOf ? <p className="text-xs text-muted-foreground" data-testid="create-partof-line">Part of: <span className="font-medium text-foreground">{partOf.title}</span></p> : null}
                 {kind === "bug" && projectId ? <BugSimilar projectId={projectId} title={titleText} projectKey={projectKey} onMine={onClose} /> : null}
 
-                {kind === "bug" ? null : <Field
+                {kind === "bug" || kind === "request" ? null : <Field
                   label="Description"
                   htmlFor="task-description"
                   error={fieldErrors.description}
@@ -413,6 +415,8 @@ export default function CreateTaskModal({
               </div>
               {/* Report 38.6 W2 (A2.1): a bug's own section. */}
               {kind === "bug" ? <BugDetailsFields initialSteps={initialSteps} /> : null}
+              {/* Report 38.7 S6 (A2.4): a request's type and its questions. */}
+              {kind === "request" ? <RequestDetailsFields projectId={projectId} /> : null}
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">

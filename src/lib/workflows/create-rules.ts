@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { requestFieldsSchema } from "@/lib/workflows/requests";
 import { bugFieldsSchema } from "@/lib/workflows/bugs";
 import { WORKFLOW_CATALOG } from "@/lib/workflows/catalog";
 import { isOnBoard } from "@/lib/workflows/rules";
@@ -60,5 +61,5 @@ export function sectionsFor(type: string) {
 export const sprintApplies = (type: string, stage: string | null) => type === "task" || isOnBoard(type, stage);
 
 /** Each type's own fields (its round writes them; none yet), checked the same way in the module and on the server. */
-const TYPE_FIELDS: Record<string, z.ZodType<Record<string, unknown>>> = { bug: bugFieldsSchema };
+const TYPE_FIELDS: Record<string, z.ZodType<Record<string, unknown>>> = { bug: bugFieldsSchema, request: requestFieldsSchema };
 export const typeFieldsSchema = (type: string) => TYPE_FIELDS[type] ?? z.object({}).strict();

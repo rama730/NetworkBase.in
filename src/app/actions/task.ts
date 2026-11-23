@@ -458,6 +458,11 @@ export async function setTaskStageAction(input: z.infer<typeof stageMoveSchema>)
         const [row] = await tx.select({ fields: tasks.typeFields }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
         if ((row?.fields as Record<string, unknown> | null)?.closeReason !== stage) throw new Error("Close a bug with Close…, so it says why");
       }
+      // Report 38.7 W4.3 (A2.4): Declined says why; only Decline (which records the reason first) closes a request.
+      if (locked.itemType === "request" && stage === "declined" && locked.stage !== "declined") {
+        const [row] = await tx.select({ fields: tasks.typeFields }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        if (!(row?.fields as Record<string, unknown> | null)?.declineReason) throw new Error("Decline a request with Decline…, so the asker knows why");
+      }
       const move = stageMove(locked.itemType, locked.stage, stage);
       // Leaving the board takes it out of its sprint, and only owners and admins change sprints (decision 146).
       if (move.leaves && locked.previousSprintId && !locked.isLeader) throw new Error("This is in a sprint. Ask an owner or admin to move it off the board.");
@@ -566,7 +571,8 @@ export async function changeTaskTypeAction(input: z.infer<typeof changeTypeSchem
         if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
         const [row] = await tx.select({ kind: tasks.kind }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
         if (row?.kind === "assignment") throw new Error("Assignments keep their type");
-        if (locked.itemType !== "task") throw new Error(`${locked.taskNumber ? `#${locked.taskNumber}` : "This"} is already a ${WORKFLOW_TYPES[locked.itemType]?.label.toLowerCase() ?? locked.itemType}`);
+        // Report 38.7 W4.4 (A2.4): a New request can become a bug too (This is a bug); the asker stays Reported by.
+        if (locked.itemType !== "task" && !(locked.itemType === "request" && locked.stage === "new")) throw new Error(`${locked.taskNumber ? `#${locked.taskNumber}` : "This"} is already a ${WORKFLOW_TYPES[locked.itemType]?.label.toLowerCase() ?? locked.itemType}`);
         const options = changeTypeOptions(locked.currentStatus);
         const to = stage ?? options[0]!;
         if (!options.includes(to)) throw new Error("Pick a stage that matches where the task is now");

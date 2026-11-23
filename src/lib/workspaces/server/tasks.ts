@@ -1167,6 +1167,25 @@ async function checkNewItemType(projectId: string, userId: string, type: string,
 }
 
 
+/** Report 38.7 (A2.4): the request's type (an active one; the first when left out), its answers, and its files here. */
+async function checkRequestAnswers(projectId: string, fields: Record<string, unknown>) {
+  const { readRequestTypes } = await import("@/lib/workflows/request-store");
+  const { activeTypes, validateAnswers } = await import("@/lib/workflows/requests");
+  const active = activeTypes(await readRequestTypes(projectId));
+  const type = fields.requestTypeId ? active.find((t) => t.id === fields.requestTypeId) : active[0];
+  if (!type) return { error: fields.requestTypeId ? "That request type isn’t available" : "Add a request type first" } as const;
+  const answers = (fields.answers ?? {}) as Record<string, unknown>;
+  const wrong = validateAnswers(type, answers);
+  if (wrong) return { error: wrong } as const;
+  const files = type.questions.filter((q) => q.kind === "file").flatMap((q) => (Array.isArray(answers[q.id]) ? (answers[q.id] as string[]) : []));
+  if (files.length) {
+    const [found] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaceNodes)
+      .where(and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, files), isNull(workspaceNodes.deletedAt)));
+    if ((found?.n ?? 0) !== new Set(files).size) return { error: "Attach files from this workspace" } as const;
+  }
+  return { fields: { ...fields, requestTypeId: type.id, answers }, triagerIds: type.triagerIds } as const;
+}
+
 export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
   try {
     const { user } = await requireAuthenticatedUser();
@@ -1176,10 +1195,11 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     // Report 38.6 layer 10 (A2.1): members and viewers report bugs (at New); viewers do nothing else here, so what
     // only a member could set is dropped. Everything else keeps the create_tasks check.
     // Only an explicit New: with no stage a bug from Tasks starts at Fixing, which needs create rights (security review).
-    const bugReport = validated.itemType === "bug" && validated.stage === "new";
+    // Report 38.7 call 7 (A2.4): asking a request at New is the same: members and viewers ask (a viewer keeps Need by).
+    const bugReport = (validated.itemType === "bug" || validated.itemType === "request") && validated.stage === "new";
     const reporterAccess = bugReport ? await getWorkspaceAccessById(validated.projectId, user.id) : null;
     if (reporterAccess?.project?.kind === "workspace" && (reporterAccess.isOwner || reporterAccess.isMember)) {
-      if (reporterAccess.memberRole === "viewer") Object.assign(validated, { assigneeId: null, sprintId: null, partOfId: null, startDate: null, dueDate: null });
+      if (reporterAccess.memberRole === "viewer") Object.assign(validated, { assigneeId: null, sprintId: null, partOfId: null, startDate: null, ...(validated.itemType === "bug" ? { dueDate: null } : {}) });
     } else {
       await requireWorkspaceCapability(
         validated.projectId,
@@ -1197,11 +1217,19 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     const itemType = validated.itemType ?? "task";
     let stage: string | null = null;
     let typeFields: Record<string, unknown> = {};
+    let requestTriagers: string[] = [];
     if (itemType !== "task") {
       const placed = await checkNewItemType(validated.projectId, user.id, itemType, validated.stage ?? null, validated.typeFields ?? {});
       if ("error" in placed) return { success: false, error: placed.error, ...("code" in placed ? { code: placed.code } : {}) };
       stage = placed.stage;
       typeFields = placed.fields;
+      // Report 38.7 (A2.4): a request names an active type (the first one when left out) and answers its questions.
+      if (itemType === "request") {
+        const asked = await checkRequestAnswers(validated.projectId, typeFields);
+        if ("error" in asked) return { success: false, error: asked.error };
+        typeFields = asked.fields;
+        requestTriagers = asked.triagerIds;
+      }
       // Report 38.6 call 3 (A2.1): a bug's severity sets its priority; Not sure leaves it.
       if (itemType === "bug") validated.priority = (priorityForSeverity(typeFields.severity as never) ?? validated.priority) as typeof validated.priority;
       // The stage sets the status; a sprint only means something on the board.
@@ -1439,6 +1467,11 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     if (itemType === "bug") {
       const { notifyBugReported } = await import("@/lib/workflows/bug-notify");
       await notifyBugReported({ id: createdTask.id, title: validated.title.trim(), taskNumber: null, workspaceId: validated.projectId }, user.id);
+    }
+    // Report 38.7 part 8 (A2.4): a new ask tells the type's triage people (owners and admins when none are set).
+    if (itemType === "request" && stage === "new") {
+      const { notifyRequestNew } = await import("@/lib/workflows/request-notify");
+      await notifyRequestNew(createdTask.id, user.id, requestTriagers);
     }
 
     await wakeEmailWorker();

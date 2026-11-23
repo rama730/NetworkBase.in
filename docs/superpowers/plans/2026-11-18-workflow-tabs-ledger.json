@@ -8231,6 +8231,16 @@
       "status": "live-pending",
       "test": "tests/db/chat-send-replay.test.ts; tests/db/bugs.test.ts; tests/browser/bugs-tab.spec.ts; packages/nb-cli/test/bugs.test.mjs",
       "evidence": "a81b0648b deployed 2026-11-23; local: tests/db/chat-send-replay (Report as bug), tests/db/bugs (Change type), tests/browser/bugs-tab A2.3 (search, Assigned to, CSV, PR chip) chromium+webkit. Signed-in Chrome check pending: Chrome extension disconnected at deploy time; wt-test-a2-3 kept for it. revisit 2026-11-24"
+    },
+    {
+      "key": "38.7.call11",
+      "section": "38.7",
+      "text": "A2.4 (2026-11-23): Requests ships in three units (A2.4 types, asking, Inbox, Accept and Decline; A2.5 working hours, the clock and Breaching soon; A2.6 waiting,",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

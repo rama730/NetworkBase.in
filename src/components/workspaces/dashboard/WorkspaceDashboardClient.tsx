@@ -12,6 +12,7 @@ import { AddWorkflowDialog } from '@/components/workspaces/workflows/AddWorkflow
 import { AddedWorkflowsContext, useWorkspaceWorkflows } from '@/components/workspaces/workflows/useWorkspaceWorkflows';
 import { workflowTabsFor } from '@/components/workspaces/workflows/workflow-icons';
 import { BugsTab } from '@/components/workspaces/workflows/BugsTab';
+import { RequestsTab } from '@/components/workspaces/workflows/RequestsTab';
 import { WORKFLOW_CATALOG } from '@/lib/workflows/catalog';
 import type { WorkspaceWorkflows } from '@/lib/workflows/rules';
 import dynamic from 'next/dynamic';
@@ -1234,6 +1235,12 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 if (tab.id === "bugs") return (
                     <TabErrorBoundary tabName="Bugs">
                         <BugsTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || null} members={allMembers} sprints={sprints as unknown[]} canPlanSprints={canManageProjectSettings} />
+                    </TabErrorBoundary>
+                );
+                // Report 38.7 (A2.4): Requests.
+                if (tab.id === "requests") return (
+                    <TabErrorBoundary tabName="Requests">
+                        <RequestsTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || null} members={allMembers} sprints={sprints as unknown[]} canPlanSprints={canManageProjectSettings} />
                     </TabErrorBoundary>
                 );
                 return <EmptyState icon={tab.icon} title={tab.label} description={`${tab.label} is added. Its views arrive soon.`} />;

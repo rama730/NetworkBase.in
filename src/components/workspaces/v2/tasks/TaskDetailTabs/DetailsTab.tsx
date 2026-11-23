@@ -9,6 +9,7 @@ import { useSessionDraft } from "@/hooks/useSessionDraft";
 import { formatTaskDueDate, isTaskOverdue } from "@/lib/workspaces/task-presentation";
 import { sectionsFor } from "@/lib/workflows/create-rules";
 import { BugPanelSection } from "@/components/workspaces/v2/tasks/BugParts";
+import { RequestPanelSection } from "@/components/workspaces/v2/tasks/RequestParts";
 import {
   Calendar,
   Check,
@@ -682,6 +683,7 @@ export default function DetailsTab({
 
       {/* Report 38.6 S5 (A2.1): a bug's own section. */}
       {task.itemType === "bug" && task.projectId ? <BugPanelSection projectId={task.projectId} taskId={task.id} /> : null}
+      {task.itemType === "request" && task.projectId ? <RequestPanelSection projectId={task.projectId} taskId={task.id} /> : null}
 
       {/* Properties Section (Unboxed, direct on panel surface); review UX 2.12: on a copy they fold under More details. */}
       <MoreDetails fold={Boolean(task.assignmentId)}>
