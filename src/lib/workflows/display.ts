@@ -36,7 +36,8 @@ export function stageMenu(type: string) {
   const t = WORKFLOW_TYPES[type];
   if (!t) return [];
   return [
-    { label: ownTabOf(type)?.name ?? t.label, stages: t.stages.filter((s) => !s.onBoard) },
+    // A2.11: a roadmap item's Won't do asks its reason in the panel, so the menu leaves it out.
+    { label: ownTabOf(type)?.name ?? t.label, stages: t.stages.filter((s) => !s.onBoard && !(type === "roadmap_item" && s.closing)) },
     { label: "On the board", stages: t.stages.filter((s) => s.onBoard) },
   ].filter((g) => g.stages.length);
 }

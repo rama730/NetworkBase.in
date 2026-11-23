@@ -8,7 +8,7 @@ import { setTaskStageAction } from "@/app/actions/task";
 import { db } from "@/lib/db";
 import { tasks, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
-import { COLUMNS, itemProgress, roadmapFieldsSchema, stageAfterColumn } from "@/lib/workflows/roadmap";
+import { backlogOrder, COLUMNS, itemProgress, positionBetween, roadmapFieldsSchema, stageAfterColumn } from "@/lib/workflows/roadmap";
 import { lockTaskForWrite } from "@/lib/workspaces/task-transition-service";
 
 /**
@@ -31,6 +31,8 @@ export type RoadmapRow = {
   assigneeId: string | null; assigneeName: string | null; createdAt: string; typeFields: Record<string, unknown>;
   /** Work tasks (Part of) and Built by projects, combined (part 7); null when nothing is linked. */
   progress: number | null; workCount: number; openWork: number;
+  /** A2.11: the earliest start date among its work (the Timeline's bar start) and how many requests are Part of it. */
+  workStart: string | null; requests: number;
 };
 
 /** The tab's read: every roadmap item with its progress worked out in SQL from its work and Built by projects. */
@@ -40,11 +42,13 @@ export async function readRoadmapAction(projectId: string) {
     const { user, canEdit } = await insider(projectId);
     const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
     const rows = Array.from(await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; status: string; priority: string; due_date: string | null;
-      assignee_id: string | null; assignee_name: string | null; created_at: Date; type_fields: Record<string, unknown> | null; done: number; total: number; projects: Array<{ percent: number; tasks: number }> | null }>(sql`
+      assignee_id: string | null; assignee_name: string | null; created_at: Date; type_fields: Record<string, unknown> | null; done: number; total: number; projects: Array<{ percent: number; tasks: number }> | null;
+      work_start: string | null; requests: number }>(sql`
       SELECT t.id, t.task_number, t.title, t.stage, t.status, t.priority, t.due_date::text AS due_date, t.assignee_id, a.full_name AS assignee_name, t.created_at, t.type_fields,
-        coalesce(w.done, 0)::int AS done, coalesce(w.total, 0)::int AS total, bp.projects
+        coalesce(w.done, 0)::int AS done, coalesce(w.total, 0)::int AS total, bp.projects, w.work_start::text AS work_start, coalesce(w.requests, 0)::int AS requests
       FROM tasks t LEFT JOIN profiles a ON a.id = t.assignee_id
-      LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE x.status = 'done') AS done, count(*) AS total FROM tasks x
+      LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE x.status = 'done') AS done, count(*) AS total, min(x.start_date) AS work_start,
+          count(*) FILTER (WHERE x.item_type = 'request') AS requests FROM tasks x
         WHERE x.part_of_id = t.id AND x.deleted_at IS NULL AND x.stage IS DISTINCT FROM 'cancelled') w ON true
       LEFT JOIN LATERAL (SELECT json_agg(json_build_object('tasks', pw.total, 'percent', CASE WHEN pw.total > 0 THEN 100.0 * pw.done / pw.total WHEN p.status = 'done' THEN 100 ELSE 0 END)) AS projects
         FROM tasks p LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE y.status = 'done') AS done, count(*) AS total FROM tasks y WHERE y.part_of_id = p.id AND y.deleted_at IS NULL AND y.stage IS DISTINCT FROM 'cancelled') pw ON true
@@ -58,6 +62,7 @@ export async function readRoadmapAction(projectId: string) {
         id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, status: r.status, priority: r.priority, dueDate: r.due_date ? r.due_date.slice(0, 10) : null,
         assigneeId: r.assignee_id, assigneeName: r.assignee_name, createdAt: new Date(r.created_at).toISOString(), typeFields: r.type_fields ?? {},
         progress: itemProgress(work, (r.projects ?? []).map((p) => ({ percent: Number(p.percent), tasks: Number(p.tasks) }))), workCount: r.total, openWork: r.total - r.done,
+        workStart: r.work_start ? r.work_start.slice(0, 10) : null, requests: r.requests,
       };
     });
     // Built by: the workspace's projects to pick from.
@@ -138,5 +143,31 @@ export async function wontDoAction(input: z.infer<typeof wontDoInput>) {
     return { success: true as const, openWork: open?.n ?? 0 };
   } catch (error) {
     return fail(error, "Couldn’t close the item");
+  }
+}
+
+const backlogInput = z.object({ projectId: id, taskId: id, beforeId: id.nullable() });
+
+/** W9 (A2.11): a Backlog item dragged (or moved up/down) above `beforeId`, or to the end; one row is written. */
+export async function moveBacklogAction(input: z.infer<typeof backlogInput>) {
+  try {
+    const { projectId, taskId, beforeId } = backlogInput.parse(input);
+    const { user, canEdit } = await insider(projectId);
+    if (!canEdit) throw new Error("Viewers can’t change the roadmap");
+    const rows = Array.from(await db.execute<{ id: string; created_at: Date; type_fields: Record<string, unknown> | null }>(sql`
+      SELECT id, created_at, type_fields FROM tasks WHERE workspace_id = ${projectId}::uuid AND item_type = 'roadmap_item' AND stage = 'backlog' AND deleted_at IS NULL LIMIT 1000`));
+    const order = backlogOrder(rows.map((r) => ({ id: r.id, createdAt: new Date(r.created_at).toISOString(), typeFields: r.type_fields ?? {} }))).filter((r) => r.id !== taskId);
+    if (!rows.some((r) => r.id === taskId)) throw new Error("Only Backlog items are ordered here");
+    const at = beforeId ? order.findIndex((r) => r.id === beforeId) : order.length;
+    if (at < 0) throw new Error("Only Backlog items are ordered here");
+    const pos = (r: (typeof order)[number] | undefined) => (r && typeof r.typeFields.backlogPosition === "number" ? r.typeFields.backlogPosition : null);
+    // Unplaced neighbours get their places first, so the new spot is always between two numbers.
+    let last = Math.max(0, ...order.map(pos).filter((p): p is number => p !== null));
+    const placed = order.map((r) => ({ ...r, p: pos(r) ?? (last += 1000) }));
+    for (const r of placed) if (pos(r) === null) await writeFields(user.id, projectId, r.id, { backlogPosition: r.p });
+    await writeFields(user.id, projectId, taskId, { backlogPosition: positionBetween(placed[at - 1]?.p ?? null, placed[at]?.p ?? null) });
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "Couldn’t move the item");
   }
 }

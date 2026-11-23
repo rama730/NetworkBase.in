@@ -39,3 +39,24 @@ test("roadmapFieldsSchema: outcome ≤ 200, known columns, types and milestone n
   assert.equal(roadmapFieldsSchema.safeParse({ milestone: "Gold" }).success, false);
   assert.equal(roadmapFieldsSchema.safeParse({ stray: 1 }).success, false);
 });
+
+// Plan A2.11: Timeline spans and the Backlog's hand order.
+test("timelineSpan: first work start to target; one end alone is one day; milestones are diamonds; nothing → No dates", async () => {
+  const { timelineSpan } = await import("../../src/lib/workflows/roadmap");
+  assert.deepEqual(timelineSpan({ workStart: "2026-11-02", dueDate: "2026-12-01", typeFields: {} }), { kind: "bar", start: "2026-11-02", end: "2026-12-01" });
+  assert.deepEqual(timelineSpan({ workStart: null, dueDate: "2026-12-01", typeFields: {} }), { kind: "bar", start: "2026-12-01", end: "2026-12-01" });
+  assert.deepEqual(timelineSpan({ workStart: "2026-12-05", dueDate: "2026-12-01", typeFields: {} }), { kind: "bar", start: "2026-12-01", end: "2026-12-01" }, "work starting after the target doesn't flip the bar");
+  assert.deepEqual(timelineSpan({ workStart: "2026-11-02", dueDate: null, typeFields: {} }), { kind: "bar", start: "2026-11-02", end: "2026-11-02" });
+  assert.deepEqual(timelineSpan({ workStart: null, dueDate: "2026-12-10", typeFields: { itemType: "milestone" } }), { kind: "diamond", date: "2026-12-10" });
+  assert.equal(timelineSpan({ workStart: null, dueDate: null, typeFields: {} }), null);
+});
+
+test("backlogOrder and positionBetween: placed items by position, then newest first; a move lands between neighbours", async () => {
+  const { backlogOrder, positionBetween } = await import("../../src/lib/workflows/roadmap");
+  const i = (id: string, createdAt: string, backlogPosition?: number) => ({ id, createdAt, typeFields: backlogPosition === undefined ? {} : { backlogPosition } });
+  assert.deepEqual(backlogOrder([i("a", "2026-11-01"), i("b", "2026-11-03"), i("c", "2026-11-02", 2000), i("d", "2026-11-04", 1000)]).map((x) => x.id), ["d", "c", "b", "a"]);
+  assert.equal(positionBetween(1000, 2000), 1500);
+  assert.equal(positionBetween(null, 1000), 0);
+  assert.equal(positionBetween(2000, null), 3000);
+  assert.equal(positionBetween(null, null), 1000);
+});

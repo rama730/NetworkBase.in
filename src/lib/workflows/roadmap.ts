@@ -18,8 +18,8 @@ export const roadmapFieldsSchema = z.object({
   itemType: z.enum(ITEM_TYPES).optional(),
   milestone: z.enum(MILESTONES).nullable().optional(),
   builtBy: z.array(z.string().uuid()).max(20).optional(),
-  requestIds: z.array(z.string().uuid()).max(50).optional(),
   wontDoReason: z.string().trim().max(1000).optional(),
+  backlogPosition: z.number().finite().optional(),
 }).strict();
 export type RoadmapFields = z.infer<typeof roadmapFieldsSchema>;
 
@@ -53,4 +53,35 @@ export const milestoneOrder = (name: string | null | undefined) => { const i = M
 export function roadmapSummary(items: Array<{ stage: string | null; typeFields: Record<string, unknown> }>) {
   const live = items.filter((i) => onColumnBoard(i.stage));
   return { now: live.filter((i) => i.typeFields.column === "now").length, next: live.filter((i) => i.typeFields.column === "next").length, testing: live.filter((i) => i.stage === "testing").length };
+}
+
+/**
+ * W8 (A2.11): an item's Timeline span: from its first work start (the earliest start date among its work) to its
+ * target date; one end alone draws a one-day bar; neither puts it under No dates. A Milestone is a diamond on its date.
+ */
+export function timelineSpan(item: { dueDate: string | null; workStart: string | null; typeFields: Record<string, unknown> }) {
+  const end = item.dueDate, start = item.workStart && (!end || item.workStart <= end) ? item.workStart : end;
+  if (item.typeFields.itemType === "milestone") return end ? { kind: "diamond" as const, date: end } : null;
+  return start || end ? { kind: "bar" as const, start: start ?? end!, end: end ?? start! } : null;
+}
+
+/**
+ * W9 (A2.11): the Backlog's hand order. A position between its neighbours (fractional, so one move writes one row);
+ * items never placed sort after placed ones, newest first.
+ */
+export function positionBetween(before: number | null, after: number | null) {
+  if (before === null && after === null) return 1000;
+  if (before === null) return after! - 1000;
+  if (after === null) return before + 1000;
+  return (before + after) / 2;
+}
+export function backlogOrder<T extends { createdAt: string; typeFields: Record<string, unknown> }>(items: T[]) {
+  const pos = (i: T) => (typeof i.typeFields.backlogPosition === "number" ? i.typeFields.backlogPosition : null);
+  return [...items].sort((a, b) => {
+    const pa = pos(a), pb = pos(b);
+    if (pa !== null && pb !== null) return pa - pb;
+    if (pa !== null) return -1;
+    if (pb !== null) return 1;
+    return b.createdAt.localeCompare(a.createdAt);
+  });
 }

@@ -97,7 +97,7 @@ const KEPT: Array<[RegExp, RegExp]> = [
   // Report 38.9 call 4 (A2.10): a roadmap item is Built by T1 projects.
   [/src\/(?:components\/workspaces\/v2\/tasks\/RoadmapParts\.tsx|app\/actions\/roadmap\.ts)$/, /\bprojects?\b/i],
   [/src\/(?:app\/actions\/task|app\/api\/v1\/extension\/task-update\/route|lib\/workspaces\/server\/tasks|lib\/feedback\/copy|components\/workspaces\/v2\/(?:TasksTab|tasks\/TaskStageControl))\.tsx?$/,
-    /^(?:Projects|Projects view|Group by: Project|Take \{\} out of its project|Put \{\} in a project|Couldn’t create the project|Name the project|Couldn’t make the project|Couldn’t load projects|The project is completed either way\.|Part of must be a project in this workspace|Part of must be a project or roadmap item in this workspace|A project can’t be Part of another project|Projects aren’t available in organizations|Assignments can’t be Part of a project)$/],
+    /^(?:Projects|Projects view|Group by: Project|Take \{\} out of its project|Put \{\} in a project|Couldn’t create the project|Name the project|Couldn’t make the project|Couldn’t load projects|The project is completed either way\.|Part of must be a project in this workspace|Part of must be a project or roadmap item in this workspace|Built by takes projects from this workspace|A project can’t be Part of another project|Projects aren’t available in organizations|Assignments can’t be Part of a project)$/],
   [/./, /^(?:Apache Airflow|John Doe|Office Online|Excel Online|Android Studio|Samsung Internet|Claude Code|Instrument Sans)$/],
 ];
 

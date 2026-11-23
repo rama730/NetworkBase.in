@@ -33,7 +33,7 @@ export const WORKFLOW_CATALOG: CatalogEntry[] = [
   { id: "bugs", name: "Bugs", group: "own_tab", icon: "Bug", types: ["bug"], tab: "bugs", built: true, line: "Adds a Bugs tab. Bugs join Tasks at Fixing." },
   { id: "requests", name: "Requests", group: "own_tab", icon: "Inbox", types: ["request"], tab: "requests", built: true, line: "Adds a Requests tab. People ask; accepted requests join Tasks at Accepted." },
   { id: "content", name: "Content", group: "own_tab", icon: "PenLine", types: ["content"], tab: "content", built: true, line: "Adds a Content tab. Pieces join Tasks at Drafting." },
-  { id: "roadmap", name: "Roadmap", group: "own_tab", icon: "Map", types: ["roadmap_item"], tab: "roadmap", built: false, line: "Adds a Roadmap tab: what ships Now, Next and Later. Its work tasks go on the board." },
+  { id: "roadmap", name: "Roadmap", group: "own_tab", icon: "Map", types: ["roadmap_item"], tab: "roadmap", built: true, line: "Adds a Roadmap tab: what ships Now, Next and Later. Its work tasks go on the board." },
   { id: "launches", name: "Launch checklists", group: "documents", icon: "Rocket", types: [], built: false, line: "Adds a Launches section to Documents. Every checklist step is a task." },
   { id: "meetings", name: "Meetings and decisions", group: "documents", icon: "CalendarClock", types: [], built: false, line: "Adds Meetings and Decisions sections with meeting types." },
   { id: "goals", name: "Quarterly goals", group: "documents", icon: "Target", types: ["objective", "key_result"], built: false, line: "Adds a Goals section with one goals document per quarter." },

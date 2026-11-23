@@ -460,6 +460,11 @@ export async function setTaskStageAction(input: z.infer<typeof stageMoveSchema>)
         const [row] = await tx.select({ fields: tasks.typeFields }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
         if ((row?.fields as Record<string, unknown> | null)?.closeReason !== stage) throw new Error("Close a bug with Close…, so it says why");
       }
+      // Report 38.9 W7 (A2.11): Won't do says why; only Won't do… (which records the reason first) closes a roadmap item.
+      if (locked.itemType === "roadmap_item" && stage === "wont_do" && locked.stage !== "wont_do") {
+        const [row] = await tx.select({ fields: tasks.typeFields }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        if (!(row?.fields as Record<string, unknown> | null)?.wontDoReason) throw new Error("Close a roadmap item with Won’t do…, so it says why");
+      }
       // Report 38.7 W4.3 (A2.4): Declined says why; only Decline (which records the reason first) closes a request.
       if (locked.itemType === "request" && stage === "declined" && locked.stage !== "declined") {
         const [row] = await tx.select({ fields: tasks.typeFields }).from(tasks).where(eq(tasks.id, taskId)).limit(1);

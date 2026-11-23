@@ -138,3 +138,35 @@ test("part 8: Launched tells the assignee and the askers of its requests (Shippe
   assert.ok((await roadmap.wontDoAction({ projectId: t.ws, taskId: other, reason: "Too big" })).success);
   assert.ok((await notes(t.member)).includes("Won’t do: Plugins|important"));
 });
+
+test("W9 (A2.11): the Backlog keeps a hand order; work start and requests come with the read", async () => {
+  const t = await workspace();
+  viewerId = t.member;
+  const a = await make(t.ws, { title: "A", itemType: "roadmap_item", stage: "backlog", typeFields: {} });
+  const b = await make(t.ws, { title: "B", itemType: "roadmap_item", stage: "backlog", typeFields: {} });
+  const c = await make(t.ws, { title: "C", itemType: "roadmap_item", stage: "backlog", typeFields: {} });
+  const { backlogOrder } = await loadAppModule(() => import("../../src/lib/workflows/roadmap"));
+  const order = async () => { const r = await roadmap.readRoadmapAction(t.ws); assert.ok(r.success); return backlogOrder(r.items.filter((i) => i.stage === "backlog")).map((i) => i.title); };
+  assert.deepEqual(await order(), ["C", "B", "A"], "newest first until placed");
+  assert.ok((await roadmap.moveBacklogAction({ projectId: t.ws, taskId: a, beforeId: c })).success);
+  assert.deepEqual(await order(), ["A", "C", "B"]);
+  assert.ok((await roadmap.moveBacklogAction({ projectId: t.ws, taskId: c, beforeId: null })).success);
+  assert.deepEqual(await order(), ["A", "B", "C"]);
+  assert.ok((await roadmap.moveBacklogAction({ projectId: t.ws, taskId: c, beforeId: b })).success);
+  assert.deepEqual(await order(), ["A", "C", "B"]);
+  await sql`UPDATE tasks SET stage = 'planned' WHERE id = ${b}`;
+  assert.equal((await roadmap.moveBacklogAction({ projectId: t.ws, taskId: b, beforeId: null }) as { error?: string }).error, "Only Backlog items are ordered here");
+  await make(t.ws, { title: "Work", partOfId: a, startDate: "2026-11-30" });
+  await make(t.ws, { title: "Earlier work", partOfId: a, startDate: "2026-11-20" });
+  const r = await roadmap.readRoadmapAction(t.ws);
+  assert.ok(r.success);
+  assert.equal(r.items.find((i) => i.id === a)!.workStart, "2026-11-20");
+});
+
+test("W7 (A2.11): a bare stage move to Won't do is refused; Won't do… records the reason first", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const item = await make(t.ws, { title: "Plugins", itemType: "roadmap_item", stage: "planned", typeFields: { column: "later" } });
+  assert.equal((await taskActions.setTaskStageAction({ projectId: t.ws, taskId: item, stage: "wont_do" }) as { error?: string }).error, "Close a roadmap item with Won’t do…, so it says why");
+  assert.ok((await roadmap.wontDoAction({ projectId: t.ws, taskId: item, reason: "Too big" })).success);
+});

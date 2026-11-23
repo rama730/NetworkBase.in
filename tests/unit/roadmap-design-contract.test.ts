@@ -22,3 +22,12 @@ test("badges are square with words; the New module and the panel use the shared 
   assert.match(parts, /FORM_DIALOG_CLASS\} data-testid="wont-do-dialog"/);
   assert.match(parts, /label="Why not\?"/);
 });
+
+// Plan A2.11: Timeline and Backlog.
+test("Timeline and Backlog: labelled regions, a keyboard path for every drag, diamonds with names", () => {
+  assert.match(tab, /\{ key: "timeline" as const, label: "Timeline" \}, \{ key: "backlog" as const, label: "Backlog" \}/);
+  assert.match(tab, /aria-label="Roadmap timeline"/);
+  assert.match(tab, /role="img" title=\{`\$\{String\(r\.typeFields\.milestone/);
+  assert.match(tab, /aria-label=\{`Move \$\{r\.title\} up`\}/);
+  assert.match(tab, /<caption className="sr-only">Backlog items in order<\/caption>/);
+});
