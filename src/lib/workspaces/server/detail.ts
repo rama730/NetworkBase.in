@@ -1,4 +1,5 @@
 import { readChildOrgLink, readOrgDetail, readViewerOrgRole, type OrgDetail, type ParentOrgLink } from "@/lib/organizations/detail";
+import { ROLE_ABILITIES, roleAllows } from "@/lib/workspaces/role-abilities";
 import "server-only";
 
 import { z } from "zod";
@@ -89,6 +90,10 @@ const projectDetailGuidanceSchema = z.object({
 
 
 const projectDetailProjectSchema = z.object({
+  /** Member settings Part 4: what this viewer's role may do here (Roles tab), e.g. hide Files when "See Files" is off. */
+  viewerAbilities: z.record(z.string(), z.boolean()).optional(),
+  /** Member settings §3: the viewer's part here is completed (the ⋯ menu offers Reopen my part). */
+  viewerPartCompleted: z.boolean().optional(),
   id: z.string().uuid(),
   ownerId: z.string().uuid(),
   title: z.string().min(1),
@@ -743,7 +748,10 @@ async function readProjectDetailShellForActor(input: {
         const hidesDashboard =
           !isOrganization && !isOwner && !isMember &&
           !normalizeWorkspacePublicTabVisibility(project.publicTabVisibility).dashboard;
+        const viewerRole = isOwner ? "owner" : memberRole;
         const readModel = {
+          viewerPartCompleted: Boolean(viewerState.completed),
+          viewerAbilities: Object.fromEntries(ROLE_ABILITIES.map((a) => [a.key, roleAllows(project.roleAbilities, viewerRole, a.key, { orgRules: project.kind === "organization" || Boolean(project.parentId) })])),
           id: project.id,
           ownerId: project.ownerId,
           title: project.title,

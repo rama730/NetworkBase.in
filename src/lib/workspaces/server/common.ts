@@ -251,6 +251,7 @@ export async function resolveWorkspaceDetailTarget(
           externalLinkMetadata: workspaces.externalLinkMetadata,
           visibility: workspaces.visibility,
           publicTabVisibility: workspaces.publicTabVisibility,
+          roleAbilities: workspaces.roleAbilities,
           lookingForCollaborators: workspaces.lookingForCollaborators,
           memberUpdatesEnabled: workspaces.memberUpdatesEnabled,
           memberFileUploadDefault: workspaces.memberFileUploadDefault,

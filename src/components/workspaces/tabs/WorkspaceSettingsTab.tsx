@@ -103,6 +103,7 @@ import { LifecycleSettingsEditor } from '@/components/workspaces/settings/Lifecy
 import { PublicTabVisibilityEditor } from '@/components/workspaces/settings/PublicTabVisibilityEditor';
 import { GeneralSettingsSection, resetIdentityFromWorkspace } from '@/components/workspaces/settings/GeneralSettingsSection';
 import { CompleteWorkspaceCard, YourSettingsSection } from '@/components/workspaces/settings/YourSettingsSection';
+import { RoleAbilitiesSection } from '@/components/workspaces/settings/RoleAbilitiesSection';
 import { useMemberUpdates } from '@/hooks/useMemberUpdates';
 import { Notice } from '@/components/ui/notice';
 import { visibilityLabel } from '@/lib/organizations/display';
@@ -267,7 +268,10 @@ function ProjectSettingsContent({
         if (inheritedOnly) return [childOrgSection, { id: "collaborators" as const, label: "Members and teams", description: "Teams, their seats and team leads." }];
         // Member settings Part 1: "Your settings" comes first for every member of the workspace, owner included.
         const you = { id: "you" as const, label: "Your settings", description: "Your part here, your notifications, agents and view. Only affects you." };
-        if (isProjectOwner) return [you, ...(showsChildOrg ? visible.flatMap((section) => (section.id === "general" ? [section, childOrgSection] : [section])) : visible)];
+        // Part 4: Roles, the owner's, after Members (an organization's workspaces show its table read-only).
+        const roles = { id: "role-abilities" as const, label: "Roles", description: "What each role can do here." };
+        const withRoles = (list: typeof visible) => list.flatMap((section) => (section.id === "collaborators" ? [section, roles] : [section]));
+        if (isProjectOwner) return [you, ...withRoles(showsChildOrg ? visible.flatMap((section) => (section.id === "general" ? [section, childOrgSection] : [section])) : visible)];
         if (actorProjectRole === "admin" && project?.parentOrg) {
             const adminSections: WorkspaceSettingsSectionId[] = ["links", "access", "collaborators", "roles-applications", "readme", "updates", "tasks-workflow", "files-workspace", "ai-agents", "notifications", "privacy-policies", "privacy-terms"];
             return [you, childOrgSection, ...visible.filter((section) => adminSections.includes(section.id))];
@@ -1784,6 +1788,12 @@ function ProjectSettingsContent({
                         </SettingsCard>
                         )}
                         </div>
+                    </section>
+                )}
+                {sections.some((s) => s.id === "role-abilities") && (
+                    <section id="project-settings-role-abilities" data-project-settings-section className="space-y-8">
+                        <SettingsPageHeader level={2} title="Roles" description="What each role can do in this workspace." />
+                        <RoleAbilitiesSection projectId={projectId} />
                     </section>
                 )}
                 {sections.some((s) => s.id === "roles-applications") && (

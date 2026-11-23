@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { accessAllows, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import {
     workspaceMentors,
     workspaceInvitations,
@@ -152,7 +153,10 @@ export async function createWorkspaceInvitation(input: CreateWorkspaceInvitation
         }>;
 
         const preflight = preflightRows[0];
-        const managerRole = input.actorId === project.owner_id ? "owner" as const : (preflight?.actor_role === "admin" ? "admin" as const : null);
+        // Member settings Part 4: "Invite people" per role (admins by default); a completed part invites no one.
+        const access = await getWorkspaceAccessById(input.projectId, input.actorId);
+        const managerRole = input.actorId === project.owner_id ? "owner" as const
+            : accessAllows(access, "members.invite") && access.memberRole && access.memberRole !== "viewer" ? (preflight?.actor_role === "admin" ? "admin" as const : "member" as const) : null;
         if (!managerRole) throw new Error("You can only invite to workspaces you manage");
         if (input.kind === "guidance_appointment" && managerRole !== "owner") {
             throw new Error("Only the owner can invite a mentor");

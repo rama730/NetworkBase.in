@@ -392,7 +392,8 @@ export async function push(ctx) {
         ? new CliError("PLAN_LIMIT_FILE_SIZE", `${safe(refused.path)} is ${mb(bytes)} MB; files can be up to ${mb(limit)} MB`, { hint: "Make it smaller, or share it as a link" })
         : new CliError("USAGE", `${safe(refused.path)} can't be pushed: ${refused.reason}`);
     }
-    if (!plan.manifest.canWrite) throw new CliError("READ_ONLY", "You can read this workspace but not change it", { hint: "Ask an owner for member access" });
+    // Member settings §3 (gap 23): a completed part says so, and the way back.
+    if (!plan.manifest.canWrite) throw new CliError("READ_ONLY", plan.manifest.readOnlyReason ?? "You can read this workspace but not change it", { hint: /completed/.test(plan.manifest.readOnlyReason ?? "") ? "nb workspace reopen" : plan.manifest.readOnlyReason ? "nb unlink" : "Ask an owner for member access" });
     // With no paths, only files NetworkBase already tracks; new files are pushed by naming them (A1.6, §17.4).
     let items = plan.items.filter((i) => i.action === "push" && (only.length || i.base));
     let moves = plan.items.filter((i) => i.action === "move");

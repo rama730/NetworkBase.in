@@ -329,10 +329,12 @@ function WrapUpDialog({ kind, projectId, projectTitle, people, lastAdmin, onClos
   const wrap = useQuery({ queryKey: ["project", projectId, "wrap-up"], queryFn: async () => unwrap(await previewWrapUpAction(projectId)), staleTime: 0 });
   const [tasks, setTasks] = useState<TaskChoice>(kind === "leave" ? "unassign" : "keep");
   const [giveTo, setGiveTo] = useState(people[0]?.id ?? "");
+  const [reviewsTo, setReviewsTo] = useState("");
   const [note, setNote] = useState("");
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
   const w: WrapUp | undefined = wrap.data;
+  const base = `/workspaces/${encodeURIComponent(w?.workspace.slug ?? projectId)}`;
   const open = w?.openTasks.count ?? 0;
   const consequence = open === 0 ? "" : tasks === "keep" ? ` ${open} open ${open === 1 ? "task stays" : "tasks stay"} assigned to you.` : tasks === "unassign" ? ` ${open} open ${open === 1 ? "task becomes" : "tasks become"} unassigned.` : ` ${open} open ${open === 1 ? "task goes" : "tasks go"} to ${people.find((x) => x.id === giveTo)?.fullName ?? "them"}.`;
   const needsName = kind === "leave" && lastAdmin;
@@ -351,7 +353,7 @@ function WrapUpDialog({ kind, projectId, projectTitle, people, lastAdmin, onClos
       loading={wrap.isPending || (needsName && typed.trim() !== projectTitle.trim()) || (tasks === "give" && !giveTo)}
       onConfirm={async () => {
         setError(null);
-        const input = { tasks, giveTo: tasks === "give" ? giveTo : null };
+        const input = { tasks, giveTo: tasks === "give" ? giveTo : null, reviewsTo: reviewsTo || null };
         const r = kind === "complete" ? await completeMyPartAction(projectId, { ...input, note: note.trim() || null }) : await leaveWorkspaceAction(projectId, input);
         if (!r.success) { setError(r.error); return; }
         onDone((r.data as { undoId?: string | null }).undoId ?? null);
@@ -382,15 +384,23 @@ function WrapUpDialog({ kind, projectId, projectTitle, people, lastAdmin, onClos
               </div>
             ) : null}
           </fieldset>
-          {w.reviews.count ? <p className="nb-compact">Reviews waiting on you · {w.reviews.count}: they go to the owner.</p> : null}
+          {w.reviews.count ? (
+            <label className="flex flex-wrap items-center gap-2.5">
+              <span className="nb-compact">Reviews waiting on you · {w.reviews.count}: they go to</span>
+              <select aria-label="Who takes your reviews" className="nb-select" data-size="sm" value={reviewsTo} onChange={(e) => setReviewsTo(e.target.value)}>
+                <option value="">The owner</option>
+                {people.map((x) => <option key={x.id} value={x.id}>{x.fullName || x.username}</option>)}
+              </select>
+            </label>
+          ) : null}
           {w.openWork.changeSets.length + w.openWork.branches.length + w.openWork.mergeRequests.length + w.openWork.docDrafts.length ? (
             <div className="space-y-1">
               <p className="nb-compact font-medium">Your open work stays as it is</p>
               <ul className="nb-compact space-y-0.5 text-muted-foreground">
-                {w.openWork.changeSets.map((c) => <li key={c.id}>Change set: {c.title}</li>)}
-                {w.openWork.branches.map((b) => <li key={b.id}>Branch: {b.name}</li>)}
-                {w.openWork.mergeRequests.map((m) => <li key={m.number}>Merge request !{m.number} {m.title}</li>)}
-                {w.openWork.docDrafts.map((d) => <li key={d.slug}>Doc draft: {d.filename}</li>)}
+                {w.openWork.changeSets.map((c) => <li key={c.id}>Change set: <Link className="underline" href={`${base}?tab=files&filesView=changes&changes=${c.id}`}>{c.title}</Link></li>)}
+                {w.openWork.branches.map((b) => <li key={b.id}>Branch: <Link className="underline" href={`${base}?tab=files&branch=${encodeURIComponent(b.name)}`}>{b.name}</Link></li>)}
+                {w.openWork.mergeRequests.map((m) => <li key={m.number}>Merge request <Link className="underline" href={`${base}?tab=files&filesView=merge-requests&mr=${m.number}`}>!{m.number} {m.title}</Link></li>)}
+                {w.openWork.docDrafts.map((d) => <li key={d.slug}>Doc draft: <Link className="underline" href={`${base}?tab=docs&doc=${encodeURIComponent(d.slug)}`}>{d.filename}</Link></li>)}
               </ul>
             </div>
           ) : null}

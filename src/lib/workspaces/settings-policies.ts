@@ -15,6 +15,7 @@ export type WorkspaceSettingsSectionId =
   | "access"
   | "collaborators"
   | "roles-applications"
+  | "role-abilities"
   | "tasks-workflow"
   | "files-workspace"
   | "ai-agents"

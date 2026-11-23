@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors/domain";
 import { workspaceEventCounters, workspaceMembers, workspaceNodeEvents, workspaceNodeLocks, workspaceNodes, workspaces, tasks } from "@/lib/db/schema";
-import { assertWorkspaceTabReadAccess, canReadWorkspaceTab, getWorkspaceAccessById, type WorkspaceAccess } from "@/lib/data/workspace-access";
+import { accessAllows, assertWorkspaceTabReadAccess, canReadWorkspaceTab, getWorkspaceAccessById, type WorkspaceAccess } from "@/lib/data/workspace-access";
+import { roleAllows } from "@/lib/workspaces/role-abilities";
 import { eq, and, isNull, sql, ne, gt, type SQL } from "drizzle-orm";
 import { isWithParent } from "@/app/actions/files/_constants";
 import { requireWorkspaceCapability } from "@/lib/workspaces/collaborator-lifecycle";
@@ -182,6 +183,8 @@ export async function assertWorkspaceUploadAccess(projectId: string, userId: str
     if (!canWorkspaceMemberUploadFiles({ role: access.memberRole, fileUploadEnabled: member?.fileUploadEnabled ?? null })) {
         throw new ForbiddenError("File uploads are disabled for this workspace member.");
     }
+    // Member settings Part 4: the owner may have turned "Upload files" off for this role.
+    if (!access.isOwner && !accessAllows(access, "files.upload")) throw new ForbiddenError("Your role can’t upload files here. The owner decides this in Settings → Roles.");
     return { ...access, canUpload: true };
 }
 
@@ -199,8 +202,10 @@ export async function assertWorkspaceWriteAccessTx(
         visibility: string | null;
         deleted_at: Date | string | null;
         kind: string;
+        parent_id: string | null;
+        role_abilities: unknown;
     }>(sql`
-        SELECT id, owner_id, visibility, deleted_at, kind
+        SELECT id, owner_id, visibility, deleted_at, kind, parent_id, role_abilities
         FROM workspaces
         WHERE id = ${projectId}
         FOR SHARE
@@ -219,8 +224,8 @@ export async function assertWorkspaceWriteAccessTx(
         };
     }
 
-    const memberResult = await tx.execute<{ role: string | null }>(sql`
-        SELECT role
+    const memberResult = await tx.execute<{ role: string | null; completed_at: Date | string | null }>(sql`
+        SELECT role, completed_at
         FROM workspace_members
         WHERE workspace_id = ${projectId}
           AND user_id = ${userId}
@@ -234,6 +239,11 @@ export async function assertWorkspaceWriteAccessTx(
         await assertOrgWrite(tx, projectId, userId, member.role === "admin", target);
     } else if (!projectMemberCan(member.role, "upload_files")) {
         throw new ForbiddenError("You don’t have access to this");
+    } else if (member.completed_at) {
+        // Member settings §3: read-only until the person reopens their part.
+        throw new ForbiddenError("Your part here is completed. Reopen your part to make changes.");
+    } else if (!roleAllows(project.role_abilities, member.role, "files.upload", { orgRules: Boolean(project.parent_id) })) {
+        throw new ForbiddenError("Your role can’t upload files here. The owner decides this in Settings → Roles.");
     }
 
     return {

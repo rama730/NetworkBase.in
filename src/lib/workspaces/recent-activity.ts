@@ -49,7 +49,18 @@ export function isPublishableFileMetadata(metadata: Record<string, unknown> | nu
     && metadata.analyticsVisible !== false && analytics?.analyticsVisible !== false;
 }
 
-export function describeMembershipEvent(name: string, type: "workspace_member.added" | "workspace_member.role_changed", metadata: Record<string, unknown>) {
+/** Member settings §3, §4: completing, reopening, confirming and leaving show in the workspace's activity. */
+export const MEMBER_JOURNEY_EVENTS = ["workspace_member.completed", "workspace_member.reopened", "workspace_member.completion_confirmed", "workspace_member.removed", "workspace.completed"] as const;
+
+export function describeMembershipEvent(name: string, type: string, metadata: Record<string, unknown>, opts: { showNote?: boolean } = {}) {
+  // A completion's note is the person's words (or their owner's): members see it, visitors don't.
+  const note = opts.showNote && typeof metadata.note === "string" && metadata.note.trim() ? ` · “${metadata.note.trim().slice(0, 80)}${metadata.note.trim().length > 80 ? "…" : ""}”` : "";
+  if (type === "workspace_member.completed") return metadata.byOwner ? `${name}’s part was marked completed${note}` : `${name} completed their part${note}`;
+  if (type === "workspace_member.reopened") return `${name} reopened their part`;
+  if (type === "workspace_member.completion_confirmed") return `${name}’s part was confirmed`;
+  if (type === "workspace_member.removed") return `${name} left the workspace`;
+  if (type === "workspace.completed") return `${name} completed the workspace`;
+  if (type !== "workspace_member.added" && type !== "workspace_member.role_changed") return null;
   const previousRole = typeof metadata.previousRole === "string" ? metadata.previousRole : null;
   const nextRole = typeof metadata.nextRole === "string" ? metadata.nextRole : null;
   if (type === "workspace_member.added" && previousRole === nextRole) return null;

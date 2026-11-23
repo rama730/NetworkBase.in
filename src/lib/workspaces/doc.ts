@@ -1,4 +1,5 @@
 import { createHash, } from "crypto";
+import { roleAllows } from "@/lib/workspaces/role-abilities";
 import { normalizeWorkspacePublicTabVisibility, normalizeWorkspaceMemberRole, } from "@/lib/workspaces/settings-policies";
 import { normalizeWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { evaluateWorkspaceDocQuality } from "@/lib/workspaces/doc-quality";
@@ -261,6 +262,9 @@ export function resolveWorkspaceDocPermission(input: {
     isOwner?: boolean;
     isActiveMember?: boolean;
     hasPublishedReadme?: boolean;
+    /** Member settings Part 4: the owner's changes to "See and edit doc drafts"; organizations keep their rules. */
+    roleAbilities?: unknown;
+    orgRules?: boolean;
 }) : WorkspaceDocPermission {
     const settings = normalizeWorkspaceDocSettings(input.settings);
     const visibility = normalizeWorkspaceVisibility(input.projectVisibility);
@@ -301,7 +305,8 @@ export function resolveWorkspaceDocPermission(input: {
 
     const isLeader = isOwner || isCoLeader;
     // Viewers read; they never edit, even where members may (a viewer could edit and publish before, found in A0.4).
-    const canReadDraft = isLeader || (isMember && role !== "viewer" && settings.editPolicy === "members" && override !== "leaders_only");
+    const draftsAllowed = isOwner || roleAllows(input.roleAbilities, role, "docs.drafts", { orgRules: input.orgRules });
+    const canReadDraft = draftsAllowed && (isLeader || (isMember && role !== "viewer" && settings.editPolicy === "members" && override !== "leaders_only"));
     const canEdit = canReadDraft;
     const canPublish = canEdit;
     const canManageSettings = isLeader;

@@ -9,6 +9,7 @@ import {
 import { isWorkspaceTabVisibleToViewer, type WorkspacePublicTabId } from "@/lib/workspaces/settings-policies";
 import { and, eq, isNull, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { roleAllows, type RoleAbility } from "@/lib/workspaces/role-abilities";
 
 // `projects.visibility` has a database default but is not declared NOT NULL,
 // so DB-selected values must remain nullable-safe and fail closed downstream.
@@ -31,6 +32,8 @@ export type WorkspaceAccess = {
         importSource?: { type?: string | null; repoUrl?: string | null; branch?: string | null; metadata?: any } | null;
         syncStatus?: string | null;
         githubLastCommitSha?: string | null;
+        /** Member settings Part 4: what the owner changed from today's rules (null = today's rules). */
+        roleAbilities?: unknown;
     } | null;
     isOwner: boolean;
     isMember: boolean;
@@ -94,6 +97,11 @@ function isInheritedAdminRole(parentOrgRole: ParentOrgRole) {
  */
 export function canReadWorkspaceTab(access: WorkspaceAccess, tab: WorkspacePublicTabId): boolean {
     if (!access.project || !access.canRead) return false;
+    // Member settings Part 4: the owner may have turned "See Files" off for this role.
+    // They then see Files only as a visitor would.
+    if (tab === "files" && (access.isMember || access.isInheritedAdmin) && !access.isOwner && !accessAllows(access, "files.see")) {
+        return access.project.visibility === "public" && isWorkspaceTabVisibleToViewer({ tabId: "files", isOwnerOrMember: false, publicTabVisibility: access.project.publicTabVisibility });
+    }
     return isWorkspaceTabVisibleToViewer({
         tabId: tab,
         isOwnerOrMember: access.isOwner || access.isMember || access.isInheritedAdmin,
@@ -113,6 +121,16 @@ export async function assertWorkspaceTabReadAccess(projectId: string, userId: st
     const access = await getWorkspaceAccessById(projectId, userId);
     if (!canReadWorkspaceTab(access, tab)) throw new WorkspaceTabForbiddenError(tab);
     return access as WorkspaceAccess & { project: NonNullable<WorkspaceAccess["project"]> };
+}
+
+/**
+ * Member settings Part 4: may this viewer do `ability` here? The role is the effective one (a completed member is a
+ * viewer); inherited organization admins act as admins; organizations keep their own table, so the defaults apply.
+ */
+export function accessAllows(access: WorkspaceAccess, ability: RoleAbility) {
+    if (!access.project) return false;
+    const role = access.isOwner ? "owner" : access.memberRole ?? (access.isInheritedAdmin ? "admin" : null);
+    return roleAllows(access.project.roleAbilities, role, ability, { orgRules: access.project.kind === "organization" || Boolean(access.project.parentId) });
 }
 
 export function computeWorkspaceWriteAccess(isOwner: boolean, memberRole: MemberRole) {
@@ -146,6 +164,7 @@ function selectAccessRows(where: SQL<unknown>, userId: string | null) {
             importSource: workspaces.importSource,
             syncStatus: workspaces.syncStatus,
             githubLastCommitSha: workspaces.githubLastCommitSha,
+            roleAbilities: workspaces.roleAbilities,
             memberRole: workspaceMembers.role,
             fileUploadEnabled: workspaceMembers.fileUploadEnabled,
             memberCompletedAt: workspaceMembers.completedAt,
@@ -197,6 +216,7 @@ function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[numbe
             importSource: row.importSource,
             syncStatus: row.syncStatus,
             githubLastCommitSha: row.githubLastCommitSha,
+            roleAbilities: row.roleAbilities ?? null,
         },
         isOwner,
         isMember,

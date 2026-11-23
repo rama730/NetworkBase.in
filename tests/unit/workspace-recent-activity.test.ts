@@ -94,3 +94,13 @@ test("recent-activity card hides an empty feed while retaining accessible loadin
   assert.ok(dashboard.indexOf("<JourneyTimeline") < dashboard.indexOf("<RecentActivityCard"));
   assert.ok(dashboard.indexOf("<RecentActivityCard") < dashboard.indexOf("<OpenRolesCard"));
 });
+
+test("member settings §3–4: completing, reopening, confirming and leaving read in plain words; the note only for members", () => {
+  assert.equal(describeMembershipEvent("Ada", "workspace_member.completed", { note: "Built the sign-in" }, { showNote: true }), "Ada completed their part · “Built the sign-in”");
+  assert.equal(describeMembershipEvent("Ada", "workspace_member.completed", { note: "Built the sign-in" }), "Ada completed their part");
+  assert.equal(describeMembershipEvent("Ada", "workspace_member.completed", { byOwner: true }), "Ada’s part was marked completed");
+  assert.equal(describeMembershipEvent("Ada", "workspace_member.reopened", {}), "Ada reopened their part");
+  assert.equal(describeMembershipEvent("Ada", "workspace_member.removed", {}), "Ada left the workspace");
+  assert.equal(describeMembershipEvent("Sam", "workspace.completed", {}), "Sam completed the workspace");
+  assert.equal(describeMembershipEvent("Ada", "workspace_member.role_requested", {}), null);
+});

@@ -4,6 +4,7 @@
  * return 428 NEEDS_CONFIRMATION with a summary and a single-use token bound to the exact request, and run only when
  * the agent repeats the request with `X-NB-Confirm: <token>` after the person agreed.
  */
+import { roleAllows } from "@/lib/workspaces/role-abilities";
 import crypto from "node:crypto";
 import { and, eq } from "drizzle-orm";
 
@@ -75,10 +76,10 @@ export async function spendConfirmToken(token: string, input: { userId: string; 
   return used.length === 1;
 }
 
-export async function workspaceAgentPolicy(workspaceId: string, userId?: string | null): Promise<{ policy: AgentPolicy; paused: boolean; orgAllowsAgents: boolean; orgTitle: string | null; blockedByMember: boolean }> {
+export async function workspaceAgentPolicy(workspaceId: string, userId?: string | null): Promise<{ policy: AgentPolicy; paused: boolean; orgAllowsAgents: boolean; orgTitle: string | null; blockedByMember: boolean; blockedByRole: boolean }> {
   const org = alias(workspaces, "agent_org");
   const [row] = await db
-    .select({ policy: workspaces.agentPolicy, pausedAt: workspaces.agentsPausedAt, kind: workspaces.kind, title: workspaces.title, own: workspaces.orgSettings, orgTitle: org.title, orgSettings: org.orgSettings })
+    .select({ policy: workspaces.agentPolicy, pausedAt: workspaces.agentsPausedAt, kind: workspaces.kind, title: workspaces.title, own: workspaces.orgSettings, orgTitle: org.title, orgSettings: org.orgSettings, ownerId: workspaces.ownerId, parentId: workspaces.parentId, roleAbilities: workspaces.roleAbilities })
     .from(workspaces)
     .leftJoin(org, and(eq(org.id, workspaces.parentId), eq(org.kind, "organization")))
     .where(eq(workspaces.id, workspaceId))
@@ -87,11 +88,15 @@ export async function workspaceAgentPolicy(workspaceId: string, userId?: string 
   const orgSettings = row?.kind === "organization" ? row.own : row?.orgSettings;
   // Member settings §2: "Keep my agents out of this workspace", checked per request for this person's agents.
   const [own] = userId
-    ? await db.select({ blockedAt: workspaceMembers.agentsBlockedAt }).from(workspaceMembers)
+    ? await db.select({ blockedAt: workspaceMembers.agentsBlockedAt, role: workspaceMembers.role, completedAt: workspaceMembers.completedAt }).from(workspaceMembers)
       .where(and(eq(workspaceMembers.projectId, workspaceId), eq(workspaceMembers.userId, userId))).limit(1)
     : [];
+  // Part 4: the owner may have turned "Use agents" off for this person's role (their effective role when completed).
+  const role = row && userId === row.ownerId ? "owner" : own ? (own.completedAt ? "viewer" : own.role) : null;
+  const blockedByRole = Boolean(userId && own && !roleAllows(row?.roleAbilities, role, "agents.use", { orgRules: row?.kind === "organization" || Boolean(row?.parentId) }));
   return {
     blockedByMember: Boolean(own?.blockedAt),
+    blockedByRole,
     policy: row?.policy ?? "ask_important",
     paused: Boolean(row?.pausedAt),
     orgAllowsAgents: allowsAgentTokens(orgSettings),

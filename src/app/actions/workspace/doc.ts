@@ -167,6 +167,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             key: true,
             kind: true,
             parentId: true,
+            roleAbilities: true,
         },
         with: {
             docs: { with: { linkedNode: { columns: { deletedAt: true, size: true } } } },
@@ -219,6 +220,8 @@ function docContext(base: DocProjectBase, actorUserId: string | null, docSlug: s
         isOwner: actorUserId === project.ownerId,
         isActiveMember: Boolean(membership),
         hasPublishedReadme,
+        roleAbilities: project.roleAbilities,
+        orgRules: project.kind === "organization" || Boolean(project.parentId),
     });
     return { ...base, readme, settings, permission };
 }
@@ -239,6 +242,8 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
             isOwner,
             isActiveMember: isOwner || Boolean(membership),
             hasPublishedReadme: true,
+            roleAbilities: project.roleAbilities,
+            orgRules: project.kind === "organization" || Boolean(project.parentId),
         });
         // No file and nothing published: only a starter draft that never had a file, and only for its editors
         // (T16 live test: the side list said 0 while a new workspace's README showed).

@@ -11,7 +11,7 @@ import { orgFileAccessSql } from "@/lib/files/internal-helpers";
 import { orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { getViewerIdentityContext } from "@/lib/server/viewer-context";
 import { normalizeWorkspacePublicTabVisibility } from "@/lib/workspaces/settings-policies";
-import { activityActorName, describeGithubPush, describeMembershipEvent, isPublishableFileMetadata, newestWorkspaceActivities, recentActivityAudience, type WorkspaceRecentActivityItem } from "@/lib/workspaces/recent-activity";
+import { activityActorName, describeGithubPush, describeMembershipEvent, isPublishableFileMetadata, MEMBER_JOURNEY_EVENTS, newestWorkspaceActivities, recentActivityAudience, type WorkspaceRecentActivityItem } from "@/lib/workspaces/recent-activity";
 
 const actor = alias(profiles, "recent_activity_actor");
 const member = alias(profiles, "recent_activity_member");
@@ -37,16 +37,21 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
     username: member.username,
     memberId: member.id,
   }).from(workspaceNodeEvents)
-    .innerJoin(workspaceMembers, and(
+    // Joined and role changes are for people still here; completing, reopening and leaving (member settings §3, §4)
+    // name the person even after they left. "Workspace completed" names whoever completed it.
+    .leftJoin(workspaceMembers, and(
       eq(workspaceMembers.projectId, projectId),
       sql`${workspaceNodeEvents.metadata}->>'targetUserId' = ${workspaceMembers.userId}::text`,
     ))
-    .innerJoin(member, and(eq(member.id, workspaceMembers.userId), isNull(member.deletedAt)))
+    .innerJoin(member, and(sql`${member.id}::text = coalesce(${workspaceNodeEvents.metadata}->>'targetUserId', ${workspaceNodeEvents.actorId}::text)`, isNull(member.deletedAt)))
     .where(and(
       eq(workspaceNodeEvents.projectId, projectId),
-      inArray(workspaceNodeEvents.type, ["workspace_member.added", "workspace_member.role_changed"]),
-      sql`(${workspaceNodeEvents.type} = 'workspace_member.role_changed' OR
+      inArray(workspaceNodeEvents.type, ["workspace_member.added", "workspace_member.role_changed", ...MEMBER_JOURNEY_EVENTS]),
+      sql`(${workspaceNodeEvents.type} NOT IN ('workspace_member.added', 'workspace_member.role_changed') OR ${workspaceMembers.id} IS NOT NULL)`,
+      sql`(${workspaceNodeEvents.type} <> 'workspace_member.added' OR
         coalesce(${workspaceNodeEvents.metadata}->>'previousRole', '') <> coalesce(${workspaceNodeEvents.metadata}->>'nextRole', ''))`,
+      // Only leaving shows; a removal by the owner stays out of the feed, as before.
+      sql`(${workspaceNodeEvents.type} <> 'workspace_member.removed' OR ${workspaceNodeEvents.metadata}->>'targetUserId' = ${workspaceNodeEvents.actorId}::text)`,
       audience.requirePublicProfile ? eq(member.visibility, "public") : undefined,
     ))
     .orderBy(desc(workspaceNodeEvents.createdAt), desc(workspaceNodeEvents.id)).limit(3);
@@ -118,7 +123,7 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
   for (const event of memberEvents) {
     const metadata = event.metadata ?? {};
     const name = activityActorName({ fullName: event.name, username: event.username });
-    const text = describeMembershipEvent(name, event.type as "workspace_member.added" | "workspace_member.role_changed", metadata);
+    const text = describeMembershipEvent(name, event.type, metadata, { showNote: isMember });
     if (!text) continue;
     items.push({ id: `member:${event.id}`, type: "member",
       text,

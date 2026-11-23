@@ -146,8 +146,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * checked per request, not once at sign-in.
  */
 export async function agentPolicyDenial(workspaceId: string, userId?: string | null) {
-  const { paused, orgAllowsAgents, orgTitle, blockedByMember } = await workspaceAgentPolicy(workspaceId, userId);
+  const { paused, orgAllowsAgents, orgTitle, blockedByMember, blockedByRole } = await workspaceAgentPolicy(workspaceId, userId);
   if (blockedByMember) return jsonError("You keep your agents out of this workspace. Change it in this workspace's settings, under Your settings.", 403, "AGENTS_BLOCKED_BY_YOU");
+  if (blockedByRole) return jsonError("The owner turned agents off for your role in this workspace (Settings → Roles).", 403, "AGENT_NOT_ALLOWED");
   if (paused) return jsonError("Agents are paused in this workspace. Its owner can turn them back on in workspace settings.", 403, "AGENTS_PAUSED");
   if (!orgAllowsAgents) return jsonError(`${orgTitle ?? "This organization"} doesn't allow AI agents. Its admins can allow them in organization settings.`, 403, "AGENT_NOT_ALLOWED");
   return null;

@@ -39,6 +39,7 @@ const icons = {
   access: Globe,
   collaborators: Users,
   "roles-applications": UserCog,
+  "role-abilities": ShieldCheck,
   readme: FileText,
   updates: Newspaper,
   "tasks-workflow": Workflow,

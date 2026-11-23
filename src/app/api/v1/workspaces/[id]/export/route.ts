@@ -4,7 +4,7 @@ import { z } from "zod";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { enforceRouteLimit, getRequestId, jsonError, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { agentGate } from "@/lib/agents/policy";
-import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { accessAllows, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { branches } from "@/lib/db/schema";
 import { prepareFolderExport, streamFolderExport, type PreparedFolderExport } from "@/lib/files/folder-export";
@@ -34,7 +34,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     // A backup of everything (every task and comment, which members of an organization don't all see): owners and
     // admins only. Members download the files they can open from the Files tab.
     const role = await getWorkspaceAccessById(id, auth.user.id);
-    if (!role.isOwner && role.memberRole !== "admin" && !role.isInheritedAdmin) return jsonError("Only the workspace's owners and admins export it", 403, "FORBIDDEN");
+    // Member settings Part 4: "Export the workspace" is the owner's and admins' by default; the owner can change it.
+    if (!role.isOwner && !role.isInheritedAdmin && !accessAllows(role, "export")) return jsonError("Your role can't export this workspace. The owner decides this in Settings → Roles.", 403, "FORBIDDEN");
     if (auth.tokenKind === "agent") {
       const held = await agentGate(auth, request, { export: id }, { workspaceId: id, kinds: ["batch"], summary: "Export the whole workspace (files, tasks, comments, docs)" });
       if (held) return held;

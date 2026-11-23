@@ -222,15 +222,17 @@ export default function WorkspaceLayout({
         () => TABS.filter((tab) => {
             const settingsAccess = (canManageSettings ?? isOwner) || canOpenSettings || canSeeMemberTabs;
             if (tab.ownerOnly && !settingsAccess && !isOrganization) return false;
+            // Member settings Part 4: "See Files" off for this role; they see Files only as a visitor would.
+            const filesOff = tab.id === "files" && (project as { viewerAbilities?: Record<string, boolean> }).viewerAbilities?.["files.see"] === false;
             return isWorkspaceTabVisibleToViewer({
                 tabId: tab.id,
-                isOwnerOrMember: canSeeMemberTabs,
+                isOwnerOrMember: canSeeMemberTabs && !filesOff,
                 canManageSettings: settingsAccess,
                 publicTabVisibility: normalizedPublicTabs,
                 isOrganization,
             });
         }),
-        [canManageSettings, canOpenSettings, canSeeMemberTabs, isOrganization, isOwner, normalizedPublicTabs],
+        [canManageSettings, canOpenSettings, canSeeMemberTabs, isOrganization, isOwner, normalizedPublicTabs, project],
     );
     useEffect(() => {
         const tabList = tabListRef.current;
@@ -474,6 +476,15 @@ export default function WorkspaceLayout({
                                         <LayoutDashboard className="size-4" aria-hidden="true" />
                                         {isOrganization ? "Organization overview" : "Workspace overview"}
                                     </DropdownMenuItem>
+                                    {/* Member settings: your own part here, from anywhere in the workspace. */}
+                                    {canSeeMemberTabs && !isOrganization ? (
+                                        <DropdownMenuItem asChild>
+                                            <a href={`?tab=settings&settings=you`}>
+                                                <Settings className="size-4" aria-hidden="true" />
+                                                {(project as { viewerPartCompleted?: boolean }).viewerPartCompleted ? "Reopen my part" : "Your settings"}
+                                            </a>
+                                        </DropdownMenuItem>
+                                    ) : null}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>

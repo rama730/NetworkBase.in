@@ -1,10 +1,10 @@
-import { and, asc, eq, gt, isNull, notLike, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, notLike, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
-import { fileVersions, workspaceNodes } from "@/lib/db/schema";
+import { fileVersions, workspaceMemberPeriods, workspaceNodes } from "@/lib/db/schema";
 import { assertWorkspaceFileReadAccess, visibleFileNodesSql } from "@/lib/files/internal-helpers";
 import { WORKSPACE_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
 
@@ -54,7 +54,20 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (!query.success) return jsonError("Invalid workspace or cursor", 400, "BAD_REQUEST");
     const { projectId, after } = query.data;
 
-    const access = await assertWorkspaceFileReadAccess(projectId, auth.user.id);
+    // Member settings §4: a folder linked by someone who left says so on its next sync; their local files stay.
+    const leftSentence = async () => {
+      const [left] = await db.select({ reason: workspaceMemberPeriods.endReason }).from(workspaceMemberPeriods)
+        .where(and(eq(workspaceMemberPeriods.projectId, projectId), eq(workspaceMemberPeriods.userId, auth.user!.id), inArray(workspaceMemberPeriods.endReason, ["left", "removed"])))
+        .orderBy(desc(workspaceMemberPeriods.endedAt)).limit(1);
+      return left ? `${left.reason === "left" ? "You left this workspace" : "You were removed from this workspace"}, so this folder stops syncing. Your local files stay; nb unlink to unlink it.` : null;
+    };
+    const access = await assertWorkspaceFileReadAccess(projectId, auth.user.id).catch(async (error) => {
+      const left = await leftSentence();
+      if (left) throw Object.assign(new Error(left), { leftWorkspace: true });
+      throw error;
+    });
+    const readOnlyReason = access.writeBlocked === "completed" ? "Your part here is completed: reopen your part to push again"
+      : !access.isOwner && !access.isMember ? await leftSentence() : null;
     const rows = await db
       .select({
         nodeId: workspaceNodes.id,
@@ -87,12 +100,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         files,
         nextCursor: rows.length > PAGE ? files[files.length - 1]!.nodeId : null,
         canWrite: access.canWrite,
+        // Member settings §3 (gap 23) and §4: why this folder is read-only, in words the CLI shows on push.
+        readOnlyReason,
         limits: { largestFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES },
       },
       undefined,
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
+    if (error instanceof Error && (error as { leftWorkspace?: boolean }).leftWorkspace) return jsonError(error.message, 403, "FORBIDDEN");
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/workspaces/manifest", fallback: "Couldn’t list workspace files" });
   }
 }

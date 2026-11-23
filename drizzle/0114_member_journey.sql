@@ -86,6 +86,54 @@ CREATE OR REPLACE FUNCTION app_private.nb_workspace_can_write(p_project_id uuid)
   );
 $$;
 --> statement-breakpoint
+-- Part 4, what each role may do: the SQL mirror of roleAllows() in src/lib/workspaces/role-abilities.ts. The owner
+-- always may; a completed member counts as a viewer; viewers never get write abilities; organizations and their team
+-- workspaces keep today's rules (their own permission table decides). tests/db/role-abilities.test.ts keeps them equal.
+CREATE FUNCTION app_private.nb_workspace_role_allows(p_workspace uuid, p_ability text) RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  WITH me AS (
+    SELECT p.owner_id, p.kind, p.parent_id, p.role_abilities,
+           CASE WHEN m.role IS NULL THEN
+                  CASE WHEN p.parent_id IS NOT NULL AND app_private.nb_org_role(p.parent_id) IN ('owner', 'admin') THEN 'admin' END
+                WHEN m.completed_at IS NOT NULL THEN 'viewer'
+                ELSE m.role END AS role
+    FROM public.workspaces p
+    LEFT JOIN public.workspace_members m ON m.workspace_id = p.id AND m.user_id = (SELECT auth.uid())
+    WHERE p.id = p_workspace
+  )
+  SELECT CASE
+    WHEN me.owner_id = (SELECT auth.uid()) THEN true
+    WHEN me.role IS NULL OR me.role NOT IN ('admin', 'member', 'viewer') THEN false
+    ELSE coalesce(
+      CASE WHEN (me.role = 'viewer' AND p_ability NOT IN ('files.see', 'agents.use')) OR me.kind = 'organization' OR me.parent_id IS NOT NULL THEN NULL
+           WHEN jsonb_typeof(me.role_abilities -> me.role -> p_ability) = 'boolean' THEN (me.role_abilities -> me.role ->> p_ability)::boolean END,
+      (me.role || ':' || p_ability) IN (
+        'admin:tasks.create', 'admin:tasks.edit', 'admin:files.upload', 'admin:members.invite', 'admin:files.see', 'admin:docs.drafts', 'admin:agents.use', 'admin:export',
+        'member:tasks.create', 'member:tasks.edit', 'member:files.upload', 'member:files.see', 'member:docs.drafts', 'member:agents.use',
+        'viewer:files.see', 'viewer:agents.use'))
+  END
+  FROM me;
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION app_private.nb_workspace_role_allows(uuid, text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION app_private.nb_workspace_role_allows(uuid, text) TO authenticated, anon, service_role, nb_app;
+--> statement-breakpoint
+-- Tasks from a browser session follow the same abilities as the app (create, edit and move, delete).
+DROP POLICY tasks_insert_workspace_writer ON public.tasks;
+--> statement-breakpoint
+CREATE POLICY tasks_insert_workspace_writer ON public.tasks FOR INSERT TO authenticated WITH CHECK ((app_private.nb_workspace_can_write(workspace_id) AND app_private.nb_workspace_role_allows(workspace_id, 'tasks.create')));
+--> statement-breakpoint
+DROP POLICY tasks_update_workspace_writer ON public.tasks;
+--> statement-breakpoint
+CREATE POLICY tasks_update_workspace_writer ON public.tasks FOR UPDATE TO authenticated USING (((deleted_at IS NULL) AND app_private.nb_workspace_can_write(workspace_id) AND app_private.nb_workspace_role_allows(workspace_id, 'tasks.edit'))) WITH CHECK ((app_private.nb_workspace_can_write(workspace_id) AND app_private.nb_workspace_role_allows(workspace_id, 'tasks.edit')));
+--> statement-breakpoint
+DROP POLICY tasks_delete_workspace_writer ON public.tasks;
+--> statement-breakpoint
+CREATE POLICY tasks_delete_workspace_writer ON public.tasks FOR DELETE TO authenticated USING (((deleted_at IS NULL) AND app_private.nb_workspace_can_write(workspace_id) AND app_private.nb_workspace_role_allows(workspace_id, 'tasks.delete')));
+--> statement-breakpoint
 DROP POLICY file_versions_insert_workspace_member ON public.file_versions;
 --> statement-breakpoint
 CREATE POLICY file_versions_insert_workspace_member ON public.file_versions FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
@@ -93,7 +141,8 @@ CREATE POLICY file_versions_insert_workspace_member ON public.file_versions FOR 
      JOIN public.workspaces p ON ((pn.workspace_id = p.id)))
   WHERE ((pn.id = file_versions.node_id) AND ((p.owner_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1
            FROM public.workspace_members m
-          WHERE ((m.workspace_id = p.id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND (m.role <> 'viewer'::text) AND (m.completed_at IS NULL)))))))));
+          WHERE ((m.workspace_id = p.id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND (m.role <> 'viewer'::text) AND (m.completed_at IS NULL))))))))
+  AND app_private.nb_workspace_role_allows((SELECT pn.workspace_id FROM public.workspace_nodes pn WHERE pn.id = file_versions.node_id), 'files.upload'));
 --> statement-breakpoint
 -- A completed part takes no new work (§3): every path that assigns a task (app, API, bulk moves) meets this check.
 -- Keeping tasks already assigned is allowed; only a change of assignee to a completed member is refused.

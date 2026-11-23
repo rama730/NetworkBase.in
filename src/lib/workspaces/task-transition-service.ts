@@ -1,4 +1,5 @@
 import "server-only";
+import { roleAllows } from "@/lib/workspaces/role-abilities";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -110,6 +111,9 @@ export async function lockTaskForWrite(
     deleted_at: Date | string | null;
     task_deleted_at: Date | string | null;
     member_role: string | null;
+    member_completed_at: Date | string | null;
+    role_abilities: unknown;
+    parent_id: string | null;
     assignment_id: string | null;
     master_settings: { submissionType?: string; reviewRequired?: boolean } | null;
     in_team: boolean;
@@ -125,7 +129,7 @@ export async function lockTaskForWrite(
             t.timeline_origin_sprint_id, t.creator_id, t.title, t.task_number,
             t.status, t.review_status, t.review_content_hash, t.updated_at, t.deleted_at AS task_deleted_at,
             p.owner_id, p.slug, p.key, p.deleted_at, p.task_review_required, p.task_completion_policy_version,
-            m.role as member_role,
+            m.role as member_role, m.completed_at AS member_completed_at, p.role_abilities, p.parent_id,
             t.assignment_id, t.kind, t.item_type, t.stage,
             mt.assignment_settings AS master_settings,
             EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}) AS in_team,
@@ -178,6 +182,12 @@ export async function lockTaskForWrite(
     }
     if (!["admin", "member"].includes((row.member_role ?? "").toLowerCase())) {
       throw new Error("You don’t have access to this");
+    }
+    // Member settings §3: a completed part is read-only until its person reopens it.
+    if (row.member_completed_at) throw new Error("Your part here is completed. Reopen your part to make changes.");
+    // Part 4: the owner may have turned "Edit and move tasks" off for this role.
+    if (!roleAllows(row.role_abilities, row.member_role, "tasks.edit", { orgRules: row.project_kind === "organization" || Boolean(row.parent_id) })) {
+      throw new Error("Your role can’t edit tasks here. The owner decides this in Settings → Roles.");
     }
   }
   return {

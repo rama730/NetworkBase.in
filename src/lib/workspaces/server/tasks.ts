@@ -17,7 +17,7 @@ import { runningSprint } from "@/lib/workspaces/sprint-plan";
 type TaskListScope = "all" | "backlog" | "sprint" | "review" | "assignments" | "mine";
 const LIST_SCOPES: TaskListScope[] = ["backlog", "sprint", "review", "assignments", "mine"];
 
-import { type WorkspaceAccess, getWorkspaceAccessById, canReadWorkspaceTab, WorkspaceTabForbiddenError, getWorkspaceAccessByIdentifier, assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
+import { type WorkspaceAccess, accessAllows, getWorkspaceAccessById, canReadWorkspaceTab, WorkspaceTabForbiddenError, getWorkspaceAccessByIdentifier, assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { normalizeSearchQuery, containsLikePattern, escapeLikePattern, tokenizeSearchQuery } from "@/lib/search/query";
 import { sql, eq, and, or, isNull, isNotNull, ilike, asc, desc, inArray, type SQL } from "drizzle-orm";
 import { tasks, taskReadReceipts, workspaceDocuments, workspaceWorkflows, workspaces, workspaceMembers, roleApplications, workspaceOpenRoles, workspaceSprints, workspaceWorkflowColumns, sprintTaskMemberships, taskActivityEvents, workspaceNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
@@ -1216,6 +1216,10 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     if (access.project.kind === "organization" && !orgCan(orgRoleOf(access.memberRole, access.isOwner), "create_org_tasks")) {
       throw new Error("Only owners and admins add tasks here.");
     }
+    // Member settings Part 4: the owner may have turned "Create tasks" off for this role (a bug report isn't a task).
+    if (!reporterAccess && access.memberRole && access.memberRole !== "viewer" && !accessAllows(access, "tasks.create")) {
+      throw new Error("Your role can’t create tasks here. The owner decides this in Settings → Roles.");
+    }
     const itemType = validated.itemType ?? "task";
     let stage: string | null = null;
     let typeFields: Record<string, unknown> = {};
@@ -1622,7 +1626,8 @@ export async function deleteTaskAs(user: { id: string }, taskId: string, project
     });
     if (!project) throw new Error("Workspace not found");
 
-    if (project.ownerId !== user.id && !options.undoOwnCreate) {
+    // Member settings Part 4: the owner, or a role the owner let delete tasks in Settings → Roles.
+    if (project.ownerId !== user.id && !options.undoOwnCreate && !accessAllows(await getWorkspaceAccessById(projectId, user.id), "tasks.delete")) {
       throw new Error("Only the owner can delete tasks");
     }
 
