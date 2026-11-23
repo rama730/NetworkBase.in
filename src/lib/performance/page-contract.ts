@@ -553,6 +553,14 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
+  "/docs/workspaces/your-part": buildPublicContract("/docs/workspaces/your-part", "src/app/(legal)/docs/workspaces/your-part/page.tsx", {
+    renderingMode: "static",
+    cacheTtlSeconds: 86400,
+    invalidationOwner: "none",
+    hydrationBoundary: "minimal",
+    bootstrapReadModel: "static",
+    maxInitialPayloadKb: 200,
+  }),
   "/docs/files/changes": buildPublicContract("/docs/files/changes", "src/app/(legal)/docs/files/changes/page.tsx", {
     renderingMode: "static",
     cacheTtlSeconds: 86400,

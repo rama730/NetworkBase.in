@@ -13,6 +13,7 @@ import {
 } from "@/app/actions/workspace/member-journey";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { useMemberUpdates } from "@/hooks/useMemberUpdates";
@@ -83,7 +84,13 @@ export function YourSettingsSection({ projectId, projectTitle, members }: { proj
     }
   }
 
-  if (part.isPending) return <p role="status" className="nb-compact text-muted-foreground">Loading your settings…</p>;
+  if (part.isPending) {
+    return (
+      <div role="status" aria-label="Loading your settings" className="space-y-8">
+        {[0, 1, 2].map((i) => <Skeleton key={i} kind="tile" className="h-40 w-full" />)}
+      </div>
+    );
+  }
   if (part.isError) {
     return (
       <p role="alert" className="nb-compact text-destructive">
@@ -130,7 +137,7 @@ export function YourSettingsSection({ projectId, projectTitle, members }: { proj
             <dt className="nb-compact text-muted-foreground">Owner</dt>
             <dd className="nb-compact">{p.owner?.name ?? "—"}{p.admins.length ? ` · Admins: ${p.admins.map((a) => a.name).join(", ")}` : ""}</dd>
           </dl>
-          <p className="nb-compact text-muted-foreground">{p.canDo}</p>
+          <p className="nb-compact text-muted-foreground">{p.canDo} <Link className="underline underline-offset-2" href="/docs/workspaces/your-part">How completing works</Link></p>
           {p.periods.length ? (
             <div className="space-y-1">
               <p className="nb-micro text-muted-foreground">Earlier here</p>
@@ -226,7 +233,7 @@ export function YourSettingsSection({ projectId, projectTitle, members }: { proj
             <SettingsSwitch id={`agents-out-${projectId}`} checked={p.settings.agentsBlocked} disabled={saving} onCheckedChange={(v: boolean) => void save({ agentsBlocked: v }, v ? "Your agents are kept out of here" : "Your agents can work here again")} />
           </Row>
           {reach.data?.agentsPaused ? <p className="nb-compact text-muted-foreground">The owner has paused all agents here.</p> : null}
-          {reach.isPending ? <p className="nb-compact text-muted-foreground">Loading…</p> : reach.data?.agents.length ? (
+          {reach.isPending ? <Skeleton kind="text" className="h-10 w-full" aria-label="Loading" /> : reach.data?.agents.length ? (
             <ul className="divide-y divide-border">
               {reach.data.agents.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-4 py-2">
@@ -240,7 +247,7 @@ export function YourSettingsSection({ projectId, projectTitle, members }: { proj
       </SettingsCard>
 
       <SettingsCard title="Your devices" description="Your CLI and editor sign-ins. To unlink one folder, run nb unlink in it; your files stay.">
-        {reach.isPending ? <p className="nb-compact text-muted-foreground">Loading…</p> : reach.data?.devices.length ? (
+        {reach.isPending ? <Skeleton kind="text" className="h-10 w-full" aria-label="Loading" /> : reach.data?.devices.length ? (
           <ul className="divide-y divide-border">
             {reach.data.devices.map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-4 py-2">
@@ -391,7 +398,7 @@ function WrapUpDialog({ kind, projectId, projectTitle, people, lastAdmin, onClos
           {kind === "complete" ? (
             <label className="block space-y-1">
               <span className="nb-micro text-muted-foreground">What I did (optional, shows on your profile)</span>
-              <textarea className="nb-input min-h-[72px] w-full" maxLength={280} value={note} onChange={(e) => setNote(e.target.value)} />
+              <textarea className="nb-textarea min-h-[72px] w-full" maxLength={280} value={note} onChange={(e) => setNote(e.target.value)} />
               <span className="nb-meta block text-right text-muted-foreground">{note.length}/280</span>
             </label>
           ) : null}
@@ -424,7 +431,7 @@ function RoleRequestDialog({ projectId, current, onClose }: { projectId: string;
         <select aria-label="Role" className="nb-select w-full" value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
           {choices.map((r) => <option key={r} value={r}>{ROLE_WORD[r]}</option>)}
         </select>
-        <textarea aria-label="Why" className="nb-input min-h-[72px] w-full" maxLength={500} placeholder="Why (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <textarea aria-label="Why" className="nb-textarea min-h-[72px] w-full" maxLength={500} placeholder="Why (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
     </ConfirmDialog>
   );

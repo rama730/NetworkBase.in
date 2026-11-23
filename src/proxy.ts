@@ -142,6 +142,7 @@ const STATIC_LEGAL_PATHS = new Set([
   "/docs/cli",
   "/docs/files/branches",
   "/docs/files/changes",
+  "/docs/workspaces/your-part",
   "/dpa",
   "/eula",
   "/grievances",

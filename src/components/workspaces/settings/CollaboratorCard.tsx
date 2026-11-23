@@ -352,7 +352,7 @@ export function CollaboratorCard({
                                 </label>
                             ))}
                         </fieldset>
-                        <textarea aria-label="Note (optional)" placeholder="Note (optional)" className="nb-input min-h-[64px] w-full" maxLength={280} value={note} onChange={(e) => setNote(e.target.value)} />
+                        <textarea aria-label="Note (optional)" placeholder="Note (optional)" className="nb-textarea min-h-[64px] w-full" maxLength={280} value={note} onChange={(e) => setNote(e.target.value)} />
                     </div>
                 </ConfirmDialog>
             ) : null}
@@ -360,7 +360,7 @@ export function CollaboratorCard({
                 <ConfirmDialog open onOpenChange={(o) => { if (!o) setNotYetAsk(false); }} title={`Not yet for ${displayName}?`}
                     description="They get your note and are asked to reopen their part. Nothing reopens on its own." confirmLabel="Send"
                     onConfirm={async () => { if (await decide("not_yet", note.trim())) setNotYetAsk(false); }}>
-                    <textarea aria-label="What’s left" placeholder="What’s left (optional)" className="nb-input min-h-[64px] w-full" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+                    <textarea aria-label="What’s left" placeholder="What’s left (optional)" className="nb-textarea min-h-[64px] w-full" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
                 </ConfirmDialog>
             ) : null}
             {blockAsk ? <BlockPersonDialog key={blockAsk} person={{ id: member.id, name: displayName }} source="member_list" unblock={blockedByMe} /> : null}
