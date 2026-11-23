@@ -73,15 +73,17 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
   // W7.1: accepted requests under 20 % left, and New ones near their first-reply time, by time left.
   const breaching = all.filter((r) => r.clock && (r.clock.state === "soon" || r.clock.state === "breached")).sort((a, b) => a.clock!.leftMinutes - b.clock!.leftMinutes);
   const clockLine = (r: RequestRow) => {
-    if (!r.clock || r.clock.state === "off") return null;
-    // W5.2: "Waiting on Mei · paused".
+    // W5.2: "Waiting on Mei · paused", also when the type has no clock (Off).
     const waitingOn = (r.typeFields.waiting as { onUserId?: string } | null)?.onUserId;
     const who = waitingOn ? (waitingOn === r.creatorId ? r.creatorName : assignable.find((m) => m.id === waitingOn)?.label) ?? "someone" : null;
-    const words = `${who ? `Waiting on ${who} · ` : ""}${clockText(r.clock, r.clock.kind === "first" ? "Replied" : "Delivered")}`;
-    const label = r.clock.kind === "first" ? "First reply" : "Deliver";
-    return <span className={cn("inline-flex items-center gap-1 font-mono text-[11px]", r.clock.state === "breached" ? "text-destructive" : r.clock.state === "soon" ? "text-[var(--primary-active)] dark:text-primary" : "text-muted-foreground")} data-testid="request-clock">
-      <Timer aria-hidden="true" className="size-3" /><span className="sr-only">{label}: </span>{words}</span>;
+    const running = r.clock && r.clock.state !== "off" ? r.clock : null;
+    if (!running && !who) return null;
+    const words = running ? `${who ? `Waiting on ${who} · ` : ""}${clockText(running, running.kind === "first" ? "Replied" : "Delivered")}` : `Waiting on ${who} · paused`;
+    const label = running?.kind === "first" ? "First reply" : "Deliver";
+    return <span className={cn("inline-flex items-center gap-1 font-mono text-[11px]", running?.state === "breached" ? "text-destructive" : running?.state === "soon" ? "text-[var(--primary-active)] dark:text-primary" : "text-muted-foreground")} data-testid="request-clock">
+      <Timer aria-hidden="true" className="size-3" /><span className="sr-only">{running ? `${label}: ` : ""}</span>{words}</span>;
   };
+
   const memberOptions = assignable.map((m) => ({ id: m.id, label: m.label }));
 
   async function solved(r: RequestRow, note?: string) {

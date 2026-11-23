@@ -109,6 +109,7 @@ export function RequestPanelSection({ projectId, taskId }: { projectId: string; 
             <dd key={`${q.id}-v`} className="whitespace-pre-wrap">{Array.isArray(v) ? `${v.length} ${v.length === 1 ? "file" : "files"}` : v ? String(v) : "—"}</dd>];
         })}
         {clockWords ? <><dt className="text-muted-foreground">{data.clock!.kind === "first" ? "First reply" : "Deliver"}</dt><dd className="font-mono text-[12px]" data-testid="request-panel-clock">{waiting ? `Waiting on ${data.waitingName} · ` : ""}{clockWords}</dd></> : null}
+        {!clockWords && waiting ? <><dt className="text-muted-foreground">Waiting on</dt><dd data-testid="request-panel-waiting">{data.waitingName} · paused</dd></> : null}
         {delivered?.ref ? <><dt className="text-muted-foreground">What was delivered</dt><dd><a href={delivered.ref} target="_blank" rel="noreferrer" className="break-all text-primary hover:underline">{delivered.ref}</a></dd></> : null}
         {data.fields.solved ? <><dt className="text-muted-foreground">Did this solve it?</dt><dd>{data.fields.solved === "yes" ? "Yes" : "No · reopened"}</dd></> : null}
         {data.fields.declineReason ? <><dt className="text-muted-foreground">Declined because</dt><dd>{String(data.fields.declineReason)}</dd></> : null}

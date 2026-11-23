@@ -11,7 +11,7 @@ test("the title row, views and Inbox follow the Bugs tab: Inbox icon, mono count
   assert.match(tab, /font-mono text-\[12px\] text-muted-foreground" data-testid="requests-counts"/);
   assert.match(tab, /<UnderlineTabs label="Requests view"/);
   assert.match(tab, /label: "Inbox" }, { key: "board" as const, label: "Board" }, { key: "mine" as const, label: "Mine" }, { key: "asks" as const, label: "My asks" }, { key: "breaching" as const, label: "Breaching soon" }/);
-  assert.match(tab, /<Timer aria-hidden="true" className="size-3" \/><span className="sr-only">\{label\}: <\/span>\{words\}/, "the clock is words with a screen-reader label, never colour alone");
+  assert.match(tab, /<Timer aria-hidden="true" className="size-3" \/><span className="sr-only">\{running \? `\$\{label\}: ` : ""\}<\/span>\{words\}/, "the clock is words with a screen-reader label, never colour alone");
   assert.match(tab, /className=\{FORM_PRIMARY_CLASS\}>New request</);
   assert.match(tab, /aria-label="Requests actions"/);
   assert.match(tab, /No requests yet\. People in the workspace ask here; you choose what to take on\./);
