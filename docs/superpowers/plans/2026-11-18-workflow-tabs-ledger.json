@@ -388,9 +388,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.4",
@@ -398,9 +398,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.5",
@@ -408,9 +408,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.6",
@@ -418,9 +418,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.7",
@@ -428,9 +428,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.8",
@@ -438,9 +438,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.9",
@@ -448,9 +448,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7 + 0117/0118 lock): board panel journey in Chrome on WT Board."
     },
     {
       "key": "A4.10",
@@ -458,9 +458,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.11",
@@ -468,9 +468,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.12",
@@ -478,9 +478,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.13",
@@ -488,9 +488,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.14",
@@ -498,9 +498,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.15",
@@ -508,9 +508,9 @@
       "text": "A4.3–A4.15 One meeting type each — Goal of each: the type's body lands as the report lists and works with action items/decisions. Per type: templates/meetings/<",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts; tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): type as data in MEETING_TYPES, card in New meeting; body per W2 (unit test)."
     },
     {
       "key": "A4.16",
@@ -518,9 +518,9 @@
       "text": "A4.16 Settings → Meetings (types on/off by category, length, reminder minutes; stored in workspaces.workflowsettings, created in the first migration) — Journeys",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b25b1c6ed): Settings → Workflows → Meetings checked in Chrome."
     },
     {
       "key": "A5.1",
@@ -7108,9 +7108,9 @@
       "text": "Type bodies",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7): 13 type cards in New meeting; Board meeting made WT Board with its body."
     },
     {
       "key": "38.11.W3",
@@ -7148,9 +7148,9 @@
       "text": "Board meeting",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24: WT Board — quorum line, present tick, motion passed For 1 → D-003, Finish → Dec 24, Approve last minutes → Approved 24 Nov, read-only panel. nb push fast path wrote v2 before 0117; after 0117/0118 refused (versions stay 2)."
     },
     {
       "key": "38.11.W7",
@@ -7258,9 +7258,9 @@
       "text": "Meeting types shown by default follow the workspace category; admins switch types on and off. [call]",
       "kind": "call",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b25b1c6ed): Settings → Meetings types follow category (General → common 7), length 45 and reminder 30 saved and used by New meeting."
     },
     {
       "key": "38.11.call6",
@@ -7268,9 +7268,9 @@
       "text": "Board meetings: simple-majority motions, majority quorum, approved minutes lock. [call]",
       "kind": "call",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24: majority quorum, simple-majority motion, approve last minutes locks."
     },
     {
       "key": "38.11.call7",
@@ -7298,9 +7298,9 @@
       "text": "First goals document",
       "kind": "journey",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b25b1c6ed): Set Q4 2026 goals → objective → key result 10→50 teams → check in 30 · 50% · On track in Chrome (goals added to wt-test-a2-3 by SQL)."
     },
     {
       "key": "38.12.W2",
@@ -7308,9 +7308,9 @@
       "text": "Adding an objective",
       "kind": "journey",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b25b1c6ed): Set Q4 2026 goals → objective → key result 10→50 teams → check in 30 · 50% · On track in Chrome (goals added to wt-test-a2-3 by SQL)."
     },
     {
       "key": "38.12.W3",
@@ -7318,9 +7318,9 @@
       "text": "Adding key results",
       "kind": "journey",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b25b1c6ed): Set Q4 2026 goals → objective → key result 10→50 teams → check in 30 · 50% · On track in Chrome (goals added to wt-test-a2-3 by SQL)."
     },
     {
       "key": "38.12.W4",
@@ -7328,9 +7328,9 @@
       "text": "Check in",
       "kind": "journey",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b25b1c6ed): Set Q4 2026 goals → objective → key result 10→50 teams → check in 30 · 50% · On track in Chrome (goals added to wt-test-a2-3 by SQL)."
     },
     {
       "key": "38.12.W5",
@@ -7338,9 +7338,9 @@
       "text": "Pace and status",
       "kind": "journey",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b25b1c6ed): Set Q4 2026 goals → objective → key result 10→50 teams → check in 30 · 50% · On track in Chrome (goals added to wt-test-a2-3 by SQL)."
     },
     {
       "key": "38.12.W6",
@@ -7398,9 +7398,9 @@
       "text": "Goals are one document per period with a live block; the Goals tab stays parked. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24: one goals document per period with a live block."
     },
     {
       "key": "38.12.call2",
@@ -7408,9 +7408,9 @@
       "text": "Check-ins are their own small table (value, confidence, note), not comments. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24: check-ins in key_result_check_ins (0116)."
     },
     {
       "key": "38.12.call3",
@@ -7418,9 +7418,9 @@
       "text": "Pace bands −10 / −25 points; status can be set by hand with a reason until the next check-in. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24: bands 10/25, Status… by hand until next check-in (DB test)."
     },
     {
       "key": "38.12.call4",
@@ -7448,9 +7448,9 @@
       "text": "Goals are never public. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24: members only; outsiders refused (DB test, read rule)."
     },
     {
       "key": "38.13.call1",
@@ -8368,9 +8368,9 @@
       "text": "A4.3–A4.8, A4.10, A4.11, A4.13, A4.14 (2026-11-23): the meeting types are data in MEETINGTYPES (headings in order, an optional one-line guide under a heading, D",
       "kind": "call",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7, b25b1c6ed)."
     },
     {
       "key": "38.11.call12",
@@ -8378,6 +8378,46 @@
       "text": "A4.9 (2026-11-23): Board meeting is a type (Agenda · Reports · Motions · Minutes · Decisions) with a Board size asked in New meeting and kept by the series. Und",
       "kind": "call",
       "milestone": "A4",
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7, b25b1c6ed)."
+    },
+    {
+      "key": "38.11.call13",
+      "section": "38.11",
+      "text": "A4.16 (2026-11-23): Settings → Workflows → Meetings (shown when Meetings and decisions is added; owners and admins change it, others see it read-only): the meet",
+      "kind": "call",
+      "milestone": "A4",
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (7194997d7, b25b1c6ed)."
+    },
+    {
+      "key": "38.12.call7",
+      "section": "38.12",
+      "text": "A5.1a (2026-11-23): A5.1 ships in two parts. A5.1a: Goals' + opens Set goals (this period or the next three; one goals document per period, members only, never ",
+      "kind": "call",
+      "milestone": "A5",
+      "status": "live",
+      "test": "tests/db/goals.test.ts; tests/browser/goals-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b25b1c6ed): A5.1a."
+    },
+    {
+      "key": "38.12.call8",
+      "section": "38.12",
+      "text": "A5.1b (2026-11-24): Measured by in + Key result (W7): a number we check in (default), a project's completion or a roadmap item's work (its work tasks done, canc",
+      "kind": "call",
+      "milestone": "A5",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.12.call9",
+      "section": "38.12",
+      "text": "A5.2 (2026-11-24): Close period shows on the goals block once the period has ended (Set goals also offers last period, for goals set late). The dialog (S3) list",
+      "kind": "call",
+      "milestone": "A5",
       "status": "todo",
       "test": "",
       "evidence": ""
