@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
+import { WORKSPACE_DOC_LIST_QUERY_KEY, WORKSPACE_DOCS_QUERY_KEY } from "@/hooks/workspaces/useWorkspaceDocData";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,12 @@ export function NewLaunchDialog({ projectId, open, onOpenChange }: { projectId: 
       const made = await createDocFile(projectId, docFile(name), launchMarkdown(chosen, name.trim()));
       const r = await createLaunchAction(projectId, { docSlug: made.slug, date, preset, title: name.trim(), ...(version.trim() ? { versionLabel: version.trim() } : {}) });
       if (!r.success) throw new Error(r.error);
-      await queryClient.invalidateQueries();
+      // A3 live check: refresh the document lists and task data only (refetching every query took ~25 s).
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),
+        queryClient.invalidateQueries({ queryKey: WORKSPACE_DOCS_QUERY_KEY(projectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) }),
+      ]);
       const params = new URLSearchParams(searchParams?.toString() ?? "");
       params.set("tab", "docs");
       params.set("doc", made.slug);
