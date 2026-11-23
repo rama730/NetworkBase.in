@@ -227,23 +227,40 @@ async function notifyContentPerson(taskId: string, actorId: string, to: string |
   }).catch(() => undefined);
 }
 
+/**
+ * The editor's move (Approve, Changes needed). A member editor may not move someone else's task, so the lock is taken as
+ * the writer and the move recorded as the editor's (the caller checked they're its editor). Call 4: an owner's or
+ * admin's approval is the review; a member editor's still waits for the workspace's review where it's on (security
+ * review, A2.8), so naming an editor never skips the owners' check.
+ */
+async function editorMove(taskId: string, user: { id: string; user_metadata?: Record<string, unknown> | null }, canManage: boolean, writerId: string | null, stage: string) {
+  const { afterTaskTransition, lockTaskForWrite, transitionTaskTx } = await import("@/lib/workspaces/task-transition-service");
+  const lockAs = canManage || !writerId ? user.id : writerId;
+  const { locked, result } = await db.transaction(async (tx) => {
+    const locked = await lockTaskForWrite(tx, taskId, lockAs);
+    return { locked, result: await transitionTaskTx(tx, { ...locked, reviewRequired: locked.reviewRequired && !canManage }, { taskId, userId: user.id, stage }) };
+  });
+  await afterTaskTransition(user, locked, taskId, result);
+  return result;
+}
+
 /** W6.2: the editor (or an owner or admin) approves: Scheduled, Completed on the board; the writer is told. */
 export async function approveContentAction(input: { projectId: string; taskId: string }) {
   try {
     const projectId = id.parse(input?.projectId), taskId = id.parse(input?.taskId);
-    const { user, canManage } = await insider(projectId);
+    const { user, canEdit, canManage } = await insider(projectId);
+    if (!canEdit) throw new Error("Only its editor approves this piece");
     const piece = await contentPiece(projectId, taskId);
     if (piece.stage !== "editing") throw new Error("Only a piece in Editing is approved");
     if (piece.fields.editorId !== user.id && !canManage) throw new Error("Only its editor approves this piece");
-    // The editor's yes is the review (call 4), so the workspace review switch doesn't hold it a second time.
-    const { afterTaskTransition, lockTaskForWrite, transitionTaskTx } = await import("@/lib/workspaces/task-transition-service");
-    const { locked, result } = await db.transaction(async (tx) => {
-      const locked = await lockTaskForWrite(tx, taskId, user.id);
-      return { locked, result: await transitionTaskTx(tx, { ...locked, reviewRequired: false }, { taskId, userId: user.id, stage: "scheduled" }) };
-    });
-    await afterTaskTransition(user, locked, taskId, result);
-    await notifyContentPerson(taskId, user.id, piece.assigneeId, "Approved");
-    return { success: true as const };
+    const [ws] = await db.select({ on: workspaces.workflowsEnabled }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+    if (!ws?.on) throw new Error("Workflows aren’t on in this workspace.");
+    // Call 4: an owner's or admin's approval is the review; a member editor's approval still waits for the workspace's
+    // review where it's on (security review, A2.8), so naming an editor never skips the owners' check.
+    const result = await editorMove(taskId, user, canManage, piece.assigneeId, "scheduled");
+    // Waiting for the workspace's review isn't approved yet: the writer hears once it's Scheduled.
+    if (result.outcome !== "submitted") await notifyContentPerson(taskId, user.id, piece.assigneeId, "Approved");
+    return { success: true as const, outcome: result.outcome };
   } catch (error) {
     return fail(error, "Couldn’t approve the piece");
   }
@@ -255,14 +272,14 @@ export async function changesNeededAction(input: { projectId: string; taskId: st
     const projectId = id.parse(input?.projectId), taskId = id.parse(input?.taskId);
     const note = String(input?.note ?? "").trim().slice(0, 2000);
     if (!note) return { success: false as const, error: "Say what needs changing" };
-    const { user, canManage } = await insider(projectId);
+    const { user, canEdit, canManage } = await insider(projectId);
+    if (!canEdit) throw new Error("Only its editor asks for changes");
     const piece = await contentPiece(projectId, taskId);
     if (piece.stage !== "editing") throw new Error("Only a piece in Editing gets changes");
     if (piece.fields.editorId !== user.id && !canManage) throw new Error("Only its editor asks for changes");
     const posted = await comment(user.id, taskId, projectId, `Changes needed: ${note}`);
     if (!posted.success) return { success: false as const, error: posted.error ?? "Couldn’t post the note" };
-    const moved = await setTaskStageAction({ taskId, projectId, stage: "drafting", toBacklog: true });
-    if (!moved.success) return moved;
+    await editorMove(taskId, user, canManage, piece.assigneeId, "drafting");
     await notifyContentPerson(taskId, user.id, piece.assigneeId, "Changes needed");
     return { success: true as const };
   } catch (error) {

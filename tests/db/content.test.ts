@@ -122,6 +122,18 @@ test("A2.8 W5–W7: draft, Ready for edit, Changes needed, the editor's approval
   assert.ok((await sql`SELECT 1 FROM task_comments WHERE task_id = ${id} AND content = 'Changes needed: Add the 2026 prices'`).length === 1);
   viewerId = t.member;
   assert.ok((await content.readyForEditAction({ projectId: t.ws, taskId: id, editorId: t.owner })).success);
+  // Security review: a member editor's approval still waits for the workspace's review; a viewer can't approve.
+  const [other] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${t.ws}, ${other!}, 'member')`;
+  await sql`UPDATE tasks SET type_fields = type_fields || ${sql.json({ editorId: other! })} WHERE id = ${id}`;
+  viewerId = other!;
+  const memberYes = await content.approveContentAction({ projectId: t.ws, taskId: id });
+  assert.ok(memberYes.success, JSON.stringify(memberYes));
+  const held = (await sql`SELECT stage, status, review_status FROM tasks WHERE id = ${id}`)[0]!;
+  assert.deepEqual([held.review_status, held.stage], ["pending", "editing"], "waits for the owners' review");
+  await sql`UPDATE tasks SET status = 'in_progress', review_status = 'none', stage = 'editing' WHERE id = ${id}`;
+  await sql`UPDATE workspace_members SET role = 'viewer' WHERE workspace_id = ${t.ws} AND user_id = ${other!}`;
+  assert.equal((await content.approveContentAction({ projectId: t.ws, taskId: id }) as { error?: string }).error, "Only its editor approves this piece", "a viewer can't");
   viewerId = t.owner;
   assert.ok((await content.approveContentAction({ projectId: t.ws, taskId: id })).success);
   const approved = (await sql`SELECT stage, status, review_status FROM tasks WHERE id = ${id}`)[0]!;
