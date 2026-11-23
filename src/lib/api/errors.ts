@@ -55,6 +55,8 @@ export const ERROR_CATALOG: Record<string, ErrorEntry> = {
   WORKSPACE_NOT_ALLOWED: { status: 403, exit: 3, meaning: "An agent token only reaches the workspace it was approved for", fix: "Use the folder linked to that workspace, or approve a new agent sign-in" },
   AGENT_NOT_ALLOWED: { status: 403, exit: 3, meaning: "The organization doesn't allow AI agents here (or on this assignment)", fix: "Do this one yourself, or ask the organization's admins" },
   AGENTS_PAUSED: { status: 403, exit: 3, meaning: "Agents are paused in this workspace", fix: "Turn agents back on in workspace settings" },
+  AGENTS_BLOCKED_BY_YOU: { status: 403, exit: 3, meaning: "You keep your agents out of this workspace", fix: "Let them back in: workspace settings → Your settings → Your agents here" },
+  MEMBER_COMPLETED: { status: 403, exit: 3, meaning: "Your part in this workspace is completed, so it is read-only for you", fix: "Reopen your part: workspace settings → Your part here, or nb workspace reopen" },
   STEP_UP_REQUIRED: { status: 403, exit: 3, meaning: "This needs a fresh sign-in check", fix: "Confirm it in the browser, then try again" },
   NOT_FOUND: { status: 404, exit: 1, meaning: "No such workspace, task or file, or you can't see it", fix: "Check the number or path: nb task list, nb file list" },
   EXPIRED: { status: 410, exit: 1, meaning: "It's gone: undone already, older than 24 hours, or a code ran out", fix: "Start again" },

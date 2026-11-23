@@ -43,8 +43,9 @@ export async function workspaceSettings(userId: string, workspaceId: string) {
   };
 }
 
-export async function changeWorkspaceSettings(workspaceId: string, patch: { title?: string; description?: string }) {
-  await updateWorkspace(workspaceId, { ...(patch.title ? { title: patch.title } : {}), ...(patch.description !== undefined ? { description: patch.description } : {}) } as never);
+export async function changeWorkspaceSettings(workspaceId: string, patch: { title?: string; description?: string; status?: "active" | "completed" }) {
+  // Member settings §3: status completed completes every active part (updateWorkspace runs completeAllParts).
+  await updateWorkspace(workspaceId, { ...(patch.title ? { title: patch.title } : {}), ...(patch.description !== undefined ? { description: patch.description } : {}), ...(patch.status ? { status: patch.status } : {}) } as never);
 }
 
 export async function archiveWorkspaceFromCli(workspaceId: string) {

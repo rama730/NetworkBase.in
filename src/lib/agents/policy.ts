@@ -9,7 +9,7 @@ import { and, eq } from "drizzle-orm";
 
 import { jsonError } from "@/app/api/v1/_envelope";
 import { db } from "@/lib/db";
-import { agentConfirmationsUsed, tasks, undoOperations, workspaces } from "@/lib/db/schema";
+import { agentConfirmationsUsed, tasks, undoOperations, workspaces, workspaceMembers } from "@/lib/db/schema";
 import { requestVia } from "@/lib/server/request-via";
 import { alias } from "drizzle-orm/pg-core";
 import { effectiveAiPolicy } from "@/lib/organizations/assignment-rules";
@@ -75,7 +75,7 @@ export async function spendConfirmToken(token: string, input: { userId: string; 
   return used.length === 1;
 }
 
-export async function workspaceAgentPolicy(workspaceId: string): Promise<{ policy: AgentPolicy; paused: boolean; orgAllowsAgents: boolean; orgTitle: string | null }> {
+export async function workspaceAgentPolicy(workspaceId: string, userId?: string | null): Promise<{ policy: AgentPolicy; paused: boolean; orgAllowsAgents: boolean; orgTitle: string | null; blockedByMember: boolean }> {
   const org = alias(workspaces, "agent_org");
   const [row] = await db
     .select({ policy: workspaces.agentPolicy, pausedAt: workspaces.agentsPausedAt, kind: workspaces.kind, title: workspaces.title, own: workspaces.orgSettings, orgTitle: org.title, orgSettings: org.orgSettings })
@@ -85,7 +85,13 @@ export async function workspaceAgentPolicy(workspaceId: string): Promise<{ polic
     .limit(1);
   // An organization's "Allow agent tokens" covers it and its workspaces (report A8.8).
   const orgSettings = row?.kind === "organization" ? row.own : row?.orgSettings;
+  // Member settings §2: "Keep my agents out of this workspace", checked per request for this person's agents.
+  const [own] = userId
+    ? await db.select({ blockedAt: workspaceMembers.agentsBlockedAt }).from(workspaceMembers)
+      .where(and(eq(workspaceMembers.projectId, workspaceId), eq(workspaceMembers.userId, userId))).limit(1)
+    : [];
   return {
+    blockedByMember: Boolean(own?.blockedAt),
     policy: row?.policy ?? "ask_important",
     paused: Boolean(row?.pausedAt),
     orgAllowsAgents: allowsAgentTokens(orgSettings),

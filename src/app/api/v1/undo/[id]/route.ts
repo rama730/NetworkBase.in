@@ -164,11 +164,18 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
     if (!op) return jsonError("Nothing to undo: it was undone already, is older than 24 hours, or isn't yours", 410, "EXPIRED");
     const outside = await denyOutsideTokenWorkspace(auth, { projectId: op.workspaceId });
     if (outside) return outside;
-    if (!(await getWorkspaceAccessById(op.workspaceId, auth.user.id)).canWrite) return jsonError("You can't change this workspace any more", 403, "FORBIDDEN");
+    // Member settings §3/§4: undoing your own completion or leave is about your membership, which is read-only or gone.
+    const memberJourney = op.operation === "member.complete" || op.operation === "member.leave";
+    if (!memberJourney && !(await getWorkspaceAccessById(op.workspaceId, auth.user.id)).canWrite) return jsonError("You can't change this workspace any more", 403, "FORBIDDEN");
     // Claim it first, so two undos of the same change can't both run.
     const [claimed] = await db.update(undoOperations).set({ usedAt: new Date() }).where(and(eq(undoOperations.id, op.id), isNull(undoOperations.usedAt))).returning({ id: undoOperations.id });
     if (!claimed) return jsonError("That was undone already", 410, "EXPIRED");
     try {
+      if (memberJourney) {
+        const { undoMemberJourney } = await import("@/lib/workspaces/member-journey");
+        await undoMemberJourney(op.inverse as never);
+        return jsonSuccess({ undone: op.summary, result: { undone: true }, operation: op.operation });
+      }
       const inverse = op.inverse as unknown as UndoInverse;
       const done = inverse.kind === "changeset.undo" ? await undoFromToken(auth, inverse.changeSetId) : await runInverse(auth.user, inverse);
       return jsonSuccess({ undone: op.summary, result: done, operation: op.operation });

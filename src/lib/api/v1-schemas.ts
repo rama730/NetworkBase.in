@@ -116,7 +116,33 @@ export const commentEditSchema = commentRefSchema.extend({ text: z.string().trim
 /** Report C4: members (invite into an open role, change a role, remove or leave). */
 export const memberInviteSchema = z.object({ username: z.string().min(1).max(80), role: z.string().min(1).max(120), note: z.string().max(500).optional() });
 export const memberRoleSchema = z.object({ username: z.string().min(1).max(80), role: z.enum(["admin", "member", "viewer"]) });
-export const memberRemoveSchema = z.object({ username: z.string().min(1).max(80).optional(), leave: z.boolean().optional() });
+export const memberRemoveSchema = z.object({
+  username: z.string().min(1).max(80).optional(),
+  leave: z.boolean().optional(),
+  /** Leaving (member settings §4): what happens to your open tasks, and who takes your reviews. */
+  tasks: z.enum(["keep", "give", "unassign"]).optional(),
+  giveTo: z.string().min(1).max(80).optional(),
+  reviewsTo: z.string().min(1).max(80).optional(),
+});
+/** Member settings §3: completing your part, or the owner completing someone's. Usernames, not ids. */
+export const completePartSchema = z.object({
+  note: z.string().max(280).nullable().optional(),
+  tasks: z.enum(["keep", "give", "unassign"]).optional(),
+  giveTo: z.string().min(1).max(80).optional(),
+  reviewsTo: z.string().min(1).max(80).optional(),
+}).strict();
+export const memberCompleteSchema = completePartSchema.extend({ username: z.string().min(1).max(80), complete: z.literal(true) }).strict();
+export const completionDecisionSchema = z.object({ decision: z.enum(["confirm", "not_yet"]), note: z.string().max(500).nullable().optional() }).strict();
+export const roleRequestSchema = z.object({ role: z.enum(["admin", "member", "viewer"]), note: z.string().max(500).nullable().optional() }).strict();
+/** Your settings (member settings Part 1): only stricter than the workspace. */
+export const mySettingsSchema = z.object({
+  notifications: z.object({ mode: z.enum(["inherit", "custom"]), rules: z.record(z.string().max(80), z.boolean()).optional() }).optional(),
+  muteUntil: z.union([z.string().datetime(), z.literal("forever"), z.null()]).optional(),
+  hideAgentLabel: z.boolean().optional(),
+  agentsBlocked: z.boolean().optional(),
+  viewPrefs: z.object({ defaultTab: z.string().max(20).nullable().optional(), density: z.enum(["compact", "comfortable"]).nullable().optional() }).optional(),
+  showOnProfile: z.boolean().optional(),
+}).strict();
 /** Report C4: like or comment on an update. */
 export const updateActionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("like") }),
@@ -127,7 +153,7 @@ export const notificationSettingsSchema = z.object({
   mentions: z.boolean(), workflows: z.boolean(), projects: z.boolean(), tasks: z.boolean(), applications: z.boolean(), connections: z.boolean(),
   pausedUntil: z.string().datetime({ offset: true }).nullable(),
   quietHours: z.object({ enabled: z.boolean(), startMinute: z.number().int().min(0).max(1439), endMinute: z.number().int().min(0).max(1439), timeZone: z.string().max(80).nullable().optional() }),
-  mutedScopes: z.array(z.object({ kind: z.enum(["notification_type", "project", "task", "update", "person", "organization"]), value: z.string().min(1).max(200), label: z.string().max(200).nullable().optional() })).max(200),
+  mutedScopes: z.array(z.object({ kind: z.enum(["notification_type", "project", "task", "update", "person", "organization"]), value: z.string().min(1).max(200), label: z.string().max(200).nullable().optional(), until: z.string().datetime().nullable().optional() })).max(200),
 }).partial().strict();
 
 /** Several tasks at once (report C2): one request, all or nothing, one undo. */

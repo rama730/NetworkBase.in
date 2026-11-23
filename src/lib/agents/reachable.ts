@@ -17,10 +17,11 @@ export async function agentWorkspaceFilter(auth: { user: { id: string } | null; 
   if (!auth.tokenAllWorkspaces || !auth.user) return null;
   const org = alias(workspaces, "reach_org");
   const rows = await db
-    .select({ id: workspaces.id, kind: workspaces.kind, pausedAt: workspaces.agentsPausedAt, own: workspaces.orgSettings, orgSettings: org.orgSettings })
+    .select({ id: workspaces.id, kind: workspaces.kind, pausedAt: workspaces.agentsPausedAt, own: workspaces.orgSettings, orgSettings: org.orgSettings, blockedAt: workspaceMembers.agentsBlockedAt })
     .from(workspaces)
     .leftJoin(workspaceMembers, and(eq(workspaceMembers.projectId, workspaces.id), eq(workspaceMembers.userId, auth.user.id)))
     .leftJoin(org, and(eq(org.id, workspaces.parentId), eq(org.kind, "organization")))
     .where(and(isNull(workspaces.deletedAt), or(eq(workspaces.ownerId, auth.user.id), eq(workspaceMembers.userId, auth.user.id))));
-  return new Set(rows.filter((r) => !r.pausedAt && allowsAgentTokens(r.kind === "organization" ? r.own : r.orgSettings)).map((r) => r.id));
+  // Member settings §2: "Keep my agents out of this workspace" hides it from this person's agents too.
+  return new Set(rows.filter((r) => !r.pausedAt && !r.blockedAt && allowsAgentTokens(r.kind === "organization" ? r.own : r.orgSettings)).map((r) => r.id));
 }

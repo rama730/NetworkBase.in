@@ -1535,6 +1535,8 @@ export const profileContributionStages = pgTable(
         "ownership_transfer",
         "removal",
         "backfill",
+        "completion",
+        "reopen",
       ],
     })
       .default("membership")

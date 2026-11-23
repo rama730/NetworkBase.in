@@ -27,7 +27,10 @@ export async function GET(request: Request, context: Ctx) {
   }
 }
 
-/** `nb workspace settings --title … --description …`: owners and admins (the app's update rules), people only. */
+/**
+ * `nb workspace settings --title … --description …`: owners and admins (the app's update rules), people only.
+ * `{ status: "completed" }` completes the workspace and every active part in it (member settings §3).
+ */
 export async function PATCH(request: Request, context: Ctx) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
@@ -38,9 +41,14 @@ export async function PATCH(request: Request, context: Ctx) {
       if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
       if (auth.tokenKind === "agent") return jsonError("Agents don't change workspace settings", 403, "FORBIDDEN");
       const { id } = await context.params;
-      const body = z.object({ title: z.string().trim().min(1).max(100).optional(), description: z.string().trim().max(5000).optional() })
-        .refine((b) => b.title !== undefined || b.description !== undefined).safeParse(await req.json().catch(() => null));
-      if (!z.string().uuid().safeParse(id).success || !body.success) return jsonError("Send { title } or { description }", 400, "BAD_REQUEST");
+      const body = z.object({ title: z.string().trim().min(1).max(100).optional(), description: z.string().trim().max(5000).optional(), status: z.enum(["active", "completed"]).optional() })
+        .refine((b) => b.title !== undefined || b.description !== undefined || b.status !== undefined).safeParse(await req.json().catch(() => null));
+      if (!z.string().uuid().safeParse(id).success || !body.success) return jsonError("Send { title }, { description } or { status }", 400, "BAD_REQUEST");
+      if (body.data.status === "completed" && auth.tokenScopes) {
+        const { requireStepUp } = await import("@/lib/security/cli-step-up");
+        const refused = await requireStepUp(auth, req, "complete a workspace");
+        if (refused) return refused;
+      }
       await changeWorkspaceSettings(id, body.data);
       return jsonSuccess(await workspaceSettings(auth.user.id, id));
     } catch (error) {

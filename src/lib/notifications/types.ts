@@ -18,6 +18,8 @@ export type NotificationKind =
     | "project_member_removed"
     | "project_ownership_transferred"
     | "project_member_joined"
+    /** Member settings (0114): completed, reopened, left, the owner's decision, role requests. */
+    | "project_member_journey"
     | "project_visibility_changed"
     | "project_public_surface_changed"
     | "project_file_permission_changed"
@@ -84,6 +86,8 @@ export type NotificationMuteScope = {
     value: string;
     label?: string | null;
     mutedAt?: string | null;
+    /** Mute for a while (member settings §2): after this time the mute no longer applies. Null = until turned back on. */
+    until?: string | null;
 };
 
 export type NotificationQuietHours = {

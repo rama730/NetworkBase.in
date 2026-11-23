@@ -145,8 +145,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * off (report A5, A7). Runs for every agent request whose workspace is known, so "All my workspaces" agents are
  * checked per request, not once at sign-in.
  */
-export async function agentPolicyDenial(workspaceId: string) {
-  const { paused, orgAllowsAgents, orgTitle } = await workspaceAgentPolicy(workspaceId);
+export async function agentPolicyDenial(workspaceId: string, userId?: string | null) {
+  const { paused, orgAllowsAgents, orgTitle, blockedByMember } = await workspaceAgentPolicy(workspaceId, userId);
+  if (blockedByMember) return jsonError("You keep your agents out of this workspace. Change it in this workspace's settings, under Your settings.", 403, "AGENTS_BLOCKED_BY_YOU");
   if (paused) return jsonError("Agents are paused in this workspace. Its owner can turn them back on in workspace settings.", 403, "AGENTS_PAUSED");
   if (!orgAllowsAgents) return jsonError(`${orgTitle ?? "This organization"} doesn't allow AI agents. Its admins can allow them in organization settings.`, 403, "AGENT_NOT_ALLOWED");
   return null;
@@ -208,7 +209,7 @@ async function bearerPrincipal(
     // this request names in its path or query. Routes that take the workspace from the body or a task check it in
     // denyOutsideTokenWorkspace.
     const requestWorkspace = workspaceId ?? (allWorkspaces ? await workspaceIdFromRef(workspaceRefInRequest(target)) : null);
-    const policy = requestWorkspace ? await agentPolicyDenial(requestWorkspace) : null;
+    const policy = requestWorkspace ? await agentPolicyDenial(requestWorkspace, user.id) : null;
     if (policy) return deniedPrincipal(policy);
     // A day's writes per agent token (report §18.5, finding 76): enough for real work, not for a runaway loop.
     if (!isRead && !(await consumeRateLimit(`api:v1:agent:day:${extensionSessionId}`, AGENT_DAILY_WRITES, 86_400)).allowed) {
@@ -245,7 +246,7 @@ async function bearerPrincipal(
  * (TOKEN_ROUTES `agent: "route"`; tests/unit/token-route-coverage checks every such route calls this).
  */
 export async function denyOutsideTokenWorkspace(
-  auth: { tokenWorkspaceId?: string | null; tokenAllWorkspaces?: boolean },
+  auth: { tokenWorkspaceId?: string | null; tokenAllWorkspaces?: boolean; user?: { id: string } | null },
   ids: { projectId?: string | null; taskId?: string | null },
 ) {
   const bound = auth.tokenWorkspaceId;
@@ -257,7 +258,7 @@ export async function denyOutsideTokenWorkspace(
       const [task] = await db.select({ projectId: tasks.projectId }).from(tasks).where(eq(tasks.id, ids.taskId)).limit(1);
       target = task?.projectId ?? null;
     }
-    return target ? agentPolicyDenial(target) : null;
+    return target ? agentPolicyDenial(target, auth.user?.id ?? null) : null;
   }
   const outside = () => jsonError(OUTSIDE_WORKSPACE_MESSAGE, 403, "WORKSPACE_NOT_ALLOWED");
   if (ids.projectId && ids.projectId.toLowerCase() !== bound.toLowerCase()) return outside();

@@ -20,7 +20,7 @@
 
 import { NextRequest } from "next/server";
 import { and, eq, ilike, or, sql } from "drizzle-orm";
-import { memberInviteSchema, memberRemoveSchema, memberRoleSchema } from "@/lib/api/v1-schemas";
+import { memberCompleteSchema, memberInviteSchema, memberRemoveSchema, memberRoleSchema } from "@/lib/api/v1-schemas";
 
 import {
     jsonError,
@@ -36,6 +36,8 @@ import { validateCsrf } from "@/lib/security/csrf";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { isWorkspaceMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
 import { isLooseUuid } from "@/lib/validations/uuid";
+import { journeyError } from "@/app/api/v1/_member-journey";
+import { completePart, leaveWorkspace } from "@/lib/workspaces/member-journey";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -234,26 +236,59 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
 }
 
-/** Change a member's role (owner and admins, the app's rules). */
+/**
+ * Change a member's role (owner and admins, the app's rules), or complete someone's part with
+ * `{ username, complete: true, note? }` (member settings §3): from a terminal, "Verify it's you" first.
+ */
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { response } = await personAt(request);
+  const { response, user, auth } = await personAt(request);
   if (response) return response;
   const { id } = await context.params;
-  const parsed = memberRoleSchema.safeParse(await request.json().catch(() => null));
+  const body = await request.json().catch(() => null);
+  if (body && typeof body === "object" && (body as { complete?: unknown }).complete === true) {
+    const complete = memberCompleteSchema.safeParse(body);
+    if (!isLooseUuid(id) || !complete.success) return jsonError("Who, and complete: true (with a note up to 280 characters)?", 400, "BAD_REQUEST");
+    const person = await personByName(complete.data.username);
+    if (!person) return jsonError(`No one called @${complete.data.username.replace(/^@/, "")}`, 404, "NOT_FOUND");
+    if (auth?.tokenScopes) {
+      const refused = await requireStepUp(auth, request, "complete a member's part");
+      if (refused) return refused;
+    }
+    try {
+      const giveTo = complete.data.giveTo ? (await personByName(complete.data.giveTo))?.id ?? null : null;
+      const done = await completePart(user!.id, id, person.id, { note: complete.data.note ?? null, tasks: complete.data.tasks, giveTo, reviewsTo: null });
+      return jsonSuccess({ username: person.username, completed: true, undoId: done.undoId });
+    } catch (error) {
+      return journeyError(error);
+    }
+  }
+  const parsed = memberRoleSchema.safeParse(body);
   if (!isLooseUuid(id) || !parsed.success) return jsonError("Who, and admin, member or viewer?", 400, "BAD_REQUEST");
   const person = await personByName(parsed.data.username);
   if (!person) return jsonError(`No one called @${parsed.data.username.replace(/^@/, "")}`, 404, "NOT_FOUND");
   return answer(await updateWorkspaceMemberRoleAction(id, person.id, parsed.data.role), { username: person.username, role: parsed.data.role });
 }
 
-/** Remove a member (their open tasks are unassigned), or leave yourself with `{ leave: true }`. */
+/**
+ * Remove a member (their open tasks are unassigned), or leave yourself with `{ leave: true, tasks?, giveTo?, reviewsTo? }`
+ * (member settings §4): a completed part keeps its dates, and the answer carries an undo id.
+ */
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { response, user, auth } = await personAt(request);
   if (response) return response;
   const { id } = await context.params;
   const parsed = memberRemoveSchema.safeParse(await request.json().catch(() => null));
   if (!isLooseUuid(id) || !parsed.success || (!parsed.data.username && !parsed.data.leave)) return jsonError("Who? Or leave: true", 400, "BAD_REQUEST");
-  if (parsed.data.leave) return answer(await removeWorkspaceMemberAction(id, user!.id, { mode: "unassign_active_tasks", leave: true }), { left: true });
+  if (parsed.data.leave) {
+    try {
+      const giveTo = parsed.data.giveTo ? (await personByName(parsed.data.giveTo))?.id ?? null : null;
+      if (parsed.data.giveTo && !giveTo) return jsonError(`No one called @${parsed.data.giveTo.replace(/^@/, "")}`, 404, "NOT_FOUND");
+      const reviewsTo = parsed.data.reviewsTo ? (await personByName(parsed.data.reviewsTo))?.id ?? null : null;
+      return jsonSuccess(await leaveWorkspace(user!.id, id, { tasks: parsed.data.tasks, giveTo, reviewsTo }));
+    } catch (error) {
+      return journeyError(error);
+    }
+  }
   const person = await personByName(parsed.data.username!);
   if (!person) return jsonError(`No one called @${parsed.data.username!.replace(/^@/, "")}`, 404, "NOT_FOUND");
   // Removing someone else is risky (report F5): from the terminal, "Verify it's you" in the browser first.

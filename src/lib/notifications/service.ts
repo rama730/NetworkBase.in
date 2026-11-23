@@ -13,6 +13,7 @@ import {
     isQuietHoursActive,
     getNotificationPauseUntil,
     getQuietHoursResumeAt,
+    muteIsActive,
     normalizeNotificationPreferences,
     orgChoiceBlocks,
 } from "@/lib/notifications/preferences";
@@ -172,7 +173,7 @@ export function resolveNotificationDeliveryPolicy(params: {
     const preferences = preferenceMap.get(recipientUserId) ?? DEFAULT_NOTIFICATION_PREFERENCES;
     // Reminders the user set themselves ("Remind me about this") come through whatever category is off.
     if (kind !== "chat_reminder" && kind !== "task_reminder" && !preferences[category]) return { allowed: false, reason: "category_off" };
-    const muted = preferences.mutedScopes.some((scope) => notificationMatchesMuteScope({
+    const muted = preferences.mutedScopes.some((scope) => muteIsActive(scope) && notificationMatchesMuteScope({
         kind,
         actorUserId,
         entityRefs,
@@ -662,6 +663,34 @@ export async function muteNotificationScope(
         .where(eq(profiles.id, userId))
         .returning({ notificationPreferences: profiles.notificationPreferences });
     return normalizeNotificationPreferences(row?.notificationPreferences ?? normalized);
+}
+
+/** This person's mute of one workspace, if any (member settings §2): `until` null means until turned back on. */
+export async function readWorkspaceMute(userId: string, projectId: string, executor?: NotificationWriteExecutor) {
+    const preferenceMap = await getNotificationPreferencesMap(getExecutor(executor), [userId]);
+    const scope = (preferenceMap.get(userId) ?? DEFAULT_NOTIFICATION_PREFERENCES).mutedScopes.find((s) => s.kind === "project" && s.value === projectId);
+    return scope && muteIsActive(scope) ? { until: scope.until ?? null } : null;
+}
+
+/**
+ * Mute a workspace for a while, until turned back on ("forever"), or unmute it (null). The same mute as the inbox's
+ * "mute this workspace" (member settings §2).
+ */
+export async function setWorkspaceMute(userId: string, projectId: string, label: string | null, until: string | null, executor?: NotificationWriteExecutor) {
+    const tx = getExecutor(executor);
+    const preferenceMap = await getNotificationPreferencesMap(tx, [userId]);
+    const current = preferenceMap.get(userId) ?? DEFAULT_NOTIFICATION_PREFERENCES;
+    const others = current.mutedScopes.filter((entry) => !(entry.kind === "project" && entry.value === projectId));
+    const end = until && until !== "forever" ? new Date(until) : null;
+    if (end && !(end.getTime() > Date.now())) throw new Error("Pick a time after now");
+    const next = until === null ? others : [{ kind: "project" as const, value: projectId, label, mutedAt: new Date().toISOString(), until: end ? end.toISOString() : null }, ...others];
+    const normalized = normalizeNotificationPreferences({ ...current, mutedScopes: next.slice(0, 100) });
+    await tx.update(profiles).set({ notificationPreferences: normalized, updatedAt: new Date() }).where(eq(profiles.id, userId));
+}
+
+/** Leaving a workspace removes its mute (member settings §4). */
+export async function unmuteWorkspaceInTx(executor: NotificationWriteExecutor, userId: string, projectId: string) {
+    await setWorkspaceMute(userId, projectId, null, null, executor);
 }
 
 export async function readNotificationsPage(

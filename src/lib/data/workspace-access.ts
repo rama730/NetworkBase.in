@@ -35,7 +35,8 @@ export type WorkspaceAccess = {
     isOwner: boolean;
     isMember: boolean;
     memberRole: MemberRole;
-    member: { role: MemberRole; fileUploadEnabled: boolean | null } | null;
+    /** `role` is the effective role: a completed member acts as a viewer here (member settings §3); `actualRole` is kept. */
+    member: { role: MemberRole; fileUploadEnabled: boolean | null; completedAt?: Date | null; actualRole?: MemberRole } | null;
     parentOrgRole: ParentOrgRole;
     /** Org owners and admins act as project admins in every child project (report §29.4). */
     isInheritedAdmin: boolean;
@@ -47,7 +48,7 @@ export type WorkspaceAccess = {
      * Why nobody may change anything here (report §30.3, §30.5): the org (or this project's org) is suspended,
      * or the org is archived (with its child projects). canWrite is false while this is set.
      */
-    writeBlocked?: "suspended" | "archived" | "deleting" | null;
+    writeBlocked?: "suspended" | "archived" | "deleting" | "completed" | null;
 };
 
 /** The plain sentence for a blocked write. */
@@ -55,6 +56,8 @@ export function writeBlockedMessage(reason: WorkspaceAccess["writeBlocked"]) {
     if (reason === "suspended") return "This organization is suspended. Everything is read-only.";
     if (reason === "archived") return "This organization has ended. Everything is read-only.";
     if (reason === "deleting") return "This organization is scheduled for deletion.";
+    // Member settings §3: a completed part is read-only until its person reopens it.
+    if (reason === "completed") return "Your part here is completed. Reopen your part to make changes.";
     return "You don’t have permission to do this.";
 }
 
@@ -145,6 +148,7 @@ function selectAccessRows(where: SQL<unknown>, userId: string | null) {
             githubLastCommitSha: workspaces.githubLastCommitSha,
             memberRole: workspaceMembers.role,
             fileUploadEnabled: workspaceMembers.fileUploadEnabled,
+            memberCompletedAt: workspaceMembers.completedAt,
             suspendedAt: workspaces.suspendedAt,
             deletionScheduledAt: workspaces.deletionScheduledAt,
             parentOrgOwnerId: parentOrg.ownerId,
@@ -163,7 +167,10 @@ function selectAccessRows(where: SQL<unknown>, userId: string | null) {
 function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[number], userId: string | null): WorkspaceAccess {
     const isOwner = Boolean(userId && row.ownerId === userId);
     const isMember = Boolean(userId && !isOwner && row.memberRole);
-    const memberRole: MemberRole = isMember ? ((row.memberRole as MemberRole) || "member") : null;
+    const actualRole: MemberRole = isMember ? ((row.memberRole as MemberRole) || "member") : null;
+    // Member settings §3: completing your part makes you read-only, so every role check sees a viewer until you reopen.
+    const completed = isMember && Boolean(row.memberCompletedAt);
+    const memberRole: MemberRole = completed ? "viewer" : actualRole;
     // An org in its deletion grace grants nothing to its child projects' readers.
     const parentOrgRole: ParentOrgRole = row.parentOrgDeletionScheduledAt ? null
         : userId && row.parentOrgOwnerId === userId ? "owner" : (row.parentOrgMemberRole ?? null);
@@ -171,6 +178,8 @@ function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[numbe
     const writeBlocked = row.deletionScheduledAt ? "deleting" as const
         : row.suspendedAt || row.parentOrgSuspendedAt ? "suspended" as const
         : (row.kind === "organization" && row.status === "archived") || (row.parentOrgStatus === "archived" && row.status === "archived") ? "archived" as const
+        // Member settings §3: completing your part makes you read-only here (mirrors nb_workspace_can_write, 0114).
+        : completed && !isInheritedAdmin ? "completed" as const
         : null;
     // During the 30-day grace only the owner can open the org (to restore it), report §30.5.
     const canRead = row.deletionScheduledAt ? isOwner : computeWorkspaceReadAccess(row.visibility, row.status, isOwner, isMember, parentOrgRole);
@@ -192,7 +201,7 @@ function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[numbe
         isOwner,
         isMember,
         memberRole,
-        member: isMember ? { role: memberRole, fileUploadEnabled: row.fileUploadEnabled } : null,
+        member: isMember ? { role: memberRole, fileUploadEnabled: row.fileUploadEnabled, completedAt: row.memberCompletedAt ?? null, actualRole } : null,
         parentOrgRole,
         isInheritedAdmin,
         canRead,

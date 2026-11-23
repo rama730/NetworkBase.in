@@ -172,7 +172,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             docs: { with: { linkedNode: { columns: { deletedAt: true, size: true } } } },
             members: {
                 where: actorUserId ? eq(workspaceMembers.userId, actorUserId) : sql`false`,
-                columns: { role: true },
+                columns: { role: true, completedAt: true },
                 limit: 1,
             },
         },
@@ -197,7 +197,9 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             LIMIT 1`);
         if (inherited) return { project, membership: { role: "admin" as const }, docs };
     }
-    return { project, membership: members[0] ?? null, docs };
+    // Member settings §3: a completed part reads docs like a viewer until it's reopened.
+    const own = members[0] ?? null;
+    return { project, membership: own ? { role: own.completedAt ? ("viewer" as const) : own.role } : null, docs };
 }
 
 type DocProjectBase = Awaited<ReturnType<typeof loadDocProjectBase>>;

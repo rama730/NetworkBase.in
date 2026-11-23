@@ -17,6 +17,7 @@ import {
     tasks,
     workspaceNodes,
     workspaceInvitations,
+    workspaceMemberPeriods,
 } from "@/lib/db/schema";
 import { closePendingApplications, resolveApplicationsOnJoin } from "@/lib/applications/closing";
 import { syncWorkspaceChat } from "@/lib/messaging/integrations";
@@ -84,7 +85,7 @@ function roleRank(role: WorkspaceMemberRole | null) {
     }
 }
 
-async function readProjectForUpdate(executor: WorkspaceCollaboratorExecutor, projectId: string) {
+export async function readProjectForUpdate(executor: WorkspaceCollaboratorExecutor, projectId: string) {
     const rows = await executor.execute<{
         id: string;
         owner_id: string;
@@ -110,7 +111,7 @@ async function readProjectForUpdate(executor: WorkspaceCollaboratorExecutor, pro
     };
 }
 
-async function readProfileSnapshot(executor: WorkspaceCollaboratorExecutor, userId: string): Promise<WorkspaceCollaboratorSnapshot | null> {
+export async function readProfileSnapshot(executor: WorkspaceCollaboratorExecutor, userId: string): Promise<WorkspaceCollaboratorSnapshot | null> {
     const [profile] = await executor
         .select({
             id: profiles.id,
@@ -124,7 +125,7 @@ async function readProfileSnapshot(executor: WorkspaceCollaboratorExecutor, user
     return profile ?? null;
 }
 
-async function readMembershipRole(
+export async function readMembershipRole(
     executor: WorkspaceCollaboratorExecutor,
     projectId: string,
     userId: string,
@@ -394,6 +395,10 @@ export async function changeWorkspaceMemberRoleInternal(
     if (!canWorkspaceRoleManageTarget({ actorRole, targetRole: previousRole, nextRole: params.nextRole })) {
         throw new ForbiddenError("You can’t manage this member");
     }
+    // Member settings §3: a completed part keeps its dates; a role change would open a new stage behind their back.
+    const [completed] = await executor.select({ at: workspaceMembers.completedAt }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, params.projectId), eq(workspaceMembers.userId, params.targetUserId))).limit(1);
+    if (completed?.at) throw new ForbiddenError("Their part here is completed. They reopen it first, then their role can change.");
     if (previousRole === params.nextRole) {
         return { eventId: null, changed: false, project, target: await readProfileSnapshot(executor, params.targetUserId), previousRole, nextRole: params.nextRole };
     }
@@ -601,6 +606,9 @@ export async function removeWorkspaceMemberInternal(
         throw new ForbiddenError("You can’t remove this member");
     }
     const target = await readProfileSnapshot(executor, params.targetUserId);
+    // Member settings §3/§4: a completed part keeps its Completed dates; anyone else gets a finished period recorded.
+    const [targetRow] = await executor.select({ completedAt: workspaceMembers.completedAt, joinedAt: workspaceMembers.joinedAt, role: workspaceMembers.role })
+        .from(workspaceMembers).where(and(eq(workspaceMembers.projectId, params.projectId), eq(workspaceMembers.userId, params.targetUserId))).limit(1);
     const impact = await readWorkspaceMemberRemovalImpact(executor, params.projectId, params.targetUserId);
     const impactCounts = await readProjectMemberRemovalImpactCounts(executor, params.projectId, params.targetUserId);
     const assignmentNotifications: EnqueueWorkspaceNotificationEventInput[] = [];
@@ -692,13 +700,23 @@ export async function removeWorkspaceMemberInternal(
         createdAt: new Date(),
     }).returning({ id: workspaceNodeEvents.id });
 
-    await endProfileWorkspaceContributionMembership(executor, {
-        profileId: params.targetUserId,
-        projectId: params.projectId,
-        verifiedBy: params.realActorId ?? params.actorId,
-        eventId: event?.id ?? null,
-        ending: params.ending,
-    });
+    if (!targetRow?.completedAt) {
+        const endedAt = new Date();
+        const { currentPeriodStart } = await import("@/lib/workspaces/member-periods");
+        await executor.insert(workspaceMemberPeriods).values({
+            projectId: params.projectId, userId: params.targetUserId, role: targetRow?.role ?? previousRole ?? "member",
+            startedAt: await currentPeriodStart(executor, params.projectId, params.targetUserId, targetRow?.joinedAt ?? endedAt),
+            endedAt, endReason: isLeaving ? "left" : "removed", endedBy: params.realActorId ?? params.actorId,
+            note: params.ending?.note?.trim().slice(0, 280) || null,
+        });
+        await endProfileWorkspaceContributionMembership(executor, {
+            profileId: params.targetUserId,
+            projectId: params.projectId,
+            verifiedBy: params.realActorId ?? params.actorId,
+            eventId: event?.id ?? null,
+            ending: params.ending,
+        });
+    }
     await markProfileCollaborationSummaryStale(project.ownerId, executor);
 
     return { eventId: event?.id ?? null, changed: true, project, target, previousRole, nextRole: null, assignmentNotifications, teamsWithoutLead };

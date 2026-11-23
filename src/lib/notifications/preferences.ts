@@ -181,7 +181,13 @@ function normalizeMuteScope(value: unknown): NotificationMuteScope | null {
         value: valueKey,
         label: typeof candidate.label === "string" && candidate.label.trim() ? candidate.label.trim().slice(0, 120) : null,
         mutedAt: asIsoDate(candidate.mutedAt),
+        ...(candidate.until ? { until: asIsoDate(candidate.until) } : {}),
     };
+}
+
+/** A mute that applies now: no end time, or an end time still ahead (member settings §2). */
+export function muteIsActive(scope: NotificationMuteScope, now = Date.now()) {
+    return !scope.until || new Date(scope.until).getTime() > now;
 }
 
 function normalizeMuteScopes(value: unknown): NotificationMuteScope[] {

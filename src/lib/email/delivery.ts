@@ -8,7 +8,7 @@ import { getInngestExecutionRole } from "@/inngest/registry";
 import { emailOutbox, emailSuppressions, emailWebhookEvents, extensionDeviceSessions, profiles, workspaceMembers, workspaces, tasks, taskSubtasks, workspaceNodes, taskNodeLinks } from "@/lib/db/schema";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
-import { normalizeNotificationPreferences } from "@/lib/notifications/preferences";
+import { normalizeNotificationPreferences, muteIsActive } from "@/lib/notifications/preferences";
 import { resolveNotificationDeliveryPolicy } from "@/lib/notifications/service";
 import { isWorkspaceMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
 import { resolveWorkspaceNotificationDecision, normalizeWorkspaceNotificationPolicy, normalizeWorkspaceMemberNotificationOverrides } from "@/lib/notifications/workspace-policy";
@@ -82,7 +82,7 @@ async function prepareOrgEmail(row: OutboxRow, userId: string, email: string, ra
     if (!preferences.delivery.email) return { drop: "email_opt_out" };
     const choice = orgChoiceFor(preferences, data.org.id);
     if (!choice.email || choice.level === "off") return { drop: "org_email_off" };
-    if (preferences.mutedScopes.some((scope) => scope.kind === "organization" && scope.value === data.org.id)) return { drop: "muted_scope" };
+    if (preferences.mutedScopes.some((scope) => muteIsActive(scope) && scope.kind === "organization" && scope.value === data.org.id)) return { drop: "muted_scope" };
   }
   if (MEMBER_EMAILS.has(kind)) {
     const [member] = await db.select({ ok: sql<number>`1` }).from(workspaces)

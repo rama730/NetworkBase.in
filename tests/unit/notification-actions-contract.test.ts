@@ -97,6 +97,7 @@ test('every user-visible project notification preference has a concrete source t
         'src/lib/notifications/update-activity.ts',
         'src/lib/workspaces/task-assignment.ts',
         'src/lib/workspaces/task-transition-service.ts',
+        'src/lib/workspaces/member-journey.ts',
     ].map(readProjectFile).join('\n');
     const visibleEntries = Array.from(policy.matchAll(/^    "([^"]+)": E\(\{[\s\S]*?\n    \}\),/gm))
         .filter((entry) => /visible: true/.test(entry[0]));

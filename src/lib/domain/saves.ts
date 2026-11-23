@@ -40,8 +40,9 @@ export async function formerMembers(workspaceId: string, ids: Array<string | nul
 }
 
 /** Why someone can't change branches here, in the person's words. */
-export const readOnlyWhy = (who: { access: { project: { status?: string | null } | null } }) =>
-  who.access.project?.status === "archived" ? "This workspace is archived, so its branches and merge requests are read-only" : "You can read this workspace but not change it";
+export const readOnlyWhy = (who: { access: { project: { status?: string | null } | null; writeBlocked?: string | null } }) =>
+  who.access.writeBlocked === "completed" ? "Your part here is completed. Reopen your part to make changes (nb workspace reopen)"
+  : who.access.project?.status === "archived" ? "This workspace is archived, so its branches and merge requests are read-only" : "You can read this workspace but not change it";
 
 export async function mainBranch(workspaceId: string) {
   const [row] = await db.select({ id: branches.id, headSaveId: branches.headSaveId, on: workspaces.branchesEnabled })

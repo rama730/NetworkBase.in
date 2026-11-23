@@ -1366,6 +1366,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
       status: project.status,
       actorUserId: input.actorUserId ?? null,
       memberRoleRaw: project.memberRole,
+      memberCompletedAt: (project as { memberCompletedAt?: Date | string | null }).memberCompletedAt ?? null,
       isFollowed: project.isFollowed,
       parentOrgRole,
     });

@@ -51,6 +51,11 @@ ALTER TABLE public.profile_contribution_stages DROP CONSTRAINT profile_contribut
 --> statement-breakpoint
 ALTER TABLE public.profile_contribution_stages ADD CONSTRAINT profile_contribution_stages_source_check CHECK ((source = ANY (ARRAY['membership'::text, 'application'::text, 'owner'::text, 'manual'::text, 'role_change'::text, 'workspace_invite'::text, 'ownership_transfer'::text, 'removal'::text, 'backfill'::text, 'completion'::text, 'reopen'::text])));
 --> statement-breakpoint
+-- Profile entries: completing your part, or the workspace completing, read "Completed" (§3).
+ALTER TABLE public.profile_contributions DROP CONSTRAINT profile_contributions_end_reason_check;
+--> statement-breakpoint
+ALTER TABLE public.profile_contributions ADD CONSTRAINT profile_contributions_end_reason_check CHECK (((end_reason IS NULL) OR (end_reason = ANY (ARRAY['left'::text, 'removed'::text, 'term_ended'::text, 'org_deleted'::text, 'completed'::text, 'workspace_completed'::text]))));
+--> statement-breakpoint
 -- The owner lets members hide "with Claude Code" on their own work (Part 1); Roles (Part 4): null = today's rules.
 ALTER TABLE public.workspaces
     ADD COLUMN members_choose_labels boolean DEFAULT false NOT NULL,
@@ -89,3 +94,25 @@ CREATE POLICY file_versions_insert_workspace_member ON public.file_versions FOR 
   WHERE ((pn.id = file_versions.node_id) AND ((p.owner_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1
            FROM public.workspace_members m
           WHERE ((m.workspace_id = p.id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND (m.role <> 'viewer'::text) AND (m.completed_at IS NULL)))))))));
+--> statement-breakpoint
+-- A completed part takes no new work (§3): every path that assigns a task (app, API, bulk moves) meets this check.
+-- Keeping tasks already assigned is allowed; only a change of assignee to a completed member is refused.
+CREATE FUNCTION app_private.nb_refuse_assigning_completed() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF NEW.assignee_id IS NOT NULL
+     AND (TG_OP = 'INSERT' OR NEW.assignee_id IS DISTINCT FROM OLD.assignee_id)
+     AND EXISTS (
+       SELECT 1 FROM public.workspace_members m
+       WHERE m.workspace_id = NEW.workspace_id AND m.user_id = NEW.assignee_id AND m.completed_at IS NOT NULL
+     ) THEN
+    RAISE EXCEPTION 'MEMBER_COMPLETED: this person has completed their part here' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+--> statement-breakpoint
+CREATE TRIGGER tasks_refuse_assigning_completed BEFORE INSERT OR UPDATE OF assignee_id ON public.tasks
+    FOR EACH ROW EXECUTE FUNCTION app_private.nb_refuse_assigning_completed();

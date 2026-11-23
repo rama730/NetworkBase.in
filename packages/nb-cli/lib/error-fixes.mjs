@@ -11,6 +11,8 @@ export const FIXES = /** @type {Record<string, string>} */ ({
   "WORKSPACE_NOT_ALLOWED": "Use the folder linked to that workspace, or approve a new agent sign-in",
   "AGENT_NOT_ALLOWED": "Do this one yourself, or ask the organization's admins",
   "AGENTS_PAUSED": "Turn agents back on in workspace settings",
+  "AGENTS_BLOCKED_BY_YOU": "Let them back in: workspace settings → Your settings → Your agents here",
+  "MEMBER_COMPLETED": "Reopen your part: workspace settings → Your part here, or nb workspace reopen",
   "STEP_UP_REQUIRED": "Confirm it in the browser, then try again",
   "NOT_FOUND": "Check the number or path: nb task list, nb file list",
   "EXPIRED": "Start again",

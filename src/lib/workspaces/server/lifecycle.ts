@@ -1385,6 +1385,11 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
           items: await closePendingApplications(tx, { projectId, actorId: user.id, reason: "project_closed", source: "project_update" }),
         });
       }
+      // Member settings §3: completing the workspace completes every active part (and the owner's entry) with that date.
+      if (raw.status === "completed" && project.status !== "completed") {
+        const { completeAllParts } = await import("@/lib/workspaces/member-journey");
+        await completeAllParts(tx, projectId, user.id);
+      }
 
       // Sync Junction Tables for normalized relational search
       if (raw.tags !== undefined) {

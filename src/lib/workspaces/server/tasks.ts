@@ -1266,10 +1266,14 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
           eq(workspaceMembers.projectId, validated.projectId),
           eq(workspaceMembers.userId, validated.assigneeId),
         ),
-        columns: { id: true, role: true },
+        columns: { id: true, role: true, completedAt: true },
       });
       if (!assigneeMember) {
         throw new Error("Assignee must be a workspace member");
+      }
+      // Member settings §3 (the database refuses it too, 0114).
+      if (assigneeMember.completedAt) {
+        throw new Error("This person has completed their part here, so they can't be given new tasks");
       }
       if (!isWorkspaceMemberEligibleFor(assigneeMember.role, "assign")) {
         throw new Error("Assignee must be an assignable workspace member");

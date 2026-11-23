@@ -273,6 +273,9 @@ export async function resolveWorkspaceDetailTarget(
           memberRole: actorUserId
             ? workspaceMembers.role
             : sql<string | null>`NULL`,
+          memberCompletedAt: actorUserId
+            ? workspaceMembers.completedAt
+            : sql<Date | null>`NULL`,
           isFollowed: actorUserId
             ? sql<boolean>`${workspaceFollows.id} IS NOT NULL`
             : sql<boolean>`false`,
@@ -332,6 +335,8 @@ export function resolveWorkspaceDetailViewerState(input: {
   isFollowed: boolean;
   /** The viewer's role in the parent org, for Org only child projects and inherited admins. */
   parentOrgRole?: "owner" | "admin" | "member" | "viewer" | null;
+  /** Member settings §3: a completed part is read-only (mirrors getWorkspaceAccess). */
+  memberCompletedAt?: Date | string | null;
 }) {
   const {
     ownerId,
@@ -353,14 +358,17 @@ export function resolveWorkspaceDetailViewerState(input: {
     isMember,
     input.parentOrgRole ?? null,
   );
-  const canWrite = computeWorkspaceWriteAccess(isOwner, memberRole);
+  const completed = isMember && Boolean(input.memberCompletedAt);
+  const canWrite = !completed && computeWorkspaceWriteAccess(isOwner, memberRole);
 
   return {
+    completed,
     canRead,
     canWrite,
     isOwner,
     isMember,
-    memberRole,
+    // A completed member acts as a viewer until they reopen (member settings §3), like getWorkspaceAccess.
+    memberRole: completed ? ("viewer" as const) : memberRole,
     isFollowed,
   };
 }

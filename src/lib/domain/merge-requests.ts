@@ -77,7 +77,7 @@ const nameOf = (p: Person | undefined) => p?.name || (p?.username ? `@${p.userna
 async function writersAmong(workspaceId: string, refs: string[]) {
   const wanted = refs.map((r) => String(r).trim().replace(/^@/, "")).filter(Boolean);
   if (!wanted.length) return [] as string[];
-  const rows = await db.select({ id: profiles.id, username: profiles.username, role: workspaceMembers.role }).from(workspaceMembers)
+  const rows = await db.select({ id: profiles.id, username: profiles.username, role: workspaceMembers.role, completedAt: workspaceMembers.completedAt }).from(workspaceMembers)
     .innerJoin(profiles, eq(profiles.id, workspaceMembers.userId)).where(eq(workspaceMembers.projectId, workspaceId));
   const [ws] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
   const ownerRow = ws?.ownerId && !rows.some((r) => r.id === ws.ownerId)
@@ -88,6 +88,8 @@ async function writersAmong(workspaceId: string, refs: string[]) {
     const hit = all.find((r) => r.id === w || r.username?.toLowerCase() === w.toLowerCase());
     if (!hit) fail(`${w} isn't in this workspace`, 400, "BAD_REQUEST");
     if (hit!.role === "viewer") fail(`${w} can only read this workspace, so they can't review`, 400, "BAD_REQUEST");
+    // Member settings §3: a completed part takes no new reviews.
+    if ("completedAt" in hit! && hit!.completedAt) fail(`${w} has completed their part here, so they can't review`, 400, "BAD_REQUEST");
     return hit!.id;
   });
 }
@@ -95,7 +97,7 @@ async function writersAmong(workspaceId: string, refs: string[]) {
 /** Default reviewers (H4): the workspace's owners and admins, not the author. */
 async function defaultReviewers(workspaceId: string, authorId: string) {
   const rows = await db.select({ id: workspaceMembers.userId }).from(workspaceMembers)
-    .where(and(eq(workspaceMembers.projectId, workspaceId), inArray(workspaceMembers.role, ["owner", "admin"])));
+    .where(and(eq(workspaceMembers.projectId, workspaceId), inArray(workspaceMembers.role, ["owner", "admin"]), isNull(workspaceMembers.completedAt)));
   const [ws] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
   return [...new Set([...rows.map((r) => r.id), ...(ws?.ownerId ? [ws.ownerId] : [])])].filter((id) => id !== authorId);
 }

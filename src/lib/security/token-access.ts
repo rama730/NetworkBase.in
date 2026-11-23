@@ -119,6 +119,10 @@ export const TOKEN_ROUTES: RouteRule[] = [
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/capabilities`), read: "workspace:read", agent: "path" },
   // Members (report C4): reading for any token; changes check for the person's own sign-in in the route.
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/members`), read: "workspace:read", write: null, agent: "path" },
+  // Member settings (0114): your part and settings; reading for any token, agents too; changes need your own sign-in.
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/me(/wrap-up)?`), read: "workspace:read", write: null, agent: "path" },
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/me/(complete|reopen|role-request)`), write: null, agent: "path" },
+  { pattern: route(`/api/v1/(workspaces|projects)/${ID}/members/[^/]+/completion`), write: null, agent: "path" },
   { pattern: route(`/api/v1/(workspaces|projects)/${ID}/sync-diff`), read: "file:read" },
   { pattern: route("/api/v1/files/place"), write: "file:write", agent: "route" },
   // Change sets (report G7): the workspace is in the path, or comes from the change set (the route checks it).

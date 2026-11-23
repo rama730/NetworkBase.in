@@ -40,6 +40,14 @@ export type WorkspaceNotificationEventKey =
     | "members.role_changed"
     | "members.removed"
     | "members.ownership_transferred"
+    // Member settings (0114): completing your part, reopening it, leaving, the owner's decision, role requests.
+    | "members.completed"
+    | "members.reopened"
+    | "members.left"
+    | "members.marked_completed"
+    | "members.completion_decided"
+    | "members.role_requested"
+    | "members.workspace_completed"
     | "access.visibility_changed"
     | "access.public_tabs_changed"
     | "access.file_upload_permission_changed"
@@ -194,6 +202,111 @@ const orgEvent = (key: OrgNotificationEventKey, group: WorkspaceNotificationGrou
 const E = (entry: WorkspaceNotificationRegistryEntry) => entry;
 
 export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
+    "members.completed": E({
+        key: "members.completed",
+        group: "membership_access",
+        label: "Member completed their part",
+        description: "Notify the owner and admins when someone completes their part here.",
+        category: "projects",
+        notificationKind: "project_member_journey",
+        defaultEnabled: true,
+        defaultImportance: "more",
+        defaultRecipients: ["owner", "co_leaders"],
+        allowMemberOverride: true,
+        mandatory: false,
+        aggregate: "burst_10m",
+        visible: true,
+    }),
+    "members.reopened": E({
+        key: "members.reopened",
+        group: "membership_access",
+        label: "Member reopened their part",
+        description: "Notify the owner and admins when someone reopens their part.",
+        category: "projects",
+        notificationKind: "project_member_journey",
+        defaultEnabled: true,
+        defaultImportance: "more",
+        defaultRecipients: ["owner", "co_leaders"],
+        allowMemberOverride: true,
+        mandatory: false,
+        aggregate: "burst_10m",
+        visible: true,
+    }),
+    "members.left": E({
+        key: "members.left",
+        group: "membership_access",
+        label: "Member left",
+        description: "Notify the owner and admins when someone leaves the workspace.",
+        category: "projects",
+        notificationKind: "project_member_journey",
+        defaultEnabled: true,
+        defaultImportance: "more",
+        defaultRecipients: ["owner", "co_leaders"],
+        allowMemberOverride: true,
+        mandatory: false,
+        aggregate: "burst_10m",
+        visible: true,
+    }),
+    "members.marked_completed": E({
+        key: "members.marked_completed",
+        group: "membership_access",
+        label: "Your part was marked completed",
+        description: "Tell a member when the owner or an admin completes their part for them.",
+        category: "projects",
+        notificationKind: "project_member_journey",
+        defaultEnabled: true,
+        defaultImportance: "important",
+        defaultRecipients: ["affected_member"],
+        allowMemberOverride: false,
+        mandatory: true,
+        aggregate: "none",
+        visible: true,
+    }),
+    "members.completion_decided": E({
+        key: "members.completion_decided",
+        group: "membership_access",
+        label: "Owner answered your completed part",
+        description: "Tell a member when the owner confirms their completed part or asks them to reopen it.",
+        category: "projects",
+        notificationKind: "project_member_journey",
+        defaultEnabled: true,
+        defaultImportance: "important",
+        defaultRecipients: ["affected_member"],
+        allowMemberOverride: false,
+        mandatory: true,
+        aggregate: "none",
+        visible: true,
+    }),
+    "members.role_requested": E({
+        key: "members.role_requested",
+        group: "membership_access",
+        label: "Role requested",
+        description: "Notify the owner and admins when a member asks for a different role.",
+        category: "projects",
+        notificationKind: "project_member_journey",
+        defaultEnabled: true,
+        defaultImportance: "important",
+        defaultRecipients: ["owner", "co_leaders"],
+        allowMemberOverride: true,
+        mandatory: false,
+        aggregate: "none",
+        visible: true,
+    }),
+    "members.workspace_completed": E({
+        key: "members.workspace_completed",
+        group: "membership_access",
+        label: "Workspace completed",
+        description: "Tell every member when the owner completes the workspace, which completes everyone's part.",
+        category: "projects",
+        notificationKind: "project_member_journey",
+        defaultEnabled: true,
+        defaultImportance: "important",
+        defaultRecipients: ["affected_member"],
+        allowMemberOverride: false,
+        mandatory: true,
+        aggregate: "none",
+        visible: true,
+    }),
     "members.joined": E({
         key: "members.joined",
         group: "membership_access",

@@ -642,6 +642,7 @@ async function readProjectDetailShellForActor(input: {
           status: project.status,
           actorUserId,
           memberRoleRaw: project.memberRole,
+          memberCompletedAt: (project as { memberCompletedAt?: Date | string | null }).memberCompletedAt ?? null,
           isFollowed: project.isFollowed,
           parentOrgRole,
         });
