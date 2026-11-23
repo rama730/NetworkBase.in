@@ -2583,7 +2583,8 @@ html[data-reduce-motion="true"] .nb-pixel-beat > i { animation: none !important;
 .nb-upload-bar.is-on-image > .pct { color: #fff; }
 
 /* Saved in place: a tick that pops once, beside what saved. */
-.nb-saved { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--status-success); animation: nb-pf-pop 260ms var(--nb-ease) both; }
+.nb-saved { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--status-success); animation: nb-pf-pop 260ms var(--nb-ease) both, nb-saved-out 400ms var(--nb-ease) 4s forwards; }
+@keyframes nb-saved-out { to { opacity: 0; } }
 .nb-saved > svg { animation: nb-saved-tick 300ms var(--nb-ease) both; }
 @keyframes nb-saved-tick { from { transform: scale(.4); opacity: 0; } }
 html[data-reduce-motion="true"] .nb-saved, html[data-reduce-motion="true"] .nb-saved > svg { animation: none !important; }
