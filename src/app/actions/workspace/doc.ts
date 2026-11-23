@@ -1777,7 +1777,6 @@ export async function cancelLaunchAction(projectId: string, input: unknown) {
 }
 
 // ── Report 38.11 D1 (plan A4.1): meetings ────────────────────────────────────────────────────────────────────────────
-const MEETING_REMINDER_MINUTES = 15;
 const meetingSchema = z.object({
     docSlug: docSlugSchema, type: z.string().regex(/^[a-z_]{1,40}$/), title: z.string().trim().min(1).max(120),
     startsAt: z.string().refine((v) => Number.isFinite(Date.parse(v)), "Pick the date and time"), lengthMinutes: z.number().int().min(5).max(600),
@@ -1812,10 +1811,12 @@ async function memberIds(projectId: string, ids: string[]) {
     return ids.filter((i) => rows.some((r) => r.id === i));
 }
 /** W3: a reminder per attendee before the start (rewritten whenever the meeting moves). */
-async function scheduleMeetingReminders(docId: string, startsAt: string, attendeeIds: string[]) {
+async function scheduleMeetingReminders(projectId: string, docId: string, startsAt: string, attendeeIds: string[]) {
     const { reminderAt } = await import("@/lib/workflows/meetings");
+    const { readMeetingSettings } = await import("@/lib/workflows/meeting-settings-server");
     await db.delete(workspaceDocumentReminders).where(and(eq(workspaceDocumentReminders.docId, docId), isNull(workspaceDocumentReminders.sentAt)));
-    const at = reminderAt(startsAt, MEETING_REMINDER_MINUTES);
+    // A4.16: Settings → Meetings' reminder (0 turns them off).
+    const at = reminderAt(startsAt, (await readMeetingSettings(projectId)).reminderMinutes);
     if (!at || Date.parse(at) <= Date.now() || !attendeeIds.length) return;
     await db.insert(workspaceDocumentReminders).values(attendeeIds.map((userId) => ({ docId, userId, remindAt: new Date(at) })));
     const { wakeChatDueIfSoon } = await import("@/inngest/wake");
@@ -1841,6 +1842,8 @@ export async function createMeetingAction(projectId: string, input: unknown) {
         const { meetingType } = await import("@/lib/workflows/meetings");
         const type = meetingType(data.type);
         if (!type) return { success: false as const, error: "Pick a meeting type" };
+        const { readMeetingSettings } = await import("@/lib/workflows/meeting-settings-server");
+        if (!(await readMeetingSettings(projectId)).types.includes(type.id)) return { success: false as const, error: "That meeting type is switched off in Settings → Meetings." };
         const context = await getDocProjectContext(projectId, userId, data.docSlug);
         if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents make meetings." };
         const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
@@ -1857,7 +1860,7 @@ export async function createMeetingAction(projectId: string, input: unknown) {
             seriesId = series!.id;
         }
         await writeLaunchSettings(context.readme.id, { section: "meetings", kind: type.id, meetingTitle: data.title, date: zonedParts(new Date(startsAt), tz).day, startsAt, lengthMinutes: data.lengthMinutes, attendeeIds, ...(seriesId ? { seriesId } : {}), ...(data.boardSize ? { boardSize: data.boardSize } : {}) });
-        await scheduleMeetingReminders(context.readme.id, startsAt, attendeeIds);
+        await scheduleMeetingReminders(projectId, context.readme.id, startsAt, attendeeIds);
         await tellAttendees(projectId, userId, attendeeIds, data.title, data.docSlug, context.project);
         await recordNodeEvent(projectId, userId, null, "project_readme.meeting_created", { docSlug: data.docSlug, type: type.id });
         revalidateProjectDoc(context.project);
@@ -2093,7 +2096,7 @@ export async function finishMeetingAction(projectId: string, input: unknown) {
                 const carried = data.carryOver ? carryRows(rows).map((r) => r.id) : [];
                 await writeLaunchSettings(nextCtx.readme.id, { section: "meetings", kind: s.kind ?? series.meetingType, meetingTitle: data.nextTitle ?? series.title, date: zonedParts(new Date(startsAt), tz).day, startsAt,
                     lengthMinutes: series.lengthMinutes, attendeeIds: series.attendeeIds, seriesId: series.id, ...(carried.length ? { carriedTaskIds: carried } : {}), ...(series.boardSize ? { boardSize: series.boardSize } : {}) });
-                await scheduleMeetingReminders(nextCtx.readme.id, startsAt, series.attendeeIds);
+                await scheduleMeetingReminders(projectId, nextCtx.readme.id, startsAt, series.attendeeIds);
                 next = { docSlug: data.nextDocSlug, startsAt, carried: carried.length };
             }
         }
@@ -2133,7 +2136,7 @@ export async function moveMeetingAction(projectId: string, input: unknown) {
         const { zonedParts } = await import("@/lib/workflows/request-clock");
         const startsAt = new Date(data.startsAt).toISOString();
         await writeLaunchSettings(context.readme!.id, { startsAt, date: zonedParts(new Date(startsAt), (await readWorkingHours(projectId)).tz).day, ...(data.lengthMinutes ? { lengthMinutes: data.lengthMinutes } : {}) });
-        await scheduleMeetingReminders(context.readme!.id, startsAt, context.settings.attendeeIds ?? []);
+        await scheduleMeetingReminders(projectId, context.readme!.id, startsAt, context.settings.attendeeIds ?? []);
         revalidateProjectDoc(context.project);
         return { success: true as const };
     } catch (error) {
@@ -2172,6 +2175,7 @@ export async function readMeetingsAction(projectId: string) {
             ORDER BY p.full_name`));
         return {
             success: true as const, projectKey: ws?.key ?? null, timeZone: (await readWorkingHours(projectId)).tz, viewerId: actor, meetings, people,
+            settings: await (await import("@/lib/workflows/meeting-settings-server")).readMeetingSettings(projectId),
             openActionItems: open.map((r) => ({ id: r.id, number: r.number, title: r.title, status: r.status, dueDate: r.dueDate ? r.dueDate.toISOString().slice(0, 10) : null,
                 assigneeId: r.assigneeId, assigneeName: r.assigneeName, meeting: r.sourceDocId && byDoc.get(r.sourceDocId) ? { slug: byDoc.get(r.sourceDocId)!.slug, title: byDoc.get(r.sourceDocId)!.title } : null })),
         };

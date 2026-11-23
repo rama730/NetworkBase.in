@@ -151,3 +151,27 @@ export const motionResult = (votesFor: number, against: number): "passed" | "fai
 
 /** Server rule: the votes recorded can't add up to more people than are marked present. */
 export const voteFits = (v: { for: number; against: number; abstain: number }, present: number) => v.for + v.against + v.abstain <= present;
+
+/**
+ * Report 38.11 S8 and call 5 (A4.16): Settings → Meetings. Until someone sets them, the types shown follow the workspace
+ * category: the common ones everywhere, plus the category's own (from the category sections). Blank is always on.
+ */
+export const MEETING_LENGTHS = [15, 30, 45, 60, 90, 120] as const;
+export const REMINDER_MINUTES = [0, 5, 15, 30] as const;
+const COMMON_TYPES = ["weekly", "standup", "planning", "retro", "kickoff", "client", "blank"];
+const CATEGORY_TYPES: Record<string, string[]> = {
+  startup: ["board", "interview"], nonprofit: ["board"], podcast: ["recording"], video: ["shoot"], web_app: ["interview"],
+  tool: ["incident"], open_source: ["incident"], game: ["playtest"],
+};
+export type MeetingSettings = { types: string[]; lengthMinutes: number; reminderMinutes: number };
+export function meetingSettings(raw: unknown, category: string | null | undefined): MeetingSettings {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const chosen = Array.isArray(r.types) ? new Set(r.types.filter((t): t is string => typeof t === "string"))
+    : new Set([...COMMON_TYPES, ...(CATEGORY_TYPES[category ?? ""] ?? [])]);
+  chosen.add("blank");
+  return {
+    types: MEETING_TYPES.map((t) => t.id).filter((id) => chosen.has(id)),
+    lengthMinutes: (MEETING_LENGTHS as readonly number[]).includes(r.lengthMinutes as number) ? (r.lengthMinutes as number) : 30,
+    reminderMinutes: (REMINDER_MINUTES as readonly number[]).includes(r.reminderMinutes as number) ? (r.reminderMinutes as number) : 15,
+  };
+}

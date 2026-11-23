@@ -126,3 +126,16 @@ test("board rules: quorum is a majority of the board; a motion passes on more Fo
   const md = meetingMarkdown(meetingType("board")!, "Board · Dec 3");
   assert.deepEqual(md.split("\n").filter((l) => l.startsWith("## ")).map((l) => l.slice(3)), ["Agenda", "Reports", "Motions", "Minutes", "Decisions"]);
 });
+
+// Plan A4.16 (report 38.11 S8, call 5): Settings → Meetings.
+test("meetingSettings: types follow the category until set; Blank always on; length and reminder fall back to 30 and 15", async () => {
+  const { meetingSettings } = await import("../../src/lib/workflows/meetings");
+  const common = ["weekly", "standup", "planning", "retro", "kickoff", "client", "blank"];
+  assert.deepEqual(meetingSettings(null, null), { types: common, lengthMinutes: 30, reminderMinutes: 15 });
+  assert.deepEqual(meetingSettings(undefined, "startup").types, ["weekly", "standup", "planning", "retro", "kickoff", "client", "interview", "board", "blank"]);
+  assert.deepEqual(meetingSettings(undefined, "game").types, ["weekly", "standup", "planning", "retro", "kickoff", "client", "playtest", "blank"]);
+  assert.deepEqual(meetingSettings(undefined, "podcast").types.includes("recording"), true);
+  assert.deepEqual(meetingSettings({ types: ["board", "nope", "weekly"], lengthMinutes: 45, reminderMinutes: 0 }, "game"), { types: ["weekly", "board", "blank"], lengthMinutes: 45, reminderMinutes: 0 },
+    "set types win, in catalog order, unknown dropped, Blank kept");
+  assert.deepEqual(meetingSettings({ lengthMinutes: 7, reminderMinutes: 10 }, null), { types: common, lengthMinutes: 30, reminderMinutes: 15 }, "only allowed values");
+});

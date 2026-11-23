@@ -20,6 +20,7 @@ stubNextAfter();
 
 let docs: typeof import("../../src/app/actions/workspace/doc");
 let feed: typeof import("../../src/app/actions/meeting-feed");
+let meetingSettings: typeof import("../../src/app/actions/meeting-settings");
 let feedRoute: typeof import("../../src/app/api/feeds/meetings/[token]/route");
 let taskActions: typeof import("../../src/app/actions/task");
 let tasksServer: typeof import("../../src/lib/workspaces/server/tasks");
@@ -32,6 +33,7 @@ before(async () => {
   });
   docs = await loadAppModule(() => import("../../src/app/actions/workspace/doc"));
   feed = await loadAppModule(() => import("../../src/app/actions/meeting-feed"));
+  meetingSettings = await loadAppModule(() => import("../../src/app/actions/meeting-settings"));
   feedRoute = await loadAppModule(() => import("../../src/app/api/feeds/meetings/[token]/route"));
   taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
   tasksServer = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
@@ -256,6 +258,7 @@ test("W4, W7: a decision from a meeting tells its attendees; Proposed ↔ Decide
 test("W6: a board meeting's motion needs quorum and votes within those present; a pass records its decision once; approved minutes refuse changes and file edits", async () => {
   const t = await workspace();
   viewerId = t.owner;
+  await sql`UPDATE workspaces SET category = 'nonprofit' WHERE id = ${t.ws}`; // Board meeting is on by default here (A4.16)
   const first = await t.doc("board-1");
   assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "board-1", type: "board", title: "Board · Jan 7", startsAt: ist("2027-01-07T10:00:00"), lengthMinutes: 60, attendeeIds: [t.owner, t.member, t.viewer], repeat: "monthly", boardSize: 3 })).success);
   assert.equal((await settingsOf(first)).boardSize, 3);
@@ -306,4 +309,32 @@ test("W6: a board meeting's motion needs quorum and votes within those present; 
   await assert.rejects(lock.assertMinutesEditable(t.ws, node), /approved/);
   const otherNode = (await sql`SELECT linked_node_id FROM workspace_documents WHERE id = ${second}`)[0]!.linked_node_id as string;
   assert.equal(await lock.approvedMinutesRefusal(t.ws, otherNode), null);
+});
+
+// Plan A4.16 (report 38.11 S8, call 5): Settings → Meetings.
+test("S8: types follow the category until an owner or admin sets them; a switched-off type is refused; the reminder minutes apply", async () => {
+  const t = await workspace();
+  await sql`UPDATE workspaces SET category = 'game' WHERE id = ${t.ws}`;
+  viewerId = t.member;
+  const read = await meetingSettings.readMeetingSettingsAction(t.ws);
+  assert.ok(read.success);
+  assert.deepEqual([read.settings.types.includes("playtest"), read.settings.types.includes("board"), read.canManage], [true, false, false]);
+  assert.equal((await meetingSettings.setMeetingSettingsAction(t.ws, { types: ["weekly"], lengthMinutes: 45, reminderMinutes: 30 }) as { error?: string }).error, "Only owners and admins change meeting settings.");
+  viewerId = t.owner;
+  assert.ok((await meetingSettings.setMeetingSettingsAction(t.ws, { types: ["weekly"], lengthMinutes: 45, reminderMinutes: 30 })).success);
+  const list = await docs.readMeetingsAction(t.ws);
+  assert.ok(list.success);
+  assert.deepEqual(list.settings, { types: ["weekly", "blank"], lengthMinutes: 45, reminderMinutes: 30 });
+  await t.doc("play-1");
+  assert.equal((await docs.createMeetingAction(t.ws, { docSlug: "play-1", type: "playtest", title: "Playtest", startsAt: ist("2027-01-07T10:00:00"), lengthMinutes: 30, attendeeIds: [t.member], repeat: "none" }) as { error?: string }).error,
+    "That meeting type is switched off in Settings → Meetings.");
+  const id = await t.doc("weekly-1");
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "weekly-1", type: "weekly", title: "Weekly", startsAt: ist("2027-01-07T10:00:00"), lengthMinutes: 45, attendeeIds: [t.member], repeat: "none" })).success);
+  const rem = await sql`SELECT remind_at FROM workspace_document_reminders WHERE doc_id = ${id}`;
+  assert.deepEqual(rem.map((r) => new Date(r.remind_at).toISOString()), [ist("2027-01-07T09:30:00")], "30 minutes before");
+  // Reminders off: none scheduled.
+  assert.ok((await meetingSettings.setMeetingSettingsAction(t.ws, { types: ["weekly"], lengthMinutes: 45, reminderMinutes: 0 })).success);
+  const id2 = await t.doc("weekly-2");
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "weekly-2", type: "weekly", title: "Weekly 2", startsAt: ist("2027-01-08T10:00:00"), lengthMinutes: 45, attendeeIds: [t.member], repeat: "none" })).success);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_document_reminders WHERE doc_id = ${id2}`)[0]!.n, 0);
 });

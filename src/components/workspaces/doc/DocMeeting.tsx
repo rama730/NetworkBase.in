@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clapperboard, FileText, Gamepad2, Gavel, Handshake, MessagesSquare, Mic, MoreHorizontal, RotateCcw, Rocket, Siren, Target, Timer, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { createMeetingAction, endSeriesAction, finishMeetingAction, moveMeetingAction, readDocRowsAction, readMeetingAction, readMeetingsAction } from "@/app/actions/workspace/doc";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -64,6 +64,14 @@ export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId:
   const [repeat, setRepeat] = useState<"none" | RepeatRule>("none");
   const [boardSize, setBoardSize] = useState(5);
   const [busy, setBusy] = useState(false);
+  // A4.16: only the types switched on in Settings → Meetings, and its default length.
+  const shownTypes = MEETING_TYPES.filter((t) => !data?.settings || data.settings.types.includes(t.id));
+  const settingsKey = data?.settings ? `${data.settings.types.join(",")}|${data.settings.lengthMinutes}` : "";
+  useEffect(() => {
+    if (!data?.settings) return;
+    setLength(data.settings.lengthMinutes);
+    setType((t) => (data.settings.types.includes(t) ? t : data.settings.types[0] ?? "blank"));
+  }, [settingsKey]);
   const chosen = meetingType(type)!;
   const shownTitle = title.trim() || defaultTitle(chosen, day);
   async function create() {
@@ -86,13 +94,13 @@ export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId:
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!busy) onOpenChange(o); }}>
       <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="new-meeting-dialog">
-        <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">New meeting</DialogTitle><DialogDescription className="text-xs text-muted-foreground">A dated document with notes and action items. Attendees get a reminder 15 minutes before.</DialogDescription></div>
+        <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">New meeting</DialogTitle><DialogDescription className="text-xs text-muted-foreground">A dated document with notes and action items. {data?.settings?.reminderMinutes === 0 ? "No reminders (Settings → Meetings)." : `Attendees get a reminder ${data?.settings?.reminderMinutes ?? 15} minutes before.`}</DialogDescription></div>
         <div className="max-h-[65vh] space-y-3.5 overflow-y-auto px-6 py-4">
           {/* S1: type cards with an icon and one line. */}
           <fieldset className="space-y-1.5">
             <legend className="text-[13px] font-medium">Type</legend>
             <div role="radiogroup" aria-label="Type" className="grid grid-cols-1 gap-1.5 sm:grid-cols-2" data-testid="meeting-types">
-              {MEETING_TYPES.map((t) => {
+              {shownTypes.map((t) => {
                 const Icon = TYPE_ICON[t.id] ?? FileText;
                 const on = t.id === type;
                 return (
