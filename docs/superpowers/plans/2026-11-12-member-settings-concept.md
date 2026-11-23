@@ -1,6 +1,6 @@
 # Member settings in a workspace: concept
 
-**Status:** built on local main 2026-11-23 (§12), not pushed. Migration 0114 is in production (applied 2026-11-23, checked). Started 2026-11-12 and parked during the CLI and agents round.
+**Status:** LIVE 2026-11-23 (origin 30c2f7454, web and worker deployed). Migration 0114 is in production (applied and checked the same day). Started 2026-11-12 and parked during the CLI and agents round.
 - **2026-11-23:** the user added **Completing your part** (Part 2).
 - **2026-11-23:** an end-to-end check against the code found 24 gaps (§9). They are closed in this version.
 
@@ -334,7 +334,7 @@ All routes:
 5. **Workspace completed** hook, and the assignment-copy rule.
 6. **Devices and view.** Then Part 4, Roles.
 
-## 12. Done (2026-11-23, local main, not pushed)
+## 12. Done (2026-11-23, live in 30c2f7454)
 
 **Commits:** 5876f0b89 (0114), e3f7c9051 (backend), 8fcb25ffd (security fix), e8c86ee34 (app screens), 7cfe46700 and c45a9d3c1 (profile), 8b2d9ca27 (CLI and MCP), e9fa4f5b1 (docs), 5f3d6ed45 (pickers), and the Part 4 commit after them.
 
@@ -373,7 +373,7 @@ All routes:
 **Tests:** unit 3,704 (profile dates, label rule, pickers, roles contract, tab rules, activity wording); database 15 new on a disposable database (member journey 12, role abilities 3, including SQL and app agreeing for every role and ability), and the full database suite 1,242 of 1,244 (the 2 left are the workflow session's bug-closing tests, not this work); CLI 356.
 
 **Still open:**
-1. ~~Apply 0114 in production~~ done 2026-11-23: the 8 membership columns, both workspace columns, the periods table, the role function, the trigger, the 3 task policies and the completed check in the SQL write function are all there. Next: deploy (push).
+1. ~~Apply 0114 in production~~ done 2026-11-23: the 8 membership columns, both workspace columns, the periods table, the role function, the trigger, the 3 task policies and the completed check in the SQL write function are all there. Deployed 2026-11-23: 14 commits cherry-picked onto origin (30c2f7454), build passed, web and worker SUCCESS; live: the docs page and llms.txt serve, the new routes answer 401 signed out and refuse writes without CSRF, workspace pages render, no errors in the web logs.
 2. Release the CLI with the new commands (needs your go-ahead).
 3. Signed-in check in Chrome, 2026-11-23, as the owner in wt-test-a2-3 (desktop, light):
    - **Passed:** Your settings shows first with every part; mute for 1 day and turn back on; Your view saves; Roles shows today's rules with viewer writes locked, a change saves with its toast, Back to the default rules resets it; Let members choose and Complete this workspace are there; the profile loads; no console errors. Test changes were put back.
