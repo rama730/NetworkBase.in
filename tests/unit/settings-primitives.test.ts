@@ -3,21 +3,21 @@ import { test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { SettingsRadioGroup } from "@/components/settings/ui/SettingsRadioGroup";
+import { SegChoice } from "@/components/settings/mix/parts";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 
 const options = [
-    { value: "a", label: "Alpha", description: "First" },
-    { value: "b", label: "Beta", description: "Second" },
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta" },
     { value: "c", label: "Gamma" },
 ];
 const group = (value: string | undefined, busy = false) =>
-    renderToStaticMarkup(createElement(SettingsRadioGroup<string>, { label: "Pick one", value, onValueChange: () => {}, options, busy, testIdPrefix: "pick" }));
+    renderToStaticMarkup(createElement(SegChoice<string>, { label: "Pick one", value, onChange: () => {}, options, busy, testIdPrefix: "pick" }));
 
 test("a radio group is a labelled radiogroup with one checked option and one tab stop", () => {
     const html = group("b");
-    assert.match(html, /role="radiogroup"[^>]*aria-labelledby=/);
+    assert.match(html, /role="radiogroup"[^>]*aria-label="Pick one"/);
     assert.equal((html.match(/role="radio"/g) ?? []).length, 3);
     assert.equal((html.match(/aria-checked="true"/g) ?? []).length, 1);
     // The checked option is the one Tab lands on; the others are reached with the arrow keys.

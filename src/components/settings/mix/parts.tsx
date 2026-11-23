@@ -19,7 +19,7 @@ export type SegOption<T extends string> = { value: T; label: string };
  * One choice out of a few as segmented cells (mix): the clay marker slides to the chosen one. Arrow keys move focus
  * (roving), Space or Enter picks: passing over a choice never changes a setting, since these save at once.
  */
-export function SegChoice<T extends string>({ label, value, options, onChange, busy, id, size = "sm" }: {
+export function SegChoice<T extends string>({ label, value, options, onChange, busy, id, size = "sm", testIdPrefix }: {
   label: string;
   value: T | null | undefined;
   options: ReadonlyArray<SegOption<T>>;
@@ -27,6 +27,8 @@ export function SegChoice<T extends string>({ label, value, options, onChange, b
   busy?: boolean;
   id?: string;
   size?: "sm" | "md";
+  /** Puts `data-testid="<prefix>-<value>"` on each choice. */
+  testIdPrefix?: string;
 }) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
   const stop = Math.max(0, options.findIndex((option) => option.value === value));
@@ -46,6 +48,7 @@ export function SegChoice<T extends string>({ label, value, options, onChange, b
           role="radio"
           aria-checked={option.value === value}
           aria-disabled={busy || undefined}
+          data-testid={testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined}
           tabIndex={index === stop ? 0 : -1}
           onKeyDown={(event) => onKeyDown(event, index)}
           onClick={() => { if (!busy && option.value !== value) onChange(option.value); }}

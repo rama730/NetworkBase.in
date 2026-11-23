@@ -58,14 +58,16 @@ test('while busy the options stay focusable and ignore picks', async ({ page }) 
 
 test('a keyboard-focused radio and switch look different from unfocused ones', async ({ page }) => {
   const border = (locator: ReturnType<typeof page.getByTestId>) => locator.evaluate((el) => getComputedStyle(el).borderTopColor);
+  // A segmented cell shows focus with a tint; the switch with its border.
+  const tint = (locator: ReturnType<typeof page.getByTestId>) => locator.evaluate((el) => getComputedStyle(el).backgroundColor);
   // Colours ease in over a moment, so the change is waited for rather than read at once.
   const radio = page.getByTestId('pick-b');
-  const radioBefore = await border(radio);
+  const radioBefore = await tint(radio);
   await page.getByRole('button', { name: 'toggle busy' }).focus();
   await page.keyboard.press('Tab');
   await page.keyboard.press('ArrowDown');
   await expect(radio).toBeFocused();
-  await expect.poll(() => border(radio)).not.toBe(radioBefore);
+  await expect.poll(() => tint(radio)).not.toBe(radioBefore);
 
   const toggle = page.getByRole('switch', { name: 'Email' });
   const toggleBefore = await border(toggle);
