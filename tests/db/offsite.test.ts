@@ -102,3 +102,16 @@ test("W2 and part 8: invitees answer Going / Can't go; counts; others can't answ
   viewerId = t.outsider;
   assert.equal((await docs.readOffsiteAction(t.ws, "offsite") as { error?: string }).error, "Off-sites are for workspace members.");
 });
+
+test("security review: an off-site's checklist rows never reach someone outside the workspace, even with a public Tasks tab", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  await t.doc("offsite");
+  assert.ok((await docs.createOffsiteAction(t.ws, { docSlug: "offsite", name: "Retreat", dateFrom: "2099-03-04", dateTo: "2099-03-04", invitedIds: [t.member] })).success);
+  const [row] = await sql`SELECT id FROM tasks WHERE workspace_id = ${t.ws} AND source_block = 'travel' AND title LIKE 'Book travel%'`;
+  await sql`UPDATE workspaces SET visibility = 'public', public_tab_visibility = '{"tasks": true}'::jsonb WHERE id = ${t.ws}`;
+  const detail = async () => { const r = await tasksServer.getWorkspaceTaskDetailAction(t.ws, row!.id) as { success?: boolean; task?: { title: string } | null }; return r.success && r.task ? r.task.title : null; };
+  assert.match((await detail())!, /^Book travel/, "members see it");
+  viewerId = t.outsider;
+  assert.equal(await detail(), null);
+});

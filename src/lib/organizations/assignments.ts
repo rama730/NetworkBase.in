@@ -27,7 +27,10 @@ export const orgTaskVisibleToSql = (taskId: SQL, viewer: string | null | SQL) =>
 export function orgTaskReadFilter(access: WorkspaceAccess, viewerId: string | null, scope: string = "all"): SQL | undefined {
   // Report 38.12 (A5.1 security review) and 38.13 call 5: goals and ideas are for members only, never public: they stay out
   // of every task read for anyone outside the workspace (visitors of a public Tasks tab, outside tokens).
-  if (access.project?.kind !== "organization") return access.isOwner || access.isMember ? undefined : sql`coalesce(${tasks.itemType}, 'task') NOT IN ('objective', 'key_result', 'idea')`;
+  // Security review (A5.4): rows of a members-only or leaders-only document (an off-site's checklists, a private meeting's
+  // action items) stay out too.
+  if (access.project?.kind !== "organization") return access.isOwner || access.isMember ? undefined : sql`(coalesce(${tasks.itemType}, 'task') NOT IN ('objective', 'key_result', 'idea')
+    AND (${tasks.sourceDocId} IS NULL OR NOT EXISTS (SELECT 1 FROM workspace_documents d WHERE d.id = ${tasks.sourceDocId} AND d.settings->>'visibilityOverride' IN ('members_only', 'leaders_only'))))`;
   const isAdmin = access.isOwner || access.memberRole === "admin";
   // Mine shows an admin their own copies too (an assignment given to admins); the scope itself narrows to theirs.
   if (isAdmin) return scope === "review" || scope === "mine" ? undefined : isNull(tasks.assignmentId);
