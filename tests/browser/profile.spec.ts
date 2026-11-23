@@ -762,6 +762,27 @@ test('a signed-in visitor sees mutual connections: the Mutual stat with faces, a
   await expect(page.getByText('Priya Nair')).toBeVisible();
 });
 
+test('a no-photo avatar draws itself in on first load, then is a single shape again', async ({page}) => {
+  await page.reload();
+  const fig = page.getByTestId('profile-summary-header').locator('[data-slot="pixel-person"]').first();
+  await expect(fig).toHaveClass(/nb-pixel-draw/);
+  expect(await fig.locator('rect[style]').count()).toBeGreaterThan(20);
+  expect(await fig.locator('rect[style]').first().evaluate((el) => getComputedStyle(el).animationName)).toBe('nb-px-in');
+  await expect(fig).not.toHaveClass(/nb-pixel-draw/, { timeout: 4000 });
+  await expect(fig.locator('path')).toHaveCount(1);
+});
+
+test('workspace and organization pictures without an image draw themselves in on first load too', async ({page}) => {
+  const places = page.locator('[data-slot="pixel-place"]');
+  await page.reload();
+  await page.evaluate(() => { const f=(window as any).profileFixture; f.contributions=[
+    { id:'00000000-0000-4000-8000-000000000901', projectId:'10000000-0000-4000-8000-000000000901', version:1, title:'Teacher', projectTitle:'Org One', projectKind:'organization', projectHref:'/org/one', startDate:'2026-01-01', currentlyActive:true, visibility:'public', publishedAt:'2026-10-01T00:00:00Z', featured:false, skills:[], source:'membership', verified:false },
+  ]; f.refresh(); });
+  await expect(places.first()).toHaveClass(/nb-pixel-draw/);
+  await expect(places.first()).not.toHaveClass(/nb-pixel-draw/, { timeout: 4000 });
+  await expect(places.first().locator('path')).toHaveCount(1);
+});
+
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
   await page.evaluate(()=>history.back());const ask=page.getByRole('alertdialog',{name:'Discard unsaved changes?'});await expect(ask).toBeVisible();await ask.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(ask).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit/);await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');

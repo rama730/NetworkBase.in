@@ -1,5 +1,9 @@
+'use client'
+
 import { PIXEL_INK_TILE, PIXEL_PERSON, PIXEL_PLACES, pixelPersonLayout, pixelPersonPair, type PixelPlaceKind } from '@/lib/ui/avatar'
+import { useSyncExternalStore } from 'react'
 import { cn } from '@/lib/utils'
+import { firstLoadWindow } from '@/lib/ui/first-load'
 
 type Bitmap = readonly string[]
 const cellsOf = (bitmap: Bitmap) => bitmap.flatMap((row, y) => [...row].flatMap((bit, x) => (bit === '#' ? [[x, y] as const] : [])))
@@ -11,29 +15,35 @@ const PLACES = Object.fromEntries(Object.entries(PIXEL_PLACES).map(([kind, bitma
 /**
  * A pixel figure on a square tile, in the colour pair `identityKey` picks. Give `size` (px) and every cell lands on whole
  * pixels; without it the tile scales to its box. `tile={false}` draws the figure alone. `pop` lets the cells appear one by
- * one (CSS). A tile on the ink colour gets a 1px inner edge in dark mode (`--nb-tile-edge`).
+ * one (onboarding's timing); `draw` is the app-wide first-load draw-in (useFirstLoadDraw). A tile on the ink colour gets a
+ * 1px inner edge in dark mode (`--nb-tile-edge`).
  */
-function PixelFigure({ figure, identityKey, size, tile = true, pop = false, className, slot }: {
+function PixelFigure({ figure, identityKey, size, tile = true, pop = false, draw: drawProp, className, slot }: {
     figure: typeof PERSON
     identityKey: string
     size?: number
     tile?: boolean
     pop?: boolean
+    draw?: boolean
     className?: string
     slot: string
 }) {
+    // Every pixel figure (people, workspaces, organizations) draws itself in while the page first opens, unless the
+    // caller has its own timing (onboarding's pop) or says otherwise.
+    const firstLoad = useFirstLoadDraw()
+    const draw = drawProp ?? (firstLoad && !pop)
     const [ink, background] = pixelPersonPair(identityKey)
     const { box, cell, left, top } = tile ? pixelPersonLayout(size) : { box: 0, cell: 1, left: 0, top: 0 }
     return (
         <svg
             data-slot={slot}
-            className={cn('nb-pixel-person', pop && 'nb-pixel-pop', className)}
+            className={cn('nb-pixel-person', pop && 'nb-pixel-pop', draw && 'nb-pixel-draw', className)}
             viewBox={tile ? `0 0 ${box} ${box}` : '0 0 7 8'}
             shapeRendering="crispEdges"
             aria-hidden="true"
         >
             {tile ? <rect width={box} height={box} fill={background} /> : null}
-            {pop ? (
+            {pop || draw ? (
                 <g fill={ink}>
                     {figure.cells.map(([x, y], i) => (
                         <rect key={i} x={left + x * cell} y={top + y * cell} width={cell} height={cell} style={{ ['--i' as string]: i }} />
@@ -50,7 +60,7 @@ function PixelFigure({ figure, identityKey, size, tile = true, pop = false, clas
 }
 
 /** Everyone's avatar until they add a photo: the home page band's pixel person, in the colour pair their id picks. */
-export function PixelPerson(props: { identityKey: string; size?: number; tile?: boolean; pop?: boolean; className?: string }) {
+export function PixelPerson(props: { identityKey: string; size?: number; tile?: boolean; pop?: boolean; draw?: boolean; className?: string }) {
     return <PixelFigure {...props} figure={PERSON} slot="pixel-person" />
 }
 
@@ -58,6 +68,14 @@ export function PixelPerson(props: { identityKey: string; size?: number; tile?: 
  * A workspace or organization without a picture: a building (organization), a desk (workspace), or the desk under its
  * org's roof (child workspace). Pass the org's id as `identityKey` for a child, so it wears its org's colours.
  */
-export function PixelPlace({ kind, ...props }: { kind: PixelPlaceKind; identityKey: string; size?: number; tile?: boolean; className?: string }) {
+export function PixelPlace({ kind, ...props }: { kind: PixelPlaceKind; identityKey: string; size?: number; tile?: boolean; draw?: boolean; className?: string }) {
     return <PixelFigure {...props} figure={PLACES[kind]} slot="pixel-place" />
+}
+
+/**
+ * True while the page first opens (and in server HTML, so the cells are in the first paint): a no-photo avatar then
+ * draws itself in, cell by cell. After that every avatar is one still shape, and new ones appear at once.
+ */
+export function useFirstLoadDraw() {
+    return useSyncExternalStore(firstLoadWindow.subscribe, firstLoadWindow.getSnapshot, firstLoadWindow.getServerSnapshot)
 }

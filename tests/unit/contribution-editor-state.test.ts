@@ -131,7 +131,7 @@ async function workspace(
   const key = "__contributionWorkspaceTest";
   (globalThis as any)[key] = state;
   const mocks: Record<string, string> = {
-    react: `const h=()=>globalThis.${key};export const useState=i=>h().useState(i),useRef=i=>h().useRef(i),useEffect=(f,d)=>h().useEffect(f,d),useCallback=f=>f;`,
+    react: `const h=()=>globalThis.${key};export const useState=i=>h().useState(i),useRef=i=>h().useRef(i),useEffect=(f,d)=>h().useEffect(f,d),useCallback=f=>f,useSyncExternalStore=(subscribe,get)=>get();`,
     "next/navigation": `export const useSearchParams=()=>new URLSearchParams('contribution=${id}');export const useRouter=()=>({push:url=>globalThis.${key}.navigations.push(url)});`,
     "idb-keyval": `export const createStore=()=>null;export const get=async k=>globalThis.${key}.journal.get(k);export const set=async(k,v)=>globalThis.${key}.journal.set(k,v);export const del=async k=>globalThis.${key}.journal.delete(k);`,
     "@/app/actions/contribution-stories": `export const saveContributionStoryAction=async command=>{const h=globalThis.${key};h.commands.push(command);return {success:true,id:command.id,version:command.expectedVersion+1,document:command.document,featured:false,published:command.operation==='publish',removed:false};};export const createContributionStoryAction=async()=>({success:false,error:'not used'});export const searchContributionReferencesAction=async()=>[];export const createContributionImageUploadAction=async()=>({});export const finalizeContributionImageAction=async()=>({});export const importContributionWorkspaceImageAction=async()=>({});export const listContributionLinkWorkspacesAction=async()=>[];`,
