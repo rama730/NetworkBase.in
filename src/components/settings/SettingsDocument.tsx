@@ -7,7 +7,6 @@ import NotificationsSettings from "@/components/settings/NotificationsSettings";
 import PrivacySettings from "@/components/settings/PrivacySettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
 import { StandingSettings, YourReportsSettings } from "@/components/settings/TrustSafetySettings";
-import { SettingsBand } from "@/components/settings/mix/SettingsBand";
 import { SettingsCheckup } from "@/components/settings/mix/SettingsCheckup";
 import { DeleteHeadline } from "@/components/settings/mix/DeleteHeadline";
 import { SETTINGS_SECTION_META } from "@/constants/settings";
@@ -16,8 +15,8 @@ import { OpenSettingsSections } from "@/components/settings/ui/SettingsSectionLa
 
 /**
  * One section of the Settings page (mix): a hairline frame with the section's name as its eyebrow, a serif line saying what it's for,
- * and one plain line; then its groups. `before` sits above the frame inside the section (the band and check-up
- * belong to Account, so landing on the page shows them).
+ * and one plain line; then its groups. `before` sits above the frame inside the section (the check-up
+ * belongs to Account, so landing on the page shows it).
  */
 function DocumentSection({ section, children, before, danger, headline }: { section: SettingsSection; children: React.ReactNode; before?: React.ReactNode; danger?: boolean; headline?: React.ReactNode }) {
   const id = `settings-${section}`;
@@ -41,7 +40,7 @@ export default function SettingsDocument() {
   return (
     <OpenSettingsSections>
       <div data-settings-document className="mx-auto grid w-full max-w-[900px] gap-6 pb-16">
-        <DocumentSection section="account" before={<><SettingsBand /><SettingsCheckup /></>}>
+        <DocumentSection section="account" before={<SettingsCheckup />}>
           <AccountSettings />
           <StandingSettings />
         </DocumentSection>

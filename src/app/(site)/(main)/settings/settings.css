@@ -58,31 +58,6 @@
 .nbs-flash { animation: nbs-flash 1.6s var(--nb-ease); }
 @keyframes nbs-flash { 0%, 40% { background: var(--nbs-tint); } 100% { background: transparent; } }
 
-/* ---------- band ---------- */
-.nbs-band { position: relative; isolation: isolate; overflow: hidden; border-radius: 8px; background: var(--pf-band-bg); color: var(--pf-band-fg); box-shadow: inset 0 0 0 1px var(--pf-band-edge); }
-.nbs-band::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-size: 16px 16px; background-image: linear-gradient(var(--pf-band-line) 1px, transparent 1px), linear-gradient(90deg, var(--pf-band-line) 1px, transparent 1px); mask-image: linear-gradient(180deg, #000 30%, transparent 96%); }
-.nbs-band-in { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 6px 18px; align-items: center; padding: 22px 24px 20px; }
-.nbs-band-in > .nbs-eyebrow { grid-column: 1 / -1; margin-bottom: 8px; color: var(--pf-band-2); }
-.nbs-band-in > .nbs-eyebrow b { color: var(--pf-band-fg); }
-.nbs-pic { width: 76px; height: 76px; overflow: hidden; border-radius: 6px; box-shadow: 0 0 0 1px var(--pf-band-cell); }
-.nbs-who { min-width: 0; }
-.nbs-name { margin: 0; font: 400 40px/1 var(--nbs-serif); letter-spacing: -.005em; overflow-wrap: anywhere; text-wrap: balance; }
-.nbs-ids { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 8px; font: 12.5px var(--nbs-mono); color: var(--pf-band-2); }
-.nbs-ids span { overflow-wrap: anywhere; }
-.nbs-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.nbs-band .nbs-band-btn { border-color: var(--pf-band-btn-border); background: var(--pf-band-btn-bg); color: var(--pf-band-fg); }
-.nbs-band .nbs-band-btn:hover { background: var(--pf-band-btn-hover); }
-.nbs-band .nbs-band-btn.danger { color: var(--status-danger); }
-.nbs-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--pf-band-cell); }
-.nbs-stat { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 13px 18px 15px; border-right: 1px solid var(--pf-band-cell); color: var(--pf-band-2); text-decoration: none; font: 500 10px/1 var(--nbs-mono); letter-spacing: .12em; text-transform: uppercase; }
-.nbs-stat:last-child { border-right: 0; }
-.nbs-stat b { font: 400 22px/1 var(--nbs-serif); letter-spacing: 0; text-transform: none; color: var(--pf-band-fg); font-variant-numeric: tabular-nums; }
-.nbs-stat small { font: 12px/1.3 var(--font-sans, system-ui), system-ui, sans-serif; letter-spacing: 0; text-transform: none; color: var(--pf-band-2); overflow-wrap: anywhere; }
-.nbs-stat:hover { background: var(--pf-band-btn-hover); }
-.nbs-stat:focus-visible { outline: none; background: var(--nbs-tint); }
-.nbs-stat.hot b { color: var(--nbs-brand); }
-.nbs-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 24px; border-top: 1px solid var(--pf-band-cell); background: color-mix(in srgb, var(--nbs-brand) 8%, transparent); font-size: 13px; }
-.nbs-strip > b { font: 500 10.5px var(--nbs-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--nbs-brand); }
 .nbs-days { display: inline-grid; grid-template-columns: repeat(30, 6px); gap: 2px; }
 .nbs-days i { height: 6px; background: var(--nbs-brand); }
 .nbs-days i.gone { background: color-mix(in srgb, var(--nbs-brand) 22%, transparent); }
@@ -265,14 +240,6 @@
 }
 @media (max-width: 640px) {
   .nbs { --nbs-pad: 16px; }
-  .nbs-band-in { grid-template-columns: 56px minmax(0, 1fr); padding: 18px 16px 16px; }
-  .nbs-pic { width: 56px; height: 56px; }
-  .nbs-name { font-size: 30px; }
-  .nbs-acts { grid-column: 1 / -1; justify-content: flex-start; margin-top: 10px; }
-  .nbs-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .nbs-stat { border-bottom: 1px solid var(--pf-band-cell); }
-  .nbs-stat:nth-child(2n) { border-right: 0; }
-  .nbs-stat:last-child { grid-column: 1 / -1; border-bottom: 0; }
   .nbs-row { grid-template-columns: minmax(0, 1fr); }
   .nbs-row .v, .nbs-row .ctl { justify-content: flex-start; text-align: left; }
   .nbs-themes, .nbs-dense, .nbs-policies, .nbs-checks { grid-template-columns: minmax(0, 1fr); }

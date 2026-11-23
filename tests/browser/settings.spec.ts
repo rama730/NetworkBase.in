@@ -22,7 +22,6 @@ test.beforeAll(async()=>{
   }
   // Settings mix: the shell reads the account's state for the band, check-up and nav states; here they are stubbed.
   mocks['@/components/settings/mix/useSettingsSummary']=`export const useSettingsSummary=()=>({states:{}});export const useLegalAcceptance=()=>({data:null});export const legalAcceptanceKey=()=>['legal'];`;
-  mocks['@/components/settings/mix/SettingsBand']=`export function SettingsBand(){return null;}`;
   mocks['@/components/settings/mix/SettingsCheckup']=`export function SettingsCheckup(){return null;}export const useSendVerification=()=>({state:'idle',send(){}});`;
   mocks['@/components/settings/mix/DeleteHeadline']=`import React from 'react';export function DeleteHeadline(){return React.createElement('h2',{id:'settings-delete-account-heading',tabIndex:-1},'Delete your account.');}`;
   const bundle=await build({entryPoints:[path.resolve('tests/browser/settings.fixture.tsx')],bundle:true,write:false,platform:'browser',format:'iife',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'isolated-settings',setup(b){b.onResolve({filter:/.*/},args=>args.path in mocks?{path:args.path,namespace:'fixture'}:undefined);b.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:mocks[args.path],resolveDir:process.cwd(),loader:'js'}));}}]});
