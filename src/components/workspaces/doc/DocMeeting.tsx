@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clapperboard, FileText, Gamepad2, Handshake, MessagesSquare, Mic, MoreHorizontal, RotateCcw, Rocket, Siren, Target, Timer, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
@@ -44,6 +44,10 @@ function useOpenDocAfter(projectId: string) {
   };
 }
 
+/** S1: each meeting type's card icon. */
+const TYPE_ICON: Record<string, LucideIcon> = { weekly: CalendarDays, standup: Timer, planning: Target, retro: RotateCcw, kickoff: Rocket, client: Handshake,
+  recording: Mic, shoot: Clapperboard, interview: MessagesSquare, incident: Siren, playtest: Gamepad2, blank: FileText };
+
 /** S1 and W1: type, title, date and time (the workspace's zone), length, attendees, repeat. */
 export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const query = useMeetings(projectId, open);
@@ -64,7 +68,8 @@ export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId:
     setBusy(true);
     try {
       const { createDocFile } = await import("@/components/organizations/OrgDocParts");
-      const made = await createDocFile(projectId, fileFor(shownTitle, day), meetingMarkdown(chosen, shownTitle));
+      const names = (data?.people ?? []).filter((p) => attendees.includes(p.id)).map((p) => p.name);
+      const made = await createDocFile(projectId, fileFor(shownTitle, day), meetingMarkdown(chosen, shownTitle, names));
       const r = await createMeetingAction(projectId, { docSlug: made.slug, type, title: shownTitle, startsAt: zonedInstant(day, time, tz).toISOString(), lengthMinutes: length, attendeeIds: attendees, repeat });
       if (!r.success) throw new Error(r.error);
       toast("Meeting made · attendees are told");
@@ -81,9 +86,23 @@ export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId:
       <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="new-meeting-dialog">
         <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">New meeting</DialogTitle><DialogDescription className="text-xs text-muted-foreground">A dated document with notes and action items. Attendees get a reminder 15 minutes before.</DialogDescription></div>
         <div className="max-h-[65vh] space-y-3.5 overflow-y-auto px-6 py-4">
-          <Field label="Type" htmlFor="meeting-type"><SelectWrap><select id="meeting-type" value={type} onChange={(e) => setType(e.target.value)} className={selectClassName()}>
-            {MEETING_TYPES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select></SelectWrap></Field>
+          {/* S1: type cards with an icon and one line. */}
+          <fieldset className="space-y-1.5">
+            <legend className="text-[13px] font-medium">Type</legend>
+            <div role="radiogroup" aria-label="Type" className="grid grid-cols-1 gap-1.5 sm:grid-cols-2" data-testid="meeting-types">
+              {MEETING_TYPES.map((t) => {
+                const Icon = TYPE_ICON[t.id] ?? FileText;
+                const on = t.id === type;
+                return (
+                  <button key={t.id} type="button" role="radio" aria-checked={on} onClick={() => setType(t.id)}
+                    className={cn("flex min-h-11 items-start gap-2 rounded-[6px] border px-2.5 py-2 text-left transition-colors", on ? "border-foreground bg-muted/60" : "border-border hover:bg-muted/40")}>
+                    <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0"><span className="block text-[13px] font-medium text-foreground">{t.name}</span><span className="block text-[12px] text-muted-foreground">{t.line}</span></span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
           <Field label="Title" htmlFor="meeting-title"><input id="meeting-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder={defaultTitle(chosen, day)} className={inputClassName(false)} /></Field>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
             <Field label="Date" htmlFor="meeting-day"><input id="meeting-day" type="date" value={day} onChange={(e) => setDay(e.target.value)} className={cn(inputClassName(false), "font-mono")} /></Field>
@@ -138,7 +157,7 @@ export function MeetingHeader({ projectId, docSlug }: { projectId: string; docSl
         const day = zonedParts(new Date(at), data!.timeZone).day;
         nextTitle = `${data!.seriesTitle ?? data!.title.split(" · ")[0]} · ${new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
         const { createDocFile } = await import("@/components/organizations/OrgDocParts");
-        nextDocSlug = (await createDocFile(projectId, fileFor(nextTitle, day), meetingMarkdown(type, nextTitle))).slug;
+        nextDocSlug = (await createDocFile(projectId, fileFor(nextTitle, day), meetingMarkdown(type, nextTitle, data!.attendees.map((a) => a.name)))).slug;
       }
       const r = await finishMeetingAction(projectId, { docSlug, carryOver, ...(nextDocSlug ? { nextDocSlug, nextTitle } : {}) });
       if (!r.success) throw new Error(r.error);

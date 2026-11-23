@@ -79,3 +79,34 @@ test("decisionChain: D-9 superseded by D-15 → D-15; then by D-20 → D-20; a r
   assert.ok(decisionChain([d("a", "superseded", "b"), d("b", "superseded", "a")], "a"), "a loop ends instead of spinning");
   assert.equal(decisionChain([d("9", "decided")], "missing"), null);
 });
+
+// Plan A4.3–A4.14 (report 38.11 W2): each type's body.
+test("type bodies: headings in order, guides, Decisions, a named Action items block; Standup per attendee", async () => {
+  const { meetingMarkdown, meetingType, MEETING_TYPES, defaultTitle } = await import("../../src/lib/workflows/meetings");
+  const { parseLiveBlocks } = await import("../../src/lib/workspaces/doc-live-blocks");
+  const heads = (md: string) => md.split("\n").filter((l) => l.startsWith("## ")).map((l) => l.slice(3));
+  assert.deepEqual(MEETING_TYPES.map((t) => t.id), ["weekly", "standup", "planning", "retro", "kickoff", "client", "recording", "shoot", "interview", "incident", "playtest", "blank"]);
+  const weekly = meetingMarkdown(meetingType("weekly")!, "Weekly · Dec 3");
+  assert.deepEqual(heads(weekly), ["Agenda", "Notes", "Decisions", "Action items"]);
+  assert.deepEqual(parseLiveBlocks(weekly).map((b) => [b.kind, b.key]), [["decisions", null], ["task_rows", "actions"]]);
+  assert.deepEqual(heads(meetingMarkdown(meetingType("planning")!, "P")), ["Goal", "What's in", "What's out", "Action items"]);
+  assert.deepEqual(heads(meetingMarkdown(meetingType("retro")!, "R")), ["What went well", "What needs improvement", "Ideas", "Action items"]);
+  assert.deepEqual(heads(meetingMarkdown(meetingType("kickoff")!, "K")), ["Why", "Scope", "People", "Dates", "Risks", "Action items"]);
+  const client = meetingMarkdown(meetingType("client")!, "C");
+  assert.deepEqual(heads(client), ["Agenda", "Notes", "Next steps"]);
+  assert.deepEqual(parseLiveBlocks(client).map((b) => b.key), ["actions"], "Next steps is the action items block, so Finish carries it");
+  assert.deepEqual(heads(meetingMarkdown(meetingType("recording")!, "x")), ["Tech checklist", "Prep questions", "Timings"]);
+  assert.deepEqual(heads(meetingMarkdown(meetingType("shoot")!, "x")), ["Call time", "Location", "Crew and cast", "Equipment", "Shots to get", "Weather and notes"]);
+  const interview = meetingMarkdown(meetingType("interview")!, "x");
+  assert.deepEqual(heads(interview), ["Participant", "Consent to record", "Research goal", "Questions", "Notes", "Insights"]);
+  assert.match(interview, /## Consent to record\n\n- \[ \] They agreed to be recorded/);
+  const incident = meetingMarkdown(meetingType("incident")!, "x");
+  assert.deepEqual(heads(incident), ["Linked bug", "Timeline", "Root cause", "Lessons", "Actions"]);
+  assert.match(incident, /## Timeline\n\n_Blameless/);
+  assert.deepEqual(heads(meetingMarkdown(meetingType("playtest")!, "x")), ["Build", "Tester", "Minutes played", "What I saw", "Fun moments", "Confusion", "Bugs", "Ideas"]);
+  const standup = meetingMarkdown(meetingType("standup")!, "Standup · Dec 3", ["Asha", "Dev"]);
+  assert.deepEqual(heads(standup), ["Asha", "Dev"]);
+  assert.match(standup, /## Asha\n\n\*\*Yesterday:\*\* \n\n\*\*Today:\*\* \n\n\*\*Blockers:\*\* \n/);
+  assert.deepEqual(heads(meetingMarkdown(meetingType("standup")!, "S")), ["Everyone"]);
+  assert.equal(defaultTitle(meetingType("retro")!, "2026-12-03"), "Retrospective · Dec 3");
+});

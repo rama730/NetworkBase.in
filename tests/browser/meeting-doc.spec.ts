@@ -69,7 +69,19 @@ test('A finished meeting says Finished and offers no Finish', async ({ page }) =
 test('S1: New meeting has type, default title, date and time in the zone, length, repeat and member attendees', async ({ page }) => {
   await open(page, { view: 'new' });
   const d = page.getByTestId('new-meeting-dialog');
+  // A4.3–A4.14: type cards with an icon and one line; Weekly first, Blank last; the title follows the type.
+  const types = d.getByRole('radiogroup', { name: 'Type' }).getByRole('radio');
+  await expect(types).toHaveCount(12);
+  await expect(types.first()).toHaveAttribute('aria-checked', 'true');
+  await expect(types.first()).toContainText('WeeklyAgenda, notes, decisions and action items.');
+  await expect(d.getByLabel('Title')).toHaveAttribute('placeholder', 'Weekly · Jan 7');
+  await d.getByRole('radio', { name: /Standup/ }).click();
+  await expect(d.getByRole('radio', { name: /Standup/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(d.getByLabel('Title')).toHaveAttribute('placeholder', 'Standup · Jan 7');
+  await d.getByRole('radio', { name: /Blank/ }).click();
   await expect(d.getByLabel('Title')).toHaveAttribute('placeholder', 'Meeting · Jan 7');
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: 'test-results/meeting-doc/new-meeting-types.png' });
   await expect(d.getByLabel('Time (Asia/Kolkata)')).toHaveValue('10:00');
   await expect(d.getByLabel('Repeat')).toContainText('Every weekday');
   await expect(d.getByTestId('meeting-attendees')).toContainText(/Asha.*Dev/);

@@ -10,8 +10,29 @@ export const REPEAT_RULES = ["weekly", "biweekly", "weekdays", "monthly"] as con
 export type RepeatRule = (typeof REPEAT_RULES)[number];
 export const REPEAT_LABEL: Record<RepeatRule, string> = { weekly: "Every week", biweekly: "Every 2 weeks", weekdays: "Every weekday", monthly: "Monthly" };
 
-export type MeetingType = { id: string; name: string; line: string; sections: string[]; actionItems: boolean; decisions: boolean };
+/**
+ * A type's body (report 38.11 W2): its headings in order (with an optional one-line guide under a heading), then the
+ * Decisions block and the Action items block (some types name it differently). Standup writes one heading per attendee
+ * with its own questions under each.
+ */
+export type MeetingType = {
+  id: string; name: string; line: string; sections: string[]; actionItems: boolean; decisions: boolean;
+  actionItemsLabel?: string; perAttendee?: string[]; guide?: Record<string, string>;
+};
 export const MEETING_TYPES: MeetingType[] = [
+  { id: "weekly", name: "Weekly", line: "Agenda, notes, decisions and action items.", sections: ["Agenda", "Notes"], actionItems: true, decisions: true },
+  { id: "standup", name: "Standup", line: "Yesterday, today and blockers for each person.", sections: [], perAttendee: ["Yesterday", "Today", "Blockers"], actionItems: false, decisions: false },
+  { id: "planning", name: "Planning", line: "The goal, what's in and what's out.", sections: ["Goal", "What's in", "What's out"], actionItems: true, decisions: false },
+  { id: "retro", name: "Retrospective", line: "What went well, what needs improvement, ideas.", sections: ["What went well", "What needs improvement", "Ideas"], actionItems: true, decisions: false },
+  { id: "kickoff", name: "Kickoff", line: "Why, scope, people, dates and risks.", sections: ["Why", "Scope", "People", "Dates", "Risks"], actionItems: true, decisions: false },
+  { id: "client", name: "Client", line: "Agenda, notes and next steps.", sections: ["Agenda", "Notes"], actionItems: true, actionItemsLabel: "Next steps", decisions: false },
+  { id: "recording", name: "Recording session", line: "Tech checklist, prep questions and timings.", sections: ["Tech checklist", "Prep questions", "Timings"], actionItems: false, decisions: false },
+  { id: "shoot", name: "Shoot day", line: "Call time, location, crew, equipment and shots.", sections: ["Call time", "Location", "Crew and cast", "Equipment", "Shots to get", "Weather and notes"], actionItems: false, decisions: false },
+  { id: "interview", name: "User interview", line: "Consent, goal, questions, notes and insights.", sections: ["Participant", "Consent to record", "Research goal", "Questions", "Notes", "Insights"], actionItems: false, decisions: false,
+    guide: { "Consent to record": "- [ ] They agreed to be recorded (ask before you start recording)" } },
+  { id: "incident", name: "Incident review", line: "Timeline, root cause, actions and lessons.", sections: ["Linked bug", "Timeline", "Root cause", "Lessons"], actionItems: true, actionItemsLabel: "Actions", decisions: false,
+    guide: { Timeline: "_Blameless: say what happened and what let it happen, not who._" } },
+  { id: "playtest", name: "Playtest", line: "What the tester saw, enjoyed and got stuck on.", sections: ["Build", "Tester", "Minutes played", "What I saw", "Fun moments", "Confusion", "Bugs", "Ideas"], actionItems: false, decisions: false },
   { id: "blank", name: "Blank", line: "Notes and action items.", sections: ["Notes"], actionItems: true, decisions: false },
 ];
 export const meetingType = (id: string) => MEETING_TYPES.find((t) => t.id === id) ?? null;
@@ -20,10 +41,14 @@ export const meetingType = (id: string) => MEETING_TYPES.find((t) => t.id === id
 export const ACTION_ITEMS_KEY = "actions";
 
 /** W1: the meeting document: its title, the type's sections, Decisions and Action items blocks. */
-export function meetingMarkdown(type: MeetingType, title: string) {
-  const parts = [`# ${title}`, ...type.sections.map((s) => `## ${s}\n`)];
+export function meetingMarkdown(type: MeetingType, title: string, attendeeNames: string[] = []) {
+  const heading = (h: string) => `## ${h}\n${type.guide?.[h] ? `\n${type.guide[h]}\n` : ""}`;
+  const parts = [`# ${title}`, ...type.sections.map(heading)];
+  // Standup: one heading per attendee (or one "Everyone" heading when none are picked yet).
+  if (type.perAttendee) for (const name of attendeeNames.length ? attendeeNames : ["Everyone"]) parts.push(`## ${name}\n\n${type.perAttendee.map((q) => `**${q}:** `).join("\n\n")}\n`);
   if (type.decisions) parts.push(`## Decisions\n\n${DECISIONS_BLOCK_LINE}\n`);
-  if (type.actionItems) parts.push(`## Action items\n\n${liveBlockLine("task_rows", ACTION_ITEMS_KEY, "Action items")}\n`);
+  const items = type.actionItemsLabel ?? "Action items";
+  if (type.actionItems) parts.push(`## ${items}\n\n${liveBlockLine("task_rows", ACTION_ITEMS_KEY, items)}\n`);
   return `${parts.join("\n\n")}\n`;
 }
 
