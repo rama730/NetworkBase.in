@@ -4,13 +4,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { acceptRequestAction, archiveRequestTypeAction, declineRequestAction, readRequestAction, readRequestTypesAction, saveRequestTypeAction, saveWorkingHoursAction } from "@/app/actions/requests";
+import { acceptRequestAction, answerSolvedAction, archiveRequestTypeAction, declineRequestAction, deliverRequestAction, readRequestAction, readRequestTypesAction, resumeRequestAction, saveRequestTypeAction, saveWorkingHoursAction, setWaitingAction } from "@/app/actions/requests";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, SectionDivider, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
-import { hoursLine, type WorkingHours } from "@/lib/workflows/request-clock";
+import { clockText, hoursLine, type WorkingHours } from "@/lib/workflows/request-clock";
 import { activeTypes, MAX_TYPES, QUESTION_KINDS, requestFooter, workingTime, type Question, type RequestType } from "@/lib/workflows/requests";
 
 /** Report 38.7 S5–S7 and W2–W4, W9 (plan A2.4): the ask form's section, the panel's section, Accept, Decline, types. */
@@ -72,12 +72,32 @@ export function readRequestFields(form: FormData, attachmentIds: string[]) {
   return { ...(typeId ? { requestTypeId: typeId } : {}), answers };
 }
 
-/** S5: the request's type and answers, and why it was declined. */
+/**
+ * S5: the request's type and answers, the clock, Waiting on and Resume, Deliver, and Did this solve it? for the asker
+ * (A2.6). Why it was declined, when it was.
+ */
 export function RequestPanelSection({ projectId, taskId }: { projectId: string; taskId: string }) {
+  const queryClient = useQueryClient();
   const query = useQuery({ queryKey: [...queryKeys.project.detail.tasksRoot(projectId), "request", taskId], queryFn: () => readRequestAction(projectId, taskId) });
   const data = query.data?.success ? query.data : null;
+  const [dialog, setDialog] = useState<"wait" | "deliver" | "no" | null>(null);
+  const [busy, setBusy] = useState(false);
   if (!data) return query.isLoading ? <div aria-hidden="true" className="nb-skeleton h-20 rounded-[6px]" /> : null;
   const answers = (data.fields.answers ?? {}) as Record<string, unknown>;
+  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
+  const working = ["accepted", "in_progress", "in_review"].includes(data.stage ?? "");
+  const waiting = Boolean(data.waitingName);
+  const delivered = data.fields.delivered as { kind?: string; ref?: string } | null | undefined;
+  async function run(p: Promise<{ success: boolean; error?: string }>, done: string) {
+    setBusy(true);
+    const r = await p;
+    setBusy(false);
+    if (!r.success) return void toast.error(r.error ?? "Couldn’t update the request");
+    toast(done);
+    setDialog(null);
+    await refresh();
+  }
+  const clockWords = data.clock && data.clock.state !== "off" ? clockText(data.clock, data.clock.kind === "first" ? "Replied" : "Delivered") : null;
   return (
     <div className="space-y-2 pt-1" data-testid="request-panel">
       <div className="border-b border-border/60 pb-2"><h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">Request details</h3></div>
@@ -88,9 +108,78 @@ export function RequestPanelSection({ projectId, taskId }: { projectId: string; 
           return [<dt key={`${q.id}-l`} className="text-muted-foreground">{q.label}</dt>,
             <dd key={`${q.id}-v`} className="whitespace-pre-wrap">{Array.isArray(v) ? `${v.length} ${v.length === 1 ? "file" : "files"}` : v ? String(v) : "—"}</dd>];
         })}
+        {clockWords ? <><dt className="text-muted-foreground">{data.clock!.kind === "first" ? "First reply" : "Deliver"}</dt><dd className="font-mono text-[12px]" data-testid="request-panel-clock">{waiting ? `Waiting on ${data.waitingName} · ` : ""}{clockWords}</dd></> : null}
+        {delivered?.ref ? <><dt className="text-muted-foreground">What was delivered</dt><dd><a href={delivered.ref} target="_blank" rel="noreferrer" className="break-all text-primary hover:underline">{delivered.ref}</a></dd></> : null}
+        {data.fields.solved ? <><dt className="text-muted-foreground">Did this solve it?</dt><dd>{data.fields.solved === "yes" ? "Yes" : "No · reopened"}</dd></> : null}
         {data.fields.declineReason ? <><dt className="text-muted-foreground">Declined because</dt><dd>{String(data.fields.declineReason)}</dd></> : null}
       </dl>
+      {data.canTriage && working ? (
+        <div className="flex flex-wrap gap-1.5" data-testid="request-panel-actions">
+          {waiting
+            ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => void run(resumeRequestAction({ projectId, taskId }), "Clock running again")}>Resume</button>
+            : <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog("wait")}>Waiting on…</button>}
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog("deliver")}>Deliver…</button>
+        </div>
+      ) : null}
+      {data.mine && data.stage === "delivered" && !data.fields.solved ? (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-[6px] border border-border bg-muted/40 p-2.5" data-testid="request-solved">
+          <span className="mr-auto text-[13px] font-medium">Did this solve it?</span>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => void run(answerSolvedAction({ projectId, taskId, solved: "yes" }), "Thanks · marked solved")}>Yes</button>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setDialog("no")}>No</button>
+        </div>
+      ) : null}
+      {dialog === "wait" ? <WaitDialog people={data.people} busy={busy} onClose={() => setDialog(null)}
+        onSave={(onUserId, question) => void run(setWaitingAction({ projectId, taskId, onUserId, question }), "Question sent · clock paused")} /> : null}
+      {dialog === "deliver" ? <TextDialog title="Deliver" label="What was delivered (a link, optional)" placeholder="https://…" optional busy={busy} action="Deliver" onClose={() => setDialog(null)}
+        onSave={(link) => void run(deliverRequestAction({ projectId, taskId, ...(link ? { link } : {}) }), "Delivered · the asker is asked if it solved it")} /> : null}
+      {dialog === "no" ? <TextDialog title="Not solved yet" label="What’s still missing?" placeholder="The dark version too" busy={busy} action="Reopen" onClose={() => setDialog(null)}
+        onSave={(note) => void run(answerSolvedAction({ projectId, taskId, solved: "no", note }), "Reopened · the handler is told")} /> : null}
     </div>
+  );
+}
+
+function WaitDialog({ people, busy, onClose, onSave }: { people: Array<{ id: string; name: string }>; busy: boolean; onClose: () => void; onSave: (onUserId: string, question: string) => void }) {
+  const [who, setWho] = useState(people[0]?.id ?? "");
+  const [question, setQuestion] = useState("");
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="wait-dialog">
+        <div className="border-b border-border px-6 py-4">
+          <DialogTitle className="text-base font-semibold">Waiting on someone</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">Your question goes to them as a comment. The clock pauses until they reply.</DialogDescription>
+        </div>
+        <div className="space-y-3.5 px-6 py-4">
+          <Field label="Waiting on" htmlFor="wait-who"><SelectWrap><select id="wait-who" value={who} onChange={(e) => setWho(e.target.value)} className={selectClassName()}>
+            {people.map((p, i) => <option key={p.id} value={p.id}>{p.name}{i === 0 ? " (asked)" : ""}</option>)}
+          </select></SelectWrap></Field>
+          <Field label="Your question" htmlFor="wait-question"><textarea id="wait-question" value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} maxLength={2000} className={cn(inputClassName(false), "resize-none py-2")} placeholder="Which logo should it use?" /></Field>
+        </div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !who || !question.trim()} onClick={() => onSave(who, question.trim())}>Ask and pause</button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function TextDialog({ title, label, placeholder, optional = false, busy, action, onClose, onSave }: {
+  title: string; label: string; placeholder: string; optional?: boolean; busy: boolean; action: string; onClose: () => void; onSave: (text: string) => void;
+}) {
+  const [text, setText] = useState("");
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="request-text-dialog">
+        <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">{title}</DialogTitle><DialogDescription className="sr-only">{label}</DialogDescription></div>
+        <div className="px-6 py-4">
+          <Field label={label} htmlFor="request-text"><textarea id="request-text" value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={2000} className={cn(inputClassName(false), "resize-none py-2")} placeholder={placeholder} /></Field>
+        </div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={onClose}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || (!optional && !text.trim())} onClick={() => onSave(text.trim())}>{action}</button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

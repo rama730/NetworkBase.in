@@ -5,14 +5,14 @@ import { CalendarDays, Inbox, MoreHorizontal, Timer } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { readRequestsAction, type RequestRow } from "@/app/actions/requests";
+import { answerSolvedAction, readRequestsAction, type RequestRow } from "@/app/actions/requests";
 import { changeTaskTypeAction } from "@/app/actions/task";
 import { createTaskAction } from "@/app/actions/workspace";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import CreateTaskModal from "@/components/workspaces/v2/tasks/CreateTaskModal";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
-import { AcceptRequestDialog, DeclineRequestDialog, RequestTypesDialog, typesKey, WorkingHoursDialog } from "@/components/workspaces/v2/tasks/RequestParts";
+import { AcceptRequestDialog, DeclineRequestDialog, RequestTypesDialog, TextDialog, typesKey, WorkingHoursDialog } from "@/components/workspaces/v2/tasks/RequestParts";
 import { TaskStageControl } from "@/components/workspaces/v2/tasks/TaskStageControl";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/added-workflows";
 import { toast } from "@/lib/feedback";
@@ -56,6 +56,8 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
   const [asking, setAsking] = useState(false);
   const [editingTypes, setEditingTypes] = useState(false);
   const [editingHours, setEditingHours] = useState(false);
+  const [notSolved, setNotSolved] = useState<RequestRow | null>(null);
+  const [answering, setAnswering] = useState(false);
   const [accepting, setAccepting] = useState<RequestRow | null>(null);
   const [declining, setDeclining] = useState<RequestRow | null>(null);
   const [requested, setRequested] = useState<{ id: string; stage: string; nonce: number } | null>(null);
@@ -72,12 +74,25 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
   const breaching = all.filter((r) => r.clock && (r.clock.state === "soon" || r.clock.state === "breached")).sort((a, b) => a.clock!.leftMinutes - b.clock!.leftMinutes);
   const clockLine = (r: RequestRow) => {
     if (!r.clock || r.clock.state === "off") return null;
-    const words = clockText(r.clock, r.clock.kind === "first" ? "Replied" : "Delivered");
+    // W5.2: "Waiting on Mei · paused".
+    const waitingOn = (r.typeFields.waiting as { onUserId?: string } | null)?.onUserId;
+    const who = waitingOn ? (waitingOn === r.creatorId ? r.creatorName : assignable.find((m) => m.id === waitingOn)?.label) ?? "someone" : null;
+    const words = `${who ? `Waiting on ${who} · ` : ""}${clockText(r.clock, r.clock.kind === "first" ? "Replied" : "Delivered")}`;
     const label = r.clock.kind === "first" ? "First reply" : "Deliver";
     return <span className={cn("inline-flex items-center gap-1 font-mono text-[11px]", r.clock.state === "breached" ? "text-destructive" : r.clock.state === "soon" ? "text-[var(--primary-active)] dark:text-primary" : "text-muted-foreground")} data-testid="request-clock">
       <Timer aria-hidden="true" className="size-3" /><span className="sr-only">{label}: </span>{words}</span>;
   };
   const memberOptions = assignable.map((m) => ({ id: m.id, label: m.label }));
+
+  async function solved(r: RequestRow, note?: string) {
+    setAnswering(true);
+    const result = await answerSolvedAction({ projectId, taskId: r.id, solved: note ? "no" : "yes", ...(note ? { note } : {}) });
+    setAnswering(false);
+    if (!result.success) return void toast.error(result.error);
+    toast(note ? `${name(r)} reopened · the handler is told` : `${name(r)} marked solved`);
+    setNotSolved(null);
+    await refresh();
+  }
 
   async function toBug(r: RequestRow) {
     const result = await changeTaskTypeAction({ projectId, taskIds: [r.id], toType: "bug" });
@@ -217,7 +232,15 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
               {list.map((r) => (
                 <div key={r.id} className="space-y-1">
                   {card(r)}
-                  {view === "asks" ? <p className="px-1 text-[11px] text-muted-foreground">{stageLabel(r.stage)}{r.stage === "declined" && r.typeFields.declineReason ? ` · ${String(r.typeFields.declineReason)}` : ""}</p> : null}
+                  {view === "asks" ? <p className="px-1 text-[11px] text-muted-foreground">{stageLabel(r.stage)}{r.stage === "declined" && r.typeFields.declineReason ? ` · ${String(r.typeFields.declineReason)}` : ""}{r.typeFields.solved === "yes" ? " · Solved" : ""}</p> : null}
+                  {/* W8: Yes / No on delivered asks. */}
+                  {view === "asks" && r.stage === "delivered" && !r.typeFields.solved ? (
+                    <div className="flex items-center gap-1.5 px-1" data-testid="asks-solved">
+                      <span className="mr-auto text-[12px] font-medium">Did this solve it?</span>
+                      <button type="button" className={FORM_SECONDARY_CLASS} disabled={answering} onClick={() => void solved(r)}>Yes</button>
+                      <button type="button" className={FORM_SECONDARY_CLASS} disabled={answering} onClick={() => setNotSolved(r)}>No</button>
+                    </div>
+                  ) : null}
                 </div>
               ))}
               {!list.length ? <p className="text-[13px] text-muted-foreground">{view === "mine" ? "No requests assigned to you." : "You haven’t asked for anything yet."}</p> : null}
@@ -239,6 +262,7 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
       {accepting ? <AcceptRequestDialog projectId={projectId} request={accepting} label={name(accepting)} members={memberOptions}
         sprints={sprintOptions.map((s) => ({ id: s.id, name: s.name, status: s.status ?? null }))} canPlanSprints={canPlanSprints} onDone={(done) => { setAccepting(null); if (done) void refresh(); }} /> : null}
       {declining ? <DeclineRequestDialog projectId={projectId} request={declining} label={name(declining)} onDone={(done) => { setDeclining(null); if (done) void refresh(); }} /> : null}
+      {notSolved ? <TextDialog title="Not solved yet" label="What’s still missing?" placeholder="The dark version too" busy={answering} action="Reopen" onClose={() => setNotSolved(null)} onSave={(note) => void solved(notSolved, note)} /> : null}
       {editingHours && data ? <WorkingHoursDialog projectId={projectId} hours={data.hours} timeZone={data.hoursSet || data.timeZone !== "UTC" ? data.timeZone : null} onClose={(saved) => { setEditingHours(false); if (saved) void refresh(); }} /> : null}
       {editingTypes ? <RequestTypesDialog projectId={projectId} members={memberOptions} onClose={() => { setEditingTypes(false); void queryClient.invalidateQueries({ queryKey: typesKey(projectId) }); void refresh(); }} /> : null}
     </section>

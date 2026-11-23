@@ -9,7 +9,7 @@ import { countReviewableApplications } from "@/lib/applications/reviewers";
 import { normalizeTaskSurfaceRecord } from "@/lib/workspaces/task-presentation";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { readOrgPendingCountAction } from "@/app/actions/org-workspace";
-import { memberWorkspaceSql, mineSql, orgCopyRules } from "@/lib/domain/my-tasks";
+import { memberWorkspaceSql, mineSql, orgCopyRules, requestNeedsYouSql } from "@/lib/domain/my-tasks";
 
 function normalizeMyWorkLimit(rawLimit: unknown, fallback = 24) {
     const parsed = typeof rawLimit === "number" ? rawLimit : Number(rawLimit);
@@ -28,9 +28,10 @@ export async function getMyWorkSummaryAction() {
         const [taskResult, applicationResult, inviteResult] = await Promise.all([
             db.select({ value: count() }).from(tasks).where(and(
                 isNull(tasks.deletedAt),
-                sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
-                // Your open work, including assignment copies you or your team hold (report §29.2).
-                mineSql(user.id),
+                sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending' OR ${requestNeedsYouSql(user.id)})`,
+                // Your open work, including assignment copies you or your team hold (report §29.2), and requests that
+                // need you (A2.6).
+                or(mineSql(user.id), requestNeedsYouSql(user.id)),
                 orgCopyRules(user.id),
                 memberWorkspaceSql(user.id),
             )),
@@ -71,9 +72,11 @@ export async function fetchMyWorkTasksAction(
 
         const safeLimit = normalizeMyWorkLimit(limit);
 
+        // A2.6: a request that needs you (waiting on you, or yours to answer) shows even though it isn't assigned to you.
+        const needsYou = requestNeedsYouSql(user.id);
         const baseWhere = and(
             isNull(tasks.deletedAt),
-            sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
+            sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending' OR ${needsYou})`,
             orgCopyRules(user.id),
         );
 
@@ -99,13 +102,14 @@ export async function fetchMyWorkTasksAction(
 
         let scopeWhere;
         if (scope === "my") {
-            scopeWhere = and(visibleProjectCheck, mineSql(user.id));
+            scopeWhere = and(visibleProjectCheck, or(mineSql(user.id), needsYou));
         } else {
             if (scope === "team") {
                 scopeWhere = and(
                     visibleProjectCheck,
                     or(isNull(tasks.assigneeId), ne(tasks.assigneeId, user.id)),
                     sql`NOT ${mineSql(user.id)}`,
+                    sql`NOT ${needsYou}`,
                 );
             } else {
                 scopeWhere = visibleProjectCheck;
@@ -233,6 +237,11 @@ export async function fetchMyWorkTasksAction(
                 project: task.project,
                 sprint: task.sprint,
                 assignee: task.assignee,
+                // A2.6: why a request is here when it isn't assigned to you.
+                needsYou: task.itemType === "request"
+                    ? ((task.typeFields as Record<string, unknown> | null)?.waiting as { onUserId?: string } | null)?.onUserId === user.id ? "waiting" as const
+                    : task.stage === "delivered" && task.creatorId === user.id && !(task.typeFields as Record<string, unknown> | null)?.solved ? "solve" as const : null
+                    : null,
                 org: info ? {
                     id: info.org_id,
                     context: info.kind === "organization" ? info.project_title : info.org_title ? `${info.org_title} / ${info.project_title}` : info.project_title,

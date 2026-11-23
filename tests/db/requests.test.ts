@@ -137,7 +137,13 @@ test("A2.5 W7 and W10: the clock writes its warnings, Accept and working hours m
   // Working hours change: recalculated, still two rows.
   viewerId = t.owner;
   assert.ok((await requests.saveWorkingHoursAction({ projectId: t.ws, hours: { days: [1, 2, 3, 4, 5, 6, 7], from: "00:00", to: "23:00", holidays: [] }, timeZone: "UTC" })).success);
+  // The recalculation runs after the response (security review): wait for it.
+  for (let i = 0; i < 100 && (await rows()).length !== 2; i++) await new Promise((r) => setTimeout(r, 50));
   assert.equal((await rows()).length, 2);
+  // Two recalculations at once leave each warning once (the request row is locked while it's rewritten).
+  const clockSrv = await loadAppModule(() => import("../../src/lib/workflows/request-clock-server"));
+  await Promise.all([clockSrv.scheduleRequestClock(a), clockSrv.scheduleRequestClock(a), clockSrv.scheduleRequestClock(a)]);
+  assert.deepEqual(await rows(), ["request_clock:first:80:owner", "request_clock:first:breach:owner"]);
   // The person's own reminder list never shows the clock's rows.
   const reminders = await loadAppModule(() => import("../../src/lib/domain/task-reminders"));
   assert.deepEqual(await reminders.listTaskReminders(t.owner, a), []);
@@ -161,3 +167,61 @@ test("A2.5 W7 and W10: the clock writes its warnings, Accept and working hours m
   await reminders.fireDueTaskReminders();
   assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.owner} AND title = 'Breaching soon: Logo please'`)[0]!.n, 0);
 });
+
+test("A2.6 W5–W6: waiting pauses and the reply resumes; In review and Delivered tell the asker; No reopens, Yes closes", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  assert.ok((await requests.saveWorkingHoursAction({ projectId: t.ws, hours: { days: [1, 2, 3, 4, 5, 6, 7], from: "00:00", to: "23:59", holidays: [] }, timeZone: "UTC" })).success);
+  viewerId = t.member;
+  const types = (await requests.readRequestTypesAction(t.ws) as { types: Array<{ id: string; name: string }> }).types;
+  const a = idOf(await ask(t.ws, "Banner", { requestTypeId: types.find((x) => x.name === "Design request")!.id, answers: { what: "Banner", brief: "Launch" } }));
+  viewerId = t.owner;
+  // The first comment by someone other than the asker is the first reply.
+  const { createTaskCommentAs } = await loadAppModule(() => import("../../src/lib/domain/task-comments"));
+  await createTaskCommentAs({ userId: t.owner, profile: null }, a, t.ws, "Looking at it");
+  assert.ok(((await row(a)).type_fields as { firstRepliedAt?: string }).firstRepliedAt, "first reply by comment");
+  assert.ok((await requests.acceptRequestAction({ projectId: t.ws, taskId: a, assigneeId: t.owner })).success);
+  assert.ok((await requests.setWaitingAction({ projectId: t.ws, taskId: a, onUserId: t.member, question: "Which logo?" })).success);
+  const waiting = (await row(a)).type_fields as { waiting?: { onUserId: string } };
+  assert.equal(waiting.waiting?.onUserId, t.member);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${a} AND sent_at IS NULL`)[0]!.n, 0, "paused: no warnings");
+  assert.equal((await requests.setWaitingAction({ projectId: t.ws, taskId: a, onUserId: t.member, question: "Again?" }) as { error?: string }).error, "It’s already waiting on someone");
+  // My work shows it to the person it waits on, though it isn't theirs.
+  const myWork = await loadAppModule(() => import("../../src/app/actions/my-work"));
+  viewerId = t.member;
+  const mine = await myWork.fetchMyWorkTasksAction(24, "my");
+  assert.ok(mine.success);
+  assert.equal((mine.tasks.find((x) => x.id === a) as { needsYou?: string } | undefined)?.needsYou, "waiting");
+  viewerId = t.owner;
+  // The awaited person's reply resumes; the warnings come back.
+  await createTaskCommentAs({ userId: t.member, profile: null }, a, t.ws, "The blue one");
+  const resumed = (await row(a)).type_fields as { waiting?: unknown; pausedMinutes?: number };
+  assert.deepEqual([resumed.waiting, typeof resumed.pausedMinutes], [null, "number"]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${a} AND sent_at IS NULL`)[0]!.n, 2);
+  assert.ok((await taskActions.setTaskStageAction({ taskId: a, projectId: t.ws, stage: "in_review" })).success);
+  assert.ok((await notes(t.member)).includes("Does this work: Banner"));
+  assert.equal((await requests.deliverRequestAction({ projectId: t.ws, taskId: a, link: "http://x.test" }) as { error?: string }).error, "Links start with https://");
+  assert.ok((await requests.deliverRequestAction({ projectId: t.ws, taskId: a, link: "https://files.example/banner.png" })).success);
+  const delivered = await row(a);
+  assert.equal(delivered.stage, "delivered");
+  assert.ok((delivered.type_fields as { deliveredAt?: string }).deliveredAt);
+  assert.ok((await notes(t.member)).includes("Delivered — did this solve it: Banner"));
+  assert.equal((await sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${a} AND sent_at IS NULL`)[0]!.n, 0, "delivered: the clock stopped");
+  assert.equal((await requests.answerSolvedAction({ projectId: t.ws, taskId: a, solved: "yes" }) as { error?: string }).error, "Only the person who asked answers this");
+  viewerId = t.member;
+  const asked = await myWork.fetchMyWorkTasksAction(24, "my");
+  assert.ok(asked.success);
+  assert.equal((asked.tasks.find((x) => x.id === a) as { needsYou?: string } | undefined)?.needsYou, "solve", "Did this solve it? waits in the asker's My work");
+  assert.equal((await requests.answerSolvedAction({ projectId: t.ws, taskId: a, solved: "no" }) as { error?: string }).error, "Say what’s still missing");
+  const no = await requests.answerSolvedAction({ projectId: t.ws, taskId: a, solved: "no", note: "Needs the dark version too" });
+  assert.ok(no.success && no.reopened, JSON.stringify(no));
+  const reopened = await row(a);
+  assert.deepEqual([reopened.stage, (reopened.type_fields as { reopenCount: number }).reopenCount, (reopened.type_fields as { deliveredAt: unknown }).deliveredAt], ["in_progress", 1, null]);
+  assert.ok((await notes(t.owner)).includes("Answered No: Banner"));
+  viewerId = t.owner;
+  assert.ok((await requests.deliverRequestAction({ projectId: t.ws, taskId: a })).success);
+  viewerId = t.member;
+  assert.ok((await requests.answerSolvedAction({ projectId: t.ws, taskId: a, solved: "yes" })).success);
+  assert.deepEqual([(await row(a)).stage, ((await row(a)).type_fields as { solved: string }).solved], ["delivered", "yes"]);
+});
+

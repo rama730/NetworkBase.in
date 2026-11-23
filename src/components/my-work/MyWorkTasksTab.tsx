@@ -541,6 +541,8 @@ export default function MyWorkTasksTab({ isActive = true, day = null, onDay, pin
                         {key}
                         {inGroup ? ` · ${STATUS_WORDS[shown]}` : null}
                         {fresh.has(task.id) ? <span className="nb-mw-tag" data-tone="new">New</span> : null}
+                        {/* A2.6: a request that needs you says why. */}
+                        {task.needsYou ? <span className="nb-mw-tag" data-testid="my-work-needs-you">{task.needsYou === "waiting" ? "Waiting on you" : "Did this solve it?"}</span> : null}
                         <OrgTags task={task} />
                     </span>
                 </button>

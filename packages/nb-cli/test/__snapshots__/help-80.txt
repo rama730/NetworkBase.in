@@ -35,11 +35,13 @@ More
     file rename, file delete, file attach, file detach, file view
   Tasks
     task count, task view, task stop, task move, workflows, bugs list,
-    bugs report, bugs move, bugs close, bugs from, task review, task resubmit,
-    task edit, task note, task remind, task watch, task star, task assign,
-    task report, task delete, task open, task pull, subtask list, subtask add,
-    subtask check, subtask uncheck, subtask edit, subtask delete, subtask move,
-    comment add, comment edit, comment delete, comment list, comment resolve
+    bugs report, bugs move, bugs close, bugs from, requests list, requests new,
+    requests accept, requests decline, requests wait, requests resume,
+    requests deliver, task review, task resubmit, task edit, task note,
+    task remind, task watch, task star, task assign, task report, task delete,
+    task open, task pull, subtask list, subtask add, subtask check,
+    subtask uncheck, subtask edit, subtask delete, subtask move, comment add,
+    comment edit, comment delete, comment list, comment resolve
   Classes
     assignment list, class progress, class announcements, assignment view,
     assignment pull, assignment hand-in, assignment unsubmit,

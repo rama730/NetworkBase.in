@@ -458,6 +458,9 @@ export async function afterTaskTransition(
 ) {
   // Report 38.7 (A2.5): every stage or status move of a request recalculates its clock warnings.
   if (locked.itemType === "request") {
+    // A2.6: In review and Delivered tell the asker (before the clock, which stops at deliveredAt).
+    const { onRequestTransition } = await import("@/lib/workflows/request-flow");
+    await onRequestTransition(taskId, locked.stage, user.id);
     const { scheduleRequestClock } = await import("@/lib/workflows/request-clock-server");
     await scheduleRequestClock(taskId);
   }

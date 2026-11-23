@@ -90,3 +90,13 @@ export function requestFooter(t: Pick<RequestType, "firstReplyMinutes" | "delive
 /** S4 Inbox: New requests, oldest first. */
 export const inboxOrder = <T extends { stage: string | null; createdAt: string }>(rows: T[]) =>
   rows.filter((r) => r.stage === "new").sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+
+/** S9 (A2.6): the Overview card's counts. */
+export function requestsSummary(rows: Array<{ stage: string | null; clock: { state: string } | null; typeFields: Record<string, unknown> }>, now = Date.now()) {
+  const weekAgo = now - 7 * 86_400_000;
+  return {
+    fresh: rows.filter((r) => r.stage === "new").length,
+    breaching: rows.filter((r) => r.clock?.state === "soon" || r.clock?.state === "breached").length,
+    delivered: rows.filter((r) => r.stage === "delivered" && typeof r.typeFields.deliveredAt === "string" && Date.parse(r.typeFields.deliveredAt) >= weekAgo).length,
+  };
+}

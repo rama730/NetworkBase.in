@@ -2046,6 +2046,139 @@
       ]
     },
     {
+      "name": "requests list",
+      "summary": "The workspace's requests with their response clocks",
+      "usage": "nb requests list [--mine | --asked | --breaching]",
+      "flags": {
+        "mine": {
+          "type": "boolean",
+          "describe": "Requests you handle"
+        },
+        "asked": {
+          "type": "boolean",
+          "describe": "Requests you asked for"
+        },
+        "breaching": {
+          "type": "boolean",
+          "describe": "Close to or past their response time"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "requests new",
+      "summary": "Ask for something (it waits in the Inbox)",
+      "usage": "nb requests new \"<title>\" [--type design] [--field name=value] [--need-by date]",
+      "flags": {
+        "type": {
+          "type": "string",
+          "describe": "A request type, like general or design (default: the first)",
+          "valueName": "type"
+        },
+        "field": {
+          "type": "string",
+          "multiple": true,
+          "describe": "Answer one of the type's questions",
+          "valueName": "name=value"
+        },
+        "need-by": {
+          "type": "string",
+          "describe": "When you need it: friday, next week, or 2026-12-01",
+          "valueName": "date"
+        }
+      },
+      "examples": [
+        "nb requests new --type design \"Banner for the launch\" --field what=Banner --field brief=\"1500x500 for the launch post\" --need-by 2026-12-01"
+      ],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "requests accept",
+      "summary": "Accept a request with who handles it (it joins the Tasks board)",
+      "usage": "nb requests accept <request> --to @someone",
+      "flags": {
+        "to": {
+          "type": "string",
+          "describe": "Who handles it",
+          "valueName": "person"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "requests decline",
+      "summary": "Decline a request with a reason the asker sees",
+      "usage": "nb requests decline <request> --reason \"…\"",
+      "flags": {
+        "reason": {
+          "type": "string",
+          "describe": "Why (the asker sees this)",
+          "valueName": "text"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "requests wait",
+      "summary": "Ask someone a question and pause the clock until they reply",
+      "usage": "nb requests wait <request> --on @someone \"question\"",
+      "flags": {
+        "on": {
+          "type": "string",
+          "describe": "Who it waits on",
+          "valueName": "person"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "requests resume",
+      "summary": "Start a paused request's clock again",
+      "usage": "nb requests resume <request>",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "requests deliver",
+      "summary": "Deliver a request (the asker is asked if it solved it)",
+      "usage": "nb requests deliver <request> [--link https://…]",
+      "flags": {
+        "link": {
+          "type": "string",
+          "describe": "What was delivered",
+          "valueName": "url"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "task done",
       "summary": "Finish a task (sends it for review when required)",
       "usage": "nb task done [task] [-m summary] [--check name=pass]",

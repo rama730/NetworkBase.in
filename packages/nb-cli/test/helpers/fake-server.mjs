@@ -206,6 +206,7 @@ const exact = {
       return { data: { subtask: s } };
     }
     // Typed items (report 38.6 W14): stage moves, closing a bug, turning a task into a bug.
+    if (String(req.body.kind).startsWith("request_")) { state.lastUpdate = req.body; return { data: { success: true } }; }
     if (req.body.kind === "stage" || req.body.kind === "bug_close" || req.body.kind === "change_type") {
       state.lastUpdate = req.body;
       if (req.body.kind === "change_type") Object.assign(t, { type: "bug", stage: req.body.stage ?? "confirmed" });
@@ -715,6 +716,11 @@ const patterns = [
   }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "aaaaaaaa-1111-4111-8111-111111111111", username: "tester", fullName: "Test User", role: "owner" }, { id: "bbbbbbbb-2222-4222-8222-222222222222", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || `${m.username} ${m.fullName}`.toLowerCase().includes(String(req.query.get("q")).toLowerCase())) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ["deleted", "merged"].includes(branchOf(state, req.query.get("branch"))?.status) ? fail(410, "BRANCH_DELETED", branchOf(state, req.query.get("branch")).status === "merged" ? "This branch was merged into main; start a new branch for more work" : `The branch ${branchOf(state, req.query.get("branch")).name} was deleted`) : ({ data: { files: [...(branchOf(state, req.query.get("branch"))?.files ?? state.files).values()].map(meta), nextCursor: null, canWrite: state.canWrite, ...(branchOf(state, req.query.get("branch")) ? { branch: { id: branchOf(state, req.query.get("branch")).id, name: branchOf(state, req.query.get("branch")).name } } : {}), limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
+  // Requests (report 38.7 W13): two types and whatever the test put on state.requests.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/requests$/, "GET", (_req, /** @type {any} */ state) => ({ data: { projectKey: "T", timeZone: "UTC", canTriage: true,
+    types: [{ id: "aaaaaaaa-0000-4000-8000-000000000001", name: "General request", questions: [{ id: "need", label: "What do you need?", kind: "text", required: true }], firstReplyMinutes: 240, deliverMinutes: null },
+      { id: "aaaaaaaa-0000-4000-8000-000000000002", name: "Design request", questions: [{ id: "what", label: "What’s needed", kind: "choice", options: ["Banner"], required: true }, { id: "brief", label: "Brief", kind: "long_text", required: true }], firstReplyMinutes: 480, deliverMinutes: 2400 }],
+    requests: state.requests ?? [] } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: (d.nodePath && state.files.get(d.nodePath)?.nodeId) ?? null })) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {
     const doc = state.docs.find((d) => d.slug === req.params[1]);

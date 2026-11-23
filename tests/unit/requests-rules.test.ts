@@ -54,3 +54,11 @@ test("activeTypes and inboxOrder: archived types leave the ask form; New request
   const r = (id: string, stage: string, createdAt: string) => ({ id, stage, createdAt });
   assert.deepEqual(inboxOrder([r("1", "new", "2026-11-22T10:00:00Z"), r("2", "accepted", "2026-11-20T10:00:00Z"), r("3", "new", "2026-11-21T10:00:00Z")]).map((x) => x.id), ["3", "1"]);
 });
+
+test("requestsSummary: new, breaching soon (soon or breached), delivered in the last 7 days", async () => {
+  const { requestsSummary } = await import("../../src/lib/workflows/requests");
+  const now = Date.parse("2026-11-23T10:00:00Z");
+  const r = (stage: string, state: string | null, deliveredAt?: string) => ({ stage, clock: state ? { state } : null, typeFields: deliveredAt ? { deliveredAt } : {} });
+  assert.deepEqual(requestsSummary([r("new", "running"), r("new", "breached"), r("accepted", "soon"), r("delivered", null, "2026-11-20T10:00:00Z"), r("delivered", null, "2026-11-01T10:00:00Z")], now),
+    { fresh: 2, breaching: 2, delivered: 1 });
+});

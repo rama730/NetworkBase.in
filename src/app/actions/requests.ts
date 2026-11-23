@@ -78,19 +78,30 @@ export async function readRequestTypesAction(projectId: string) {
   }
 }
 
-/** S5: one request's type and answers for the panel (members and viewers who can read Tasks). */
+/** S5: one request's type, answers, clock, waiting and delivery for the panel (members and viewers who can read Tasks). */
 export async function readRequestAction(projectId: string, taskId: string) {
   try {
     id.parse(projectId); id.parse(taskId);
     const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Sign in to continue");
-    if (!canReadWorkspaceTab(await getWorkspaceAccessById(projectId, user.id), "tasks")) throw new Error("Not found");
-    const [row] = await db.select({ typeFields: tasks.typeFields, creatorId: tasks.creatorId, stage: tasks.stage }).from(tasks)
+    const access = await getWorkspaceAccessById(projectId, user.id);
+    if (!canReadWorkspaceTab(access, "tasks")) throw new Error("Not found");
+    const [row] = await db.select({ typeFields: tasks.typeFields, creatorId: tasks.creatorId, stage: tasks.stage, createdAt: tasks.createdAt, assigneeId: tasks.assigneeId }).from(tasks)
       .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), eq(tasks.itemType, "request"), isNull(tasks.deletedAt))).limit(1);
     if (!row) throw new Error("Not found");
     const fields = (row.typeFields ?? {}) as Record<string, unknown>;
     const type = (await readRequestTypes(projectId)).find((t) => t.id === fields.requestTypeId) ?? null;
-    return { success: true as const, type, fields, mine: row.creatorId === user.id, stage: row.stage };
+    const work = await readWorkingHours(projectId);
+    const clock = requestClock({ stage: row.stage, created_at: row.createdAt, type_fields: fields }, type ?? undefined, work.hours, work.tz);
+    const canTriage = access.isOwner || (access.isMember && access.memberRole !== "viewer");
+    // A2.6: who can be waited on (members and the owner), with the asker first.
+    const people = canTriage ? Array.from(await db.execute<{ id: string; name: string }>(sql`
+      SELECT p.id, coalesce(p.full_name, p.username, 'Someone') AS name FROM profiles p
+      WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${projectId}::uuid UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${projectId}::uuid)
+      ORDER BY (p.id = ${row.creatorId ?? null}) DESC, p.full_name`)) : [];
+    const waitingOn = (fields.waiting as { onUserId?: string } | null)?.onUserId ?? null;
+    const [waitingName] = waitingOn ? Array.from(await db.execute<{ name: string }>(sql`SELECT coalesce(full_name, username, 'someone') AS name FROM profiles WHERE id = ${waitingOn}::uuid`)) : [];
+    return { success: true as const, type, fields, clock, mine: row.creatorId === user.id, creatorId: row.creatorId, stage: row.stage, canTriage, people, waitingName: waitingName?.name ?? null };
   } catch (error) {
     return fail(error, "Couldn’t load the request");
   }
@@ -242,5 +253,127 @@ export async function saveWorkingHoursAction(input: z.infer<typeof hoursInput>) 
     return { success: true as const };
   } catch (error) {
     return fail(error, "Couldn’t save the working hours");
+  }
+}
+
+async function comment(userId: string, taskId: string, projectId: string, content: string) {
+  const { createTaskCommentAs } = await import("@/lib/domain/task-comments");
+  const { profiles } = await import("@/lib/db/schema");
+  const [profile] = await db.select({ fullName: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(eq(profiles.id, userId)).limit(1);
+  return createTaskCommentAs({ userId, profile: profile ?? null }, taskId, projectId, content);
+}
+
+const WORKING = ["accepted", "in_progress", "in_review"];
+async function workingRequest(projectId: string, taskId: string) {
+  const { readRequest } = await import("@/lib/workflows/request-flow");
+  const r = await readRequest(taskId);
+  if (!r || r.workspace_id !== projectId) throw new Error("Not found");
+  return r;
+}
+
+const waitInput = z.object({ projectId: id, taskId: id, onUserId: id, question: z.string().trim().min(1).max(2000) });
+
+/** W5.2: Waiting on [person] posts the question as a comment that mentions them and pauses the clock (call 4). */
+export async function setWaitingAction(input: z.infer<typeof waitInput>) {
+  try {
+    const parsed = waitInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Ask a question" };
+    const { projectId, taskId, onUserId, question } = parsed.data;
+    const { user, canTriage } = await insider(projectId);
+    if (!canTriage) throw new Error("Viewers can’t pause a request");
+    const r = await workingRequest(projectId, taskId);
+    if (!WORKING.includes(r.stage ?? "")) throw new Error("Only accepted work waits on someone");
+    if ((r.type_fields?.waiting as { since?: string } | null)?.since) throw new Error("It’s already waiting on someone");
+    const access = await getWorkspaceAccessById(projectId, onUserId);
+    if (!(access.isOwner || access.isMember)) throw new Error("Pick someone in the workspace");
+    const { profiles } = await import("@/lib/db/schema");
+    const [who] = await db.select({ name: profiles.fullName, username: profiles.username }).from(profiles).where(eq(profiles.id, onUserId)).limit(1);
+    const name = (who?.name || who?.username || "them").replace(/[|}]/g, "");
+    // The comment goes first: if it can't be posted, nothing pauses.
+    const posted = await comment(user.id, taskId, projectId, `@{${onUserId}|${name}} ${question}`);
+    if (!posted.success) return { success: false as const, error: posted.error ?? "Couldn’t post the question" };
+    const { mergeRequestFields } = await import("@/lib/workflows/request-flow");
+    await mergeRequestFields(taskId, { waiting: { since: new Date().toISOString(), onUserId } });
+    await scheduleRequestClock(taskId);
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "Couldn’t pause the request");
+  }
+}
+
+/** W5.3: Resume (the handler) — the awaited person's reply does this on its own. */
+export async function resumeRequestAction(input: { projectId: string; taskId: string }) {
+  try {
+    const projectId = id.parse(input?.projectId), taskId = id.parse(input?.taskId);
+    const { canTriage } = await insider(projectId);
+    if (!canTriage) throw new Error("Viewers can’t resume a request");
+    await workingRequest(projectId, taskId);
+    const { resumeWaiting } = await import("@/lib/workflows/request-flow");
+    if (!(await resumeWaiting(taskId))) throw new Error("It isn’t waiting on anyone");
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "Couldn’t resume the request");
+  }
+}
+
+const deliverInput = z.object({ projectId: id, taskId: id, link: z.string().trim().max(2000).optional() });
+
+/** W6.2–6.3: Delivered with what was delivered (a link, optional); review gating still applies (call 3). */
+export async function deliverRequestAction(input: z.infer<typeof deliverInput>) {
+  try {
+    const parsed = deliverInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Check the link" };
+    const { projectId, taskId, link } = parsed.data;
+    const { user, canTriage } = await insider(projectId);
+    if (!canTriage) throw new Error("Viewers can’t deliver requests");
+    const r = await workingRequest(projectId, taskId);
+    if (!WORKING.includes(r.stage ?? "")) throw new Error("Accept the request first");
+    if (link && !/^https:\/\//.test(link)) throw new Error("Links start with https://");
+    const { mergeRequestFields, resumeWaiting } = await import("@/lib/workflows/request-flow");
+    await resumeWaiting(taskId);
+    if (link) {
+      const { taskLinks } = await import("@/lib/db/schema");
+      const { linkKind } = await import("@/lib/domain/task-meta");
+      const { kind, title } = linkKind(link);
+      await db.insert(taskLinks).values({ taskId, url: link, title: title ?? "What was delivered", kind, createdBy: user.id }).onConflictDoNothing();
+      await mergeRequestFields(taskId, { delivered: { kind: "link", ref: link } });
+    }
+    const moved = await setTaskStageAction({ taskId, projectId, stage: "delivered" });
+    if (!moved.success) return moved;
+    return { success: true as const, outcome: moved.outcome };
+  } catch (error) {
+    return fail(error, "Couldn’t deliver the request");
+  }
+}
+
+const solvedInput = z.object({ projectId: id, taskId: id, solved: z.enum(["yes", "no"]), note: z.string().trim().max(2000).optional() });
+
+/** W6.4: the asker answers Did this solve it? Yes closes it for good; No (with a note) reopens to In progress (call 5). */
+export async function answerSolvedAction(input: z.infer<typeof solvedInput>) {
+  try {
+    const parsed = solvedInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Say what’s still missing" };
+    const { projectId, taskId, solved, note } = parsed.data;
+    const { user } = await insider(projectId);
+    const r = await workingRequest(projectId, taskId);
+    if (r.creator_id !== user.id) throw new Error("Only the person who asked answers this");
+    if (r.stage !== "delivered") throw new Error("Answer once it’s delivered");
+    const { mergeRequestFields } = await import("@/lib/workflows/request-flow");
+    if (solved === "yes") {
+      await mergeRequestFields(taskId, { solved: "yes" });
+      return { success: true as const };
+    }
+    if (!note) return { success: false as const, error: "Say what’s still missing" };
+    const posted = await comment(user.id, taskId, projectId, `Not solved yet: ${note}`);
+    if (!posted.success) return { success: false as const, error: posted.error ?? "Couldn’t post the note" };
+    const reopenCount = (typeof r.type_fields?.reopenCount === "number" ? r.type_fields.reopenCount : 0) + 1;
+    await mergeRequestFields(taskId, { solved: "no", reopenCount });
+    const { notifyRequestPerson } = await import("@/lib/workflows/request-notify");
+    await notifyRequestPerson(taskId, user.id, "handler", "Answered No");
+    const { reopenForAsker } = await import("@/lib/workflows/request-flow");
+    await reopenForAsker(taskId, user);
+    return { success: true as const, reopened: true };
+  } catch (error) {
+    return fail(error, "Couldn’t save the answer");
   }
 }

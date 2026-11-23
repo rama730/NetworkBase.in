@@ -26,6 +26,15 @@ export function mineSql(userId: string) {
   return sql`(${tasks.assigneeId} = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))`;
 }
 
+/**
+ * Report 38.7 part 8 (A2.6): a request needs this person when it waits on them, or when they asked and it's
+ * Delivered with Did this solve it? unanswered. My work lists these beside their own tasks.
+ */
+export function requestNeedsYouSql(userId: string) {
+  return sql`(${tasks.itemType} = 'request' AND (${tasks.typeFields}->'waiting'->>'onUserId' = ${userId}
+    OR (${tasks.stage} = 'delivered' AND ${tasks.creatorId} = ${userId}::uuid AND ${tasks.typeFields}->>'solved' IS NULL)))`;
+}
+
 /** Workspaces the person owns or belongs to, not deleted. */
 export function memberWorkspaceSql(userId: string) {
   return exists(

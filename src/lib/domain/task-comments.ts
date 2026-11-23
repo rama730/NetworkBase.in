@@ -741,6 +741,10 @@ export async function createTaskCommentAs(
       }
     }
 
+    // Report 38.7 W5 (A2.6): on a request, the awaited person's reply resumes the clock; a first comment is the first reply.
+    const { afterRequestComment } = await import("@/lib/workflows/request-flow");
+    await afterRequestComment(taskId, viewer.userId);
+
     // Report §23.5: a reply in a class question also reaches the others in that thread (the asker is told above).
     if (parentCommentId) {
       try {

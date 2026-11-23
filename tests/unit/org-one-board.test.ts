@@ -26,7 +26,8 @@ test("board/review report §4: New has Task and Assignment tabs; Assigned to is 
   const modal = source("src/components/workspaces/v2/tasks/CreateTaskModal.tsx");
   assert.match(modal, /<UnderlineTabs label="What are you creating\?"/);
   // Report 38.4 S2: the tabs are Task, the added types, then Assignment in an organization (moduleTabs).
-  assert.match(modal, /const tabKeys = moduleTabs\(types, \{ assignment: Boolean\(renderMany\) \}\);/);
+  // A2.3: Report as bug from chat locks the module to its one type.
+  assert.match(modal, /const tabKeys = lockType && initialType \? \[initialType\] : moduleTabs\(types, \{ assignment: Boolean\(renderMany\) \}\);/);
   assert.match(modal, /key === "assignment" \? "Assignment"/);
   assert.match(modal, /const choice = renderMany \? undefined : manyOptions\.find/);
   assert.match(modal, /\{manyOptions\.length && !renderMany \? \(/);

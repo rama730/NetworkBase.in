@@ -48,3 +48,13 @@ export async function notifyRequestDecided(taskId: string, actorId: string, word
   const p = (await people(task.workspace_id)).find((x) => x.id === task.creator_id);
   if (p) await send(p, actorId, { id: task.id, title: task.title, taskNumber: task.task_number, workspaceId: task.workspace_id }, `${words}: ${task.title}`, "important", `request-${words.toLowerCase()}:${task.id}`);
 }
+
+/** A2.6: In review and Delivered tell the asker; Answered No tells the handler (Normal). */
+export async function notifyRequestPerson(taskId: string, actorId: string, who: "asker" | "handler", words: string) {
+  const [task] = Array.from(await db.execute<{ id: string; title: string; task_number: number | null; workspace_id: string; creator_id: string | null; assignee_id: string | null }>(sql`
+    SELECT id, title, task_number, workspace_id, creator_id, assignee_id FROM tasks WHERE id = ${taskId}::uuid`));
+  const target = who === "asker" ? task?.creator_id : task?.assignee_id;
+  if (!task || !target || target === actorId) return;
+  const p = (await people(task.workspace_id)).find((x) => x.id === target);
+  if (p) await send(p, actorId, { id: task.id, title: task.title, taskNumber: task.task_number, workspaceId: task.workspace_id }, `${words}: ${task.title}`, "important", `request-${who}-${words.toLowerCase().replace(/\W+/g, "-")}:${task.id}:${Date.now()}`);
+}

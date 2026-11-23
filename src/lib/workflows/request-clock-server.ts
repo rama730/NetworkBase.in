@@ -54,8 +54,9 @@ export function requestClock(r: Pick<Req, "stage" | "created_at" | "type_fields"
   return input ? { kind: input.kind, ...clockState({ ...input, now }) } : null;
 }
 
-async function triagers(workspaceId: string, type: RequestType) {
-  const rows = Array.from(await db.execute<{ id: string; role: string }>(sql`
+type Exec = Pick<typeof db, "execute">;
+async function triagers(exec: Exec, workspaceId: string, type: RequestType) {
+  const rows = Array.from(await exec.execute<{ id: string; role: string }>(sql`
     SELECT owner_id AS id, 'owner' AS role FROM workspaces WHERE id = ${workspaceId}::uuid
     UNION SELECT user_id, role FROM workspace_members WHERE workspace_id = ${workspaceId}::uuid`));
   const leaders = rows.filter((p) => p.role === "owner" || p.role === "admin").map((p) => p.id);
@@ -63,29 +64,36 @@ async function triagers(workspaceId: string, type: RequestType) {
   return { chosen, leaders };
 }
 
-/** Recalculate one request's warnings: drop the unsent ones and write what its clock needs now. */
+/**
+ * Recalculate one request's warnings: drop the unsent ones and write what its clock needs now. One at a time per
+ * request (the row is locked) so two changes landing together can't leave a warning twice; the workspace's types and
+ * hours are read first, so the locked part uses its one connection only (no waiting on the pool while holding it).
+ */
 export async function scheduleRequestClock(taskId: string, ctx?: { types?: RequestType[]; hours?: WorkingHours; tz?: string }) {
   try {
-    const [r] = Array.from(await db.execute<Req>(sql`
-      SELECT id, stage, created_at, type_fields, assignee_id, workspace_id FROM tasks
-      WHERE id = ${taskId}::uuid AND item_type = 'request' AND deleted_at IS NULL`));
-    await db.execute(sql`DELETE FROM task_reminders WHERE task_id = ${taskId}::uuid AND sent_at IS NULL AND note LIKE ${`${CLOCK_NOTE}%`}`);
-    if (!r) return;
-    const types = ctx?.types ?? await readRequestTypes(r.workspace_id);
-    const type = types.find((t) => t.id === (r.type_fields ?? {}).requestTypeId);
-    const { hours, tz } = ctx?.hours && ctx.tz ? { hours: ctx.hours, tz: ctx.tz } : await readWorkingHours(r.workspace_id);
-    const input = clockFor(r, type, hours, tz);
-    const times = input ? reminderTimes(input) : null;
-    if (!input || !times || !type) return;
-    const { chosen, leaders } = await triagers(r.workspace_id, type);
-    // W7.2: 80 % → the handler (the triage people before it's accepted); breached → the handler, then owners and admins.
-    const handler = input.kind === "deliver" && r.assignee_id ? [r.assignee_id] : chosen;
-    const rows = [
-      ...handler.map((userId) => ({ userId, at: times.soonAt, note: `${CLOCK_NOTE}${input.kind}:80` })),
-      ...[...new Set([...handler, ...leaders])].map((userId) => ({ userId, at: times.breachAt, note: `${CLOCK_NOTE}${input.kind}:breach` })),
-    ].filter((x) => x.at.getTime() > Date.now());
-    for (const x of rows) await db.execute(sql`INSERT INTO task_reminders (task_id, user_id, remind_at, note) VALUES (${taskId}::uuid, ${x.userId}::uuid, ${x.at.toISOString()}::timestamptz, ${x.note})`);
-    const first = rows.map((x) => x.at).sort((a, b) => a.getTime() - b.getTime())[0];
+    const [base] = Array.from(await db.execute<{ workspace_id: string }>(sql`SELECT workspace_id FROM tasks WHERE id = ${taskId}::uuid`));
+    const types = base ? ctx?.types ?? await readRequestTypes(base.workspace_id) : [];
+    const { hours, tz } = base ? (ctx?.hours && ctx.tz ? { hours: ctx.hours, tz: ctx.tz } : await readWorkingHours(base.workspace_id)) : { hours: DEFAULT_HOURS, tz: "UTC" };
+    const first = await db.transaction(async (tx) => {
+      const [r] = Array.from(await tx.execute<Req>(sql`
+        SELECT id, stage, created_at, type_fields, assignee_id, workspace_id FROM tasks
+        WHERE id = ${taskId}::uuid AND item_type = 'request' AND deleted_at IS NULL FOR UPDATE`));
+      await tx.execute(sql`DELETE FROM task_reminders WHERE task_id = ${taskId}::uuid AND sent_at IS NULL AND note LIKE ${`${CLOCK_NOTE}%`}`);
+      if (!r) return null;
+      const type = types.find((t) => t.id === (r.type_fields ?? {}).requestTypeId);
+      const input = clockFor(r, type, hours, tz);
+      const times = input ? reminderTimes(input) : null;
+      if (!input || !times || !type) return null;
+      const { chosen, leaders } = await triagers(tx, r.workspace_id, type);
+      // W7.2: 80 % → the handler (the triage people before it's accepted); breached → the handler, then owners and admins.
+      const handler = input.kind === "deliver" && r.assignee_id ? [r.assignee_id] : chosen;
+      const rows = [
+        ...handler.map((userId) => ({ userId, at: times.soonAt, note: `${CLOCK_NOTE}${input.kind}:80` })),
+        ...[...new Set([...handler, ...leaders])].map((userId) => ({ userId, at: times.breachAt, note: `${CLOCK_NOTE}${input.kind}:breach` })),
+      ].filter((x) => x.at.getTime() > Date.now());
+      for (const x of rows) await tx.execute(sql`INSERT INTO task_reminders (task_id, user_id, remind_at, note) VALUES (${taskId}::uuid, ${x.userId}::uuid, ${x.at.toISOString()}::timestamptz, ${x.note})`);
+      return rows.map((x) => x.at).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+    });
     if (first) await wakeChatDueIfSoon(first);
   } catch (error) {
     logger.error("requests.clock_schedule_failed", { module: "tasks", taskId, error: error instanceof Error ? error.message : String(error) });

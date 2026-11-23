@@ -8251,6 +8251,16 @@
       "status": "live",
       "test": "tests/unit/request-clock.test.ts; tests/db/requests.test.ts (A2.5); tests/browser/requests-tab.spec.ts",
       "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247."
+    },
+    {
+      "key": "38.7.call13",
+      "section": "38.7",
+      "text": "A2.6 (2026-11-23): Waiting on… (panel, nb requests wait) is for members on accepted work; it posts the question as a comment mentioning the person (that mention",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

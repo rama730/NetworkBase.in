@@ -30,8 +30,8 @@ async function handlePost(request: Request) {
     if (held) return held;
     // Your tasks are yours (report C16 #3): left out means the person creating it, when they can hold tasks here
     // (a member row; some older workspaces list their owner only as owner).
-    // A reported bug waits at New for whoever confirms it, so it isn't the reporter's by default (38.6 W14).
-    const self = parsed.data.assigneeId === undefined && parsed.data.itemType !== "bug"
+    // A reported bug or an ask waits at New for whoever takes it, so it isn't the reporter's by default (38.6 W14, 38.7 W13).
+    const self = parsed.data.assigneeId === undefined && parsed.data.itemType !== "bug" && parsed.data.itemType !== "request"
       ? (await db.select({ id: workspaceMembers.id }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, parsed.data.projectId), eq(workspaceMembers.userId, auth.user.id))).limit(1))[0]
       : undefined;
     const result = await createTaskAction({

@@ -28,6 +28,7 @@ import {
 import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
 import { approveTaskReviewAction, assignTaskAction, changeTaskTypeAction, requestTaskChangesAction, resubmitTaskReviewAction, setPartOfAction, setTaskStageAction, updateTaskFieldAction } from "@/app/actions/task";
 import { closeBugAction } from "@/app/actions/bugs";
+import { acceptRequestAction, declineRequestAction, deliverRequestAction, resumeRequestAction, setWaitingAction } from "@/app/actions/requests";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { deleteSubtaskAction, updateSubtaskAction } from "@/app/actions/subtask";
 import { deleteTaskAs } from "@/lib/workspaces/server/tasks";
@@ -57,7 +58,7 @@ async function handlePatch(request: Request) {
     // A stage whose status is Completed (Fixed, Verified, Won't fix, Delivered…) finishes the item, like status=done:
     // the same token permission and the same yes for agents. Read from the task's own type.
     const [typed] = input.kind === "stage" ? await db.select({ type: tasks.itemType }).from(tasks).where(and(eq(tasks.id, input.taskId), eq(tasks.projectId, input.projectId))).limit(1) : [];
-    const stageFinishes = (input.kind === "stage" && WORKFLOW_TYPES[typed?.type ?? ""]?.stages.find((s) => s.key === input.stage)?.status === "done") || input.kind === "bug_close";
+    const stageFinishes = (input.kind === "stage" && WORKFLOW_TYPES[typed?.type ?? ""]?.stages.find((s) => s.key === input.stage)?.status === "done") || input.kind === "bug_close" || input.kind === "request_deliver";
     // Finishing and reviewing need their own token permissions (report A3.6).
     const scopeDenied =
       input.kind === "approve" || input.kind === "request_changes"
@@ -69,7 +70,7 @@ async function handlePatch(request: Request) {
     // Which changes an agent's person has to agree to first (report §26.6).
     const others = await isOthersTask(input.taskId, user.id);
     const kinds: ChangeKind[] = [
-      input.kind === "approve" || input.kind === "request_changes" ? "review" : input.kind === "resubmit" || (input.kind === "status" && input.status === "done") ? "done" : input.kind === "delete" ? "delete"
+      input.kind === "approve" || input.kind === "request_changes" || input.kind === "request_accept" || input.kind === "request_decline" ? "review" : input.kind === "request_wait" ? "message" : input.kind === "resubmit" || (input.kind === "status" && input.status === "done") ? "done" : input.kind === "delete" ? "delete"
         // Finishing through a stage (Fixed, Won't fix, Duplicate…) needs a person's yes, like task done (report 38.2 part 8).
         : stageFinishes ? "done" : "small",
       others || (input.kind === "assign" && input.assigneeId && input.assigneeId !== user.id) ? "others-task" : "small",
@@ -82,6 +83,9 @@ async function handlePatch(request: Request) {
       : input.kind === "part_of" ? (input.partOfId ? `Put ${label} in a project` : `Take ${label} out of its project`)
       : input.kind === "bug_close" ? `Close ${label} as ${input.reason === "wont_fix" ? "Won’t fix" : input.reason === "duplicate" ? "Duplicate" : "Can’t reproduce"}`
       : input.kind === "change_type" ? `Change ${label} to a bug`
+      : input.kind === "request_accept" ? `Accept ${label}` : input.kind === "request_decline" ? `Decline ${label}: "${input.reason.slice(0, 120)}"`
+      : input.kind === "request_wait" ? `Ask about ${label} and pause its clock: "${input.question.slice(0, 120)}"` : input.kind === "request_resume" ? `Resume ${label}`
+      : input.kind === "request_deliver" ? `Deliver ${label}`
       : input.kind === "subtask" ? `${input.completed ? "Tick" : "Untick"} a subtask`
       : input.kind === "edit" ? `Change the ${input.field} of ${label}`
       : input.kind === "assign" ? (input.assigneeId ? `Assign ${label} to ${auth.tokenKind === "agent" ? await personLabel(input.assigneeId) : "someone"}` : `Unassign ${label}`)
@@ -121,6 +125,14 @@ async function handlePatch(request: Request) {
     }
     if (input.kind === "bug_close") {
       const result = await closeBugAction({ projectId: input.projectId, taskId: input.taskId, reason: input.reason, duplicateOfId: input.duplicateOfId, message: input.message });
+      return result.success ? jsonSuccess(result) : jsonError(result.error, 400, "BAD_REQUEST");
+    }
+    if (input.kind === "request_accept" || input.kind === "request_decline" || input.kind === "request_wait" || input.kind === "request_resume" || input.kind === "request_deliver") {
+      const result = input.kind === "request_accept" ? await acceptRequestAction({ projectId: input.projectId, taskId: input.taskId, assigneeId: input.assigneeId, sprintId: input.sprintId ?? null })
+        : input.kind === "request_decline" ? await declineRequestAction({ projectId: input.projectId, taskId: input.taskId, reason: input.reason })
+        : input.kind === "request_wait" ? await setWaitingAction({ projectId: input.projectId, taskId: input.taskId, onUserId: input.onUserId, question: input.question })
+        : input.kind === "request_resume" ? await resumeRequestAction({ projectId: input.projectId, taskId: input.taskId })
+        : await deliverRequestAction({ projectId: input.projectId, taskId: input.taskId, ...(input.link ? { link: input.link } : {}) });
       return result.success ? jsonSuccess(result) : jsonError(result.error, 400, "BAD_REQUEST");
     }
     if (input.kind === "change_type") {
