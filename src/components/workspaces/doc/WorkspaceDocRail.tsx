@@ -11,6 +11,7 @@ import { toast } from "@/lib/feedback";
 import { AddDocDialog } from "@/components/workspaces/doc/AddDocDialog";
 import { RecordDecisionDialog } from "@/components/workspaces/doc/DocDecisions";
 import { NewGoalsDialog } from "@/components/workspaces/doc/DocGoals";
+import { useNewIdeasDoc } from "@/components/workspaces/doc/DocIdeas";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc";
 import type { WorkspaceDocListItem } from "@/lib/workspaces/doc";
@@ -71,6 +72,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     const { data: docs = [], isLoading } = useWorkspaceDocList(projectId);
     const [addOpen, setAddOpen] = useState(false);
     const [addSection, setAddSection] = useState<DocSection | null>(null);
+    const newIdeas = useNewIdeasDoc(projectId);
     const [recording, setRecording] = useState(false);
     const [removing, setRemoving] = useState<WorkspaceDocListItem | null>(null);
     const [view, setView] = useState<"actions" | "calendar" | null>(null);
@@ -122,6 +124,8 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     return { docs, isLoading, navigate, openAdd: (section?: DocSection) => {
         // Decisions' + records one (S4): it gets the next D-number rather than being an unnumbered page.
         if (section === "decisions") return setRecording(true);
+        // Ideas' + makes "Ideas" at once (report 38.13 W1).
+        if (section === "ideas") return void newIdeas();
         setAddSection(section ?? null); setAddOpen(true);
     }, askRemove: setRemoving, dialogs, view, openView: setView };
 }

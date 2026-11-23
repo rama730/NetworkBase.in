@@ -5,6 +5,7 @@ import { contentFieldsSchema } from "@/lib/workflows/content";
 import { bugFieldsSchema } from "@/lib/workflows/bugs";
 import { roadmapFieldsSchema } from "@/lib/workflows/roadmap";
 import { keyResultFieldsSchema, objectiveFieldsSchema } from "@/lib/workflows/goals";
+import { ideaFieldsSchema } from "@/lib/workflows/ideas";
 import { WORKFLOW_CATALOG } from "@/lib/workflows/catalog";
 import { isOnBoard } from "@/lib/workflows/rules";
 import { WORKFLOW_TYPES, workflowType } from "@/lib/workflows/types";
@@ -67,5 +68,5 @@ export const sprintApplies = (type: string, stage: string | null) => type === "t
 
 /** Each type's own fields (its round writes them; none yet), checked the same way in the module and on the server. */
 const TYPE_FIELDS: Record<string, z.ZodType<Record<string, unknown>>> = { bug: bugFieldsSchema, request: requestFieldsSchema, content: contentFieldsSchema, roadmap_item: roadmapFieldsSchema,
-  objective: objectiveFieldsSchema, key_result: keyResultFieldsSchema };
+  objective: objectiveFieldsSchema, key_result: keyResultFieldsSchema, idea: ideaFieldsSchema };
 export const typeFieldsSchema = (type: string) => TYPE_FIELDS[type] ?? z.object({}).strict();

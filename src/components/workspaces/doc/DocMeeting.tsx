@@ -13,6 +13,7 @@ import { WORKSPACE_DOC_LIST_QUERY_KEY, WORKSPACE_DOCS_QUERY_KEY } from "@/hooks/
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { BoardPanel } from "@/components/workspaces/doc/DocBoard";
+import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { cn } from "@/lib/utils";
 import { newMeetingFeedAction, readMeetingFeedAction, stopMeetingFeedAction } from "@/app/actions/meeting-feed";
 import { defaultTitle, isNow, MEETING_TYPES, meetingMarkdown, meetingType, meetingWhen, monthGrid, nextOccurrence, REPEAT_LABEL, REPEAT_RULES, type RepeatRule } from "@/lib/workflows/meetings";
@@ -157,6 +158,7 @@ export function MeetingHeader({ projectId, docSlug }: { projectId: string; docSl
   const base = query.data?.success ? query.data : null;
   const data = base && rows.data?.success ? { ...base, openActionItems: rows.data.rows.filter((r) => r.status !== "done").length } : base;
   const [dialog, setDialog] = useState<"finish" | "move" | null>(null);
+  const ideasAdded = useAddedWorkflows().includes("ideas");
   const [busy, setBusy] = useState(false);
   if (!data) return query.isLoading ? <div aria-hidden="true" className="nb-skeleton mb-3 h-12 rounded-[8px]" /> : null;
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
@@ -222,6 +224,8 @@ export function MeetingHeader({ projectId, docSlug }: { projectId: string; docSl
           {data.attendees.length ? `Attendees: ${data.attendees.map((a) => a.name).join(", ")}` : "No attendees yet"} · <span className="font-mono">{data.openActionItems}</span> open action {data.openActionItems === 1 ? "item" : "items"}
         </p>
       ) : null}
+      {/* Report 38.11 W2 and 38.13 W2 (A5.3): a User interview's insights can be saved as ideas once Ideas is added. */}
+      {data.type === "interview" && data.member && ideasAdded ? <SaveAsIdea projectId={projectId} /> : null}
       {"board" in data && data.board ? <BoardPanel projectId={projectId} docSlug={docSlug} title={data.title} board={data.board} attendees={data.attendees} canEdit={data.canEdit} onOpenDoc={openDoc} /> : null}
       {dialog === "finish" ? <FinishDialog openItems={data.openActionItems} next={data.seriesRule && data.startsAt ? meetingWhen(nextOccurrence(data.seriesRule as RepeatRule, data.startsAt, data.timeZone), data.lengthMinutes, data.timeZone) : null}
         busy={busy} onClose={() => setDialog(null)} onFinish={(carry) => void finish(carry)} /> : null}
@@ -388,5 +392,43 @@ function FeedLink() {
         {has ? <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => void stop()}>Stop the link</button> : null}
       </div>
     </div>
+  );
+}
+
+/** A5.3: Save as idea (from an interview's insights) adds it to the workspace's Ideas document. */
+function SaveAsIdea({ projectId }: { projectId: string }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [pitch, setPitch] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    if (!title.trim()) { toast.error("Name the idea"); return; }
+    setBusy(true);
+    try {
+      const { saveAsIdeaAction } = await import("@/app/actions/workspace/doc");
+      const r = await saveAsIdeaAction(projectId, { title: title.trim(), ...(pitch.trim() ? { pitch: pitch.trim() } : {}) });
+      if (!r.success) throw new Error(r.error);
+      toast("Saved to Ideas");
+      setTitle(""); setPitch(""); setOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn’t save the idea");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <button type="button" className="text-[12px] font-medium text-primary underline-offset-2 hover:underline" onClick={() => setOpen(true)}>Save an insight as an idea</button>
+      <Dialog open={open} onOpenChange={(o) => { if (!busy) setOpen(o); }}>
+        <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="save-as-idea-dialog">
+          <div className="border-b border-border px-6 py-4"><DialogTitle className="text-base font-semibold">Save as idea</DialogTitle><DialogDescription className="text-xs text-muted-foreground">It goes to the workspace’s Ideas, unscored.</DialogDescription></div>
+          <form className="space-y-3.5 px-6 py-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+            <Field label="Idea" htmlFor="idea-title" required><input id="idea-title" autoFocus maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} className={inputClassName(false)} /></Field>
+            <Field label="Pitch" htmlFor="idea-pitch" hint="One line. Optional."><input id="idea-pitch" maxLength={200} value={pitch} onChange={(e) => setPitch(e.target.value)} className={inputClassName(false)} /></Field>
+          </form>
+          <div className={FORM_FOOTER_CLASS}><button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => setOpen(false)}>Cancel</button><button type="button" className={FORM_PRIMARY_CLASS} disabled={busy} onClick={() => void save()}>Save idea</button></div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

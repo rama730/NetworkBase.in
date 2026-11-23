@@ -26,6 +26,7 @@ import {
     tasks,
     workspaceMeetingSeries,
     keyResultCheckIns,
+    taskSubtasks,
     workspaceDocumentReminders,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -2528,5 +2529,221 @@ export async function setGoalStatusAction(projectId: string, input: unknown) {
     } catch (error) {
         logger.error("goals.status_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t set the status." };
+    }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Report 38.13 D4 (plan A5.3): ideas. An Ideas document's ranked block lists its ideas (tasks of type `idea`, never on
+ * the board, never public). Members add, score, validate, build and drop; viewers read.
+ * ---------------------------------------------------------------------------------------------------------------- */
+async function ideasContext(projectId: string, userId: string | null, docSlug: string) {
+    const context = await getDocProjectContext(projectId, userId, docSlug);
+    const insider = Boolean(userId) && (userId === context.project.ownerId || Boolean(context.membership));
+    if (!context.readme || !insider || context.settings.section !== "ideas") return null;
+    return { context, canAct: userId === context.project.ownerId || (context.membership?.role ?? "viewer") !== "viewer" };
+}
+
+/** W1: Ideas' + makes "Ideas": the browser makes the file (ideasMarkdown); this files it under Ideas, members only. */
+export async function createIdeasDocAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: docSlugSchema }).parse(input);
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents make an Ideas document." };
+        if (context.settings.section || context.settings.approvedAt) return { success: false as const, error: "That document is already filed in a section." };
+        const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+        if (!availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("ideas")) return { success: false as const, error: "Add Ideas first." };
+        await writeLaunchSettings(context.readme.id, { section: "ideas", visibilityOverride: "members_only" });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("ideas.create_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t make the Ideas document." };
+    }
+}
+
+/** S1: the ranked ideas (score, stage, validation n of m, built as), Dropped folded apart. */
+export async function readIdeasAction(projectId: string, docSlug: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const found = await ideasContext(projectId, actor, docSlug);
+        if (!found) return { success: false as const, error: "Ideas are for workspace members." };
+        const items = await db.select({ id: tasks.id, number: tasks.taskNumber, title: tasks.title, stage: tasks.stage, fields: tasks.typeFields, createdAt: tasks.createdAt, creatorId: tasks.creatorId })
+            .from(tasks).where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), eq(tasks.sourceDocId, found.context.readme!.id), eq(tasks.itemType, "idea")))
+            .orderBy(asc(tasks.createdAt)).limit(500);
+        const ids = items.map((i) => i.id);
+        const subs = ids.length ? Array.from(await db.execute<{ task_id: string; done: number; total: number }>(sql`
+            SELECT task_id, count(*) FILTER (WHERE completed)::int AS done, count(*)::int AS total FROM task_subtasks WHERE task_id IN (${sql.join(ids.map((i) => sql`${i}::uuid`), sql`, `)}) GROUP BY task_id`)) : [];
+        const builtIds = items.map((i) => (i.fields as Record<string, unknown> | null)?.builtAs).filter((x): x is string => typeof x === "string");
+        const built = builtIds.length ? await db.select({ id: tasks.id, number: tasks.taskNumber, title: tasks.title, type: tasks.itemType }).from(tasks)
+            .where(and(inArray(tasks.id, builtIds), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))) : [];
+        const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const { rankIdeas } = await import("@/lib/workflows/ideas");
+        const shaped = items.map((i) => {
+            const f = (i.fields ?? {}) as Record<string, unknown>;
+            const n = (k: string) => (typeof f[k] === "number" ? (f[k] as number) : null);
+            const sub = subs.find((x) => x.task_id === i.id);
+            const b = built.find((x) => x.id === f.builtAs);
+            return { id: i.id, number: i.number, title: i.title, pitch: typeof f.pitch === "string" ? f.pitch : null, impact: n("impact"), ease: n("ease"), confidence: n("confidence"),
+                stage: i.stage ?? "idea", createdAt: i.createdAt.toISOString(), validation: sub ? { done: sub.done, total: sub.total } : null,
+                builtAs: b ? { id: b.id, number: b.number, title: b.title, type: b.type ?? "task" } : null, droppedReason: typeof f.droppedReason === "string" ? f.droppedReason : null };
+        });
+        return { success: true as const, projectKey: ws?.key ?? null, canAct: found.canAct, ranked: rankIdeas(shaped), dropped: shaped.filter((i) => i.stage === "dropped") };
+    } catch (error) {
+        logger.error("ideas.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load the ideas." };
+    }
+}
+
+const scoreSchema = z.number().int().min(1).max(5).nullable().optional();
+
+/** W2: + Idea (one line, Enter), optionally scored and with a pitch. */
+export async function addIdeaAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: docSlugSchema, title: z.string().trim().min(1, "Name the idea").max(200), pitch: z.string().trim().max(200).optional(),
+            impact: scoreSchema, ease: scoreSchema, confidence: scoreSchema }).parse(input);
+        const found = await ideasContext(projectId, userId, data.docSlug);
+        if (!found?.canAct) return { success: false as const, error: "Only workspace members add ideas." };
+        const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
+        const created = await createTaskAction({ projectId, title: data.title, status: "todo", priority: "medium", assigneeId: null, dueDate: null, itemType: "idea", stage: "idea",
+            typeFields: { ...(data.pitch ? { pitch: data.pitch } : {}), ...(data.impact ? { impact: data.impact } : {}), ...(data.ease ? { ease: data.ease } : {}), ...(data.confidence ? { confidence: data.confidence } : {}) } });
+        if (!created.success || !("task" in created) || !created.task) return { success: false as const, error: ("error" in created && created.error) || "Couldn’t add the idea." };
+        await db.update(tasks).set({ sourceDocId: found.context.readme!.id, sourceBlock: "ideas" }).where(eq(tasks.id, created.task.id));
+        revalidateProjectDoc(found.context.project);
+        return { success: true as const, id: created.task.id, number: created.task.taskNumber ?? null };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the idea." };
+        logger.error("ideas.add_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t add the idea." };
+    }
+}
+
+/** An idea and whether this person may change it (members, not viewers), in a document they can read. */
+async function ideaFor(projectId: string, userId: string, taskId: string) {
+    const [item] = await db.select({ id: tasks.id, title: tasks.title, stage: tasks.stage, fields: tasks.typeFields, docId: tasks.sourceDocId, creatorId: tasks.creatorId }).from(tasks)
+        .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), eq(tasks.itemType, "idea"), isNull(tasks.deletedAt))).limit(1);
+    if (!item?.docId) return { error: "Idea not found." } as const;
+    const [doc] = await db.select({ slug: workspaceDocuments.slug }).from(workspaceDocuments).where(eq(workspaceDocuments.id, item.docId)).limit(1);
+    const found = doc ? await ideasContext(projectId, userId, doc.slug) : null;
+    if (!found) return { error: "Idea not found." } as const;
+    if (!found.canAct) return { error: "Only workspace members change ideas." } as const;
+    return { item, found } as const;
+}
+
+const patchIdea = (taskId: string, patch: Record<string, unknown>, stage?: { stage: string; status: "todo" | "in_progress" | "done" }) =>
+    db.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb`, ...(stage ? { stage: stage.stage, status: stage.status, ...(stage.status === "done" ? { completedAt: new Date() } : {}) } : {}), updatedAt: new Date() })
+        .where(eq(tasks.id, taskId));
+
+/** W3: inline scores (1–5; null clears one) and the pitch. */
+export async function scoreIdeaAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ taskId: z.string().uuid(), impact: scoreSchema, ease: scoreSchema, confidence: scoreSchema, pitch: z.string().trim().max(200).optional() }).parse(input);
+        const found = await ideaFor(projectId, userId, data.taskId);
+        if ("error" in found) return { success: false as const, error: found.error! };
+        const patch: Record<string, unknown> = {};
+        for (const k of ["impact", "ease", "confidence", "pitch"] as const) if (data[k] !== undefined) patch[k] = data[k];
+        await patchIdea(data.taskId, patch);
+        revalidateProjectDoc(found.found.context.project);
+        return { success: true as const };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: "Scores run from 1 to 5." };
+        logger.error("ideas.score_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t score the idea." };
+    }
+}
+
+/** W4: Validating adds the workspace's validation steps as the idea's subtasks (once). */
+export async function validateIdeaAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const { taskId } = z.object({ taskId: z.string().uuid() }).parse(input);
+        const found = await ideaFor(projectId, userId, taskId);
+        if ("error" in found) return { success: false as const, error: found.error! };
+        if (found.item.stage !== "idea") return { success: false as const, error: "Only a new idea moves to Validating." };
+        const [ws] = await db.select({ settings: workspaces.workflowSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const { validationSteps } = await import("@/lib/workflows/ideas");
+        const steps = validationSteps((ws?.settings as Record<string, unknown> | null)?.ideas);
+        await db.transaction(async (tx) => {
+            const [existing] = await tx.select({ n: sql<number>`count(*)::int` }).from(taskSubtasks).where(eq(taskSubtasks.taskId, taskId));
+            if (!existing?.n) await tx.insert(taskSubtasks).values(steps.map((title, position) => ({ taskId, title, position, createdBy: userId })));
+            await tx.update(tasks).set({ stage: "validating", status: "in_progress", updatedAt: new Date() }).where(eq(tasks.id, taskId));
+        });
+        revalidateProjectDoc(found.found.context.project);
+        return { success: true as const, steps: steps.length };
+    } catch (error) {
+        logger.error("ideas.validate_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t start validating." };
+    }
+}
+
+async function tellIdeaAuthor(projectId: string, actorId: string, item: { id: string; title: string; creatorId: string | null }, title: string, project: { slug: string | null }, docSlug: string) {
+    if (!item.creatorId || item.creatorId === actorId || !(await memberIds(projectId, [item.creatorId])).length) return;
+    const { createNotification } = await import("@/lib/notifications/service");
+    await createNotification({ recipientUserId: item.creatorId, actorUserId: actorId, kind: "project_task_activity", category: "tasks", importance: "important", title,
+        href: `/workspaces/${encodeURIComponent(project.slug || projectId)}?tab=docs&doc=${encodeURIComponent(docSlug)}`,
+        entityRefs: { projectId, projectSlug: project.slug ?? null }, dedupeKey: `idea:${item.id}:${title.split(":")[0]}` }).catch(() => undefined);
+}
+
+/**
+ * W5 and call 3: Start building makes a project (T1), a roadmap item (T2) or a task from the idea (its name and pitch);
+ * the idea moves to Building with "Built as NB-320", and the new item knows it came from the idea. Once only.
+ */
+export async function startBuildingAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ taskId: z.string().uuid(), as: z.enum(["project", "roadmap_item", "task"]) }).parse(input);
+        const found = await ideaFor(projectId, userId, data.taskId);
+        if ("error" in found) return { success: false as const, error: found.error! };
+        const f = (found.item.fields ?? {}) as Record<string, unknown>;
+        if (f.builtAs || found.item.stage === "building" || found.item.stage === "launched" || found.item.stage === "dropped") return { success: false as const, error: "This idea is already being built or closed." };
+        const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
+        const pitch = typeof f.pitch === "string" ? f.pitch : "";
+        const created = await createTaskAction({ projectId, title: found.item.title, status: "todo", priority: "medium", assigneeId: null, dueDate: null,
+            ...(pitch ? { description: pitch } : {}), ...(data.as === "task" ? {} : { itemType: data.as, typeFields: data.as === "roadmap_item" && pitch ? { outcome: pitch } : {} }) });
+        if (!created.success || !("task" in created) || !created.task) return { success: false as const, error: ("error" in created && created.error) || "Couldn’t make it." };
+        await patchIdea(data.taskId, { builtAs: created.task.id }, { stage: "building", status: "in_progress" });
+        await tellIdeaAuthor(projectId, userId, found.item, `Building: ${found.item.title}`, found.found.context.project, found.found.context.readme!.slug);
+        revalidateProjectDoc(found.found.context.project);
+        return { success: true as const, builtId: created.task.id, builtNumber: created.task.taskNumber ?? null };
+    } catch (error) {
+        logger.error("ideas.build_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t start building." };
+    }
+}
+
+/** W7: Drop asks a reason; dropped ideas fold under "Dropped (n)". */
+export async function dropIdeaAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const parsed = z.object({ taskId: z.string().uuid(), reason: z.string().trim().min(1).max(500) }).safeParse(input);
+        if (!parsed.success) return { success: false as const, error: "Say why it's dropped." };
+        const found = await ideaFor(projectId, userId, parsed.data.taskId);
+        if ("error" in found) return { success: false as const, error: found.error! };
+        if (found.item.stage === "launched" || found.item.stage === "dropped") return { success: false as const, error: "This idea is already closed." };
+        await patchIdea(parsed.data.taskId, { droppedReason: parsed.data.reason }, { stage: "dropped", status: "done" });
+        await tellIdeaAuthor(projectId, userId, found.item, `Dropped: ${found.item.title}`, found.found.context.project, found.found.context.readme!.slug);
+        revalidateProjectDoc(found.found.context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("ideas.drop_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t drop the idea." };
+    }
+}
+
+/** D1 W2 (User interview's insights, A5.3): Save as idea adds it to the workspace's first Ideas document. */
+export async function saveAsIdeaAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ title: z.string().trim().min(1, "Name the idea").max(200), pitch: z.string().trim().max(200).optional() }).parse(input);
+        const [doc] = await db.select({ slug: workspaceDocuments.slug }).from(workspaceDocuments)
+            .where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.settings}->>'section' = 'ideas'`)).orderBy(asc(workspaceDocuments.createdAt)).limit(1);
+        if (!doc) return { success: false as const, error: "Make an Ideas document first (Documents → Ideas)." };
+        const r = await addIdeaAction(projectId, { docSlug: doc.slug, ...data });
+        return r.success ? { ...r, docSlug: doc.slug } : r;
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the idea." };
+        return { success: false as const, error: "Couldn’t save the idea." };
     }
 }

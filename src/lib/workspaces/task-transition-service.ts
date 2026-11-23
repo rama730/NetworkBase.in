@@ -475,6 +475,8 @@ export async function afterTaskTransition(
   if (locked.itemType && locked.itemType !== "task") (await import("@/lib/workflows/server")).announceWaiting(locked.projectId);
   // Report 38.9 part 8 (A2.10): Launched and Won't do are told.
   if (locked.itemType === "roadmap_item") await (await import("@/lib/workflows/roadmap-server")).onRoadmapTransition(taskId, locked.stage, user.id);
+  // Report 38.13 W6 (A5.3): finishing what an idea became makes the idea Launched.
+  if (result.status === "done" && locked.currentStatus !== "done") await (await import("@/lib/workflows/ideas-server")).launchIdeasBuiltAs(taskId);
   // Report 38.10 W2 (A3.1): a launch's first step leaving To do makes it Getting ready.
   if (locked.currentStatus === "todo" && result.status !== "todo") await (await import("@/lib/workflows/launches-server")).launchStepStarted(taskId);
   // Report 38.9 W5 (A2.10): the first work task starting moves its roadmap item to In progress.

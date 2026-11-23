@@ -727,6 +727,9 @@ const patterns = [
   [/^\/api\/v1\/workspaces\/([^/]+)\/decisions$/, "GET", (_req, /** @type {any} */ state) => ({ data: { decisions: state.decisions ?? [] } })],
   // Goals (report 38.12 W10): whatever the test put on state.goals; a check-in is recorded on state.checkins.
   [/^\/api\/v1\/workspaces\/([^/]+)\/goals$/, "GET", (_req, /** @type {any} */ state) => ({ data: state.goals ?? { period: "2027-Q1", label: null, objectives: [] } })],
+  // Ideas (report 38.13 W9): whatever the test put on state.ideas; an add is kept on state.ideaAdds.
+  [/^\/api\/v1\/workspaces\/([^/]+)\/ideas$/, "GET", (_req, /** @type {any} */ state) => ({ data: state.ideas ?? { doc: null, ideas: [], dropped: 0 } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/ideas$/, "POST", (req, /** @type {any} */ state) => { (state.ideaAdds ??= []).push(req.body); return { data: { number: 77 } }; }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/goals$/, "POST", (req, /** @type {any} */ state) => { (state.checkins ??= []).push(req.body); return { data: { checkedIn: true } }; }],
   // Launches (report 38.10 W10): whatever the test put on state.launches.
   [/^\/api\/v1\/workspaces\/([^/]+)\/launches$/, "GET", (_req, /** @type {any} */ state) => ({ data: { launches: state.launches ?? [] } })],

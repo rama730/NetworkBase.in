@@ -70,6 +70,12 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
     id: "key_result", label: "Key result", icon: "Gauge", joinStage: null, doneStage: "done",
     stages: [s("active", "Active", "in_progress", false), s("done", "Done", "done", false, true), s("missed", "Missed", "done", false, true)],
   },
+  // Report 38.13 D4 (A5.3): ideas live in an Ideas document's ranked block, never on the board.
+  idea: {
+    id: "idea", label: "Idea", icon: "Lightbulb", joinStage: null, doneStage: "launched",
+    stages: [s("idea", "Idea", "todo", false), s("validating", "Validating", "in_progress", false), s("building", "Building", "in_progress", false),
+      s("launched", "Launched", "done", false, true), s("dropped", "Dropped", "done", false, true)],
+  },
 };
 
 export function workflowType(id: string): WorkflowType {
