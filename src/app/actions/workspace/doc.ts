@@ -1552,7 +1552,8 @@ export async function readDocRowKeysAction(projectId: string, docSlug: string) {
         const context = await getDocProjectContext(projectId, actor, docSlug);
         if (!context.readme || !context.permission.canEdit) return { success: true as const, keys: [] as Array<{ key: string; count: number }> };
         const keys = await db.select({ key: tasks.sourceBlock, count: sql<number>`count(*)::int` }).from(tasks)
-            .where(and(eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt))).groupBy(tasks.sourceBlock);
+            // A5 live check: a goals or ideas block's items belong to that block, not to a task list that was removed.
+            .where(and(eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt), sql`coalesce(${tasks.sourceBlock}, '') NOT IN ('goals', 'ideas')`)).groupBy(tasks.sourceBlock);
         return { success: true as const, keys: keys.flatMap((k) => (k.key ? [{ key: k.key, count: k.count }] : [])) };
     } catch {
         return { success: false as const, error: "Couldn’t count the lists." };

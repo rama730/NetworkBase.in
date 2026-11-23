@@ -116,6 +116,10 @@ test("W2–W5: objectives and key results (off the board), check-ins move curren
   assert.ok(again.success);
   assert.deepEqual([again.objectives[0]!.keyResults[0]!.progress, again.objectives[0]!.keyResults[0]!.override, again.objectives[0]!.keyResults[0]!.history.length], [100, null, 2]);
   assert.equal((await sql`SELECT count(*)::int AS n FROM key_result_check_ins WHERE task_id = ${kr.id}`)[0]!.n, 2);
+  // Live check: goals items aren't "items from a removed list" on their document.
+  viewerId = t.owner;
+  const keys = await docs.readDocRowKeysAction(t.ws, "goals-q1");
+  assert.deepEqual(keys.success && keys.keys, []);
   // Objectives and key results never show on the board.
   const board = await sql`SELECT count(*)::int AS n FROM tasks WHERE workspace_id = ${t.ws} AND on_board AND item_type IN ('objective', 'key_result')`;
   assert.equal(board[0]!.n, 0);
