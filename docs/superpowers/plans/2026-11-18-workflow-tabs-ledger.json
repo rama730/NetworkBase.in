@@ -368,9 +368,9 @@
       "text": "A4.1 Meetings core — Goal: dated meeting documents with attendees, series, reminders, Finish with carry-over. Build: migration workspacemeetingseries, workspace",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": "A4.1a live 2026-11-23 (see 38.11 W1, W3, W5, W8, W9). A4.1b to build: Meetings calendar (W10), personal .ics feed, Overview card, My work's meetings, nb meetings/decisions (W12), D1 notifications for decisions."
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-23: A4.1a (41dee2f44…bdecbb0c1) + A4.1b (0a79e0c38, 6f730b6e4) + phone links (f96d46367 batch). W1, W3, W5, W8–W12 live."
     },
     {
       "key": "A4.2",
@@ -378,9 +378,9 @@
       "text": "A4.2 Decisions: ADR shape, supersede, reverse — Journeys: D1 W4, W7.",
       "kind": "unit",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-23 (f96d46367, web+worker SUCCESS): W4, W7 in Chrome on wt-test-a2-3; nb decisions list; notices to attendees (DB test; security fix filters readers ships with A4.9)."
     },
     {
       "key": "A4.3",
@@ -7128,9 +7128,9 @@
       "text": "Action items and decisions",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-23 (f96d46367): D-001 recorded with ADR body (Context · Decision · Consequences); header status select Decided → Proposed kept after reload."
     },
     {
       "key": "38.11.W5",
@@ -7158,9 +7158,9 @@
       "text": "Superseding a decision",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-23: Supersede D-001 → D-002 (D-001 Superseded by D-002, D-002 Supersedes D-001); Reverse D-002 with a reason shows Reversed: reason."
     },
     {
       "key": "38.11.W8",
@@ -7188,9 +7188,9 @@
       "text": "Calendar and .ics",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/meeting-doc.spec.ts; tests/unit/meeting-rules.test.ts",
+      "evidence": "Live 2026-11-23 (0a79e0c38+6f730b6e4): Meetings calendar shows WT Weekly on 23 and 30 Nov; Get my link → feed 200, 2 VEVENTs at 15:20Z, titles only, no action items."
     },
     {
       "key": "38.11.W11",
@@ -7198,9 +7198,9 @@
       "text": "Phone and public",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts",
+      "evidence": "Live 2026-11-23 (f96d46367): phone Section → Meetings lists by date, Calendar and Open action items open from the row; public readers get no attendee names (DB test meetings W1)."
     },
     {
       "key": "38.11.W12",
@@ -7208,9 +7208,9 @@
       "text": "CLI and agents",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "packages/nb-cli/test/meetings.test.mjs",
+      "evidence": "Live 2026-11-23: nb meetings list / --past and nb decisions list against production (superseded by D-002, reversed)."
     },
     {
       "key": "38.11.call1",
@@ -7228,9 +7228,9 @@
       "text": "Every decision uses the ADR shape (Context · Decision · Consequences); there's no separate ADR type. [call]",
       "kind": "call",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts",
+      "evidence": "Live 2026-11-23: every recorded decision is written in the ADR shape."
     },
     {
       "key": "38.11.call3",
@@ -7278,9 +7278,9 @@
       "text": "A personal read-only .ics feed of your meetings; no calendar sync. [call]",
       "kind": "call",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts",
+      "evidence": "Live 2026-11-23: personal read-only .ics link, SHA-256 kept, New link / Stop the link."
     },
     {
       "key": "38.11.call8",
@@ -8346,6 +8346,36 @@
       "key": "38.11.call9",
       "section": "38.11",
       "text": "A4.1 (2026-11-23): A4.1 ships in two parts. A4.1a: Meetings' + opens New meeting (type, title defaulting to \"Meeting · Jan 7\", date and time in the workspace's ",
+      "kind": "call",
+      "milestone": "A4",
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-23: A4.1a + A4.1b checked in Chrome; Overview card Next: WT Weekly · Nov 30 · Mon 20:50 · 1 open action item; My work Today’s meetings 20:50 WT Weekly."
+    },
+    {
+      "key": "38.11.call10",
+      "section": "38.11",
+      "text": "A4.2 (2026-11-23): every decision is written in the ADR shape (# title · Context · Decision · Consequences) when recorded. The decision header (S5): Scale icon ",
+      "kind": "call",
+      "milestone": "A4",
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-23 (f96d46367): A4.2 decisions as call 10."
+    },
+    {
+      "key": "38.11.call11",
+      "section": "38.11",
+      "text": "A4.3–A4.8, A4.10, A4.11, A4.13, A4.14 (2026-11-23): the meeting types are data in MEETINGTYPES (headings in order, an optional one-line guide under a heading, D",
+      "kind": "call",
+      "milestone": "A4",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.11.call12",
+      "section": "38.11",
+      "text": "A4.9 (2026-11-23): Board meeting is a type (Agenda · Reports · Motions · Minutes · Decisions) with a Board size asked in New meeting and kept by the series. Und",
       "kind": "call",
       "milestone": "A4",
       "status": "todo",
