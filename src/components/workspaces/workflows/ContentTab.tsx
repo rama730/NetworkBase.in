@@ -114,7 +114,7 @@ export function ContentTab({ projectId, projectSlug, projectName, currentUserId,
   );
 
   const ideasRail = (
-    <aside aria-label="Ideas" className="w-full shrink-0 space-y-2 lg:w-60" data-testid="content-ideas">
+    <aside aria-label="Ideas" className="w-full shrink-0 space-y-2 lg:order-first lg:w-60" data-testid="content-ideas">
       <h3 className="flex items-center gap-1.5 text-[12px] font-semibold"><Lightbulb aria-hidden="true" className="size-3.5" />Ideas <span className="font-mono font-normal text-muted-foreground">{ideas.length}</span></h3>
       {data?.canEdit ? (
         <div className="flex gap-1.5">

@@ -120,9 +120,10 @@ export function ContentSettingsEditor({ projectId, current, onDone, inline = fal
 }
 
 /** W4.2 and S6 of the New module: channels, type, format, keyword, audience, brief, and the publish time. */
-export function ContentDetailsFields({ projectId, initialChannels = [] }: { projectId: string; initialChannels?: string[] }) {
+export function ContentDetailsFields({ projectId, initialChannels = [], publishDay = null }: { projectId: string; initialChannels?: string[]; publishDay?: string | null }) {
   const { data } = useContent(projectId);
   const [picked, setPicked] = useState<string[]>(initialChannels);
+  const [time, setTime] = useState<string | null>(null);
   if (!data) return <div aria-hidden="true" className="nb-skeleton h-24 rounded-[6px]" />;
   if (!data.settings) return <p className="text-[13px] text-muted-foreground">An owner or admin sets up Content’s channels first.</p>;
   const live = data.settings.channels.filter((c) => !c.archived);
@@ -145,11 +146,15 @@ export function ContentDetailsFields({ projectId, initialChannels = [] }: { proj
           </select></SelectWrap>
         </Field>
         <Field label={`Publish time (${data.timeZone})`} htmlFor="content-time">
-          <input id="content-time" name="contentTime" type="time" defaultValue={data.settings.defaultTime} className={inputClassName(false)} />
+          <input id="content-time" name="contentTime" type="time" value={time ?? data.settings.defaultTime} onChange={(e) => setTime(e.target.value)} className={inputClassName(false)} />
         </Field>
         <Field label="Keyword (optional)" htmlFor="content-keyword"><input id="content-keyword" name="contentKeyword" maxLength={120} className={inputClassName(false)} /></Field>
         <Field label="Audience (optional)" htmlFor="content-audience"><input id="content-audience" name="contentAudience" maxLength={120} className={inputClassName(false)} /></Field>
       </div>
+      {/* W4.3: when it publishes, in words. */}
+      <p className="text-xs text-muted-foreground" data-testid="content-publishes">{publishDay
+        ? `Publishes ${new Date(`${publishDay.slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })} at ${time ?? data.settings.defaultTime} (${data.timeZone})`
+        : "No publish date yet: it waits in To schedule."}</p>
       <Field label="Brief (optional)" htmlFor="content-brief"><textarea id="content-brief" name="contentBrief" rows={2} maxLength={5000} className={cn(inputClassName(false), "resize-none py-2")} /></Field>
     </div>
   );

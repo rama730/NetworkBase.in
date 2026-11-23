@@ -97,3 +97,14 @@ test('W11 and viewers: a phone opens on This week with the Ideas section; viewer
   expect(await axeViolations(page)).toEqual([]);
   await page.screenshot({ path: 'test-results/content-tab/phone.png' });
 });
+
+test('W4: a channel quick-add opens Content with that channel picked and says when it publishes', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('content-quick-adds').getByRole('button', { name: 'Instagram' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: 'Instagram', pressed: true })).toBeVisible();
+  await expect(dialog.getByTestId('content-publishes')).toHaveText('No publish date yet: it waits in To schedule.');
+  await dialog.getByLabel('Publish date').fill('2026-11-27');
+  await dialog.getByLabel('Publish time (Asia/Kolkata)').fill('18:30');
+  await expect(dialog.getByTestId('content-publishes')).toHaveText(/^Publishes .*27.* at 18:30 \(Asia\/Kolkata\)$/);
+});

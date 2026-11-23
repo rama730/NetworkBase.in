@@ -426,7 +426,7 @@ export default function CreateTaskModal({
               {/* Report 38.7 S6 (A2.4): a request's type and its questions. */}
               {kind === "request" ? <RequestDetailsFields projectId={projectId} /> : null}
               {/* Report 38.8 W4 (A2.7): a content piece's channels, type and publish time. */}
-              {kind === "content" ? <ContentDetailsFields projectId={projectId} initialChannels={initialChannels} /> : null}
+              {kind === "content" ? <ContentDetailsFields projectId={projectId} initialChannels={initialChannels} publishDay={dueDate.trim() || null} /> : null}
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">
