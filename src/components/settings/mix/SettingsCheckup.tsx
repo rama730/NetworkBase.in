@@ -7,7 +7,7 @@ import { feedbackError, toast } from "@/lib/feedback";
 import { LOW_RECOVERY_CODES, type CheckupItem } from "@/lib/settings/checkup";
 import { formatCalendarDate } from "@/lib/ui/date-formatting";
 import { cn } from "@/lib/utils";
-import { jumpToSetting } from "./jump";
+import { jumpToSetting, openSetting } from "./jump";
 import { useSettingsSummary } from "./useSettingsSummary";
 
 /** Ask for the verification email again (same route as the verify page; one a minute). */
@@ -59,7 +59,7 @@ export function SettingsCheckup() {
         return { t: "Verify your email", d: verify.state === "sent" ? "Link sent. Open it from your inbox, then come back." : "So security emails and sign-in links reach you.",
           act: verify.state === "sent" ? <span className="nbs-meta">Sent · check your inbox</span> : <Button type="button" variant="outline" size="sm" pending={verify.state === "sending"} onClick={() => void verify.send()}>Send link</Button> };
       case "twostep":
-        return { t: "Turn on two-step verification", d: "A code from your phone at each sign-in.", act: <Button type="button" size="sm" onClick={() => jumpToSetting("settings-security-twostep")}>Set up</Button> };
+        return { t: "Turn on two-step verification", d: "A code from your phone at each sign-in.", act: <Button type="button" size="sm" onClick={() => openSetting("settings-security-twostep", "twostep-setup")}>Set up</Button> };
       case "codes":
         return { t: summary.recoveryCodesLeft > 0 ? "Make new recovery codes" : "Save your recovery codes", d: summary.recoveryCodesLeft > 0 && summary.recoveryCodesLeft <= LOW_RECOVERY_CODES ? `Only ${summary.recoveryCodesLeft} left. You’ll need one if you lose your phone.` : "You’ll need one if you lose your phone.", act: <Button type="button" variant="outline" size="sm" onClick={() => jumpToSetting("settings-security-codes")}>Show codes</Button> };
       case "browser":

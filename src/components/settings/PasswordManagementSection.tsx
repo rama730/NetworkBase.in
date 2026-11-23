@@ -5,12 +5,16 @@ import { toast, feedbackError } from "@/lib/feedback";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff} from "lucide-react";
+import { Eye, EyeOff, KeyRound } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SavedTick } from "@/components/ui/SavedTick";
+import { Tag } from "@/components/settings/mix/parts";
+import { SecurityListRow } from "@/components/settings/ui/SecurityListRow";
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from "@/components/auth/TurnstileWidget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatDateTime } from "@/lib/ui/date-formatting";
+import { formatCalendarDate } from "@/lib/ui/date-formatting";
 import { PasswordStrengthMeter } from "@/components/settings/PasswordStrengthMeter";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { useChangePassword } from "@/hooks/useSettingsQueries";
@@ -52,14 +56,25 @@ export default function PasswordManagementSection({
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaKey, setCaptchaKey] = useState(0);
 
+  const [savedCount, setSavedCount] = useState(0);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const dirty = isEditing && Boolean(currentPassword || newPassword || confirmPassword);
+  // Leaving a half-filled form asks first (settings mix v2, improvement 16).
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  // "Not you?" in the log opens this form.
+  useEffect(() => {
+    const open = (event: Event) => { if ((event as CustomEvent).detail === "password") { setIsEditing(true); window.setTimeout(() => document.getElementById(hasPassword ? "current-password" : "new-password")?.focus(), 50); } };
+    window.addEventListener("nbs:open", open);
+    return () => window.removeEventListener("nbs:open", open);
+  }, [hasPassword]);
   const isChangingPassword = changePasswordMutation.isPending;
   const title = hasPassword ? "Change password" : "Set a password";
-  const statusLabel = hasPassword ? "Password set" : "No password set";
-  const helperCopy = hasPassword
-    ? `Use at least ${PASSWORD_MIN_LENGTH} characters.`
-    : `Add one with at least ${PASSWORD_MIN_LENGTH} characters to sign in with your email.`;
   const passwordPolicy = getPasswordPolicyResult(newPassword);
-  const formattedLastChanged = lastChangedAt ? formatDateTime(lastChangedAt) : null;
 
   // Once the password meets the policy, ask whether it has appeared in a data breach, after a short pause in typing,
   // so the answer arrives while the person is still on the form and not as a rejection on submit.
@@ -117,7 +132,7 @@ export default function PasswordManagementSection({
       return;
     }
 
-    toast.success(hasPassword ? "Password updated" : "Password added");
+    setSavedCount((n) => n + 1);
     resetForm();
     setIsEditing(false);
     queryClient.setQueryData<SecurityData>(queryKeys.settings.security(), (current) => current ? {
@@ -143,21 +158,20 @@ export default function PasswordManagementSection({
 
   const content = (
     <>
-      <div id="settings-security-password" className="scroll-mt-6 space-y-4" data-testid="security-password-section">
-        <div className="flex min-h-16 flex-col justify-center gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h4 className="nb-ui-label text-foreground">Password</h4>
-            <p className="nb-compact mt-1 text-muted-foreground">{statusLabel}. {helperCopy}</p>
-            {formattedLastChanged ? <p className="nb-meta mt-1 text-muted-foreground">Last changed {formattedLastChanged}</p> : null}
-          </div>
-
-        {!isEditing ? (
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-            {title}
-          </Button>
-        ) : null}
-        </div>
-
+      <SecurityListRow
+        id="settings-security-password"
+        tile={<span className="tile" aria-hidden="true"><KeyRound strokeWidth={1.75} /></span>}
+        title="Password"
+        badges={hasPassword ? null : <Tag>Not set</Tag>}
+        details={hasPassword
+          ? `Set${lastChangedAt ? ` · changed ${formatCalendarDate(lastChangedAt)}` : ""} · at least ${PASSWORD_MIN_LENGTH} characters, checked against breaches`
+          : `Add one with at least ${PASSWORD_MIN_LENGTH} characters to sign in with your email and a password.`}
+        action={<>
+          {savedCount ? <SavedTick key={savedCount} /> : null}
+          {!isEditing ? <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>{hasPassword ? "Change" : "Set a password"}</Button> : null}
+        </>}
+      >
+      <div data-testid="security-password-section">
         {isEditing ? (
           <form onSubmit={(event) => void handlePasswordSubmit(event)} className="space-y-4">
             {hasPassword ? (
@@ -221,7 +235,7 @@ export default function PasswordManagementSection({
                     {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
-                <PasswordStrengthMeter password={newPassword} result={passwordPolicy} />
+                <PasswordStrengthMeter squares password={newPassword} result={passwordPolicy} />
                 {submitted && !passwordPolicy.ok && <p id="new-password-error" className="nb-compact text-destructive">{passwordPolicy.error}</p>}
                 {breached ? <p role="alert" className="nb-compact text-destructive">This password has appeared in a data breach. Choose a different one.</p> : null}
               </div>
@@ -282,9 +296,10 @@ export default function PasswordManagementSection({
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 disabled={isChangingPassword}
                 onClick={() => {
+                  if (dirty) { setDiscardOpen(true); return; }
                   resetForm();
                   setIsEditing(false);
                 }}
@@ -295,6 +310,17 @@ export default function PasswordManagementSection({
           </form>
         ) : null}
       </div>
+      </SecurityListRow>
+
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        title="Discard the new password?"
+        description="What you typed is cleared. Your password stays as it is."
+        confirmLabel="Discard"
+        variant="destructive"
+        onConfirm={() => { resetForm(); setIsEditing(false); }}
+      />
 
       <SecurityStepUpDialog
         open={stepUpOpen}

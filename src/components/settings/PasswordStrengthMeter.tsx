@@ -43,7 +43,8 @@ function calculateStrength(password: string, result: PasswordPolicyResult): Stre
 export function PasswordStrengthMeter({
     password,
     result: passwordPolicy,
-}: PasswordStrengthMeterProps) {
+    squares = false,
+}: PasswordStrengthMeterProps & { squares?: boolean }) {
     const strength = calculateStrength(password, passwordPolicy);
 
     if (!password) return null;
@@ -62,6 +63,14 @@ export function PasswordStrengthMeter({
 
     return (
         <div className="space-y-2">
+            {squares ? (
+                /* Settings mix: ten square cells; clay while weak, green once strong. */
+                <div className="grid h-1.5 grid-cols-10 gap-[3px]" role="progressbar" aria-label="Password strength" aria-valuemin={0} aria-valuemax={4} aria-valuenow={strength.score} aria-valuetext={strength.label || undefined}>
+                    {Array.from({ length: 10 }, (_, cell) => (
+                        <i key={cell} className={cell < Math.round(strength.score * 2.5) ? (strength.score >= 3 ? "bg-[var(--status-success)]" : "bg-primary") : "bg-border"} />
+                    ))}
+                </div>
+            ) : (
             <div className="flex gap-1" role="progressbar" aria-label="Password strength" aria-valuemin={0} aria-valuemax={4} aria-valuenow={strength.score} aria-valuetext={strength.label || undefined}>
                 {[1, 2, 3, 4].map((level) => (
                     <div
@@ -73,6 +82,7 @@ export function PasswordStrengthMeter({
                     />
                 ))}
             </div>
+            )}
 
             <div className="flex items-center justify-between">
                 <span role="status" className={`nb-meta font-medium ${strength.color}`}>

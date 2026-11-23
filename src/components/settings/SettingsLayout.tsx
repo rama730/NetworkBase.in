@@ -140,7 +140,8 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     const land = (initial: boolean) => {
       const target = resolveSettingsTarget({ hash: window.location.hash, tab: new URLSearchParams(window.location.search).get("tab") });
       setActiveSection(target.section);
-      if (!window.location.hash || sectionFromElementId(window.location.hash.slice(1)) === null) {
+      // No hash, a hash outside Settings, or an older anchor that was renamed: the address shows where it landed.
+      if (window.location.hash.slice(1) !== target.elementId) {
         window.history.replaceState(window.history.state, "", `/settings#${target.elementId}`);
       }
       // Only a link the person followed moves focus; the first paint of the page does not steal it.

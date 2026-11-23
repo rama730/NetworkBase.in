@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { formatDistanceToNow } from "@/lib/utils/date";
-import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, Github, KeyRound, Link2, Mail, Terminal } from "lucide-react";
+import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, Github, KeyRound, Link2, Terminal } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -24,7 +23,8 @@ import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCar
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { useExtensionSessionsData, useIntegrationsData } from "@/hooks/useSettingsQueries";
-import { startGithubIdentityLink, startGoogleIdentityLink } from "@/lib/github/oauth-client";
+import { startGithubIdentityLink } from "@/lib/github/oauth-client";
+import { jumpToSetting } from "@/components/settings/mix/jump";
 import { GitHubCommitAttributionSettings } from "@/components/settings/GitHubCommitAttributionSettings";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { revokeExtensionSession, generateExtensionToken, getActiveExtensionSessions } from "@/app/actions/extension-sessions";
@@ -33,41 +33,11 @@ import {
   revokePersonalAccessToken,
   type PersonalAccessTokenSummary,
 } from "@/app/actions/personal-access-tokens";
-import type { AuthConnectionMethod, ExtensionSessionData, ExtensionSessionsData, IntegrationsAuthProvider } from "@/types/settingsTypes";
+import type { ExtensionSessionData, ExtensionSessionsData } from "@/types/settingsTypes";
 import { copyText } from "@/lib/clipboard";
 import { TerminalBlock } from "@/components/ui/terminal-block";
 import { PersonalTokenForm, scopeWords } from "@/components/settings/PersonalTokenForm";
 import { AgentActivity } from "@/components/settings/AgentActivity";
-
-const PROVIDER_ICONS: Partial<Record<IntegrationsAuthProvider, string>> = {
-  google: "/skill-icons/v1/logos-google-icon.svg",
-  github: "/skill-icons/v1/github.svg",
-};
-
-function ProviderIcon({ provider }: { provider: IntegrationsAuthProvider }) {
-  const src = PROVIDER_ICONS[provider];
-  return src
-    ? <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted"><Image src={src} alt="" width={24} height={24} unoptimized className="size-6 object-contain" /></span>
-    : <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><Mail className="size-4" strokeWidth={1.75} /></span>;
-}
-
-function ProviderRow({ provider, linking, onLink, onUnlink }: { provider: AuthConnectionMethod; linking: boolean; onLink: () => void; onUnlink: () => void }) {
-  const stateLabel = provider.state === "primary" ? "Main sign-in method" : provider.state === "linked" ? "Connected" : provider.state === "not_linked" ? "Not connected" : String(provider.state).split("_").join(" ");
-  return <div className="flex min-h-16 flex-col justify-center gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
-    <div className="flex min-w-0 items-center gap-3">
-      <ProviderIcon provider={provider.provider} />
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><h4 className="nb-ui-label text-foreground">{provider.label}</h4><span className="nb-meta text-muted-foreground">{stateLabel}</span></div>
-        <p className="nb-compact mt-1 text-muted-foreground">{provider.detail}</p>
-        {provider.secondaryDetail ? <p className="nb-meta mt-1 text-muted-foreground">{provider.secondaryDetail}</p> : null}
-        {provider.provider === "github" && provider.state === "not_linked" ? <p className="nb-meta mt-1 text-muted-foreground">Connecting asks GitHub to let NetworkBase read your repositories and organizations, and your email, so you can import and sync workspaces.</p> : null}
-      </div>
-    </div>
-    {provider.state === "not_linked" && provider.provider !== "email" ? <Button pending={linking} className="self-start sm:self-auto" size="sm" variant="outline" onClick={onLink} disabled={linking}>Connect</Button> : null}
-    {provider.state !== "not_linked" && (provider.provider === "google" || provider.provider === "github") ? <Button className="self-start sm:self-auto pointer-coarse:h-11" size="sm" variant="outline" onClick={onUnlink}>Disconnect</Button> : null}
-    {provider.state === "not_linked" && provider.provider === "email" ? <Button size="sm" variant="outline" asChild><Link href="/settings#settings-security">Set a password</Link></Button> : null}
-  </div>;
-}
 
 const IDE_ICON_ASSETS: Record<string, string> = {
   vscode: "/ide-icons/vscode.png",
@@ -225,15 +195,12 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
 }
 
 export default function IntegrationsSettings() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { data, isLoading, error, refetch } = useIntegrationsData();
+  const { data, error, refetch } = useIntegrationsData();
   const { data: sessionData, isLoading: sessionsLoading, isError: sessionsFailed, refetch: refetchSessions } = useExtensionSessionsData();
   // Sessions past the first page, loaded on request; dropped whenever the first page is read again.
   const [more, setMore] = useState<{ base: unknown; sessions: ExtensionSessionData[]; cursor: string | null; hasMore: boolean } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [linking, setLinking] = useState<IntegrationsAuthProvider | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [showTokenGen, setShowTokenGen] = useState(false);
   const [generatingToken, setGeneratingToken] = useState(false);
@@ -242,10 +209,7 @@ export default function IntegrationsSettings() {
   const [replacementConfirmOpen, setReplacementConfirmOpen] = useState(false);
   const [stepUpOpen, setStepUpOpen] = useState(false);
   // What the verification is for: replacing the GitHub account, or creating a manual token.
-  const [stepUpPurpose, setStepUpPurpose] = useState<"replace" | "token" | "unlink">("replace");
-  const [unlinkConfirm, setUnlinkConfirm] = useState<"google" | "github" | null>(null);
-  // Remembered across the verification dialog, which opens after the confirmation has closed.
-  const unlinkPending = useRef<"google" | "github" | null>(null);
+  const [stepUpPurpose, setStepUpPurpose] = useState<"replace" | "token">("replace");
   const [revokeTarget, setRevokeTarget] = useState<ExtensionSessionData | null>(null);
   const [replacementMethods, setReplacementMethods] = useState<Array<"totp" | "recovery_code" | "password">>([]);
   const [replacementFactorId, setReplacementFactorId] = useState<string | undefined>();
@@ -302,31 +266,6 @@ export default function IntegrationsSettings() {
   const activeSessions = allSessions.filter((s) => s.clientVersion !== "pending" && (s.editorPlatform || s.editorName));
   const pendingSessions = allSessions.filter((s) => s.clientVersion === "pending" || (!s.editorPlatform && !s.editorName));
 
-  useEffect(() => {
-    // Google comes back through the same callback; a return with no error code means it linked.
-    const google = searchParams.get("identityProvider") === "google";
-    const outcome = searchParams.get("githubIdentity") ?? (google ? "linked" : null);
-    if (!outcome) return;
-    const label = google ? "Google" : "GitHub";
-    if (outcome === "replaced") {
-      toast.success("GitHub account replaced");
-    } else if (outcome === "linked") {
-      toast.success(`${label} account linked`);
-    } else if (outcome === "already_linked") {
-      toast.info(`This ${label} account is already linked`);
-    } else if (outcome === "error") {
-      const desc = searchParams.get("githubErrorDesc");
-      toast.error(feedbackError(desc || `Couldn’t link ${label} account. Try again.`, `Couldn’t link ${label} account. Try again.`));
-    }
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("identityProvider");
-    next.delete("githubIdentity");
-    next.delete("githubErrorDesc");
-    const query = next.toString();
-    router.replace(`/settings${query ? `?${query}` : ""}#settings-integrations`, { scroll: false });
-    void refetch();
-  }, [refetch, router, searchParams]);
-
   // ponytail: auto-reconcile live connection when manual token has been generated. ceiling: 60s cutoff (20 attempts * 3s). upgrade: WebSocket Realtime push invalidation on token attachment.
   useEffect(() => {
     if (!generatedToken || !showTokenGen) return;
@@ -374,21 +313,7 @@ export default function IntegrationsSettings() {
     }
   };
 
-  const linkProvider = async (provider: "google" | "github") => {
-    setLinking(provider);
-    try {
-      if (provider === "github") {
-        await startGithubIdentityLink();
-        return;
-      }
-      await startGoogleIdentityLink();
-    } catch (linkError) {
-      toast.error(feedbackError(linkError instanceof Error ? linkError.message : `Couldn’t link ${provider}`, "Action couldn’t finish"));
-      setLinking(null);
-    }
-  };
-
-  const requestStepUp = async (purpose: "replace" | "token" | "unlink") => {
+  const requestStepUp = async (purpose: "replace" | "token") => {
     try {
       const response = await fetch("/api/v1/auth/security-step-up");
       const payload = await response.json().catch(() => null);
@@ -402,7 +327,7 @@ export default function IntegrationsSettings() {
           )
         : [];
       if (!methods.length) {
-        toast.warning(purpose === "token" ? "Add a password or authenticator in Security before creating a token" : purpose === "unlink" ? "Add a password or authenticator in Security before disconnecting a sign-in method" : "Add a sign-in method first");
+        toast.warning(purpose === "token" ? "Add a password or authenticator in Security before creating a token" : "Add a sign-in method first");
         return;
       }
       setStepUpPurpose(purpose);
@@ -419,24 +344,6 @@ export default function IntegrationsSettings() {
     }
   };
   const requestReplacementVerification = () => requestStepUp("replace");
-
-  const unlinkProvider = async (provider: "google" | "github") => {
-    unlinkPending.current = provider;
-    const response = await fetch("/api/v1/integrations/unlink", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider }) });
-    const payload = await response.json().catch(() => null);
-    if (response.status === 403 && payload?.errorCode === "STEP_UP_REQUIRED") {
-      await requestStepUp("unlink");
-      return;
-    }
-    if (!response.ok || payload?.success === false) {
-      toast.warning(payload?.message || "That sign-in method could not be disconnected");
-      return;
-    }
-    unlinkPending.current = null;
-    toast.success(`${provider === "google" ? "Google" : "GitHub"} disconnected`);
-    void refetch();
-    void queryClient.invalidateQueries({ queryKey: queryKeys.settings.security() });
-  };
 
   const replaceGithubAccount = async () => {
     setReplacingGithub(true);
@@ -498,10 +405,6 @@ export default function IntegrationsSettings() {
   return <div className="space-y-8">
     {error ? <ErrorNotice what="Integrations" onRetry={() => void refetch()} /> : null}
 
-    <SettingsSectionCard id="settings-integrations-connections" title="Sign-in methods" description={data?.summary || "Sign-in methods attached to this account."}>
-      {isLoading ? <div role="status" aria-label="Loading connections" className="nb-skeleton h-32 rounded-md" /> : <div>{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} onUnlink={() => setUnlinkConfirm(provider.provider as "google" | "github")} />)}</div>}
-    </SettingsSectionCard>
-
     <SettingsSectionCard id="settings-integrations-github" title="GitHub" description="Repository access is managed from each workspace; this page only shows account-level status.">
       <div className="flex min-h-16 flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
@@ -514,7 +417,7 @@ export default function IntegrationsSettings() {
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           {data?.githubService.recoveryAction === "replace_account" ? <Button pending={replacingGithub} variant="outline" size="sm" onClick={() => setReplacementConfirmOpen(true)} disabled={replacingGithub}>Replace GitHub account</Button> : null}
-          {data?.githubService.recoveryAction === "add_fallback_sign_in" ? <Button pending={linking === "google"} variant="outline" size="sm" onClick={() => void linkProvider("google")} disabled={linking === "google"}>Link Google first</Button> : null}
+          {data?.githubService.recoveryAction === "add_fallback_sign_in" ? <Button variant="outline" size="sm" onClick={() => jumpToSetting("settings-security-google")}>Link Google first</Button> : null}
           {data?.githubService.usageCount ? <Button variant="outline" size="sm" onClick={() => setProjectsExpanded((prev) => !prev)} aria-expanded={projectsExpanded}><Link2 className="size-4" strokeWidth={1.75} />Review {data.githubService.usageCount} project{data.githubService.usageCount === 1 ? "" : "s"}<ChevronDown className={`size-4 transition-transform duration-[130ms] ${projectsExpanded ? "rotate-180" : ""}`} /></Button> : null}
         </div>
       </div>
@@ -746,21 +649,11 @@ export default function IntegrationsSettings() {
     <SecurityStepUpDialog
       open={stepUpOpen}
       onOpenChange={setStepUpOpen}
-      title={stepUpPurpose === "token" ? "Verify before creating a token" : stepUpPurpose === "unlink" ? "Verify before disconnecting" : "Verify this GitHub account change"}
-      description={stepUpPurpose === "token" ? "A token signs in as you for a year, so confirm it is you first." : stepUpPurpose === "unlink" ? "Removing a way to sign in is a security change, so confirm it is you first." : "Confirm your NetworkBase identity before the unavailable GitHub account is detached."}
+      title={stepUpPurpose === "token" ? "Verify before creating a token" : "Verify this GitHub account change"}
+      description={stepUpPurpose === "token" ? "A token signs in as you for a year, so confirm it is you first." : "Confirm your NetworkBase identity before the unavailable GitHub account is detached."}
       availableMethods={replacementMethods}
       factorId={replacementFactorId}
-      onVerified={stepUpPurpose === "token" ? handleGenerateToken : stepUpPurpose === "unlink" ? () => (unlinkPending.current ? unlinkProvider(unlinkPending.current) : undefined) : replaceGithubAccount}
-    />
-
-    <ConfirmDialog
-      open={unlinkConfirm !== null}
-      onOpenChange={(open) => { if (!open) setUnlinkConfirm(null); }}
-      title={`Disconnect ${unlinkConfirm === "google" ? "Google" : "GitHub"}?`}
-      description={unlinkConfirm === "github" ? "You will no longer be able to sign in with GitHub, and repository access from this account stops. Your workspaces stay as they are." : "You will no longer be able to sign in with Google. You need another way to sign in first."}
-      confirmLabel="Disconnect"
-      variant="destructive"
-      onConfirm={() => (unlinkConfirm ? unlinkProvider(unlinkConfirm) : undefined)}
+      onVerified={stepUpPurpose === "token" ? handleGenerateToken : replaceGithubAccount}
     />
 
     <ConfirmDialog

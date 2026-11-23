@@ -1,11 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Laptop } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Tag } from '@/components/settings/mix/parts'
+import { SecurityListRow } from '@/components/settings/ui/SecurityListRow'
+import { SettingsSectionCard } from '@/components/settings/ui/SettingsSectionCard'
+import { logDate } from '@/lib/settings/format'
 
 type TrustedBrowser = { id: string; label: string; lastSeenAt: string; trustedUntil: string; current: boolean }
-
-const formatDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 
 /** Browsers that skip the two-step code ("Trust this browser for 30 days"), each one removable. */
 export default function TrustedBrowsers() {
@@ -41,31 +44,22 @@ export default function TrustedBrowsers() {
         await load()
     }
 
-    if (error) return <p className="text-sm text-[var(--status-danger)]">{error}</p>
-    if (!browsers) return <div className="h-11 nb-skeleton rounded-[4px]" aria-busy="true" />
-    if (browsers.length === 0) {
-        return <p className="text-sm text-muted-foreground">No browser skips the code. Tick “Trust this browser for 30 days” when you enter your code to add one.</p>
-    }
-    return (
-        <div className="space-y-3">
-            <ul className="divide-y divide-border rounded-md border border-border">
-                {browsers.map((browser) => (
-                    <li key={browser.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{browser.label}{browser.current ? <span className="ml-2 text-xs font-normal text-muted-foreground">This browser</span> : null}</p>
-                            <p className="text-xs text-muted-foreground">Skips the code until {formatDay(browser.trustedUntil)} · last used {formatDay(browser.lastSeenAt)}</p>
-                        </div>
-                        <Button type="button" variant="outline" size="sm" className="shrink-0" disabled={busy !== null} onClick={() => void stop(browser.id)}>
-                            {busy === browser.id ? 'Stopping…' : 'Stop trusting'}
-                        </Button>
-                    </li>
-                ))}
-            </ul>
-            {browsers.length > 1 ? (
-                <Button type="button" variant="ghost" size="sm" disabled={busy !== null} onClick={() => void stop()}>
-                    {busy === 'all' ? 'Stopping…' : 'Stop trusting all browsers'}
-                </Button>
-            ) : null}
+    const help = 'These browsers skip the two-step code for 30 days. Signing out other devices stops trusting all of them.'
+    const body = error ? <p role="alert" className="nbs-ghelp text-[var(--status-danger)]">{error}</p>
+        : !browsers ? <div className="nbs-li" aria-busy="true"><span className="tile" /><div className="h-8 nb-skeleton rounded-[4px]" /><span /></div>
+        : browsers.length === 0 ? <p className="nbs-ghelp">No browser skips the code. Tick “Trust this browser for 30 days” when you enter your code to add one.</p>
+        : <div className="nbs-list">
+            {browsers.map((browser) => (
+                <SecurityListRow key={browser.id} icon={Laptop} title={browser.current ? 'This browser' : browser.label}
+                    badges={<Tag>Trusted</Tag>}
+                    details={`${browser.current ? `${browser.label} · ` : ''}skips the code until ${logDate(browser.trustedUntil)} · used ${logDate(browser.lastSeenAt)}`}
+                    action={<Button type="button" variant="ghost" size="sm" pending={busy === browser.id} disabled={busy !== null} onClick={() => void stop(browser.id)}>Stop trusting</Button>} />
+            ))}
         </div>
+    return (
+        <SettingsSectionCard id="settings-security-trusted" title="Trusted browsers" description={help} flush
+            right={browsers && browsers.length > 1 ? <Button type="button" variant="ghost" size="sm" pending={busy === 'all'} disabled={busy !== null} onClick={() => void stop()}>Stop trusting all</Button> : undefined}>
+            {body}
+        </SettingsSectionCard>
     )
 }

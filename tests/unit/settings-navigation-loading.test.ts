@@ -37,3 +37,11 @@ test("every section has an address that resolves back to itself", () => {
     assert.equal(resolveSettingsTarget({ hash: new URL(settingsSectionHref(section), "https://x.test").hash }).section, section);
   }
 });
+
+test("older anchors that the mix layout renamed still land on their setting", () => {
+  assert.deepEqual(resolveSettingsTarget({ hash: "#settings-security-authenticator" }), { elementId: "settings-security-twostep", section: "security" });
+  assert.deepEqual(resolveSettingsTarget({ hash: "#settings-integrations-connections" }), { elementId: "settings-security-signin", section: "security" });
+  assert.deepEqual(resolveSettingsTarget({ hash: "#settings-security-sign-ins" }), { elementId: "settings-security-activity", section: "security" });
+  assert.deepEqual(resolveSettingsTarget({ hash: "#settings-integrations-pat" }), { elementId: "settings-integrations-tokens", section: "integrations" });
+  assert.deepEqual(resolveSettingsTarget({ hash: "#settings-integrations-token" }), { elementId: "settings-integrations-tokens", section: "integrations" });
+});

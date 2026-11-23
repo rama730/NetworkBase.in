@@ -1,17 +1,13 @@
 "use client";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import {
   CheckCircle2,
   Copy,
   Download,
-  KeyRound,
-  Shield,
-  ShieldCheck,
-  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +26,10 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
 import type { MfaFactor, SecurityData } from "@/types/settingsTypes";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
-import { formatCalendarDate, formatDateTime } from "@/lib/ui/date-formatting";
+import { formatCalendarDate } from "@/lib/ui/date-formatting";
+import { SecurityListRow } from "@/components/settings/ui/SecurityListRow";
+import { Tag } from "@/components/settings/mix/parts";
+import { LOW_RECOVERY_CODES } from "@/lib/settings/checkup";
 import { saveBlob } from "@/lib/download";
 import { copyText } from "@/lib/clipboard";
 
@@ -287,121 +286,58 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
     saveBlob(blob, "networkbase-recovery-codes.txt");
   };
 
+  // The check-up's "Set up" opens the setup here.
+  useEffect(() => {
+    const open = (event: Event) => { if ((event as CustomEvent).detail === "twostep-setup" && !hasVerifiedFactor) setSetupOpen(true); };
+    window.addEventListener("nbs:open", open);
+    return () => window.removeEventListener("nbs:open", open);
+  }, [hasVerifiedFactor]);
+
+  const codesLeft = recoveryCodes?.remainingCount ?? 0;
+  const codesLow = Boolean(recoveryCodes?.configured) && codesLeft <= LOW_RECOVERY_CODES;
+  const makeCodes = () => {
+    if (recoveryCodes?.configured) {
+      setProtectedAction({ type: "regenerate-recovery-codes" });
+      setStepUpOpen(true);
+      return;
+    }
+    void handleGenerateRecoveryCodes("initial").catch((error) => {
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t make recovery codes", "Couldn’t make recovery codes"));
+    });
+  };
+
+  // Settings mix: two rows in Security › How you sign in. Existing codes are stored hashed, so they can't be shown
+  // again: "Make new codes" replaces them and shows the new ones once.
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        {hasVerifiedFactor ? (
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 nb-meta font-medium text-foreground">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Enabled
-          </div>
-        ) : (
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 nb-meta font-medium text-muted-foreground">
-            <Shield className="h-3.5 w-3.5" />
-            Not set up
-          </div>
-        )}
-        <p className="nb-compact text-muted-foreground">
-          {hasVerifiedFactor
-            ? "Sign-in asks for a code from your authenticator app."
-            : "Add a 6-digit code from an authenticator app for extra protection."}
-        </p>
-      </div>
-
-      {primaryVerifiedFactor ? (
-        <div className="space-y-2">
-            <div
-              key={primaryVerifiedFactor.id}
-              className="flex min-h-16 items-center justify-between rounded-md border border-border bg-background p-3"
-            >
-              <div className="flex items-center gap-3">
-                <div className="rounded-md bg-muted p-2">
-                  <KeyRound className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                </div>
-                <div>
-                  <div className="nb-ui-label text-foreground">
-                    Authenticator app
-                  </div>
-                  <div className="nb-meta text-muted-foreground">
-                    Added {primaryVerifiedFactor.created_at ? formatCalendarDate(primaryVerifiedFactor.created_at) : "recently"}
-                  </div>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="pointer-coarse:h-11 pointer-coarse:w-11"
-                aria-label="Remove authenticator app"
-                title="Remove authenticator app"
-                onClick={() => setUnenrollId(primaryVerifiedFactor.id)}
-              >
-                <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.75} aria-hidden="true" />
-              </Button>
-            </div>
-        </div>
-      ) : (
-        <p className="nb-compact text-muted-foreground">
-          No authenticator app is set up yet.
-        </p>
-      )}
-
-      {pendingFactors.length > 0 ? (
-        <div className="rounded-md border border-border bg-muted px-4 py-3 nb-compact text-foreground">
-          A previous authenticator setup was not completed. Starting again will replace the unfinished setup.
-        </div>
+    <>
+      <SecurityListRow
+        id="settings-security-twostep"
+        tile={<span className="tile" aria-hidden="true">2</span>}
+        title="Two-step verification"
+        badges={hasVerifiedFactor ? <Tag tone="ok" tick>On</Tag> : <Tag tone="hot">Off</Tag>}
+        details={hasVerifiedFactor
+          ? `Authenticator app · added ${primaryVerifiedFactor?.created_at ? formatCalendarDate(primaryVerifiedFactor.created_at) : "recently"}`
+          : "A 6-digit code from an authenticator app at each sign-in"}
+        summary={pendingFactors.length > 0 ? "A setup was started and not finished. Setting up again replaces it." : undefined}
+        action={primaryVerifiedFactor
+          ? <Button variant="ghost" size="sm" onClick={() => setUnenrollId(primaryVerifiedFactor.id)}>Remove</Button>
+          : <Button size="sm" onClick={() => setSetupOpen(true)}>Set up</Button>}
+      />
+      {hasVerifiedFactor ? (
+        <SecurityListRow
+          id="settings-security-codes"
+          tile={<span className="tile" aria-hidden="true">#</span>}
+          title="Recovery codes"
+          badges={codesLow ? <Tag tone="hot">{codesLeft === 0 ? "None left" : "Few left"}</Tag> : null}
+          details={recoveryCodes?.configured
+            ? `${codesLeft} of 10 left${recoveryCodes.generatedAt ? ` · made ${formatCalendarDate(recoveryCodes.generatedAt)}` : ""} · each works once if you lose your phone`
+            : "Not made yet · one-time codes for when you lose your phone"}
+          action={<Button variant={codesLow || !recoveryCodes?.configured ? "default" : "outline"} size="sm" pending={protectedActionPending} disabled={protectedActionPending} onClick={makeCodes}>{recoveryCodes?.configured ? "Make new codes" : "Make codes"}</Button>}
+        />
       ) : null}
 
-      {hasVerifiedFactor ? (
-        <div className="rounded-md border border-border bg-muted/50 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <div className="nb-ui-label text-foreground">
-                Recovery codes
-              </div>
-              <div className="nb-compact text-muted-foreground">
-                {recoveryCodes?.configured
-                  ? `${recoveryCodes.remainingCount} code${recoveryCodes.remainingCount === 1 ? "" : "s"} remaining`
-                  : "Generate one-time recovery codes in case you lose access to your authenticator app."}
-              </div>
-              {recoveryCodes?.generatedAt ? (
-                <div className="nb-meta text-muted-foreground">
-                  Last generated {formatDateTime(recoveryCodes.generatedAt)}
-                </div>
-              ) : null}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={protectedActionPending}
-              onClick={() => {
-                if (recoveryCodes?.configured) {
-                  setProtectedAction({ type: "regenerate-recovery-codes" });
-                  setStepUpOpen(true);
-                  return;
-                }
-                void handleGenerateRecoveryCodes("initial").catch((error) => {
-                  toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t generate recovery codes", "Couldn’t generate recovery codes"));
-                });
-              }}
-            >
-              {recoveryCodes?.configured ? "Regenerate recovery codes" : "Generate recovery codes"}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-md border border-border bg-muted/50 p-4 nb-compact text-muted-foreground">
-          Recovery codes become available after you finish authenticator setup.
-        </div>
-      )}
-
-      {!hasVerifiedFactor ? <div className="flex flex-wrap gap-3">
-        <Button onClick={() => setSetupOpen(true)}>
-          Set up authenticator app
-        </Button>
-      </div> : null}
-
       <Dialog open={setupOpen} onOpenChange={(open) => { void handleSetupOpenChange(open); }}>
-        <DialogContent>
+        <DialogContent eyebrow="Two-step verification · set up">
           <DialogHeader>
             <DialogTitle>
               {pendingFactor ? "Verify your authenticator app" : "Set up an authenticator app"}
@@ -526,7 +462,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       <Dialog open={!!revealedRecoveryCodes} onOpenChange={(open) => { if (!open) setRevealedRecoveryCodes(null); }}>
         {/* Shown once: only the button closes this, so a stray Esc or click outside cannot throw the codes away. */}
         <DialogContent
-          
+          eyebrow="Recovery codes · shown once"
           showCloseButton={false}
           onEscapeKeyDown={(event) => event.preventDefault()}
           onPointerDownOutside={(event) => event.preventDefault()}
@@ -540,12 +476,8 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="grid gap-2 rounded-md border border-border bg-muted/50 p-4 font-mono text-[13px] sm:grid-cols-2">
-              {(revealedRecoveryCodes?.codes ?? []).map((code) => (
-                <div key={code} className="rounded-md border border-border bg-background px-3 py-2 text-foreground">
-                  {code}
-                </div>
-              ))}
+            <div className="nbs-codes">
+              {(revealedRecoveryCodes?.codes ?? []).map((code) => <span key={code} className="text-foreground">{code}</span>)}
             </div>
             <div className="flex flex-wrap gap-3">
               <Button type="button" variant="outline" size="sm" onClick={() => void handleCopyRecoveryCodes()}>
@@ -597,6 +529,6 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
           await executeProtectedAction(protectedAction);
         }}
       />
-    </div>
+    </>
   );
 }

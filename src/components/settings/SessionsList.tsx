@@ -1,5 +1,4 @@
 "use client";
-import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,11 +7,14 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast, feedbackError } from "@/lib/feedback";
-import { parseUserAgent, cleanIpAddress } from "@/lib/utils/device";
+import { parseUserAgent } from "@/lib/utils/device";
+import { activeAgo, logDate, shortIp } from "@/lib/settings/format";
+import { padCount } from "@/lib/ui/tab-marker";
+import { Tag } from "@/components/settings/mix/parts";
+import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import type { Session } from "@/types/settingsTypes";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { SecurityListRow } from "@/components/settings/ui/SecurityListRow";
-import { formatDateTime } from "@/lib/ui/date-formatting";
 
 interface SessionsListProps {
   initialSessions?: Session[];
@@ -128,36 +130,39 @@ export function SessionsList({
 
   const hasOtherSessions = sessions.some((session) => !session.is_current);
 
-  return (
-    <div className="space-y-4">
-      {hasOtherSessions ? (
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={busy}
-            onClick={() => {
-              // With something to verify with, the verification dialog is the confirmation; otherwise ask once.
-              if (availableStepUpMethods.length > 0) setStepUpOpen(true);
-              else setPendingAction({ type: "others" });
-            }}
-          >
-            {busy && (pendingAction?.type === "others" || stepUpOpen) ? (
-              <>
-                <PixelBeat />
-                Signing out…
-              </>
-            ) : (
-              "Sign out other devices"
-            )}
-          </Button>
-        </div>
-      ) : null}
+  // "Not you?" in the log starts the same sign-out of the other devices.
+  useEffect(() => {
+    const open = (event: Event) => {
+      if ((event as CustomEvent).detail !== "signout-others") return;
+      if (availableStepUpMethods.length > 0) setStepUpOpen(true);
+      else setPendingAction({ type: "others" });
+    };
+    window.addEventListener("nbs:open", open);
+    return () => window.removeEventListener("nbs:open", open);
+  }, [availableStepUpMethods.length]);
 
+  const signOutOthers = hasOtherSessions ? (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={busy}
+      pending={busy && (pendingAction?.type === "others" || stepUpOpen)}
+      onClick={() => {
+        // With something to verify with, the verification dialog is the confirmation; otherwise ask once.
+        if (availableStepUpMethods.length > 0) setStepUpOpen(true);
+        else setPendingAction({ type: "others" });
+      }}
+    >
+      Sign out other devices
+    </Button>
+  ) : null;
+
+  return (
+    <SettingsSectionCard id="settings-security-sessions" testId="security-active-sessions-section" title="Signed-in devices" state={padCount(sessions.length) + (nextOffset !== null ? "+" : "")} stateOk right={signOutOthers} flush findKeys="devices sessions">
       {sessions.length === 0 ? (
-        <p className="nb-compact text-muted-foreground">No active sessions found.</p>
+        <p className="nbs-ghelp">No devices are signed in.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="nbs-list">
           {sessions.map((session) => {
             const rawUa = session.device_info?.userAgent;
             const { browser, os, icon: Icon } = parseUserAgent(
@@ -165,65 +170,34 @@ export function SessionsList({
                 ? undefined
                 : rawUa
             );
-            const cleanIp = cleanIpAddress(session.ip_address);
             const deviceTitle = `${browser} on ${os}`;
+            const ip = shortIp(session.ip_address);
+            const detail = [
+              session.created_at ? `Signed in ${logDate(session.created_at)}` : null,
+              session.is_current ? "active now" : activeAgo(session.last_active) || null,
+              ip || null,
+            ].filter(Boolean).join(" · ");
 
             return (
               <SecurityListRow
                 key={session.id}
                 icon={Icon}
                 title={deviceTitle}
-                badges={
-                  <>
-                    {session.is_current ? (
-                      <span className="inline-flex rounded-full border border-border bg-muted px-2 py-0.5 nb-meta font-medium text-foreground">
-                        This device
-                      </span>
-                    ) : null}
-                    {session.aal === "aal2" ? (
-                      <span className="inline-flex rounded-full border border-border bg-muted px-2 py-0.5 nb-meta font-medium text-foreground">
-                        MFA verified
-                      </span>
-                    ) : null}
-                  </>
-                }
-                details={
-                  <>
-                    <span>{cleanIp}</span>
-                    {session.created_at ? (
-                      <>
-                        <span>•</span>
-                        <span>Signed in {formatDateTime(session.created_at)}</span>
-                      </>
-                    ) : null}
-                    <span>•</span>
-                    <span>Last active {session.last_active ? formatDateTime(session.last_active) : "unknown"}</span>
-                  </>
-                }
+                badges={<>
+                  {session.is_current ? <Tag tone="hot">This device</Tag> : null}
+                  {session.aal === "aal2" ? <Tag>Two-step</Tag> : null}
+                </>}
+                details={detail}
                 action={
-                  session.is_current ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Sign out this device (${deviceTitle})`}
-                      disabled={busy}
-                      title="Sign out this device"
-                      onClick={() => setPendingAction({ type: "current", id: session.id })}
-                    >
-                      <LogOut className="h-4 w-4 text-destructive" strokeWidth={1.75} aria-hidden="true" />
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Sign out ${deviceTitle}`}
-                      disabled={busy}
-                      title={`Sign out ${deviceTitle}`}
-                      onClick={() => setPendingAction({ type: "remote", id: session.id, name: deviceTitle })}
-                    >
-                      <LogOut className="h-4 w-4 text-muted-foreground hover:text-destructive" strokeWidth={1.75} aria-hidden="true" />
-                    </Button>
-                  )
+                  <button
+                    type="button"
+                    className="nbs-ib danger"
+                    aria-label={session.is_current ? `Sign out this device (${deviceTitle})` : `Sign out ${deviceTitle}`}
+                    disabled={busy}
+                    onClick={() => setPendingAction(session.is_current ? { type: "current", id: session.id } : { type: "remote", id: session.id, name: deviceTitle })}
+                  >
+                    <LogOut strokeWidth={1.75} aria-hidden="true" />
+                  </button>
                 }
               />
             );
@@ -232,9 +206,9 @@ export function SessionsList({
       )}
 
       {nextOffset !== null ? (
-        <Button pending={loadingMore} pendingLabel="Loading" variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => void loadMore()} disabled={loadingMore}>
-          {"Show more devices"}
-        </Button>
+        <div className="nbs-more">
+          <Button pending={loadingMore} pendingLabel="Loading" variant="ghost" size="sm" onClick={() => void loadMore()} disabled={loadingMore}>Show more devices</Button>
+        </div>
       ) : null}
 
       {/* Confirm Sign Out on Current Device */}
@@ -297,6 +271,6 @@ export function SessionsList({
           await handleLogOutOthers();
         }}
       />
-    </div>
+    </SettingsSectionCard>
   );
 }

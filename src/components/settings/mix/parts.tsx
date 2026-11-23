@@ -61,7 +61,7 @@ export function SegChoice<T extends string>({ label, value, options, onChange, b
 export type LogEntry = { key: string; date: string; dateTime?: string; event: ReactNode; detail?: ReactNode; risky?: boolean; actions?: ReactNode };
 
 /** The one log layout (mix): a mono date column, the event, the detail in mono, actions on the right. First four, then "Show all NN". */
-export function LogList({ entries, first = 4, empty, label }: { entries: LogEntry[]; first?: number; empty?: ReactNode; label: string }) {
+export function LogList({ entries, first = 4, empty, label, older }: { entries: LogEntry[]; first?: number; empty?: ReactNode; label: string; older?: ReactNode }) {
   const [all, setAll] = useState(false);
   if (!entries.length) return <>{empty ?? null}</>;
   const shown = all ? entries : entries.slice(0, first);
@@ -74,11 +74,15 @@ export function LogList({ entries, first = 4, empty, label }: { entries: LogEntr
           <div className="acts">{entry.actions}</div>
         </div>
       ))}
-      {entries.length > first ? (
+      {entries.length > first || older ? (
         <div className="nbs-more">
-          <Button type="button" variant="ghost" size="sm" onClick={() => setAll((value) => !value)}>
-            {all ? "Show fewer" : <>Show all <span aria-hidden="true">{padCount(entries.length)}</span><span className="sr-only">{entries.length}</span></>}
-          </Button>
+          {entries.length > first ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => setAll((value) => !value)}>
+              {all ? "Show fewer" : <>Show all <span aria-hidden="true">{padCount(entries.length)}</span><span className="sr-only">{entries.length}</span></>}
+            </Button>
+          ) : null}
+          {/* Older entries still on the server: offered once everything loaded here is showing. */}
+          {older && (all || entries.length <= first) ? older : null}
         </div>
       ) : null}
     </div>

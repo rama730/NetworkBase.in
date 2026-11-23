@@ -5,17 +5,16 @@ import dynamic from "next/dynamic";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
-import { SettingsStatusChips } from "@/components/settings/ui/SettingsStatusChips";
 import { useSecurityData } from "@/hooks/useSettingsQueries";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPasswordCredential } from "@/lib/auth/account-identity";
 import { buildSecurityStepUpMethods } from "@/lib/security/step-up-methods";
 
-const SecurityActivitySection = dynamic(() => import("@/components/settings/SecurityActivitySection"));
+const SecurityLog = dynamic(() => import("@/components/settings/SecurityLog").then((mod) => mod.SecurityLog));
 const PasswordManagementSection = dynamic(() => import("@/components/settings/PasswordManagementSection"));
 const MfaSetup = dynamic(() => import("@/components/auth/MfaSetup").then((mod) => mod.MfaSetup));
 const SessionsList = dynamic(() => import("@/components/settings/SessionsList").then((mod) => mod.SessionsList));
-const LoginHistory = dynamic(() => import("@/components/auth/LoginHistory"));
+const SignInMethods = dynamic(() => import("@/components/settings/SignInMethods").then((mod) => mod.SignInMethods));
 const TrustedBrowsers = dynamic(() => import("@/components/settings/TrustedBrowsers"));
 
 function SecuritySectionsSkeleton() {
@@ -47,95 +46,48 @@ export default function SecurityPage() {
     // one; a password is offered only when there is no authenticator.
     const sensitiveStepUpMethods = hasTotp ? passwordStepUpMethods : sessionStepUpMethods;
 
-    if (isLoading) {
-        return (
-            <div className="space-y-8">
-                <SecuritySectionsSkeleton />
-            </div>
-        );
+    if (isLoading) return <SecuritySectionsSkeleton />;
+
+    // Without the data there is nothing true to show: no sections built from defaults beside an error.
+    if (securityErrorMessage && !securityData) {
+        return <div className="nbs-body pt-4"><ErrorNotice what="Security settings" onRetry={() => void refetch()} /></div>;
     }
 
     return (
-        <div className="space-y-8">
-
-            {/* Without the data there is nothing true to show: no sections built from defaults beside an error. */}
-            {securityErrorMessage && !securityData ? (
-                <ErrorNotice what="Security settings" onRetry={() => void refetch()} />
-            ) : null}
-            {securityErrorMessage && !securityData ? null : (
-            <>
-            <SettingsStatusChips
-                label="Security summary"
-                items={[
-                    { label: "Password", value: passwordAvailable ? "Set" : "Not set", tone: passwordAvailable ? "ok" : "attention", href: "/settings#settings-security-password" },
-                    { label: "Two-step verification", value: hasTotp ? "On" : "Off", tone: hasTotp ? "ok" : "attention", href: "/settings#settings-security-authenticator" },
-                    { label: "Signed-in devices", value: String(securityData?.sessions?.length ?? 0), href: "/settings#settings-security-sessions" },
-                ]}
-            />
-            <p className="nb-compact text-muted-foreground">
-                Don’t recognize something? <a href="#settings-security-sessions" className="font-medium text-foreground underline underline-offset-4">Sign out other devices</a>, then <a href="#settings-security-password" className="font-medium text-foreground underline underline-offset-4">change your password</a>.
+        <>
+            <p className="nbs-callout">
+                Don’t recognize something? <a href="#settings-security-sessions">Sign out other devices</a>, then <a href="#settings-security-password">change your password</a>.
             </p>
-            <SettingsSectionCard
-                title="Two-step verification"
-                description="Manage the verification methods that protect your account."
-            >
-                <div id="settings-security-authenticator" data-testid="security-authenticator-section" className="scroll-mt-6">
-                    <div className="mb-4">
-                        <h4 className="nb-ui-label text-foreground">Authenticator app</h4>
-                        <p className="nb-compact mt-1 text-muted-foreground">Use a 6-digit code as an extra verification step.</p>
-                    </div>
-                    <MfaSetup
-                        initialFactors={securityData?.mfaFactors}
-                        recoveryCodes={securityData?.recoveryCodes}
-                    />
-                </div>
-                <div className="my-6 border-t border-border" />
-                <PasswordManagementSection
-                    hasPassword={passwordAvailable}
-                    lastChangedAt={securityData?.password?.lastChangedAt}
-                    availableStepUpMethods={passwordStepUpMethods}
-                    primaryTotpFactorId={primaryVerifiedFactorId}
-                />
-            </SettingsSectionCard>
-
-            <SettingsSectionCard
-                title="Signed-in devices"
-                description="Review signed-in devices and recent access to your account."
-            >
-                <div id="settings-security-sessions" data-testid="security-active-sessions-section" className="scroll-mt-6">
-                    <h4 className="nb-ui-label mb-3 text-foreground">Signed-in devices</h4>
-                    <SessionsList
-                        initialSessions={securityData?.sessions}
-                        initialNextOffset={securityData?.sessionsNextOffset}
-                        availableStepUpMethods={sensitiveStepUpMethods}
+            <SettingsSectionCard id="settings-security-signin" title="How you sign in" state={hasTotp ? "two-step on" : "two-step off"} stateOk={hasTotp} flush findKeys="sign in login methods password google github email">
+                <div className="nbs-list">
+                    <PasswordManagementSection
+                        hasPassword={passwordAvailable}
+                        lastChangedAt={securityData?.password?.lastChangedAt}
+                        availableStepUpMethods={passwordStepUpMethods}
                         primaryTotpFactorId={primaryVerifiedFactorId}
                     />
-                </div>
-                {primaryVerifiedFactorId ? <>
-                <div className="my-6 border-t border-border" />
-                <div id="settings-security-trusted" className="scroll-mt-6">
-                    <h4 className="nb-ui-label mb-1 text-foreground">Trusted browsers</h4>
-                    <p className="mb-3 text-sm text-muted-foreground">These browsers skip the two-step code for 30 days. Signing out your other devices stops trusting all of them.</p>
-                    <TrustedBrowsers />
-                </div>
-                </> : null}
-                <div className="my-6 border-t border-border" />
-                <div id="settings-security-sign-ins" data-testid="security-login-activity-section" className="scroll-mt-6">
-                    <h4 className="nb-ui-label mb-3 text-foreground">Recent sign-ins</h4>
-                    <LoginHistory initialHistory={securityData?.loginHistory} availableStepUpMethods={sensitiveStepUpMethods} primaryTotpFactorId={primaryVerifiedFactorId} />
+                    <SignInMethods />
+                    <MfaSetup initialFactors={securityData?.mfaFactors} recoveryCodes={securityData?.recoveryCodes} />
                 </div>
             </SettingsSectionCard>
 
-            <SettingsSectionCard
-                title="Sign-in activity"
-                description="Review recent changes to account protection."
-                testId="security-activity-section"
-                id="settings-security-activity"
-            >
-                <SecurityActivitySection activity={securityData?.securityActivity} hasMore={securityData?.securityActivityHasMore} availableStepUpMethods={sensitiveStepUpMethods} primaryTotpFactorId={primaryVerifiedFactorId} />
-            </SettingsSectionCard>
-            </>
-            )}
-        </div>
+            <SessionsList
+                initialSessions={securityData?.sessions}
+                initialNextOffset={securityData?.sessionsNextOffset}
+                availableStepUpMethods={sensitiveStepUpMethods}
+                primaryTotpFactorId={primaryVerifiedFactorId}
+            />
+
+            {primaryVerifiedFactorId ? <TrustedBrowsers /> : null}
+
+            <SecurityLog
+                activity={securityData?.securityActivity}
+                hasMore={securityData?.securityActivityHasMore}
+                history={securityData?.loginHistory}
+                sessions={securityData?.sessions}
+                availableStepUpMethods={sensitiveStepUpMethods}
+                primaryTotpFactorId={primaryVerifiedFactorId}
+            />
+        </>
     );
 }

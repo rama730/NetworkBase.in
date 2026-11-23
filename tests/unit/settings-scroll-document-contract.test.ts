@@ -69,8 +69,10 @@ test("personal settings keep only the necessary grouped surfaces", () => {
   const integrations = read("src/components/settings/IntegrationsSettings.tsx");
 
   assert.doesNotMatch(security, /SecurityOverviewSection|Security Overview/);
-  assert.match(security, /title="Two-step verification"/);
-  assert.match(security, /title="Signed-in devices"/);
+  // Settings mix v2: sign-in lives in one group; devices and the log are their own groups.
+  assert.match(security, /title="How you sign in"/);
+  assert.match(read("src/components/settings/SessionsList.tsx"), /title="Signed-in devices"/);
+  assert.match(read("src/components/settings/SecurityLog.tsx"), /title="Changes and sign-ins"/);
   assert.doesNotMatch(privacy, /Privacy Overview|OverviewChip/);
   assert.match(privacy, /title="Who can see and reach you"/);
   assert.match(privacy, /title="Blocked people"/);
