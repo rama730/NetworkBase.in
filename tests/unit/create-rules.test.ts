@@ -9,7 +9,9 @@ test("moduleTabs: Task first, added types in the fixed order, Assignment last in
   assert.deepEqual(addedTypes(["requests", "bugs", "meetings"]), ["bug", "request"]);
   assert.deepEqual(moduleTabs(addedTypes(["requests", "bugs"])), ["task", "bug", "request"]);
   assert.deepEqual(moduleTabs([], { assignment: true }), ["task", "assignment"]);
-  assert.deepEqual(moduleTabs(addedTypes(["roadmap"])), ["task"], "a type the registry doesn't define yet adds no tab");
+  assert.deepEqual(moduleTabs(addedTypes(["roadmap"])), ["task", "roadmap_item"], "A2.10: roadmap items are in the registry");
+  assert.deepEqual(addedTypes(["ideas"]), [], "a type the registry doesn't define yet adds no tab");
+  assert.deepEqual(startingStages("roadmap_item").map((s) => s.key), ["backlog", "planned", "in_progress", "testing", "launched"], "never on the board: any stage but Won't do");
 });
 
 test("startingStages and the default: a bug starts at New, Confirmed or Fixing; from Tasks at Fixing, from Bugs at New", () => {

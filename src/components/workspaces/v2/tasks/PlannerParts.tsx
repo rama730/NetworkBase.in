@@ -33,8 +33,10 @@ function Completion({ percent, source }: { percent: number; source: string }) {
  * Report 38.5 W3 (plan A1.3): a project's Work tab. Its tasks, completion, + New task with Part of filled, Add existing
  * (tasks not already in another project), and Remove from project.
  */
-export function ProjectWork({ projectId, project, canEdit, candidates, onNewTask, onOpenTask }: {
+export function ProjectWork({ projectId, project, canEdit, candidates, onNewTask, onOpenTask, noun = "project" }: {
   projectId: string; project: { id: string; title: string }; canEdit: boolean; candidates: TaskSurfaceRecord[];
+  /** A2.10: a roadmap item's work uses the same tab ("item" in its words). */
+  noun?: "project" | "item";
   onNewTask: () => void; onOpenTask: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -44,7 +46,7 @@ export function ProjectWork({ projectId, project, canEdit, candidates, onNewTask
   const [adding, setAdding] = useState("");
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
   const inProject = new Set((data?.work ?? []).map((w) => w.id));
-  const choices = candidates.filter((t) => !inProject.has(t.id) && t.itemType !== "project" && !t.partOfId && t.id !== project.id);
+  const choices = candidates.filter((t) => !inProject.has(t.id) && t.itemType !== "project" && t.itemType !== "roadmap_item" && !t.partOfId && t.id !== project.id);
 
   async function setPart(taskIds: string[], partOfId: string | null, words: string) {
     const r = await setPartOfAction({ projectId, taskIds, partOfId });
@@ -67,19 +69,19 @@ export function ProjectWork({ projectId, project, canEdit, candidates, onNewTask
             {w.dueDate ? <span className="font-mono text-[11px] text-muted-foreground">{formatTaskDueDate(w.dueDate)}</span> : null}
             <TaskStatusBadge status={w.status as never} />
             {canEdit ? (
-              <button type="button" aria-label={`Remove ${w.title} from the project`} onClick={() => void setPart([w.id], null, "Removed from the project")}
+              <button type="button" aria-label={`Remove ${w.title} from the ${noun}`} onClick={() => void setPart([w.id], null, `Removed from the ${noun}`)}
                 className="nb-touch-target inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"><X className="size-3.5" /></button>
             ) : null}
           </li>
         ))}
-        {data && !data.work.length ? <li className="py-2 text-[13px] text-muted-foreground">No work in this project yet</li> : null}
+        {data && !data.work.length ? <li className="py-2 text-[13px] text-muted-foreground">No work in this {noun} yet</li> : null}
       </ul>
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={onNewTask} className="inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-xs font-medium hover:bg-muted"><Plus className="size-3.5" aria-hidden="true" />New task</button>
           {choices.length ? (
             <select aria-label="Add an existing task" value={adding} className={cn(selectClassName(), "h-[34px] w-auto max-w-xs text-xs")}
-              onChange={(e) => { setAdding(""); if (e.target.value) void setPart([e.target.value], project.id, "Added to the project"); }}>
+              onChange={(e) => { setAdding(""); if (e.target.value) void setPart([e.target.value], project.id, `Added to the ${noun}`); }}>
               <option value="">Add existing…</option>
               {choices.map((t) => <option key={t.id} value={t.id}>{t.taskNumber && t.projectKey ? `${formatTaskId(t.projectKey, t.taskNumber)} · ` : ""}{t.title}</option>)}
             </select>

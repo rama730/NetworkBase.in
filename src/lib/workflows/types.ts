@@ -53,6 +53,14 @@ export const WORKFLOW_TYPES: Record<string, WorkflowType> = {
       s("cancelled", "Canceled", "done", false, true),
     ],
   },
+  // Report 38.9 T2 part 5 (A2.10): roadmap items never sit on the board; their work tasks do.
+  roadmap_item: {
+    id: "roadmap_item", label: "Roadmap item", icon: "Map", joinStage: null, doneStage: "launched",
+    stages: [
+      s("backlog", "Backlog", "todo", false), s("planned", "Planned", "todo", false), s("in_progress", "In progress", "in_progress", false),
+      s("testing", "Testing", "in_progress", false), s("launched", "Launched", "done", false), s("wont_do", "Won’t do", "done", false, true),
+    ],
+  },
 };
 
 export function workflowType(id: string): WorkflowType {

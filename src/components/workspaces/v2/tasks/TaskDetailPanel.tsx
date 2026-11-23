@@ -282,7 +282,7 @@ export default function TaskDetailPanel({
       ...(showAssignmentTab ? [{ id: "assignment" as const, label: "Assignment", icon: Users }] : []),
       { id: "details" as const, label: "Details", icon: CheckSquare },
       // Report 38.5 S5: a project's work replaces its subtasks.
-      resource.task.itemType === "project"
+      resource.task.itemType === "project" || resource.task.itemType === "roadmap_item"
         ? { id: "subtasks" as const, label: "Work", icon: CheckCircle2, count: undefined }
         : {
         id: "subtasks" as const,
@@ -705,8 +705,8 @@ export default function TaskDetailPanel({
                 hidden={activeTab !== "subtasks"}
               >
                 {MASTER_TAB_NOTE("subtasks")}
-                {resource.task.itemType === "project" ? (
-                  <ProjectWork projectId={projectId} project={{ id: resource.task.id, title: resource.task.title }} canEdit={canEditTask} candidates={projectCandidates}
+                {resource.task.itemType === "project" || resource.task.itemType === "roadmap_item" ? (
+                  <ProjectWork projectId={projectId} project={{ id: resource.task.id, title: resource.task.title }} noun={resource.task.itemType === "roadmap_item" ? "item" : "project"} canEdit={canEditTask} candidates={projectCandidates}
                     onNewTask={() => onNewInProject?.({ id: resource.task.id, title: resource.task.title })} onOpenTask={(id) => onOpenTaskById?.(id)} />
                 ) : (
                 <SubtasksTab

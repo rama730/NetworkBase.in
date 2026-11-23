@@ -14,6 +14,7 @@ import { footerLine, moduleTabs, sectionsFor, sprintApplies, startingStages } fr
 import { BugDetailsFields, BugSimilar, readBugFields } from "@/components/workspaces/v2/tasks/BugParts";
 import { readRequestFields, RequestDetailsFields } from "@/components/workspaces/v2/tasks/RequestParts";
 import { ContentDetailsFields, readContentFields } from "@/components/workspaces/v2/tasks/ContentParts";
+import { readRoadmapFields, RoadmapDetailsFields } from "@/components/workspaces/v2/tasks/RoadmapParts";
 import { defaultStageFor } from "@/lib/workflows/rules";
 import { workflowType } from "@/lib/workflows/types";
 import {
@@ -265,6 +266,7 @@ export default function CreateTaskModal({
         ...(kind === "bug" ? { typeFields: readBugFields(formData) } : {}),
         ...(kind === "request" ? { typeFields: readRequestFields(formData, attachments.map((a) => a.id)) } : {}),
         ...(kind === "content" ? { typeFields: readContentFields(formData, dueDate.trim() || null) } : {}),
+        ...(kind === "roadmap_item" ? { typeFields: readRoadmapFields(formData) } : {}),
       };
 
       const parsed = taskEditorDraftSchema.safeParse(draft);
@@ -427,6 +429,8 @@ export default function CreateTaskModal({
               {kind === "request" ? <RequestDetailsFields projectId={projectId} /> : null}
               {/* Report 38.8 W4 (A2.7): a content piece's channels, type and publish time. */}
               {kind === "content" ? <ContentDetailsFields projectId={projectId} initialChannels={initialChannels} publishDay={dueDate.trim() || null} /> : null}
+              {/* Report 38.9 W2 (A2.10): a roadmap item's outcome, column and type. */}
+              {kind === "roadmap_item" ? <RoadmapDetailsFields /> : null}
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">

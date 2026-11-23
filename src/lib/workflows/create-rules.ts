@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requestFieldsSchema } from "@/lib/workflows/requests";
 import { contentFieldsSchema } from "@/lib/workflows/content";
 import { bugFieldsSchema } from "@/lib/workflows/bugs";
+import { roadmapFieldsSchema } from "@/lib/workflows/roadmap";
 import { WORKFLOW_CATALOG } from "@/lib/workflows/catalog";
 import { isOnBoard } from "@/lib/workflows/rules";
 import { WORKFLOW_TYPES, workflowType } from "@/lib/workflows/types";
@@ -55,12 +56,12 @@ export function newMenuLine(type: string) {
 /** Labels and sections a type changes (28.11): Request's due is Need by, Content's is Publish date. */
 export function sectionsFor(type: string) {
   // A project has a start and an end (38.5 part 5).
-  return { dueLabel: type === "request" ? "Need by" : type === "content" ? "Publish date" : type === "project" ? "End date" : "Due date", startDate: type === "project" };
+  return { dueLabel: type === "request" ? "Need by" : type === "content" ? "Publish date" : type === "project" ? "End date" : type === "roadmap_item" ? "Target date" : "Due date", startDate: type === "project" };
 }
 
 /** A sprint only means something for an item on the board. */
 export const sprintApplies = (type: string, stage: string | null) => type === "task" || isOnBoard(type, stage);
 
 /** Each type's own fields (its round writes them; none yet), checked the same way in the module and on the server. */
-const TYPE_FIELDS: Record<string, z.ZodType<Record<string, unknown>>> = { bug: bugFieldsSchema, request: requestFieldsSchema, content: contentFieldsSchema };
+const TYPE_FIELDS: Record<string, z.ZodType<Record<string, unknown>>> = { bug: bugFieldsSchema, request: requestFieldsSchema, content: contentFieldsSchema, roadmap_item: roadmapFieldsSchema };
 export const typeFieldsSchema = (type: string) => TYPE_FIELDS[type] ?? z.object({}).strict();

@@ -14,6 +14,7 @@ import { workflowTabsFor } from '@/components/workspaces/workflows/workflow-icon
 import { BugsTab } from '@/components/workspaces/workflows/BugsTab';
 import { RequestsTab } from '@/components/workspaces/workflows/RequestsTab';
 import { ContentTab } from '@/components/workspaces/workflows/ContentTab';
+import { RoadmapTab } from '@/components/workspaces/workflows/RoadmapTab';
 import { WORKFLOW_CATALOG } from '@/lib/workflows/catalog';
 import type { WorkspaceWorkflows } from '@/lib/workflows/rules';
 import dynamic from 'next/dynamic';
@@ -1246,6 +1247,12 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 if (tab.id === "content") return (
                     <TabErrorBoundary tabName="Content">
                         <ContentTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || null} members={allMembers} sprints={sprints as unknown[]} canPlanSprints={canManageProjectSettings} />
+                    </TabErrorBoundary>
+                );
+                // Report 38.9 (A2.10): Roadmap.
+                if (tab.id === "roadmap") return (
+                    <TabErrorBoundary tabName="Roadmap">
+                        <RoadmapTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || null} members={allMembers} sprints={sprints as unknown[]} canPlanSprints={canManageProjectSettings} />
                     </TabErrorBoundary>
                 );
                 // Report 38.7 (A2.4): Requests.

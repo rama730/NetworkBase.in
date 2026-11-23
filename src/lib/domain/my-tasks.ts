@@ -23,7 +23,9 @@ export function orgCopyRules(userId: string) {
 
 /** Tasks assigned to this person, alone or with their team. */
 export function mineSql(userId: string) {
-  return sql`(${tasks.assigneeId} = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))`;
+  // Report 38.9 part 8 (A2.10): a roadmap item is in My work only while it's in Now; its work tasks are always.
+  return sql`((${tasks.assigneeId} = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))
+    AND NOT (${tasks.itemType} = 'roadmap_item' AND coalesce(${tasks.typeFields}->>'column', '') <> 'now'))`;
 }
 
 /**

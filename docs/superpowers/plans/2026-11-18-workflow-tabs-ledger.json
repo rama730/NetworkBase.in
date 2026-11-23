@@ -8301,6 +8301,16 @@
       "status": "todo",
       "test": "",
       "evidence": ""
+    },
+    {
+      "key": "38.9.call7",
+      "section": "38.9",
+      "text": "A2.10 (2026-11-23): Roadmap ships in two units (A2.10 the tab with Now · Next · Later and By stage, the item panel, work through Part of, Built by, the automati",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

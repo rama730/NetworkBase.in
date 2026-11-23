@@ -129,9 +129,9 @@ export function completion(work: Array<{ status: string; stage?: string | null }
   return { percent: 0, source: "none" as const };
 }
 
-/** Part of: work goes into projects; projects don't nest in this release. */
-export const canBePartOf = (type: string) => type !== "project";
-export const canBeParent = (type: string) => type === "project";
+/** Part of: work goes into projects or roadmap items (38.9 part 5); neither nests, and projects link to items as Built by. */
+export const canBePartOf = (type: string) => type !== "project" && type !== "roadmap_item";
+export const canBeParent = (type: string) => type === "project" || type === "roadmap_item";
 
 /**
  * Report 38.5 S3 and part 7 (plan A1.4): the Timeline. Month shows ±2 months around today, Week ±3 weeks from this

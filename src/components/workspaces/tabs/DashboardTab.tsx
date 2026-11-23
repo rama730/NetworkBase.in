@@ -8,6 +8,7 @@ import { PlannerOverviewCard } from "@/components/workspaces/dashboard/PlannerOv
 import { BugsOverviewCard } from "@/components/workspaces/dashboard/BugsOverviewCard";
 import { RequestsOverviewCard } from "@/components/workspaces/dashboard/RequestsOverviewCard";
 import { ContentOverviewCard } from "@/components/workspaces/dashboard/ContentOverviewCard";
+import { RoadmapOverviewCard } from "@/components/workspaces/dashboard/RoadmapOverviewCard";
 import { useBottomStickyRail } from "@/hooks/useBottomStickyRail";
 
 import { type ApplicationStatusResult } from "@/app/actions/applications";
@@ -78,6 +79,7 @@ export function DashboardTab({
                 {project.kind !== "organization" ? <BugsOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
                 {project.kind !== "organization" ? <RequestsOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
                 {project.kind !== "organization" ? <ContentOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
+                {project.kind !== "organization" ? <RoadmapOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
                 <RecentActivityCard projectId={project.id} started={recentActivityStarted} />
                 <OpenRolesCard
                     inOrganization={Boolean(project.parentOrg)}

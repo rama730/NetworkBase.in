@@ -473,6 +473,12 @@ export async function afterTaskTransition(
   // Report 38.8 W7.1 (A2.8): a content piece's Publish now follows its stage and writer.
   if (locked.itemType === "content") await (await import("@/lib/workflows/content-reminders")).scheduleContentReminder(taskId);
   if (locked.itemType && locked.itemType !== "task") (await import("@/lib/workflows/server")).announceWaiting(locked.projectId);
+  // Report 38.9 part 8 (A2.10): Launched and Won't do are told.
+  if (locked.itemType === "roadmap_item") await (await import("@/lib/workflows/roadmap-server")).onRoadmapTransition(taskId, locked.stage, user.id);
+  // Report 38.9 W5 (A2.10): the first work task starting moves its roadmap item to In progress.
+  if (result.status === "in_progress" && locked.currentStatus !== "in_progress" && locked.itemType !== "roadmap_item") {
+    await (await import("@/lib/workflows/roadmap-server")).startParentItem(user, taskId);
+  }
   const warnings =
     result.status === "done"
       ? await db

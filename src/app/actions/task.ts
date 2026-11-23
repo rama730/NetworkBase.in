@@ -527,14 +527,14 @@ export async function setPartOfAction(input: z.infer<typeof partOfSchema>) {
     await db.transaction(async (tx) => {
       if (partOfId) {
         const [parent] = await tx.select({ itemType: tasks.itemType }).from(tasks).where(and(eq(tasks.id, partOfId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1).for("share");
-        if (!parent || !canBeParent(parent.itemType)) throw new Error("Part of must be a project in this workspace");
+        if (!parent || !canBeParent(parent.itemType)) throw new Error("Part of must be a project or roadmap item in this workspace");
       }
       for (const taskId of taskIds) {
         const locked = await lockTaskForWrite(tx, taskId, user.id);
         if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
         const [row] = await tx.select({ itemType: tasks.itemType, kind: tasks.kind }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
         if (row?.kind === "assignment") throw new Error("Assignments can’t be Part of a project");
-        if (partOfId && (!row || !canBePartOf(row.itemType) || taskId === partOfId)) throw new Error("A project can’t be Part of another project");
+        if (partOfId && (!row || !canBePartOf(row.itemType) || taskId === partOfId)) throw new Error(row?.itemType === "roadmap_item" ? "A roadmap item can’t be Part of something else" : "A project can’t be Part of another project");
         await tx.update(tasks).set({ partOfId, updatedAt: new Date() }).where(eq(tasks.id, taskId));
       }
     });
@@ -619,7 +619,7 @@ export async function readProjectWorkAction(projectId: string, projectTaskId: st
     const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
     const work = await db.select({ id: tasks.id, taskNumber: tasks.taskNumber, title: tasks.title, status: tasks.status, stage: tasks.stage, itemType: tasks.itemType, dueDate: tasks.dueDate, assigneeId: tasks.assigneeId, sprintId: tasks.sprintId })
       .from(tasks).where(and(eq(tasks.partOfId, projectTaskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).orderBy(tasks.taskNumber).limit(200);
-    const [project] = await db.select({ typeFields: tasks.typeFields }).from(tasks).where(and(eq(tasks.id, projectTaskId), eq(tasks.projectId, projectId), eq(tasks.itemType, "project"), isNull(tasks.deletedAt))).limit(1);
+    const [project] = await db.select({ typeFields: tasks.typeFields }).from(tasks).where(and(eq(tasks.id, projectTaskId), eq(tasks.projectId, projectId), inArray(tasks.itemType, ["project", "roadmap_item"]), isNull(tasks.deletedAt))).limit(1);
     if (!project) return { success: false as const, error: "Not found" };
     const [subs] = await db.execute<{ done: number; total: number }>(sql`SELECT count(*) FILTER (WHERE completed)::int AS done, count(*)::int AS total FROM task_subtasks WHERE task_id = ${projectTaskId}`);
     const override = typeof project?.typeFields?.completionOverride === "number" ? (project.typeFields.completionOverride as number) : null;
