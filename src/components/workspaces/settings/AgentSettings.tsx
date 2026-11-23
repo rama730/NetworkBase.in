@@ -40,7 +40,7 @@ export function AgentSettings({ projectId }: { projectId: string }) {
   });
   const [saving, setSaving] = useState(false);
 
-  async function save(change: { policy?: Policy; paused?: boolean; labels?: LabelSetting }) {
+  async function save(change: { policy?: Policy; paused?: boolean; labels?: LabelSetting; membersChooseLabels?: boolean }) {
     if (saving) return;
     setSaving(true);
     try {
@@ -112,6 +112,18 @@ export function AgentSettings({ projectId }: { projectId: string }) {
               </label>
             ))}
           </fieldset>
+          {settings.data.labels !== "none" ? (
+            <div className="mt-4 flex items-start justify-between gap-6">
+              <div className="space-y-1">
+                <label htmlFor={`members-choose-${projectId}`} className="nb-compact font-medium">Let members choose</label>
+                <p id={`members-choose-help-${projectId}`} className="nb-compact text-muted-foreground">
+                  Each member may hide &ldquo;with Claude Code&rdquo; on their own work, in their own settings. They can only hide it, never show more.
+                </p>
+              </div>
+              <SettingsSwitch id={`members-choose-${projectId}`} aria-describedby={`members-choose-help-${projectId}`} checked={settings.data.membersChooseLabels} disabled={saving || !settings.data.canChangeLabels}
+                onCheckedChange={(membersChooseLabels: boolean) => void save({ membersChooseLabels })} />
+            </div>
+          ) : null}
           </div>
         </div>
       )}

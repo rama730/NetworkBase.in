@@ -66,3 +66,13 @@ test("workflow columns keep four default categories while allowing two project-s
     assert.match(migration, /CREATE TABLE public\.workspace_workflow_columns /);
     assert.match(migration, /workflow_column_id/);
 });
+
+test("member settings §3: pickers skip people whose part is completed", async () => {
+  const { normalizeAssignableMembers } = await import("../../src/lib/workspaces/task-presentation");
+  const people = normalizeAssignableMembers([
+    { id: "a", fullName: "Active", membershipRole: "member" },
+    { id: "c", fullName: "Done", membershipRole: "member", completedAt: "2026-11-20T00:00:00Z" },
+    { id: "v", fullName: "Viewer", membershipRole: "viewer" },
+  ]);
+  assert.deepEqual(people.map((p) => p.id), ["a"]);
+});

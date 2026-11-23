@@ -316,7 +316,7 @@ export async function completePart(actorId: string, projectId: string, targetUse
             {
                 projectId, actorUserId: actorId, actorName: nameOf(actor), eventKey: "members.completed" as const,
                 title: `${nameOf(person)} completed their part`, body: note ? `“${note}”` : null,
-                href: `/workspaces/${result.ws.slug ?? projectId}?tab=settings&section=members`, groupKey: `member-completed:${projectId}`,
+                href: `/workspaces/${result.ws.slug ?? projectId}?tab=settings&section=collaborators`, groupKey: `member-completed:${projectId}`,
             },
             ...(self ? [] : [{
                 projectId, actorUserId: actorId, actorName: nameOf(actor), eventKey: "members.marked_completed" as const, affectedMemberId: targetUserId,
@@ -352,7 +352,7 @@ export async function reopenPart(userId: string, projectId: string) {
     const { enqueueWorkspaceNotificationEvents } = await import("@/lib/notifications/workspace-events");
     await enqueueWorkspaceNotificationEvents([{
         projectId, actorUserId: userId, actorName: nameOf(person), eventKey: "members.reopened",
-        title: `${nameOf(person)} reopened their part`, href: `/workspaces/${ws?.slug ?? projectId}?tab=settings&section=members`, groupKey: `member-reopened:${projectId}`,
+        title: `${nameOf(person)} reopened their part`, href: `/workspaces/${ws?.slug ?? projectId}?tab=settings&section=collaborators`, groupKey: `member-reopened:${projectId}`,
     }]).catch(() => undefined);
     await markProfileCollaborationSummaryStale(userId);
     announce(projectId, userId, "reopened");
@@ -428,7 +428,7 @@ export async function leaveWorkspace(userId: string, projectId: string, input: L
         ...result.removal.assignmentNotifications,
         {
             projectId, actorUserId: userId, actorName: nameOf(person), eventKey: "members.left",
-            title: `${nameOf(person)} left ${result.ws.title ?? "the workspace"}${taskWords}`, href: `/workspaces/${result.ws.slug ?? projectId}?tab=settings&section=members`,
+            title: `${nameOf(person)} left ${result.ws.title ?? "the workspace"}${taskWords}`, href: `/workspaces/${result.ws.slug ?? projectId}?tab=settings&section=collaborators`,
             groupKey: `member-left:${projectId}`,
         },
     ]).catch(() => undefined);
@@ -660,6 +660,13 @@ export async function updateMySettings(userId: string, projectId: string, patch:
     return getMyPart(projectId, userId);
 }
 
+/** Your view (Part 1): the tab this workspace opens on for you, and your task card density. Members only. */
+export async function readViewPrefs(projectId: string, userId: string) {
+    const [m] = await db.select({ viewPrefs: workspaceMembers.viewPrefs }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId))).limit(1);
+    return (m?.viewPrefs ?? {}) as { defaultTab?: string; density?: "compact" | "comfortable" };
+}
+
 /** Ask for a different role (Part 1): the owner and admins get the request with your note. */
 export async function requestRole(userId: string, projectId: string, role: "admin" | "member" | "viewer", note?: string | null) {
     const part = await getMyPart(projectId, userId);
@@ -672,7 +679,7 @@ export async function requestRole(userId: string, projectId: string, role: "admi
     await enqueueWorkspaceNotificationEvents([{
         projectId, actorUserId: userId, actorName: nameOf(person), eventKey: "members.role_requested",
         title: `${nameOf(person)} asks to be ${role === "admin" ? "an admin" : `a ${role}`}`, body: note?.trim().slice(0, 500) || null,
-        href: `/workspaces/${part.workspace.slug ?? projectId}?tab=settings&section=members`,
+        href: `/workspaces/${part.workspace.slug ?? projectId}?tab=settings&section=collaborators`,
     }]);
     const [event] = await db.insert(workspaceNodeEvents).values({ projectId, actorId: userId, nodeId: null, type: "workspace_member.role_requested", metadata: { role, note: note ?? null }, createdAt: new Date() }).returning({ id: workspaceNodeEvents.id });
     return { requested: role, eventId: event?.id ?? null };

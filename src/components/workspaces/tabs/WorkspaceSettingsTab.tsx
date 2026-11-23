@@ -25,7 +25,7 @@ import dynamic from "next/dynamic";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Archive, Crown, Lock, RefreshCw, Shield, Trash2, Users } from "lucide-react";
+import { Archive, Crown, RefreshCw, Shield, Trash2, Users } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
@@ -102,6 +102,8 @@ import { CollaboratorCard, projectMemberRole } from '@/components/workspaces/set
 import { LifecycleSettingsEditor } from '@/components/workspaces/settings/LifecycleSettingsEditor';
 import { PublicTabVisibilityEditor } from '@/components/workspaces/settings/PublicTabVisibilityEditor';
 import { GeneralSettingsSection, resetIdentityFromWorkspace } from '@/components/workspaces/settings/GeneralSettingsSection';
+import { CompleteWorkspaceCard, YourSettingsSection } from '@/components/workspaces/settings/YourSettingsSection';
+import { useMemberUpdates } from '@/hooks/useMemberUpdates';
 import { Notice } from '@/components/ui/notice';
 import { visibilityLabel } from '@/lib/organizations/display';
 
@@ -263,10 +265,12 @@ function ProjectSettingsContent({
         const childOrgSection = { id: "child-org" as const, label: "Organization", description: "The organization this workspace belongs to, and its rules." };
         const showsChildOrg = Boolean(project?.parentOrg || project?.pendingMoveIn || project?.moveTargets?.length);
         if (inheritedOnly) return [childOrgSection, { id: "collaborators" as const, label: "Members and teams", description: "Teams, their seats and team leads." }];
-        if (isProjectOwner) return showsChildOrg ? visible.flatMap((section) => (section.id === "general" ? [section, childOrgSection] : [section])) : visible;
+        // Member settings Part 1: "Your settings" comes first for every member of the workspace, owner included.
+        const you = { id: "you" as const, label: "Your settings", description: "Your part here, your notifications, agents and view. Only affects you." };
+        if (isProjectOwner) return [you, ...(showsChildOrg ? visible.flatMap((section) => (section.id === "general" ? [section, childOrgSection] : [section])) : visible)];
         if (actorProjectRole === "admin" && project?.parentOrg) {
             const adminSections: WorkspaceSettingsSectionId[] = ["links", "access", "collaborators", "roles-applications", "readme", "updates", "tasks-workflow", "files-workspace", "ai-agents", "notifications", "privacy-policies", "privacy-terms"];
-            return [childOrgSection, ...visible.filter((section) => adminSections.includes(section.id))];
+            return [you, childOrgSection, ...visible.filter((section) => adminSections.includes(section.id))];
         }
         if (actorProjectRole === "admin") {
             const adminSections: WorkspaceSettingsSectionId[] = [
@@ -283,9 +287,9 @@ function ProjectSettingsContent({
                 "privacy-policies",
                 "privacy-terms",
             ];
-            return visible.filter((section) => adminSections.includes(section.id));
+            return [you, ...visible.filter((section) => adminSections.includes(section.id))];
         }
-        return visible.filter((section) => section.id === "collaborators" || section.id === "privacy-policies" || section.id === "privacy-terms");
+        return [you, ...visible.filter((section) => section.id === "privacy-policies" || section.id === "privacy-terms")];
     }, [actorProjectRole, isProjectOwner, organization, orgRole, project?.parentOrg, project?.pendingMoveIn, project?.moveTargets?.length, reportCount]);
     const { activeSection, navigate: handleNavigateSection } = useWorkspaceSettingsNavigation(sections);
     const [savingAccess, setSavingAccess] = useState(false);
@@ -1333,19 +1337,9 @@ function ProjectSettingsContent({
     }, [dangerPreflight]);
 
     // Live-fix 46: in an organization members open their own sections (My membership, What's allowed, Privacy, Leave).
-    if (!canManageSettings && !organization) {
-        return (
-            <div className="mx-auto flex max-w-xl flex-col items-center justify-center rounded-lg border border-border bg-card px-8 py-16 text-center shadow-none">
-                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
-                    <Lock className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="nb-section-title text-foreground">Only the owner and admins can change settings</h3>
-                <p className="nb-compact mt-2 text-sm leading-6 text-muted-foreground">
-                    The owner can change every setting. Admins can manage members and viewers. Ask the owner if you need access.
-                </p>
-            </div>
-        );
-    }
+
+    // Someone completed, reopened or left (member settings §7): the members list follows without a reload.
+    useMemberUpdates(organization ? undefined : projectId, () => { if (canManageSettings) void loadCollaborators("refresh"); });
 
     const confirmDialogContent = removalPreflightDialog ? (() => {
         const policyPreview = buildWorkspaceMemberRemovalPreflight(removalPreflightDialog);
@@ -1428,6 +1422,12 @@ function ProjectSettingsContent({
             <main data-project-settings-document className="mx-auto min-w-0 w-full max-w-4xl space-y-12 p-4 md:p-[calc(var(--ui-panel-padding)+4px)] [&>[data-project-settings-section]]:border-b [&>[data-project-settings-section]]:border-border [&>[data-project-settings-section]]:pb-8 [&>[data-project-settings-section]:last-child]:border-b-0">
                 {organization && orgRole !== "owner" && orgRole !== "admin" && sections.some((s) => s.id === "you-membership") && <OrgMembershipSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "org-allowed") && <OrgAllowedSection organization={organization} />}
+                {sections.some((s) => s.id === "you") && (
+                    <section id="project-settings-you" data-project-settings-section className="space-y-8">
+                        <SettingsPageHeader level={2} title="Your settings" description="Only affects you. The workspace’s own settings stay as the owner set them." />
+                        <YourSettingsSection projectId={projectId} projectTitle={project?.title ?? "this workspace"} members={collaboratorMembers} />
+                    </section>
+                )}
                 {sections.some((s) => s.id === "general") && (
                     <GeneralSettingsSection
                         projectId={projectId}
@@ -1648,6 +1648,8 @@ function ProjectSettingsContent({
                                                 onRemoveAndBlock={(member) => prepareRemoveMember(member, { block: true })}
                                                 onTransfer={prepareTransferToMember}
                                                 onNotificationSettings={openMemberNotificationSettings}
+                                                projectId={organization ? undefined : projectId}
+                                                onCompletionChanged={() => void loadCollaborators("refresh")}
                                             />
                                         ) : (
                                             <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 p-5 text-center">
@@ -1668,6 +1670,8 @@ function ProjectSettingsContent({
                                                     onRemoveAndBlock={(member) => prepareRemoveMember(member, { block: true })}
                                                     onTransfer={prepareTransferToMember}
                                                     onNotificationSettings={openMemberNotificationSettings}
+                                                projectId={organization ? undefined : projectId}
+                                                onCompletionChanged={() => void loadCollaborators("refresh")}
                                                 />
                                             ))
                                         ) : (
@@ -1741,6 +1745,8 @@ function ProjectSettingsContent({
                                                 onRemoveAndBlock={(member) => prepareRemoveMember(member, { block: true })}
                                                 onTransfer={prepareTransferToMember}
                                                 onNotificationSettings={openMemberNotificationSettings}
+                                                projectId={organization ? undefined : projectId}
+                                                onCompletionChanged={() => void loadCollaborators("refresh")}
                                             />
                                         );
                                         // Child projects of an org group people by unit (report §21.6 #5); "No unit" comes last.
@@ -2163,6 +2169,7 @@ function ProjectSettingsContent({
                 )}
                 {!organization && sections.some((s) => s.id === "danger") && (
                     <section id="project-settings-danger" data-project-settings-section className="space-y-6">
+                        {isProjectOwner ? <CompleteWorkspaceCard projectId={projectId} status={project?.status} title={project?.title ?? "this workspace"} onChanged={() => { onProjectUpdated(); router.refresh(); void loadCollaborators("refresh"); }} /> : null}
                         {<SettingsCard
                             title="Workspace management"
                                 headingLevel={2}

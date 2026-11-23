@@ -134,6 +134,9 @@ test("project public tab visibility defaults keep public workspace low-noise", (
         publicTabVisibility: { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false },
     }), "dashboard");
     assert.equal(resolveAllowedWorkspaceTab({ requestedTab: "analytics", isOwnerOrMember: true, canManageSettings: true }), "dashboard");
+    // Member settings Part 1: members open Settings for Your settings; visitors don't.
+    assert.equal(isWorkspaceTabVisibleToViewer({ tabId: "settings", isOwnerOrMember: true, canManageSettings: false }), true);
+    assert.equal(isWorkspaceTabVisibleToViewer({ tabId: "settings", isOwnerOrMember: false, canManageSettings: false }), false);
 });
 
 test("project file upload policy keeps leaders on and respects member toggles", () => {

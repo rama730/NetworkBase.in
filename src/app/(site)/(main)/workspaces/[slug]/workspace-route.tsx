@@ -22,6 +22,7 @@ import { shareMetadata } from '@/lib/sharing/metadata';
 import { readSharePreview } from '@/lib/sharing/read';
 import { genericSharePreview, isShareCrawler, shareOrigin } from '@/lib/sharing/presentation';
 import { isWorkspaceTabVisibleToViewer } from '@/lib/workspaces/settings-policies';
+import { readViewPrefs } from '@/lib/workspaces/member-journey';
 import { readOrgTabBadgesAction } from '@/app/actions/assignments';
 import { readOrgDashboardAction, readOrgWorkspacesAction } from '@/app/actions/org-dashboard';
 import { readOrgMembersAction } from '@/app/actions/org-members';
@@ -181,6 +182,11 @@ async function ResolvedProjectDashboard({
     if ((project.slug && slug !== project.slug) || base !== canonicalBase) {
         redirect(`${canonicalBase}/${encodeURIComponent(project.slug || project.id)}${queryStringOf(_searchParams)}`);
     }
+    // Your view (member settings Part 1): your own first tab and task card density, for you only.
+    const viewPrefs = user && capabilities.isMember && !project.organization ? await readViewPrefs(project.id, user.id).catch(() => null) : null;
+    if (viewPrefs?.defaultTab && viewPrefs.defaultTab !== 'overview' && !firstParam(_searchParams?.tab)) {
+        redirect(`${canonicalBase}/${encodeURIComponent(project.slug || project.id)}?tab=${encodeURIComponent(viewPrefs.defaultTab)}`);
+    }
     const canViewSprints = isWorkspaceTabVisibleToViewer({
         tabId: "sprints",
         isOwnerOrMember: capabilities.isOwner || capabilities.isMember,
@@ -215,7 +221,7 @@ async function ResolvedProjectDashboard({
     };
     Object.values(started).forEach((read) => read?.catch(() => undefined));
 
-    return (
+    const page = (
         <WorkspaceDashboardClient
             project={project}
             currentUserId={user?.id || null}
@@ -231,6 +237,9 @@ async function ResolvedProjectDashboard({
             started={started}
         />
     );
+    return viewPrefs?.density === 'compact'
+        ? <div data-task-density="compact" className="contents [&_[data-testid=task-card]>div:first-child]:min-h-0 [&_[data-testid=task-card]>div:first-child]:gap-1.5 [&_[data-testid=task-card]>div:first-child]:p-2">{page}</div>
+        : page;
 }
 
 export function WorkspaceRoute({

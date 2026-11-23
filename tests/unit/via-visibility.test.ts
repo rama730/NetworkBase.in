@@ -28,3 +28,11 @@ test("hidden means both fields are empty, and work made in the app has no label"
   assert.deepEqual(visibleVia(scope("everyone", "x"), { via: null, agentName: "stale" }), { via: null, agentName: null });
   assert.deepEqual(visibleVia(scope("everyone", "x"), { via: "cli", agentName: "ignored" }), { via: "cli", agentName: null });
 });
+
+test("member settings §2: a person who hid the label on their work still sees it; others don't, unless the class asks", () => {
+  const hidden = { hiddenAuthors: new Set(["person"]) };
+  assert.equal(sees(scope("everyone", "person", hidden)), true);
+  assert.equal(sees(scope("everyone", "teammate", hidden)), false);
+  assert.equal(sees(scope("everyone", "reviewer", { ...hidden, orgForced: true, viewerStaff: true })), true);
+  assert.equal(sees(scope("everyone", "teammate", { hiddenAuthors: new Set(["someone-else"]) })), true);
+});

@@ -14,6 +14,8 @@ export type LabelScope = {
   viewerId: string | null;
   /** The organization's owners and admins: the people who review. */
   viewerStaff: boolean;
+  /** Member settings §2: people here who hid the label on their own work (only when the owner lets members choose). */
+  hiddenAuthors?: ReadonlySet<string>;
 };
 
 export type ViaShown = { via: "agent" | "cli" | null; agentName: string | null };
@@ -26,6 +28,8 @@ export function visibleVia(scope: LabelScope, row: { via?: string | null; agentN
   const shown: ViaShown = { via: row.via, agentName: row.via === "agent" ? row.agentName ?? null : null };
   // Where the class asks, staff always see it, whatever the copy's owner chose.
   if (scope.orgForced && scope.viewerStaff) return shown;
+  // Stricter only: a person who hid it sees their own label; nobody else does.
+  if (row.authorId && scope.hiddenAuthors?.has(row.authorId) && row.authorId !== scope.viewerId) return HIDDEN;
   if (scope.setting === "everyone") return shown;
   if (scope.setting === "person") return scope.viewerId && row.authorId === scope.viewerId ? shown : HIDDEN;
   return HIDDEN;

@@ -220,7 +220,7 @@ export default function WorkspaceLayout({
     const canSeeMemberTabs = isOwnerOrMember ?? isOwner;
     const visibleTabs = useMemo(
         () => TABS.filter((tab) => {
-            const settingsAccess = (canManageSettings ?? isOwner) || canOpenSettings;
+            const settingsAccess = (canManageSettings ?? isOwner) || canOpenSettings || canSeeMemberTabs;
             if (tab.ownerOnly && !settingsAccess && !isOrganization) return false;
             return isWorkspaceTabVisibleToViewer({
                 tabId: tab.id,

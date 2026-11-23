@@ -30,7 +30,8 @@ test("live-fix 43–46: organization wording in Settings, one address control, a
   assert.match(general, /\{organization \? null : <ReadOnlySlugField/);
   assert.match(general, /All details are saved\./);
   const tab = source("src/components/workspaces/tabs/WorkspaceSettingsTab.tsx");
-  assert.match(tab, /if \(!canManageSettings && !organization\) \{/);
+  // Member settings Part 1: workspace members get Your settings first, not a "only owners" wall.
+  assert.match(tab, /return \[you, \.\.\.visible\.filter\(\(section\) => section\.id === "privacy-policies"/);
   assert.match(tab, /title=\{organization \? "Links" : "Workspace links"\}/);
 });
 

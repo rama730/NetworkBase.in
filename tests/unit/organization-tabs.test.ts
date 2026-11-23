@@ -18,9 +18,10 @@ test("everyone in the org sees every tab, Settings included (their You sections)
   for (const tab of ["dashboard", "about", "updates", "readme", "sprints", "tasks", "files", "settings"]) assert.equal(visible(tab, true), true, tab);
 });
 
-test("normal projects have no About tab and keep Settings for managers", () => {
+test("normal projects have no About tab; Settings is for members (Your settings) and managers, not visitors", () => {
   assert.equal(visible("about", true, false), false);
-  assert.equal(visible("settings", true, false), false);
+  assert.equal(visible("settings", true, false), true, "member settings Part 1: Your settings");
+  assert.equal(visible("settings", false, false), false);
 });
 
 test("visitors land on About, people in the org on Dashboard", () => {

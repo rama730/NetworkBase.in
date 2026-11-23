@@ -1022,6 +1022,7 @@ export async function getWorkspaceMembersAction(
             userId: true,
             role: true,
             joinedAt: true,
+            completedAt: true,
           },
           with: {
             user: {
@@ -1057,6 +1058,7 @@ export async function getWorkspaceMembersAction(
                   ...m.user,
                   membershipRole: m.role,
                   joinedAt: m.joinedAt?.toISOString?.() || null,
+                  completedAt: m.completedAt?.toISOString?.() || null,
                 }
               : null,
           )

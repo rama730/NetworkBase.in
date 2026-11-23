@@ -181,6 +181,8 @@ export function normalizeAssignableMembers(
       member?.membershipRole ?? member?.role,
     )?.toLowerCase();
     if (role === "viewer") return [];
+    // Member settings §3: someone whose part is completed isn't offered for new tasks (the server refuses too).
+    if (member?.completedAt) return [];
     const identity = normalizeTaskSurfacePerson(member?.user ?? member);
     const id =
       asTrimmedString(member?.userId) ??

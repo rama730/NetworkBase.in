@@ -9,6 +9,7 @@ import {
 export type WorkspaceSettingsVisibility = WorkspaceVisibility;
 
 export type WorkspaceSettingsSectionId =
+  | "you"
   | "general"
   | "links"
   | "access"
@@ -57,6 +58,8 @@ export type WorkspaceSettingsMember = {
   /** Child projects of an org (report §21.6 #5): the person's unit, and the org's name when they're not in it. */
   unitTitle?: string | null;
   outsideOf?: string | null;
+  /** Member settings §3: their part here is completed (read-only member). */
+  completion?: { at: string; note: string | null; byOwner: boolean; confirmed: boolean } | null;
 };
 
 export type WorkspaceMemberRole = "owner" | "admin" | "member" | "viewer";
@@ -372,7 +375,8 @@ export function isWorkspaceTabVisibleToViewer(input: {
     if (input.tabId === "projects") return input.isOwnerOrMember;
     if (input.tabId === "dashboard" || input.tabId === "tasks" || input.tabId === "settings") return input.isOwnerOrMember;
   }
-  if (input.tabId === "settings") return Boolean(input.canManageSettings);
+  // Member settings Part 1: every member opens Settings for "Your settings"; the workspace sections stay for leaders.
+  if (input.tabId === "settings") return Boolean(input.canManageSettings) || input.isOwnerOrMember;
   if (!(input.tabId in DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY)) return false;
   if (input.isOwnerOrMember) return true;
   return normalizeWorkspacePublicTabVisibility(input.publicTabVisibility)[

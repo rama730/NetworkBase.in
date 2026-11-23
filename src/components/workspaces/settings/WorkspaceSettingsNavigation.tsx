@@ -33,6 +33,7 @@ export type WorkspaceSettingsSection = {
   description: string;
 };
 const icons = {
+  you: CircleUser,
   general: Settings,
   links: Link2,
   access: Globe,

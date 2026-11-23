@@ -539,6 +539,10 @@ export async function readCollaboratorSettings(
         fullName: profiles.fullName,
         avatarUrl: profiles.avatarUrl,
         unitTitle: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = ${workspaceMembers.unitId})`,
+        completedAt: workspaceMembers.completedAt,
+        completedBy: workspaceMembers.completedBy,
+        completionNote: workspaceMembers.completionNote,
+        completionConfirmedAt: workspaceMembers.completionConfirmedAt,
       })
       .from(workspaceMembers)
       .leftJoin(profiles, eq(profiles.id, workspaceMembers.userId))
@@ -581,6 +585,10 @@ export async function readCollaboratorSettings(
             fullName: ownerProfile.fullName,
             avatarUrl: ownerProfile.avatarUrl,
             unitTitle: null,
+            completedAt: null,
+            completedBy: null,
+            completionNote: null,
+            completionConfirmedAt: null,
           },
           ...slice,
         ].slice(0, safeLimit);
@@ -638,6 +646,11 @@ export async function readCollaboratorSettings(
             joinedAt: row.joinedAt?.toISOString?.() ?? null,
             unitTitle: row.unitTitle ?? null,
             outsideOf: outsideOf.get(row.userId) ?? null,
+            // Member settings §3: "Completed · Nov 2026" in the list, with Confirm and Not yet for the owner.
+            completion: row.completedAt ? {
+              at: row.completedAt.toISOString(), note: row.completionNote ?? null,
+              byOwner: Boolean(row.completedBy && row.completedBy !== row.userId), confirmed: Boolean(row.completionConfirmedAt),
+            } : null,
             fileUploadEnabled: row.fileUploadEnabled !== false,
             responsibilityCounts: responsibilityByUser.get(row.userId) ?? {
               activeAssignedTasks: 0,

@@ -1328,7 +1328,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 </div>
             )}
 
-            {(canManageProjectSettings || isInheritedAdmin || (isOrganization && isOwnerOrMember)) && activeTab === 'settings' && (
+            {(canManageProjectSettings || isInheritedAdmin || isOwnerOrMember) && activeTab === 'settings' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Settings">
                         <WorkspaceSettingsTab projectId={project.id} project={projectWithLiveStats} onProjectUpdated={handleProjectSettingsUpdated} isProjectOwner={isOwner} actorRole={currentProjectRole} members={allMembers} loadingMembers={loadingMembers} />
