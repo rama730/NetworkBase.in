@@ -208,9 +208,9 @@
       "text": "A2.4 Requests: types, ask, Inbox (38.7) — Build: migration workspacerequesttypes; starters; ask form; acceptRequestAction, declineRequestAction; Inbox · Board ·",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "A2.5",
@@ -6318,9 +6318,9 @@
       "text": "First look",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.W2",
@@ -6328,9 +6328,9 @@
       "text": "Asking (General request)",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.W3",
@@ -6338,9 +6338,9 @@
       "text": "Asking for a design",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.W4",
@@ -6348,9 +6348,9 @@
       "text": "Triage in the Inbox",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.W5",
@@ -6388,9 +6388,9 @@
       "text": "My asks",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.W9",
@@ -6398,9 +6398,9 @@
       "text": "Editing request types (admins)",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.W10",
@@ -6418,9 +6418,9 @@
       "text": "A request made from Tasks",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.W12",
@@ -6508,9 +6508,9 @@
       "text": "Members and viewers can ask; members accept, decline and handle. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.call8",
@@ -6518,9 +6518,9 @@
       "text": "Up to 12 request types per workspace, 5 questions each. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.call9",
@@ -6528,9 +6528,9 @@
       "text": "A request can become a bug (T3's Change type) with the asker as Reported by. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     },
     {
       "key": "38.7.call10",
@@ -6538,9 +6538,9 @@
       "text": "Private request types belong to K5's company asks, not to workspace Requests. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "n/a-live",
+      "test": "none (K5)",
+      "evidence": "Nothing to build in workspaces: private request types arrive with K5 (B4.5)."
     },
     {
       "key": "38.8.W1",
@@ -8238,9 +8238,9 @@
       "text": "A2.4 (2026-11-23): Requests ships in three units (A2.4 types, asking, Inbox, Accept and Decline; A2.5 working hours, the clock and Breaching soon; A2.6 waiting,",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
+      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
     }
   ]
 }
