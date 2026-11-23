@@ -25,7 +25,9 @@ export const orgTaskVisibleToSql = (taskId: SQL, viewer: string | null | SQL) =>
  * all, with copies kept off their board (they live in the roster and the Review queue).
  */
 export function orgTaskReadFilter(access: WorkspaceAccess, viewerId: string | null, scope: string = "all"): SQL | undefined {
-  if (access.project?.kind !== "organization") return undefined;
+  // Report 38.12 (A5.1 security review): goals are for members only, never public: objectives and key results stay out
+  // of every task read for anyone outside the workspace (visitors of a public Tasks tab, outside tokens).
+  if (access.project?.kind !== "organization") return access.isOwner || access.isMember ? undefined : sql`coalesce(${tasks.itemType}, 'task') NOT IN ('objective', 'key_result')`;
   const isAdmin = access.isOwner || access.memberRole === "admin";
   // Mine shows an admin their own copies too (an assignment given to admins); the scope itself narrows to theirs.
   if (isAdmin) return scope === "review" || scope === "mine" ? undefined : isNull(tasks.assignmentId);

@@ -315,6 +315,12 @@ test("W6: a board meeting's motion needs quorum and votes within those present; 
   // Live check (0117): the database refuses any new version or version switch, whichever path writes it.
   await assert.rejects(sql`INSERT INTO file_versions (node_id, version, s3_key, size, mime_type) VALUES (${node}, 99, 'x', 1, 'text/markdown')`, /MINUTES_APPROVED/);
   await assert.rejects(sql`UPDATE workspace_nodes SET current_version = coalesce(current_version, 0) + 1 WHERE id = ${node}`, /MINUTES_APPROVED/);
+  // Security review (0118): the document and file can't be unlinked, re-pointed, unapproved, trashed or deleted either.
+  await assert.rejects(sql`UPDATE workspace_documents SET linked_node_id = NULL WHERE id = ${first}`, /MINUTES_APPROVED/);
+  await assert.rejects(sql`UPDATE workspace_documents SET settings = settings - 'approvedAt' WHERE id = ${first}`, /MINUTES_APPROVED/);
+  await assert.rejects(sql`DELETE FROM workspace_documents WHERE id = ${first}`, /MINUTES_APPROVED/);
+  await assert.rejects(sql`UPDATE workspace_nodes SET deleted_at = now() WHERE id = ${node}`, /MINUTES_APPROVED/);
+  await assert.rejects(sql`DELETE FROM workspace_nodes WHERE id = ${node}`, /MINUTES_APPROVED/);
   const otherNode = (await sql`SELECT linked_node_id FROM workspace_documents WHERE id = ${second}`)[0]!.linked_node_id as string;
   assert.equal(await lock.approvedMinutesRefusal(t.ws, otherNode), null);
   await sql`UPDATE workspace_nodes SET current_version = coalesce(current_version, 0) WHERE id = ${otherNode}`; // unapproved files still change
@@ -346,4 +352,14 @@ test("S8: types follow the category until an owner or admin sets them; a switche
   const id2 = await t.doc("weekly-2");
   assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "weekly-2", type: "weekly", title: "Weekly 2", startsAt: ist("2027-01-08T10:00:00"), lengthMinutes: 45, attendeeIds: [t.member], repeat: "none" })).success);
   assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_document_reminders WHERE doc_id = ${id2}`)[0]!.n, 0);
+});
+
+test("review: finishing a series meeting without naming the next file never files the README as the next meeting", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const readme = await t.doc("readme");
+  await t.doc("weekly-x");
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "weekly-x", type: "blank", title: "Weekly", startsAt: ist("2027-01-07T10:00:00"), lengthMinutes: 30, attendeeIds: [], repeat: "weekly" })).success);
+  assert.ok((await docs.finishMeetingAction(t.ws, { docSlug: "weekly-x", carryOver: false })).success);
+  assert.equal((await settingsOf(readme)).section, undefined);
 });

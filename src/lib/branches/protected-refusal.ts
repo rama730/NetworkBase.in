@@ -14,3 +14,11 @@ export function protectedRefusal(error: unknown): { message: string; reason: "ag
   }
   return null;
 }
+
+/** The database's refusal on approved board minutes (A4.9, 0117 `approved_minutes_guard`), from any writer. Null otherwise. */
+export function minutesRefusal(error: unknown): string | null {
+  for (let e = error as { message?: string; cause?: unknown } | undefined, i = 0; e && i < 5; e = e.cause as typeof e, i++) {
+    if (typeof e.message === "string" && e.message.includes("MINUTES_APPROVED: ")) return "These minutes are approved and can’t be edited.";
+  }
+  return null;
+}

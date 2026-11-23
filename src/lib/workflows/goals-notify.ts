@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications/service";
-import { checkInDue, goalSettings } from "@/lib/workflows/goals";
+import { checkInDue, goalSettings, periodLabel, periodRange } from "@/lib/workflows/goals";
 import { zonedParts } from "@/lib/workflows/request-clock";
 
 /**
@@ -40,6 +40,32 @@ export async function notifyGoalCheckIns(now = new Date()) {
       href: `/workspaces/${encodeURIComponent(g.slug)}?tab=docs&doc=${encodeURIComponent(g.doc)}`,
       entityRefs: { projectId: g.ws, projectSlug: g.slug }, dedupeKey: `goal-checkin:${g.ws}:${g.user}:${g.today}`,
     }).then(() => { sent += 1; }).catch((error) => logger.error("goals.checkin_notice_failed", { error: error instanceof Error ? error.message : String(error) }));
+  }
+  return { sent };
+}
+
+/** Report 38.12 part 8 (A5.2): "Q1 2027 goals close in 7 days" to the owner and admins (Summary), once per document. */
+export async function notifyGoalsClosingSoon(now = new Date()) {
+  const docs = Array.from(await db.execute<{ id: string; slug: string; period: string; workspace_id: string; ws_slug: string | null; tz: string | null; goals: unknown; owner_id: string }>(sql`
+    SELECT d.id, d.slug, d.settings->>'period' AS period, d.workspace_id, w.slug AS ws_slug, w.time_zone AS tz, w.workflow_settings->'goals' AS goals, w.owner_id
+    FROM workspace_documents d JOIN workspaces w ON w.id = d.workspace_id AND w.deleted_at IS NULL
+    WHERE d.settings->>'section' = 'goals' AND d.settings ? 'period' AND NOT (d.settings ? 'closedAt') LIMIT 2000`));
+  let sent = 0;
+  for (const d of docs) {
+    let end: string;
+    try { end = periodRange(d.period, goalSettings(d.goals)).end; } catch { continue; }
+    const today = zonedParts(now, d.tz || "UTC").day;
+    const days = Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+    if (days !== 7) continue;
+    const admins = Array.from(await db.execute<{ user_id: string }>(sql`SELECT user_id FROM workspace_members WHERE workspace_id = ${d.workspace_id}::uuid AND role = 'admin'`)).map((r) => r.user_id);
+    for (const user of new Set([d.owner_id, ...admins])) {
+      await createNotification({
+        recipientUserId: user, actorUserId: null, kind: "project_task_activity", category: "tasks", importance: "more",
+        title: `${periodLabel(d.period)} goals close in 7 days`,
+        href: `/workspaces/${encodeURIComponent(d.ws_slug || d.workspace_id)}?tab=docs&doc=${encodeURIComponent(d.slug)}`,
+        entityRefs: { projectId: d.workspace_id, projectSlug: d.ws_slug }, dedupeKey: `goals-closing:${d.id}:${user}`,
+      }).then(() => { sent += 1; }).catch(() => undefined);
+    }
   }
   return { sent };
 }

@@ -68,3 +68,9 @@ test("check-ins due: since the last check-in day, in the workspace's zone", asyn
   assert.equal(checkInDue("2027-02-14T20:00:00Z", "2027-02-17", 1, "UTC"), true);
   assert.equal(checkInDue("2027-02-14T20:00:00Z", "2027-02-17", 1, "Asia/Kolkata"), false, "already Monday 01:30 in Kolkata");
 });
+
+test("minutesRefusal: finds the database's approved-minutes refusal through wrapped errors", async () => {
+  const { minutesRefusal } = await import("../../src/lib/branches/protected-refusal");
+  assert.equal(minutesRefusal(new Error("query failed", { cause: new Error("MINUTES_APPROVED: these minutes are approved and can't be edited") })), "These minutes are approved and can’t be edited.");
+  assert.equal(minutesRefusal(new Error("something else")), null);
+});

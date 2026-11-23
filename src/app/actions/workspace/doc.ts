@@ -2075,7 +2075,8 @@ async function previousBoardMeeting(projectId: string, docId: string, s: ReturnT
     return row ? { id: row.id, slug: row.slug, settings: normalizeWorkspaceDocSettings(row.settings) } : null;
 }
 
-const finishSchema = z.object({ docSlug: docSlugSchema, carryOver: z.boolean(), nextDocSlug: docSlugSchema.optional(), nextTitle: z.string().trim().min(1).max(120).optional() });
+// docSlugSchema falls back to the README; the next meeting's file must be named, never defaulted (A5.2 review).
+const finishSchema = z.object({ docSlug: docSlugSchema, carryOver: z.boolean(), nextDocSlug: z.string().min(1).max(200).transform((v) => normalizeWorkspaceDocSlug(v)).optional(), nextTitle: z.string().trim().min(1).max(120).optional() });
 /**
  * W5 and call 3: Finish meeting. Marks it finished; in a live series the browser has made the next meeting's file
  * (nextDocSlug) and this files it at the next date with the same attendees, carrying the open action items (the
@@ -2285,7 +2286,11 @@ export async function readGoalsAction(projectId: string, docSlug: string) {
         // W3: what a key result can be measured by (projects and roadmap items in this workspace).
         const sources = await db.select({ id: tasks.id, title: tasks.title, type: tasks.itemType }).from(tasks)
             .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), inArray(tasks.itemType, ["project", "roadmap_item"]))).orderBy(asc(tasks.title)).limit(200);
-        return { success: true as const, period, label: g.periodLabel(period), sources: sources.map((x) => ({ id: x.id, title: x.title, kind: x.type === "project" ? "project" as const : "roadmap" as const })), week: g.weekOf(range.start, range.end, new Date()), pace, canEdit: context.permission.canEdit && !context.settings.closedAt,
+        // W6 (A5.2): the period has ended (Close period shows), and the next period's document if it exists.
+        const next = g.nextPeriod(period, settings);
+        const [nextDoc] = await db.select({ slug: workspaceDocuments.slug }).from(workspaceDocuments)
+            .where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.settings}->>'section' = 'goals'`, sql`${workspaceDocuments.settings}->>'period' = ${next}`)).limit(1);
+        return { success: true as const, period, ended: today >= range.end, next: { period: next, label: g.periodLabel(next), slug: nextDoc?.slug ?? null }, label: g.periodLabel(period), sources: sources.map((x) => ({ id: x.id, title: x.title, kind: x.type === "project" ? "project" as const : "roadmap" as const })), week: g.weekOf(range.start, range.end, new Date()), pace, canEdit: context.permission.canEdit && !context.settings.closedAt,
             closedAt: context.settings.closedAt ?? null, viewerId: actor, objectives, people };
     } catch (error) {
         logger.error("goals.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
@@ -2378,6 +2383,61 @@ export async function addKeyResultAction(projectId: string, input: unknown) {
     }
 }
 
+/**
+ * Report 38.12 W6 and S3 (A5.2): Close period. Every key result keeps its final value and becomes Done (at or past
+ * its target) or Missed; an objective is Done when all its key results are. Ticked objectives are carried forward into
+ * the next period's document (made by the browser when missing) as new items, each key result starting from its final
+ * value. Then the document is read-only. Editors only; closing twice changes nothing.
+ */
+export async function closePeriodAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: docSlugSchema, carry: z.array(z.string().uuid()).max(50),
+            nextDocSlug: z.string().min(1).max(200).transform((v) => normalizeWorkspaceDocSlug(v)).optional() }).parse(input);
+        const context = await goalsContext(projectId, userId, data.docSlug);
+        if (!context || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit these goals close the period." };
+        if (context.settings.closedAt) return { success: true as const, alreadyClosed: true, carried: 0, nextSlug: null };
+        const read = await readGoalsAction(projectId, data.docSlug);
+        if (!read.success) return { success: false as const, error: read.error };
+        const g = await import("@/lib/workflows/goals");
+        const carry = read.objectives.filter((o) => data.carry.includes(o.id));
+        // The next period's document: the one that exists, else the file the browser just made.
+        let nextSlug = read.next.slug;
+        if (carry.length && !nextSlug) {
+            if (!data.nextDocSlug) return { success: false as const, error: "Make the next period's document first." };
+            const made = await createGoalsDocAction(projectId, { docSlug: data.nextDocSlug, period: read.next.period });
+            if (!made.success) return { success: false as const, error: made.error };
+            nextSlug = data.nextDocSlug;
+        }
+        const now = new Date().toISOString();
+        for (const o of read.objectives) {
+            for (const k of o.keyResults) {
+                await db.update(tasks).set({ stage: g.closeResult(k.progress), status: "done", completedAt: new Date(),
+                    typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || ${JSON.stringify({ final: k.current, result: g.closeResult(k.progress) })}::jsonb`, updatedAt: new Date() })
+                    .where(and(eq(tasks.id, k.id), eq(tasks.projectId, projectId)));
+            }
+            const done = o.keyResults.length > 0 && o.keyResults.every((k) => g.closeResult(k.progress) === "done");
+            await db.update(tasks).set({ stage: done ? "done" : "missed", status: "done", completedAt: new Date(), updatedAt: new Date() }).where(and(eq(tasks.id, o.id), eq(tasks.projectId, projectId)));
+        }
+        for (const o of carry) {
+            const made = await addObjectiveAction(projectId, { docSlug: nextSlug!, title: o.title, assigneeId: o.assigneeId });
+            if (!made.success || !made.id) continue;
+            for (const k of o.keyResults) {
+                await addKeyResultAction(projectId, { docSlug: nextSlug!, objectiveId: made.id, title: k.title, direction: k.direction, unit: k.unit, start: k.current ?? k.start, target: k.target,
+                    assigneeId: k.assigneeId, ...(k.measuredBy ? { measuredBy: (await db.select({ f: tasks.typeFields }).from(tasks).where(eq(tasks.id, k.id)).limit(1))[0]?.f?.measuredBy as never } : {}) });
+            }
+        }
+        await writeLaunchSettings(context.readme!.id, { closedAt: now });
+        await recordNodeEvent(projectId, userId, null, "project_readme.goals_closed", { docSlug: data.docSlug, carried: carry.length });
+        revalidateProjectDoc(context.project);
+        return { success: true as const, alreadyClosed: false, carried: carry.length, nextSlug: carry.length ? nextSlug : null };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: "Check what to carry forward." };
+        logger.error("goals.close_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t close the period." };
+    }
+}
+
 /** Report 38.12 S4 (A5.1b): the Overview card: this period's goals document in numbers. Null when there is none. */
 export async function readGoalsSummaryAction(projectId: string) {
     try {
@@ -2420,11 +2480,28 @@ export async function checkInAction(projectId: string, input: unknown) {
         const found = await goalItemFor(projectId, userId, data.taskId, "key_result");
         if ("error" in found) return { success: false as const, error: found.error! };
         const at = new Date();
+        // A5.2 notice: a key result that moves to At risk or Off track tells its owner (Normal), unless they checked in.
+        const g = await import("@/lib/workflows/goals");
+        const [wsRow] = await db.select({ settings: workspaces.workflowSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const gs = g.goalSettings((wsRow?.settings as Record<string, unknown> | null)?.goals);
+        const f = (found.item.fields ?? {}) as Record<string, unknown>;
+        const range = g.periodRange(found.context.settings.period!, gs);
+        const pace = g.expectedPace(range.start, range.end, at);
+        const kr = { start: Number(f.start ?? 0), target: Number(f.target ?? 0), direction: (f.direction === "decrease" ? "decrease" : "increase") as "increase" | "decrease" };
+        const before = g.goalStatus(g.krProgress({ ...kr, current: f.current == null ? null : Number(f.current) }), pace, gs.bands);
+        const after = g.goalStatus(g.krProgress({ ...kr, current: data.value }), pace, gs.bands);
         await db.transaction(async (tx) => {
             await tx.insert(keyResultCheckIns).values({ taskId: data.taskId, value: String(data.value), confidence: data.confidence, note: data.note || null, createdBy: userId, createdAt: at });
             await tx.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || ${JSON.stringify({ current: data.value, confidence: data.confidence, checkedInAt: at.toISOString(), statusOverride: null })}::jsonb`, updatedAt: at })
                 .where(eq(tasks.id, data.taskId));
         });
+        if (after !== before && after !== "on_track" && found.item.assigneeId && found.item.assigneeId !== userId) {
+            const { createNotification } = await import("@/lib/notifications/service");
+            const [t] = await db.select({ title: tasks.title }).from(tasks).where(eq(tasks.id, data.taskId)).limit(1);
+            await createNotification({ recipientUserId: found.item.assigneeId, actorUserId: userId, kind: "project_task_activity", category: "tasks", importance: "important",
+                title: `${g.STATUS_WORD[after]}: ${t?.title ?? "a key result"}`, href: `/workspaces/${encodeURIComponent(found.context.project.slug || projectId)}?tab=docs&doc=${encodeURIComponent(found.context.readme!.slug)}`,
+                entityRefs: { projectId, projectSlug: found.context.project.slug ?? null }, dedupeKey: `kr-status:${data.taskId}:${after}:${at.toISOString().slice(0, 10)}` }).catch(() => undefined);
+        }
         revalidateProjectDoc(found.context.project);
         return { success: true as const };
     } catch (error) {

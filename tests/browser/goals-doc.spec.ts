@@ -5,16 +5,16 @@ import { axeViolations } from './axe';
 
 // Report 38.12 D3 W1–W5, S1, S2 (plan A5.1a).
 const U1 = '11111111-1111-4111-8111-111111111111';
-async function open(page: Page, opts: { view?: string; width?: number; canEdit?: boolean; viewer?: string } = {}) {
+async function open(page: Page, opts: { view?: string; width?: number; canEdit?: boolean; viewer?: string; ended?: boolean } = {}) {
   await page.clock.setFixedTime(new Date('2027-02-15T06:00:00Z'));
   await page.setViewportSize({ width: opts.width ?? 1100, height: 900 });
-  await page.addInitScript(({ canEdit, viewer, U1 }) => {
+  await page.addInitScript(({ canEdit, viewer, U1, ended }) => {
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     const kr = (over: Record<string, unknown>) => ({ id: 'k1', number: 12, title: 'Weekly active teams', assigneeId: U1, assigneeName: 'Asha', start: 10, target: 50, current: 30, direction: 'increase', unit: 'teams',
       confidence: 7, checkedInAt: '2027-02-11T06:00:00Z', progress: 50, status: 'on_track', override: null, result: null, history: [{ value: 20, at: '2027-02-01T06:00:00Z' }, { value: 30, at: '2027-02-11T06:00:00Z' }], ...over });
     (window as any).__actions = {
-      readGoalsAction: async () => ({ success: true, period: '2027-Q1', label: 'Q1 2027', week: 'week 7 of 13', pace: 50, canEdit, closedAt: null, viewerId: viewer,
+      readGoalsAction: async () => ({ success: true, period: '2027-Q1', label: 'Q1 2027', week: 'week 7 of 13', pace: 50, canEdit, closedAt: null, viewerId: viewer, ended, next: { period: '2027-Q2', label: 'Q2 2027', slug: 'goals-2027-q2' }, sources: [],
         objectives: [{ id: 'o1', number: 11, title: 'Teams love the app', assigneeId: U1, assigneeName: 'Asha', progress: 37, status: 'at_risk', override: null,
           keyResults: [kr({}), kr({ id: 'k2', title: 'Support tickets', direction: 'decrease', start: 40, target: 10, current: 32, unit: '', progress: 26, status: 'off_track', assigneeId: null, assigneeName: null, confidence: null, checkedInAt: null, history: [] })] }],
         people: [{ id: U1, name: 'Asha' }] }),
@@ -22,9 +22,10 @@ async function open(page: Page, opts: { view?: string; width?: number; canEdit?:
       addKeyResultAction: async (_p: string, input: unknown) => { calls.push(['kr', input]); return { success: true, id: 'k3' }; },
       checkInAction: async (_p: string, input: unknown) => { calls.push(['checkin', input]); return { success: true }; },
       setGoalStatusAction: async (_p: string, input: unknown) => { calls.push(['status', input]); return { success: true }; },
+      closePeriodAction: async (_p: string, input: unknown) => { calls.push(['close', input]); return { success: true, alreadyClosed: false, carried: 1, nextSlug: 'goals-2027-q2' }; },
       ensureDocsFolderAction: async () => ({ success: true, folderId: 'f1' }),
     };
-  }, { canEdit: opts.canEdit ?? true, viewer: opts.viewer ?? 'someone-else', U1 });
+  }, { canEdit: opts.canEdit ?? true, viewer: opts.viewer ?? 'someone-else', U1, ended: opts.ended ?? false });
   await openApp(page, 'tests/browser/goals-doc.fixture.tsx', opts.view ? { path: `/?view=${opts.view}` } : undefined);
 }
 const calls = (page: Page) => page.evaluate(() => (window as any).__calls);
@@ -105,10 +106,32 @@ test('Read-only: someone who can’t edit sees no adds; the assignee still check
   await expect(block.getByTestId('objective')).toHaveCount(1);
 });
 
-test('W1 and W9: Set goals offers this period and the next three; phone width has no accessibility violations', async ({ page }) => {
+test('W1 and W9: Set goals offers last period, this one and the next three; phone width has no accessibility violations', async ({ page }) => {
   await open(page, { view: 'new', width: 375 });
   const d = page.getByTestId('new-goals-dialog');
-  await expect(d.getByLabel('Period').locator('option')).toHaveText(['Q1 2027', 'Q2 2027', 'Q3 2027', 'Q4 2027']);
+  await expect(d.getByLabel('Period').locator('option')).toHaveText(['Q4 2026', 'Q1 2027', 'Q2 2027', 'Q3 2027', 'Q4 2027'], { timeout: 2000 }); // A5.2: last period too
   await expect(d.getByRole('button', { name: 'Set Q1 2027 goals' })).toBeVisible();
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+// Plan A5.2 (report 38.12 W6, S3).
+test('W6 and S3: Close period shows after the period ends; final values, Done or Missed, missed objectives ticked to carry forward', async ({ page }) => {
+  await open(page);
+  await expect(page.getByRole('button', { name: 'Close period' })).toHaveCount(0);
+  await page.close();
+});
+
+test('W6: closing sends the carried objectives and opens the next period', async ({ page }) => {
+  await open(page, { ended: true });
+  await page.getByRole('button', { name: 'Close period' }).click();
+  const d = page.getByTestId('close-period-dialog');
+  await expect(d).toContainText('carry forward into Q2 2027');
+  await expect(d.getByRole('row').filter({ hasText: 'Weekly active teams' })).toContainText(/30 teams\s*Missed/);
+  await expect(d.getByLabel(/Teams love the app/)).toBeChecked();
+  await page.screenshot({ path: 'test-results/goals-doc/close-period.png' });
+  await d.getByRole('button', { name: 'Close period' }).click();
+  await expect(d).toHaveCount(0);
+  expect(await calls(page)).toEqual([['close', { docSlug: 'goals-2027-q1', carry: ['o1'] }]]);
+  expect(await page.evaluate(() => (window as any).__pushed)).toContain('doc=goals-2027-q2');
   expect(await axeViolations(page)).toEqual([]);
 });

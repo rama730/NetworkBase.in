@@ -36,7 +36,7 @@ export const WORKFLOW_CATALOG: CatalogEntry[] = [
   { id: "roadmap", name: "Roadmap", group: "own_tab", icon: "Map", types: ["roadmap_item"], tab: "roadmap", built: true, line: "Adds a Roadmap tab: what ships Now, Next and Later. Its work tasks go on the board." },
   { id: "launches", name: "Launch checklists", group: "documents", icon: "Rocket", types: [], built: true, line: "Adds a Launches section to Documents. Every checklist step is a task." },
   { id: "meetings", name: "Meetings and decisions", group: "documents", icon: "CalendarClock", types: [], built: true, line: "Adds Meetings and Decisions sections with meeting types." },
-  { id: "goals", name: "Quarterly goals", group: "documents", icon: "Target", types: ["objective", "key_result"], built: false, line: "Adds a Goals section with one goals document per quarter." },
+  { id: "goals", name: "Quarterly goals", group: "documents", icon: "Target", types: ["objective", "key_result"], built: true, line: "Adds a Goals section with one goals document per quarter." },
   { id: "ideas", name: "Ideas", group: "documents", icon: "Lightbulb", types: ["idea"], built: false, line: "Adds an Ideas section with a ranked list." },
   { id: "offsite", name: "Team off-site", group: "documents", icon: "Tent", types: [], built: false, line: "Adds an Off-site section: plan a team trip in one document." },
   { id: "assets", name: "Assets", group: "files", icon: "Images", types: [], built: false, line: "Adds an Assets view to Files with details, Used in and pinned comments." },

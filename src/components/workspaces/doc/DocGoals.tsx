@@ -4,14 +4,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gauge, Plus, Target, X } from "lucide-react";
 import { useState } from "react";
 
-import { addKeyResultAction, addObjectiveAction, checkInAction, createGoalsDocAction, readGoalsAction, setGoalStatusAction } from "@/app/actions/workspace/doc";
+import { addKeyResultAction, addObjectiveAction, checkInAction, closePeriodAction, createGoalsDocAction, readGoalsAction, setGoalStatusAction } from "@/app/actions/workspace/doc";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useOpenDocAfter } from "@/components/workspaces/doc/DocMeeting";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
-import { goalsMarkdown, MEASURED_BY, nextPeriod, periodLabel, periodOf, STATUS_WORD, type GoalStatus, type MeasuredKind } from "@/lib/workflows/goals";
+import { closeResult, goalsMarkdown, MEASURED_BY, nextPeriod, periodLabel, periodOf, periodRange, STATUS_WORD, type GoalStatus, type MeasuredKind } from "@/lib/workflows/goals";
 
 const goalsKey = (projectId: string, docSlug: string) => [...queryKeys.project.detail.tasksRoot(projectId), "goals", docSlug];
 type Data = Extract<Awaited<ReturnType<typeof readGoalsAction>>, { success: true }>;
@@ -44,7 +44,8 @@ export function GoalsBlock({ projectId, docSlug }: { projectId: string; docSlug:
   const query = useQuery({ queryKey: goalsKey(projectId, docSlug), queryFn: () => readGoalsAction(projectId, docSlug), staleTime: 30_000 });
   const [mine, setMine] = useState(false);
   const [adding, setAdding] = useState("");
-  const [dialog, setDialog] = useState<{ kind: "kr"; objectiveId: string; count: number } | { kind: "checkin"; kr: Kr } | { kind: "status"; id: string; title: string } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: "kr"; objectiveId: string; count: number } | { kind: "checkin"; kr: Kr } | { kind: "status"; id: string; title: string } | { kind: "close" } | null>(null);
+  const openDoc = useOpenDocAfter(projectId);
   const [busy, setBusy] = useState(false);
   if (query.isLoading) return <div aria-hidden="true" className="nb-skeleton my-4 h-32 rounded-[8px]" />;
   const data = query.data?.success ? query.data : null;
@@ -79,6 +80,7 @@ export function GoalsBlock({ projectId, docSlug }: { projectId: string; docSlug:
         <h3 className="nb-ui-label text-foreground">Goals</h3>
         <span className="font-mono text-[11px] text-muted-foreground" data-testid="goals-period">{data.label} · {data.closedAt ? "closed" : data.week}</span>
         <label className="ml-auto flex items-center gap-1.5 text-[12px] text-muted-foreground"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />Mine</label>
+        {data.canEdit && data.ended && !data.closedAt ? <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setDialog({ kind: "close" })}>Close period</button> : null}
       </header>
       <div className="divide-y divide-border">
         {objectives.length === 0 ? <p className="px-4 py-3 text-[13px] text-muted-foreground">{mine ? "Nothing of yours here" : "No objectives yet"}</p> : null}
@@ -123,6 +125,16 @@ export function GoalsBlock({ projectId, docSlug }: { projectId: string; docSlug:
         onSave={(v) => void run(() => addKeyResultAction(projectId, { docSlug, objectiveId: dialog.objectiveId, ...v }), "Key result added")} /> : null}
       {dialog?.kind === "checkin" ? <CheckInDialog kr={dialog.kr} busy={busy} onClose={() => setDialog(null)}
         onSave={(v) => void run(() => checkInAction(projectId, { taskId: dialog.kr.id, ...v }), "Checked in")} /> : null}
+      {dialog?.kind === "close" ? <ClosePeriodDialog data={data} busy={busy} onClose={() => setDialog(null)} onSave={(carry) => void run(async () => {
+        let nextDocSlug: string | undefined;
+        if (carry.length && !data.next.slug) {
+          const { createDocFile } = await import("@/components/organizations/OrgDocParts");
+          nextDocSlug = (await createDocFile(projectId, `goals-${data.next.period.toLowerCase()}.md`, goalsMarkdown(data.next.period))).slug;
+        }
+        const r = await closePeriodAction(projectId, { docSlug, carry, ...(nextDocSlug ? { nextDocSlug } : {}) });
+        if (r.success && r.nextSlug) openDoc(r.nextSlug);
+        return r;
+      }, carry.length ? `Closed · ${carry.length} carried to ${data.next.label}` : "Period closed")} /> : null}
       {dialog?.kind === "status" ? <StatusDialog title={dialog.title} busy={busy} onClose={() => setDialog(null)}
         onSave={(v) => void run(() => setGoalStatusAction(projectId, { taskId: dialog.id, ...v }), v.status ? "Status set by hand" : "Status worked out again")} /> : null}
     </section>
@@ -215,6 +227,28 @@ function CheckInDialog({ kr, busy, onClose, onSave }: { kr: Kr; busy: boolean; o
   );
 }
 
+/** S3: each key result's final value and Done or Missed; Carry forward ticks (on for objectives that missed). */
+function ClosePeriodDialog({ data, busy, onClose, onSave }: { data: Data; busy: boolean; onClose: () => void; onSave: (carry: string[]) => void }) {
+  const missed = (o: Data["objectives"][number]) => !o.keyResults.length || o.keyResults.some((k) => closeResult(k.progress) === "missed");
+  const [carry, setCarry] = useState<string[]>(data.objectives.filter(missed).map((o) => o.id));
+  return (
+    <Shell title={`Close ${data.label}`} description={`Final values are kept; ticked objectives carry forward into ${data.next.label}, starting from where they ended.`} testId="close-period-dialog" busy={busy} onClose={onClose} onSave={() => onSave(carry)} saveLabel="Close period">
+      <table className="w-full text-[13px]">
+        <thead><tr className="text-left text-[11px] text-muted-foreground"><th className="py-1 font-medium">Key result</th><th className="py-1 text-right font-medium">Final</th><th className="py-1 pl-3 font-medium">Result</th></tr></thead>
+        {data.objectives.map((o) => (
+          <tbody key={o.id}>
+            <tr><td colSpan={3} className="pt-2"><label className="flex items-center gap-2 font-medium"><input type="checkbox" checked={carry.includes(o.id)} onChange={(e) => setCarry(e.target.checked ? [...carry, o.id] : carry.filter((c) => c !== o.id))} />{o.title}<span className="text-[11px] font-normal text-muted-foreground">Carry forward</span></label></td></tr>
+            {o.keyResults.map((k) => (
+              <tr key={k.id}><td className="py-0.5 pl-6">{k.title}</td><td className="py-0.5 text-right font-mono text-[12px]">{fmt(k.current)}{k.unit ? ` ${k.unit}` : ""}</td>
+                <td className="py-0.5 pl-3"><StatusBadge state={closeResult(k.progress)}>{STATUS_WORD[closeResult(k.progress)]}</StatusBadge></td></tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </Shell>
+  );
+}
+
 /** W5: set the status by hand with a reason, until the next check-in; or let it be worked out again. */
 function StatusDialog({ title, busy, onClose, onSave }: { title: string; busy: boolean; onClose: () => void; onSave: (v: { status: GoalStatus | null; reason?: string }) => void }) {
   const [status, setStatus] = useState<GoalStatus | "">("at_risk");
@@ -235,7 +269,9 @@ function StatusDialog({ title, busy, onClose, onSave }: { title: string; busy: b
 export function NewGoalsDialog({ projectId, open, onOpenChange }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const openDoc = useOpenDocAfter(projectId);
   const first = periodOf(new Date().toISOString().slice(0, 10), {});
-  const options = [first, nextPeriod(first, {}), nextPeriod(nextPeriod(first, {}), {}), nextPeriod(nextPeriod(nextPeriod(first, {}), {}), {})];
+  // Last period too, for goals set late (A5.2); then this one and the next three.
+  const last = periodOf(new Date(Date.parse(`${periodRange(first, {}).start}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10), {});
+  const options = [last, first, nextPeriod(first, {}), nextPeriod(nextPeriod(first, {}), {}), nextPeriod(nextPeriod(nextPeriod(first, {}), {}), {})];
   const [period, setPeriod] = useState(first);
   const [busy, setBusy] = useState(false);
   if (!open) return null;

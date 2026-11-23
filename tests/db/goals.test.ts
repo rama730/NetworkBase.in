@@ -187,3 +187,75 @@ test("W4 and S4: due check-ins count on the Overview card and in My work; the no
   await notify(new Date("2027-02-15T06:00:00Z"));
   assert.equal(await count(), 1);
 });
+
+// Plan A5.2 (report 38.12 W6, S3, part 8): Close period, carry forward, the notices.
+test("W6: Close period keeps final values, Done or Missed, carries ticked objectives into the next document from where they ended, and is read-only after", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  await goalsDoc(t, "goals-2026-q3", "2026-Q3");
+  const o1 = await docs.addObjectiveAction(t.ws, { docSlug: "goals-2026-q3", title: "Grow" });
+  const o2 = await docs.addObjectiveAction(t.ws, { docSlug: "goals-2026-q3", title: "Keep quality" });
+  assert.ok(o1.success && o2.success);
+  const a = await docs.addKeyResultAction(t.ws, { docSlug: "goals-2026-q3", objectiveId: o1.id, title: "Teams", direction: "increase", unit: "teams", start: 10, target: 50, assigneeId: t.member });
+  const b = await docs.addKeyResultAction(t.ws, { docSlug: "goals-2026-q3", objectiveId: o2.id, title: "Bugs", direction: "decrease", unit: "", start: 20, target: 5 });
+  assert.ok(a.success && b.success);
+  assert.ok((await docs.checkInAction(t.ws, { taskId: a.id, value: 50, confidence: 8 })).success);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title LIKE '%: Teams'`)[0]!.n, 0, "on track: no notice");
+  assert.ok((await docs.checkInAction(t.ws, { taskId: a.id, value: 30, confidence: 5 })).success);
+  assert.ok((await docs.checkInAction(t.ws, { taskId: b.id, value: 4, confidence: 9 })).success);
+  // The owner's check-in moved Teams (owned by the member) off pace: the member hears about it, once.
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.member} AND title = 'Off track: Teams'`)[0]!.n, 1);
+  const read = await docs.readGoalsAction(t.ws, "goals-2026-q3");
+  assert.ok(read.success);
+  assert.deepEqual([read.ended, read.next.period, read.next.slug], [true, "2026-Q4", null]);
+  // Carry Grow (missed) into a new Q4 document the browser made.
+  assert.equal((await docs.closePeriodAction(t.ws, { docSlug: "goals-2026-q3", carry: [o1.id] }) as { error?: string }).error, "Make the next period's document first.");
+  await t.doc("goals-2026-q4");
+  const closed = await docs.closePeriodAction(t.ws, { docSlug: "goals-2026-q3", carry: [o1.id], nextDocSlug: "goals-2026-q4" });
+  assert.deepEqual(closed, { success: true, alreadyClosed: false, carried: 1, nextSlug: "goals-2026-q4" });
+  const rows = await sql`SELECT id, stage, status, type_fields FROM tasks WHERE id IN (${a.id}, ${b.id}, ${o1.id}, ${o2.id})`;
+  const by = (id: string) => rows.find((r) => r.id === id)!;
+  assert.deepEqual([by(a.id).stage, by(a.id).type_fields.final, by(b.id).stage, by(o1.id).stage, by(o2.id).stage], ["missed", 30, "done", "missed", "done"]);
+  const q4 = await docs.readGoalsAction(t.ws, "goals-2026-q4");
+  assert.ok(q4.success);
+  assert.deepEqual(q4.objectives.map((o) => [o.title, o.keyResults.map((k) => [k.title, k.start, k.target, k.assigneeId])]), [["Grow", [["Teams", 30, 50, t.member]]]]);
+  // Read-only after; closing again changes nothing.
+  const after = await docs.readGoalsAction(t.ws, "goals-2026-q3");
+  assert.ok(after.success && after.closedAt && !after.canEdit);
+  assert.equal((await docs.checkInAction(t.ws, { taskId: b.id, value: 3, confidence: 9 }) as { error?: string }).error, "This period is closed.");
+  assert.equal((await docs.addObjectiveAction(t.ws, { docSlug: "goals-2026-q3", title: "Late" }) as { error?: string }).error, "Only people who can edit these goals add to them.");
+  assert.deepEqual(await docs.closePeriodAction(t.ws, { docSlug: "goals-2026-q3", carry: [] }), { success: true, alreadyClosed: true, carried: 0, nextSlug: null });
+  // Viewers can't close.
+  viewerId = t.viewer;
+  assert.equal((await docs.closePeriodAction(t.ws, { docSlug: "goals-2026-q4", carry: [] }) as { error?: string }).error, "Only people who can edit these goals close the period.");
+});
+
+test("part 8: the owner and admins hear 7 days before a period ends, once", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  await goalsDoc(t, "goals-2027-q1", "2027-Q1");
+  const { notifyGoalsClosingSoon } = await loadAppModule(() => import("../../src/lib/workflows/goals-notify"));
+  const count = async () => (await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.owner} AND title = 'Q1 2027 goals close in 7 days'`)[0]!.n;
+  await notifyGoalsClosingSoon(new Date("2027-03-20T06:00:00Z"));
+  assert.equal(await count(), 0);
+  await notifyGoalsClosingSoon(new Date("2027-03-25T06:00:00Z")); // Kolkata: 25 March, 7 days before 1 April
+  await notifyGoalsClosingSoon(new Date("2027-03-25T09:00:00Z"));
+  assert.equal(await count(), 1);
+});
+
+test("security review: objectives and key results never reach someone outside the workspace through task reads", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  await goalsDoc(t, "goals-q1", "2027-Q1");
+  const o = await docs.addObjectiveAction(t.ws, { docSlug: "goals-q1", title: "Secret plan" });
+  assert.ok(o.success);
+  await tasksServer.createTaskAction({ projectId: t.ws, title: "Public task", status: "todo", priority: "medium", assigneeId: null, dueDate: null } as never);
+  await sql`UPDATE workspaces SET visibility = 'public', public_tab_visibility = '{"tasks": true}'::jsonb WHERE id = ${t.ws}`;
+  const detail = async (id: string) => {
+    const r = await tasksServer.getWorkspaceTaskDetailAction(t.ws, id) as { success?: boolean; task?: { title: string } | null };
+    return r.success && r.task ? r.task.title : null;
+  };
+  assert.equal(await detail(o.id), "Secret plan", "members open their objectives");
+  viewerId = t.outsider;
+  assert.equal(await detail(o.id), null, "someone outside can't open an objective, even with a public Tasks tab");
+});
