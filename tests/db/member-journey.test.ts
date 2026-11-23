@@ -233,6 +233,11 @@ test("profile: the closing note, marked completed by, confirmed by, and the earl
   const done = await own();
   assert.equal(done.endReason, "completed");
   assert.equal(done.endNote, "Built the sign-in");
+  await sql`UPDATE profile_contributions SET published_at = now(), visibility = 'public' WHERE id = ${s.entryId}`;
+  await sql`UPDATE workspaces SET visibility = 'public', status = 'active' WHERE id = ${s.ws}`;
+  const publicView = (await profile.getProfileContributions(s.member)).contributions.find((c) => c.projectId === s.ws);
+  assert.ok(publicView, "the entry is on the public profile");
+  assert.equal(publicView!.endNote, null, "the owner's note isn't on the person's public profile");
   assert.ok(done.endedByName, "marked completed by the owner");
   assert.ok(done.confirmedByName, "confirmed by");
   assert.deepEqual(done.earlierPeriods, [], "the completed period is the entry itself");

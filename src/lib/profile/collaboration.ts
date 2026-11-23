@@ -843,7 +843,10 @@ async function queryProfileContributionRows(profileId: string, options: {
       contribution.verification_revoked_reason,
       contribution.end_reason,
       -- Member settings §3: the closing note, "marked completed by", "confirmed by", and earlier periods here.
-      CASE WHEN contribution.end_reason IN ('completed', 'workspace_completed') THEN contribution.end_note END AS end_note,
+      -- Only the person's own words go on their public profile; a note someone else wrote shows to them alone.
+      CASE WHEN contribution.end_reason = 'workspace_completed'
+        OR (contribution.end_reason = 'completed' AND (contribution.ended_by = contribution.profile_id OR ${includePrivate ? sql`TRUE` : sql`FALSE`}))
+        THEN contribution.end_note END AS end_note,
       CASE WHEN contribution.end_reason = 'completed' AND contribution.ended_by IS DISTINCT FROM contribution.profile_id THEN
         (SELECT coalesce(nullif(trim(ep.full_name), ''), ep.username) FROM profiles ep WHERE ep.id = contribution.ended_by) END AS ended_by_name,
       CASE WHEN contribution.end_reason IN ('completed', 'workspace_completed') THEN
