@@ -12,6 +12,7 @@ import { readWorkspaceFileText } from "@/lib/files/content-reader";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { availableSections, decisionLabel, DOC_SECTIONS, sectionHasDate, type DocSection } from "@/lib/workspaces/doc-sections";
+import { periodLabel as goalPeriodLabel } from "@/lib/workflows/goals";
 import { canAddRows, MAX_BLOCK_ROWS, visibleRows } from "@/lib/workspaces/doc-live-blocks";
 import {
     profiles,
@@ -255,8 +256,9 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
         if (!permission.canEdit && project.kind === "organization" && readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).lifecycle === "draft") continue;
         if (!permission.canEdit && !membership && !isOwner && doc.empty && (project.kind === "organization" || project.parentId)) continue;
         if (permission.canReadPublished || permission.canEdit) {
-            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, supersedes, supersededBy, reverseReason, meetingTitle, launchTitle } = normalizeWorkspaceDocSettings(doc.settings);
-            const title = section === "meetings" ? meetingTitle : section === "launches" ? launchTitle : undefined;
+            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, supersedes, supersededBy, reverseReason, meetingTitle, launchTitle, period } = normalizeWorkspaceDocSettings(doc.settings);
+            // A5.1 live check: a goals document shows "Goals · Q4 2026", not its file name.
+            const title = section === "meetings" ? meetingTitle : section === "launches" ? launchTitle : section === "goals" && period ? `Goals · ${goalPeriodLabel(period)}` : undefined;
             results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId, ...(section ? { section } : {}), ...(kind ? { kind } : {}), ...(date ? { date } : {}), ...(title ? { title } : {}),
                 ...(decisionNumber ? { decisionNumber, decisionStatus: decisionStatus ?? "decided" } : {}), ...(fromDocId ? { fromDocId } : {}),
                 ...(supersedes ? { supersedes } : {}), ...(supersededBy ? { supersededBy } : {}), ...(reverseReason ? { reverseReason } : {}) });

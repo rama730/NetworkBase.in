@@ -69,6 +69,9 @@ test("W1: one members-only goals document per period", async () => {
   const { id, r } = await goalsDoc(t, "goals-q1", "2027-Q1");
   assert.ok(r.success, JSON.stringify(r));
   assert.deepEqual([(await settingsOf(id)).section, (await settingsOf(id)).period, (await settingsOf(id)).visibilityOverride], ["goals", "2027-Q1", "members_only"]);
+  const listed = await docs.listWorkspaceDocsAction(t.ws);
+  assert.ok(listed.success);
+  assert.equal(listed.docs.find((d) => d.slug === "goals-q1")?.title, "Goals · Q1 2027", "the rail shows the period, not the file name");
   const again = await goalsDoc(t, "goals-q1-again", "2027-Q1");
   assert.equal((again.r as { error?: string }).error, "Q1 2027 already has a goals document.");
   viewerId = t.viewer;
