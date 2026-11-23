@@ -57,3 +57,8 @@ test('Edit profile: drafts link wired, ⌘S ignores the contribution panel, no s
     assert.match(editor, /closest\?\.\("\.nb-pf-cd"\)/);
     assert.match(editor, /startsWith\("blob:"\)/);
 });
+
+test('the tab strip is rounded and clipped like its bar, so the first tab’s underline follows the corner', () => {
+    assert.match(pf, /\.nb-pf-tb\s*{[^}]*overflow:\s*clip[^}]*border-radius:\s*0 0 calc\(var\(--radius-lg\) - 1px\)/);
+    assert.match(pf, /\.nb-pf-tabwrap\[data-stuck\] \.nb-pf-tb\s*{[^}]*border-radius:\s*calc\(var\(--radius-lg\) - 1px\)/);
+});
