@@ -16,6 +16,7 @@ describe("nb content", () => {
       { id: "c1", number: 1, title: "Pricing guide", stage: "scheduled", publishAt: now.toISOString(), channels: ["blog", "linkedin"], writer: "Mei", published: [] },
       { id: "c2", number: 2, title: "Year in review", stage: "drafting", publishAt: new Date(now.getTime() + 40 * 86_400_000).toISOString(), channels: ["blog"], writer: "Mei", published: [] },
       { id: "c3", number: 3, title: "Behind the scenes", stage: "idea", publishAt: null, channels: [], writer: null, published: [] },
+      { id: "c4", number: 4, title: "Dropped teaser", stage: "cancelled", publishAt: now.toISOString(), channels: ["blog"], writer: "Mei", published: [] },
     ];
   });
   after(() => api.close());

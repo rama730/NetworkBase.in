@@ -283,7 +283,9 @@ export function ContentPanelSection({ projectId, taskId }: { projectId: string; 
         </dd></> : null}
         {(() => {
           // W8 (A2.9): Results per published channel; an Update's likes and comments are live (call 3).
-          const rows = performanceRows([piece]);
+          // A2.9 live check: in the piece's channel order.
+          const at = (c: string) => { const i = channels.findIndex((x) => x.id === c); return i < 0 ? channels.length : i; };
+          const rows = performanceRows([piece]).sort((a, b) => at(a.channel) - at(b.channel));
           if (!rows.length) return null;
           const n = (v: number | null) => (v == null ? "—" : v.toLocaleString());
           return <><dt className="text-muted-foreground">Results</dt><dd className="space-y-0.5" data-testid="content-results">

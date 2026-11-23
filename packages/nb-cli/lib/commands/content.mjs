@@ -44,7 +44,8 @@ function table(ctx, d, rows, empty) {
 /** nb content list [--week] @param {Context} ctx */
 export async function list(ctx) {
   const d = await readAll(ctx);
-  let rows = /** @type {any[]} */ (d.items).filter((r) => r.stage !== "idea");
+  // A2.9 live check: canceled pieces stay in history, not in the list.
+  let rows = /** @type {any[]} */ (d.items).filter((r) => r.stage !== "idea" && r.stage !== "cancelled");
   if (ctx.flags.week) {
     const now = new Date(), monday = new Date(now);
     monday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); monday.setHours(0, 0, 0, 0);
