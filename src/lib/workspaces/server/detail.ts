@@ -70,6 +70,7 @@ const projectDetailCollaboratorSchema = z.object({
   userId: z.string().uuid(),
   membershipRole: projectDetailMemberRoleSchema,
   joinedAt: z.string().nullable(),
+  completedAt: z.string().nullable().optional(),
   user: projectDetailProfileSchema.nullable(),
   projectRoleTitle: z.string().nullable(),
 });
@@ -276,6 +277,7 @@ async function fetchProjectDetailShellData(
           userId: workspaceMembers.userId,
           membershipRole: workspaceMembers.role,
           joinedAt: workspaceMembers.joinedAt,
+          completedAt: workspaceMembers.completedAt,
           profileId: profiles.id,
           username: profiles.username,
           fullName: profiles.fullName,
@@ -388,6 +390,8 @@ async function fetchProjectDetailShellData(
         ? m.membershipRole
         : "member",
       joinedAt: m.joinedAt?.toISOString?.() ?? null,
+      // Member settings §3: pickers skip someone whose part is completed.
+      completedAt: m.completedAt?.toISOString?.() ?? null,
       user: m.profileId
         ? {
             id: m.profileId,

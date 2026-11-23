@@ -30,7 +30,8 @@ import { useRoleApplicationCounts } from '@/hooks/useRoleApplicationCounts';
 import { userTopic } from '@/lib/messaging/constants';
 import { subscribeBroadcast } from '@/lib/realtime/private-broadcast';
 import { resolveWorkspaceInvitationAction } from '@/app/actions/workspace/guidance';
-import { useWorkspaceMembers } from '@/hooks/workspaces/useWorkspaceMembers';
+import { useWorkspaceMembers, WORKSPACE_MEMBERS_QUERY_KEY } from '@/hooks/workspaces/useWorkspaceMembers';
+import { useMemberUpdates } from '@/hooks/useMemberUpdates';
 import { queryKeys } from '@/lib/query-keys';
 import { logger } from '@/lib/logger';
 import { liveTopics } from '@/lib/realtime/subscriptions';
@@ -631,6 +632,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         initialCursor: project.membersNextCursor,
         pageSize: 20,
     });
+
+    // Someone completed, reopened or left (member settings §7): pickers and lists read the members again.
+    useMemberUpdates(isOwnerOrMember ? project.id : undefined, () => { void queryClient.invalidateQueries({ queryKey: WORKSPACE_MEMBERS_QUERY_KEY(project.id) }); });
 
     // Flatten members and include owner
     const allMembers = useMemo(() => {
