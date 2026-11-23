@@ -84,6 +84,8 @@ interface CreateTaskModalProps {
   initialTitle?: string;
   /** Report 38.6 W10 (A2.3): Report as bug from a message brings the message as What happened?. */
   initialSteps?: string;
+  /** Only the initial type's tab (Report as bug from chat files a bug, nothing else). */
+  lockType?: boolean;
   fromLine?: string;
   /** Report 38.5 W8: + on a Calendar day opens New with that due date (YYYY-MM-DD). */
   initialDueDate?: string;
@@ -136,6 +138,7 @@ export default function CreateTaskModal({
   initialType,
   initialTitle = "",
   initialSteps,
+  lockType = false,
   fromLine,
   initialDueDate = "",
   initialStartDate = "",
@@ -316,7 +319,7 @@ export default function CreateTaskModal({
     </div>
   );
 
-  const tabKeys = moduleTabs(types, { assignment: Boolean(renderMany) });
+  const tabKeys = lockType && initialType ? [initialType] : moduleTabs(types, { assignment: Boolean(renderMany) });
   const kindTabs = tabKeys.length > 1 ? (
     <div className="shrink-0 px-6">
       <UnderlineTabs label="What are you creating?" idPrefix="new-kind" controls={false} value={kind} onChange={switchKind}
@@ -395,7 +398,7 @@ export default function CreateTaskModal({
                 {partOf ? <p className="text-xs text-muted-foreground" data-testid="create-partof-line">Part of: <span className="font-medium text-foreground">{partOf.title}</span></p> : null}
                 {kind === "bug" && projectId ? <BugSimilar projectId={projectId} title={titleText} projectKey={projectKey} onMine={onClose} /> : null}
 
-                {kind === "bug" || kind === "request" ? null : <Field
+                {kind === "bug" ? null : <Field
                   label="Description"
                   htmlFor="task-description"
                   error={fieldErrors.description}

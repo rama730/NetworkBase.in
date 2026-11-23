@@ -768,7 +768,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           personName={message.author?.full_name || message.author?.username || null} open={reportOpen} onOpenChange={setReportOpen} />
       ) : null}
       {bugDraft && ctx.projectId ? (
-        <CreateTaskModal isOpen onClose={() => setBugDraft(null)} projectId={ctx.projectId} types={["bug"]} initialType="bug" openedFrom="own"
+        <CreateTaskModal isOpen onClose={() => setBugDraft(null)} projectId={ctx.projectId} types={["bug"]} initialType="bug" openedFrom="own" lockType
           initialTitle={bugDraft.title} initialSteps={bugDraft.steps} fromLine={`a message from ${authorName}`}
           onCreate={async ({ draft, subtasks, attachments }) => {
             const result = await reportBugFromMessage({

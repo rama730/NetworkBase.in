@@ -589,6 +589,7 @@ export async function changeTaskTypeAction(input: z.infer<typeof changeTypeSchem
         }
       }
     });
+    (await import("@/lib/workflows/server")).announceWaiting(projectId);
     return { success: true as const, count: taskIds.length };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t change the type" };

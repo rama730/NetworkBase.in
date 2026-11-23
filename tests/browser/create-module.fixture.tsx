@@ -13,7 +13,8 @@ const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
     <CreateTaskModal isOpen projectId="w1" onClose={() => { w.__closed = true; }} canAssignSprint={q.get('plan') !== '0'}
-      types={['bug', 'request']} initialType={q.get('type') ?? undefined} openedFrom={(q.get('from') as 'tasks' | 'own') ?? 'tasks'}
+      types={['bug', 'request']} initialType={q.get('type') ?? undefined} openedFrom={(q.get('from') as 'tasks' | 'own') ?? 'tasks'} lockType={q.get('lock') === '1'}
+      initialTitle={q.get('title') ?? undefined} initialSteps={q.get('steps') ?? undefined}
       onCreate={async (task: any) => {
         w.__created.push(task.draft);
         if (q.get('removed') === '1' && task.draft.itemType) return { success: false, error: 'Bugs was removed from this workspace', code: 'type_removed' };

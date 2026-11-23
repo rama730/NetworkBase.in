@@ -65,6 +65,6 @@ test("cancel removes what hasn't gone off; leaving the workspace closes a remind
 test("security review (A2.5): a person's note can't look like a request's clock warning", async () => {
   const w = await world();
   const forged = await call(w, "POST", { at: new Date(Date.now() + 3600_000).toISOString(), note: "request_clock:first:breach" });
-  assert.equal(forged.status, 400, JSON.stringify(forged.body));
+  assert.equal(forged.status, 409, JSON.stringify(forged.body));
   assert.equal((await sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${w.taskId}`)[0]!.n, 0);
 });

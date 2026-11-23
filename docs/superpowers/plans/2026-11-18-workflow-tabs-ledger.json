@@ -198,9 +198,9 @@
       "text": "A2.3 Bugs: chat + Change type + CLI/MCP — Build: reportBugFromMessageAction, changeTaskTypeAction, nb bugs, networkbasebugreport/close. Journeys: T3 W10, W14, W",
       "kind": "unit",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/chat-send-replay.test.ts; tests/db/bugs.test.ts; tests/browser/bugs-tab.spec.ts; packages/nb-cli/test/bugs.test.mjs",
-      "evidence": "a81b0648b deployed 2026-11-23; local: tests/db/chat-send-replay (Report as bug), tests/db/bugs (Change type), tests/browser/bugs-tab A2.3 (search, Assigned to, CSV, PR chip) chromium+webkit. Signed-in Chrome check pending: Chrome extension disconnected at deploy time; wt-test-a2-3 kept for it. revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: Bugs tab search (words and WT-3), Assigned to Me, PR chip; panel ⋯ Change to a bug (Confirmed/New offered, Shows in Bugs · Confirmed, toast); chat ⋯ Report as bug under Create task → New module on Bug prefilled (title, What happened?, From line, Similar open bugs) → WT-6 at New, card in thread, https link back. Fixes from the check (Task tab hidden in chat, Similar bugs names with the key) ship with A2.5. Export CSV not clicked live (download), covered by tests/browser/bugs-tab."
     },
     {
       "key": "A2.4",
@@ -208,9 +208,9 @@
       "text": "A2.4 Requests: types, ask, Inbox (38.7) — Build: migration workspacerequesttypes; starters; ask form; acceptRequestAction, declineRequestAction; Inbox · Board ·",
       "kind": "unit",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "A2.5",
@@ -6168,9 +6168,9 @@
       "text": "Report as bug from chat",
       "kind": "journey",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/chat-send-replay.test.ts; tests/db/bugs.test.ts; tests/browser/bugs-tab.spec.ts; packages/nb-cli/test/bugs.test.mjs",
-      "evidence": "a81b0648b deployed 2026-11-23; local: tests/db/chat-send-replay (Report as bug), tests/db/bugs (Change type), tests/browser/bugs-tab A2.3 (search, Assigned to, CSV, PR chip) chromium+webkit. Signed-in Chrome check pending: Chrome extension disconnected at deploy time; wt-test-a2-3 kept for it. revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: Bugs tab search (words and WT-3), Assigned to Me, PR chip; panel ⋯ Change to a bug (Confirmed/New offered, Shows in Bugs · Confirmed, toast); chat ⋯ Report as bug under Create task → New module on Bug prefilled (title, What happened?, From line, Similar open bugs) → WT-6 at New, card in thread, https link back. Fixes from the check (Task tab hidden in chat, Similar bugs names with the key) ship with A2.5. Export CSV not clicked live (download), covered by tests/browser/bugs-tab."
     },
     {
       "key": "38.6.W11",
@@ -6298,9 +6298,9 @@
       "text": "Report as bug sits beside Create task on chat messages. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/chat-send-replay.test.ts; tests/db/bugs.test.ts; tests/browser/bugs-tab.spec.ts; packages/nb-cli/test/bugs.test.mjs",
-      "evidence": "a81b0648b deployed 2026-11-23; local: tests/db/chat-send-replay (Report as bug), tests/db/bugs (Change type), tests/browser/bugs-tab A2.3 (search, Assigned to, CSV, PR chip) chromium+webkit. Signed-in Chrome check pending: Chrome extension disconnected at deploy time; wt-test-a2-3 kept for it. revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: Bugs tab search (words and WT-3), Assigned to Me, PR chip; panel ⋯ Change to a bug (Confirmed/New offered, Shows in Bugs · Confirmed, toast); chat ⋯ Report as bug under Create task → New module on Bug prefilled (title, What happened?, From line, Similar open bugs) → WT-6 at New, card in thread, https link back. Fixes from the check (Task tab hidden in chat, Similar bugs names with the key) ship with A2.5. Export CSV not clicked live (download), covered by tests/browser/bugs-tab."
     },
     {
       "key": "38.6.call9",
@@ -6318,9 +6318,9 @@
       "text": "First look",
       "kind": "journey",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.W2",
@@ -6328,9 +6328,9 @@
       "text": "Asking (General request)",
       "kind": "journey",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.W3",
@@ -6338,9 +6338,9 @@
       "text": "Asking for a design",
       "kind": "journey",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.W4",
@@ -6348,9 +6348,9 @@
       "text": "Triage in the Inbox",
       "kind": "journey",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.W5",
@@ -6388,9 +6388,9 @@
       "text": "My asks",
       "kind": "journey",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.W9",
@@ -6398,9 +6398,9 @@
       "text": "Editing request types (admins)",
       "kind": "journey",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.W10",
@@ -6418,9 +6418,9 @@
       "text": "A request made from Tasks",
       "kind": "journey",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.W12",
@@ -6508,9 +6508,9 @@
       "text": "Members and viewers can ask; members accept, decline and handle. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.call8",
@@ -6518,9 +6518,9 @@
       "text": "Up to 12 request types per workspace, 5 questions each. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.call9",
@@ -6528,9 +6528,9 @@
       "text": "A request can become a bug (T3's Change type) with the asker as Reported by. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.call10",
@@ -8228,9 +8228,9 @@
       "text": "A2.3 (2026-11-23): Report as bug shows on a workspace channel message's ⋯ only while Bugs is added there; it opens the New module on Bug with the first line as ",
       "kind": "call",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/chat-send-replay.test.ts; tests/db/bugs.test.ts; tests/browser/bugs-tab.spec.ts; packages/nb-cli/test/bugs.test.mjs",
-      "evidence": "a81b0648b deployed 2026-11-23; local: tests/db/chat-send-replay (Report as bug), tests/db/bugs (Change type), tests/browser/bugs-tab A2.3 (search, Assigned to, CSV, PR chip) chromium+webkit. Signed-in Chrome check pending: Chrome extension disconnected at deploy time; wt-test-a2-3 kept for it. revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: Bugs tab search (words and WT-3), Assigned to Me, PR chip; panel ⋯ Change to a bug (Confirmed/New offered, Shows in Bugs · Confirmed, toast); chat ⋯ Report as bug under Create task → New module on Bug prefilled (title, What happened?, From line, Similar open bugs) → WT-6 at New, card in thread, https link back. Fixes from the check (Task tab hidden in chat, Similar bugs names with the key) ship with A2.5. Export CSV not clicked live (download), covered by tests/browser/bugs-tab."
     },
     {
       "key": "38.7.call11",
@@ -8238,9 +8238,9 @@
       "text": "A2.4 (2026-11-23): Requests ships in three units (A2.4 types, asking, Inbox, Accept and Decline; A2.5 working hours, the clock and Breaching soon; A2.6 waiting,",
       "kind": "call",
       "milestone": "A2",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
-      "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+      "evidence": "Checked live in Chrome 2026-11-23 on wt-test-a2-3: empty Inbox line, Design request questions, required answer stopped, WT-7 in Inbox with chip → Accept with handler (Accepted, on board, Mine), WT-8 Decline via D key with reason (My asks shows it), WT-9 This is a bug → Confirmed, Request types editor lists the starters. Fixes from the check (tab counts refresh live; Description kept on requests per F3 W3) ship with A2.5."
     },
     {
       "key": "38.7.call12",

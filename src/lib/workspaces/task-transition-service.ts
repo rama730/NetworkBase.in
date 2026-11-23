@@ -451,6 +451,7 @@ export async function afterTaskTransition(
     const { scheduleRequestClock } = await import("@/lib/workflows/request-clock-server");
     await scheduleRequestClock(taskId);
   }
+  if (locked.itemType && locked.itemType !== "task") (await import("@/lib/workflows/server")).announceWaiting(locked.projectId);
   const warnings =
     result.status === "done"
       ? await db

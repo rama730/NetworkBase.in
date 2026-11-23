@@ -24,7 +24,8 @@ export function BugSimilar({ projectId, title, projectKey, onMine }: { projectId
   const similar = useQuery({ queryKey: ["similar-bugs", projectId, query], queryFn: () => similarBugsAction({ projectId, title: query }), enabled: query.length >= 4, staleTime: 30_000 });
   const bugs = similar.data?.success ? similar.data.bugs : [];
   if (query.length < 4 || !bugs.length) return null;
-  const name = (n: number | null) => (n && projectKey ? `${projectKey}-${n}` : n ? `#${n}` : "it");
+  const key = projectKey ?? (similar.data?.success ? similar.data.projectKey : null);
+  const name = (n: number | null) => (n && key ? `${key}-${n}` : n ? `#${n}` : "it");
   async function mine(bug: (typeof bugs)[number]) {
     const r = await seeTooAction({ projectId, taskId: bug.id, on: true });
     if (!r.success) return void toast.error(r.error);

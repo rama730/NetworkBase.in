@@ -68,6 +68,8 @@ function addable(workflow: string) {
 }
 
 const announce = (workspaceId: string) => void broadcast([{ topic: `live:workspace:${workspaceId}`, event: "workflows.changed", payload: {} }]);
+/** Live check (A2.4): an own tab's count (28.4) moves whenever a typed item is made, moved or changes type. */
+export const announceWaiting = (workspaceId: string) => announce(workspaceId);
 
 /** Adds a workflow, or brings a hidden one back with everything it held (S2, W7 step 5). Adding twice is a no-op. */
 export async function addWorkflow(workspaceId: string, userId: string, workflow: string) {

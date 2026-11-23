@@ -77,3 +77,11 @@ test('W9 phone and dark: tabs and footer fit; no accessibility violations', asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   expect(await axeViolations(page)).toEqual([]);
 });
+
+test('A2.3 W10: Report as bug from chat opens on Bug only, with the message as the title and What happened?', async ({ page }) => {
+  await open(page, `type=bug&from=own&lock=1&title=${encodeURIComponent('Export crashes on Safari')}&steps=${encodeURIComponent('Export crashes on Safari\nOpen a file, click Export')}`);
+  await expect(dialog(page).getByRole('tab')).toHaveCount(0);
+  await expect(dialog(page).locator('#task-title')).toHaveValue('Export crashes on Safari');
+  await expect(dialog(page).getByLabel('What happened?')).toHaveValue('Export crashes on Safari\nOpen a file, click Export');
+  await expect(dialog(page).getByLabel('Starts at')).toHaveValue('new');
+});

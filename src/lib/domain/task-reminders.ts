@@ -20,7 +20,7 @@ const PENDING_PER_TASK = 10;
 export async function addTaskReminder(userId: string, taskId: string, at: Date, note: string | null, now = new Date()) {
   await readableTask(taskId, userId);
   // Security review (A2.5): "request_clock:" notes mark a request's system warnings; a person's note can't take that form.
-  if (note?.trim().toLowerCase().startsWith("request_clock:")) throw new TaskMetaError("Write the note in words", 400);
+  if (note?.trim().toLowerCase().startsWith("request_clock:")) throw new TaskMetaError("Write the note in words", 409);
   if (at.getTime() < now.getTime() + 30_000) throw new TaskMetaError("That time has passed: pick one in the future", 409);
   if (at.getTime() > now.getTime() + 366 * 86_400_000) throw new TaskMetaError("Reminders can be up to a year ahead", 409);
   const [pending] = await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${taskId} AND user_id = ${userId} AND sent_at IS NULL AND (note IS NULL OR note NOT LIKE 'request_clock:%')`);

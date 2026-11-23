@@ -77,7 +77,9 @@ export async function similarBugsAction(input: { projectId: string; title: strin
       FROM tasks WHERE workspace_id = ${projectId}::uuid AND item_type = 'bug' AND deleted_at IS NULL AND stage IN ('new', 'confirmed', 'fixing')
         AND (${sql.join(words.map((w) => sql`title ILIKE ${"%" + w.replace(/[%_\\]/g, (c) => "\\" + c) + "%"}`), sql` OR `)})
       ORDER BY (${sql.join(words.map((w) => sql`(title ILIKE ${"%" + w.replace(/[%_\\]/g, (c) => "\\" + c) + "%"})::int`), sql` + `)}) DESC, updated_at DESC LIMIT 5`));
-    return { success: true as const, bugs: rows.map((r) => ({ id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, seen: r.seen, mine: r.mine })) };
+    // Live check (A2.3): from chat the module doesn't know the workspace key, so the names come with the answer.
+    const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+    return { success: true as const, projectKey: ws?.key ?? null, bugs: rows.map((r) => ({ id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, seen: r.seen, mine: r.mine })) };
   } catch (error) {
     return fail(error, "Couldn’t look for similar bugs");
   }
