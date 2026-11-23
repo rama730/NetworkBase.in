@@ -218,9 +218,9 @@
       "text": "A2.5 Requests: working hours + clock + Breaching soon — Build: workspaces.workinghours; workingMinutesBetween, addWorkingMinutes, clockState, reminderTimes; clo",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/request-clock.test.ts; tests/db/requests.test.ts (A2.5); tests/browser/requests-tab.spec.ts",
+      "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247. The hourly job sending the 80 % notice is time-based: revisit 2026-11-27 after 14:15 IST."
     },
     {
       "key": "A2.6",
@@ -6378,9 +6378,9 @@
       "text": "Breaching soon",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/request-clock.test.ts; tests/db/requests.test.ts (A2.5); tests/browser/requests-tab.spec.ts",
+      "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247. The hourly job sending the 80 % notice is time-based: revisit 2026-11-27 after 14:15 IST."
     },
     {
       "key": "38.7.W8",
@@ -6408,9 +6408,9 @@
       "text": "Working hours",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/request-clock.test.ts; tests/db/requests.test.ts (A2.5); tests/browser/requests-tab.spec.ts",
+      "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247."
     },
     {
       "key": "38.7.W11",
@@ -6448,9 +6448,9 @@
       "text": "Response times are set per request type (first reply, deliver), in working minutes; Off is allowed. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/request-clock.test.ts; tests/db/requests.test.ts (A2.5); tests/browser/requests-tab.spec.ts",
+      "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247."
     },
     {
       "key": "38.7.call2",
@@ -6458,9 +6458,9 @@
       "text": "Working hours are one workspace setting (days, times, holidays) in the workspace time zone. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/request-clock.test.ts; tests/db/requests.test.ts (A2.5); tests/browser/requests-tab.spec.ts",
+      "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247."
     },
     {
       "key": "38.7.call3",
@@ -6498,9 +6498,9 @@
       "text": "Clock warnings use the existing task reminders and the hourly job; no new scheduled job (Inngest free limit). [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/unit/request-clock.test.ts; tests/db/requests.test.ts (A2.5); tests/browser/requests-tab.spec.ts",
+      "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247. The hourly job sending the 80 % notice is time-based: revisit 2026-11-27 after 14:15 IST."
     },
     {
       "key": "38.7.call7",
@@ -8248,9 +8248,9 @@
       "text": "A2.5 (2026-11-23): Working hours sit in workspaces.workflowsettings.workingHours and the clock uses workspaces.timezone; ordinary workspaces had no time-zone se",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/request-clock.test.ts; tests/db/requests.test.ts (A2.5); tests/browser/requests-tab.spec.ts",
+      "evidence": "c87ee61d3 + 6af2309eb + 38a5f38f0 deployed with 0958bc586 (web+worker SUCCESS) 2026-11-23. Checked live in Chrome on wt-test-a2-3: counts 'N new · N breaching soon', Breaching soon view, clock words on rows and cards (WT-7 '5 d left', WT-10 '4 h left'), owners' hours note → Working hours editor (defaults to the editor's zone) → saved; production rows for WT-7 rewritten after the response: 80 % Fri 27 Nov 13:50 IST, breach Mon 30 Nov 13:50 IST (exact). Tab counts refresh live on ask and Decline. Logs clean. Full test:db 1247/1247."
     }
   ]
 }
