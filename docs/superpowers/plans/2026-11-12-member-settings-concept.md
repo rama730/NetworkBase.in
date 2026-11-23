@@ -1,6 +1,6 @@
 # Member settings in a workspace: concept
 
-**Status:** built on local main 2026-11-23 (§12), not pushed. Migration 0114 is not in production yet; it must be applied before any deploy. Started 2026-11-12 and parked during the CLI and agents round.
+**Status:** built on local main 2026-11-23 (§12), not pushed. Migration 0114 is in production (applied 2026-11-23, checked). Started 2026-11-12 and parked during the CLI and agents round.
 - **2026-11-23:** the user added **Completing your part** (Part 2).
 - **2026-11-23:** an end-to-end check against the code found 24 gaps (§9). They are closed in this version.
 
@@ -373,7 +373,7 @@ All routes:
 **Tests:** unit 3,704 (profile dates, label rule, pickers, roles contract, tab rules, activity wording); database 15 new on a disposable database (member journey 12, role abilities 3, including SQL and app agreeing for every role and ability), and the full database suite 1,242 of 1,244 (the 2 left are the workflow session's bug-closing tests, not this work); CLI 356.
 
 **Still open:**
-1. Apply 0114 in production (needs your go-ahead), then deploy.
+1. ~~Apply 0114 in production~~ done 2026-11-23: the 8 membership columns, both workspace columns, the periods table, the role function, the trigger, the 3 task policies and the completed check in the SQL write function are all there. Next: deploy (push).
 2. Release the CLI with the new commands (needs your go-ahead).
-3. Browser checks signed in, both themes, phone and desktop: not done. The local app reads the production database, which doesn't have 0114 yet.
+3. Browser checks signed in, both themes, phone and desktop: not done yet. Now possible locally, since the local app reads the production database and 0114 is there.
 4. Live check with an owner and a member account.
