@@ -270,7 +270,7 @@ test('the full Network page matches Discover geometry and sizes cards to its mai
       expect(search.y).toBeLessThan(tabs.y + tabs.height);
       expect(search.y + search.height).toBeGreaterThan(tabs.y);
     }
-    const underline = await page.getByRole('tab', {name:'Suggested',exact:true}).evaluate(tab => {
+    const underline = await page.getByRole('tab', {name:/^Suggested\b/}).evaluate(tab => {
       const toolbar = tab.closest('[role=tablist]')!.parentElement!;
       return {gap:toolbar.getBoundingClientRect().bottom-tab.getBoundingClientRect().bottom, thickness:getComputedStyle(tab).borderBottomWidth};
     });
@@ -527,7 +527,7 @@ test('Network filters apply immediately, retain per-section URL state, and resto
  await page.getByRole('checkbox',{name:'Mutual connections',exact:true}).check();
  await expect(page).toHaveURL(/connections.shared=1/);
  await page.getByRole('button',{name:'Done',exact:true}).click();await expect(page).toHaveURL(/connections.shared=1/);await expect(page).toHaveURL(/connections.sort=name/);
- await page.getByRole('tab',{name:'Suggested',exact:true}).click();
+ await page.getByRole('tab',{name:/^Suggested\b/}).click();
  await expect(page.getByRole('searchbox',{name:'Search people'})).toHaveValue('Mira');
  await expect(page.getByRole('group',{name:'Selected network filters'})).toContainText('Location: Lisbon');
  await page.getByRole('button',{name:'Remove Location: Lisbon',exact:true}).click();
@@ -545,17 +545,17 @@ test('Network filters apply immediately, retain per-section URL state, and resto
  await page.getByRole('button',{name:'Done',exact:true}).click();
  await expect(page).toHaveURL(/invitations.direction=sent/);await expect(page).toHaveURL(/invitations.kind=projects/);
  await page.reload();await expect(page.getByRole('group',{name:'Selected network filters'})).toContainText('Role applications');
- await page.getByRole('tab',{name:'Suggested',exact:true}).click();
+ await page.getByRole('tab',{name:/^Suggested\b/}).click();
  await page.getByRole('searchbox',{name:'Search people'}).fill('Last keystrokes');
  await page.getByRole('tab',{name:'Connections 8',exact:true}).click();
- await page.getByRole('tab',{name:'Suggested',exact:true}).click();
+ await page.getByRole('tab',{name:/^Suggested\b/}).click();
  await expect(page.getByRole('searchbox',{name:'Search people'})).toHaveValue('Last keystrokes');
 });
 
 test('Network tab underlines stay on the divider in every section and compact layout',async({page})=>{
  for(const width of [1440,1200,900,768,390,320]){
   await page.setViewportSize({width,height:900});await open(page,'surface=network-layout&more');
-  for(const name of ['Suggested','Invitations 3','Connections 8']){
+  for(const name of [/^Suggested\b/,'Invitations 3','Connections 8']){
    await page.getByRole('tab',{name,exact:true}).click();
    const gap=await page.getByRole('tab',{name,exact:true}).evaluate(el=>el.closest('[role=tablist]')!.parentElement!.getBoundingClientRect().bottom-el.getBoundingClientRect().bottom);
    expect(Math.abs(gap),`${name} at ${width}`).toBeLessThanOrEqual(.5);
@@ -585,7 +585,7 @@ test.describe('Network touch controls',()=>{
   await page.setViewportSize({width:390,height:844});await open(page,'surface=network-layout&more');
   expect((await page.getByRole('searchbox',{name:'Search people'}).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect((await page.locator('.nb-network-toolbar').getByRole('button',{name:'Filters',exact:true}).boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  const gap=await page.getByRole('tab',{name:'Suggested',exact:true}).evaluate(el=>el.closest('[role=tablist]')!.parentElement!.getBoundingClientRect().bottom-el.getBoundingClientRect().bottom);
+  const gap=await page.getByRole('tab',{name:/^Suggested\b/}).evaluate(el=>el.closest('[role=tablist]')!.parentElement!.getBoundingClientRect().bottom-el.getBoundingClientRect().bottom);
   expect(Math.abs(gap)).toBeLessThanOrEqual(.5);
  });
 });
@@ -610,7 +610,7 @@ test('Network reuses Discover filter drawer geometry and keeps sorting inside th
   const toolbar=page.locator('.nb-network-toolbar');
   await expect(toolbar.getByText('Recommended',{exact:true})).toHaveCount(0);
   await expect(toolbar.getByText('Best match',{exact:true})).toHaveCount(0);
-  for(const name of ['Suggested','Invitations 3','Connections 8']){
+  for(const name of [/^Suggested\b/,'Invitations 3','Connections 8']){
    await page.getByRole('tab',{name,exact:true}).click();
    await expect(toolbar.getByRole('combobox')).toHaveCount(0);
    await toolbar.getByRole('button',{name:/^Filters/}).click();
@@ -626,7 +626,7 @@ test('Network reuses Discover filter drawer geometry and keeps sorting inside th
    const footer=panel.locator('[data-slot=dialog-footer]');
    await expect(footer).toHaveAttribute('data-paper','true');
    await expect(footer.getByRole('button',{name:'Done',exact:true})).toBeVisible();
-   if(name==='Suggested')await expect(panel.getByRole('combobox',{name:/Sort/})).toHaveCount(0);
+   if(typeof name!=='string')await expect(panel.getByRole('combobox',{name:/Sort/})).toHaveCount(0);
    else {
     const sort=panel.getByRole('combobox',{name:name.startsWith('Invitations')?'Sort invitations':'Sort connections'});
     await sort.click();await page.getByRole('option',{name:name.startsWith('Invitations')?'Oldest':'Name',exact:true}).click();
@@ -706,7 +706,7 @@ test('Network keeps its entire page in skeleton state until the first people req
 test('Network first-load errors reveal recovery instead of leaving the skeleton stuck',async({page})=>{
  await page.goto(origin+'/?surface=network-layout&initial-error');
  await expect(page.getByRole('heading',{name:'Network',exact:true})).toBeVisible();
- await expect(page.getByRole('alert')).toContainText('People could not be loaded');
+ await expect(page.getByRole('alert')).toContainText('People didn’t load');
  await expect(page.getByRole('status',{name:'Loading network',exact:true})).toHaveCount(0);
  await page.goto(origin+'/?surface=network-layout&render-error');
  await expect(page.getByRole('heading',{name:'Network',exact:true})).toBeVisible();

@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { OrgRequestsSection, useOrgRequests } from "@/components/organizations/OrgRequestsSection";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -40,6 +40,11 @@ import {
     boundPersonCardItems,
 } from "@/lib/network/person-card-bounds";
 import { queryKeys } from "@/lib/query-keys";
+import { RailSectionHeading } from "@/components/ui/rail-section";
+import { isNewRequest } from "@/lib/network/mix";
+import { scrollContributionEditorTarget as scrollRouteTo } from "@/lib/profile/contribution-editor-scroll";
+import { messageUserInWindow } from "@/components/messages/message-user";
+import { NetworkLoadError, RequestNote } from "./NetworkMix";
 import { profileHref } from "@/lib/routing/identifiers";
 
 function InvitationCardSkeleton() {
@@ -53,6 +58,8 @@ export default function InvitationsClient({
     onReset,
     onReady,
     onLoadingChange,
+    jumpTo,
+    onJumped,
 }: {
     initialUser: { id?: string | null } | null;
     searchQuery: string;
@@ -60,6 +67,9 @@ export default function InvitationsClient({
     onReset?: () => void;
     onReady?: () => void;
     onLoadingChange?: (loading: boolean) => void;
+    /** A group heading id the rail asked for (Network mix): scroll to it and light its section once. */
+    jumpTo?: string | null;
+    onJumped?: () => void;
 }) {
     const isAuthenticated = Boolean(initialUser?.id);
     const [, setProcessingProject] = useState<{
@@ -219,10 +229,30 @@ export default function InvitationsClient({
         ]);
     }
 
-    async function acceptConnection(id: string, name: string) {
+    type ConnectionInvitation = (typeof connectionInvitations)[number];
+    const [answered, setAnswered] = useState<Array<{ id: string; decision: "accept" | "decline"; index: number; invitation: ConnectionInvitation }>>([]);
+    async function answerConnection(invitation: ConnectionInvitation, decision: "accept" | "decline") {
+        const index = connectionInvitations.findIndex((item) => item.id === invitation.id);
+        // The answer shows at once; the cache drops the request while the server works.
+        setAnswered((prev) => [...prev.filter((item) => item.id !== invitation.id), { id: invitation.id, decision, index, invitation }]);
+        const ok = decision === "accept" ? await acceptConnection(invitation.id) : await declineConnection(invitation.id);
+        if (!ok) setAnswered((prev) => prev.filter((item) => item.id !== invitation.id));
+        return ok;
+    }
+    async function undoDecline(id: string) {
+        try {
+            await undoRejectRequest.mutateAsync(id);
+            setAnswered((prev) => prev.filter((item) => item.id !== id));
+            void refreshInvitationSurfaces();
+        } catch (error) {
+            toast.error(feedbackError(error instanceof Error ? error.message : "", "Couldn’t undo"));
+        }
+    }
+
+    // Network mix: the card keeps the answer in place, so success needs no toast; failures still toast.
+    async function acceptConnection(id: string) {
         try {
             await acceptRequest.mutateAsync(id);
-            toast.success(`You’re now connected with ${name}`);
             return true;
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Couldn’t accept invitation");
@@ -235,22 +265,6 @@ export default function InvitationsClient({
     async function declineConnection(id: string) {
         try {
             await rejectRequest.mutateAsync({ id });
-            toast.success("Invitation declined", {
-                action: {
-                    label: "Undo",
-                    onClick: () => {
-                        void undoRejectRequest
-                            .mutateAsync(id)
-                            .then(() => {
-                                toast.success("Decline undone");
-                                void refreshInvitationSurfaces();
-                            })
-                            .catch(() => {
-                                toast.error("Couldn’t undo");
-                            });
-                    },
-                },
-            });
             return true;
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Couldn’t decline invitation");
@@ -474,6 +488,7 @@ export default function InvitationsClient({
     const hasOrgRequests = Boolean(orgRequests && (orgRequests.invites.length > 0 || orgRequests.joinRequests.length > 0));
     const hasInvitations =
         hasOrgRequests ||
+        answered.length > 0 ||
         connectionInvitations.length > 0 ||
         projectInvitations.length > 0 ||
         projectApplications.length > 0 ||
@@ -483,6 +498,20 @@ export default function InvitationsClient({
         sentProjectInvitations.length > 0;
 
     const showSkeleton = isInitialLoading || showThresholdSkeleton || (entries.length === 0 && isQueryTransition);
+
+    useEffect(() => {
+        if (!jumpTo || showSkeleton) return;
+        const heading = document.getElementById(jumpTo);
+        const section = heading?.closest("section");
+        if (heading && section) {
+            scrollRouteTo(heading, true);
+            section.classList.remove("nb-network-flash");
+            void section.offsetWidth;
+            section.classList.add("nb-network-flash");
+            section.addEventListener("animationend", () => section.classList.remove("nb-network-flash"), { once: true });
+        }
+        onJumped?.();
+    }, [jumpTo, showSkeleton, onJumped]);
 
     if (showSkeleton) {
         return (
@@ -500,23 +529,15 @@ export default function InvitationsClient({
     }
 
     if (!hasInvitations && invitationsQuery.isError) {
-        return (
-            <div className="max-w-[620px] rounded-lg border border-border bg-card p-8 text-center">
-                <h2 className="nb-card-title text-foreground">
-                    Invitations could not be loaded.
-                </h2>
-                <p className="mt-1 text-sm max-md:text-[13px] text-muted-foreground">
-                    Try again.
-                </p>
-                <button
-                    type="button"
-                    onClick={() => void invitationsQuery.refetch()}
-                    className="mt-4 text-sm max-md:text-[13px] font-medium text-primary hover:underline"
-                >
-                    Retry
-                </button>
-            </div>
-        );
+        return <NetworkLoadError what="Invitations" onRetry={() => void invitationsQuery.refetch()} />;
+    }
+
+    // Answered requests stay where they were until the next visit (Network mix).
+    const shownInvitations: Array<{ invitation: ConnectionInvitation; decision?: "accept" | "decline" }> = connectionInvitations
+        .filter((item) => !answered.some((answer) => answer.id === item.id))
+        .map((invitation) => ({ invitation }));
+    for (const answer of [...answered].sort((a, b) => a.index - b.index)) {
+        shownInvitations.splice(Math.max(0, Math.min(answer.index, shownInvitations.length)), 0, { invitation: answer.invitation, decision: answer.decision });
     }
 
     if (!hasInvitations && !invitationsQuery.hasNextPage) {
@@ -569,18 +590,15 @@ export default function InvitationsClient({
                 {invitationsQuery.data?.pages[0]?.total ?? 0}{" "}
                 {filtered ? "matching" : "open"} invitations and applications
             </p>
-            {connectionInvitations.length ? (
+            {shownInvitations.length ? (
                 <section aria-labelledby="connection-invitations-heading">
-                    <h2
-                        id="connection-invitations-heading"
-                        className={
-                            hasOtherSections ? "nb-micro mb-3" : "sr-only"
-                        }
-                    >
-                        Connection invitations
-                    </h2>
+                    {hasOtherSections ? (
+                        <RailSectionHeading id="connection-invitations-heading" title="Connection invitations" count={connectionInvitations.length} />
+                    ) : (
+                        <h2 id="connection-invitations-heading" tabIndex={-1} className="sr-only">Connection invitations</h2>
+                    )}
                     <div className={INVITATION_GRID}>
-                        {connectionInvitations.map((invitation) => {
+                        {shownInvitations.map(({ invitation, decision }) => {
                             const profile = {
                                 id: invitation.requesterId,
                                 username: invitation.requesterUsername,
@@ -592,33 +610,50 @@ export default function InvitationsClient({
                                 invitation.requesterUsername ||
                                 "NetworkBase member";
 
+                            const person = {
+                                ...profile,
+                                headline: invitation.requesterHeadline,
+                                location: invitation.requesterLocation,
+                                skills: invitation.requesterSkills,
+                                ...invitation.personCard,
+                            };
+                            const firstName = displayName.split(" ")[0] || displayName;
+                            if (decision) {
+                                return (
+                                    <PersonCardContent
+                                        key={invitation.id}
+                                        person={person}
+                                        answered
+                                        footer={
+                                            <span className="nb-person-answer" role="status">
+                                                <span className="nb-state-tag" data-tone={decision === "accept" ? "ok" : undefined}>{decision === "accept" ? "Connected" : "Declined"}</span>
+                                                <span>{decision === "accept" ? `You and ${firstName} are connected` : `${firstName} isn’t told`}</span>
+                                            </span>
+                                        }
+                                        action={
+                                            decision === "accept" ? (
+                                                <Link href={`/messages?userId=${invitation.requesterId}`} onClick={(event) => messageUserInWindow(invitation.requesterId, event)} className="nb-person-control">Message</Link>
+                                            ) : (
+                                                <button type="button" className="nb-person-control" disabled={undoRejectRequest.isPending} onClick={() => void undoDecline(invitation.id)} aria-label={`Undo declining ${displayName}`}>Undo</button>
+                                            )
+                                        }
+                                    />
+                                );
+                            }
+
                             return (
                                 <PersonCardContent
                                     key={invitation.id}
-                                    person={{
-                                        ...profile,
-                                        headline: invitation.requesterHeadline,
-                                        location: invitation.requesterLocation,
-                                        skills: invitation.requesterSkills,
-                                        ...invitation.personCard,
-                                    }}
-                                    footer={requestDate(invitation.createdAt)}
+                                    person={person}
+                                    footer={receivedFooter(invitation.createdAt, invitation.message ? <RequestNote name={displayName} description="would like to connect with you" note={invitation.message} /> : null)}
                                     action={
                                         <PersonCardReview
                                             name={displayName}
                                             description="would like to connect with you"
                                             note={invitation.message}
                                             report={{ kind: "connection_request", targetId: invitation.id, noun: "connection request", personName: displayName }}
-                                            onAccept={() =>
-                                                acceptConnection(
-                                                    invitation.id,
-                                                    displayName.split(" ")[0] ||
-                                                        displayName,
-                                                )
-                                            }
-                                            onDecline={() =>
-                                                declineConnection(invitation.id)
-                                            }
+                                            onAccept={() => answerConnection(invitation, "accept")}
+                                            onDecline={() => answerConnection(invitation, "decline")}
                                         />
                                     }
                                 />
@@ -630,12 +665,7 @@ export default function InvitationsClient({
 
             {projectInvitations.length ? (
                 <section aria-labelledby="project-invitations-heading">
-                    <h2
-                        id="project-invitations-heading"
-                        className="nb-micro mb-3"
-                    >
-                        Workspace invitations
-                    </h2>
+                    <RailSectionHeading id="project-invitations-heading" title="Workspace invitations" count={projectInvitations.length} />
                     <div className={INVITATION_GRID}>
                         {projectInvitations.map((invitation) => {
                             const actor =
@@ -660,7 +690,7 @@ export default function InvitationsClient({
                                             </span>
                                         </Link>
                                     }
-                                    footer={requestDate(invitation.createdAt)}
+                                    footer={receivedFooter(invitation.createdAt)}
                                     action={
                                         <PersonCardReview
                                             name={displayName}
@@ -689,12 +719,7 @@ export default function InvitationsClient({
 
             {projectApplications.length ? (
                 <section aria-labelledby="project-applications-heading">
-                    <h2
-                        id="project-applications-heading"
-                        className="nb-micro mb-3"
-                    >
-                        Role applications
-                    </h2>
+                    <RailSectionHeading id="project-applications-heading" title="Role applications" count={projectApplications.length} />
                     <div className={INVITATION_GRID}>
                         {projectApplications.map((app) => {
                             const actor = app.actor ?? app.applicant;
@@ -714,7 +739,7 @@ export default function InvitationsClient({
                                             </span>
                                         </Link>
                                     }
-                                    footer={requestDate(app.createdAt)}
+                                    footer={receivedFooter(app.createdAt)}
                                     action={
                                         <ApplicationReview
                                             applicationId={app.id}
@@ -742,9 +767,7 @@ export default function InvitationsClient({
 
             {decidedApplications.length ? (
                 <section aria-labelledby="decided-applications-heading">
-                    <h2 id="decided-applications-heading" className="nb-micro mb-3">
-                        Decided applications · last 30 days
-                    </h2>
+                    <RailSectionHeading id="decided-applications-heading" title="Decided applications · last 30 days" />
                     <div className={INVITATION_GRID}>
                         {decidedApplications.map((app) => {
                             const actor = app.person;
@@ -789,9 +812,7 @@ export default function InvitationsClient({
 
             {sentApplications.length ? (
                 <section aria-labelledby="sent-applications-heading">
-                    <h2 id="sent-applications-heading" className="nb-micro mb-3">
-                        Your applications
-                    </h2>
+                    <RailSectionHeading id="sent-applications-heading" title="Your applications" count={sentApplications.length} />
                     <div className={INVITATION_GRID}>
                         {sentApplications.map((application) => {
                             const status = application.applicationStatus!;
@@ -838,12 +859,7 @@ export default function InvitationsClient({
 
             {sentProjectInvitations.length ? (
                 <section aria-labelledby="sent-project-invitations-heading">
-                    <h2
-                        id="sent-project-invitations-heading"
-                        className="nb-micro mb-3"
-                    >
-                        Sent workspace invitations
-                    </h2>
+                    <RailSectionHeading id="sent-project-invitations-heading" title="Sent workspace invitations" count={sentProjectInvitations.length} />
                     <div className={INVITATION_GRID}>
                         {sentProjectInvitations.map((invitation) => {
                             const candidate = invitation.candidate;
@@ -893,11 +909,11 @@ export default function InvitationsClient({
 
             {sentConnectionRequests.length ? (
                 <section aria-labelledby="sent-requests-heading">
-                    <div className="mb-3 flex items-center justify-between">
-                        <h2 id="sent-requests-heading" className="nb-micro">
-                            Sent connection requests
-                        </h2>
-                        {sentConnectionRequests.length > 1 && !filtered ? (
+                    <RailSectionHeading
+                        id="sent-requests-heading"
+                        title="Sent connection requests"
+                        count={sentConnectionRequests.length}
+                        action={sentConnectionRequests.length > 1 && !filtered ? (
                             <button
                                 type="button"
                                 onClick={() =>
@@ -910,8 +926,8 @@ export default function InvitationsClient({
                                     ? "Canceling all…"
                                     : "Cancel all"}
                             </button>
-                        ) : null}
-                    </div>
+                        ) : undefined}
+                    />
                     <div className={INVITATION_GRID}>
                         {sentConnectionRequests.map((request) => {
                             const profile = {
@@ -1006,6 +1022,17 @@ export default function InvitationsClient({
 /** Same grid as the Suggested / Connections tabs. */
 const INVITATION_GRID =
     "nb-person-card-grid grid grid-cols-1 gap-[14px] sm:grid-cols-2";
+
+/** A received request's footer (Network mix): Read note when there is one, the date, and NEW for its first day. */
+function receivedFooter(value?: Date | string | null, note?: ReactNode) {
+    return (
+        <span className="nb-person-footline">
+            {note ? <>{note}<span aria-hidden="true" className="nb-meta">·</span></> : null}
+            {requestDate(value)}
+            {isNewRequest(value) ? <span className="nb-state-tag" data-tone="new">New</span> : null}
+        </span>
+    );
+}
 
 function requestDate(value?: Date | string | null, label = "Requested") {
     const date = personRequestDate(value, Date.now(), label);

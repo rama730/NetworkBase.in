@@ -82,8 +82,12 @@ const TAB_CONFIG: Array<{
 export default function NetworkClient({ initialUser }: NetworkClientProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { pendingConnections, pendingInvites, pendingApplications, totalConnections } =
+    const { pendingConnections, pendingInvites, pendingApplications, totalConnections, pendingSent = 0 } =
         useNetworkNotifications();
+    // Network mix: Suggested's count comes from its own list ("06", "20+"); rail rows jump to their group on Invitations.
+    const [suggestedCount, setSuggestedCount] = useState<string | null>(null);
+    const [jumpTo, setJumpTo] = useState<string | null>(null);
+    const clearJump = useCallback(() => setJumpTo(null), []);
     const isAuthed = Boolean(initialUser?.id);
     const tabParam = (searchParams?.get("tab") || "").toLowerCase();
     const activeTab: TabKey = networkTab(tabParam);
@@ -144,10 +148,13 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
         activeTab,
     ]);
 
-    function tabCount(tab: TabKey) {
-        if (tab === "invitations") return pendingConnections + pendingInvites + pendingApplications;
-        if (tab === "connections") return totalConnections;
-        return null;
+    function tabCount(tab: TabKey): { text: string; label: string; waiting?: boolean } | null {
+        if (tab === "invitations") {
+            const count = pendingConnections + pendingInvites + pendingApplications;
+            return { text: padCount(count), label: String(count), waiting: count > 0 };
+        }
+        if (tab === "connections") return { text: padCount(totalConnections), label: String(totalConnections) };
+        return suggestedCount ? { text: suggestedCount, label: suggestedCount.replace("+", " or more") } : null;
     }
 
     function updateQuery(patch: Partial<NetworkBrowseQuery>) {
@@ -262,9 +269,9 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                             >
                                                 {tab.label}
                                                 {count !== null ? (
-                                                    <span className="nb-meta">
-                                                        <span aria-hidden="true">{padCount(count)}</span>
-                                                        <span className="sr-only">{count}</span>
+                                                    <span className={cn("nb-meta", count.waiting && "text-primary")}>
+                                                        <span aria-hidden="true">{count.text}</span>
+                                                        <span className="sr-only">{count.label}</span>
                                                     </span>
                                                 ) : null}
                                             </button>
@@ -336,6 +343,7 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                                     onReset={resetResults}
                                                     onReady={markInitialReady}
                                                     onLoadingChange={setTabLoading}
+                                                    onCount={setSuggestedCount}
                                                 />
                                             </ComponentErrorBoundary>
                                         ) : null}
@@ -352,6 +360,8 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                                     onReset={resetResults}
                                                     onReady={markInitialReady}
                                                     onLoadingChange={setTabLoading}
+                                                    jumpTo={jumpTo}
+                                                    onJumped={clearJump}
                                                 />
                                             </ComponentErrorBoundary>
                                         ) : null}
@@ -367,6 +377,7 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                                     onReset={resetResults}
                                                     onReady={markInitialReady}
                                                     onLoadingChange={setTabLoading}
+                                                    onSortChange={(sort) => updateQuery({ sort })}
                                                 />
                                             </ComponentErrorBoundary>
                                         ) : null}
@@ -389,39 +400,27 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                             <RailSection title="Your network">
                                 {isAuthed ? (
                                     <div className="space-y-1">
+                                        {/* Network mix: padded counts, waiting ones in clay, zeros quiet; each row opens its own group. */}
                                         {[
-                                            {
-                                                label: "Connections",
-                                                count: totalConnections,
-                                                tab: "connections" as const,
-                                            },
-                                            {
-                                                label: "Connection requests",
-                                                count: pendingConnections,
-                                                tab: "invitations" as const,
-                                            },
-                                            {
-                                                label: "Workspace invitations",
-                                                count: pendingInvites,
-                                                tab: "invitations" as const,
-                                            },
-                                            {
-                                                label: "Role applications",
-                                                count: pendingApplications,
-                                                tab: "invitations" as const,
-                                            },
+                                            { label: "Connections", count: totalConnections, tab: "connections" as const },
+                                            { label: "Connection requests", count: pendingConnections, tab: "invitations" as const, jump: "connection-invitations-heading", waits: true },
+                                            { label: "Workspace invitations", count: pendingInvites, tab: "invitations" as const, jump: "project-invitations-heading", waits: true },
+                                            { label: "Role applications", count: pendingApplications, tab: "invitations" as const, jump: "project-applications-heading", waits: true },
+                                            { label: "Sent, waiting on them", count: pendingSent, tab: "invitations" as const, jump: "sent-requests-heading" },
                                         ].map((item) => (
                                             <button
                                                 key={item.label}
                                                 type="button"
-                                                onClick={() =>
-                                                    navigateTab(item.tab)
-                                                }
+                                                onClick={() => {
+                                                    if (item.jump && item.count) setJumpTo(item.jump);
+                                                    navigateTab(item.tab);
+                                                }}
                                                 className="nb-compact flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-2 text-left hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
                                             >
                                                 <span>{item.label}</span>
-                                                <span className="nb-meta">
-                                                    {item.count}
+                                                <span className={cn("nb-meta", item.count === 0 ? "opacity-55" : item.waits && "text-primary")}>
+                                                    <span aria-hidden="true">{padCount(item.count)}</span>
+                                                    <span className="sr-only">{item.count}</span>
                                                 </span>
                                             </button>
                                         ))}

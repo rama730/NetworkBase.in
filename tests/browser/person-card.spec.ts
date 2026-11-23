@@ -87,7 +87,9 @@ test('real person cards retain their geometry and hierarchy across sparse, dense
 
 test('skills and shared people disclose on demand, paginate safely, and restore keyboard focus', async ({ page }) => {
     await setup(page);
-    expect(await page.evaluate(() => window.personCardFixture.sharedCalls)).toBe(0);
+    // Network cards read up to three mutual faces once they're on screen (Network mix); the full list still waits for a click.
+    await expect(page.locator('.nb-person-faces [data-slot=user-avatar]')).toHaveCount(3);
+    expect(await page.evaluate(() => window.personCardFixture.sharedCalls)).toBe(1);
     const more = page.getByRole('button', { name: /Show \d+ more skills/ });
     await more.click();
     await expect(page.getByRole('dialog').locator('.nb-person-skill')).toHaveCount(8);
@@ -147,7 +149,7 @@ test('touch cards keep 44px actions and mask private optional fields', async ({ 
     await setup(page);
     await page.getByRole('spinbutton', { name: 'Width' }).fill('266');
     expect((await page.locator('.nb-person-action button').boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    expect((await page.locator('[data-slot=user-avatar]').boundingBox())!.width).toBe(40);
+    expect((await page.locator('.nb-person-avatar [data-slot=user-avatar]').boundingBox())!.width).toBe(40);
     await page.getByRole('combobox', { name: 'Scenario' }).selectOption('private');
     await expect(page.locator('.nb-person-collaboration,.nb-person-portfolio,.nb-person-shared,.nb-person-skill')).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -170,4 +172,33 @@ test('all invitation and application cards share the approved layout and failed 
     await page.getByRole('button',{name:'Review request from Project person'}).first().click();
     await page.getByRole('button',{name:'Accept',exact:true}).click();
     await expect(page.getByRole('dialog').getByRole('alert')).toContainText('could not be saved');
+});
+
+test('network mix: reason line, request sent with undo, NEW and counts on invitations, answers stay on the card', async ({ page }) => {
+    await setup(page);
+    await page.getByRole('combobox', { name: 'Scenario' }).selectOption('reason');
+    await expect(page.locator('.nb-person-why')).toHaveText('Suggested because: Matches your open role: Designer');
+    expect((await page.locator('[data-slot=person-card]').boundingBox())!.height).toBe(176);
+    await page.getByRole('combobox', { name: 'Scenario' }).selectOption('reasonIsMutual');
+    await expect(page.locator('.nb-person-why')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Variant' }).click();
+    await page.getByRole('combobox', { name: 'Scenario' }).selectOption('reason');
+    await expect(page.locator('.nb-person-why')).toHaveCount(0); // Discover's rail stays as it is
+    await page.getByRole('button', { name: 'Variant' }).click();
+
+    await page.getByRole('combobox', { name: 'Scenario' }).selectOption('complete');
+    await page.getByRole('button', { name: 'Connect with Mira Vale' }).click();
+    await expect(page.locator('.nb-person-answer')).toContainText('Request sent');
+    await page.getByRole('button', { name: 'Undo request to Mira Vale' }).click();
+    await expect(page.getByRole('button', { name: 'Connect with Mira Vale' })).toBeVisible();
+
+    await page.getByRole('spinbutton', { name: 'Width' }).fill('860'); // the page's two 405 px columns
+    await page.getByRole('combobox', { name: 'Scenario' }).selectOption('invitations');
+    await expect(page.locator('#connection-invitations-heading')).toHaveText('Connection invitations · 01');
+    await expect(page.locator('.nb-state-tag[data-tone=new]').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Accept request from Incoming person' }).click();
+    const answered = page.locator('[data-slot=person-card][data-answered]');
+    await expect(answered).toContainText('You and Incoming are connected');
+    await expect(answered.getByRole('link', { name: 'Message' })).toBeVisible();
+    expect((await answered.boundingBox())!.height).toBe(176);
 });

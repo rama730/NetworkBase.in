@@ -1671,6 +1671,40 @@ html[data-reduce-motion="true"] .nb-typing-dots > span { animation: none; opacit
   .nb-person-relationship { grid-column:1; }
   .nb-person-context { min-height:18px; }
 }
+/* Network mix (2026-11-23): small touches inside today's cards and lists. */
+.nb-network-status { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; min-height:26px; }
+.nb-network-status q { quotes:"“" "”"; color:var(--foreground); }
+.nb-network-key { display:inline-flex; align-items:center; gap:6px; }
+.nb-network-key::before { content:""; width:10px; height:10px; border-radius:2px; background:var(--foreground); }
+.nb-network-sort { display:inline-flex; overflow:hidden; border:1px solid var(--border); border-radius:4px; background:var(--card); }
+.nb-network-sort button { height:24px; padding:0 9px; border-right:1px solid var(--border); font:12px/1 var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); }
+.nb-network-sort button:last-child { border-right:0; }
+.nb-network-sort button[aria-checked=true] { background:var(--muted); color:var(--foreground); box-shadow:inset 0 -2px 0 var(--primary); }
+.nb-network-sort button:focus-visible { outline:none; background:color-mix(in srgb,var(--primary) 14%,transparent); }
+@media(pointer:coarse) { .nb-network-sort button { height:36px; padding:0 12px; } }
+.nb-network-error { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.nb-state-tag { display:inline-flex; align-items:center; padding:1px 6px; border-radius:3px; background:var(--muted); color:var(--muted-foreground); font:500 10px/1.5 var(--font-jetbrains-mono),monospace; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; }
+.nb-state-tag[data-tone=danger] { background:color-mix(in srgb,var(--status-danger) 10%,transparent); color:var(--status-danger); }
+.nb-state-tag[data-tone=ok] { background:var(--status-success-soft); color:var(--status-success); }
+.nb-state-tag[data-tone=new] { background:color-mix(in srgb,var(--primary) 12%,transparent); color:var(--primary); }
+.nb-person-why { display:flex; align-items:center; gap:7px; min-width:0; font:12px/1.35 var(--font-jetbrains-mono),monospace; color:var(--foreground); }
+.nb-person-why::before { content:""; flex:none; width:6px; height:6px; background:var(--primary); }
+.nb-person-why>span { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.nb-person-faces { display:inline-flex; flex:none; margin-right:2px; }
+.nb-person-faces>span { width:14px; height:14px; margin-left:-3px; overflow:hidden; border-radius:2px; box-shadow:0 0 0 1.5px var(--card); }
+.nb-person-faces>span:first-child { margin-left:0; }
+/* When the card shortens the mutual label it has no room for faces either. */
+.nb-person-relationship.shared-compact .nb-person-faces>span { display:none; }
+.nb-person-answer { display:flex; align-items:center; gap:4px 8px; min-width:0; font:12px/1.35 var(--font-jetbrains-mono),monospace; color:var(--muted-foreground); }
+.nb-person-answer>span:last-child { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.nb-person-answer button { text-decoration:underline; text-underline-offset:3px; color:var(--foreground); }
+.nb-person-card[data-answered] { background:color-mix(in srgb,var(--muted) 55%,var(--card)); }
+.nb-person-footline { display:flex; align-items:center; gap:6px; min-width:0; }
+.nb-person-footline>.nb-person-date { min-width:0; }
+.nb-person-note { flex:none; font:12px/1.35 var(--font-jetbrains-mono),monospace; color:var(--primary); text-decoration:underline; text-underline-offset:3px; border-radius:3px; }
+.nb-network-flash { animation:nb-network-flash 1.4s cubic-bezier(.16,1,.3,1); border-radius:8px; }
+@keyframes nb-network-flash { 0%,40% { background:color-mix(in srgb,var(--primary) 12%,transparent); box-shadow:0 0 0 8px color-mix(in srgb,var(--primary) 12%,transparent); } 100% { background:transparent; box-shadow:0 0 0 8px transparent; } }
+@media(prefers-reduced-motion:reduce) { .nb-network-flash { animation-duration:1ms; } }
 @media(pointer:coarse) {
   .nb-person-card-host[data-variant=rail] .nb-person-card { grid-template-rows:44px auto auto minmax(44px,1fr); gap:4px 8px; }
   .nb-person-card-host[data-variant=rail] .nb-person-identity { height:44px; }

@@ -29,7 +29,9 @@ test("decision cards use the decision timestamp and event label", () => {
     assert.match(action, /ELSE coalesce\(a.decision_at,a.updated_at\) END/);
     const invitations = source("src/components/network/InvitationsClient.tsx");
     assert.doesNotMatch(invitations, /waitingLabel|Waiting /);
-    assert.match(invitations, /footer=\{requestDate\(app.createdAt\)\}/);
+    // Pending applications show the date through the received footer (Network mix adds NEW and Read note around it).
+    assert.match(invitations, /footer=\{receivedFooter\(app.createdAt\)\}/);
+    assert.match(invitations, /function receivedFooter[\s\S]*?\{requestDate\(value\)\}/);
     assert.match(invitations, /status === "accepted" \? "Accepted"/);
     assert.equal(personRequestDate("2026-10-19T10:00:00Z", Date.parse("2026-10-20T11:00:00Z"), "Accepted")?.text, "Accepted · 1 day ago");
 });

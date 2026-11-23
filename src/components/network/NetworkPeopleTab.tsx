@@ -22,6 +22,8 @@ import {
     type NetworkBrowseQuery,
 } from "@/lib/network/browse-query";
 import { ROUTES } from "@/constants/routes";
+import { loadedCount, searchMatchLine } from "@/lib/network/mix";
+import { NetworkLoadError } from "./NetworkMix";
 
 interface PeopleClientProps {
     initialUser: { id?: string | null } | null;
@@ -30,6 +32,8 @@ interface PeopleClientProps {
     onReset?: () => void;
     onReady?: () => void;
     onLoadingChange?: (loading: boolean) => void;
+    /** The unfiltered count for the Suggested tab ("06", "20+"). */
+    onCount?: (count: string) => void;
 }
 
 export default function NetworkPeopleTab({
@@ -39,6 +43,7 @@ export default function NetworkPeopleTab({
     onReset,
     onReady,
     onLoadingChange,
+    onCount,
 }: PeopleClientProps) {
     const query =
         inputQuery ?? normalizeNetworkQuery("suggested", { q: searchQuery });
@@ -65,6 +70,10 @@ export default function NetworkPeopleTab({
         [data],
     );
     const viewerSkills = data?.pages[0]?.viewerSkills;
+    const more = Boolean(hasNextPage);
+    useEffect(() => {
+        if (data && !filtered && !isPlaceholderData) onCount?.(loadedCount(profiles.length, more));
+    }, [data, filtered, isPlaceholderData, profiles.length, more, onCount]);
 
     // Option C (Smart Perceptual Threshold): 0-150ms keeps cards at 100% brightness; >150ms renders skeleton
     const isQueryTransition = (isFetching || isPlaceholderData) && !isFetchingNextPage;
@@ -100,17 +109,15 @@ export default function NetworkPeopleTab({
                 );
                 throw new Error("Sign in to connect");
             }
-            return await toast
-                .promise(sendRequest.mutateAsync({ userId }), {
-                    loading: CONNECTION_COPY.sending,
-                    success: (result) =>
-                        getConnectionRequestSuccessMessage(result.status),
-                    error: (error) =>
-                        error instanceof Error
-                            ? error.message
-                            : CONNECTION_COPY.sendFailed,
-                })
-                .unwrap();
+            // A new request says "Request sent · Undo" on its card (Network mix); other outcomes and failures still toast.
+            try {
+                const result = await sendRequest.mutateAsync({ userId });
+                if (result.status !== "created") toast.success(getConnectionRequestSuccessMessage(result.status));
+                return result;
+            } catch (error) {
+                toast.error(error instanceof Error ? error.message : CONNECTION_COPY.sendFailed);
+                throw error;
+            }
         },
         [initialUser?.id, router, sendRequest],
     );
@@ -126,6 +133,7 @@ export default function NetworkPeopleTab({
                 <span className="sr-only" role="status">
                     Loading suggested people…
                 </span>
+                <div className="nb-network-status col-span-full" aria-hidden="true"><span className="h-3 w-48 max-w-full rounded-sm bg-muted" /></div>
                 {[1, 2, 3, 4, 5, 6].map((item) => (
                     <PersonCardSkeleton key={item} />
                 ))}
@@ -134,17 +142,7 @@ export default function NetworkPeopleTab({
     }
 
     if (isError && !data)
-        return (
-            <div role="alert" className="nb-compact">
-                People could not be loaded.{" "}
-                <button
-                    onClick={() => void refetch()}
-                    className="text-primary hover:underline"
-                >
-                    Retry
-                </button>
-            </div>
-        );
+        return <NetworkLoadError what="People" onRetry={() => void refetch()} />;
     if (profiles.length === 0 && !hasNextPage) {
         return (
             <EmptyState
@@ -176,6 +174,10 @@ export default function NetworkPeopleTab({
 
     return (
         <div className={cn("transition-opacity duration-150", isQueryTransition && profiles.length > 0 && "opacity-80")}>
+            <p className="nb-meta nb-network-status mb-3 text-muted-foreground" role="status">
+                <span>{query.q ? searchMatchLine(profiles.length, more, query.q) : `${loadedCount(profiles.length, more)} people · best match first`}</span>
+                {viewerSkills?.length ? <span className="nb-network-key">also your skill</span> : null}
+            </p>
             <PersonCardGrid
                 items={profiles}
                 getKey={(profile) => profile.id}

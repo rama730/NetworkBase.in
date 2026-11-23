@@ -17,10 +17,11 @@ import { resolveClientSkill, useSkillCatalog } from '@/lib/skills/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { PersonPresenceDot } from './PersonPresenceDot';
 import { OpenToCollaborateBadge } from '@/components/profile/OpenToCollaborateBadge';
+import { MutualFaces } from './NetworkMix';
 
-export function PersonCardLayout({ avatar, head, headline, location, meta = [], body, aside, className = '', variant = 'network', restoreId }: {
+export function PersonCardLayout({ avatar, head, headline, location, meta = [], body, aside, className = '', variant = 'network', restoreId, answered }: {
     avatar: ReactNode; head: ReactNode; headline?: ReactNode; location?: ReactNode;
-    meta?: ReactNode[]; body?: ReactNode; aside?: ReactNode; className?: string; variant?: 'network' | 'rail';
+    meta?: ReactNode[]; body?: ReactNode; aside?: ReactNode; className?: string; variant?: 'network' | 'rail'; answered?: boolean;
     /** Back returns to this card (unified back A4). */
     restoreId?: string;
 }) {
@@ -44,7 +45,7 @@ export function PersonCardLayout({ avatar, head, headline, location, meta = [], 
         return () => observer.disconnect();
     }, [meta, aside]);
     return <div className="nb-person-card-host" data-variant={variant}>
-        <article ref={cardRef} data-slot="person-card" data-restore-id={restoreId} className={`nb-person-card relative ${className}`}>
+        <article ref={cardRef} data-slot="person-card" data-restore-id={restoreId} data-answered={answered || undefined} className={`nb-person-card relative ${className}`}>
             <div className="nb-person-identity">
                 <div className="nb-person-avatar">{avatar}</div>
                 <div className="nb-person-identity-text">{head}{headline ? <div className="nb-person-subtitle">{headline}</div> : null}</div>
@@ -116,7 +117,7 @@ export function PersonCardSkillStrip({ labels, viewerSkills = EMPTY_SKILLS }: { 
     </div>;
 }
 
-function SharedConnections({ person, count }: { person: PersonCardIdentity; count: number }) {
+function SharedConnections({ person, count, faces }: { person: PersonCardIdentity; count: number; faces?: boolean }) {
     const [open, setOpen] = useState(false);
     const [result, setResult] = useState<SharedConnectionsSummary | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -137,7 +138,7 @@ function SharedConnections({ person, count }: { person: PersonCardIdentity; coun
     }
     return <Dialog open={open} onOpenChange={next => { setOpen(next); setResult(null); setError(null); if (next) void load(0); else version.current++; }}>
         <DialogTrigger asChild><button type="button" className="nb-meta nb-person-shared" aria-label={`${CONNECTION_COPY.shared(count)} with ${personCardName(person)}`}>
-            <Users className="size-3 shrink-0" aria-hidden="true" />
+            {faces && person.id ? <MutualFaces personId={person.id} /> : <Users className="size-3 shrink-0" aria-hidden="true" />}
             <span className="nb-person-shared-full">{CONNECTION_COPY.shared(count)}</span>
             <span className="nb-person-shared-compact">{personCompactCount(count)} shared</span>
         </button></DialogTrigger>
@@ -157,9 +158,13 @@ function SharedConnections({ person, count }: { person: PersonCardIdentity; coun
 }
 
 /** Shared presentation only: callers retain their existing authenticated mutation handlers. */
-export function PersonCardContent({ person: input, action, variant = 'network', viewerSkills, connected, acceptedAt, context, footer, priority, className }: {
+export function PersonCardContent({ person: input, action, variant = 'network', viewerSkills, connected, acceptedAt, context, footer, reason, answered, priority, className }: {
     person: PersonCardIdentity; action: ReactNode; variant?: 'network' | 'rail'; viewerSkills?: string[];
     connected?: boolean; acceptedAt?: string | Date | null; context?: ReactNode; footer?: ReactNode; priority?: boolean; className?: string;
+    /** Why this person is suggested (Network mix), shown above the mutual line. */
+    reason?: string | null;
+    /** The card keeps the viewer's answer in place (Network mix): a quiet fill. */
+    answered?: boolean;
 }) {
     if (input.isUnavailable) return null;
     const locked = input.isLockedProfile === true;
@@ -167,7 +172,7 @@ export function PersonCardContent({ person: input, action, variant = 'network', 
     const name = personCardName(person), href = profileHref(person), subtitle = personCardSubtitle(person);
     const count = personSharedCount(person.mutualConnections), portfolio = personPortfolioText(person.portfolio), date = personConnectedDate(acceptedAt);
     // Only list cards are back-anchors; the Discover rail stays on screen beside the feed (unified back A4).
-    return <PersonCardLayout variant={variant} className={className} restoreId={variant === 'network' && person.id ? `person:${person.id}` : undefined}
+    return <PersonCardLayout variant={variant} className={className} answered={answered} restoreId={variant === 'network' && person.id ? `person:${person.id}` : undefined}
         avatar={<div className="relative"><Link href={href} tabIndex={-1} aria-hidden="true"><UserAvatar identity={person} size={48} priority={priority} /></Link>
             {!locked && person.id ? <PersonPresenceDot userId={person.id} lastActiveAt={person.lastActiveAt} /> : null}</div>}
         head={<h3 className="nb-person-name-line"><Link href={href} className="nb-person-name nb-pressable" title={name} dir="auto">{name}</Link>
@@ -194,7 +199,8 @@ export function PersonCardContent({ person: input, action, variant = 'network', 
             </Link> : null)}</> : null}
         body={!locked && personCardSkills(person.skills).length ? <PersonCardSkillStrip labels={person.skills ?? []} viewerSkills={viewerSkills} /> : null}
         meta={[
-            count && person.id ? <SharedConnections key="shared" person={person} count={count} /> : null,
+            reason && !locked ? <span key="reason" className="nb-person-why"><span className="sr-only">Suggested because: </span><span title={reason}>{reason}</span></span> : null,
+            count && person.id ? <SharedConnections key="shared" person={person} count={count} faces={variant === 'network'} /> : null,
             connected ? <span key="connected" className="nb-meta nb-person-date" title={date.title}><span className="nb-person-date-full">{date.text}</span><span className="nb-person-date-compact">{date.compactText}</span></span> : footer,
         ]}
         aside={action}

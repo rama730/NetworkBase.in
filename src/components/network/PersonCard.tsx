@@ -23,6 +23,7 @@ import { BlockPersonDialog } from "@/components/privacy/BlockDialog";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { messageUserInWindow } from "@/components/messages/message-user";
 import { CONNECTION_COPY } from "@/lib/connections/copy";
+import { suggestionReason } from "@/lib/network/mix";
 
 export { PersonCardLayout } from './PersonCardContent';
 
@@ -106,6 +107,13 @@ function PersonCard({
     const [cancelling, setCancelling] = useState(false);
     // Block from the card (Blocking B5): the shared confirmation, mounted only once asked.
     const [blockAsk, setBlockAsk] = useState(0);
+    // Network mix: after Connect the footer says "Request sent · Undo" for six seconds.
+    const [justSent, setJustSent] = useState(false);
+    useEffect(() => {
+        if (!justSent) return;
+        const timer = setTimeout(() => setJustSent(false), 6000);
+        return () => clearTimeout(timer);
+    }, [justSent]);
     const status = localStatus ?? profile.connectionStatus;
     const displayName = personCardName(profile);
     // Report a person from their card (C15): the last item of the card's menu.
@@ -127,7 +135,9 @@ function PersonCard({
         try {
             const result = await onConnect(profile.id);
             const confirmed = result && typeof result === 'object' && 'status' in result ? result.status : null;
-            setLocalStatus(confirmed === 'connected' || confirmed === 'pending_received' || confirmed === 'pending_sent' ? confirmed : 'pending_sent');
+            const next = confirmed === 'connected' || confirmed === 'pending_received' || confirmed === 'pending_sent' ? confirmed : 'pending_sent';
+            setLocalStatus(next);
+            if (next === 'pending_sent' && variant !== 'rail') setJustSent(true);
         } catch {
             setLocalStatus(null);
             keepFocusInSlot();
@@ -138,6 +148,7 @@ function PersonCard({
 
     async function handleCancel() {
         if (connecting || cancelling) return;
+        setJustSent(false);
         setCancelling(true);
         setLocalStatus("none");
         try {
@@ -262,7 +273,9 @@ function PersonCard({
         <span className="nb-meta">{CONNECTION_COPY.blocked}</span>
     ) : null;
 
-    return <>{reporting.dialog}{blockAsk ? <BlockPersonDialog key={blockAsk} person={{ id: profile.id, name: displayName }} source="person_card" /> : null}<PersonCardContent person={profile} variant={variant} action={<div ref={actionSlot} className="contents">{action}</div>} viewerSkills={viewerSkills} priority={priority} className={className} connected={status === "connected"} /></>;
+    return <>{reporting.dialog}{blockAsk ? <BlockPersonDialog key={blockAsk} person={{ id: profile.id, name: displayName }} source="person_card" /> : null}<PersonCardContent person={profile} variant={variant} action={<div ref={actionSlot} className="contents">{action}</div>} viewerSkills={viewerSkills} priority={priority} className={className} connected={status === "connected"}
+        reason={variant !== "rail" && !justSent ? suggestionReason(profile.recommendationReason) : null}
+        footer={justSent && status === "pending_sent" ? <span className="nb-person-answer" role="status"><span className="nb-state-tag">Request sent</span><button type="button" onClick={() => void handleCancel()} aria-label={`Undo request to ${displayName}`}>Undo</button></span> : undefined} /></>;
 }
 
 export default memo(PersonCard);

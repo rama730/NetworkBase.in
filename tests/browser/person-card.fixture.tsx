@@ -24,6 +24,7 @@ const patches: Record<string, Partial<SuggestedProfile>> = {
     unicode: { fullName: 'نور علي', headline: 'مصممة منتجات رقمية وتجارب تعاونية', location: 'دبي', skills: ['تصميم المنتجات','TypeScript','研究设计','Accessibility'] },
     largeShared: { mutualConnections: 12480 }, invalidDate: {}, missingName: { fullName: ' ', username: null },
     whitespace: { headline: ' ', location: ' ', skills: ['React', ' React ', '', 'react', 'TypeScript'] },
+    reason: { recommendationReason: 'Matches your open role: Designer', mutualConnections: 2 }, reasonIsMutual: { recommendationReason: '6 mutual connections' },
     noRequests: { canConnect: false }, pending: { connectionStatus: 'pending_sent' }, incoming: { connectionStatus: 'pending_received' },
 };
 declare global { interface Window { personCardFixture: { fail: boolean; decisionsFail: boolean; sharedCalls: number; connects: number } } }

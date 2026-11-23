@@ -43,6 +43,10 @@ import {
     normalizeNetworkQuery,
     type NetworkBrowseQuery,
 } from "@/lib/network/browse-query";
+import { padCount } from "@/lib/ui/tab-marker";
+import { searchMatchLine } from "@/lib/network/mix";
+import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
+import { NetworkLoadError } from "./NetworkMix";
 
 export default function ConnectionsClient({
     searchQuery,
@@ -50,13 +54,17 @@ export default function ConnectionsClient({
     onReset,
     onReady,
     onLoadingChange,
+    onSortChange,
 }: {
     searchQuery: string;
     query?: NetworkBrowseQuery;
     onReset?: () => void;
     onReady?: () => void;
     onLoadingChange?: (loading: boolean) => void;
+    /** Recent · Name on the status line (Network mix); the same sort as Filters. */
+    onSortChange?: (sort: "recent" | "name") => void;
 }) {
+    const { totalConnections } = useNetworkNotifications();
     const query =
         inputQuery ?? normalizeNetworkQuery("connections", { q: searchQuery });
     const filtered = Boolean(query.q || activeNetworkFilters(query));
@@ -155,17 +163,7 @@ export default function ConnectionsClient({
     }
 
     if (isError && !data)
-        return (
-            <div role="alert" className="nb-compact">
-                Connections could not be loaded.{" "}
-                <button
-                    onClick={() => void refetch()}
-                    className="text-primary hover:underline"
-                >
-                    Retry
-                </button>
-            </div>
-        );
+        return <NetworkLoadError what="Connections" onRetry={() => void refetch()} />;
     if (connections.length === 0 && !hasNextPage) {
         return (
             <EmptyState
@@ -204,9 +202,31 @@ export default function ConnectionsClient({
 
     return (
         <>
-            <p className="nb-meta mb-3 text-muted-foreground" role="status">
-                {connections.length} connections shown
-            </p>
+            <div className="nb-meta nb-network-status mb-3 text-muted-foreground">
+                <span role="status">{query.q ? searchMatchLine(connections.length, Boolean(hasNextPage), query.q, totalConnections || undefined) : `${padCount(totalConnections || connections.length)} connections`}</span>
+                {onSortChange ? (
+                    <span className="nb-network-sort" role="radiogroup" aria-label="Sort connections">
+                        {(["recent", "name"] as const).map((sort) => {
+                            const checked = (query.sort === "name" ? "name" : "recent") === sort;
+                            return (
+                                <button key={sort} type="button" role="radio" aria-checked={checked} tabIndex={checked ? 0 : -1}
+                                    onClick={() => onSortChange(sort)}
+                                    onKeyDown={(event) => {
+                                        if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+                                        event.preventDefault();
+                                        const next = sort === "recent" ? "name" : "recent";
+                                        const group = event.currentTarget.parentElement;
+                                        onSortChange(next);
+                                        requestAnimationFrame(() => group?.querySelector<HTMLElement>(`[data-sort="${next}"]`)?.focus());
+                                    }}
+                                    data-sort={sort}>
+                                    {sort === "recent" ? "Recent" : "Name"}
+                                </button>
+                            );
+                        })}
+                    </span>
+                ) : null}
+            </div>
             <PersonCardGrid
                 items={connections}
                 getKey={(connection) => connection.id}

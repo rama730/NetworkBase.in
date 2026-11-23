@@ -62,7 +62,7 @@ export interface ConnectionStats {
 export async function readNetworkPendingCountsAction() {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false as const, error: 'Sign in to continue', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0 };
+        if (!user) return { success: false as const, error: 'Sign in to continue', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0, pendingSent: 0 };
 
         const [stats, pendingInvites, pendingApplications, orgInvites] = await Promise.all([
             getConnectionStatsForUser(user.id),
@@ -77,13 +77,14 @@ export async function readNetworkPendingCountsAction() {
             pendingInvites: pendingInvites + orgInvites,
             pendingApplications,
             totalConnections: stats.totalConnections,
+            pendingSent: stats.pendingSent,
         };
     } catch (error) {
         logger.error('connections.pending_counts_failed', {
             module: 'connections',
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: 'Couldn’t load pending requests', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0 };
+        return { success: false as const, error: 'Couldn’t load pending requests', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0, pendingSent: 0 };
     }
 }
 

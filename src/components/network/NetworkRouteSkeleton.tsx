@@ -38,7 +38,9 @@ export function NetworkRouteSkeleton() {
                                 <Skeleton className="h-[var(--ui-control-height)] w-[84px] rounded-md" />
                             </div>
                         </div>
-                        <div className="nb-person-card-grid mt-4 grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+                        {/* The status line above the cards ("06 people · best match first"), Network mix. */}
+                        <div className="nb-network-status mb-3 mt-4"><Skeleton className="h-3 w-48 max-w-full rounded-sm" /></div>
+                        <div className="nb-person-card-grid grid grid-cols-1 gap-[14px] sm:grid-cols-2">
                             {[1, 2, 3, 4, 5, 6].map((key) => (
                                 <PersonCardSkeleton key={key} />
                             ))}
@@ -50,7 +52,7 @@ export function NetworkRouteSkeleton() {
                             <div className="h-px flex-1 bg-border" />
                         </div>
                         <div className="space-y-1 rounded-lg border border-border bg-card p-4">
-                            {[1, 2, 3].map((item) => (
+                            {[1, 2, 3, 4, 5].map((item) => (
                                 <div
                                     key={item}
                                     className="flex h-11 items-center justify-between px-2"
