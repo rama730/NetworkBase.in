@@ -202,5 +202,14 @@ it("finishes work in place and reads the week from the same list (shell redesign
   assert.doesNotMatch(editor, /bg-\[var\(--status-success\)\]/);
   // No coloured edge on the Next up card; a picked day fills.
   assert.match(css, /\.nb-mw-next \{ display:grid; gap:12px; padding:14px; border:1px solid var\(--border\); border-radius:8px; background:var\(--card\); \}/);
-  assert.match(css, /\.nb-mw-col\[aria-pressed="true"\] \{ background:var\(--text-inverse\)/);
+  assert.match(css, /\.nb-mw-col\[aria-pressed="true"\] \{ background:var\(--mw-ink-fg\)/);
+});
+
+it("the panel header follows the theme like the profile band: light in light mode, ink in dark", () => {
+  const all = readFileSync("src/app/globals.css", "utf8");
+  // The header's own rules (the terminal strip below stays ink on purpose).
+  const mw = all.split("\n").filter((line) => /^(\.dark )?\.nb-mw(-ink[a-z-]*|-path|-ib|-line|-week|-col|-px|-faces|-caret)?[\s.:{\[,]/.test(line)).join("\n");
+  assert.match(mw, /--mw-ink:var\(--pf-band-bg\)/);
+  assert.match(mw, /\.dark \.nb-mw \{ --mw-hot:#F3A17E; \}/);
+  assert.doesNotMatch(mw, /text-inverse|surface-inverse|rgb\(255 255 255/);
 });
