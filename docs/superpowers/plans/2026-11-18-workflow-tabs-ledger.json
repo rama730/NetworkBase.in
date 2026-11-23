@@ -568,9 +568,9 @@
       "text": "A6.1 Start from mechanism — Goal: New document offers NetworkBase templates by group. Build: templates/docs/.md loader with front-matter (group, section, kind, ",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.2",
@@ -578,9 +578,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.3",
@@ -588,9 +588,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.4",
@@ -598,9 +598,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.5",
@@ -608,9 +608,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.6",
@@ -618,9 +618,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.7",
@@ -628,9 +628,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.8",
@@ -638,9 +638,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.9",
@@ -648,9 +648,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.10",
@@ -658,9 +658,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.11",
@@ -668,9 +668,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.12",
@@ -678,9 +678,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.13",
@@ -688,9 +688,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.14",
@@ -698,9 +698,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.15",
@@ -708,9 +708,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.16",
@@ -718,9 +718,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.17",
@@ -728,9 +728,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.18",
@@ -738,9 +738,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.19",
@@ -748,9 +748,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.20",
@@ -758,9 +758,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.21",
@@ -768,9 +768,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.22",
@@ -778,9 +778,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.23",
@@ -788,9 +788,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.24",
@@ -798,9 +798,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.25",
@@ -808,9 +808,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.26",
@@ -818,9 +818,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.27",
@@ -828,9 +828,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.28",
@@ -838,9 +838,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.29",
@@ -848,9 +848,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.30",
@@ -858,9 +858,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.31",
@@ -868,9 +868,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.32",
@@ -878,9 +878,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.33",
@@ -888,9 +888,9 @@
       "text": "A6.2–A6.33 One template each. Goal of each: the template's headings, guidance and live blocks exactly as its source section; it opens from Start from with the r",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae): template text from its source; Add document → NetworkBase templates → Tech spec – WT Sign-in made in Chrome. Interactive extras → A6.36."
     },
     {
       "key": "A6.34",
@@ -7608,9 +7608,9 @@
       "text": "Templates are Markdown files in code, shown under Start from next to organization templates. [call]",
       "kind": "call",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae)."
     },
     {
       "key": "38.15.call2",
@@ -7618,9 +7618,9 @@
       "text": "Parts that need parked tabs (Money, Pipeline) show \"Available when [tab] is added\". [call]",
       "kind": "call",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae)."
     },
     {
       "key": "38.15.call3",
@@ -8441,6 +8441,26 @@
       "status": "live",
       "test": "tests/db/offsite.test.ts; tests/browser/offsite-doc.spec.ts",
       "evidence": "Live 2026-11-24 (b0411fdcf + 70f60515c): Add workflow → Team off-site; Plan an off-site WT team off-site 4–5 Dec, Goa; rows Before/Travel (Book travel — me, assigned)/After; My work asked; Going → 1 going; nb offsites list; Overview card \"Off-site in 10 days · everyone answered\"."
+    },
+    {
+      "key": "38.15.call6",
+      "section": "38.15",
+      "text": "A6.1–A6.2 (2026-11-24): templates live as Markdown text in code (src/lib/workflows/doc-templates.ts: id, name, group, one-line purpose, body), not files read at",
+      "kind": "call",
+      "milestone": "A6",
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae)."
+    },
+    {
+      "key": "38.15.call7",
+      "section": "38.15",
+      "text": "A6.3–A6.33 (2026-11-24): all 32 templates ship as text from their sources, in seven groups: Startup and business (Assumptions check, Value proposition, Business",
+      "kind": "call",
+      "milestone": "A6",
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
+      "evidence": "Live 2026-11-24 (ebf1a5dae)."
     }
   ]
 }
