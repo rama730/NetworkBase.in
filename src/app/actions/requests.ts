@@ -371,8 +371,8 @@ export async function answerSolvedAction(input: z.infer<typeof solvedInput>) {
     const { notifyRequestPerson } = await import("@/lib/workflows/request-notify");
     await notifyRequestPerson(taskId, user.id, "handler", "Answered No");
     const { reopenForAsker } = await import("@/lib/workflows/request-flow");
-    await reopenForAsker(taskId, user);
-    return { success: true as const, reopened: true };
+    const reopened = await reopenForAsker(taskId, user).then(() => true, () => false);
+    return { success: true as const, reopened };
   } catch (error) {
     return fail(error, "Couldn’t save the answer");
   }

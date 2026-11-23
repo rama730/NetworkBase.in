@@ -69,18 +69,15 @@ export async function onRequestTransition(taskId: string, previousStage: string 
 }
 
 /**
- * Call 5: the asker's No reopens their delivered request to In progress even when they can't move others' work. The
- * caller checked they're the asker and it's Delivered; the lock is taken as the handler (or the owner), the move is
- * recorded as the asker's.
+ * Call 5: the asker's No reopens their delivered request to In progress even when it's someone else's work. Locked as
+ * the asker with all their own checks (security review); only the "assignee, owner or admin" rule is skipped. A viewer
+ * who asked can't move work, so the move is refused and the handler (told "Answered No") reopens it.
  */
 export async function reopenForAsker(taskId: string, asker: { id: string; user_metadata?: Record<string, unknown> | null }) {
   const { afterTaskTransition, lockTaskForWrite, transitionTaskTx } = await import("@/lib/workspaces/task-transition-service");
-  const [t] = Array.from(await db.execute<{ lock_as: string }>(sql`
-    SELECT coalesce(t.assignee_id, w.owner_id) AS lock_as FROM tasks t JOIN workspaces w ON w.id = t.workspace_id WHERE t.id = ${taskId}::uuid`));
-  if (!t) throw new Error("Not found");
   const { locked, result } = await db.transaction(async (tx) => {
-    const locked = await lockTaskForWrite(tx, taskId, t.lock_as);
-    return { locked, result: await transitionTaskTx(tx, locked, { taskId, userId: asker.id, stage: "in_progress" }) };
+    const locked = await lockTaskForWrite(tx, taskId, asker.id);
+    return { locked, result: await transitionTaskTx(tx, locked, { taskId, userId: asker.id, stage: "in_progress", allowAnyMover: true }) };
   });
   await afterTaskTransition(asker, locked, taskId, result);
 }

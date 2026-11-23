@@ -259,6 +259,11 @@ export async function transitionTaskTx(
     note?: string;
     /** A workflow stage move (report 38.2): the stage decides the status and whether the item stays on the board. */
     stage?: string;
+    /**
+     * A2.6/A2.8 (security review): a content piece's editor or a request's asker moves someone else's item. Skips only the
+     * "assignee, owner or admin" rule; the caller's own lock (membership, role, completed part) still applies.
+     */
+    allowAnyMover?: boolean;
   },
 ): Promise<TaskTransitionResult> {
   const typed = (locked.itemType ?? "task") !== "task";
@@ -291,6 +296,7 @@ export async function transitionTaskTx(
   const status = (column?.status ?? target!.status) as TaskStatus;
 
   if (
+    !input.allowAnyMover &&
     !locked.isLeader &&
     !locked.isTeamMember &&
     // Assignment flow decision 7: whoever holds a copy (a teammate, a group workspace's member) moves it.

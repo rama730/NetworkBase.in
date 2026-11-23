@@ -127,6 +127,14 @@ test("A2.8 W5–W7: draft, Ready for edit, Changes needed, the editor's approval
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${t.ws}, ${other!}, 'member')`;
   await sql`UPDATE tasks SET type_fields = type_fields || ${sql.json({ editorId: other! })} WHERE id = ${id}`;
   viewerId = other!;
+  // Security review: the editor's move is locked as the editor, so their own role rules apply.
+  await sql`UPDATE workspaces SET role_abilities = ${sql.json({ member: { "tasks.edit": false } })} WHERE id = ${t.ws}`;
+  assert.match((await content.approveContentAction({ projectId: t.ws, taskId: id }) as { error?: string }).error ?? "", /role can’t edit tasks/);
+  assert.match((await content.changesNeededAction({ projectId: t.ws, taskId: id, note: "Shorter" }) as { error?: string }).error ?? "", /role can’t edit tasks/);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM task_comments WHERE task_id = ${id} AND content = 'Changes needed: Shorter'`)[0]!.n, 0, "no stray note");
+  await sql`UPDATE workspaces SET role_abilities = NULL, workflows_enabled = false WHERE id = ${t.ws}`;
+  assert.equal((await content.changesNeededAction({ projectId: t.ws, taskId: id, note: "Shorter" }) as { error?: string }).error, "Workflows aren’t on in this workspace.");
+  await sql`UPDATE workspaces SET workflows_enabled = true WHERE id = ${t.ws}`;
   const memberYes = await content.approveContentAction({ projectId: t.ws, taskId: id });
   assert.ok(memberYes.success, JSON.stringify(memberYes));
   const held = (await sql`SELECT stage, status, review_status FROM tasks WHERE id = ${id}`)[0]!;
