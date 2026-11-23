@@ -6998,9 +6998,9 @@
       "text": "Moving the date",
       "kind": "journey",
       "milestone": "A3",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
-      "evidence": "Built in A3.1; tests/db/launches.test.ts and tests/browser/launch-doc.spec.ts; not clicked live (the live launch was launched first). revisit 2026-11-24 with a second live launch (Move the date, Cancel)."
+      "evidence": "Live 2026-11-23 on a second launch (WT v2.5 Search, Feature release): Move the date 20 → 27 Dec with \"Also move the steps’ due dates by 7 days\" moved WT-42 from 15 to 22 Dec."
     },
     {
       "key": "38.10.W8",
@@ -7008,9 +7008,9 @@
       "text": "Cancel",
       "kind": "journey",
       "milestone": "A3",
-      "status": "live-pending",
+      "status": "live",
       "test": "tests/db/launches.test.ts; tests/unit/launch-rules.test.ts; tests/browser/launch-doc.spec.ts",
-      "evidence": "Built in A3.1; tests/db/launches.test.ts and tests/browser/launch-doc.spec.ts; not clicked live (the live launch was launched first). revisit 2026-11-24 with a second live launch (Move the date, Cancel)."
+      "evidence": "Live 2026-11-23: Cancel launch → Keep the steps → Canceled, steps kept."
     },
     {
       "key": "38.10.W9",
