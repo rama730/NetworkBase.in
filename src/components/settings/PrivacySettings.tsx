@@ -318,7 +318,7 @@ export default function PrivacySettings() {
 
     <SettingsSectionCard id="settings-privacy-blocked" title="Blocked people" state={blockedCount ? padCount(blockedCount) + (data.blockedAccountsNextCursor ? "+" : "") : undefined} stateOk flush findKeys="block unblock">
       <BlockByHandle onBlocked={async () => { setMore(null); await refreshPrivacy(); }} />
-      {blockedAccounts.length > 5 ? <div className="nbs-pad"><SearchField label="Search blocked people" value={blockedSearch} onChange={setBlockedSearch} /></div> : null}
+      {blockedCount > 0 ? <div className="nbs-pad"><SearchField label="Search blocked accounts" value={blockedSearch} onChange={setBlockedSearch} /></div> : null}
       {blockedCount === 0 ? <EmptyState compact figure="person" className="nbs-empty" title="No one blocked" description="Block someone from their profile, a message or above by @handle." />
         : filteredBlockedAccounts.length === 0 ? <p className="nbs-ghelp">No blocked people match “{blockedSearch.trim()}”.</p>
         : <div className="nbs-list">{filteredBlockedAccounts.map((account) => <BlockedAccountRow key={account.id} account={account} isPending={unblockMutation.isPending && unblockMutation.variables === account.id} onUnblock={handleUnblock} />)}</div>}

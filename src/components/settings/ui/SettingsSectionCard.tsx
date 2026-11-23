@@ -42,11 +42,12 @@ export function SettingsSectionCard({
     if (open) {
         return (
             <section id={id} data-testid={testId} data-find={id ? title : undefined} data-find-keys={findKeys} aria-label={title} className={cn("nbs-group", className)}>
-                <h3 className="nbs-glabel">
-                    {title}
+                {/* The label row: the heading is the name only; its state and actions sit beside it, not inside it. */}
+                <div className="nbs-glabel">
+                    <h3>{title}</h3>
                     {state ? <span className={cn("state", stateOk && "ok")}>· {state}</span> : null}
-                    {right ? <span className="r">{right}</span> : null}
-                </h3>
+                    {right ? <div className="r">{right}</div> : null}
+                </div>
                 {description ? <p className="nbs-ghelp">{description}</p> : null}
                 {flush ? children : <div className="nbs-body">{children}</div>}
             </section>

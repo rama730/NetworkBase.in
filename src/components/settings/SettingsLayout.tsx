@@ -35,7 +35,7 @@ const SMOOTH_SCROLL_MS = 900;
  */
 function SettingsNav({ activeSection, onNavigate }: { activeSection: SettingsSection; onNavigate: (event: MouseEvent<HTMLAnchorElement>, item: SettingsItem) => void }) {
   const { states } = useSettingsSummary();
-  const listRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);
   const link = (item: SettingsItem, index: number, className?: string) => {
     const state = states[item.section as keyof typeof states];
@@ -72,14 +72,15 @@ function SettingsNav({ activeSection, onNavigate }: { activeSection: SettingsSec
     sizes.observe(list);
     return () => sizes.disconnect();
   }, [activeSection, states]);
-  return <>
-    <nav ref={listRef} aria-label="Settings sections" className="nbs-navlist">
+  // One landmark holds all eight: the list with its marker, and Delete account apart at the bottom (in the strip on a phone).
+  return <nav aria-label="Settings sections" className="nbs-navnav">
+    <div ref={listRef} className="nbs-navlist">
       {settingsItems.map((item, index) => link(item, index))}
       {link(deleteItem, settingsItems.length, "only-phone")}
       <span ref={markerRef} className="nbs-marker" aria-hidden="true" />
-    </nav>
+    </div>
     <div className="nbs-navfoot">{link(deleteItem, settingsItems.length)}</div>
-  </>;
+  </nav>;
 }
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
@@ -100,7 +101,9 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     // Scroll only the settings scroll root. scrollIntoView also scrolls every ancestor, including the app shell
     // (overflow hidden is still scrollable by script), which shoved the whole page up and left a blank band.
     const margin = parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
-    const top = Math.max(0, root.scrollTop + target.getBoundingClientRect().top - root.getBoundingClientRect().top - margin);
+    // The first section (Account, with the band) is the top of the page: land at 0, whatever the padding.
+    const first = target === root.querySelector("[data-settings-section]");
+    const top = first ? 0 : Math.max(0, root.scrollTop + target.getBoundingClientRect().top - root.getBoundingClientRect().top - margin);
     root.scrollTo({ top, behavior: smooth && !reducedMotion() ? "smooth" : "auto" });
     return true;
   }, []);

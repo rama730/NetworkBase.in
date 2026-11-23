@@ -91,8 +91,8 @@ describe("GitHub Card Redesign & Integrations Settings Contract", () => {
 
     // Must preserve spacing before the commit-attribution controls.
     assert.ok(
-      content.includes('<div className="pt-5"><GitHubCommitAttributionSettings /></div>'),
-      "Must separate commit attribution from the workspace list",
+      content.indexOf("<GitHubCommitAttributionSettings />") > content.indexOf("projectsExpanded ?"),
+      "Commit author is its own row after the workspace list (settings mix)",
     );
   });
 
@@ -105,7 +105,7 @@ describe("GitHub Card Redesign & Integrations Settings Contract", () => {
     assert.ok(!content.includes("<summary"), "Must not have <summary> tag");
 
     // Must display active commit author
-    assert.ok(content.includes("Commit author:"), "Must display the commit author label");
+    assert.ok(content.includes('title="Commit author"'), "Must display the commit author label");
 
     // Redundant 'Select another verified email' button must be removed to avoid confusion
     assert.ok(!content.includes("Select another verified email"), "Must remove redundant 'Select another verified email' button");

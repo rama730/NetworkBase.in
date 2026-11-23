@@ -105,14 +105,16 @@ export function LogList({ entries, first = 4, empty, label, older }: { entries: 
   if (!entries.length) return <>{empty ?? null}</>;
   const shown = all ? entries : entries.slice(0, first);
   return (
-    <div className="nbs-log" role="list" aria-label={label}>
-      {shown.map((entry) => (
-        <div key={entry.key} role="listitem" className={cn("nbs-lg", entry.risky && "risky")}>
-          <time dateTime={entry.dateTime}>{entry.date}</time>
-          <div className="ev">{entry.event}{entry.detail ? <small>{entry.detail}</small> : null}</div>
-          <div className="acts">{entry.actions}</div>
-        </div>
-      ))}
+    <div className="nbs-log">
+      <div role="list" aria-label={label} className="grid">
+        {shown.map((entry) => (
+          <div key={entry.key} role="listitem" className={cn("nbs-lg", entry.risky && "risky")}>
+            <time dateTime={entry.dateTime}>{entry.date}</time>
+            <div className="ev"><span>{entry.event}</span>{entry.detail ? <small>{entry.detail}</small> : null}</div>
+            <div className="acts">{entry.actions}</div>
+          </div>
+        ))}
+      </div>
       {entries.length > first || older ? (
         <div className="nbs-more">
           {entries.length > first ? (

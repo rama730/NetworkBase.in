@@ -250,7 +250,7 @@ export default function NotificationsPage() {
           <SettingsRow id="settings-notifications-pausenow" title="Pause notifications" description="Updates still collect in Notifications while delivery is paused."
             right={<SegChoice<PauseChoice> label="Pause for" value={null} options={PAUSE_CHOICES} onChange={pause} busy={isSaving} />} />
         )}
-        <SettingsRow id="settings-notifications-quiet-hours" title="Quiet hours" description="A daily time when nothing is sent. Notifications wait in your tray."
+        <SettingsRow id="settings-notifications-quiet-hours" title="Quiet hours" description="A daily time when nothing is sent: notifications wait in your tray and messages don’t send push alerts."
           right={<SettingsSwitch aria-label="Quiet hours" checked={quiet.enabled} onCheckedChange={(on: boolean) => saveAsync({ ...preferences, quietHours: { ...quiet, enabled: on } }, { quiet: true })} />}>
           {quiet.enabled ? <div className="nbs-inline-form max-w-none">
             <div className="grid max-w-[360px] grid-cols-2 gap-3">

@@ -20,11 +20,16 @@ test.beforeAll(async()=>{
   for(const name of ['AccountSettings','AccountDeletionSettings','AppearanceSettings','IntegrationsSettings','NotificationsSettings','PrivacySettings','SecuritySettings','LegalAndDataRightsSection','TrustSafetySettings']){
     mocks['@/components/settings/'+name]=`import React,{useState} from 'react';function Leaf(){const [draft,setDraft]=useState('');return React.createElement('div',{style:{minHeight:400},className:'rounded-lg border border-border bg-card p-6'},React.createElement('label',null,'${name} draft',React.createElement('input',{value:draft,onChange:e=>setDraft(e.target.value)})),React.createElement('span',{className:'sr-only'},'hidden label'));}export default Leaf;export const LegalAndDataRightsSection=Leaf;export const StandingSettings=Leaf;export const YourReportsSettings=Leaf;`;
   }
+  // Settings mix: the shell reads the account's state for the band, check-up and nav states; here they are stubbed.
+  mocks['@/components/settings/mix/useSettingsSummary']=`export const useSettingsSummary=()=>({states:{}});export const useLegalAcceptance=()=>({data:null});export const legalAcceptanceKey=()=>['legal'];`;
+  mocks['@/components/settings/mix/SettingsBand']=`export function SettingsBand(){return null;}`;
+  mocks['@/components/settings/mix/SettingsCheckup']=`export function SettingsCheckup(){return null;}export const useSendVerification=()=>({state:'idle',send(){}});`;
+  mocks['@/components/settings/mix/DeleteHeadline']=`import React from 'react';export function DeleteHeadline(){return React.createElement('h2',{id:'settings-delete-account-heading',tabIndex:-1},'Delete your account.');}`;
   const bundle=await build({entryPoints:[path.resolve('tests/browser/settings.fixture.tsx')],bundle:true,write:false,platform:'browser',format:'iife',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'isolated-settings',setup(b){b.onResolve({filter:/.*/},args=>args.path in mocks?{path:args.path,namespace:'fixture'}:undefined);b.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:mocks[args.path],resolveDir:process.cwd(),loader:'js'}));}}]});
   script=bundle.outputFiles![0]!.text;
   const result=await postcss([tailwind()]).process(await readFile('src/app/globals.css','utf8'),{from:path.resolve('src/app/globals.css')});
   [sans,mono]=await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'),readFile('src/app/fonts/JetBrainsMono.woff2')]);
-  css=`@font-face{font-family:'Instrument Sans';src:url('/sans.ttf');font-weight:400 700;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 800;}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';}`+result.css;
+  css=`@font-face{font-family:'Instrument Sans';src:url('/sans.ttf');font-weight:400 700;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 800;}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';}`+result.css+await readFile('src/app/(site)/(main)/settings/settings.css','utf8');
 });
 test.beforeEach(async({page})=>{
   await page.route(origin+'/**',route=>{
@@ -49,13 +54,15 @@ test('settings navigation matches the application sidebar and stays in place whi
   const title=rail.getByRole('heading',{name:'Settings',exact:true});
   expect(await title.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.textTransform];})).toEqual(['11px','500','uppercase']);
   expect(await page.getByRole('heading',{level:1}).count()).toBe(1);
-  const divider=await title.locator('..').locator('[aria-hidden="true"]').boundingBox();
-  expect(divider!.y).toBeGreaterThan((await title.boundingBox())!.y);
-  const referenceBounds=await reference.boundingBox();
+  // Settings mix: "Find a setting" under the title, then hairline cells the width of the rail, one marker on the current one.
+  const find=rail.getByRole('combobox',{name:'Find a setting'});
+  expect((await find.boundingBox())!.y).toBeGreaterThan((await title.boundingBox())!.y);
+  expect(await navigation.getByRole('link').count()).toBe(8);
   for(const link of await navigation.getByRole('link').all()){
-    const rect=await link.boundingBox();expect(rect!.height).toBeCloseTo(referenceBounds!.height,0);expect(rect!.width).toBeCloseTo(referenceBounds!.width,0);
-    expect(await link.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,s.padding,s.borderRadius];})).toEqual(await reference.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,s.padding,s.borderRadius];}));
+    const rect=await link.boundingBox();expect(rect!.height).toBeGreaterThanOrEqual(40);expect(rect!.width).toBeCloseTo(bounds!.width-1,0);
+    expect(await link.evaluate(el=>getComputedStyle(el).fontSize)).toBe('13.5px');
   }
+  void reference;
   await navigation.getByRole('link',{name:'Appearance',exact:true}).click();
   await expect(page).toHaveURL(/#settings-appearance$/);
   await expect(navigation.getByRole('link',{name:'Appearance',exact:true})).toHaveAttribute('aria-current','location');

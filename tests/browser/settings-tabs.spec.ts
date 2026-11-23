@@ -11,7 +11,7 @@ async function ready(page: Page) {
   await expect(page.getByRole('heading', { name: 'Settings', exact: true, level: 1 })).toBeVisible();
   // Every tab has loaded its data: none is still showing a skeleton or a loading line.
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Notification preferences' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What you hear about' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Blocked people' })).toBeVisible();
   // Data from the mocked server is on the page, so the scans and tests below look at real content.
   await expect(page.getByText('Person 0')).toBeVisible();
@@ -64,16 +64,16 @@ test('pausing notifications saves an end time, says so, and Resume lifts it', as
   await openRealSettings(page, { actions: server.actions });
   await ready(page);
   const notifications = page.locator('#settings-notifications');
-  await notifications.getByRole('button', { name: '1 hour', exact: true }).click();
-  await expect(notifications.getByText('Notifications paused')).toBeVisible();
+  // Settings mix: pause is one row of segmented cells; a pause shows its end and Resume.
+  await notifications.getByRole('radio', { name: '1 hour', exact: true }).click();
+  await expect(notifications.getByText(/^Paused until/)).toBeVisible();
   const saved = server.state.saves.at(-1)!;
   const minutes = (Date.parse(saved.next.pausedUntil) - Date.now()) / 60_000;
   expect(minutes).toBeGreaterThan(55);
   expect(minutes).toBeLessThanOrEqual(60);
   expect(saved.keys).toEqual(['pausedUntil']);
   expect(saved.next.quietHours.timeZone).toBe('Europe/London');
-  // The presets now offer to change an active pause, and Resume leads.
-  await expect(notifications.getByRole('button', { name: 'Pause for 8 hours instead' })).toBeVisible();
+  // While paused, Resume leads.
   await notifications.getByRole('button', { name: 'Resume now' }).click();
   await expect(notifications.getByText('Pause notifications', { exact: true })).toBeVisible();
   expect(server.state.resumed).toBe(1);
@@ -85,11 +85,11 @@ test('quiet hours save only the changed part, and the same start and end is call
   await ready(page);
   const notifications = page.locator('#settings-notifications');
   await notifications.getByRole('switch', { name: /quiet hours/i }).click();
-  await expect(notifications.getByLabel('From')).toBeVisible();
+  await expect(notifications.getByLabel('From', { exact: true })).toBeVisible();
   expect(server.state.saves.at(-1)!.keys).toEqual(['quietHours']);
-  await notifications.getByLabel('From').fill('22:00');
-  await notifications.getByLabel('Until').fill('22:00');
-  await notifications.getByLabel('Until').blur();
+  await notifications.getByLabel('From', { exact: true }).fill('22:00');
+  await notifications.getByLabel('Until', { exact: true }).fill('22:00');
+  await notifications.getByLabel('Until', { exact: true }).blur();
   await expect(notifications.getByText('Start and end are the same, so quiet hours are not active.')).toBeVisible();
   // Typing does not save; leaving the field does.
   const quiet = server.state.saves.filter((save) => JSON.stringify(save.keys) === '["quietHours"]');
@@ -124,12 +124,12 @@ test('making the profile private asks first, and only a confirmed choice is sent
   const { calls } = await openRealSettings(page);
   await ready(page);
   const privacy = page.locator('#settings-privacy');
-  await privacy.getByRole('radio', { name: /Private/ }).click();
+  await privacy.getByRole('radio', { name: 'Only me' }).click();
   const dialog = page.getByRole('alertdialog', { name: 'Make your profile private?' });
   await dialog.getByRole('button', { name: 'Cancel' }).click();
   await expect(dialog).toHaveCount(0);
   expect(calls.filter((call) => call.method === 'PATCH')).toEqual([]);
-  await privacy.getByRole('radio', { name: /Private/ }).click();
+  await privacy.getByRole('radio', { name: 'Only me' }).click();
   await page.getByRole('alertdialog', { name: 'Make your profile private?' }).getByRole('button', { name: 'Make private' }).click();
   await expect.poll(() => calls.filter((call) => call.method === 'PATCH').map((call) => call.body)).toEqual([{ visibility: 'private' }]);
 });
@@ -140,7 +140,7 @@ test('muting connection requests asks first; a refused change leaves the choice 
   const requests = page.locator('#settings-privacy-requests');
   await expect(requests.getByRole('radio', { name: /Everyone/ })).toHaveAttribute('aria-checked', 'true');
   await requests.getByRole('radio', { name: /Nobody/ }).click();
-  await page.getByRole('alertdialog', { name: 'Mute new connection requests?' }).getByRole('button', { name: 'Turn off' }).click();
+  await page.getByRole('alertdialog', { name: 'Stop new connection requests?' }).getByRole('button', { name: 'Stop requests' }).click();
   await expect.poll(() => calls.filter((call) => call.method === 'PATCH').length).toBe(1);
   await expect(requests.getByRole('radio', { name: /Everyone/ })).toHaveAttribute('aria-checked', 'true');
   await expect(requests.getByRole('radio', { name: /Nobody/ })).toHaveAttribute('aria-checked', 'false');
@@ -167,12 +167,13 @@ test('blocked accounts: search, load more without repeats, and unblock names the
 test('recent privacy changes show four and expand to all', async ({ page }) => {
   await openRealSettings(page);
   await ready(page);
-  const blocked = page.locator('#settings-privacy-blocked');
-  await expect(blocked.getByText(/^Profile visibility \d$/)).toHaveCount(4);
-  await blocked.getByRole('button', { name: 'View all 7' }).click();
-  await expect(blocked.getByText(/^Profile visibility \d$/)).toHaveCount(7);
-  await blocked.getByRole('button', { name: 'Show fewer' }).click();
-  await expect(blocked.getByText(/^Profile visibility \d$/)).toHaveCount(4);
+  // Settings mix: recent changes are their own group, in the one log layout.
+  const history = page.locator('#settings-privacy-history');
+  await expect(history.getByText(/^Profile visibility \d$/)).toHaveCount(4);
+  await history.getByRole('button', { name: 'Show all 7' }).click();
+  await expect(history.getByText(/^Profile visibility \d$/)).toHaveCount(7);
+  await history.getByRole('button', { name: 'Show fewer' }).click();
+  await expect(history.getByText(/^Profile visibility \d$/)).toHaveCount(4);
 });
 
 test('a privacy read error shows Retry, not "No blocked accounts"', async ({ page }) => {
@@ -184,7 +185,7 @@ test('a privacy read error shows Retry, not "No blocked accounts"', async ({ pag
   await expect(page.getByText('No blocked accounts')).toHaveCount(0);
   failing = false;
   await privacy.getByRole('button', { name: /retry/i }).click();
-  await expect(privacy.getByRole('radio', { name: /Private/ })).toBeVisible();
+  await expect(privacy.getByRole('radio', { name: 'Only me' })).toBeVisible();
 });
 
 // ── Security: devices and activity ───────────────────────────────────────────────────────────────────────────
@@ -229,15 +230,16 @@ test('activity: load older events appends without repeats, and clearing asks for
   const { calls } = await openRealSettings(page, { respond: (method, url) => (method === 'DELETE' && url.pathname === '/api/v1/security' ? { __status: 403, success: false, message: 'Verify this device first', errorCode: 'STEP_UP_REQUIRED' } : undefined) });
   await ready(page);
   const activity = page.locator('#settings-security-activity');
-  await expect(activity.getByText('Password changed')).toHaveCount(6);
-  await activity.getByRole('button', { name: 'Show all 8 security events' }).click();
+  // Settings mix: one log, four entries, then Show all; Load older once everything here shows.
+  await expect(activity.getByText('Password changed')).toHaveCount(4);
+  await activity.getByRole('button', { name: 'Show all 8' }).click();
   await expect(activity.getByText('Password changed')).toHaveCount(8);
-  await activity.getByRole('button', { name: 'Load older events' }).click();
+  await activity.getByRole('button', { name: 'Load older' }).click();
   await expect(activity.getByText('Password changed')).toHaveCount(11);
-  await expect(activity.getByRole('button', { name: 'Load older events' })).toHaveCount(0);
+  await expect(activity.getByRole('button', { name: 'Load older' })).toHaveCount(0);
   expect(calls.some((call) => call.path.startsWith('/api/v1/security?activityBefore='))).toBe(true);
-  await activity.getByRole('button', { name: 'Clear all activity' }).click();
-  await page.getByRole('alertdialog', { name: 'Clear security activity?' }).getByRole('button', { name: 'Clear all activity' }).click();
+  await activity.getByRole('button', { name: 'Clear all' }).click();
+  await page.getByRole('alertdialog', { name: 'Clear the log?' }).getByRole('button', { name: 'Clear all' }).click();
   await expect(page.getByRole('dialog', { name: 'Verify this device' })).toBeVisible();
   await expect(activity.getByText('Password changed')).toHaveCount(11);
 });
@@ -247,7 +249,7 @@ test('the deletion wizard names what goes, waits for the typed email, and sends 
   const { calls } = await openRealSettings(page, { respond: (method) => (method === 'DELETE' ? { success: true, data: { hardDeleteAt: '2026-11-27T00:00:00.000Z' } } : undefined) });
   await ready(page);
   await page.locator('#settings-delete-account').getByRole('button', { name: 'Delete account' }).click();
-  const wizard = page.getByRole('dialog', { name: 'Delete account' });
+  const wizard = page.getByRole('dialog', { name: 'Delete your account?' });
   await expect(wizard.getByText('Garden Map')).toBeVisible();
   await expect(wizard.getByLabel(/^Type/)).toBeFocused();
   const submit = wizard.getByRole('button', { name: /^Delete account|Delete my account|Delete$/ }).last();
@@ -271,14 +273,14 @@ test('a step-up request keeps what was typed when the check is left', async ({ p
   });
   await ready(page);
   await page.locator('#settings-delete-account').getByRole('button', { name: 'Delete account' }).click();
-  const wizard = page.getByRole('dialog', { name: 'Delete account' });
+  const wizard = page.getByRole('dialog', { name: 'Delete your account?' });
   await wizard.getByLabel(/^Type/).fill('ada@example.com');
   await wizard.getByRole('button', { name: /^Delete/ }).last().click();
   const verify = page.getByRole('dialog', { name: "Confirm it’s you" });
   await expect(verify).toBeVisible();
   // Leaving the check puts the wizard back with the typed email still in it.
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: 'Delete account' }).getByLabel(/^Type/)).toHaveValue('ada@example.com');
+  await expect(page.getByRole('dialog', { name: 'Delete your account?' }).getByLabel(/^Type/)).toHaveValue('ada@example.com');
   expect(calls.filter((call) => call.method === 'DELETE')).toHaveLength(1);
 });
 
@@ -286,7 +288,7 @@ test('signed in with a provider and nothing to verify with, the wizard offers a 
   await openRealSettings(page, { respond: (method) => (method === 'DELETE' ? { __status: 403, success: false, errorCode: 'STEP_UP_REQUIRED', details: { availableMethods: [] } } : undefined) });
   await ready(page);
   await page.locator('#settings-delete-account').getByRole('button', { name: 'Delete account' }).click();
-  const wizard = page.getByRole('dialog', { name: 'Delete account' });
+  const wizard = page.getByRole('dialog', { name: 'Delete your account?' });
   await wizard.getByLabel(/^Type/).fill('ada@example.com');
   await wizard.getByRole('button', { name: /^Delete/ }).last().click();
   await expect(wizard.getByRole('button', { name: 'Sign in again' })).toBeVisible();
@@ -301,11 +303,11 @@ test('a scheduled deletion shows its date and Reactivate in Settings, and Reacti
   await openRealSettings(page, { actions });
   await expect(page.getByRole('heading', { name: 'Settings', exact: true, level: 1 })).toBeVisible();
   const section = page.locator('#settings-delete-account');
-  await expect(section.getByText(/Account deletion scheduled for/)).toBeVisible();
+  await expect(section.getByText(/Deletion scheduled · \d+ days? left/)).toBeVisible();
   await expect(section.getByRole('button', { name: 'Delete account' })).toHaveCount(0);
-  await section.getByRole('button', { name: 'Reactivate account' }).click();
+  await section.getByRole('button', { name: 'Cancel deletion' }).click();
   await expect(section.getByRole('button', { name: 'Delete account' })).toBeVisible();
-  await expect(page.getByText(/Account deletion scheduled for/)).toHaveCount(0);
+  await expect(page.getByText(/Deletion scheduled/)).toHaveCount(0);
 });
 
 test('while the deletion status is unknown, Delete stays disabled', async ({ page }) => {
@@ -330,7 +332,8 @@ test('accepting terms needs the age statement and the terms box, uses the server
   await expect(accept).toBeEnabled();
   await accept.click();
   await expect.poll(() => calls.find((call) => call.method === 'POST' && call.path === '/api/v1/legal/acceptance')?.body).toEqual({ accepted: true, context: 'settings', ageConfirmed: true });
-  await expect(legal.getByText(/Acceptance history \(1\)/)).toBeVisible();
+  // The earlier agreement shows in the log under the agreement row.
+  await expect(legal.getByText('Terms 2026-09 · EULA 2026-09 · Privacy 2026-09')).toBeVisible();
 });
 
 test('a failed acceptance check says so with Retry, and a recorded export shows when it last ran', async ({ page }) => {
@@ -342,11 +345,11 @@ test('a failed acceptance check says so with Retry, and a recorded export shows 
   } });
   await expect(page.getByRole('heading', { name: 'Settings', exact: true, level: 1 })).toBeVisible();
   const legal = page.locator('#settings-privacy-policies');
-  await expect(legal.getByText('Check failed')).toBeVisible();
+  await expect(legal.getByText('Couldn’t check', { exact: true })).toBeVisible();
   failing = false;
-  await legal.getByRole('button', { name: 'Retry' }).click();
-  await expect(legal.getByText('Check failed')).toHaveCount(0);
-  await expect(legal.getByText(/Last exported/)).toBeVisible();
+  await legal.getByRole('button', { name: 'Try again' }).click();
+  await expect(legal.getByText('Couldn’t check', { exact: true })).toHaveCount(0);
+  await expect(legal.getByText(/Last export: (?!never)/)).toBeVisible();
 });
 
 // ── Integrations ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -355,10 +358,11 @@ const integrations = (overrides: Record<string, unknown> = {}) => ({ success: tr
 test('disconnecting a sign-in method asks first and Cancel sends nothing', async ({ page }) => {
   const { calls } = await openRealSettings(page, { respond: (_method, url) => (url.pathname === '/api/v1/integrations' ? integrations() : undefined) });
   await ready(page);
-  const connections = page.locator('#settings-integrations-connections');
-  await expect(connections.getByText('Main sign-in method')).toBeVisible();
-  await connections.getByRole('button', { name: 'Disconnect' }).click();
-  const dialog = page.getByRole('alertdialog', { name: 'Disconnect Google?' });
+  // Settings mix: ways to sign in live in Security › How you sign in.
+  const connections = page.locator('#settings-security-signin');
+  await expect(connections.locator('#settings-security-email-signin').getByText('Main', { exact: true })).toBeVisible();
+  await connections.getByRole('button', { name: 'Unlink' }).click();
+  const dialog = page.getByRole('alertdialog', { name: 'Unlink Google?' });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Cancel' }).click();
   expect(calls.filter((call) => call.path === '/api/v1/integrations/unlink')).toEqual([]);
@@ -383,8 +387,8 @@ test('disconnecting asks for verification when the server wants it', async ({ pa
     return undefined;
   } });
   await ready(page);
-  await page.locator('#settings-integrations-connections').getByRole('button', { name: 'Disconnect' }).click();
-  await page.getByRole('alertdialog', { name: 'Disconnect Google?' }).getByRole('button', { name: 'Disconnect' }).click();
+  await page.locator('#settings-security-signin').getByRole('button', { name: 'Unlink' }).click();
+  await page.getByRole('alertdialog', { name: 'Unlink Google?' }).getByRole('button', { name: 'Unlink' }).click();
   await expect(page.getByRole('dialog', { name: /verify|confirm/i })).toBeVisible();
   expect(calls.filter((call) => call.path === '/api/v1/integrations/unlink')).toHaveLength(1);
 });
@@ -430,13 +434,14 @@ test('appearance: a change applies at once, a queued sync says so and Retry send
   } });
   await ready(page);
   const appearance = page.locator('#settings-appearance');
-  const reset = appearance.getByRole('button', { name: 'Reset to defaults' });
+  const reset = appearance.getByRole('button', { name: 'Reset', exact: true });
   await expect(reset).toBeDisabled();
   await appearance.getByRole('radio', { name: /Compact/ }).click();
   await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
-  await expect(appearance.getByText('Saved on this device. It will sync to your account shortly.')).toBeVisible();
-  await appearance.getByRole('button', { name: 'Retry' }).click();
-  await expect(appearance.getByText(/^Saved to your account/)).toBeVisible();
+  // Settings mix: the save state sits on the Theme label; a queued sync offers Sync now.
+  await expect(appearance.getByText('Saved here · syncing')).toBeVisible();
+  await appearance.getByRole('button', { name: 'Sync now' }).click();
+  await expect(appearance.getByText(/^Saved · /)).toBeVisible();
   expect(calls.filter((call) => call.method === 'PUT')).toHaveLength(2);
   await expect(reset).toBeEnabled();
   await reset.click();
@@ -512,8 +517,9 @@ test('regenerating recovery codes warns, verifies, and the codes dialog only clo
     return undefined;
   } });
   await expect(page.getByRole('heading', { name: 'Settings', exact: true, level: 1 })).toBeVisible();
-  const authenticator = page.locator('#settings-security-authenticator');
-  await authenticator.getByRole('button', { name: 'Regenerate recovery codes' }).click();
+  // Settings mix: recovery codes are their own row; stored codes can't be shown again, so new ones are made.
+  const authenticator = page.locator('#settings-security-codes');
+  await authenticator.getByRole('button', { name: 'Make new codes' }).click();
   const verify = page.getByRole('dialog', { name: 'Verify this device' });
   await expect(verify.getByText('the old codes stop working')).toBeVisible();
   await verify.getByLabel('Current 6-digit code').fill('123456');
@@ -532,7 +538,7 @@ test('regenerating recovery codes warns, verifies, and the codes dialog only clo
 test('removing the authenticator says recovery codes go with it, and Cancel sends nothing', async ({ page }) => {
   const { calls } = await openRealSettings(page, { respond: (_method, url) => (url.pathname === '/api/v1/security' && !url.searchParams.get('activityBefore') ? withAuthenticator : undefined) });
   await expect(page.getByRole('heading', { name: 'Settings', exact: true, level: 1 })).toBeVisible();
-  await page.locator('#settings-security-authenticator').getByRole('button', { name: 'Remove authenticator app' }).click();
+  await page.locator('#settings-security-twostep').getByRole('button', { name: 'Remove' }).click();
   const dialog = page.getByRole('alertdialog', { name: 'Remove authenticator app?' });
   await expect(dialog.getByText('Your recovery codes stop working too.')).toBeVisible();
   await dialog.getByRole('button', { name: 'Cancel' }).click();

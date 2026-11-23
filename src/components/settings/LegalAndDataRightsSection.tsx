@@ -154,7 +154,7 @@ export function LegalAndDataRightsSection({ inWorkspace = false }: { inWorkspace
               {acceptForm}
             </SettingsRow>
           </SettingsRows>
-          {state?.history && state.history.length > 1 ? (
+          {state?.history && state.history.length > (state.current ? 1 : 0) ? (
             <LogList label="Earlier agreements" entries={state.history.map((entry) => ({ key: `${entry.acceptedAt}-${entry.termsVersion}`, date: logDate(entry.acceptedAt), dateTime: entry.acceptedAt, event: "Accepted", detail: `Terms ${entry.termsVersion} · EULA ${entry.eulaVersion} · Privacy ${entry.privacyNoticeVersion}` }))} />
           ) : null}
         </SettingsSectionCard>

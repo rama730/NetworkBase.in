@@ -153,8 +153,6 @@ test("integrations settings shows extension app identity before sessions", () =>
   const integrations = source("src/components/settings/IntegrationsSettings.tsx");
 
   assert.match(integrations, /function ExtensionAppCard/);
-  assert.match(integrations, /\/icon-(?:paper-|ink-)?192\.png/);
-  assert.match(integrations, /NetworkBase CLI, AI agents and editors/);
   assert.match(integrations, /\/ide-icons\/vscode\.png/);
   assert.match(integrations, /\/ide-icons\/cursor\.png/);
   assert.match(integrations, /\/ide-icons\/windsurf\.svg/);

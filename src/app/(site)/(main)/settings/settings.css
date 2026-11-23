@@ -39,6 +39,7 @@
 .nbs-results mark { background: var(--nbs-tint); color: inherit; }
 .nbs-results [role="option"]:hover, .nbs-results [role="option"][aria-selected="true"] { background: var(--nbs-soft); }
 .nbs-results .nbs-none { padding: 10px 12px; font: 12px var(--nbs-mono); color: var(--nbs-fg2); }
+.nbs-navnav { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .nbs-navlist { position: relative; display: grid; align-content: start; flex: 1; padding: 8px 0; overflow-y: auto; }
 .nbs-navlist > .nbs-marker { position: absolute; left: 0; top: 0; width: 2px; height: 0; opacity: 0; background: var(--nbs-brand); pointer-events: none; transition: transform 300ms var(--nb-ease), height 300ms var(--nb-ease); }
 .nbs-nl { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 16px; color: var(--nbs-fg2); text-decoration: none; font-size: 13.5px; font-weight: 500; }
@@ -115,6 +116,7 @@
 .nbs-group { padding-top: 16px; border-top: 1px solid var(--nbs-line); scroll-margin-top: 16px; }
 .nbs-glabel { display: flex; align-items: center; gap: 12px; min-height: 28px; margin: 0 var(--nbs-pad) 8px; font: 500 10.5px/1 var(--nbs-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--nbs-fg2); }
 .nbs-glabel::after { content: ""; flex: 1; height: 1px; background: var(--nbs-line); order: 1; }
+.nbs-glabel > h3 { margin: 0; font: inherit; letter-spacing: inherit; color: inherit; }
 .nbs-glabel > .r { order: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font: 13px/1 var(--font-sans, system-ui), system-ui, sans-serif; letter-spacing: 0; text-transform: none; }
 .nbs-glabel .state { order: 0; font: 500 10px var(--nbs-mono); letter-spacing: .1em; color: var(--nbs-brand); }
 .nbs-glabel .state.ok { color: var(--status-success); }
@@ -283,6 +285,13 @@
   /* A label with actions: the label keeps one line, the actions go under it. */
   .nbs-glabel { flex-wrap: wrap; row-gap: 8px; white-space: nowrap; }
   .nbs-glabel > .r { flex-basis: 100%; white-space: normal; }
+}
+/* Touch: every control reaches 44px, or has a 44px hit area around it. */
+@media (pointer: coarse) {
+  .nbs .nbs-nl { min-height: 44px; }
+  .nbs .nbs-swatch { height: 44px; }
+  .nbs .nbs-ib { width: 44px; height: 44px; }
+  .nbs :is(.nbs-row .m, .nbs-li .nm, .nb-empty-state, .nbs-ghelp, .nbs-row .d) a { display: inline-block; padding-block: 14px; margin-block: -14px; }
 }
 html[data-reduce-motion="true"] .nbs *, html[data-reduce-motion="true"] .nbs *::before, html[data-reduce-motion="true"] .nbs *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
 @media (prefers-reduced-motion: reduce) { .nbs *, .nbs *::before, .nbs *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; } }

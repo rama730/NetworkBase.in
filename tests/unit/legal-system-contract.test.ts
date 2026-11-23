@@ -94,7 +94,7 @@ test("grievance contact falls back to the monitored privacy mailbox", () => {
 test("settings and project detail expose contextual legal controls", () => {
   const settingsDocument = read("src/components/settings/SettingsDocument.tsx");
   assert.match(settingsDocument, /LegalAndDataRightsSection/);
-  assert.ok(settingsDocument.indexOf('id="settings-privacy-policies"') > settingsDocument.indexOf('id="settings-integrations"'));
+  assert.ok(settingsDocument.indexOf('section="privacy-policies"') > settingsDocument.indexOf('section="integrations"'));
   const layout = read("src/components/workspaces/dashboard/WorkspaceLayout.tsx");
   assert.doesNotMatch(layout, /id: "privacy", label: "Privacy & terms"/);
   const settings = componentSource("src/components/workspaces/tabs/WorkspaceSettingsTab.tsx");

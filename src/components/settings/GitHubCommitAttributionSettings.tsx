@@ -44,7 +44,7 @@ export function GitHubCommitAttributionSettings() {
       id="settings-integrations-author"
       title="Commit author"
       description="Commits you make from NetworkBase use a privacy-safe GitHub address. Choose which from each workspace’s contributor settings."
-      meta={email ? (currentIdentity?.isNoreply ? "Privacy-safe noreply address" : configured ? "The address you chose" : "From your GitHub sign-in · not confirmed yet") : undefined}
+      meta={email ? (currentIdentity?.isNoreply ? "Privacy-safe noreply address" : configured ? "Chosen by you" : "From your GitHub sign-in · not confirmed yet") : undefined}
       right={failed ? <ErrorNotice what="Commit author" onRetry={() => void load()} />
         : email ? <span className="v">{email}</span>
         : loadingCurrent ? <span role="status" className="nb-waiting nbs-meta"><PixelBeat />Loading…</span>

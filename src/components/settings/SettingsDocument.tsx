@@ -24,7 +24,7 @@ function DocumentSection({ section, children, before, danger, headline }: { sect
   const meta = SETTINGS_SECTION_META[section];
   const number = String(SETTINGS_SECTIONS.indexOf(section) + 1).padStart(2, "0");
   return (
-    <section id={id} data-settings-section aria-labelledby={`${id}-heading`} className="nbs-doc scroll-mt-4">
+    <section id={id} data-settings-section aria-labelledby={`${id}-heading`} className="nbs-doc scroll-mt-6">
       {before}
       <div className={danger ? "nbs-frame danger" : "nbs-frame"}>
         <div className="nbs-fhead">

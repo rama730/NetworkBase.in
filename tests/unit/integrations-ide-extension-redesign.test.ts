@@ -12,7 +12,7 @@ describe("IDE & Editor Extensions Redesign Contract", () => {
 
     // Universal copy without mentioning specific IDEs in the general card description
     assert.ok(
-      content.includes('description="Devices, AI agents and editors signed in to your account, and personal tokens."'),
+      content.includes('description="Devices, AI agents and editors signed in to your account."'),
       "Must state universal editor description",
     );
 

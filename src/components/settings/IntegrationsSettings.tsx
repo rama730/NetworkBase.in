@@ -71,7 +71,7 @@ function ExtensionAppCard() {
   return (
     <div className="nbs-pad grid gap-2">
       <TerminalBlock variant="command" label="Terminal">{"$ npx @networkbase/cli login\n$ nb agent setup claude"}</TerminalBlock>
-      <p className="nbs-meta">Sign in from your editor or terminal, then link a folder with nb init. Agents get their own sign-in: where they work, what they may do and for how long. <Link href="/docs/cli" className="underline underline-offset-2">CLI docs</Link> · <Link href="/docs/agents" className="underline underline-offset-2">Agents</Link></p>
+      <p className="nbs-meta">Sign in from your editor or terminal, then link a folder with nb init. Agents get their own sign-in: where they work, what they may do and for how long. Revoke any time below. <Link href="/docs/cli" className="underline underline-offset-2">CLI docs</Link> · <Link href="/docs/agents" className="underline underline-offset-2">Agents</Link></p>
     </div>
   );
 }
@@ -101,21 +101,22 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
     ? <span className="tile" aria-hidden="true"><Image src={ideIcon} alt="" width={20} height={20} unoptimized className="size-5 object-contain" /></span>
     : <span className="tile" aria-hidden="true">{isCliSession ? <Terminal strokeWidth={1.75} /> : isPending ? <KeyRound strokeWidth={1.75} /> : <Code2 strokeWidth={1.75} />}</span>;
   const detail = isPending
-    ? `access token · made ${formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })} · waiting for its first sign-in`
+    ? `access token · made ${formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })} · Awaiting initial connection from your editor or CLI`
     : [`active ${formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })}`, platform, `v${session.clientVersion || "unknown"}`,
       session.tokenType === "agent" ? null : isCliSession ? "from the CLI" : session.authMethod === "web_login" ? "from the editor" : "access token",
+      session.editorVersion ? session.editorVersion : null,
       session.lastCountry ? `last used from ${session.lastCountry}` : null,
       session.tokenType === "agent" ? null : `expires ${formatDistanceToNow(new Date(session.expiresAt), { addSuffix: true })}`].filter(Boolean).join(" · ");
   return (
     <SecurityListRow
       tile={tile}
       title={title}
-      badges={session.tokenType === "agent" ? <Tag tone="hot">Agent</Tag> : isCliSession ? <Tag>CLI</Tag> : isPending ? <Tag tone="warn">Waiting</Tag> : null}
+      badges={session.tokenType === "agent" ? <Tag tone="hot">Agent</Tag> : isCliSession ? <Tag>CLI</Tag> : isPending ? <Tag tone="warn">Awaiting connection</Tag> : null}
       details={detail}
       summary={session.tokenType === "agent" ? (session.accessSentence ?? `Works in ${session.workspaceTitle ?? "all your workspaces"}; big changes wait for your yes.`) : undefined}
       action={<>
         {session.tokenType === "agent" ? <Button size="sm" variant="outline" asChild><Link href={`/settings/agents/${session.id}`}>Change access</Link></Button> : null}
-        <Button pending={revoking} size="sm" variant="ghost" onClick={onRevoke} disabled={revoking}>{isPending ? "Revoke" : "Disconnect"}</Button>
+        <Button pending={revoking} size="sm" variant="ghost" onClick={onRevoke} disabled={revoking}>{isPending ? "Revoke token" : "Disconnect"}</Button>
       </>}
     >
       {session.tokenType === "agent" ? <AgentActivity sessionId={session.id} /> : null}
@@ -340,7 +341,7 @@ export default function IntegrationsSettings() {
         <SettingsRow
           id="settings-integrations-repos"
           title="Repository access"
-          description={[github?.summary, github?.detail].filter(Boolean).join(" ") || "Managed from each workspace."}
+          description={[github?.summary, github?.detail].filter(Boolean).join(" ") || "GitHub status unavailable. Repository access is managed from each workspace."}
           meta={github?.githubUsername ? <a href={`https://github.com/${github.githubUsername}`} target="_blank" rel="noreferrer" className="hover:underline">@{github.githubUsername}</a> : undefined}
           right={<>
             {github?.recoveryAction === "replace_account" ? <Button pending={replacingGithub} variant="outline" size="sm" onClick={() => setReplacementConfirmOpen(true)} disabled={replacingGithub}>Replace GitHub account</Button> : null}
@@ -352,7 +353,7 @@ export default function IntegrationsSettings() {
             {github?.projects?.length ? github.projects.map((project) => {
               const repoName = project.syncRepository || project.githubRepoUrl || project.importSource?.repoUrl;
               return <SecurityListRow key={project.id} icon={GitBranch} title={<Link href={`/workspaces/${project.slug}`} className="hover:underline">{project.title}</Link>}
-                badges={<Tag>{project.syncRepository ? "Sync" : "Repository"}</Tag>}
+                badges={<Tag>{project.syncRepository ? "GitHub sync" : "Repository"}</Tag>}
                 details={repoName ? `${repoName}${project.syncBranch ? ` · ${project.syncBranch}` : ""}` : undefined}
                 action={<Button variant="ghost" size="sm" asChild><Link href={`/workspaces/${project.slug}`}>Open<ExternalLink className="size-4" strokeWidth={1.75} /></Link></Button>} />;
             }) : <p className="nbs-ghelp">No connected workspaces.</p>}
@@ -362,7 +363,8 @@ export default function IntegrationsSettings() {
       </SettingsRows>
     </SettingsSectionCard>
 
-    <SettingsSectionCard id="settings-integrations-editors" title="CLI, agents and editors" state={padCount(activeSessions.length)} stateOk={activeSessions.length > 0} flush findKeys="terminal cli agents mcp editor vscode claude">
+    <SettingsSectionCard id="settings-integrations-editors" title="CLI, agents and editors" description="Devices, AI agents and editors signed in to your account." flush findKeys="terminal cli agents mcp editor vscode claude"
+      right={<span className="nbs-meta">{activeSessions.length} active · {pendingSessions.length} pending</span>}>
       <ExtensionAppCard />
       {sessionsFailed && !sessionData ? (
         <div className="nbs-body"><ErrorNotice what="Connected editors" onRetry={() => void refetchSessions()} /></div>

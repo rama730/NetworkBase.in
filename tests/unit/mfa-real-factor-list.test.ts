@@ -57,7 +57,9 @@ test("the server client installs the real factor list", () => {
 test("the settings nav's current section gets the same highlight as the app's other nav rows", () => {
   const css = readFileSync("src/app/globals.css", "utf8");
   const layout = readFileSync("src/components/settings/SettingsLayout.tsx", "utf8");
-  assert.match(layout, /aria-current=\{active \? "location"/);
+  // Settings mix: the nav is its own cells (settings.css), with the sliding marker on the current one.
+  assert.match(layout, /aria-current=\{activeSection === item\.section \? "location"/);
+  assert.match(readFileSync("src/app/(site)/(main)/settings/settings.css", "utf8"), /\.nbs-nl\[aria-current="location"\] \{ color: var\(--foreground\); background:/);
   assert.match(css, /\.nb-nav-link\[aria-current="location"\][^{]*\{ background:var\(--sidebar-accent\)/);
   assert.match(css, /\.nb-nav-link\[aria-current="location"\] > svg[^{]*\{ color:var\(--primary\)/);
 });

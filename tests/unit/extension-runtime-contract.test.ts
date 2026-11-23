@@ -28,7 +28,7 @@ describe("extension runtime contract", () => {
     assert.match(authorizePage, /setNeedsSignIn\(true\)/, "an unauthenticated browser must receive a recoverable sign-in path");
     assert.doesNotMatch(mainLayout, /BroadcastChannel|AUTH_REQ|AUTH_ACK|<iframe/, "the app shell must not relay browser authorization through an iframe");
     assert.doesNotMatch(settingsPage, /generateExtensionAuthCode/, "settings should defer editor authorization to the dedicated route");
-    assert.match(settingsPage, /Access tokens/, "settings should label its deliberate manual-token fallback");
+    assert.match(settingsPage, /Editor access token/, "settings should label its deliberate manual-token fallback");
     assert.match(settingsPage, /generatedToken/, "the manual-token fallback should remain transient component state");
     assert.match(eventSource, /auth_code_issued/, "event registry should allow auth-code issuance events");
     assert.match(eventSource, /auth_code_consumed/, "event registry should allow auth-code consumption events");
@@ -81,7 +81,7 @@ describe("extension runtime contract", () => {
     assert.match(settingsPage, /session\.editorName/);
     assert.match(settingsPage, /session\.deviceName/);
     assert.match(settingsPage, /IDE_ICON_ASSETS/, "the current integrations UI should render supported editor icons");
-    assert.match(settingsPage, /<Code2 className=/, "unknown editors should retain a compact fallback icon");
+    assert.match(settingsPage, /<Code2 /, "unknown editors should retain a compact fallback icon");
     assert.doesNotMatch(settingsPage, /getCallbackEditorTheme/);
   });
 });
