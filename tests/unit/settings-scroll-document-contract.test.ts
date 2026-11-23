@@ -32,9 +32,11 @@ test("personal settings render as one navigable scroll document", () => {
   assert.doesNotMatch(document, /scrollIntoView|useSearchParams/, "The settings document should not compete with the layout scroll controller");
   assert.match(layout, /data-scroll-root="route"/);
   assert.match(layout, /md:w-\[var\(--nb-sidebar-width\)\]/, "Section navigation should use the same width as the main sidebar");
-  // Settings mix (2026-11-23): the nav is hairline cells with mono counters and the sliding marker; Delete sits apart.
+  // Settings mix (2026-11-23): the nav is hairline cells with mono counters; Delete sits apart.
   assert.match(layout, /className=\{cn\("nbs-nl"/, "nav links are the mix cells");
-  assert.match(layout, /nbs-marker/, "one marker slides to the section you're in");
+  // No edge line on the current section (user, 2026-11-23): it is shown by its tint and clay number.
+  assert.doesNotMatch(layout, /nbs-marker/, "no edge marker on the current section");
+  assert.doesNotMatch(document, /\/ \{String\(SETTINGS_SECTIONS\.length\)/, "section eyebrows carry the name only, no 0N / 08");
   assert.match(layout, /nbs-navfoot/, "Delete account sits apart at the bottom");
   assert.match(layout, /<SettingsFind onJump=\{findJump\} \/>/, "Find a setting lives in the nav head");
   assert.match(layout, /<h1 id="settings-navigation-title" className="nbs-eyebrow max-md:sr-only">Settings<\/h1>/);

@@ -30,13 +30,12 @@ const SMOOTH_SCROLL_MS = 900;
 
 /**
  * The section nav (settings mix): hairline cells with a mono counter, a state only where something needs you
- * (VERIFY, 2FA OFF, PAUSED, a deletion date), and the clay marker sliding to the section you're in. Delete account
- * sits apart at the bottom; on a phone the nav is one sticky strip.
+ * (VERIFY, 2FA OFF, PAUSED, a deletion date); the section you're in is tinted with a clay number (no edge line, by the
+ * user's call 2026-11-23). Delete account sits apart at the bottom; on a phone the nav is one sticky strip.
  */
 function SettingsNav({ activeSection, onNavigate }: { activeSection: SettingsSection; onNavigate: (event: MouseEvent<HTMLAnchorElement>, item: SettingsItem) => void }) {
   const { states } = useSettingsSummary();
   const listRef = useRef<HTMLDivElement>(null);
-  const markerRef = useRef<HTMLSpanElement>(null);
   const link = (item: SettingsItem, index: number, className?: string) => {
     const state = states[item.section as keyof typeof states];
     return <Link key={`${item.section}-${className ?? ""}`} href={item.href} aria-current={activeSection === item.section ? "location" : undefined} onClick={(event) => onNavigate(event, item)} className={cn("nbs-nl", item.danger && "danger", className)}>
@@ -45,39 +44,19 @@ function SettingsNav({ activeSection, onNavigate }: { activeSection: SettingsSec
       <span className="s">{state ? <><span className="sr-only">, </span>{state}</> : null}</span>
     </Link>;
   };
-  // The marker follows the current link: down the left edge on a wide screen, along the bottom of the strip on a phone.
+  // On a phone the nav is a strip: keep the current cell in view by scrolling the strip itself, never its ancestors.
   useLayoutEffect(() => {
     const list = listRef.current;
-    const marker = markerRef.current;
-    if (!list || !marker) return;
-    const place = () => {
-      const current = list.querySelector<HTMLElement>('.nbs-nl[aria-current="location"]:not([hidden])');
-      if (!current || current.offsetParent === null) { marker.style.opacity = "0"; return; }
-      const strip = getComputedStyle(list).display === "flex";
-      marker.style.opacity = "1";
-      if (strip) {
-        marker.style.width = `${current.offsetWidth}px`;
-        marker.style.height = "";
-        marker.style.transform = `translateX(${current.offsetLeft}px)`;
-        // Keep the current cell in view by scrolling the strip itself, never its ancestors.
-        if (current.offsetLeft < list.scrollLeft || current.offsetLeft + current.offsetWidth > list.scrollLeft + list.clientWidth) list.scrollLeft = Math.max(0, current.offsetLeft - 16);
-      } else {
-        marker.style.width = "";
-        marker.style.height = `${current.offsetHeight}px`;
-        marker.style.transform = `translateY(${current.offsetTop}px)`;
-      }
-    };
-    place();
-    const sizes = new ResizeObserver(place);
-    sizes.observe(list);
-    return () => sizes.disconnect();
-  }, [activeSection, states]);
-  // One landmark holds all eight: the list with its marker, and Delete account apart at the bottom (in the strip on a phone).
+    if (!list || getComputedStyle(list).display !== "flex") return;
+    const current = list.querySelector<HTMLElement>('.nbs-nl[aria-current="location"]');
+    if (!current || current.offsetParent === null) return;
+    if (current.offsetLeft < list.scrollLeft || current.offsetLeft + current.offsetWidth > list.scrollLeft + list.clientWidth) list.scrollLeft = Math.max(0, current.offsetLeft - 16);
+  }, [activeSection]);
+  // One landmark holds all eight: the list, and Delete account apart at the bottom (in the strip on a phone).
   return <nav aria-label="Settings sections" className="nbs-navnav">
     <div ref={listRef} className="nbs-navlist">
       {settingsItems.map((item, index) => link(item, index))}
       {link(deleteItem, settingsItems.length, "only-phone")}
-      <span ref={markerRef} className="nbs-marker" aria-hidden="true" />
     </div>
     <div className="nbs-navfoot">{link(deleteItem, settingsItems.length)}</div>
   </nav>;

@@ -11,24 +11,23 @@ import { SettingsBand } from "@/components/settings/mix/SettingsBand";
 import { SettingsCheckup } from "@/components/settings/mix/SettingsCheckup";
 import { DeleteHeadline } from "@/components/settings/mix/DeleteHeadline";
 import { SETTINGS_SECTION_META } from "@/constants/settings";
-import { SETTINGS_SECTIONS, type SettingsSection } from "@/lib/settings/navigation";
+import type { SettingsSection } from "@/lib/settings/navigation";
 import { OpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
 
 /**
- * One section of the Settings page (mix): a hairline frame with "0N / 08 · Name", a serif line saying what it's for,
+ * One section of the Settings page (mix): a hairline frame with the section's name as its eyebrow, a serif line saying what it's for,
  * and one plain line; then its groups. `before` sits above the frame inside the section (the band and check-up
  * belong to Account, so landing on the page shows them).
  */
 function DocumentSection({ section, children, before, danger, headline }: { section: SettingsSection; children: React.ReactNode; before?: React.ReactNode; danger?: boolean; headline?: React.ReactNode }) {
   const id = `settings-${section}`;
   const meta = SETTINGS_SECTION_META[section];
-  const number = String(SETTINGS_SECTIONS.indexOf(section) + 1).padStart(2, "0");
   return (
     <section id={id} data-settings-section aria-labelledby={`${id}-heading`} className="nbs-doc scroll-mt-6">
       {before}
       <div className={danger ? "nbs-frame danger" : "nbs-frame"}>
         <div className="nbs-fhead">
-          <p className="nbs-eyebrow">{number} / {String(SETTINGS_SECTIONS.length).padStart(2, "0")} · <b>{meta.title}</b></p>
+          <p className="nbs-eyebrow"><b>{meta.title}</b></p>
           {headline ?? <h2 id={`${id}-heading`} tabIndex={-1}>{meta.headline}</h2>}
           <p>{meta.description}</p>
         </div>

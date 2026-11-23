@@ -41,7 +41,6 @@
 .nbs-results .nbs-none { padding: 10px 12px; font: 12px var(--nbs-mono); color: var(--nbs-fg2); }
 .nbs-navnav { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .nbs-navlist { position: relative; display: grid; align-content: start; flex: 1; padding: 8px 0; overflow-y: auto; }
-.nbs-navlist > .nbs-marker { position: absolute; left: 0; top: 0; width: 2px; height: 0; opacity: 0; background: var(--nbs-brand); pointer-events: none; transition: transform 300ms var(--nb-ease), height 300ms var(--nb-ease); }
 .nbs-nl { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 16px; color: var(--nbs-fg2); text-decoration: none; font-size: 13.5px; font-weight: 500; }
 .nbs-nl .n { font: 500 11px var(--nbs-mono); color: var(--nbs-fg2); font-variant-numeric: tabular-nums; }
 .nbs-nl .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -258,7 +257,6 @@
   .nbs-results { top: calc(100% + 2px); }
   .nbs-navlist { display: flex; overflow-x: auto; padding: 0; scrollbar-width: none; }
   .nbs-navlist::-webkit-scrollbar { display: none; }
-  .nbs-navlist > .nbs-marker { top: auto; bottom: 0; height: 2px !important; transition: transform 300ms var(--nb-ease), width 300ms var(--nb-ease); }
   .nbs-nl { flex: none; grid-template-columns: auto auto auto; min-height: 44px; padding: 0 14px; border-right: 1px solid var(--nbs-line); }
   .nbs-navlist .nbs-nl.only-phone { display: grid; }
   .nbs-navfoot { display: none; }
