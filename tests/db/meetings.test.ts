@@ -126,3 +126,18 @@ test("W8: Edit this meeting moves its time and reminders; a finished meeting kee
   assert.ok((await docs.finishMeetingAction(t.ws, { docSlug: "client-call", carryOver: false })).success);
   assert.equal((await docs.moveMeetingAction(t.ws, { docSlug: "client-call", startsAt: ist("2027-02-03T11:00:00") }) as { error?: string }).error, "A finished meeting keeps its time.");
 });
+
+test("security review: the meetings list shows only meetings this person may read", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  const id = await t.doc("board-minutes");
+  assert.ok((await docs.createMeetingAction(t.ws, { docSlug: "board-minutes", type: "blank", title: "Board", startsAt: ist("2027-03-01T10:00:00"), lengthMinutes: 60, attendeeIds: [], repeat: "none" })).success);
+  assert.ok((await docs.addDocRowAction(t.ws, { docSlug: "board-minutes", blockKey: "actions", title: "Confidential follow-up" })).success);
+  await sql`UPDATE workspace_documents SET settings = settings || '{"visibilityOverride":"leaders_only"}'::jsonb WHERE id = ${id}`;
+  const own = await docs.readMeetingsAction(t.ws);
+  assert.ok(own.success && own.meetings.length === 1 && own.openActionItems.length === 1);
+  viewerId = t.member;
+  const member = await docs.readMeetingsAction(t.ws);
+  assert.ok(member.success);
+  assert.deepEqual([member.meetings.length, member.openActionItems.length], [0, 0]);
+});

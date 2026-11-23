@@ -1869,20 +1869,23 @@ export async function readMeetingsAction(projectId: string) {
     try {
         const actor = await requireUserId();
         const access = await getWorkspaceAccessById(projectId, actor);
-        if (!access.project || !(access.isOwner || access.isMember)) return { success: false as const, error: "Not found" };
-        const docs = Array.from(await db.execute<{ id: string; slug: string; filename: string; settings: Record<string, unknown> }>(sql`
+        if (!access.project || access.project.kind !== "workspace" || !(access.isOwner || access.isMember)) return { success: false as const, error: "Not found" };
+        const all = Array.from(await db.execute<{ id: string; slug: string; filename: string; settings: Record<string, unknown> }>(sql`
             SELECT id, slug, filename, settings FROM workspace_documents WHERE workspace_id = ${projectId}::uuid AND settings->>'section' = 'meetings'
             ORDER BY settings->>'startsAt' DESC NULLS LAST LIMIT 500`));
+        // Security review (A4.1): only meetings this person may read (a leaders-only meeting stays hidden), as one document would.
+        const base = await loadDocProjectBase(projectId, actor);
+        const docs = all.filter((d) => { const p = docContext(base, actor, d.slug).permission; return p.canReadPublished || p.canEdit; });
         const meetings = docs.map((d) => ({ docId: d.id, slug: d.slug, title: typeof d.settings.meetingTitle === "string" ? d.settings.meetingTitle : d.filename.replace(/\.md$/i, ""), type: String(d.settings.kind ?? "blank"),
             startsAt: typeof d.settings.startsAt === "string" ? d.settings.startsAt : null, lengthMinutes: typeof d.settings.lengthMinutes === "number" ? d.settings.lengthMinutes : 30,
             attendeeIds: Array.isArray(d.settings.attendeeIds) ? (d.settings.attendeeIds as string[]) : [], finished: Boolean(d.settings.finishedAt) }));
         const byDoc = new Map(meetings.map((m) => [m.docId, m]));
-        const open = docs.length ? Array.from(await db.execute<{ id: string; task_number: number | null; title: string; status: string; due_date: string | null; assignee_id: string | null; assignee_name: string | null; source_doc_id: string }>(sql`
-            SELECT t.id, t.task_number, t.title, t.status, t.due_date::text AS due_date, t.assignee_id, p.full_name AS assignee_name, t.source_doc_id
-            FROM tasks t LEFT JOIN profiles p ON p.id = t.assignee_id
-            WHERE t.workspace_id = ${projectId}::uuid AND t.deleted_at IS NULL AND t.status <> 'done' AND t.source_block = 'actions'
-              AND t.source_doc_id IN (${sql.join(docs.map((d) => sql`${d.id}::uuid`), sql`, `)})
-            ORDER BY t.due_date NULLS LAST, t.created_at LIMIT 500`)) : [];
+        // The task read rule too (as readDocRowsAction applies it).
+        const open = docs.length ? await db.select({ id: tasks.id, number: tasks.taskNumber, title: tasks.title, status: tasks.status, dueDate: tasks.dueDate, assigneeId: tasks.assigneeId, assigneeName: profiles.fullName, sourceDocId: tasks.sourceDocId })
+            .from(tasks).leftJoin(profiles, eq(profiles.id, tasks.assigneeId))
+            .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`, eq(tasks.sourceBlock, "actions"),
+                inArray(tasks.sourceDocId, docs.map((d) => d.id)), orgTaskReadFilter(access, actor)))
+            .orderBy(sql`${tasks.dueDate} NULLS LAST`, asc(tasks.createdAt)).limit(500) : [];
         const [ws] = await db.select({ key: workspaces.key }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
         const { readWorkingHours } = await import("@/lib/workflows/request-clock-server");
         const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
@@ -1891,8 +1894,8 @@ export async function readMeetingsAction(projectId: string) {
             ORDER BY p.full_name`));
         return {
             success: true as const, projectKey: ws?.key ?? null, timeZone: (await readWorkingHours(projectId)).tz, viewerId: actor, meetings, people,
-            openActionItems: open.map((r) => ({ id: r.id, number: r.task_number, title: r.title, status: r.status, dueDate: r.due_date ? r.due_date.slice(0, 10) : null,
-                assigneeId: r.assignee_id, assigneeName: r.assignee_name, meeting: byDoc.get(r.source_doc_id) ? { slug: byDoc.get(r.source_doc_id)!.slug, title: byDoc.get(r.source_doc_id)!.title } : null })),
+            openActionItems: open.map((r) => ({ id: r.id, number: r.number, title: r.title, status: r.status, dueDate: r.dueDate ? r.dueDate.toISOString().slice(0, 10) : null,
+                assigneeId: r.assigneeId, assigneeName: r.assigneeName, meeting: r.sourceDocId && byDoc.get(r.sourceDocId) ? { slug: byDoc.get(r.sourceDocId)!.slug, title: byDoc.get(r.sourceDocId)!.title } : null })),
         };
     } catch (error) {
         logger.error("meetings.list_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
