@@ -4,7 +4,15 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { LEGAL_PAGE_NAMES } from "@/lib/copy/terms";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Download, ExternalLink, Scale } from "lucide-react";
+import { CheckCircle2, Copy, Download, ExternalLink, Scale } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { SettingsRow, SettingsRows } from "@/components/settings/ui/SettingsRow";
+import { useOpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
+import { LogList, Tag } from "@/components/settings/mix/parts";
+import { legalAcceptanceKey } from "@/components/settings/mix/useSettingsSummary";
+import { SavedTick } from "@/components/ui/SavedTick";
+import { copyText } from "@/lib/clipboard";
+import { logDate } from "@/lib/settings/format";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -48,6 +56,9 @@ const RIGHTS_REQUEST_HREF = "mailto:privacy@networkbase.in?subject=Privacy%20rig
 
 /** `inWorkspace`: shown inside a workspace's or organization's Settings, where Delete account isn't below (student check 13). */
 export function LegalAndDataRightsSection({ inWorkspace = false }: { inWorkspace?: boolean } = {}) {
+  const open = useOpenSettingsSections();
+  const queryClient = useQueryClient();
+  const [copied, setCopied] = useState(0);
   const [state, setState] = useState<AcceptanceState | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -103,11 +114,72 @@ export function LegalAndDataRightsSection({ inWorkspace = false }: { inWorkspace
       // Said only once the new state is actually in hand: a failed re-read must not read as "pending" after success.
       toast.success("Your legal acceptance was recorded");
       loadStatus();
+      void queryClient.invalidateQueries({ queryKey: legalAcceptanceKey() });
     } catch (error) {
       toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t save acceptance", "Couldn’t save acceptance"));
     } finally {
       setAccepting(false);
     }
+  }
+
+  const agreementText = fetchError
+    ? "Couldn’t check your agreement status."
+    : state?.current
+      ? `You accepted the Terms (${state.latest?.termsVersion ?? LEGAL_VERSIONS.terms}) and the EULA (${state.latest?.eulaVersion ?? LEGAL_VERSIONS.eula}), and acknowledged the Privacy Policy (${state.latest?.privacyNoticeVersion ?? LEGAL_VERSIONS.privacy})${state.latest?.acceptedAt ? `, on ${formatCalendarDate(state.latest.acceptedAt)}` : ""}.`
+      : `The terms changed: Terms ${state?.versions?.termsVersion ?? LEGAL_VERSIONS.terms}, EULA ${state?.versions?.eulaVersion ?? LEGAL_VERSIONS.eula}, Privacy Policy ${state?.versions?.privacyNoticeVersion ?? LEGAL_VERSIONS.privacy}.`;
+  const acceptForm = !loading && !fetchError && !state?.current ? (
+    <div className="nbs-inline-form">
+      <label className="flex cursor-pointer items-start gap-3 text-[13px] text-foreground">
+        <Checkbox checked={ageConfirmed} onCheckedChange={(value) => setAgeConfirmed(value === true)} className="mt-0.5" />
+        <span>I am at least 18 years old.</span>
+      </label>
+      <label className="flex cursor-pointer items-start gap-3 text-[13px] text-foreground">
+        <Checkbox checked={confirmed} onCheckedChange={(value) => setConfirmed(value === true)} className="mt-0.5" />
+        <span>I accept the <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">Terms of Service</a> and <a href="/eula" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">EULA</a>, and acknowledge the <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">Privacy Policy</a>.</span>
+      </label>
+      <div><Button pending={accepting} type="button" size="sm" disabled={!confirmed || !ageConfirmed || accepting} onClick={() => void acceptCurrentTerms()}>Accept current terms</Button></div>
+    </div>
+  ) : null;
+
+  // Settings mix (the Settings page): agreements, a policy grid and your data as rows. Workspace settings keep the card.
+  if (open) {
+    return (
+      <>
+        <SettingsSectionCard id="settings-privacy-policies-terms" title="Agreements" state={!loading && !fetchError && state && !state.current ? "accept" : undefined} flush findKeys="terms eula accept">
+          <SettingsRows>
+            <SettingsRow title="Terms of Service and EULA" description={agreementText}
+              right={loading ? <span role="status" className="nb-waiting nbs-meta"><PixelBeat />Checking…</span>
+                : fetchError ? <span role="alert" className="nb-retry"><b>Couldn’t check</b><button type="button" onClick={() => void loadStatus()}>Try again</button></span>
+                : state?.current ? <Tag tone="ok" tick>Accepted</Tag> : <Tag tone="warn">To accept</Tag>}>
+              {acceptForm}
+            </SettingsRow>
+          </SettingsRows>
+          {state?.history && state.history.length > 1 ? (
+            <LogList label="Earlier agreements" entries={state.history.map((entry) => ({ key: `${entry.acceptedAt}-${entry.termsVersion}`, date: logDate(entry.acceptedAt), dateTime: entry.acceptedAt, event: "Accepted", detail: `Terms ${entry.termsVersion} · EULA ${entry.eulaVersion} · Privacy ${entry.privacyNoticeVersion}` }))} />
+          ) : null}
+        </SettingsSectionCard>
+
+        <SettingsSectionCard id="settings-privacy-policies-list" title="Policies" description={`In force since ${LEGAL_EFFECTIVE_DATE}.`} flush findKeys="policy terms privacy cookies dpa copyright">
+          <div className="nbs-policies">
+            {governingDocuments.map((doc) => <Link key={doc.href} href={doc.href} target="_blank" rel="noopener noreferrer">{doc.title}<span aria-hidden="true">↗</span></Link>)}
+          </div>
+        </SettingsSectionCard>
+
+        <SettingsSectionCard id="settings-privacy-policies-data" title="Your data" flush findKeys="export download gdpr cookies rights">
+          <SettingsRows>
+            <SettingsRow id="settings-privacy-policies-export" title="Export your data"
+              description="One JSON file: your profile, contributions, workspaces, tasks, the comments and messages you wrote, your connections and your agreements."
+              meta={`Last export: ${lastExportedAt ? formatCalendarDate(lastExportedAt) : "never"} · once an hour`}
+              right={<Button variant="outline" size="sm" asChild><DownloadLink href="/api/v1/account/export"><Download className="size-3.5" aria-hidden="true" />Export</DownloadLink></Button>} />
+            <SettingsRow id="settings-privacy-policies-cookies" title="Cookie preferences" description="Which optional cookies and local storage NetworkBase may use."
+              right={<Button type="button" variant="outline" size="sm" onClick={openCookieSettings}>Manage</Button>} />
+            <SettingsRow id="settings-privacy-policies-requests" title="Other requests"
+              description={<>To correct, restrict or object to how your data is used, write to <span className="select-all font-mono">privacy@networkbase.in</span>.</>}
+              right={<>{copied ? <SavedTick key={copied} label="Copied" /> : null}<Button type="button" variant="ghost" size="sm" onClick={() => { copyText("privacy@networkbase.in").then(() => setCopied((n) => n + 1), () => undefined); }}><Copy className="size-3.5" aria-hidden="true" />Copy address</Button></>} />
+          </SettingsRows>
+        </SettingsSectionCard>
+      </>
+    );
   }
 
   return (

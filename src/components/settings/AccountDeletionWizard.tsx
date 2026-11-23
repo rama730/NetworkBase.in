@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Download, Trash2, TriangleAlert } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,9 +112,9 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
     const sharedProjects = (owned ?? []).filter((project) => project.otherMembers > 0 && project.kind !== "organization" && !project.handover);
 
     return <Dialog open onOpenChange={(open) => { if (!open && !deleting) onClose(); }}>
-        <DialogContent>
+        <DialogContent eyebrow="Delete account · 30 days to cancel">
             <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-[var(--status-danger)]"><TriangleAlert className="h-5 w-5" aria-hidden="true" />Delete account</DialogTitle>
+                <DialogTitle className="text-[var(--status-danger)]">Delete your account?</DialogTitle>
                 <DialogDescription>
                     Your profile is hidden and you are signed out everywhere right away. After 30 days your account and its data are permanently deleted. You can cancel any time before then.
                 </DialogDescription>

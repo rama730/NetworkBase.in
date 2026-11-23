@@ -2,9 +2,9 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useState } from "react";
-import { ShieldCheck, Mail } from "lucide-react";
 import * as sync from "@/app/actions/github-sync";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
+import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 
 type Success<T> =
   Extract<T, { success: true }> extends { data: infer D } ? D : never;
@@ -37,44 +37,18 @@ export function GitHubCommitAttributionSettings() {
   // GitHub gave us at sign-in, so it is not called verified.
   const configured = Boolean(currentIdentity && "configured" in currentIdentity && currentIdentity.configured);
 
+  // Settings mix: one row in Integrations › GitHub; the address in mono on the right.
+  const email = currentIdentity?.email ?? null;
   return (
-    <div>
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h4 className="nb-ui-label text-foreground">Commit author</h4>
-          <p className="nb-compact mt-1 text-muted-foreground">
-            Commits made from NetworkBase are signed with a privacy-safe GitHub address. You can choose which address from each workspace’s contributor settings.
-          </p>
-        </div>
-        {currentIdentity?.email ? (
-          <span className="nb-meta self-start text-muted-foreground sm:self-center">
-            {configured ? "Chosen" : "From your GitHub sign-in"}
-          </span>
-        ) : null}
-      </div>
-
-      {failed ? (
-        <ErrorNotice what="Commit author" onRetry={() => void load()} className="mt-3" />
-      ) : currentIdentity && currentIdentity.email ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2.5 rounded-md border border-border bg-muted/50 px-3 py-3">
-          <div className="nb-compact flex items-center gap-1.5 font-medium text-foreground">
-            <Mail className="size-4 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
-            <span>Commit author:</span>
-          </div>
-          <code className="nb-meta rounded-md border border-border bg-background px-2 py-1 text-foreground">
-            {currentIdentity.email}
-          </code>
-          <span className="nb-meta inline-flex items-center gap-1 text-muted-foreground">
-            <ShieldCheck className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
-            {currentIdentity.isNoreply ? "Privacy-safe noreply address" : configured ? "Email you chose" : "Not confirmed yet: choose one in a workspace"}
-          </span>
-        </div>
-      ) : loadingCurrent ? (
-        <div role="status" className="nb-compact mt-3 flex items-center gap-2 text-muted-foreground">
-          <PixelBeat />
-          Loading commit attribution status…
-        </div>
-      ) : null}
-    </div>
+    <SettingsRow
+      id="settings-integrations-author"
+      title="Commit author"
+      description="Commits you make from NetworkBase use a privacy-safe GitHub address. Choose which from each workspace’s contributor settings."
+      meta={email ? (currentIdentity?.isNoreply ? "Privacy-safe noreply address" : configured ? "The address you chose" : "From your GitHub sign-in · not confirmed yet") : undefined}
+      right={failed ? <ErrorNotice what="Commit author" onRetry={() => void load()} />
+        : email ? <span className="v">{email}</span>
+        : loadingCurrent ? <span role="status" className="nb-waiting nbs-meta"><PixelBeat />Loading…</span>
+        : <span className="v text-muted-foreground">Not set</span>}
+    />
   );
 }

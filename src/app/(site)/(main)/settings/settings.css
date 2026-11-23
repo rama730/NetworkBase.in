@@ -188,6 +188,7 @@
 .nbs-policies a span { font: 11px var(--nbs-mono); color: var(--nbs-fg2); }
 .nbs-impact { display: grid; border-top: 1px solid var(--nbs-line); }
 .nbs-impact > div { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px var(--nbs-pad); border-bottom: 1px solid var(--nbs-line); font-size: 13px; }
+.nbs-impact > div:last-child { border-bottom: 0; }
 .nbs-impact .px { width: 30px; height: 30px; overflow: hidden; border-radius: 5px; }
 
 /* choices: segmented rows reuse .nb-seg; theme cards, swatches, spacing cells */

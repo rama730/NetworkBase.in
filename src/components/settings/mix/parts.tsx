@@ -58,6 +58,45 @@ export function SegChoice<T extends string>({ label, value, options, onChange, b
   );
 }
 
+/**
+ * Any one-of-a-few choice drawn as cells or cards (theme cards, accent swatches, spacing cells): a radiogroup with
+ * roving focus. Arrows move, Space or Enter picks (these save at once). `marker` adds the sliding clay line.
+ */
+export function ChoiceCells<T extends string>({ label, value, options, onChange, className, render, marker, id, testIdPrefix }: {
+  label: string;
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+  className: string;
+  render: (option: { value: T; label: string }, selected: boolean) => ReactNode;
+  marker?: boolean;
+  id?: string;
+  /** Puts `data-testid="<prefix>-<value>"` on each choice. */
+  testIdPrefix?: string;
+}) {
+  const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const stop = Math.max(0, options.findIndex((option) => option.value === value));
+  return (
+    <div id={id} role="radiogroup" aria-label={label} className={className}>
+      {options.map((option, index) => (
+        <button key={option.value} ref={(node) => { refs.current[index] = node; }} type="button" role="radio" aria-checked={option.value === value} aria-label={option.label} tabIndex={index === stop ? 0 : -1}
+          className={className === "nbs-themes" ? "nbs-theme" : className === "nbs-swatches" ? "nbs-swatch" : undefined}
+          data-testid={testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined}
+          onKeyDown={(event) => {
+            const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+            if (!step) return;
+            event.preventDefault();
+            refs.current[(index + step + options.length) % options.length]?.focus();
+          }}
+          onClick={() => { if (option.value !== value) onChange(option.value); }}>
+          {render(option, option.value === value)}
+        </button>
+      ))}
+      {marker ? <TabMarker /> : null}
+    </div>
+  );
+}
+
 export type LogEntry = { key: string; date: string; dateTime?: string; event: ReactNode; detail?: ReactNode; risky?: boolean; actions?: ReactNode };
 
 /** The one log layout (mix): a mono date column, the event, the detail in mono, actions on the right. First four, then "Show all NN". */

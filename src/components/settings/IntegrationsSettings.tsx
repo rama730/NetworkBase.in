@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/utils/date";
-import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, Github, KeyRound, Link2, Terminal } from "lucide-react";
+import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, KeyRound, Terminal, X } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -18,7 +18,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SettingsRow } from "@/components/settings/ui/SettingsRow";
+import { SettingsRow, SettingsRows } from "@/components/settings/ui/SettingsRow";
+import { SecurityListRow } from "@/components/settings/ui/SecurityListRow";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Tag } from "@/components/settings/mix/parts";
+import { padCount } from "@/lib/ui/tab-marker";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
@@ -65,21 +69,12 @@ function formatPlatform(platform: string) {
 
 function ExtensionAppCard() {
   return (
-    <div className="space-y-3 border-b border-border pb-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <Image src="/icon-paper-192.png" alt="" width={48} height={48} className="size-10 shrink-0 rounded-md object-cover" />
-        <div className="min-w-0">
-          <h4 className="nb-ui-label text-foreground">NetworkBase CLI, AI agents and editors</h4>
-          <p className="nb-compact mt-1 text-muted-foreground">
-            Sign in from your editor or terminal, then link a folder with nb init. AI agents get their own sign-in: you choose where they work, what they may do and for how long. Revoke any time below, or change what an agent may do. <Link href="/docs/cli" className="nb-link">CLI docs</Link> · <Link href="/docs/agents" className="nb-link">Agents</Link>
-          </p>
-        </div>
-      </div>
+    <div className="nbs-pad grid gap-2">
       <TerminalBlock variant="command" label="Terminal">{"$ npx @networkbase/cli login\n$ nb agent setup claude"}</TerminalBlock>
+      <p className="nbs-meta">Sign in from your editor or terminal, then link a folder with nb init. Agents get their own sign-in: where they work, what they may do and for how long. <Link href="/docs/cli" className="underline underline-offset-2">CLI docs</Link> · <Link href="/docs/agents" className="underline underline-offset-2">Agents</Link></p>
     </div>
   );
 }
-
 
 function ExtensionSessionRow({ session, revoking, onRevoke }: { session: ExtensionSessionData; revoking: boolean; onRevoke: () => void }) {
   const isPending = session.clientVersion === "pending" || (!session.editorPlatform && !session.editorName);
@@ -102,95 +97,29 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
         ? `NetworkBase CLI on ${session.deviceName.trim().replace(/\.local$/i, "")}`
         : session.editorName?.trim() || session.deviceName?.trim() || (isCliSession ? "NetworkBase CLI" : "Editor extension");
 
+  const tile = ideIcon
+    ? <span className="tile" aria-hidden="true"><Image src={ideIcon} alt="" width={20} height={20} unoptimized className="size-5 object-contain" /></span>
+    : <span className="tile" aria-hidden="true">{isCliSession ? <Terminal strokeWidth={1.75} /> : isPending ? <KeyRound strokeWidth={1.75} /> : <Code2 strokeWidth={1.75} />}</span>;
+  const detail = isPending
+    ? `access token · made ${formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })} · waiting for its first sign-in`
+    : [`active ${formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })}`, platform, `v${session.clientVersion || "unknown"}`,
+      session.tokenType === "agent" ? null : isCliSession ? "from the CLI" : session.authMethod === "web_login" ? "from the editor" : "access token",
+      session.lastCountry ? `last used from ${session.lastCountry}` : null,
+      session.tokenType === "agent" ? null : `expires ${formatDistanceToNow(new Date(session.expiresAt), { addSuffix: true })}`].filter(Boolean).join(" · ");
   return (
-    <div className="flex min-h-16 flex-col justify-center gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-center gap-3">
-        {ideIcon ? (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted"><Image src={ideIcon} alt="" width={24} height={24} unoptimized className="size-6 object-contain" /></span>
-        ) : isCliSession ? (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
-            <Terminal className="size-4" strokeWidth={1.75} />
-          </span>
-        ) : isPending ? (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-            <KeyRound className="size-4" strokeWidth={1.75} />
-          </span>
-        ) : (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-            <Code2 className="size-4" strokeWidth={1.75} />
-          </span>
-        )}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="truncate nb-ui-label text-foreground" title={title}>{title}</p>
-            {session.tokenType === "agent" ? (
-              <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Agent
-              </span>
-            ) : isCliSession ? (
-              <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                CLI
-              </span>
-            ) : null}
-            {isPending ? (
-              <span className="nb-meta text-muted-foreground">
-                Awaiting connection
-              </span>
-            ) : platform ? (
-              <span className="nb-meta text-muted-foreground">
-                {platform}
-              </span>
-            ) : null}
-          </div>
-          {isPending ? (
-            <>
-              <p className="nb-compact mt-1 truncate text-muted-foreground">
-                Created {formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })} · Awaiting initial connection from your editor or CLI
-              </p>
-              <p className="nb-meta mt-1 truncate text-muted-foreground">
-                Access token · Paste it when your editor or nb login --with-token asks for it
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="nb-compact mt-1 truncate text-muted-foreground">
-                Active {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })} · v{session.clientVersion || "unknown"}
-              </p>
-              {session.tokenType === "agent" ? (
-                <>
-                  {/* The same sentence as the approval page and the agent's card (report A6 #5, A8). */}
-                  <p className="nb-compact mt-1 text-foreground">{session.accessSentence ?? `Works in ${session.workspaceTitle ?? "all your workspaces"}; big changes wait for your yes.`}</p>
-                  {session.lastCountry ? <p className="nb-meta mt-1 truncate text-muted-foreground">Last used from {session.lastCountry}</p> : null}
-                </>
-              ) : (
-                <p className="nb-meta mt-1 truncate text-muted-foreground">
-                  {isCliSession ? "Signed in from NetworkBase CLI" : session.authMethod === "web_login" ? "Signed in from the editor" : "Access token"}
-                  {session.editorVersion ? ` · ${session.editorVersion}` : ""}
-                  {session.lastCountry ? ` · last used from ${session.lastCountry}` : ""}
-                  {` · expires ${formatDistanceToNow(new Date(session.expiresAt), { addSuffix: true })}`}
-                </p>
-              )}
-              {session.tokenType === "agent" ? <AgentActivity sessionId={session.id} /> : null}
-            </>
-          )}
-        </div>
-      </div>
-      <div className="flex shrink-0 gap-2 self-start sm:self-auto">
-        {session.tokenType === "agent" ? (
-          <Button size="sm" variant="outline" asChild>
-            <Link href={`/settings/agents/${session.id}`}>Change access</Link>
-          </Button>
-        ) : null}
-        <Button pending={revoking}
-          size="sm"
-          variant="outline"
-          onClick={onRevoke}
-          disabled={revoking}
-        >
-          {revoking ? "Revoking…" : isPending ? "Revoke token" : "Disconnect"}
-        </Button>
-      </div>
-    </div>
+    <SecurityListRow
+      tile={tile}
+      title={title}
+      badges={session.tokenType === "agent" ? <Tag tone="hot">Agent</Tag> : isCliSession ? <Tag>CLI</Tag> : isPending ? <Tag tone="warn">Waiting</Tag> : null}
+      details={detail}
+      summary={session.tokenType === "agent" ? (session.accessSentence ?? `Works in ${session.workspaceTitle ?? "all your workspaces"}; big changes wait for your yes.`) : undefined}
+      action={<>
+        {session.tokenType === "agent" ? <Button size="sm" variant="outline" asChild><Link href={`/settings/agents/${session.id}`}>Change access</Link></Button> : null}
+        <Button pending={revoking} size="sm" variant="ghost" onClick={onRevoke} disabled={revoking}>{isPending ? "Revoke" : "Disconnect"}</Button>
+      </>}
+    >
+      {session.tokenType === "agent" ? <AgentActivity sessionId={session.id} /> : null}
+    </SecurityListRow>
   );
 }
 
@@ -402,227 +331,105 @@ export default function IntegrationsSettings() {
     }
   };
 
-  return <div className="space-y-8">
-    {error ? <ErrorNotice what="Integrations" onRetry={() => void refetch()} /> : null}
+  const github = data?.githubService;
+  return <>
+    {error ? <div className="nbs-body pt-4"><ErrorNotice what="Integrations" onRetry={() => void refetch()} /></div> : null}
 
-    <SettingsSectionCard id="settings-integrations-github" title="GitHub" description="Repository access is managed from each workspace; this page only shows account-level status.">
-      <div className="flex min-h-16 flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><Github className="size-5" strokeWidth={1.75} /></span>
-          <div className="min-w-0">
-            <p className="nb-ui-label text-foreground">{data?.githubService.summary || "GitHub status unavailable"}</p>
-            <p className="nb-compact mt-1 text-muted-foreground">{data?.githubService.detail}</p>
-            {data?.githubService.githubUsername ? <a href={`https://github.com/${data.githubService.githubUsername}`} target="_blank" rel="noreferrer" className="nb-meta mt-1 inline-block text-primary hover:underline">@{data.githubService.githubUsername}</a> : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          {data?.githubService.recoveryAction === "replace_account" ? <Button pending={replacingGithub} variant="outline" size="sm" onClick={() => setReplacementConfirmOpen(true)} disabled={replacingGithub}>Replace GitHub account</Button> : null}
-          {data?.githubService.recoveryAction === "add_fallback_sign_in" ? <Button variant="outline" size="sm" onClick={() => jumpToSetting("settings-security-google")}>Link Google first</Button> : null}
-          {data?.githubService.usageCount ? <Button variant="outline" size="sm" onClick={() => setProjectsExpanded((prev) => !prev)} aria-expanded={projectsExpanded}><Link2 className="size-4" strokeWidth={1.75} />Review {data.githubService.usageCount} project{data.githubService.usageCount === 1 ? "" : "s"}<ChevronDown className={`size-4 transition-transform duration-[130ms] ${projectsExpanded ? "rotate-180" : ""}`} /></Button> : null}
-        </div>
-      </div>
-
-      {projectsExpanded ? <div className="border-y border-border py-2">
-        <p className="nb-meta py-2 text-muted-foreground">Connected workspaces</p>
-        <div className="divide-y divide-border">
-          {data?.githubService.projects?.length ? data.githubService.projects.map((project) => {
-            const repoName = project.syncRepository || project.githubRepoUrl || project.importSource?.repoUrl;
-            const connectionType = project.syncRepository ? "GitHub sync" : "Repository";
-            return <div key={project.id} className="flex min-h-16 items-center justify-between gap-3 py-3">
-              <div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><Link href={`/workspaces/${project.slug}`} className="nb-ui-label block truncate text-foreground hover:text-primary">{project.title}</Link><span className="nb-meta text-muted-foreground">{connectionType}</span></div>{repoName ? <p className="nb-meta mt-1 flex items-center gap-1.5 truncate text-muted-foreground"><GitBranch className="size-3.5 shrink-0" strokeWidth={1.75} />{repoName}{project.syncBranch ? ` · ${project.syncBranch}` : ""}</p> : null}</div>
-              <Button variant="ghost" size="sm" asChild><Link href={`/workspaces/${project.slug}`}>Open<ExternalLink className="size-4" strokeWidth={1.75} /></Link></Button>
-            </div>;
-          }) : <p className="nb-compact py-4 text-muted-foreground">No connected workspaces.</p>}
-        </div>
-      </div> : null}
-
-      <div className="pt-5"><GitHubCommitAttributionSettings /></div>
+    <SettingsSectionCard id="settings-integrations-github" title="GitHub" flush findKeys="repository repo commit">
+      <SettingsRows>
+        <SettingsRow
+          id="settings-integrations-repos"
+          title="Repository access"
+          description={[github?.summary, github?.detail].filter(Boolean).join(" ") || "Managed from each workspace."}
+          meta={github?.githubUsername ? <a href={`https://github.com/${github.githubUsername}`} target="_blank" rel="noreferrer" className="hover:underline">@{github.githubUsername}</a> : undefined}
+          right={<>
+            {github?.recoveryAction === "replace_account" ? <Button pending={replacingGithub} variant="outline" size="sm" onClick={() => setReplacementConfirmOpen(true)} disabled={replacingGithub}>Replace GitHub account</Button> : null}
+            {github?.recoveryAction === "add_fallback_sign_in" ? <Button variant="outline" size="sm" onClick={() => jumpToSetting("settings-security-google")}>Link Google first</Button> : null}
+            {github?.usageCount ? <Button variant="outline" size="sm" onClick={() => setProjectsExpanded((prev) => !prev)} aria-expanded={projectsExpanded}>{padCount(github.usageCount)} workspace{github.usageCount === 1 ? "" : "s"}<ChevronDown className={`size-4 transition-transform duration-[130ms] ${projectsExpanded ? "rotate-180" : ""}`} /></Button> : <span className="v text-muted-foreground">00 workspaces</span>}
+          </>}
+        >
+          {projectsExpanded ? <div className="nbs-list -mx-[var(--nbs-pad)] mt-2">
+            {github?.projects?.length ? github.projects.map((project) => {
+              const repoName = project.syncRepository || project.githubRepoUrl || project.importSource?.repoUrl;
+              return <SecurityListRow key={project.id} icon={GitBranch} title={<Link href={`/workspaces/${project.slug}`} className="hover:underline">{project.title}</Link>}
+                badges={<Tag>{project.syncRepository ? "Sync" : "Repository"}</Tag>}
+                details={repoName ? `${repoName}${project.syncBranch ? ` · ${project.syncBranch}` : ""}` : undefined}
+                action={<Button variant="ghost" size="sm" asChild><Link href={`/workspaces/${project.slug}`}>Open<ExternalLink className="size-4" strokeWidth={1.75} /></Link></Button>} />;
+            }) : <p className="nbs-ghelp">No connected workspaces.</p>}
+          </div> : null}
+        </SettingsRow>
+        <GitHubCommitAttributionSettings />
+      </SettingsRows>
     </SettingsSectionCard>
 
-    <SettingsSectionCard id="settings-integrations-editors" title="CLI, agents and editors" description="Devices, AI agents and editors signed in to your account, and personal tokens.">
-      <div className="space-y-4">
-        <ExtensionAppCard />
-        <div>
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
-            <h4 className="nb-ui-label text-foreground">Signed-in devices and agents</h4>
-            <span className="nb-meta text-muted-foreground">
-              {activeSessions.length} active · {pendingSessions.length} pending
-            </span>
-          </div>
-        {sessionsFailed && !sessionData ? (
-            <ErrorNotice what="Connected editors" onRetry={() => void refetchSessions()} />
-        ) : sessionsLoading && !sessionData ? (
-            <div role="status" aria-label="Loading editor sessions" className="nb-skeleton h-24 rounded-md" />
-        ) : allSessions.length ? (
-            <div className="divide-y divide-border border-y border-border">
-              {activeSessions.map((session) => (
-                  <ExtensionSessionRow
-                    key={session.id}
-                    session={session}
-                    revoking={revoking === session.id}
-                    onRevoke={() => setRevokeTarget(session)}
-                  />
-              ))}
-              {pendingSessions.map((session) => (
-                  <ExtensionSessionRow
-                    key={session.id}
-                    session={session}
-                    revoking={revoking === session.id}
-                    onRevoke={() => setRevokeTarget(session)}
-                  />
-              ))}
-              {hasMoreSessions ? (
-                <div className="flex justify-center py-3">
-                  <Button pending={loadingMore} pendingLabel="Loading" type="button" variant="outline" size="sm" disabled={loadingMore} onClick={() => void loadMoreSessions()} className="pointer-coarse:h-11">{"Load more sessions"}</Button>
-                </div>
-              ) : null}
-            </div>
-        ) : (
-            <p className="rounded-md border border-dashed border-border bg-card nb-grid-ground p-6 text-center nb-compact text-muted-foreground" role="status">
-            No active editor sessions.
-          </p>
-        )}
+    <SettingsSectionCard id="settings-integrations-editors" title="CLI, agents and editors" state={padCount(activeSessions.length)} stateOk={activeSessions.length > 0} flush findKeys="terminal cli agents mcp editor vscode claude">
+      <ExtensionAppCard />
+      {sessionsFailed && !sessionData ? (
+        <div className="nbs-body"><ErrorNotice what="Connected editors" onRetry={() => void refetchSessions()} /></div>
+      ) : sessionsLoading && !sessionData ? (
+        <div role="status" aria-label="Loading editor sessions" className="nbs-li"><span className="tile" /><div className="nb-skeleton h-8 rounded" /><span /></div>
+      ) : allSessions.length ? (
+        <div className="nbs-list">
+          {[...activeSessions, ...pendingSessions].map((session) => <ExtensionSessionRow key={session.id} session={session} revoking={revoking === session.id} onRevoke={() => setRevokeTarget(session)} />)}
         </div>
+      ) : (
+        <EmptyState compact figure="workspace" className="nbs-empty" title="No editors or agents signed in" description="Sign in from your editor or terminal with the commands above. They show up here, and you can change what each may do." />
+      )}
+      {hasMoreSessions ? <div className="nbs-more"><Button pending={loadingMore} pendingLabel="Loading" type="button" variant="ghost" size="sm" disabled={loadingMore} onClick={() => void loadMoreSessions()}>Load more</Button></div> : null}
+    </SettingsSectionCard>
 
-        <div id="settings-integrations-token" className="scroll-mt-6 border-t border-border pt-4">
+    <SettingsSectionCard id="settings-integrations-tokens" title="Tokens" state={patTokens.length ? padCount(patTokens.length) : undefined} stateOk flush findKeys="api token pat personal access key">
+      <SettingsRows>
+        <SettingsRow
+          id="settings-integrations-token-new"
+          title="Personal access token"
+          description="For scripts and CI (NETWORKBASE_TOKEN). Choose what it may do, which workspaces it reaches and when it ends. Treat it like a password."
+          right={<Button size="sm" variant="outline" onClick={() => setShowPatGen(!showPatGen)}>{showPatGen ? "Cancel" : "New token"}</Button>}
+        >
+          {showPatGen ? <div className="nbs-inline-form max-w-[560px]"><PersonalTokenForm onCreated={(token) => setPatTokens((prev) => [token, ...prev])} onDone={() => setShowPatGen(false)} /></div> : null}
+        </SettingsRow>
+        {patTokens.map((pat) => (
           <SettingsRow
-            title="Access tokens"
-            description="A fallback if signing in from your editor is blocked. It works for one year until you revoke it, so treat it like a password."
-            right={<Button size="sm" variant="outline" onClick={() => {
-              // Closing the panel also forgets the token: it is shown once and is not kept on screen.
-              if (showTokenGen) { setGeneratedToken(null); setDeviceLabel(""); }
-              setShowTokenGen(!showTokenGen);
-            }} className="pointer-coarse:h-11">
-              {showTokenGen ? "Cancel" : "Generate token"}
-            </Button>}
+            key={pat.id}
+            title={pat.label}
+            meta={`${pat.tokenPrefix} · can ${scopeWords(pat.scopes)} · ${pat.workspaceTitle ? `only ${pat.workspaceTitle}` : "all workspaces"} · made ${formatDistanceToNow(new Date(pat.createdAt), { addSuffix: true })} · ${pat.lastUsedAt ? `used ${formatDistanceToNow(new Date(pat.lastUsedAt), { addSuffix: true })}` : "never used"}`}
+            right={<>
+              {pat.isExpiringSoon ? <Tag tone="warn">Expiring soon</Tag> : null}
+              <button type="button" className="nbs-ib danger" aria-label={`Revoke ${pat.label}`} disabled={revokingPatId === pat.id} onClick={() => void handleRevokePat(pat.id)}><X strokeWidth={1.75} aria-hidden="true" /></button>
+            </>}
           />
-
-          {showTokenGen && (
-            <div className="mt-3 border-t border-border pt-4">
-              {!generatedToken ? (
-                <div className="space-y-3">
-                  <div className="max-w-xs space-y-1.5">
-                    <label htmlFor="extension-token-label" className="nb-ui-label text-foreground">Device label (optional)</label>
-                    <Input id="extension-token-label" type="text" maxLength={120} value={deviceLabel} onChange={(e) => setDeviceLabel(e.target.value)} placeholder="e.g. Workstation" />
-                  </div>
-                  <Button pending={generatingToken} size="sm" onClick={() => void handleGenerateToken()} disabled={generatingToken}>
-                    <KeyRound className="size-4" strokeWidth={1.75} />
-                    Generate new token
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Input
-                      type="text"
-                      readOnly
-                      aria-label="Your new token"
-                      value={generatedToken}
-                      className="nb-meta"
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        copyText(generatedToken).then(
-                          () => toast.success("Copied to clipboard"),
-                          () => toast.warning("Couldn’t copy", { description: "Select the token and copy it by hand." }),
-                        );
-                      }}
-                      className="shrink-0"
-                    >
-                      <Copy className="size-4" strokeWidth={1.75} /> Copy
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setGeneratedToken(null);
-                        setShowTokenGen(false);
-                        setDeviceLabel("");
-                      }}
-                      className="shrink-0"
-                    >
-                      Done
-                    </Button>
-                  </div>
-                  <div className="flex items-start gap-2 rounded-md border border-border bg-background p-3 nb-compact text-muted-foreground">
-                    <KeyRound className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
-                    <span>
-                      Paste it into your editor’s sign-in prompt, or when nb login --with-token asks for it. Don’t put it in a command. It is shown only once and works for one year.
-                    </span>
-                  </div>
-                </div>
-              )}
+        ))}
+        <SettingsRow
+          id="settings-integrations-editor-token"
+          title="Editor access token"
+          description="A fallback if signing in from your editor is blocked. It works for one year until you revoke it."
+          right={<Button size="sm" variant="outline" onClick={() => {
+            // Closing the panel also forgets the token: it is shown once and is not kept on screen.
+            if (showTokenGen) { setGeneratedToken(null); setDeviceLabel(""); }
+            setShowTokenGen(!showTokenGen);
+          }}>{showTokenGen ? "Cancel" : "Make a token"}</Button>}
+        >
+          {showTokenGen ? (!generatedToken ? (
+            <div className="nbs-inline-form">
+              <div className="grid gap-1.5">
+                <label htmlFor="extension-token-label" className="text-[13px] font-medium">Device label (optional)</label>
+                <Input id="extension-token-label" type="text" maxLength={120} value={deviceLabel} onChange={(e) => setDeviceLabel(e.target.value)} placeholder="Workstation" />
+              </div>
+              <div><Button pending={generatingToken} size="sm" onClick={() => void handleGenerateToken()} disabled={generatingToken}>Make token</Button></div>
             </div>
-          )}
-        </div>
-
-        <div id="settings-integrations-pat" className="scroll-mt-6 border-t border-border pt-4">
-          <SettingsRow
-            title="Personal access tokens"
-            description="For scripts and CI (NETWORKBASE_TOKEN). Choose what each token may do and which workspace it reaches."
-            right={
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setShowPatGen(!showPatGen);
-                }}
-                className="pointer-coarse:h-11"
-              >
-                {showPatGen ? "Cancel" : "New token"}
-              </Button>
-            }
-          />
-
-          {showPatGen && (
-            <div className="mt-3 border-t border-border pt-4">
-              <PersonalTokenForm onCreated={(token) => setPatTokens((prev) => [token, ...prev])} onDone={() => setShowPatGen(false)} />
+          ) : (
+            <div className="nbs-inline-form max-w-[560px]">
+              <label className="text-[13px] font-medium" htmlFor="extension-token-value">Your token · shown once</label>
+              <div className="flex gap-2">
+                <Input id="extension-token-value" type="text" readOnly value={generatedToken} className="font-mono text-[13px]" onClick={(e) => (e.target as HTMLInputElement).select()} />
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => { copyText(generatedToken).then(() => toast.success("Copied"), () => toast.warning("Couldn’t copy", { description: "Select the token and copy it by hand." })); }}><Copy className="size-4" strokeWidth={1.75} />Copy</Button>
+                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => { setGeneratedToken(null); setShowTokenGen(false); setDeviceLabel(""); }}>Done</Button>
+              </div>
+              <span className="nbs-meta">Paste it into your editor’s sign-in prompt, or when nb login --with-token asks. Don’t put it in a command.</span>
             </div>
-          )}
-
-          {patTokens.length > 0 && (
-            <div className="mt-3 divide-y divide-border rounded-md border border-border px-3">
-              {patTokens.map((pat) => (
-                <div
-                  key={pat.id}
-                  className="flex flex-col justify-between gap-2 py-3 sm:flex-row sm:items-center"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="nb-ui-label text-foreground">{pat.label}</span>
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-                        {pat.tokenPrefix}
-                      </code>
-                      {pat.isExpiringSoon && (
-                        <span className="nb-status" data-tone="warning">
-                          Expiring soon
-                        </span>
-                      )}
-                    </div>
-                    <p className="nb-meta mt-1 text-muted-foreground">
-                      Can {scopeWords(pat.scopes)} · {pat.workspaceTitle ? `only ${pat.workspaceTitle}` : "all workspaces"} · Created{" "}
-                      {formatDistanceToNow(new Date(pat.createdAt), { addSuffix: true })}
-                      {pat.lastUsedAt
-                        ? ` · Last used ${formatDistanceToNow(new Date(pat.lastUsedAt), { addSuffix: true })}`
-                        : " · Never used"}
-                    </p>
-                  </div>
-                  <Button pending={revokingPatId === pat.id}
-                    size="sm"
-                    variant="outline"
-                    disabled={revokingPatId === pat.id}
-                    onClick={() => void handleRevokePat(pat.id)}
-                  >
-                    Revoke
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+          )) : null}
+        </SettingsRow>
+      </SettingsRows>
     </SettingsSectionCard>
 
     <Dialog open={replacementConfirmOpen} onOpenChange={setReplacementConfirmOpen}>
@@ -665,5 +472,5 @@ export default function IntegrationsSettings() {
       variant="destructive"
       onConfirm={() => revokeTarget ? revoke(revokeTarget.id) : undefined}
     />
-  </div>;
+  </>;
 }

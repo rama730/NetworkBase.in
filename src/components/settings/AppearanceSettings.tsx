@@ -1,121 +1,112 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Monitor, Moon, RotateCcw, Sun } from "lucide-react";
 import { useAppearance, useTheme } from "@/components/providers/theme-provider";
+import { PixelIcon } from "@/components/auth/pixel";
 import { Button } from "@/components/ui/button";
-import { SettingsRadioGroup } from "@/components/settings/ui/SettingsRadioGroup";
-import { SettingsRow } from "@/components/settings/ui/SettingsRow";
+import { ChoiceCells } from "@/components/settings/mix/parts";
+import { SettingsRow, SettingsRows } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { ACCENT_PALETTES, DENSITY_LABELS } from "@/lib/theme/appearance-runtime";
 import { DEFAULT_APPEARANCE_SNAPSHOT, type AccentColor, type Density, type ThemeMode } from "@/lib/theme/appearance";
-import { cn } from "@/lib/utils";
+import { clockTime } from "@/lib/settings/format";
 
-const THEME_OPTIONS = [
-  { value: "light" as const, label: "Light", description: "Always use the light interface.", icon: Sun },
-  { value: "dark" as const, label: "Dark", description: "Always use the dark interface.", icon: Moon },
-  { value: "system" as const, label: "System", description: "Follow this device’s setting.", icon: Monitor },
+const THEMES: Array<{ value: ThemeMode; label: string; line: string }> = [
+  { value: "light", label: "Light", line: "Paper" },
+  { value: "dark", label: "Dark", line: "Ink" },
+  { value: "system", label: "System", line: "Follows this device" },
 ];
-const ACCENT_OPTIONS = Object.values(ACCENT_PALETTES).map((accent) => ({ value: accent.id, label: accent.label, description: accent.description }));
-const DENSITY_OPTIONS = (Object.entries(DENSITY_LABELS) as Array<[Density, { label: string; description: string }]>).map(([value, meta]) => ({ value, label: meta.label, description: meta.description }));
+const ACCENTS = Object.values(ACCENT_PALETTES).map((accent) => ({ value: accent.id, label: accent.label }));
+const DENSITIES = (Object.entries(DENSITY_LABELS) as Array<[Density, { label: string; description: string }]>).map(([value, meta]) => ({ value, label: meta.label, line: meta.description }));
+const GAP: Record<Density, number> = { compact: 2, default: 4, comfortable: 6 };
 
-/** A little list in each density's own spacing, so the choice can be seen before it is made. */
-const DENSITY_PREVIEW_GAP: Record<Density, string> = { compact: "gap-0.5", default: "gap-1", comfortable: "gap-1.5" };
+/** A small picture of the app in that theme, so the choice is seen before it's made. */
+function Shot({ theme }: { theme: ThemeMode }) {
+  const light = { bg: "#FAF8F4", card: "#FFFFFF", line: "#DBD5C8", fg: "#141A1E" };
+  const dark = { bg: "#0D1114", card: "#141A1E", line: "#2A343A", fg: "#FAF8F4" };
+  const c = theme === "dark" ? dark : light;
+  return (
+    <span className="shot" aria-hidden="true" style={{ background: c.bg }}>
+      {theme === "system" ? <i style={{ right: 0, top: 0, bottom: 0, width: "50%", background: dark.bg }} /> : null}
+      <i style={{ left: 8, top: 8, width: "40%", height: 8, background: c.fg, opacity: 0.8 }} />
+      <i style={{ left: 8, top: 22, right: 8, height: 30, border: `1px solid ${c.line}`, background: c.card }} />
+      <i style={{ left: 14, top: 30, width: "30%", height: 4, background: c.fg, opacity: 0.45 }} />
+      <i style={{ left: 14, top: 40, width: 20, height: 6, background: "var(--nbs-brand)" }} />
+    </span>
+  );
+}
 
+/** Appearance (settings mix v2): theme cards, named square swatches, spacing cells; saved state and Reset on the label. */
 export default function AppearanceSettings() {
   const { theme, resolvedTheme, setThemeWithTransition } = useTheme();
   const { accentColor, setAccentColor, density, setDensity, reduceMotion, setReduceMotion, welcomeAnimation, setWelcomeAnimation, systemReduceMotion, syncState, lastSyncedAt, resetAppearance, retrySync } = useAppearance();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  if (!mounted) {
-    return <div className="space-y-8"><SettingsSectionsSkeleton /></div>;
-  }
+  if (!mounted) return <SettingsSectionsSkeleton count={3} />;
 
-  const isDefaultAppearance = theme === DEFAULT_APPEARANCE_SNAPSHOT.theme && accentColor === DEFAULT_APPEARANCE_SNAPSHOT.accentColor && density === DEFAULT_APPEARANCE_SNAPSHOT.density && reduceMotion === DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion && welcomeAnimation === DEFAULT_APPEARANCE_SNAPSHOT.welcomeAnimation;
-  const syncMessage = syncState === "saving" ? "Syncing to your account…"
-    : syncState === "save_failed" ? "Couldn’t sync to your account. It is saved on this device."
-    : syncState === "queued" ? "Saved on this device. It will sync to your account shortly."
-    : syncState === "saved" ? `Saved to your account${lastSyncedAt ? ` · ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}`
+  const isDefault = theme === DEFAULT_APPEARANCE_SNAPSHOT.theme && accentColor === DEFAULT_APPEARANCE_SNAPSHOT.accentColor && density === DEFAULT_APPEARANCE_SNAPSHOT.density && reduceMotion === DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion && welcomeAnimation === DEFAULT_APPEARANCE_SNAPSHOT.welcomeAnimation;
+  const failed = syncState === "save_failed";
+  const sync = syncState === "saving" ? "Saving…"
+    : failed ? "Not saved to your account"
+    : syncState === "queued" ? "Saved here · syncing"
+    : syncState === "saved" ? `Saved${lastSyncedAt ? ` · ${clockTime(new Date(lastSyncedAt).toISOString())}` : ""}`
     : "Saved on this device";
-  const canRetry = syncState === "save_failed" || syncState === "queued";
 
-  return <div className="space-y-8">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <p role="status" className={cn("flex flex-wrap items-center gap-2 nb-compact text-muted-foreground", syncState === "save_failed" && "text-destructive")}>
-        {syncMessage}
-        {canRetry ? <Button type="button" variant="outline" size="sm" onClick={retrySync} className="pointer-coarse:h-11">Retry</Button> : null}
-      </p>
-      <Button type="button" variant="outline" size="sm" onClick={() => void resetAppearance()} disabled={syncState === "saving" || isDefaultAppearance} className="pointer-coarse:h-11">
-        <RotateCcw className="size-4" strokeWidth={1.75} aria-hidden="true" />Reset to defaults
-      </Button>
-    </div>
-
-    <SettingsSectionCard title="Theme and color" description="Choose light or dark, and your accent color.">
-      <SettingsRadioGroup<ThemeMode>
-        id="settings-appearance-theme"
-        label="Theme"
-        description={theme === "system" ? `Following this device: ${resolvedTheme}.` : undefined}
-        value={theme}
-        onValueChange={(next) => void setThemeWithTransition(next)}
-        options={THEME_OPTIONS}
-        testIdPrefix="appearance-theme"
-        optionsClassName="sm:grid-cols-3"
-      />
-
-      <div className="mt-6 border-t border-border pt-6">
-        <SettingsRadioGroup<AccentColor>
-          id="settings-appearance-accent"
-          label="Accent color"
-          description="Used for actions, selected states, and focus indicators."
-          value={accentColor}
-          onValueChange={setAccentColor}
-          options={ACCENT_OPTIONS}
-          testIdPrefix="appearance-accent"
-          optionsClassName="flex flex-wrap gap-3"
-          renderOption={(option, { selected }) => {
-            const palette = ACCENT_PALETTES[option.value];
-            return <span title={`${option.label}: ${option.description}`} className={cn("flex size-11 items-center justify-center rounded-full border-2 border-border transition-colors hover:border-foreground/40", selected && "border-foreground")}>
-              <span className="sr-only">{option.label}</span>
-              {/* Light and dark values of the colour that is applied, so the swatch matches what you get. */}
-              <span aria-hidden="true" className="size-7 rounded-full bg-[var(--swatch)] dark:bg-[var(--swatch-dark)]" style={{ "--swatch": palette.solid, "--swatch-dark": palette.solidDark } as React.CSSProperties} />
-            </span>;
-          }}
-        />
-        <p className="nb-meta mt-3 text-muted-foreground">Selected: <span className="font-medium text-foreground">{ACCENT_PALETTES[accentColor].label}</span></p>
+  return <>
+    <SettingsSectionCard id="settings-appearance-theme" title="Theme" flush findKeys="dark light mode"
+      right={<>
+        <span role="status" className={failed ? "nb-retry" : "nbs-meta inline-flex items-center gap-1.5"}>
+          {failed ? <><b>Not saved</b><span className="sr-only">: {sync}</span><button type="button" onClick={retrySync}>Try again</button></> : <>{syncState === "saved" ? <PixelIcon name="check" /> : null}{sync}</>}
+        </span>
+        {syncState === "queued" ? <Button type="button" variant="ghost" size="sm" onClick={retrySync}>Sync now</Button> : null}
+        <Button type="button" variant="ghost" size="sm" onClick={() => void resetAppearance()} disabled={syncState === "saving" || isDefault}>Reset</Button>
+      </>}>
+      <div className="nbs-pad">
+        <ChoiceCells<ThemeMode> label="Theme" value={theme as ThemeMode} options={THEMES} onChange={(next) => void setThemeWithTransition(next)} className="nbs-themes" testIdPrefix="appearance-theme"
+          render={(option) => {
+            const meta = THEMES.find((item) => item.value === option.value)!;
+            return <><Shot theme={option.value} /><span className="lbl">{option.label}<small>{option.value === "system" && theme === "system" ? `Now ${resolvedTheme}` : meta.line}</small></span></>;
+          }} />
       </div>
     </SettingsSectionCard>
 
-    <SettingsSectionCard title="Layout and motion" description="Adjust information density and movement for comfort and accessibility.">
-      <SettingsRadioGroup<Density>
-        id="settings-appearance-density"
-        label="Display spacing"
-        value={density}
-        onValueChange={setDensity}
-        options={DENSITY_OPTIONS}
-        testIdPrefix="appearance-density"
-        optionsClassName="sm:grid-cols-3"
-        renderOption={(option, { selected }) => <span className={cn("flex min-h-16 w-full items-center gap-3 rounded-md border border-border bg-background px-3 py-3 hover:bg-muted", selected && "border-primary bg-primary/5")}>
-          <span aria-hidden="true" className={cn("flex w-6 shrink-0 flex-col", DENSITY_PREVIEW_GAP[option.value])}>
-            {[0, 1, 2].map((row) => <span key={row} className={cn("h-1 rounded-sm bg-muted-foreground/40", selected && "bg-primary/60")} />)}
-          </span>
-          <span className="min-w-0"><span className="block nb-ui-label text-foreground">{option.label}</span><span className="block nb-compact mt-1 text-muted-foreground">{option.description}</span></span>
-        </span>}
-      />
-      <div id="settings-appearance-motion" className="mt-4 scroll-mt-6 border-t border-border pt-2">
+    <SettingsSectionCard id="settings-appearance-accent" title="Accent" flush findKeys="color colour">
+      <div className="nbs-pad">
+        <ChoiceCells<AccentColor> label="Accent" value={accentColor} options={ACCENTS} onChange={setAccentColor} className="nbs-swatches" testIdPrefix="appearance-accent"
+          render={(option, selected) => {
+            const palette = ACCENT_PALETTES[option.value];
+            return <><i aria-hidden="true" style={{ "--swatch": palette.solid, "--swatch-dark": palette.solidDark } as React.CSSProperties}>{selected ? <PixelIcon name="check" /> : null}</i>{option.label}</>;
+          }} />
+      </div>
+      <p className="nbs-foot">Used for actions, the chosen tab and focus. Each color has its own dark version.</p>
+    </SettingsSectionCard>
+
+    <SettingsSectionCard id="settings-appearance-density" title="Spacing" flush findKeys="density compact comfortable">
+      <div className="nbs-pad">
+        <ChoiceCells<Density> label="Spacing" value={density} options={DENSITIES} onChange={setDensity} className="nbs-dense" marker testIdPrefix="appearance-density"
+          render={(option) => <>
+            <span className="lines" aria-hidden="true" style={{ gap: GAP[option.value] }}><i /><i /><i /></span>
+            <b>{option.label}</b><span>{DENSITIES.find((item) => item.value === option.value)!.line}</span>
+          </>} />
+      </div>
+    </SettingsSectionCard>
+
+    <SettingsSectionCard id="settings-appearance-motion" title="Motion" flush findKeys="animation">
+      <SettingsRows>
         <SettingsRow
           title="Reduce motion"
-          description={systemReduceMotion && !reduceMotion ? "Your device already asks for less motion, so animation is reduced. Turn this on to keep it that way everywhere." : "Minimize animation, hover movement, and smooth scrolling throughout the interface."}
-          right={<SettingsSwitch showLabel checked={reduceMotion} onCheckedChange={setReduceMotion} data-testid="appearance-reduce-motion-toggle" aria-label="Reduce motion" />}
+          description={systemReduceMotion && !reduceMotion ? "Your device already asks for less motion, so animation is reduced. Turn this on to keep it that way everywhere." : "Less animation, hover movement and smooth scrolling everywhere."}
+          right={<SettingsSwitch checked={reduceMotion} onCheckedChange={setReduceMotion} data-testid="appearance-reduce-motion-toggle" aria-label="Reduce motion" />}
         />
         <SettingsRow
           title="Welcome animation"
-          description="Show a short welcome animation when you sign in."
-          right={<SettingsSwitch showLabel checked={welcomeAnimation} onCheckedChange={setWelcomeAnimation} data-testid="appearance-welcome-animation-toggle" aria-label="Welcome animation" />}
+          description="A short welcome when you sign in."
+          right={<SettingsSwitch checked={welcomeAnimation} onCheckedChange={setWelcomeAnimation} data-testid="appearance-welcome-animation-toggle" aria-label="Welcome animation" />}
         />
-      </div>
+      </SettingsRows>
     </SettingsSectionCard>
-  </div>;
+  </>;
 }

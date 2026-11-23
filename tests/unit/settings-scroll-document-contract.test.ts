@@ -83,8 +83,10 @@ test("personal settings keep only the necessary grouped surfaces", () => {
   assert.match(notifications, /title="What you hear about"/);
   assert.match(notifications, /Turn all off/);
   assert.match(notifications, /<SettingsSwitch id=\{id\} aria-label=\{title\}/, "every switch is the shared square switch, named by its row");
-  assert.match(appearance, /title="Theme and color"/);
-  assert.match(appearance, /title="Layout and motion"/);
+  assert.match(appearance, /title="Theme"/);
+  assert.match(appearance, /title="Accent"/);
+  assert.match(appearance, /title="Spacing"/);
+  assert.match(appearance, /title="Motion"/);
   assert.doesNotMatch(privacy, /<Check\b/, "Privacy choices should not render a tick indicator");
   assert.doesNotMatch(appearance, /ml-auto size-2 rounded-full|<Check\b/, "Appearance choices should not render a dot or tick indicator");
   assert.doesNotMatch(integrations, /embedded/, "settings sections only exist inside the one document");
