@@ -1,6 +1,7 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { ArrowRight, Check, Globe, Loader2, Lock, Undo2 } from 'lucide-react'
+import { ArrowRight, Check, Globe, Lock, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { ProfileEditSection } from '@/lib/profile/edit-route'
 
@@ -53,7 +54,7 @@ export function ChangesCard({
 }) {
     const n = changes.length
     const saving = state === 'saving'
-    const head = saving ? <p className="nb-pf-state" aria-live="polite"><Loader2 className="size-3.5 animate-spin" />Saving changes…</p>
+    const head = saving ? <p className="nb-pf-state" aria-live="polite"><PixelBeat />Saving changes…</p>
         : error ? <p className="nb-pf-state is-bad" role="alert">{error}</p>
             : n ? <p className="nb-pf-state" aria-live="polite"><i className="nb-pf-dot" />{n} unsaved change{n > 1 ? 's' : ''}</p>
                 : <p className={state === 'success' ? 'nb-pf-state is-ok nb-pf-pop' : 'nb-pf-state is-ok'}><Check className="size-3.5" />{savedLabel}</p>
@@ -76,8 +77,8 @@ export function ChangesCard({
                     </ul>
                 ) : null}
                 <div className="nb-pf-cta">
-                    <Button type="button" onClick={onSave} disabled={saving || !n || Boolean(blockReason)}>
-                        {saving ? <Loader2 className="size-4 animate-spin" /> : null}{error && !blockReason ? 'Try again' : 'Save changes'}<kbd className="nb-pf-kbd" aria-hidden="true">⌘S</kbd>
+                    <Button pending={saving} type="button" onClick={onSave} disabled={saving || !n || Boolean(blockReason)}>
+                        {error && !blockReason ? 'Try again' : 'Save changes'}<kbd className="nb-pf-kbd" aria-hidden="true">⌘S</kbd>
                     </Button>
                     {blockReason && n ? <p className="nb-pf-help is-bad">{blockReason}</p> : null}
                     <div className="nb-pf-row2">

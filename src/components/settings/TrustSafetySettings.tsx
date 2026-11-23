@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useEffect, useState } from "react";
 
@@ -34,7 +35,7 @@ export function StandingSettings() {
   const status = data?.restriction ? `${ACTION_LABEL[data.restriction.action]}${data.restriction.endsAt ? ` until ${day(data.restriction.endsAt)}` : ""}` : "Your account is in good standing.";
   return (
     <SettingsSectionCard id="settings-account-standing" title="Account standing" description="Decisions about your account and content, and how to appeal them.">
-      {failed ? <p className="nb-compact text-muted-foreground">Couldn&apos;t load your standing. Refresh to try again.</p> : !data ? <p className="nb-compact text-muted-foreground">Loading…</p> : (
+      {failed ? <p className="nb-compact text-muted-foreground">Couldn&apos;t load your standing. Refresh to try again.</p> : !data ? <p role="status" className="nb-waiting nb-compact text-muted-foreground"><PixelBeat />Loading your standing…</p> : (
         <div className="space-y-5">
           <p className="nb-ui-label text-foreground">{status}</p>
           {data.active.length ? (
@@ -80,7 +81,7 @@ export function YourReportsSettings() {
   useEffect(() => { listMyReportsAction().then((r) => setReports(r.success ? r.reports : []), () => setReports([])); }, []);
   return (
     <SettingsSectionCard id="settings-privacy-reports" title="Your reports" description="What you reported in the last 90 days and what happened. We never tell anyone who reported.">
-      {!reports ? <p className="nb-compact text-muted-foreground">Loading…</p> : !reports.length ? <p className="nb-compact text-muted-foreground">You haven&apos;t reported anything recently.</p> : (
+      {!reports ? <p role="status" className="nb-waiting nb-compact text-muted-foreground"><PixelBeat />Loading your reports…</p> : !reports.length ? <p className="nb-compact text-muted-foreground">You haven&apos;t reported anything recently.</p> : (
         <ul className="divide-y divide-border">
           {reports.map((r) => (
             <li key={`${r.caseNumber}-${r.createdAt}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[13px]">

@@ -29,9 +29,9 @@ test('Phase 2 fields expose density-aware controls, field labels, limits, and se
     assert.match(phase, /h-\[var\(--ui-control-height-lg\)\]/);
     assert.match(phase, /htmlFor="create-project-title"/);
     assert.match(phase, /aria-invalid=\{Boolean\(errors\.title\)\}/);
-    assert.match(phase, /\{title\.length\}\/100/);
-    assert.match(phase, /\{tagline\.length\}\/200/);
-    assert.match(phase, /\{description\.length\}\/5000/);
+    assert.match(phase, /<CharCount value=\{title\.length\} max=\{100\}/);
+    assert.match(phase, /<CharCount value=\{tagline\.length\} max=\{200\}/);
+    assert.match(phase, /<CharCount value=\{description\.length\} max=\{5000\}/);
     assert.match(phase, /status-danger-soft/);
     assert.match(wizard, /setPhase2ValidationAttempted\(true\)/);
     assert.match(wizard, /trigger\(fieldsToValidate, \{ shouldFocus: true \}\)/);

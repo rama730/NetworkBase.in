@@ -1,3 +1,4 @@
+import { PixelBeat } from "@/components/ui/PixelBeat";
 // Task 6.4: Files tab text viewer (Raw + thinned CodeMirror Edit).
 //
 // Validates: Req 5.2, Req 5.8, Req 15.4, Req 15.13.
@@ -772,8 +773,8 @@ export function TextViewer({
 
 function EditorLoading(): React.JSX.Element {
   return (
-    <div className="flex h-full min-h-0 w-full items-center justify-center text-xs text-muted-foreground">
-      Loading editor…
+    <div className="flex h-full min-h-0 w-full items-center justify-center text-xs text-muted-foreground" role="status">
+      <span className="nb-waiting"><PixelBeat />Loading editor…</span>
     </div>
   );
 }

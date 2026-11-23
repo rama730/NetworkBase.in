@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { formatDistanceToNowStrict } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -88,12 +88,12 @@ export function IncomingWorkspaceApplicationRow({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-        <Button size="sm" onClick={onAccept} disabled={isBusy} aria-label={`Accept ${sourceLabel.toLowerCase()} from ${actorName} for ${app.projectTitle}`}>
-          {isAccepting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+        <Button pending={isAccepting} size="sm" onClick={onAccept} disabled={isBusy} aria-label={`Accept ${sourceLabel.toLowerCase()} from ${actorName} for ${app.projectTitle}`}>
+          <Check className="h-3.5 w-3.5" />
           Accept
         </Button>
-        <Button size="sm" variant="outline" onClick={onReject} disabled={isBusy} aria-label={`Decline ${sourceLabel.toLowerCase()} from ${actorName} for ${app.projectTitle}`}>
-          {isRejecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+        <Button pending={isRejecting} size="sm" variant="outline" onClick={onReject} disabled={isBusy} aria-label={`Decline ${sourceLabel.toLowerCase()} from ${actorName} for ${app.projectTitle}`}>
+          <X className="h-3.5 w-3.5" />
           Decline
         </Button>
       </div>

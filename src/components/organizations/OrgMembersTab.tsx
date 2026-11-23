@@ -57,7 +57,7 @@ import { StatusBadge, VerifiedMark } from '@/components/organizations/org-ui'
 import { fieldLabel, formatOrgDate, withCount } from '@/lib/organizations/display'
 import { rolePlural } from '@/lib/organizations/role-words'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
-import { ChevronRight, Mail, Search, UserRound } from 'lucide-react'
+import { ChevronRight, Mail, Search } from 'lucide-react'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { Ban } from 'lucide-react'
@@ -210,7 +210,7 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
                     onRemove={(block) => setRemoveAsk({ ids, names: ids.map((id) => data.rows.find((r) => r.userId === id)?.name ?? 'Someone'), block })} /> : null}
 
                 {filter.former ? <FormerList orgId={orgId} q={filter.q ?? ''} pending={pending} run={run} /> : filter.outside ? (
-                    data.outside.length === 0 ? <EmptyState icon={UserRound} title="No outside people" description="People added to a workspace from outside the organization show here." /> : (
+                    data.outside.length === 0 ? <EmptyState figure="person" title="No outside people" description="People added to a workspace from outside the organization show here." /> : (
                     <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card" aria-label="Outside people">
                         {data.outside.map((o) => (
                             <li key={o.userId} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-[13px]">
@@ -361,8 +361,8 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear, onRole, onRem
             <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className="ml-auto text-destructive" disabled={pending}>Remove…</Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(false)}>Remove from organization</DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(true)}>Remove and block from rejoining</DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onSelect={() => onRemove(false)}>Remove from organization</DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onSelect={() => onRemove(true)}>Remove and block from rejoining</DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
             <Button type="button" size="sm" variant="ghost" onClick={onClear}>Clear</Button>
@@ -517,8 +517,8 @@ function MemberDrawer({ orgId, row, isSelf, data, label, pending, run, onRole, o
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button type="button" variant="outline" className="text-destructive" disabled={pending}>Remove…</Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(false)}>Remove from organization</DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(true)}>Remove and block from rejoining</DropdownMenuItem>
+                                <DropdownMenuItem variant="destructive" onSelect={() => onRemove(false)}>Remove from organization</DropdownMenuItem>
+                                <DropdownMenuItem variant="destructive" onSelect={() => onRemove(true)}>Remove and block from rejoining</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>

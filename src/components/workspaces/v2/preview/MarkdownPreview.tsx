@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, { useMemo, useState, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
@@ -88,7 +89,7 @@ export default function MarkdownPreview({
           </button>
         </div>
       ) : null}
-      <Suspense fallback={<div className="text-sm text-muted-foreground p-4">Loading preview…</div>}>
+      <Suspense fallback={<div role="status" className="nb-waiting text-sm text-muted-foreground p-4"><PixelBeat />Loading preview…</div>}>
         <WorkspaceDocRenderer
           content={content}
           project={projectObject}

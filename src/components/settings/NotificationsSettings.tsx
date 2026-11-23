@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -6,7 +7,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { resumeNotifications } from "@/app/actions/presence";
 import { useMyPresenceSettings } from "@/components/presence/useMyPresence";
 import { queryKeys } from "@/lib/query-keys";
-import { Loader2 } from "lucide-react";
 import { toast } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -193,7 +193,7 @@ export default function NotificationsPage() {
 
   return <div className="space-y-8">
     {/* Always in the layout, so saving never moves what is below it. */}
-    <p role="status" className="flex h-5 items-center gap-2 nb-compact text-muted-foreground">{isSaving ? <><Loader2 className="size-4 animate-spin" aria-hidden="true" />Saving changes…</> : null}</p>
+    <p role="status" className="flex h-5 items-center gap-2 nb-compact text-muted-foreground">{isSaving ? <><PixelBeat />Saving changes…</> : null}</p>
 
     <SettingsSectionCard title="Notification preferences" description="Choose what you’re notified about and when. People you block can’t reach you here.">
       <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">

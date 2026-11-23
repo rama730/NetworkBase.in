@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
@@ -180,7 +181,7 @@ export function MyWorkEditor({ open, onOpenChange }: { open: boolean; onOpenChan
                                 {!filtered.length ? <p role="status" className="nb-mw-sheet-lead px-2 py-3">{projects.length ? workspaces.hasNextPage ? "No matching workspaces. Load more or try another name." : "No matching workspaces. Try another name." : "Join or create a workspace to open it in your editor."}</p> : null}
                                 {workspaces.hasNextPage ? (
                                     <button type="button" className="nb-mw-erow add" disabled={workspaces.isFetchingNextPage} onClick={() => void workspaces.fetchNextPage()}>
-                                        <span className="pl" aria-hidden="true"><ChevronDown className="size-3.5" /></span><span>{workspaces.isFetchingNextPage ? "Loading workspaces…" : "Load more workspaces"}</span>
+                                        <span className="pl" aria-hidden="true"><ChevronDown className="size-3.5" /></span><span>{workspaces.isFetchingNextPage ? <><PixelBeat />Loading workspaces…</> : "Load more workspaces"}</span>
                                     </button>
                                 ) : null}
                                 {workspaces.isFetchNextPageError ? <p role="alert" className="text-xs text-destructive">Couldn’t load more workspaces. Try again.</p> : null}

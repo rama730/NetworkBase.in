@@ -1,4 +1,5 @@
 "use client";
+import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 
 import { BarChart3, ChevronLeft, LockKeyhole, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -154,22 +155,7 @@ function CookiePreferenceEditor({
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold">Analytics</h3>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={analyticsChoice}
-                aria-label="Allow analytics cookies"
-                className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                  analyticsChoice ? "border-primary bg-primary" : "border-border bg-muted"
-                }`}
-                onClick={() => onAnalyticsChange(!analyticsChoice)}
-              >
-                <span
-                  className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-background shadow-none transition-transform ${
-                    analyticsChoice ? "translate-x-[1.25rem]" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
+              <SettingsSwitch checked={analyticsChoice} onCheckedChange={onAnalyticsChange} aria-label="Allow analytics cookies" />
             </div>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Helps us measure usage and reliability so we can improve the product.

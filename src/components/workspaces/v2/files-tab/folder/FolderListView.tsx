@@ -1,3 +1,4 @@
+import { PixelBeat } from "@/components/ui/PixelBeat";
 // Task 5.1 — `FolderListView`.
 //
 // GitHub-style four-column file list that renders the children of the
@@ -976,8 +977,7 @@ export function FolderListView({
                       Move…
                     </DropdownMenuItem>
                   ) : null}
-                  <DropdownMenuItem
-                    className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+                  <DropdownMenuItem variant="destructive"
                     onSelect={() =>
                       handleDeleteFromMenu(menuNode!)
                     }
@@ -1167,7 +1167,7 @@ export function FolderListView({
                   onClick={() => remoteList ? void serverList.fetchNextPage() : void loadMore()}
                   className="rounded-[5px] border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:cursor-wait disabled:opacity-60"
                 >
-                  {isLoadingMore || serverList.isFetchingNextPage ? "Loading…" : "Load more"}
+                  {isLoadingMore || serverList.isFetchingNextPage ? <><PixelBeat />Loading…</> : "Load more"}
                 </button>
               </div>
             ) : null}

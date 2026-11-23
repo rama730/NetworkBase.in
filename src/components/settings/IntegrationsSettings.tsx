@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatDistanceToNow } from "@/lib/utils/date";
-import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, Github, KeyRound, Link2, Loader2, Mail, Terminal } from "lucide-react";
+import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, Github, KeyRound, Link2, Mail, Terminal } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -63,7 +63,7 @@ function ProviderRow({ provider, linking, onLink, onUnlink }: { provider: AuthCo
         {provider.provider === "github" && provider.state === "not_linked" ? <p className="nb-meta mt-1 text-muted-foreground">Connecting asks GitHub to let NetworkBase read your repositories and organizations, and your email, so you can import and sync workspaces.</p> : null}
       </div>
     </div>
-    {provider.state === "not_linked" && provider.provider !== "email" ? <Button className="self-start sm:self-auto" size="sm" variant="outline" onClick={onLink} disabled={linking}>{linking ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}Connect</Button> : null}
+    {provider.state === "not_linked" && provider.provider !== "email" ? <Button pending={linking} className="self-start sm:self-auto" size="sm" variant="outline" onClick={onLink} disabled={linking}>Connect</Button> : null}
     {provider.state !== "not_linked" && (provider.provider === "google" || provider.provider === "github") ? <Button className="self-start sm:self-auto pointer-coarse:h-11" size="sm" variant="outline" onClick={onUnlink}>Disconnect</Button> : null}
     {provider.state === "not_linked" && provider.provider === "email" ? <Button size="sm" variant="outline" asChild><Link href="/settings#settings-security">Set a password</Link></Button> : null}
   </div>;
@@ -211,13 +211,12 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
             <Link href={`/settings/agents/${session.id}`}>Change access</Link>
           </Button>
         ) : null}
-        <Button
+        <Button pending={revoking}
           size="sm"
           variant="outline"
           onClick={onRevoke}
           disabled={revoking}
         >
-          {revoking ? <Loader2 className="size-4 animate-spin" /> : null}
           {revoking ? "Revoking…" : isPending ? "Revoke token" : "Disconnect"}
         </Button>
       </div>
@@ -514,8 +513,8 @@ export default function IntegrationsSettings() {
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          {data?.githubService.recoveryAction === "replace_account" ? <Button variant="outline" size="sm" onClick={() => setReplacementConfirmOpen(true)} disabled={replacingGithub}>{replacingGithub ? <Loader2 className="size-4 animate-spin" /> : null}Replace GitHub account</Button> : null}
-          {data?.githubService.recoveryAction === "add_fallback_sign_in" ? <Button variant="outline" size="sm" onClick={() => void linkProvider("google")} disabled={linking === "google"}>{linking === "google" ? <Loader2 className="size-4 animate-spin" /> : null}Link Google first</Button> : null}
+          {data?.githubService.recoveryAction === "replace_account" ? <Button pending={replacingGithub} variant="outline" size="sm" onClick={() => setReplacementConfirmOpen(true)} disabled={replacingGithub}>Replace GitHub account</Button> : null}
+          {data?.githubService.recoveryAction === "add_fallback_sign_in" ? <Button pending={linking === "google"} variant="outline" size="sm" onClick={() => void linkProvider("google")} disabled={linking === "google"}>Link Google first</Button> : null}
           {data?.githubService.usageCount ? <Button variant="outline" size="sm" onClick={() => setProjectsExpanded((prev) => !prev)} aria-expanded={projectsExpanded}><Link2 className="size-4" strokeWidth={1.75} />Review {data.githubService.usageCount} project{data.githubService.usageCount === 1 ? "" : "s"}<ChevronDown className={`size-4 transition-transform duration-[130ms] ${projectsExpanded ? "rotate-180" : ""}`} /></Button> : null}
         </div>
       </div>
@@ -571,7 +570,7 @@ export default function IntegrationsSettings() {
               ))}
               {hasMoreSessions ? (
                 <div className="flex justify-center py-3">
-                  <Button type="button" variant="outline" size="sm" disabled={loadingMore} onClick={() => void loadMoreSessions()} className="pointer-coarse:h-11">{loadingMore ? "Loading…" : "Load more sessions"}</Button>
+                  <Button pending={loadingMore} pendingLabel="Loading" type="button" variant="outline" size="sm" disabled={loadingMore} onClick={() => void loadMoreSessions()} className="pointer-coarse:h-11">{"Load more sessions"}</Button>
                 </div>
               ) : null}
             </div>
@@ -603,8 +602,8 @@ export default function IntegrationsSettings() {
                     <label htmlFor="extension-token-label" className="nb-ui-label text-foreground">Device label (optional)</label>
                     <Input id="extension-token-label" type="text" maxLength={120} value={deviceLabel} onChange={(e) => setDeviceLabel(e.target.value)} placeholder="e.g. Workstation" />
                   </div>
-                  <Button size="sm" onClick={() => void handleGenerateToken()} disabled={generatingToken}>
-                    {generatingToken ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" strokeWidth={1.75} />}
+                  <Button pending={generatingToken} size="sm" onClick={() => void handleGenerateToken()} disabled={generatingToken}>
+                    <KeyRound className="size-4" strokeWidth={1.75} />
                     Generate new token
                   </Button>
                 </div>
@@ -707,13 +706,12 @@ export default function IntegrationsSettings() {
                         : " · Never used"}
                     </p>
                   </div>
-                  <Button
+                  <Button pending={revokingPatId === pat.id}
                     size="sm"
                     variant="outline"
                     disabled={revokingPatId === pat.id}
                     onClick={() => void handleRevokePat(pat.id)}
                   >
-                    {revokingPatId === pat.id ? <Loader2 className="size-4 animate-spin" /> : null}
                     Revoke
                   </Button>
                 </div>

@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1378,7 +1379,7 @@ export function RepositorySync({
                     className={button}
                     onClick={() => void browse(true)}
                     disabled={repoStatus === "loading"}
-                  >
+                  >{repoStatus === "loading" ? <PixelBeat /> : null}
                     Load more
                   </button>
                 )}
@@ -1798,7 +1799,7 @@ export function RepositorySync({
         ) : null}
         {diffLoading ? (
           <div role="status" aria-busy="true" aria-label="Loading file comparison" className={cn(styles.section, "space-y-3")}>
-            <p className={styles.info}>Loading file comparison…</p>
+            <p role="status" className={cn("nb-waiting", styles.info)}><PixelBeat />Loading file comparison…</p>
             <div className="space-y-2">
               <Skeleton className="h-4 w-44 rounded-[3px]" />
               <div className="rounded-[6px] border border-border bg-card p-4 space-y-2">
@@ -2726,7 +2727,7 @@ export function RepositorySync({
         </div>
         {branchesLoading && (
           <div className="space-y-1.5 mt-2" role="status" aria-busy="true" aria-label="Loading branches">
-            <p className={styles.info}>Loading branches…</p>
+            <p role="status" className={cn("nb-waiting", styles.info)}><PixelBeat />Loading branches…</p>
             <Skeleton className="h-9 w-full rounded-[6px]" />
           </div>
         )}

@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { toast, feedbackError } from "@/lib/feedback";
 import { filesReturnQuery } from "@/lib/files/task-navigation";
@@ -930,7 +931,7 @@ export default function TasksTab({
       {reviewsGroupWork ? <p className="nb-meta"><span className="nb-status" data-status="draft">Viewing as admin</span></p> : null}
       {/* Smaller bug 19: on an organization each assignment says what happens in its Hand in section instead. */}
       {orgId ? null : <p className="nb-meta flex flex-wrap items-center gap-2 text-muted-foreground">
-        {completionPolicy.isPending ? "Loading completion workflow…" : completionPolicy.isError ? "Completion workflow unavailable; the server will apply the current workspace setting." : completionPolicy.data?.reviewRequired ? "Marking work as completed sends it to a reviewer. An owner or admin approves it." : "Marking work as done completes it immediately."}
+        {completionPolicy.isPending ? <><PixelBeat />Loading completion workflow…</> : completionPolicy.isError ? "Completion workflow unavailable; the server will apply the current workspace setting." : completionPolicy.data?.reviewRequired ? "Marking work as completed sends it to a reviewer. An owner or admin approves it." : "Marking work as done completes it immediately."}
         {completionPolicy.data?.canManage ? <a className="underline" href={`/workspaces/${projectSlug || projectId}?tab=settings&section=tasks-workflow`}>Completion settings</a> : null}
       </p>}
       <div className={cn("w-full shrink-0", reviewing && "hidden")}>
@@ -1332,7 +1333,7 @@ export default function TasksTab({
                   disabled={isAddingSection}
                   className="nb-touch-target h-[34px] rounded-[5px] bg-primary px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
-                  {isAddingSection ? "Adding..." : "Add column"}
+                  {isAddingSection ? "Adding…" : "Add column"}
                 </button>
               </DialogFooter>
             </form>
@@ -1383,7 +1384,7 @@ export default function TasksTab({
         }}
         title="Delete column"
         description={`Delete “${columnPendingDeletion?.title ?? "this column"}”? The column must be empty; move its tasks to another column first.`}
-        confirmLabel={isDeletingColumn ? "Deleting..." : "Delete column"}
+        confirmLabel={isDeletingColumn ? "Deleting…" : "Delete column"}
         variant="destructive"
         onConfirm={confirmRemoveColumn}
       />

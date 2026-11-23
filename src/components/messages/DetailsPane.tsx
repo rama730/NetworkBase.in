@@ -1,4 +1,5 @@
 "use client";
+import { CharCount } from "@/components/ui/CharCount";
 
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -95,7 +96,7 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
           <div className="flex items-start gap-3 text-[13px]">
             {hint || !valid(draft.trim()) ? <p className={`flex-1 ${valid(draft.trim()) ? "text-muted-foreground" : "text-destructive"}`}>{hint}</p> : <span className="flex-1" />}
             {/* A visible limit instead of a silent cut; red only past it (the limit itself is fine). */}
-            {max ? <span className={`nb-meta ${draft.length > max ? "text-destructive" : ""}`}>{draft.length}/{max}</span> : null}
+            {max ? <CharCount value={draft.length} max={max} /> : null}
           </div>
           <p className="text-[13px] text-muted-foreground">{multiline ? `${keyLabel("mod+enter")} to save · Esc to cancel` : "Enter to save · Esc to cancel"}</p>
         </div>
@@ -244,7 +245,7 @@ function MemberRowsSkeleton() {
       <span className="sr-only">Loading members…</span>
       {[60, 45, 70].map((width) => (
         <div key={width} className="flex items-center gap-2.5">
-          <Skeleton className="size-[34px] flex-none rounded-md" />
+          <Skeleton kind="tile" className="size-[34px] flex-none rounded-md" />
           <Skeleton className="h-3 rounded-sm" style={{ width: `${width}%` }} />
         </div>
       ))}

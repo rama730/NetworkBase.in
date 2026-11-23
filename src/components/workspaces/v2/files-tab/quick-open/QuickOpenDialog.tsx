@@ -1,3 +1,4 @@
+import { PixelBeat } from "@/components/ui/PixelBeat";
 // Quick-open: parent owns ⌘P/open/query, this dialog owns debounced file search.
 
 "use client";
@@ -378,7 +379,7 @@ export function QuickOpenDialog({
             })
           )}
         </div>
-        {!showRecents && search.hasNextPage && <button type="button" disabled={search.isFetchingNextPage} onClick={() => void search.fetchNextPage()} className="m-3 min-h-10 rounded-[6px] border border-border px-3 text-sm hover:bg-muted">{search.isFetchingNextPage ? "Loading…" : "Load more results"}</button>}
+        {!showRecents && search.hasNextPage && <button type="button" disabled={search.isFetchingNextPage} onClick={() => void search.fetchNextPage()} className="m-3 min-h-10 rounded-[6px] border border-border px-3 text-sm hover:bg-muted">{search.isFetchingNextPage ? <><PixelBeat />Loading…</> : "Load more results"}</button>}
         {onApplyQuery && <div className="flex justify-end border-t border-border p-3"><button type="button" disabled={query.trim().length === 1} onClick={() => onApplyQuery(query.trim())} className="min-h-10 rounded-[6px] bg-primary px-3 text-sm text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:opacity-50">{query.trim() ? "Show results in file list" : "Clear search"}</button></div>}
       </div>
       </DialogContent>

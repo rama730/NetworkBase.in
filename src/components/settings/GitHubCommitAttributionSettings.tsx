@@ -1,7 +1,8 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, ShieldCheck, Mail } from "lucide-react";
+import { ShieldCheck, Mail } from "lucide-react";
 import * as sync from "@/app/actions/github-sync";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 
@@ -70,8 +71,8 @@ export function GitHubCommitAttributionSettings() {
         </div>
       ) : loadingCurrent ? (
         <div role="status" className="nb-compact mt-3 flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          <span>Loading commit attribution status…</span>
+          <PixelBeat />
+          Loading commit attribution status…
         </div>
       ) : null}
     </div>

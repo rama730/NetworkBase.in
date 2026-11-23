@@ -1,4 +1,5 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -24,7 +25,7 @@ export function ClassQuestions({ copyId }: { copyId: string }) {
     const [reply, setReply] = useState('')
     const [tell, setTell] = useState(false)
     const data = query.data?.success ? query.data : null
-    if (query.isPending) return <p className="p-6 text-sm text-muted-foreground">Loading class questions…</p>
+    if (query.isPending) return <p role="status" className="nb-waiting p-6 text-sm text-muted-foreground"><PixelBeat />Loading class questions…</p>
     if (!data) return <p className="p-6 text-sm text-muted-foreground">{query.data && !query.data.success ? query.data.error : 'Couldn’t load class questions.'}</p>
     const post = () => startTransition(async () => {
         const result = await createTaskCommentAction(data.masterId, data.orgId, draft.trim())

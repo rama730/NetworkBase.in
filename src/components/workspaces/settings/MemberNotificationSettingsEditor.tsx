@@ -1,8 +1,8 @@
 'use client';
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, { useMemo } from "react";
 import {
-    Loader2,
     Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,7 @@ export function MemberNotificationSettingsEditor({
     if (isLoading) {
         return (
             <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
+                <PixelBeat />
                 Loading member notification preferences…
             </div>
         );
@@ -175,13 +175,12 @@ export function MemberNotificationSettingsEditor({
                 >
                     Reset to workspace defaults
                 </Button>
-                <Button
+                <Button pending={isSaving}
                     type="button"
                     disabled={isSaving || !data.canEdit}
                     onClick={() => void onSave()}
                     className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
                 >
-                    {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                     Save member settings
                 </Button>
             </div>

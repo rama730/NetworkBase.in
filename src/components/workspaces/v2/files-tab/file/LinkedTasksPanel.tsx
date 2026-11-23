@@ -16,8 +16,9 @@
 
 "use client";
 
+import { PixelBeat } from "@/components/ui/PixelBeat";
 import * as React from "react";
-import { Check, Loader2, Pencil, X } from "lucide-react";
+import { Check, Pencil, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { getTaskTitlePresentation } from "@/lib/workspaces/task-presentation";
@@ -78,7 +79,7 @@ export function LinkedTasksPanel({
       <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <PixelBeat />
             Loading…
           </div>
         ) : error ? (
@@ -250,7 +251,7 @@ function LinkedTaskRow({
               className="rounded-[4px] p-0.5 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
             >
               {isSaving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <PixelBeat />
               ) : (
                 <Check className="h-3.5 w-3.5" />
               )}

@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -12,7 +13,6 @@ import {
   CornerDownRight,
   Heart,
   Link as LinkIcon,
-  Loader2,
   MessageSquare,
   MoreHorizontal,
   Send,
@@ -295,7 +295,7 @@ function DiscussionEntry({
                     className="flex cursor-pointer items-center gap-2 rounded-[3px] px-2 py-1 text-xs text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
                   >
                     {pendingDelete ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <PixelBeat />
                     ) : (
                       <Trash2 className="size-3.5" />
                     )}
@@ -351,7 +351,7 @@ function DiscussionEntry({
               aria-label={entry.likedByViewer ? "Remove like" : "Like comment"}
             >
               {pendingLike ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <PixelBeat />
               ) : (
                 <Heart
                   className={cn(
@@ -862,7 +862,7 @@ export default function CommentsTab({
                     Clear
                   </button>
                 ) : null}
-                <Button
+                <Button pending={submittingRoot}
                   type="button"
                   size="sm"
                   onClick={() => void submit()}
@@ -871,11 +871,7 @@ export default function CommentsTab({
                   aria-label="Post comment"
                   title="⌘↵"
                 >
-                  {submittingRoot ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Send className="size-3.5" />
-                  )}
+                  <Send className="size-3.5" />
                   <span>{chat ? "Send" : "Comment"}</span>
                 </Button>
               </div>
@@ -902,7 +898,7 @@ export default function CommentsTab({
                 disabled={isLoadingMore}
                 className="font-medium text-primary hover:underline disabled:opacity-60"
               >
-                {isLoadingMore ? "Loading…" : "Load older"}
+                {isLoadingMore ? <><PixelBeat />Loading…</> : "Load older"}
               </button>
             ) : null}
             <button
@@ -1148,7 +1144,8 @@ export default function CommentsTab({
                               >
                                 Cancel
                               </button>
-                              <Button
+                              <Button pending={submittingReplyParentId ===
+                                activeReplyTarget.parentCommentId}
                                 type="button"
                                 size="sm"
                                 onClick={() =>
@@ -1162,12 +1159,7 @@ export default function CommentsTab({
                                 className="h-[26px] gap-1.5 rounded-[5px] px-2.5 text-[11px] font-medium shadow-xs disabled:opacity-40"
                                 aria-label="Post reply"
                               >
-                                {submittingReplyParentId ===
-                                activeReplyTarget.parentCommentId ? (
-                                  <Loader2 className="size-3 animate-spin" />
-                                ) : (
-                                  <Send className="size-3" />
-                                )}
+                                <Send className="size-3" />
                                 <span>Reply</span>
                               </Button>
                             </div>

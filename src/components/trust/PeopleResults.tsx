@@ -1,4 +1,5 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
@@ -32,7 +33,7 @@ export function PeopleResults({ people }: { people: Awaited<ReturnType<typeof se
             <Dialog open={Boolean(open)} onOpenChange={(next) => !next && setOpen(null)}>
                 <DialogContent presentation="right-drawer" className="w-full max-w-[560px] overflow-y-auto">
                     <DialogHeader className="sr-only"><DialogTitle>Person</DialogTitle><DialogDescription>Their standing and history</DialogDescription></DialogHeader>
-                    {person.data ? <PersonView p={person.data} /> : <p className="text-[13px] text-muted-foreground">{person.isError ? 'Couldn’t load · try again' : 'Loading…'}</p>}
+                    {person.data ? <PersonView p={person.data} /> : <p role="status" className="nb-waiting text-[13px] text-muted-foreground">{person.isError ? 'Couldn’t load · try again' : <><PixelBeat />Loading…</>}</p>}
                 </DialogContent>
             </Dialog>
         </>

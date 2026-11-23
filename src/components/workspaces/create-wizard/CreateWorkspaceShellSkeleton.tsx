@@ -12,7 +12,7 @@ export function CreateWorkspaceShellSkeleton() {
                 <div className="hidden items-center gap-3 md:flex">
                     {WIZARD_PHASES.map((phase) => <Skeleton key={phase.id} className="h-6 w-16 rounded-sm lg:w-24" />)}
                 </div>
-                <Skeleton className="size-9 rounded-md" />
+                <Skeleton kind="tile" className="size-9 rounded-md" />
             </div>
             {/* 2px mobile progress bar matching WizardHeader */}
             <div aria-hidden="true" className="h-0.5 bg-muted md:hidden" />

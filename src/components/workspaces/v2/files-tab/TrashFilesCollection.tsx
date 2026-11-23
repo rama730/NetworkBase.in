@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -711,7 +712,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                 onClick={() => void result.fetchNextPage()}
                 className="min-h-9 rounded-[5px] border border-[#DBD5C8] bg-white px-4 text-xs font-medium text-[#141A1E] shadow-2xs hover:bg-[#FAF8F4] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-white/5 disabled:opacity-50"
               >
-                {result.isFetchingNextPage ? "Loading…" : "Load more"}
+                {result.isFetchingNextPage ? <><PixelBeat />Loading…</> : "Load more"}
               </button>
             </div>
           )}

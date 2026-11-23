@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 /**
  * ContributionWorkspace
@@ -1008,8 +1009,8 @@ export function ContributionEditor({
         onChanged={() => void refresh()}
       />
       {hasMore && (
-        <Button type="button" variant="outline" disabled={loadingMore} onClick={onLoadMore}>
-          {loadingMore ? "Loading contributions…" : "Load more contributions"}
+        <Button pending={loadingMore} pendingLabel="Loading" type="button" variant="outline" disabled={loadingMore} onClick={onLoadMore}>
+          {"Load more contributions"}
         </Button>
       )}
       {active ? (
@@ -2196,7 +2197,7 @@ export function ContributionEditor({
           </div>
                 </>
               ) : (
-                <p role="status" className="nb-compact py-8">Loading contribution…</p>
+                <p role="status" className="nb-waiting nb-compact py-8"><PixelBeat />Loading contribution…</p>
               )}
             </div>
             {footer}
@@ -2277,7 +2278,7 @@ export function ContributionEditor({
             }}
           >
             {optionsLoading ? (
-              <p className="nb-compact p-3">Loading…</p>
+              <p role="status" className="nb-waiting nb-compact p-3"><PixelBeat />Loading…</p>
             ) : (
               options
                 .filter(

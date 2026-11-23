@@ -1,6 +1,7 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { Loader2, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -34,7 +35,7 @@ export function SearchField({
     return (
         <div role="search" data-page-search={pageSearch || undefined} className={cn("relative min-w-0", className)}>
             {loading ? (
-                <Loader2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" aria-hidden="true" />
+                <PixelBeat className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-primary" />
             ) : (
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             )}

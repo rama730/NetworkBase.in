@@ -238,7 +238,7 @@ export function NotificationList(props: {
             })}
             {hasMore ? (
                 <div className="border-t border-border px-4 py-3">
-                    <Button
+                    <Button pending={isLoadingMore} pendingLabel="Loading"
                         type="button"
                         variant="outline"
                         size="sm"
@@ -246,7 +246,7 @@ export function NotificationList(props: {
                         disabled={isLoadingMore || !onLoadMore}
                         onClick={() => onLoadMore?.()}
                     >
-                        {isLoadingMore ? "Loading earlier…" : "Load earlier"}
+                        {"Load earlier"}
                     </Button>
                 </div>
             ) : null}

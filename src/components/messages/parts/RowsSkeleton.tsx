@@ -7,7 +7,7 @@ export function RowsSkeleton({ label, rows = 3 }: { label: string; rows?: number
       <span className="sr-only">{label}</span>
       {Array.from({ length: rows }, (_, row) => (
         <div key={row} className="flex gap-3">
-          <Skeleton className="size-[34px] flex-none rounded-md" />
+          <Skeleton kind="tile" className="size-[34px] flex-none rounded-md" />
           <div className="flex-1 space-y-2 pt-1">
             <Skeleton className="h-3 w-32 rounded-sm" />
             <Skeleton className="h-3 w-3/4 rounded-sm" />

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -81,8 +80,7 @@ export default function WithdrawApplicationDialog({
                 {error ? <p role="alert" className="rounded-[5px] border border-border bg-muted p-3 text-sm text-foreground">{error}</p> : null}
                 <DialogFooter className="gap-2">
                     <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Keep application</Button>
-                    <Button type="button" variant="destructive" onClick={() => void confirm()} disabled={busy}>
-                        {busy ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
+                    <Button pending={busy} type="button" variant="destructive" onClick={() => void confirm()} disabled={busy}>
                         Withdraw
                     </Button>
                 </DialogFooter>

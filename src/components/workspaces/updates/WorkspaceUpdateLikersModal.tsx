@@ -1,9 +1,10 @@
 'use client';
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Heart, Loader2 } from 'lucide-react';
+import { Heart} from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -101,11 +102,11 @@ export function WorkspaceUpdateLikersModal({
                     {isLoading ? (
                         <div className="space-y-3 py-3" aria-busy="true" aria-label="Loading likers">
                             {[1, 2, 3].map((i) => (
-                                <div key={i} className="flex items-center gap-3 animate-pulse">
-                                    <div className="size-[38px] rounded-[6px] bg-muted/60 shrink-0" />
+                                <div key={i} className="flex items-center gap-3">
+                                    <div className="size-[38px] rounded-[6px] nb-skeleton shrink-0" />
                                     <div className="flex-1 space-y-1.5">
-                                        <div className="h-3.5 w-24 rounded bg-muted/60" />
-                                        <div className="h-2.5 w-36 rounded bg-muted/40" />
+                                        <div className="h-3.5 w-24 rounded nb-skeleton" />
+                                        <div className="h-2.5 w-36 rounded nb-skeleton" />
                                     </div>
                                 </div>
                             ))}
@@ -216,7 +217,7 @@ export function WorkspaceUpdateLikersModal({
                             >
                                 {isFetchingNextPage ? (
                                     <>
-                                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                        <PixelBeat className="mr-1.5" />
                                         Loading more…
                                     </>
                                 ) : (

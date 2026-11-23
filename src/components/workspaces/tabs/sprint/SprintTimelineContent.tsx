@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
 import { readUrlParam, useUrlMirror } from "@/lib/navigation/url-state";
@@ -411,7 +412,7 @@ export function SprintTimelineContent({
             onClick={onLoadMore}
             className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-foreground transition-[background-color,border-color,transform] duration-150 hover:border-input hover:bg-muted active:translate-y-px disabled:cursor-wait disabled:opacity-60"
           >
-            {isLoadingMore ? "Loading tasks…" : "Load more tasks"}
+            {isLoadingMore ? <><PixelBeat />Loading tasks…</> : "Load more tasks"}
           </button>
         </div>
       ) : null}

@@ -94,7 +94,7 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
                     {r.state !== 'done' && r.state !== 'excused' ? <DropdownMenuItem onSelect={() => setAsk({ kind: 'extend', row: r })}>Extend</DropdownMenuItem> : null}
                     {r.approved && !closed ? <DropdownMenuItem onSelect={() => setAsk({ kind: 'change', row: r })}>Change decision</DropdownMenuItem> : null}
                     {r.state === 'excused' ? <DropdownMenuItem onSelect={() => run(() => excuseCopyAction(r.copyId, null))}>Un-excuse</DropdownMenuItem> : <DropdownMenuItem onSelect={() => setAsk({ kind: 'excuse', row: r })}>Excuse</DropdownMenuItem>}
-                    {r.state === 'not_started' && !r.submission ? <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setAsk({ kind: 'remove', row: r })}>Remove</DropdownMenuItem> : null}
+                    {r.state === 'not_started' && !r.submission ? <DropdownMenuItem variant="destructive" onSelect={() => setAsk({ kind: 'remove', row: r })}>Remove</DropdownMenuItem> : null}
                 </DropdownMenuContent>
             </DropdownMenu>
         )

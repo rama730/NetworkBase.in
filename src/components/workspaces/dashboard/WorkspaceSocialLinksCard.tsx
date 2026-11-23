@@ -1,7 +1,8 @@
 'use client';
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ExternalLink, Globe, Link2, Loader2, LockKeyhole, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Globe, Link2, LockKeyhole, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/lib/feedback';
 import { updateWorkspaceExternalLinksAction } from '@/app/actions/workspace';
@@ -467,7 +468,7 @@ export const WorkspaceLinkEditorFields = forwardRef<WorkspaceLinkEditorHandle, {
                                 <span className="min-w-0 flex-1">
                                     <span className="flex items-center gap-1.5 truncate font-medium text-foreground">{title}{draftState ? <span className="inline-flex h-5 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-primary">{draftState}</span> : null}{duplicateId === item.id ? <span className="inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-300">Already added</span> : null}{unavailable ? <AlertTriangle aria-label="Link is unavailable" className="h-3.5 w-3.5 shrink-0 text-amber-500" /> : null}{item.audience === 'members' ? <LockKeyhole aria-label="Members only" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}</span>
                                     <span aria-live="polite" className={cn('flex items-center gap-1 truncate text-xs', opaqueName && !item.destinationLabel && !identifyingIds.has(item.id) ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground')}>
-                                        {identifyingIds.has(item.id) ? <><RefreshCw className="h-3 w-3 shrink-0 animate-spin motion-reduce:animate-none" />Finding the site name…</> : item.destinationLabel || (opaqueName ? 'Name needed — you can add it manually' : link.accountLabel)}
+                                        {identifyingIds.has(item.id) ? <><PixelBeat />Finding the site name…</> : item.destinationLabel || (opaqueName ? 'Name needed — you can add it manually' : link.accountLabel)}
                                     </span>
                                     <span className="mt-1 inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground">{WORKSPACE_LINK_PURPOSE_LABELS[itemPurpose]}</span>
                                     {staleMetadata ? <span className="ml-1 mt-1 inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-300">Name may be out of date</span> : null}
@@ -527,7 +528,7 @@ export const WorkspaceLinkEditorFields = forwardRef<WorkspaceLinkEditorHandle, {
                 {preview ? (
                     <div className="mt-3 flex min-w-0 gap-2">
                         <Input value={destinationLabel} onChange={(event) => { const value = event.target.value; setDestinationLabel(value); updateEditingItem({ ...(value.trim() ? { destinationLabel: value } : { destinationLabel: undefined }), metadata: { ...(currentEditingItem?.metadata || { health: 'unknown' }), nameSource: 'manual' } }); setError(null); }} maxLength={160} placeholder={metadataPending ? 'Finding the destination name…' : metadataTitle || preview.accountLabel} aria-label="Link name" disabled={disabled} className="h-[34px] min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
-                        <Button type="button" variant="outline" size="icon" onClick={() => { if (currentEditingItem) enrichItems([currentEditingItem]); }} disabled={disabled || identifyingIds.has(editingId || '')} aria-label="Refresh name" className="nb-touch-target h-[34px] w-[34px] shrink-0 rounded-[5px] border border-border bg-card text-muted-foreground hover:text-foreground"><RefreshCw className={cn('h-4 w-4', identifyingIds.has(editingId || '') && 'animate-spin motion-reduce:animate-none')} /></Button>
+                        <Button type="button" variant="outline" size="icon" onClick={() => { if (currentEditingItem) enrichItems([currentEditingItem]); }} disabled={disabled || identifyingIds.has(editingId || '')} aria-label="Refresh name" className="nb-touch-target h-[34px] w-[34px] shrink-0 rounded-[5px] border border-border bg-card text-muted-foreground hover:text-foreground">{identifyingIds.has(editingId || '') ? <PixelBeat /> : <RefreshCw className="h-4 w-4" />}</Button>
                     </div>
                 ) : null}
                 {isCustomPreview ? <Input value={customLabel} onChange={(event) => { setCustomLabel(event.target.value); updateEditingItem({ label: event.target.value || undefined }); }} maxLength={80} placeholder="Display name (optional, e.g. Live app)" aria-label="Custom link display name" disabled={disabled} className="mt-3 h-[34px] rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" /> : null}
@@ -705,7 +706,7 @@ export function WorkspaceLinksManager({
                         >
                             {saving ? (
                                 <>
-                                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                                    <PixelBeat className="mr-1.5" />
                                     Saving…
                                 </>
                             ) : (
@@ -742,7 +743,7 @@ export function WorkspaceLinksManager({
                     <Button type="button" onClick={() => void save()} disabled={saving || !hasUnsavedChanges} className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]">
                         {saving ? (
                             <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <PixelBeat className="mr-2" />
                                 Saving…
                             </>
                         ) : (

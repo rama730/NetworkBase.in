@@ -1,4 +1,5 @@
 'use client';
+import { CharCount } from "@/components/ui/CharCount";
 
 import { ChildLeadAndUnassigned, InheritedAdminRows, UnitPeople } from '@/components/organizations/ChildTeamFields';
 import { typeProfile } from '@/lib/organizations/type-profile'
@@ -153,7 +154,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-lead-focus">Your role in this workspace</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 tabular-nums text-muted-foreground">{leadFocus.length}/80</span>
+                            <CharCount value={leadFocus.length} max={80} className="mb-2 shrink-0" />
                         </div>
                         <Input
                             id="create-project-lead-focus"

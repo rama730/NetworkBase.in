@@ -1,7 +1,8 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
-import { ChevronDown, FileText, Loader2, Plus, X } from "lucide-react";
+import { ChevronDown, FileText, Plus, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast } from "@/lib/feedback";
@@ -167,7 +168,7 @@ export function WorkspaceDocRail({
                     </span>
                     <span className="flex items-center gap-1.5">
                         {rail.isLoading ? (
-                            <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                            <PixelBeat className="text-muted-foreground" />
                         ) : (
                             <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground">
                                 {rail.docs.length}
@@ -287,7 +288,7 @@ export function WorkspaceDocMobileBar({
         <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border pb-4 xl:hidden max-md:flex-nowrap max-md:overflow-x-auto max-md:snap-x">
             {rail.isLoading ? (
                 <div className="flex h-[32px] items-center justify-center px-3 text-muted-foreground text-xs gap-1.5 shrink-0">
-                    <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                    <PixelBeat className="text-muted-foreground" />
                     Loading documents…
                 </div>
             ) : (

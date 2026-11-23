@@ -33,7 +33,6 @@
 .nb-feedback-progress,.nb-feedback-countdown{position:absolute;bottom:0;left:0;right:0;height:2px;overflow:hidden;border-radius:0 0 8px 8px;transform-origin:left;background:var(--border)}
 .nb-feedback-progress i{display:block;height:100%;background:var(--muted-foreground);transform-origin:left;transition:transform 140ms ease}
 .nb-feedback-countdown{background:var(--feedback-state);opacity:.45}
-.nb-feedback-spinner{animation:nb-feedback-spin 1s linear infinite}
 .nb-feedback-exit{animation:nb-feedback-exit 140ms cubic-bezier(.4,0,1,1) both;pointer-events:none}
 .nb-feedback-chip{position:relative;display:grid;place-items:center;width:44px;height:44px;margin-inline:auto;border:1px solid var(--border);border-radius:8px;background:var(--popover);color:var(--feedback-state)}
 .nb-feedback-chip>svg{width:17px;height:17px}
@@ -73,7 +72,6 @@
 @keyframes nb-feedback-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes nb-feedback-exit{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(4px)}}
 @keyframes nb-feedback-content{from{opacity:.4}to{opacity:1}}
-@keyframes nb-feedback-spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.nb-feedback-card{animation-name:nb-feedback-fade-in;animation-duration:100ms}.nb-feedback-exit{animation-name:nb-feedback-fade-out;animation-duration:100ms}.nb-feedback-content,.nb-feedback-spinner{animation:none}.nb-feedback-progress i{transition:none}}
+@media(prefers-reduced-motion:reduce){.nb-feedback-card{animation-name:nb-feedback-fade-in;animation-duration:100ms}.nb-feedback-exit{animation-name:nb-feedback-fade-out;animation-duration:100ms}.nb-feedback-content{animation:none}.nb-feedback-progress i{transition:none}}
 @keyframes nb-feedback-fade-in{from{opacity:0}to{opacity:1}}
 @keyframes nb-feedback-fade-out{from{opacity:1}to{opacity:0}}

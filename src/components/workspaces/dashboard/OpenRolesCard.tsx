@@ -1,8 +1,9 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { memo, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle, Clock, Loader2, MinusCircle, RotateCcw, XCircle } from "lucide-react";
+import { CheckCircle, Clock, MinusCircle, RotateCcw, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RailSection } from "@/components/ui/rail-section";
 import { SkillList } from "@/components/skills/SkillList";
@@ -187,7 +188,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                     onClick={() => onAcceptInvitation?.()}
                                     className="nb-touch-target inline-flex h-[28px] cursor-pointer items-center justify-center gap-1 rounded-[5px] bg-[var(--status-success,#2F6B4F)] px-3 text-[12px] font-medium text-white shadow-none transition-colors hover:brightness-110 active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
                                 >
-                                    {invitationLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                                    {invitationLoading ? <PixelBeat /> : null}
                                     Accept
                                 </button>
                             </div>
@@ -280,7 +281,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                                         }}
                                                         className="nb-touch-target inline-flex h-[28px] cursor-pointer items-center justify-center gap-1 rounded-[5px] bg-[var(--status-success,#2F6B4F)] px-3 text-[12px] font-medium text-white shadow-none transition-colors hover:brightness-110 active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
                                                     >
-                                                        {invitationLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                                                        {invitationLoading ? <PixelBeat /> : null}
                                                         Accept
                                                     </button>
                                                 </div>

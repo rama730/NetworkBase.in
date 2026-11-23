@@ -1,7 +1,8 @@
 'use client';
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Loader2, Users } from 'lucide-react';
+import { Search, Users } from 'lucide-react';
 import { getAcceptedConnections } from '@/app/actions/connections';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -172,7 +173,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                         <div className="space-y-2 p-2">
                             {[1, 2, 3, 4].map((i) => (
                                 <div key={i} className="flex items-center gap-3 p-2">
-                                    <Skeleton className="size-[34px] rounded-[3px] shrink-0" />
+                                    <Skeleton kind="tile" className="size-[34px] rounded-[3px] shrink-0" />
                                     <div className="flex-1 space-y-1.5 min-w-0">
                                         <Skeleton className="h-4 w-32 rounded-[3px]" />
                                         <Skeleton className="h-3 w-48 rounded-[3px]" />
@@ -260,7 +261,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                                         disabled={loadingMore}
                                         className="nb-ui-label w-full rounded-[3px] border border-border bg-card px-3 py-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
                                     >
-                                        {loadingMore ? 'Loading...' : 'Load more'}
+                                        {loadingMore ? <><PixelBeat />Loading…</> : 'Load more'}
                                     </button>
                                 </div>
                             )}

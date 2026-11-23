@@ -1,9 +1,10 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { SharedOrgChip } from '@/components/organizations/SharedOrgChip';
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Loader2, MapPin, Users } from 'lucide-react';
+import { MapPin, Users } from 'lucide-react';
 import { readPersonSharedConnectionsAction } from '@/app/actions/connections';
 import type { SharedConnectionsSummary } from '@/lib/connections/shared';
 import { personCardName, personCardSkills, personCardSubtitle, personCompactCount, personConnectedDate, personPortfolioText, personSharedCount, type PersonCardIdentity } from '@/lib/network/person-card';
@@ -141,7 +142,7 @@ function SharedConnections({ person, count }: { person: PersonCardIdentity; coun
             <span className="nb-person-shared-compact">{personCompactCount(count)} shared</span>
         </button></DialogTrigger>
         <DialogContent className="nb-person-dialog"><DialogHeader><DialogTitle>Mutual connections</DialogTitle></DialogHeader>
-            {loading ? <p role="status" className="nb-compact flex items-center gap-2"><Loader2 className="size-4 animate-spin" />Loading mutual connections…</p> : null}
+            {loading ? <p role="status" className="nb-compact flex items-center gap-2"><PixelBeat />Loading mutual connections…</p> : null}
             {error ? <div role="alert"><p className="nb-compact">{error}</p><button className="nb-person-control mt-3" onClick={() => void load(0)}>Retry</button></div> : null}
             {result ? <><p className="nb-meta">{result.total.toLocaleString('en')} shared {result.total === 1 ? 'connection' : 'connections'}</p>
                 <div className="grid gap-3">{result.people.map(peer => <Link key={peer.id} href={profileHref(peer)} className="flex min-w-0 items-center gap-3 rounded-md">

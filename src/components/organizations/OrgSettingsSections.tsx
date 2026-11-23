@@ -22,6 +22,7 @@ import {
 import { SettingsCard } from '@/components/workspaces/settings/SettingsFormFields'
 import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
 import { Button } from '@/components/ui/button'
+import { SavedTick } from '@/components/ui/SavedTick'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/lib/feedback'
@@ -65,21 +66,22 @@ function lastChanged(organization: OrgDetail, section: OrgSettingsSection) {
     return <p className="nb-meta">Last changed by {change.byName ?? 'someone'} · {formatOrgDate(change.at, { month: 'short', day: 'numeric', year: 'numeric' }, organization.timeZone)}</p>
 }
 
-/** One save button per section: a toast when it saved, the error kept beside the button when it didn't (spec §33). */
+/** One save button per section: "Saved" pops beside the button when it saved, the error stays there when it didn't (spec §33). */
 function useSave() {
     const router = useRouter()
     const [pending, startTransition] = useTransition()
     const [error, setError] = useState<string | null>(null)
+    const [savedAt, setSavedAt] = useState(0)
     const save = (action: () => Promise<{ success: boolean; error?: string }>, done?: () => void) =>
         startTransition(async () => {
             const result = await action()
             if (!result.success) return setError(result.error ?? 'Couldn’t save.')
             setError(null)
-            toast.success('Saved')
+            setSavedAt(Date.now())
             done?.()
             router.refresh()
         })
-    const status = error ? <p role="alert" className={fieldError}>{error}</p> : null
+    const status = error ? <p role="alert" className={fieldError}>{error}</p> : savedAt && !pending ? <SavedTick key={savedAt} /> : null
     return { pending, save, status }
 }
 

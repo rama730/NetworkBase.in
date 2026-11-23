@@ -829,7 +829,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
           );
         })
       ) : (
-        <EmptyState compact icon={LayoutGrid} title="No workspaces yet" description="Workspace channels show up here." action={inPage ? <Link href="/workspaces/new" className="text-[13px] font-medium text-primary hover:underline">Create a workspace</Link> : undefined} className="px-3 py-6" />
+        <EmptyState compact figure="workspace" title="No workspaces yet" description="Workspace channels show up here." action={inPage ? <Link href="/workspaces/new" className="text-[13px] font-medium text-primary hover:underline">Create a workspace</Link> : undefined} className="px-3 py-6" />
       )}
 
       {unreadsOnly && !others.length && !(self && needsAttention(self)) ? null : (

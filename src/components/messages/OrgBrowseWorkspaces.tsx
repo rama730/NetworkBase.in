@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
 import { Compass } from "lucide-react";
@@ -34,7 +35,7 @@ export function OrgBrowseWorkspaces({ orgId, onOpen, onJoined }: { orgId: string
         <Compass size={16} aria-hidden="true" /><span className="flex-1 text-left">Browse workspaces{rows ? ` (${rows.length})` : ""}</span>
       </button>
       {open ? (
-        rows === null ? <p className="px-2.5 py-1 text-[13px] text-muted-foreground">Loading…</p>
+        rows === null ? <p role="status" className="nb-waiting px-2.5 py-1 text-[13px] text-muted-foreground"><PixelBeat />Loading workspaces…</p>
           : rows.length === 0 ? <p className="px-2.5 py-1 text-[13px] text-muted-foreground">No workspaces yet.</p>
             : rows.map((row) => (
               <button key={row.projectId} type="button" disabled={!row.channelId} className="nb-chat-row pl-8" onClick={() => void openProject(row)}>

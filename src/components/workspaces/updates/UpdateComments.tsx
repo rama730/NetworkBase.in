@@ -1,4 +1,5 @@
 'use client';
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import Link from "next/link";
@@ -12,7 +13,6 @@ import {
     ArrowLeft,
     CornerDownRight,
     Flag,
-    Loader2,
     Send,
     Trash2,
     X,
@@ -1032,7 +1032,7 @@ export function UpdateComments({
                   aria-label="Post comment"
                 >
                   {commentMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <PixelBeat />
                   ) : (
                     <Send className="h-3.5 w-3.5" />
                   )}

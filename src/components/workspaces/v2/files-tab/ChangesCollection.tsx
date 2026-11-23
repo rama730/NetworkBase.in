@@ -230,7 +230,7 @@ function ChangeSetPage({ projectId, id, onBack, onOpen }: { projectId: string; i
     }
   }
 
-  if (view.isLoading) return <div className="space-y-2 p-4" aria-busy="true">{[0, 1, 2, 3].map((i) => <div key={i} className="h-8 animate-pulse rounded bg-muted" />)}</div>;
+  if (view.isLoading) return <div className="space-y-2 p-4" aria-busy="true">{[0, 1, 2, 3].map((i) => <div key={i} className="h-8 nb-skeleton rounded-[4px]" />)}</div>;
   if (view.isError || !view.data) return <div className="p-4 text-sm"><p role="alert" className="text-destructive">{view.error instanceof Error ? view.error.message : "Couldn’t open this change set"}</p><button type="button" className="mt-2 underline" onClick={onBack}>Back to Changes</button></div>;
   const s = view.data.changeSet;
   const conflicts = view.data.items.filter((i) => i.state === "conflict").length;
@@ -443,7 +443,7 @@ function MergeEditor({ id, path, item, canResolve, onResolved }: { id: string; p
     <div className="p-3">
       <p className="mb-2 truncate font-mono text-xs text-muted-foreground">{path}</p>
       <p role="status" className="mb-3 text-sm text-foreground">{CONFLICT_WORDS[kind] ?? CONFLICT_WORDS.edit}</p>
-      {sides.isLoading ? <div className="h-40 animate-pulse rounded bg-muted" aria-busy="true" /> : sides.isError || !sides.data ? (
+      {sides.isLoading ? <div className="h-40 nb-skeleton rounded-[4px]" aria-busy="true" /> : sides.isError || !sides.data ? (
         <p role="alert" className="text-sm text-destructive">{sides.error instanceof Error ? sides.error.message : "Couldn’t load the versions"}</p>
       ) : editing !== null ? (
         <div>
@@ -488,7 +488,7 @@ function DiffBody({ id, path, item, comments, canComment, onCommented }: { id: s
   return (
     <div className="p-3">
       <p className="mb-2 truncate font-mono text-xs text-muted-foreground">{item?.fromPath ? `${item.fromPath} → ${path}` : path}{item?.conflict?.kind === "merged" ? ` · merged automatically with v${item.conflict.onto} (shown against it)` : ""}</p>
-      {diff.isLoading ? <div className="h-40 animate-pulse rounded bg-muted" aria-busy="true" /> : diff.isError || !diff.data ? (
+      {diff.isLoading ? <div className="h-40 nb-skeleton rounded-[4px]" aria-busy="true" /> : diff.isError || !diff.data ? (
         <p role="alert" className="text-sm text-destructive">{diff.error instanceof Error ? diff.error.message : "Couldn’t load the diff"}</p>
       ) : diff.data.kind === "text" ? (
         <pre className="overflow-x-auto rounded-md border border-border font-mono text-xs leading-5">

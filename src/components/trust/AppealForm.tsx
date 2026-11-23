@@ -1,4 +1,5 @@
 'use client'
+import { CharCount } from "@/components/ui/CharCount";
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
@@ -51,7 +52,7 @@ export function AppealForm({ caseNumber, status, appealState, workspaceAction, a
             <label className="block text-sm font-medium text-foreground">Why should we look again?
                 <textarea required rows={6} maxLength={1000} value={body} onChange={(e) => setBody(e.target.value)}
                     className="mt-1.5 w-full resize-y rounded-[5px] border border-input bg-card px-3 py-2.5 text-[13px] font-normal" />
-                <span className="nb-meta mt-1 block">{body.length} / 1,000</span>
+                <CharCount value={body.length} max={1000} className="mt-1 block" />
             </label>
             {workspaceAction ? (
                 <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={fixed} onChange={(e) => setFixed(e.target.checked)} /> I&apos;ve changed or removed the content</label>

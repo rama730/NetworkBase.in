@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -674,7 +675,7 @@ export function EditProfileEditor({
                     <div data-scroll-root="route" className="min-h-0 flex-1 overflow-y-auto app-scroll app-scroll-y bg-background">
                         {/* Look only: nothing in here saves or navigates; the strip is the way back. */}
                         <div role="region" aria-label="Preview of your full profile" inert>
-                            <Suspense fallback={<p role="status" className="nb-compact p-6">Loading preview…</p>}>
+                            <Suspense fallback={<p role="status" className="nb-waiting nb-compact p-6"><PixelBeat />Loading preview…</p>}>
                                 <ProfileV2Client
                                     profile={{ ...profile, ...formState }}
                                     stats={{ connectionsCount: profile.connectionsCount ?? 0, projectsCount: profile.projectsCount ?? 0, followersCount: 0, mutualCount: 0 } as any}

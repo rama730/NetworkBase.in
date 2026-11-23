@@ -227,7 +227,7 @@ export function ExplorerTree({
         role="status"
         aria-busy="true"
         aria-label="Loading files tree"
-        className="flex flex-col gap-1 p-2 animate-pulse"
+        className="flex flex-col gap-1 p-2"
       >
         <span className="sr-only">Loading files…</span>
         {Array.from({ length: 8 }).map((_, i) => (
@@ -236,9 +236,9 @@ export function ExplorerTree({
             className="h-8 flex items-center gap-2 px-2 rounded"
             style={{ paddingLeft: `${8 + (i % 3) * 16}px` }}
           >
-            <div className="size-4 rounded bg-muted/60 shrink-0" />
+            <div className="size-4 rounded nb-skeleton shrink-0" />
             <div
-              className="h-3.5 rounded bg-muted/50"
+              className="h-3.5 rounded nb-skeleton"
               style={{ width: `${70 + ((i * 43) % 90)}px` }}
             />
           </div>

@@ -1,4 +1,5 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -189,7 +190,7 @@ function PersonStrip({ c }: { c: CaseDetail }) {
             <Dialog open={drawer} onOpenChange={setDrawer}>
                 <DialogContent presentation="right-drawer" className="w-full max-w-[560px] overflow-y-auto">
                     <DialogHeader className="sr-only"><DialogTitle>{p.name ?? handleOf(p)}</DialogTitle><DialogDescription>Their standing and history</DialogDescription></DialogHeader>
-                    {person.data ? <PersonView p={person.data} /> : <p className="text-[13px] text-muted-foreground">{person.isError ? 'Couldn’t load · try again' : 'Loading…'}</p>}
+                    {person.data ? <PersonView p={person.data} /> : <p role="status" className="nb-waiting text-[13px] text-muted-foreground">{person.isError ? 'Couldn’t load · try again' : <><PixelBeat />Loading…</>}</p>}
                 </DialogContent>
             </Dialog>
         </div>

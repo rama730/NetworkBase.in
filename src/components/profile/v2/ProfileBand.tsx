@@ -1,4 +1,5 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
@@ -8,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ItemMenu } from '@/components/reports/ItemMenu'
 import { useMuteToggle } from '@/components/privacy/BlockDialog'
 import { useMutedIds } from '@/components/messages/ChatShellProvider'
-import { Ban, BellOff, ChevronDown, Clock, Link2, Loader2, Lock, MapPin, MessageSquare, Pencil, Share2, Smile, UserCheck, UserMinus, UserPlus } from 'lucide-react'
+import { Ban, BellOff, ChevronDown, Clock, Link2, Lock, MapPin, MessageSquare, Pencil, Share2, Smile, UserCheck, UserMinus, UserPlus } from 'lucide-react'
 import { buildPrivacyPresentation } from '@/lib/privacy/presentation'
 import type { ConnectionState, ProfilePrivacyRelationship } from './types'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
@@ -183,7 +184,7 @@ export function ProfileBand(props: ProfileBandProps) {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant={relationshipControlVariant} className={cn('nb-pf-grow gap-1.5', relationshipControlVariant !== 'default' && 'nb-pf-btn')} disabled={!isAuthenticated || isLoadingConnection} aria-label={`${relationshipControlLabel} options`}>
-                                {isLoadingConnection ? <Loader2 className="size-4 animate-spin" /> : connectIcon}
+                                {isLoadingConnection ? <PixelBeat /> : connectIcon}
                                 {relationshipControlLabel}
                                 <ChevronDown className="size-4 opacity-70" />
                             </Button>

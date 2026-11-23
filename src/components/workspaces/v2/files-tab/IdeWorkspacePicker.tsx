@@ -159,7 +159,7 @@ export function IdeWorkspacePicker({
               </p>
             )}
             {query.hasNextPage && (
-              <Button
+              <Button pending={query.isFetchingNextPage} pendingLabel="Loading"
                 variant="ghost"
                 className="mt-2 w-full"
                 disabled={query.isFetchingNextPage}
@@ -167,9 +167,7 @@ export function IdeWorkspacePicker({
                   void query.fetchNextPage();
                 }}
               >
-                {query.isFetchingNextPage
-                  ? "Loading workspaces…"
-                  : "Load more workspaces"}
+                {"Load more workspaces"}
               </Button>
             )}
             {query.isFetchNextPageError && (

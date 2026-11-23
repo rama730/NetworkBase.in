@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Download, Loader2, Trash2, TriangleAlert } from "lucide-react";
+import { Download, Trash2, TriangleAlert } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,8 +187,8 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
 
             <DialogFooter>
                 <Button variant="outline" onClick={onClose} disabled={deleting}>Cancel</Button>
-                <Button variant="destructive" onClick={() => void handleDelete()} disabled={deleting || !confirmed || ownedOrgs.length > 0}>
-                    {deleting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="h-4 w-4" aria-hidden="true" />}
+                <Button pending={deleting} variant="destructive" onClick={() => void handleDelete()} disabled={deleting || !confirmed || ownedOrgs.length > 0}>
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                     Delete account
                 </Button>
             </DialogFooter>

@@ -245,7 +245,7 @@ export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemo
                             {admin ? <DropdownMenuItem onSelect={() => setOptionsOpen(true)}>Options…</DropdownMenuItem> : null}
                             {admin && doc.state !== 'published' ? <DropdownMenuItem onSelect={() => setPublishOpen(true)}>Publish…</DropdownMenuItem> : null}
                             {editHref ? <DropdownMenuItem asChild><Link href={`${editHref}&filesPanel=version_history`}>History</Link></DropdownMenuItem> : null}
-                            {onRemove ? <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onRemove}>Remove</DropdownMenuItem> : null}
+                            {onRemove ? <DropdownMenuItem variant="destructive" onSelect={onRemove}>Remove</DropdownMenuItem> : null}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 ) : null}

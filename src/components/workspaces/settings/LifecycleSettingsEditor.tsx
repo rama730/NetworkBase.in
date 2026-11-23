@@ -1,10 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-    Loader2,
-    Info,
-} from "lucide-react";
+import { Info } from "lucide-react";
 import { toast } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { LifecycleEditor as BaseLifecycleEditor } from "@/components/workspaces/LifecycleEditor";
@@ -99,13 +96,12 @@ export function LifecycleSettingsEditor({
                             >
                                 Cancel
                             </Button>
-                            <Button
+                            <Button pending={isSaving}
                                 type="button"
                                 onClick={() => void handleSave()}
                                 disabled={!isDirty || isSaving || stages.length === 0}
                                 className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                             >
-                                {isSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
                                 Save changes
                             </Button>
                         </div>

@@ -1,4 +1,5 @@
 "use client";
+import { UploadBar } from "@/components/ui/UploadBar";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -826,10 +827,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
                 <img src={u.previewUrl} alt={u.name} className="size-full object-cover" />
                 {u.progress < 100 && !u.error ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-foreground/50 text-background">
-                    <span className="nb-meta text-background">{u.progress}%</span>
-                    <div className="mt-1 h-1 w-12 overflow-hidden rounded-full bg-background/30">
-                      <div className="h-full bg-primary transition-[width] duration-[130ms]" style={{ width: `${u.progress}%` }} />
-                    </div>
+                    <UploadBar value={u.progress} label={`Upload progress: ${u.name}`} showPercent className="is-on-image w-14" />
                   </div>
                 ) : null}
                 {u.error ? (

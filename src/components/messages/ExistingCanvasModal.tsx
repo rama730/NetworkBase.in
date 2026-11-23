@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -105,7 +106,7 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
               {selected && full.data ? <CanvasPreview markdown={full.data.body} /> : selected && full.isError ? (
                 <ErrorNotice what="This note" onRetry={() => void full.refetch()} />
               ) : (
-                <div role={selected ? "status" : undefined} className="grid h-full place-items-center text-[13px] text-muted-foreground">{selected ? "Loading…" : "Select a note to preview"}</div>
+                <div role={selected ? "status" : undefined} className="grid h-full place-items-center text-[13px] text-muted-foreground">{selected ? <span className="nb-waiting"><PixelBeat />Loading…</span> : "Select a note to preview"}</div>
               )}
             </div>
             <div className="flex h-14 flex-none items-center justify-end gap-2 border-t border-border bg-muted px-6">

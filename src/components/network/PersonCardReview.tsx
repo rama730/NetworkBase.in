@@ -1,8 +1,9 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Flag, Loader2, MessageSquare, MoreHorizontal } from 'lucide-react';
+import { ChevronDown, Flag, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { useReportDialog, type ReportTarget } from '@/components/reports/ReportDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -76,7 +77,7 @@ export function PersonCardReview({ name, description, note, onAccept, onDecline,
                     onClick={() => void decide('accept')}
                     aria-label={`Accept request from ${name}`}
                 >
-                    {busy === 'accept' ? <Loader2 className="size-3 animate-spin mr-0.5" aria-hidden="true" /> : null}
+                    {busy === 'accept' ? <PixelBeat className="mr-0.5" /> : null}
                     {busy === 'accept' ? 'Accepting…' : 'Accept'}
                 </button>
                 <button
@@ -86,7 +87,7 @@ export function PersonCardReview({ name, description, note, onAccept, onDecline,
                     onClick={() => void decide('decline')}
                     aria-label={`Decline request from ${name}`}
                 >
-                    {busy === 'decline' ? <Loader2 className="size-3 animate-spin mr-0.5" aria-hidden="true" /> : null}
+                    {busy === 'decline' ? <PixelBeat className="mr-0.5" /> : null}
                     {busy === 'decline' ? 'Declining…' : 'Decline'}
                 </button>
             </div>

@@ -1,8 +1,9 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from "@/components/auth/TurnstileWidget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -224,7 +225,7 @@ export default function SecurityStepUpDialog({
             <Button type="submit" disabled={submitDisabled}>
               {submitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <PixelBeat />
                   Verifying...
                 </>
               ) : (

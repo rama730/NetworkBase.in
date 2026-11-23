@@ -1,3 +1,4 @@
+import { CharCount } from "@/components/ui/CharCount";
 import { OrgIdentityFields, OrgSubjectField, OrgWelcomeField } from '@/components/organizations/OrgWizardFields';
 import { ORG_CREATION_COPY } from '@/lib/organizations/creation';
 import { type ReactNode, useEffect, useState } from 'react';
@@ -29,17 +30,17 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 
 function TitleCount() {
     const title = useWatch<CreateWorkspaceInput>({ name: 'title' }) || '';
-    return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{title.length}/100</span>;
+    return <CharCount value={title.length} max={100} className="mb-2 shrink-0" />;
 }
 
 function TaglineCount() {
     const tagline = useWatch<CreateWorkspaceInput>({ name: 'short_description' }) || '';
-    return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{tagline.length}/200</span>;
+    return <CharCount value={tagline.length} max={200} className="mb-2 shrink-0" />;
 }
 
 function DescriptionCount() {
     const description = useWatch<CreateWorkspaceInput>({ name: 'description' }) || '';
-    return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{description.length}/5000</span>;
+    return <CharCount value={description.length} max={5000} className="mb-2 shrink-0" />;
 }
 
 function FieldLabel({ htmlFor, children, required = false }: { htmlFor: string; children: ReactNode; required?: boolean }) {
@@ -324,7 +325,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-tag-input">{orgCopy ? 'Topics' : 'Tags'}</FieldLabel>
-                            <span className="nb-compact mb-2 shrink-0 text-muted-foreground" aria-live="polite">{tags.length}/{projectTagLimit}</span>
+                            <CharCount value={tags.length} max={projectTagLimit} className="mb-2 shrink-0" />
                         </div>
                         <p id="create-project-tags-help" className="mb-2 text-[13px] leading-[1.5] text-muted-foreground">Keyword tags used for search indexing and discovery filters (up to {projectTagLimit} tags).</p>
                         {tags.length > 0 ? (

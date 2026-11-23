@@ -168,7 +168,7 @@ export function BranchesCollection({ projectId }: { projectId: string }) {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44 rounded-[8px] border border-border bg-card p-1 shadow-md">
                             <DropdownMenuItem className="rounded-[5px] text-xs" onSelect={() => { setRenaming(b); setRename(b.name); }}><Pencil className="mr-2 size-3.5" />Rename</DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-[5px] text-xs text-destructive" onSelect={() => setDeleting(b)}><Trash2 className="mr-2 size-3.5" />Delete</DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" className="rounded-[5px] text-xs" onSelect={() => setDeleting(b)}><Trash2 className="mr-2 size-3.5" />Delete</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       ) : null}

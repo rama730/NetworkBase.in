@@ -8,13 +8,7 @@ import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { broadcastWorkspaceUpdated } from "@/components/workspaces/WorkspaceAvatar";
-import {
-    Camera,
-    ChevronDown,
-    Loader2,
-    Trash2,
-    Upload,
-} from "lucide-react";
+import { Camera, ChevronDown, Trash2, Upload } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -596,17 +590,13 @@ export function GeneralSettingsSection({
                         />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button
+                                <Button pending={uploadingCoverImage}
                                     variant="outline"
                                     size="sm"
                                     disabled={uploadingCoverImage}
                                     className="rounded-md"
                                 >
-                                    {uploadingCoverImage ? (
-                                        <Loader2 className="mr-1.5 size-4 animate-spin" />
-                                    ) : (
-                                        <Camera className="mr-1.5 size-4" />
-                                    )}
+                                    <Camera className="mr-1.5 size-4" />
                                     Avatar options
                                     <ChevronDown className="ml-1.5 size-4 opacity-70" />
                                 </Button>
@@ -752,13 +742,12 @@ export function GeneralSettingsSection({
                                 >
                                     Cancel
                                 </Button>
-                                <Button
+                                <Button pending={uploadingCoverImage}
                                     type="button"
                                     onClick={() => void handlePublishCoverDraft()}
                                     disabled={uploadingCoverImage}
                                     className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                                 >
-                                    {uploadingCoverImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                     Save avatar
                                 </Button>
                             </div>
@@ -840,14 +829,13 @@ export function GeneralSettingsSection({
                         >
                             Cancel
                         </Button>
-                        <Button
+                        <Button pending={savingSettings}
                             type="button"
                             size="sm"
                             onClick={() => void handleSaveGeneral()}
                             disabled={!identityDirty || savingSettings}
                             className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                         >
-                            {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                             Save changes
                         </Button>
                     </div>

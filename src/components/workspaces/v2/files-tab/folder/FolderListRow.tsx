@@ -455,7 +455,7 @@ export const FolderListRow = React.memo(function FolderListRow({
                     onChange={(e) => setEditLabelValue(e.target.value)}
                     onBlur={commitLabelEdit}
                     onKeyDown={handleLabelKeyDown}
-                    placeholder="Label..."
+                    placeholder="Label…"
                     className="w-32 bg-transparent font-mono text-[10px] max-md:text-[11px] font-medium text-[#141A1E] dark:text-foreground outline-none placeholder:text-[#6B7880] dark:placeholder:text-muted-foreground"
                   />
                   <button

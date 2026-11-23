@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import * as React from "react";
 import {
@@ -7,7 +8,6 @@ import {
   Folder,
   Download,
   Search,
-  Loader2,
   AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -177,7 +177,7 @@ export function ArchiveViewerDriver({
       <div className="flex-1 overflow-auto p-4">
         {loading ? (
           <div className="flex h-64 flex-col items-center justify-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <PixelBeat className="text-muted-foreground" />
             <p className="text-xs text-muted-foreground">Reading archive directory tree…</p>
           </div>
         ) : error ? (

@@ -1,8 +1,9 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import type { DocSection } from "@/lib/workspaces/doc-sections";
 import { useMemo, useState } from "react";
-import { Check, FileText, Loader2 } from "lucide-react";
+import { Check, FileText} from "lucide-react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast, feedbackError } from "@/lib/feedback";
@@ -154,8 +155,7 @@ export function AddDocDialog({
                     }}
                 >
                     <Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder="Document title" aria-label="Document title" />
-                    <Button type="submit" disabled={!title.trim() || creating !== null}>
-                        {creating === "new" ? <Loader2 className="size-4 animate-spin" /> : null}
+                    <Button pending={creating === "new"} type="submit" disabled={!title.trim() || creating !== null}>
                         Add document
                     </Button>
                 </form>
@@ -180,7 +180,7 @@ export function AddDocDialog({
                             >
                                 <FileText className="size-4 shrink-0 text-muted-foreground" />
                                 <span className="min-w-0 flex-1 truncate">{template.filename}</span>
-                                {creating === template.id ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : <span className="text-[11px] text-muted-foreground">Use this template</span>}
+                                {creating === template.id ? <PixelBeat className="text-muted-foreground" /> : <span className="text-[11px] text-muted-foreground">Use this template</span>}
                             </button>
                         ))}
                     </div>
@@ -230,7 +230,7 @@ export function AddDocDialog({
                                         ) : null}
                                     </span>
                                     {pendingId === node.id ? (
-                                        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                                        <PixelBeat className="text-muted-foreground" />
                                     ) : added ? (
                                         <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                                             <Check className="size-3" /> Added
@@ -247,7 +247,7 @@ export function AddDocDialog({
                             disabled={files.isFetchingNextPage}
                             className="mt-1 w-full rounded-[5px] py-2 text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
-                            {files.isFetchingNextPage ? "Loading…" : "Load more"}
+                            {files.isFetchingNextPage ? <><PixelBeat />Loading…</> : "Load more"}
                         </button>
                     ) : null}
                 </div>

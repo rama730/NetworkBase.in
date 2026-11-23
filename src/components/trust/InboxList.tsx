@@ -115,7 +115,7 @@ export function InboxList(p: Props) {
                 {p.error ? (
                     <p className="p-4 text-[13px]">Couldn’t load · <button type="button" className="underline underline-offset-4" onClick={p.onRetry}>Retry</button></p>
                 ) : p.loading ? (
-                    <ul aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <li key={i} className="flex h-[72px] items-center gap-3 border-b border-border px-3"><Skeleton className="size-9 rounded-[6px]" /><div className="flex-1 space-y-2"><Skeleton className="h-3 w-2/3" /><Skeleton className="h-3 w-1/3" /></div></li>)}</ul>
+                    <ul aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <li key={i} className="flex h-[72px] items-center gap-3 border-b border-border px-3"><Skeleton kind="tile" className="size-9 rounded-[6px]" /><div className="flex-1 space-y-2"><Skeleton className="h-3 w-2/3" /><Skeleton className="h-3 w-1/3" /></div></li>)}</ul>
                 ) : !p.items.length ? (
                     filtered
                         ? <EmptyState icon={Inbox} className="mt-8" title="Nothing matches" description={<button type="button" className="underline underline-offset-4" onClick={() => { setQ(''); p.setFilters({ q: undefined, severity: undefined, kind: undefined, source: undefined, due: undefined, org: undefined }) }}>Clear filters</button>} />
@@ -137,7 +137,7 @@ export function InboxList(p: Props) {
                                     onCheck={() => p.onCheck(i, false)} onPrefetch={() => p.onPrefetch(i)} onDismiss={() => p.onQuickDismiss(i)} />,
                             ]
                         })}
-                        {p.hasNext ? <li ref={sentinel} className="p-3 text-center"><Button size="sm" variant="ghost" disabled={p.loadingNext} onClick={p.onNext}>{p.loadingNext ? 'Loading…' : 'Load more'}</Button></li> : null}
+                        {p.hasNext ? <li ref={sentinel} className="p-3 text-center"><Button pending={p.loadingNext} pendingLabel="Loading" size="sm" variant="ghost" disabled={p.loadingNext} onClick={p.onNext}>{'Load more'}</Button></li> : null}
                     </ul>
                 )}
             </div>

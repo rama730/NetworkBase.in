@@ -77,7 +77,7 @@ export function FolderAccessDialog({ orgId, orgTitle, folder, open, onOpenChange
             const r = await setFolderTemplateAction(orgId, folder.id, template)
             if (!r.success) return void toast.error(r.error)
         }
-        toast.success('Saved')
+        toast.success(`${folder.name} saved`)
         const { access: _a, template: _t, ...rest } = (folder.metadata ?? {}) as Record<string, unknown>
         onSaved?.({ ...rest, ...(choice ? { access: choice } : {}), ...(template && choice !== 'admins' ? { template: true } : {}) })
         onOpenChange(false)

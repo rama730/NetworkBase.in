@@ -4,7 +4,7 @@ import Link from "next/link";
 import { toast } from "@/lib/feedback";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Database, Loader2, LogOut } from "lucide-react";
+import { Database, LogOut } from "lucide-react";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
@@ -79,8 +79,8 @@ export default function AccountPage() {
             title="Storage on this device"
             description="NetworkBase downloads these files again when they are needed."
             right={
-              <Button variant="outline" onClick={() => void handleClearCache()} disabled={isClearingCache}>
-                {isClearingCache ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Database className="size-4" aria-hidden="true" />}
+              <Button pending={isClearingCache} variant="outline" onClick={() => void handleClearCache()} disabled={isClearingCache}>
+                <Database className="size-4" aria-hidden="true" />
                 {isClearingCache ? "Clearing…" : "Clear cache"}
               </Button>
             }

@@ -2484,3 +2484,139 @@ a.nb-pf-link-row:hover { background: var(--secondary); }
   .nb-pixel-draw rect[style] { animation: nb-px-in 260ms var(--nb-ease, cubic-bezier(.16, 1, .3, 1)) both; animation-delay: calc(var(--i) * 16ms + 180ms); }
 }
 @keyframes nb-px-in { from { opacity: 0; } }
+
+/*
+ * Waiting, in the mix style (prototype: Skeleton loading v2). One slow light passes over the whole screen at once
+ * (fixed background), so every bar shimmers together. Text bars sit at the cap height of the text they stand for;
+ * tiles are empty pixel tiles where a person, workspace or organization picture will draw in.
+ */
+.nb-skeleton { border-radius: 3px; background-image: linear-gradient(100deg, transparent 38%, var(--skeleton-highlight) 50%, transparent 62%); background-size: 220vw 100%; background-attachment: fixed; background-repeat: no-repeat; animation-name: nb-sk-sweep; animation-duration: 1.8s; }
+@keyframes nb-sk-sweep { from { background-position: 120vw 0; } to { background-position: -100vw 0; } }
+.nb-skeleton-text { height: .72em; margin-block: .39em; }
+.nb-skeleton-tile { flex: none; border-radius: 5px; background-image: radial-gradient(color-mix(in srgb, var(--foreground) 9%, transparent) 30%, transparent 32%), linear-gradient(100deg, transparent 38%, var(--skeleton-highlight) 50%, transparent 62%); background-size: calc(100% / 9) calc(100% / 9), 220vw 100%; background-position: center, 120vw 0; background-repeat: repeat, no-repeat; background-attachment: scroll, fixed; animation-name: nb-sk-sweep-tile; }
+@keyframes nb-sk-sweep-tile { from { background-position: center, 120vw 0; } to { background-position: center, -100vw 0; } }
+html[data-reduce-motion="true"] .nb-skeleton, html[data-reduce-motion="true"] .nb-skeleton-tile { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .nb-skeleton { animation: none; background-image: none; } .nb-skeleton-tile { background-image: radial-gradient(color-mix(in srgb, var(--foreground) 9%, transparent) 30%, transparent 32%); } }
+
+/* A loading screen shows nothing for its first 300 ms (most loads finish first), then the whole layout at once. */
+.nb-sk-page { display: grid; gap: 18px; width: 100%; max-width: 1120px; margin-inline: auto; padding: 20px 16px 48px; animation: nb-sk-show 1ms 300ms both; }
+.nb-sk-page.is-wide { max-width: 1440px; }
+@keyframes nb-sk-show { from { visibility: hidden; } }
+.nb-sk-lines { display: grid; min-width: 0; }
+.nb-sk-band-in { display: grid; grid-template-columns: 80px minmax(0, 1fr) auto; gap: 0 18px; padding: 20px 22px 14px; }
+.nb-sk-band-in.is-mw { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 18px 18px 16px; }
+.nb-sk-photo { width: 80px; height: 80px; border-radius: 6px; }
+.nb-sk-id { display: grid; align-content: start; gap: 2px; min-width: 0; }
+.nb-sk-title { margin: 0 0 4px; font: 400 34px/1 var(--font-serif, Georgia), Georgia, serif; }
+.nb-sk-name { width: min(260px, 100%); height: 30px; margin-bottom: 8px; }
+.nb-sk-acts { display: flex; gap: 8px; align-items: start; }
+.nb-sk-btn { width: 96px; height: 32px; border-radius: 6px; }
+.nb-sk-btn.is-sm { width: 72px; height: 28px; }
+.nb-sk-stats { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); border-top: 1px solid var(--pf-band-cell); }
+.nb-sk-stats > div { display: flex; align-items: center; gap: 8px; padding: 11px 22px 12px; border-right: 1px solid var(--pf-band-cell); }
+.nb-sk-stats > div:last-child { border-right: 0; }
+.nb-sk-week { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); border: 1px solid var(--pf-band-cell); border-radius: 6px; overflow: hidden; }
+.nb-sk-week > span { display: grid; gap: 7px; padding: 8px 7px 9px; border-right: 1px solid var(--pf-band-cell); font: 500 10px var(--font-mono, ui-monospace), ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--pf-band-2); }
+.nb-sk-week > span:last-child { border-right: 0; }
+.nb-sk-tabs { display: flex; min-height: 44px; margin-top: -18px; overflow: hidden; border: 1px solid var(--border); border-top-color: var(--pf-band-cell); border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--card); }
+.nb-sk-tabs.is-alone { margin-top: 0; border-top-color: var(--border); border-radius: var(--radius-lg); }
+.nb-sk-band:has(+ .nb-sk-tabs:not(.is-alone)) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.nb-sk-tab { display: flex; align-items: center; padding: 0 18px; border-right: 1px solid var(--border); color: var(--muted-foreground); font-size: 13.5px; font-weight: 500; white-space: nowrap; }
+.nb-sk-tab.is-on { color: var(--foreground); box-shadow: inset 0 -2px var(--nb-brand); }
+.nb-sk-rows { display: grid; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); }
+.nb-sk-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.nb-sk-row:last-child { border-bottom: 0; }
+.nb-sk-row:not(:has(> .nb-skeleton-tile)) { grid-template-columns: minmax(0, 1fr) auto; }
+.nb-sk-cards { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 12px; }
+.nb-sk-card { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); }
+.nb-sk-card-top { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; }
+.nb-sk-card-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid var(--border); }
+.nb-sk-section { display: grid; gap: 10px; min-width: 0; }
+.nb-sk-panel { padding: 18px 20px; }
+.nb-sk-form { display: grid; gap: 14px; }
+.nb-sk-field { display: grid; gap: 6px; }
+.nb-sk-flabel { font-size: 13px; font-weight: 500; color: var(--foreground); }
+.nb-sk-input { height: 40px; border-radius: 6px; }
+.nb-sk-input.is-btn { margin-top: 6px; }
+.nb-sk-body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 22px; }
+.nb-sk-body.is-solo { grid-template-columns: minmax(0, 1fr); }
+.nb-sk-col, .nb-sk-rail { display: grid; align-content: start; gap: 14px; min-width: 0; }
+.nb-sk-auth .nb-sk-page { max-width: none; padding: 0; gap: 10px; }
+@media (max-width: 760px) {
+  .nb-sk-body { grid-template-columns: minmax(0, 1fr); }
+  .nb-sk-band-in { grid-template-columns: 64px minmax(0, 1fr); }
+  .nb-sk-photo { width: 64px; height: 64px; }
+  .nb-sk-acts { grid-column: 1 / -1; margin-top: 12px; }
+  .nb-sk-stats > div { padding: 10px 12px; }
+  .nb-sk-cards { grid-template-columns: minmax(0, 1fr); }
+  .nb-sk-week { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .nb-sk-week > span:nth-child(4) { border-right: 0; }
+  .nb-sk-week > span:nth-child(-n + 4) { border-bottom: 1px solid var(--pf-band-cell); }
+  .nb-sk-tabs { overflow-x: auto; }
+}
+/* After 3 s, a quiet line says what is still on its way. */
+.nb-sk-slow { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; padding-bottom: 24px; font: 12px var(--font-mono, ui-monospace), ui-monospace, monospace; color: var(--muted-foreground); opacity: 0; transition: opacity 300ms; }
+.nb-sk-slow::before { content: ""; width: 7px; height: 7px; background: var(--nb-brand); }
+.nb-sk-slow[data-on] { opacity: 1; }
+
+/* The pixel beat: three squares stepping, the app's one "working" mark (buttons, Load more, toasts). */
+.nb-pixel-beat { display: inline-flex; flex: none; gap: 3px; vertical-align: middle; }
+.nb-pixel-beat > i { width: 4px; height: 4px; background: currentColor; animation: nb-beat 900ms steps(1) infinite; }
+.nb-pixel-beat > i:nth-child(2) { animation-delay: 150ms; }
+.nb-pixel-beat > i:nth-child(3) { animation-delay: 300ms; }
+@keyframes nb-beat { 50% { opacity: .25; } }
+html[data-reduce-motion="true"] .nb-pixel-beat > i { animation: none !important; opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .nb-pixel-beat > i { animation: none; opacity: .6; } }
+
+/* A busy button keeps its width: the label stays (invisible) and the beat with its words sits over it. */
+[data-pending] { position: relative; }
+[data-pending] > .nb-btn-hold { display: inline-flex; align-items: center; gap: inherit; visibility: hidden; }
+.nb-btn-busy { position: absolute; inset: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding-inline: inherit; white-space: nowrap; overflow: hidden; }
+
+/* Uploads: one square-ended bar, the percent in mono beside it. */
+.nb-upload-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.nb-upload-bar > .track { flex: 1; min-width: 24px; height: 4px; overflow: hidden; border-radius: 1px; background: var(--border); }
+.nb-upload-bar > .track > .fill { display: block; height: 100%; background: var(--nb-brand); transition: width 160ms var(--nb-ease, ease); }
+.nb-upload-bar > .pct { font: 11px var(--font-mono, ui-monospace), ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+.nb-upload-bar.is-on-image > .track { background: rgb(255 255 255 / 35%); }
+.nb-upload-bar.is-on-image > .track > .fill { background: #fff; }
+.nb-upload-bar.is-on-image > .pct { color: #fff; }
+
+/* Saved in place: a tick that pops once, beside what saved. */
+.nb-saved { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--status-success); animation: nb-pf-pop 260ms var(--nb-ease) both; }
+.nb-saved > svg { animation: nb-saved-tick 300ms var(--nb-ease) both; }
+@keyframes nb-saved-tick { from { transform: scale(.4); opacity: 0; } }
+html[data-reduce-motion="true"] .nb-saved, html[data-reduce-motion="true"] .nb-saved > svg { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .nb-saved, .nb-saved > svg { animation: none; } }
+
+/* A wait that has no skeleton shape (a tree branch, a sentinel, a small panel): the beat, then what is loading. */
+.nb-waiting { display: flex; align-items: center; gap: 8px; }
+span.nb-waiting { display: inline-flex; }
+
+/* The pixel burst: eight brand squares step out from a tile once and fade (replaces confetti). */
+.nb-pixel-burst { position: absolute; inset: 0; pointer-events: none; }
+.nb-pixel-burst > i { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; background: var(--nb-brand); opacity: 0; animation: nb-burst 620ms var(--nb-ease) calc(var(--i) * 18ms + 200ms) both; }
+@keyframes nb-burst { 0% { opacity: 0; transform: none; } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(calc(var(--x) * 34px), calc(var(--y) * 34px)); } }
+html[data-reduce-motion="true"] .nb-pixel-burst { display: none; }
+@media (prefers-reduced-motion: reduce) { .nb-pixel-burst { display: none; } }
+
+/* Empty states take the profile's empty look everywhere: dashed edge, the 16px paper grid, centred. */
+.nb-empty-state { border-radius: var(--radius-lg); background-color: transparent; background-size: 16px 16px; background-image: linear-gradient(color-mix(in srgb, var(--border) 45%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--border) 45%, transparent) 1px, transparent 1px); }
+.nb-empty-figure { display: block; width: 44px; height: 44px; margin: 0 auto 14px; overflow: hidden; border-radius: 6px; }
+.nb-empty-figure svg { display: block; width: 100%; height: 100%; }
+/* Empty states use a calm ink-on-paper figure, not an identity's colours (it stands for "someone", not a person). */
+.nb-empty-figure svg > rect:first-child { fill: var(--muted); }
+.nb-empty-figure svg > :is(path, g) { fill: color-mix(in srgb, var(--foreground) 62%, var(--muted)); }
+.nb-empty-only { display: inline-flex; align-items: center; gap: 5px; margin: 12px 0 0; font: 500 10.5px/1 var(--font-mono, ui-monospace), ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-foreground); }
+
+/* Counters: "7 / 80" in mono; brand near the limit, red past it. */
+.nb-count { font: 11px/1.4 var(--font-mono, ui-monospace), ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+.nb-count[data-near] { color: var(--nb-brand); }
+.nb-count[data-over] { color: var(--destructive); }
+
+/* Native selects all share the field's chevron (spec §10), whatever classes size them. */
+@layer base {
+  select:not([multiple]):not([size]) { appearance: none; -webkit-appearance: none; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%), linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat; cursor: pointer; }
+}
+/* One keyboard-hint shape everywhere; its colours follow where it sits. */
+:where(kbd) { padding: 1px 5px; border-radius: 3px; font-family: var(--font-mono, ui-monospace), ui-monospace, monospace; font-size: 10.5px; font-weight: 500; line-height: 1.4; }

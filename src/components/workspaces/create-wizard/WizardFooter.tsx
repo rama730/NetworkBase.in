@@ -1,6 +1,7 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight} from "lucide-react";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 
@@ -71,7 +72,7 @@ export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSav
             // Invisible hit padding keeps a 44px tap target without making the status line taller (spec §05).
             className="relative inline-flex items-center gap-1 rounded-sm font-medium after:absolute after:-inset-x-2 after:-inset-y-3 after:content-[''] text-foreground underline-offset-2 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           >
-            {isSavingDraft ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : null}
+            {isSavingDraft ? <PixelBeat /> : null}
             Save now
           </button>
         </div>
@@ -79,14 +80,13 @@ export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSav
         {/* Continue / Submit button: full-width on mobile, right on desktop */}
         <div className="order-2 flex items-center justify-end sm:order-3 sm:justify-self-end">
           {isLastPhase ? (
-            <Button
+            <Button pending={isSubmitting}
               type="submit"
               form="create-project-form"
               disabled={isSubmitting || isPhaseTransitioning || !isReviewReady}
               aria-busy={isSubmitting || isPhaseTransitioning}
               className="w-full min-w-[140px] sm:w-auto"
             >
-              {isSubmitting ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
               {isSubmitting ? "Creating…" : isReviewReady ? createLabel : "Preparing review…"}
             </Button>
           ) : (

@@ -1,4 +1,5 @@
 'use client'
+import { CharCount } from "@/components/ui/CharCount";
 
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -109,7 +110,7 @@ export default function UsernameInput({ value, onChange, onCheck, suggestFor, se
                 </div>
             ) : null}
 
-            <p className="font-mono text-[12px] text-muted-foreground">{value.length}/20 characters</p>
+            <p><CharCount value={value.length} max={20} /></p>
         </div>
     )
 }

@@ -75,7 +75,7 @@ function SearchSkeletons() {
             <span className="sr-only">Loading search previews…</span>
             {[0, 1, 2].map((item) => (
                 <div key={item} className="flex items-start gap-3 rounded-[8px] border border-border/60 bg-card p-3" aria-hidden="true">
-                    <Skeleton className="size-10 shrink-0 rounded-[5px]" />
+                    <Skeleton kind="tile" className="size-10 shrink-0 rounded-[5px]" />
                     <div className="min-w-0 flex-1 space-y-2">
                         <Skeleton className="h-3 w-1/3 rounded-[3px]" />
                         <Skeleton className="h-2.5 w-3/4 rounded-[3px]" />

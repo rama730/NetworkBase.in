@@ -1,22 +1,10 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
-import {
-    ChevronDown,
-    ChevronUp,
-    Globe2,
-    ImagePlus,
-    Link2,
-    ListTodo,
-    Loader2,
-    Paperclip,
-    RefreshCw,
-    Timer,
-    Users,
-    X,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Globe2, ImagePlus, Link2, ListTodo, Paperclip, Timer, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { MultiAttachmentPicker } from "@/components/workspaces/v2/files-tab/picker/MultiAttachmentPicker";
@@ -748,7 +736,7 @@ export function WorkspaceUpdateComposer({
                         <div className="rounded-[6px] border border-border bg-muted/20 p-2.5 text-xs">
                             {linkPreviewQuery.isFetching ? (
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                                    <PixelBeat />
                                     <span>Finding the site name…</span>
                                 </div>
                             ) : linkPreview?.title ? (
@@ -798,7 +786,7 @@ export function WorkspaceUpdateComposer({
                             />
                             {linkPreviewQuery.isFetching ? (
                                 <span className="flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border border-border bg-muted/30 text-muted-foreground">
-                                    <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                                    <PixelBeat />
                                 </span>
                             ) : null}
                         </div>
@@ -1007,7 +995,7 @@ export function WorkspaceUpdateComposer({
                                 >
                                     Discard
                                 </Button>
-                                <Button
+                                <Button pending={isPosting}
                                     type="button"
                                     disabled={disabled || Boolean(orgControls?.blockedReason)}
                                     title={orgControls?.blockedReason ?? undefined}
@@ -1027,7 +1015,6 @@ export function WorkspaceUpdateComposer({
                                     }}
                                     className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
                                 >
-                                    {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                     {orgControls?.postLabel ?? "Post"}
                                 </Button>
                             </div>

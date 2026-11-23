@@ -1,22 +1,9 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import {
-  ExternalLink,
-  Download,
-  AlertTriangle,
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Layers,
-  FileText,
-  Loader2,
-  Bookmark,
-} from "lucide-react";
+import { ExternalLink, Download, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Layers, FileText, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkspaceNode } from "@/lib/db/schema";
@@ -454,7 +441,7 @@ export function PdfViewerDriver({
           className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
           title="Reload PDF"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${isRetrying ? "animate-spin" : ""}`} />
+          {isRetrying ? <PixelBeat /> : <RefreshCw className="h-3.5 w-3.5" />}
         </Button>
 
         <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
@@ -504,7 +491,7 @@ export function PdfViewerDriver({
         ) : viewMode === "canvas" ? (
           <div className="h-full w-full overflow-auto flex items-center justify-center p-6">
             {isCanvasLoading ? (
-              <div className="w-full max-w-2xl space-y-4 p-8 bg-card rounded-xl border border-border/60 shadow-xs animate-pulse">
+              <div className="w-full max-w-2xl space-y-4 p-8 bg-card rounded-xl border border-border/60 shadow-xs">
                 <Skeleton className="h-6 w-1/3 rounded-md mb-4" />
                 <Skeleton className="h-4 w-full rounded-[3px]" />
                 <Skeleton className="h-4 w-11/12 rounded-[3px]" />

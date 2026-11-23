@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useMemo, useRef, useState } from "react";
 import { toast } from "@/lib/feedback";
@@ -7,7 +8,6 @@ import {
   CheckSquare,
   Copy,
   Edit2,
-  Loader2,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -222,7 +222,7 @@ export default function SubtasksTab({
           )}
         >
           {pending ? (
-            <Loader2 className="size-3 animate-spin" />
+            <PixelBeat />
           ) : subtask.completed ? (
             <Check className="size-3 stroke-[2.5]" />
           ) : null}
@@ -541,7 +541,7 @@ export default function SubtasksTab({
               className="nb-touch-target inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSubmitting ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <PixelBeat />
               ) : (
                 <Plus className="size-3.5" />
               )}

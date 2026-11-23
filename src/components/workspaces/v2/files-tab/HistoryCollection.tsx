@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -154,7 +155,7 @@ function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
               ))}
               {list.hasNextPage ? (
                 <div className="flex justify-center py-3">
-                  <button type="button" className={stripButton} disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{list.isFetchingNextPage ? "Loading…" : "Older saves"}</button>
+                  <button type="button" className={stripButton} disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{list.isFetchingNextPage ? <><PixelBeat />Loading…</> : "Older saves"}</button>
                 </div>
               ) : null}
             </>
@@ -164,7 +165,7 @@ function SaveList({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
               <section role="rowgroup" aria-label={`On main before ${branch} began`}>
                 <div className="px-4 pb-1 pt-3"><RailSectionHeading title={`On main before ${branch} began`} /></div>
                 {before.isLoading ? <FolderListLoading /> : mainSaves.length ? mainSaves.map((s) => <SaveRow key={s.id} s={s} onOpen={() => onOpen(s.id)} />) : <FolderListEmpty plain message={path ? `No saves on main touched ${path}` : "No saves on main before it"} />}
-                {before.hasNextPage ? <div className="flex justify-center py-3"><button type="button" className={stripButton} disabled={before.isFetchingNextPage} onClick={() => void before.fetchNextPage()}>{before.isFetchingNextPage ? "Loading…" : "Older saves"}</button></div> : null}
+                {before.hasNextPage ? <div className="flex justify-center py-3"><button type="button" className={stripButton} disabled={before.isFetchingNextPage} onClick={() => void before.fetchNextPage()}>{before.isFetchingNextPage ? <><PixelBeat />Loading…</> : "Older saves"}</button></div> : null}
               </section>
             ) : (
               <div className="flex justify-center py-3"><button type="button" className={stripButton} onClick={() => setShowMain(true)}>Main’s saves before {branch} began</button></div>
@@ -323,7 +324,7 @@ export function DiffView({ query, label, path, renamedOnly = false }: { query: {
   return (
     <div className="p-3">
       <p className="mb-2 truncate font-mono text-[11px] text-muted-foreground">{label}</p>
-      {query.isLoading ? <div className="h-40 animate-pulse rounded-[5px] bg-muted" aria-busy="true" /> : query.isError || !data ? (
+      {query.isLoading ? <div className="h-40 nb-skeleton rounded-[4px]" aria-busy="true" /> : query.isError || !data ? (
         <p role="alert" className="text-sm text-destructive">{query.error instanceof Error ? query.error.message : "Couldn’t load the diff"}</p>
       ) : data.kind === "text" ? (
         <pre className="overflow-x-auto rounded-[5px] border border-border font-mono text-xs leading-5">

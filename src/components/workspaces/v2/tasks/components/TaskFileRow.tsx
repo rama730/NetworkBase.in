@@ -271,7 +271,7 @@ export function TaskFileRow({
                 onChange={(e) => setEditLabelValue(e.target.value)}
                 onBlur={commitLabelEdit}
                 onKeyDown={handleKeyDown}
-                placeholder="Label..."
+                placeholder="Label…"
                 className="w-24 bg-transparent text-[11px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
               />
               <button

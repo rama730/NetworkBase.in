@@ -313,7 +313,7 @@ export function BranchBar({ projectId, compare, onCompare }: { projectId: string
                 <DropdownMenuItem className={itemClass} onSelect={() => void downloadFile(`/api/v1/branches/${b.id}/zip`, { filename: `${zipName(b.name)}.zip` })}><Download className="mr-2 size-3.5" />Download as zip</DropdownMenuItem>
                 {canEdit ? <DropdownMenuItem className={itemClass} onSelect={() => { setNewName(b.name); setRenaming(true); }}><Pencil className="mr-2 size-3.5" />Rename</DropdownMenuItem> : null}
                 {canEdit ? <DropdownMenuSeparator /> : null}
-                {canEdit ? <DropdownMenuItem className={cn(itemClass, "text-destructive")} onSelect={() => setConfirmDelete(true)}><Trash2 className="mr-2 size-3.5" />Delete branch</DropdownMenuItem> : null}
+                {canEdit ? <DropdownMenuItem variant="destructive" className={cn(itemClass, "")} onSelect={() => setConfirmDelete(true)}><Trash2 className="mr-2 size-3.5" />Delete branch</DropdownMenuItem> : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </span>
@@ -527,7 +527,7 @@ function BranchFolder({ projectId, branch, folder }: { projectId: string; branch
       <DropdownMenuContent align="end" className={cn(menuClass, "w-48")}>
         <DropdownMenuItem className={itemClass} onSelect={() => void downloadFile(isFolder ? `/api/v1/branches/${branch.id}/zip?path=${encodeURIComponent(path)}` : `/api/v1/branches/${branch.id}/raw?path=${encodeURIComponent(path)}`, { filename: isFolder ? `${zipName(branch.name)}-${zipName(path.split("/").pop()!)}.zip` : path.split("/").pop()! })}><Download className="mr-2 size-3.5" />{isFolder ? "Download as zip" : "Download"}</DropdownMenuItem>
         {write ? <DropdownMenuItem className={itemClass} onSelect={() => { setMoving(path); setMoveTo(path); }}><Pencil className="mr-2 size-3.5" />Rename or move</DropdownMenuItem> : null}
-        {write ? <DropdownMenuItem className={cn(itemClass, "text-destructive")} onSelect={() => setDeleting(path)}><Trash2 className="mr-2 size-3.5" />Delete</DropdownMenuItem> : null}
+        {write ? <DropdownMenuItem variant="destructive" className={cn(itemClass, "")} onSelect={() => setDeleting(path)}><Trash2 className="mr-2 size-3.5" />Delete</DropdownMenuItem> : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -858,7 +858,7 @@ export function BranchTree({ projectId }: { projectId: string }) {
     }
     return top;
   }, [paths.data]);
-  if (paths.isLoading || branch.isLoading) return <div className="space-y-1 p-2" aria-busy="true">{[0, 1, 2, 3].map((i) => <div key={i} className="h-6 animate-pulse rounded-[3px] bg-muted" />)}</div>;
+  if (paths.isLoading || branch.isLoading) return <div className="space-y-1 p-2" aria-busy="true">{[0, 1, 2, 3].map((i) => <div key={i} className="h-6 nb-skeleton rounded-[3px]" />)}</div>;
   if (paths.isError) return <p role="alert" className="p-3 text-xs text-destructive">Couldn’t load this branch’s files.</p>;
   const toggle = (path: string) => setOpen((o) => { const n = new Set(o); if (n.has(path)) n.delete(path); else n.add(path); return n; });
   const rowClass = (on: boolean) => cn("flex w-full items-center gap-1.5 py-1 pr-2 text-left text-xs text-foreground hover:bg-[#F3F0EA] dark:hover:bg-white/5", on && "bg-[#F3F0EA] font-medium dark:bg-white/10");

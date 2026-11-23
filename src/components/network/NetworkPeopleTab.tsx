@@ -149,10 +149,11 @@ export default function NetworkPeopleTab({
         return (
             <EmptyState
                 icon={Users}
+                figure={filtered ? undefined : "person"}
                 title={
                     filtered
-                        ? "No people match your search or filters."
-                        : "No suggestions yet."
+                        ? "No people match your search or filters"
+                        : "No suggestions yet"
                 }
                 description={
                     filtered

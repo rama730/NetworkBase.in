@@ -1,8 +1,8 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import dynamic from "next/dynamic";
 import React, { useCallback, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { getWorkspaceNodes } from "@/app/actions/files/nodes";
 import { updateTaskNodeLink } from "@/app/actions/files/links";
@@ -302,7 +302,7 @@ export function TaskFilesExplorer({
                   className="flex items-center gap-2 py-2 pl-8 text-xs text-muted-foreground"
                   style={{ paddingLeft: `${16 + (level + 1) * 20}px` }}
                 >
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <PixelBeat />
                   Loading…
                 </div>
               )}

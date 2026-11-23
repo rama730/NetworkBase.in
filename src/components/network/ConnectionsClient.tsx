@@ -116,7 +116,7 @@ export default function ConnectionsClient({
         try {
             await toast
                 .promise(disconnect.mutateAsync(pendingDisconnect.id), {
-                    loading: "Disconnecting...",
+                    loading: "Disconnecting…",
                     success: "Connection removed",
                     error: (error) =>
                         error instanceof Error
@@ -170,9 +170,10 @@ export default function ConnectionsClient({
         return (
             <EmptyState
                 icon={Users}
+                figure={filtered ? undefined : "person"}
                 title={
                     filtered
-                        ? "No connections match your search or filters."
+                        ? "No connections match your search or filters"
                         : "Your connections live here"
                 }
                 description={

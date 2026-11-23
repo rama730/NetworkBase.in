@@ -1,4 +1,5 @@
 "use client";
+import { UploadBar } from "@/components/ui/UploadBar";
 
 import React, { createContext, useContext, useCallback, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -90,12 +91,7 @@ export function FileTransfersProvider({
             {jobs.map((job) => (
               <li key={job.id} className="space-y-2 py-3 text-sm">
                 <p className="break-words font-medium">{job.label}</p>
-                <progress
-                  className="h-2 w-full rounded-[2px]"
-                  value={job.completed}
-                  max={Math.max(1, job.total)}
-                  aria-label={`Upload progress: ${job.label}`}
-                />
+                <UploadBar value={job.completed} max={job.total} label={`Upload progress: ${job.label}`} showPercent />
                 <p className="text-muted-foreground">
                   {job.status === "running"
                     ? "Uploading"

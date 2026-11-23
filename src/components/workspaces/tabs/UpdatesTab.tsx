@@ -9,10 +9,7 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import { Virtuoso } from "react-virtuoso";
-import {
-    Loader2,
-    MessageCircle,
-} from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { createWorkspaceUpdateAction, readWorkspaceUpdateAction, readWorkspaceUpdatesAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
@@ -606,16 +603,13 @@ export default function UpdatesTab({
 
         {updatesQuery.hasNextPage ? (
           <div className="px-1 py-4">
-            <Button
+            <Button pending={updatesQuery.isFetchingNextPage}
               type="button"
               variant="outline"
               className="w-full rounded-[5px] font-mono text-xs uppercase tracking-wider"
               onClick={() => updatesQuery.fetchNextPage()}
               disabled={updatesQuery.isFetchingNextPage}
             >
-              {updatesQuery.isFetchingNextPage ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : null}
               Load more updates
             </Button>
           </div>

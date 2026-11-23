@@ -42,7 +42,7 @@ export default function TrustedBrowsers() {
     }
 
     if (error) return <p className="text-sm text-[var(--status-danger)]">{error}</p>
-    if (!browsers) return <div className="h-11 animate-pulse rounded-md bg-muted" aria-busy="true" />
+    if (!browsers) return <div className="h-11 nb-skeleton rounded-[4px]" aria-busy="true" />
     if (browsers.length === 0) {
         return <p className="text-sm text-muted-foreground">No browser skips the code. Tick “Trust this browser for 30 days” when you enter your code to add one.</p>
     }

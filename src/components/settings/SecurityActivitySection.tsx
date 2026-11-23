@@ -252,8 +252,8 @@ export default function SecurityActivitySection({ activity, hasMore = false, ava
           </Button>
         ) : null}
         {more && (showAll || items.length <= DEFAULT_VISIBLE_ITEMS) ? (
-          <Button variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => void loadOlder()} disabled={loadingOlder}>
-            {loadingOlder ? "Loading…" : "Load older events"}
+          <Button pending={loadingOlder} pendingLabel="Loading" variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => void loadOlder()} disabled={loadingOlder}>
+            {"Load older events"}
           </Button>
         ) : null}
       </div>

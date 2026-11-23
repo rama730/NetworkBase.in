@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,6 +11,8 @@ import type { MyProfileOrganization } from "@/app/actions/organizations";
 // Loaded when the dialog is used, so the profile card never pulls server actions into its first render.
 const actions = () => import("@/app/actions/organizations");
 import { Button } from "@/components/ui/button";
+import { SavedTick } from "@/components/ui/SavedTick";
+import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { profileEditHref } from "@/lib/profile/edit-route";
 import { toast } from "@/lib/feedback";
@@ -21,13 +24,14 @@ export function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolea
   const router = useRouter();
   const [rows, setRows] = useState<MyProfileOrganization[] | null>(null);
   const [pending, startTransition] = useTransition();
+  const [savedAt, setSavedAt] = useState(0);
   useEffect(() => {
     if (!open) return;
     let live = true;
     void actions().then((m) => m.readMyProfileOrganizationsAction()).then((r) => { if (live) setRows(r); });
     return () => { live = false; };
   }, [open]);
-  const saved = () => toast.success("Saved");
+  const saved = () => setSavedAt(Date.now());
   const toggle = (row: MyProfileOrganization) => startTransition(async () => {
     const result = await (await actions()).updateMyOrgMembershipAction(row.orgId, { show_on_profile: !row.showOnProfile });
     if (!result.success) return void toast.error(result.error);
@@ -51,7 +55,7 @@ export function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolea
           <DialogTitle>Manage organizations</DialogTitle>
           <DialogDescription>Turning one off hides it, its contribution and its workspaces from others. Nothing is deleted.</DialogDescription>
         </DialogHeader>
-        {rows === null ? <p className="text-sm text-muted-foreground">Loading…</p> : rows.length === 0 ? (
+        {rows === null ? <p role="status" className="nb-waiting text-sm text-muted-foreground"><PixelBeat />Loading your organizations…</p> : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">You’re not in an organization yet. <Link href="/join" className="text-primary hover:underline">Join with code</Link></p>
         ) : (
           <ul className="divide-y divide-border">
@@ -64,7 +68,7 @@ export function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolea
                 <WorkspaceAvatar project={{ id: row.orgId, title: row.title, coverImage: row.coverImage }} size="row" kind="organization" />
                 <span className="min-w-0 flex-1"><span className="block truncate font-medium">{row.title}</span><span className="text-[12px] text-muted-foreground">{row.role}</span></span>
                 <label className="flex items-center gap-1.5 text-[13px]">
-                  <input type="checkbox" role="switch" checked={row.showOnProfile} disabled={pending} onChange={() => toggle(row)} aria-label={`Show ${row.title} on my profile`} />
+                  <SettingsSwitch checked={row.showOnProfile} disabled={pending} onCheckedChange={() => toggle(row)} aria-label={`Show ${row.title} on my profile`} />
                   Show
                 </label>
                 <Link href={profileEditHref("experience", "overview", { contribution: row.contributionId ?? undefined })} className="text-[13px] text-primary hover:underline">Edit contribution</Link>
@@ -73,7 +77,7 @@ export function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolea
           </ul>
         )}
         <p className="text-[12px] text-muted-foreground">Private organizations show only to you and their members.</p>
-        <div className="flex justify-end"><Button type="button" onClick={() => onOpenChange(false)}>Done</Button></div>
+        <div className="flex items-center justify-end gap-3">{savedAt && !pending ? <SavedTick key={savedAt} /> : null}<Button type="button" onClick={() => onOpenChange(false)}>Done</Button></div>
       </DialogContent>
     </Dialog>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -58,7 +59,7 @@ export function AgentSettings({ projectId }: { projectId: string }) {
   return (
     <SettingsCard title="AI agents" description="What Claude Code, Codex and other agents signed in to this workspace may change without asking.">
       {settings.isPending ? (
-        <p role="status" className="nb-compact text-muted-foreground">Loading agent settings…</p>
+        <p role="status" className="nb-waiting nb-compact text-muted-foreground"><PixelBeat />Loading agent settings…</p>
       ) : settings.isError ? (
         <p role="alert" className="nb-compact text-destructive">
           Couldn’t load agent settings.{" "}

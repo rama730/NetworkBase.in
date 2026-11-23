@@ -1,4 +1,5 @@
 'use client';
+import { CharCount } from "@/components/ui/CharCount";
 
 import React, { useCallback, useId, useState } from "react";
 import {
@@ -256,7 +257,7 @@ export function ChipEditor({
         <div className="min-w-0">
             <div className="flex items-center justify-between gap-3">
                 <label className="nb-ui-label text-foreground">{label}</label>
-                <span className="nb-compact text-muted-foreground">{values.length}/{limit}</span>
+                <CharCount value={values.length} max={limit} />
             </div>
             {description ? (
                 <p className="nb-compact mt-1 text-muted-foreground">{description}</p>

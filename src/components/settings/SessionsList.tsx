@@ -1,9 +1,10 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { Loader2, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast, feedbackError } from "@/lib/feedback";
@@ -143,7 +144,7 @@ export function SessionsList({
           >
             {busy && (pendingAction?.type === "others" || stepUpOpen) ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <PixelBeat />
                 Signing out…
               </>
             ) : (
@@ -231,8 +232,8 @@ export function SessionsList({
       )}
 
       {nextOffset !== null ? (
-        <Button variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => void loadMore()} disabled={loadingMore}>
-          {loadingMore ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Loading…</> : "Show more devices"}
+        <Button pending={loadingMore} pendingLabel="Loading" variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => void loadMore()} disabled={loadingMore}>
+          {"Show more devices"}
         </Button>
       ) : null}
 

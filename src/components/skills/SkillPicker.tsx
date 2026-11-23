@@ -1,7 +1,8 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Loader2, Plus, Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { defaultClientSkills, resolveClientSkill, useSkillCatalog, type SkillCatalog } from '@/lib/skills/client'
 import { normalizeSkillLookup } from '@/lib/skills/normalization'
@@ -277,7 +278,7 @@ export function SkillPicker({
                     )}
                     disabled={value.length >= maxSkills}
                 />
-                {loading ? <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-label="Searching skills" /> : null}
+                {loading ? <PixelBeat className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" label="Searching skills" /> : null}
             </div>
 
             {/* Category Navigation Bar: Single-row horizontal scroll to avoid multi-line wrapping */}

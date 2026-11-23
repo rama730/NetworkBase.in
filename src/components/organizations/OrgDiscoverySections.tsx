@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from 'reac
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, Check, Clock, Code2, Copy, Mail, UserCheck } from 'lucide-react'
+import { Building2, Check, Clock, Code2, Mail, UserCheck } from 'lucide-react'
 
 import { renameOrgHandleAction } from '@/app/actions/organizations'
 import { askParentOrgAction, cancelOrgVerificationAction, checkOrgProofAction, confirmOrgEmailCodeAction, requestOrgEmailCodeAction, requestOrgVerificationAction, searchParentOrgsAction } from '@/app/actions/trust'
@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 import { fieldError, fieldHint, fieldLabel } from '@/lib/organizations/display'
 import { Notice } from '@/components/ui/notice'
 import { VerifiedMark } from '@/components/organizations/org-ui'
-import { copyText } from '@/lib/clipboard';
+import { CopyButton } from '@/components/ui/copy-button';
 
 // Settings → Visibility and discovery (2026-11-05-org-address-discovery-verification-findings.md §4, §5, §10): how
 // outsiders find the organization — On Discover, the Web address and the Verified badge, each split by a hairline
@@ -32,7 +32,6 @@ const helpClass = fieldHint
 const linkClass = 'nb-link text-[13px]'
 const SITE = 'networkbase.in'
 
-const copy = (text: string, done: string) => void copyText(text).then(() => toast.success(done), () => toast.error('Couldn’t copy. Select it and copy it yourself.'))
 
 /** One part of the rule: ✓ when met, otherwise what's missing and its action. */
 function Part({ met, label, missing, action }: { met: boolean; label: string; missing: string; action?: ReactNode }) {
@@ -112,7 +111,7 @@ export function OrgWebAddress({ orgId, organization, role, handle }: { orgId: st
             <p className={helpClass}>The link you share with people. It isn’t how they join; that’s the join code.</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="nb-meta min-w-0 break-all text-foreground">{link}</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => copy(`https://${link}`, 'Link copied')}><Copy className="size-3.5" aria-hidden="true" />Copy</Button>
+                <CopyButton text={`https://${link}`} />
             </div>
             {isOwner ? (
                 <div className="mt-3">
@@ -297,7 +296,7 @@ function CodeStart({ orgId, organization, pending, run, onOpenSection }: { orgId
         <div className="space-y-3 text-[13px]">
             <div className="flex flex-wrap items-center gap-2">
                 <code className="rounded-md bg-muted px-2 py-1 font-mono text-[13px] text-foreground">{code}</code>
-                <Button type="button" size="sm" variant="outline" onClick={() => copy(code, 'Code copied')}><Copy className="size-3.5" aria-hidden="true" />Copy</Button>
+                <CopyButton text={code} />
             </div>
             <ul className="space-y-2 text-muted-foreground">
                 <li className="flex flex-wrap items-center justify-between gap-2"><span><span className="font-medium text-foreground">Website:</span> put the code anywhere on your home page, for example in a footer or a meta tag.</span>

@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, { useEffect, useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   ChevronRight,
   Folder,
   FolderOpen,
-  Loader2,
   Plus,
   Search,
 } from "lucide-react";
@@ -333,7 +333,7 @@ export function FolderPicker({
               className="px-2 py-1.5 text-xs text-zinc-500"
               style={{ paddingLeft: `${(level + 1) * 14 + 8}px` }}
             >
-              <Loader2 className="w-3.5 h-3.5 animate-spin inline-block mr-2" />
+              <PixelBeat className="mr-2" />
               Loading…
             </div>
           ) : page?.error ? (
@@ -360,7 +360,7 @@ export function FolderPicker({
                   className="py-1.5 text-xs text-[#D14E24] hover:underline disabled:opacity-50"
                   style={{ marginLeft: `${(level + 1) * 14 + 8}px` }}
                 >
-                  {page.loading ? "Loading…" : "Load more folders"}
+                  {page.loading ? <><PixelBeat />Loading…</> : "Load more folders"}
                 </button>
               ) : null}
             </>
@@ -421,7 +421,7 @@ export function FolderPicker({
         {query.trim().length >= 2 ? (
           searching ? (
             <div className="flex items-center gap-2 p-3 text-sm text-zinc-500">
-              <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+              <PixelBeat /> Searching…
             </div>
           ) : searchError ? (
             <div className="p-3 text-sm text-rose-600">{searchError}</div>
@@ -474,7 +474,7 @@ export function FolderPicker({
             </button>
             {rootPage?.loading && rootPage.nodes.length === 0 ? (
               <div className="flex items-center gap-2 p-3 text-sm text-zinc-500">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading folders…
+                <PixelBeat /> Loading folders…
               </div>
             ) : rootPage?.error ? (
               <button
@@ -498,7 +498,7 @@ export function FolderPicker({
                 }
                 className="mx-3 my-2 text-xs text-[#D14E24] hover:underline disabled:opacity-50"
               >
-                {rootPage.loading ? "Loading…" : "Load more folders"}
+                {rootPage.loading ? <><PixelBeat />Loading…</> : "Load more folders"}
               </button>
             ) : null}
           </>

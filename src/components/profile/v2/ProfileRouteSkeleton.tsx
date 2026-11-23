@@ -8,7 +8,7 @@ export function ProfileRouteSkeleton() {
             <div aria-hidden="true" className="nb-pf-page">
                 <div className="nb-pf-band">
                     <div className="flex gap-4 p-5">
-                        <Skeleton className="size-20 shrink-0 rounded-[6px]" />
+                        <Skeleton kind="tile" className="size-20 shrink-0 rounded-[6px]" />
                         <div className="min-w-0 flex-1 space-y-2.5 pt-1">
                             <Skeleton className="h-8 w-56 max-w-full rounded-[4px]" />
                             <Skeleton className="h-4 w-40 rounded-[4px]" />

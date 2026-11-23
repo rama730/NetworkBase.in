@@ -1,7 +1,8 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
-import { Loader2, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -127,8 +128,8 @@ export function FileAccessMembers({
         </div>
       </div>
       {isLoading && !data ? (
-        <p role="status" className="nb-compact text-muted-foreground">
-          Loading file upload permissions…
+        <p role="status" className="nb-waiting nb-compact text-muted-foreground">
+          <PixelBeat />Loading file upload permissions…
         </p>
       ) : null}
       {!members.length && !isLoading ? (
@@ -186,10 +187,7 @@ export function FileAccessMembers({
               ) : (
                 <div className="flex shrink-0 items-center gap-2">
                   {saving ? (
-                    <Loader2
-                      className="size-4 animate-spin"
-                      aria-label="Saving permission"
-                    />
+                    <PixelBeat label="Saving permission" />
                   ) : null}
                   <SettingsSwitch
                     checked={member.fileUploadEnabled}
@@ -207,13 +205,13 @@ export function FileAccessMembers({
         })}
       </div>
       {data?.hasMore ? (
-        <Button
+        <Button pending={loadingMore} pendingLabel="Loading"
           type="button"
           variant="outline"
           onClick={onLoadMore}
           disabled={disabled}
         >
-          {loadingMore ? "Loading…" : "Load more members"}
+          {"Load more members"}
         </Button>
       ) : null}
       <details className="border-t border-border pt-4">

@@ -1,7 +1,8 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from 'react'
-import { Bot, Loader2 } from 'lucide-react'
+import { Bot} from 'lucide-react'
 
 import { changeAgentAccessAction, decideAgentAccessRequestAction, renewAgentAccessAction } from '@/app/actions/agent-access'
 import { AGENT_EXPIRY_CHOICES, AgentAccessPicker, agentAccessSentence, type AgentAccessValue, type AgentWorkspaceOption } from '@/components/agents/AgentAccessPicker'
@@ -99,7 +100,7 @@ export default function AgentAccessSettings({ view, workspaces, focusRequest, pr
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 {(['once', 'always', 'no'] as const).map((how) => (
                                     <Button key={how} type="button" size="sm" variant={how === 'once' ? 'default' : 'outline'} disabled={busy !== null} onClick={() => void answer(r.id, how)}>
-                                        {busy === `${r.id}:${how}` ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+                                        {busy === `${r.id}:${how}` ? <PixelBeat /> : null}
                                         {how === 'once' ? 'Allow once' : how === 'always' ? 'Always' : 'No'}
                                     </Button>
                                 ))}
@@ -119,8 +120,8 @@ export default function AgentAccessSettings({ view, workspaces, focusRequest, pr
                         <AgentAccessPicker value={choice} onChange={setChoice} workspaces={workspaces} />
                         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                             <Button type="button" variant="outline" onClick={() => setChanging(false)} disabled={busy === 'change'}>Cancel</Button>
-                            <Button type="button" onClick={() => void change()} disabled={busy === 'change'}>
-                                {busy === 'change' ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}Save access
+                            <Button pending={busy === 'change'} type="button" onClick={() => void change()} disabled={busy === 'change'}>
+                                Save access
                             </Button>
                         </div>
                     </div>
@@ -136,8 +137,8 @@ export default function AgentAccessSettings({ view, workspaces, focusRequest, pr
                             {AGENT_EXPIRY_CHOICES.map((d) => <option key={d} value={d}>{d} days</option>)}
                         </select>
                     </label>
-                    <Button type="button" variant="outline" size="sm" onClick={() => void renew()} disabled={busy === 'renew'}>
-                        {busy === 'renew' ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}Renew
+                    <Button pending={busy === 'renew'} type="button" variant="outline" size="sm" onClick={() => void renew()} disabled={busy === 'renew'}>
+                        Renew
                     </Button>
                 </div>
             </section>

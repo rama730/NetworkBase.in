@@ -11,13 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-    AlertTriangle,
-    Archive,
-    Crown,
-    Trash2,
-    Loader2,
-} from "lucide-react";
+import { AlertTriangle, Archive, Crown, Trash2 } from "lucide-react";
 import {
     type WorkspaceSettingsMember,
     getWorkspaceMemberDisplayName,
@@ -133,14 +127,14 @@ export function WorkspaceArchiveModal({
                     >
                         Cancel
                     </Button>
-                    <Button
+                    <Button pending={loading}
                         type="button"
                         variant={isArchived ? "default" : "destructive"}
                         onClick={onConfirmArchive}
                         disabled={loading}
                         className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
                     >
-                        {loading ? <Loader2 className="size-4 animate-spin" /> : <Archive className="size-4" />}
+                        <Archive className="size-4" />
                         {isArchived ? "Unarchive workspace" : "Archive workspace"}
                     </Button>
                 </DialogFooter>
@@ -301,14 +295,14 @@ export function WorkspaceTransferOwnershipModal({
                     >
                         Cancel
                     </Button>
-                    <Button
+                    <Button pending={loading}
                         type="button"
                         variant="destructive"
                         onClick={() => onConfirmTransfer(candidate)}
                         disabled={loading || !isConfirmed}
                         className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
                     >
-                        {loading ? <Loader2 className="size-4 animate-spin" /> : <Crown className="size-4" />}
+                        <Crown className="size-4" />
                         Transfer ownership
                     </Button>
                 </DialogFooter>
@@ -466,14 +460,14 @@ export function WorkspaceDeleteModal({
                     >
                         Cancel
                     </Button>
-                    <Button
+                    <Button pending={loading}
                         type="button"
                         variant="destructive"
                         onClick={onConfirmDelete}
                         disabled={loading || !isConfirmed}
                         className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
                     >
-                        {loading ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                        <Trash2 className="size-4" />
                         Delete workspace permanently
                     </Button>
                 </DialogFooter>

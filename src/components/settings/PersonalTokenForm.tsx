@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 
 import { createPersonalAccessToken, listTokenWorkspaces, type PersonalAccessTokenSummary } from "@/app/actions/personal-access-tokens";
 import { Button } from "@/components/ui/button";
@@ -105,8 +104,7 @@ export function PersonalTokenForm({ onCreated, onDone }: { onCreated: (token: Pe
           </select>
         </label>
       </div>
-      <Button size="sm" onClick={() => void create()} disabled={busy}>
-        {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+      <Button pending={busy} size="sm" onClick={() => void create()} disabled={busy}>
         Create token
       </Button>
     </div>

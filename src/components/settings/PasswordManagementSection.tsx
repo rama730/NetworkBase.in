@@ -1,10 +1,11 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { toast, feedbackError } from "@/lib/feedback";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff} from "lucide-react";
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from "@/components/auth/TurnstileWidget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -272,7 +273,7 @@ export default function PasswordManagementSection({
               <Button type="submit" disabled={isChangingPassword || !passwordPolicy.ok || breached === true}>
                 {isChangingPassword ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <PixelBeat />
                     Saving...
                   </>
                 ) : (

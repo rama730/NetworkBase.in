@@ -524,7 +524,7 @@ function SheetSkeleton(): React.JSX.Element {
       role="status"
       aria-busy="true"
       aria-label="Loading spreadsheet"
-      className="flex h-full w-full flex-col bg-background p-4 gap-3 animate-pulse select-none"
+      className="flex h-full w-full flex-col bg-background p-4 gap-3 select-none"
     >
       <div className="flex items-center justify-between border-b border-border/40 pb-3">
         <Skeleton className="h-5 w-48 rounded-[3px]" />

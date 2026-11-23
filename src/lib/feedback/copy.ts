@@ -241,7 +241,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "A new version must use the same file type": { "title": "A new version must use the same file type", "type": "warning" },
   "Couldn’t generate token": { "title": "Couldn’t generate token" },
   "Add a sign-in method first": { "title": "Add a sign-in method first", "description": "Before replacing GitHub.", "type": "warning" },
-  "Copied to clipboard": { "title": "Copied to clipboard" },
+  "Copied to clipboard": { "title": "Copied" },
   "Your legal acceptance was recorded": { "title": "Your legal acceptance was recorded" },
   "Couldn’t save preferences": { "title": "Couldn’t save preferences" },
   "Passwords do not match": { "title": "Passwords don’t match", "description": "Use the same password.", "type": "warning" },

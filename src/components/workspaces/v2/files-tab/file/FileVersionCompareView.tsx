@@ -1,7 +1,8 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import * as React from "react";
-import { X, ArrowRight, Loader2, Columns2, SlidersHorizontal, Image as ImageIcon, GitCompare } from "lucide-react";
+import { X, ArrowRight, Columns2, SlidersHorizontal, Image as ImageIcon, GitCompare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getFileVersionContentAction } from "@/app/actions/files/versions";
 
@@ -212,7 +213,7 @@ export function FileVersionCompareView({
   if (loading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center bg-background p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <PixelBeat className="text-muted-foreground" />
         <p className="mt-4 text-sm text-muted-foreground">Comparing…</p>
       </div>
     );

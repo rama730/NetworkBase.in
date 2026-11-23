@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { SharedOrgChip } from "@/components/organizations/SharedOrgChip";
 import { formatCount } from "@/lib/format-count";
@@ -8,7 +9,6 @@ import {
     Bell,
     CalendarDays,
     Eye,
-    Loader2,
     Link2,
     Lock,
     MapPin,
@@ -281,7 +281,7 @@ export function ProfileSearchResultCard({ result, onOpen, onConnect, isConnectin
                     className="nb-touch-target inline-flex h-[28px] shrink-0 items-center gap-1.5 self-center rounded-[5px] bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
                     aria-label={`Connect with ${result.title}`}
                 >
-                    {isConnecting ? <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden /> : <UserPlus className="size-3" aria-hidden />}
+                    {isConnecting ? <PixelBeat className="motion-reduce:animate-none" /> : <UserPlus className="size-3" aria-hidden />}
                     Connect
                 </button>
             ) : null}

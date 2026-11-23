@@ -92,7 +92,7 @@ export function SprintHeader({ sprint, permissions, isMutatingLifecycle, onEdit,
                 {permissions.canWrite && live ? (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onCancel}><XCircle aria-hidden="true" className="h-4 w-4" />Cancel sprint</DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onSelect={onCancel}><XCircle aria-hidden="true" className="h-4 w-4" />Cancel sprint</DropdownMenuItem>
                   </>
                 ) : null}
                 {permissions.canWrite && (phase === "closed" || phase === "canceled") ? (

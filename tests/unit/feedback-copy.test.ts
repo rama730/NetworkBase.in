@@ -49,3 +49,26 @@ test('catalog templates fill placeholders and match real text (decision 44)', as
   assert.equal(compactFeedback('Asha mentioned you', 'info').message, 'Asha mentioned you');
   for (const key of Object.keys(FEEDBACK_COPY)) assert.doesNotMatch(key, /Kavya|Fieldnotes|^\d|· \d/, key);
 });
+
+test("success wording is plain: no 'successfully' anywhere, 'Copied' not 'Copied to clipboard', capital first letter kept", () => {
+  assert.equal(compactFeedback("Copied to clipboard", "success").message, "Copied");
+  assert.equal(compactFeedback("Successfully saved your settings", "success").message, "Saved your settings");
+  assert.equal(compactFeedback("Saved successfully!", "success").message, "Saved");
+  assert.equal(compactFeedback("Profile was successfully updated.", "success").message, "Profile was updated.");
+});
+
+test('every error toast says what to do next: a plain failure gets "Try again", one with its own step keeps it', async () => {
+  const { toast, feedbackStore } = await import('../../src/lib/feedback');
+  const last = () => feedbackStore.getSnapshot().items.at(-1)!;
+  toast.error('Some internal thing broke');
+  assert.equal(last().title, 'Action couldn’t finish');
+  assert.equal(last().description, 'Try again. If it keeps happening, refresh the page.');
+  toast.error('Some internal thing broke', { retry: () => undefined });
+  assert.equal(last().action?.label, 'Retry');
+  assert.equal(last().description, undefined);
+  toast.error('Failed to fetch');
+  assert.equal(last().description, 'Check your connection and try again.');
+  toast.error('Some internal thing broke', { description: 'Ask an admin to unlock it.' });
+  assert.equal(last().description, 'Ask an admin to unlock it.');
+  toast.dismiss();
+});

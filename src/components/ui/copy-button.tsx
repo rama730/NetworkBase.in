@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/feedback";
 import { COPY_FAILED, copyText } from "@/lib/clipboard";
 
-/** Copy with one behaviour everywhere: the label says "Copied" for 2 seconds; a failure says what to do. */
+/** Copy with one behaviour everywhere: the icon turns into a tick and the label says "Copied" for 1.5 seconds; a failure says what to do. */
 export function CopyButton({ text, label = "Copy", size = "sm", variant = "outline", className }: { text: string; label?: string; size?: "sm" | "default"; variant?: "outline" | "ghost"; className?: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2_000);
+    const timer = setTimeout(() => setCopied(false), 1_500);
     return () => clearTimeout(timer);
   }, [copied]);
   return (

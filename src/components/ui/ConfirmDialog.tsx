@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -170,7 +169,7 @@ export function ConfirmDialog({
           >
             {cancelLabel}
           </Button>
-          <Button
+          <Button pending={busy}
             type="button"
             variant={variant === "destructive" ? "destructive" : "default"}
             className="w-full sm:min-w-[96px] sm:w-auto"
@@ -178,7 +177,6 @@ export function ConfirmDialog({
             disabled={busy}
             aria-busy={busy}
           >
-            {busy ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
             {busy ? (pendingLabel ?? confirmLabel) : confirmLabel}
           </Button>
         </DialogFooter>

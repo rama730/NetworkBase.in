@@ -1,9 +1,10 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { LEGAL_PAGE_NAMES } from "@/lib/copy/terms";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Download, ExternalLink, Loader2, Scale } from "lucide-react";
+import { CheckCircle2, Download, ExternalLink, Scale } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -131,7 +132,7 @@ export function LegalAndDataRightsSection({ inWorkspace = false }: { inWorkspace
         <div className="shrink-0">
           {loading ? (
             <span role="status" className="inline-flex items-center gap-1.5 nb-meta text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> Checking…
+              <PixelBeat /> Checking…
             </span>
           ) : fetchError ? (
             <span role="alert" className="inline-flex items-center gap-2">
@@ -183,17 +184,13 @@ export function LegalAndDataRightsSection({ inWorkspace = false }: { inWorkspace
               .
             </span>
           </label>
-          <Button
+          <Button pending={accepting}
             type="button"
             size="sm"
             disabled={!confirmed || !ageConfirmed || accepting}
             onClick={() => void acceptCurrentTerms()}
           >
-            {accepting ? (
-              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-            ) : (
-              <Scale className="mr-1.5 size-3.5" strokeWidth={1.75} />
-            )}
+            <Scale className="mr-1.5 size-3.5" strokeWidth={1.75} />
             Accept current terms
           </Button>
         </div>

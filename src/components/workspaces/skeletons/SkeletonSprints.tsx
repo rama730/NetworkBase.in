@@ -31,7 +31,7 @@ export function SkeletonSprints() {
                         <div className="flex flex-wrap items-center gap-2"><Skeleton className="h-5 w-20 rounded-[3px]" /><Skeleton className="h-4 w-36 rounded" /><Skeleton className="h-4 w-32 rounded" /></div>
                         <Skeleton className="h-4 w-3/4 max-w-3xl rounded" />
                     </div>
-                    <div className="flex shrink-0 items-center gap-3"><Skeleton className="h-4 w-12 rounded" /><Skeleton className="h-[34px] w-[72px] rounded-[5px]" /><Skeleton className="size-[34px] rounded-[5px]" /></div>
+                    <div className="flex shrink-0 items-center gap-3"><Skeleton className="h-4 w-12 rounded" /><Skeleton className="h-[34px] w-[72px] rounded-[5px]" /><Skeleton kind="tile" className="size-[34px] rounded-[5px]" /></div>
                 </header>
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border pb-3"><div className="flex flex-wrap items-center gap-3.5"><Skeleton className="h-4 w-16 rounded" /><Skeleton className="h-4 w-20 rounded" /><Skeleton className="h-4 w-16 rounded" /><Skeleton className="h-4 w-32 rounded" /></div><div className="flex items-center gap-2"><Skeleton className="h-1.5 w-24 rounded-[2px]" /><Skeleton className="h-3 w-8 rounded" /></div></div>
                 <ul className="overflow-hidden rounded-[8px] border border-border bg-card">

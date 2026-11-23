@@ -637,7 +637,7 @@ export function DocxViewerDriver({
         {/* Main Document Scroll Viewport */}
         <div className="flex-1 overflow-auto p-4 sm:p-8 flex">
         {loading && (
-          <div className="w-full max-w-3xl m-auto space-y-4 p-8 bg-card rounded-xl border border-border/60 shadow-xs animate-pulse">
+          <div className="w-full max-w-3xl m-auto space-y-4 p-8 bg-card rounded-xl border border-border/60 shadow-xs">
             <Skeleton className="h-7 w-2/3 rounded-md mb-6" />
             <Skeleton className="h-4 w-full rounded-[3px]" />
             <Skeleton className="h-4 w-11/12 rounded-[3px]" />

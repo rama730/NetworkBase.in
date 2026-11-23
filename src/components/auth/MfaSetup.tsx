@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,7 +9,6 @@ import {
   Copy,
   Download,
   KeyRound,
-  Loader2,
   Shield,
   ShieldCheck,
   Trash2,
@@ -497,7 +497,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
               <Button type="button" onClick={handleEnroll} disabled={enrolling}>
                 {enrolling ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <PixelBeat />
                     Preparing...
                   </>
                 ) : (
@@ -508,7 +508,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
               <Button type="button" onClick={handleVerify} disabled={verifying}>
                 {verifying ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <PixelBeat />
                     Verifying...
                   </>
                 ) : (

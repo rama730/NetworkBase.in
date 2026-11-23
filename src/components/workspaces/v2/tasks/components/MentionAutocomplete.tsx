@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 // ============================================================================
 // Task Panel - MentionAutocomplete
@@ -7,7 +8,6 @@
 // ============================================================================
 
 import * as React from "react";
-import { Loader2 } from "lucide-react";
 
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
@@ -108,7 +108,7 @@ export function MentionAutocomplete({
                 <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                     Mention teammates
                 </span>
-                {loading ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
+                {loading ? <PixelBeat className="text-muted-foreground" /> : null}
             </div>
 
             {error ? (

@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
 import * as sync from "@/app/actions/github-sync";
@@ -119,7 +120,7 @@ export function ContributorIdentitySection({
             onClick={() => void fetchOptions()}
           >
             {busy
-              ? "Loading verified emails…"
+              ? <span className="nb-waiting"><PixelBeat />Loading verified emails…</span>
               : identity
                 ? "Change email"
                 : "Choose verified email"}

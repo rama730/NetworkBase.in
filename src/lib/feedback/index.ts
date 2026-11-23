@@ -50,7 +50,13 @@ export function compactFeedback(message: ReactNode, type: FeedbackType, options:
   if (/sqlstate|postgres|constraint|database migration|stack trace|bearer\s|(?:token|secret|password)\s*[=:]|https?:\/\/[^\s]+[?&](?:token|key|signature)=/i.test(message)) {
     return { message: 'Action couldn’t finish', type: 'error' as const, options: { ...options, description: undefined } };
   }
-  const clean = message.replace(/\s+successfully[.!]?$/i, '').replace(/!$/, '').replace(/\.{3}$/, '…');
+  // Plain results (mix copy rules): no "successfully", no "!", "Copied" not "Copied to clipboard", a real ellipsis.
+  const clean = message
+    .replace(/^Successfully\s+(\w)/, (_m, c: string) => c.toUpperCase())
+    .replace(/\s+successfully(?=[\s.!]|$)/gi, '')
+    .replace(/\s+to (?:the |your )?clipboard(?=[.!]?$)/i, '')
+    .replace(/!$/, '')
+    .replace(/\.{3}$/, '…');
   return { message: clean, type, options };
 }
 
@@ -80,6 +86,8 @@ function emit(type: FeedbackType, message: Message, options: FeedbackOptions = {
       }
     : rest;
   const compact = compactFeedback(type === 'error' && typeof value === 'string' ? feedbackError(value) : value, type, withStep);
+  // An error with no step of its own still says what to do (small-things F4).
+  if (compact.type === 'error' && !compact.options.description && !compact.options.action) compact.options = { ...compact.options, description: 'Try again. If it keeps happening, refresh the page.' };
   return feedbackStore.put(compact.type, compact.message, compact.options);
 }
 

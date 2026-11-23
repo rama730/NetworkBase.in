@@ -1,4 +1,5 @@
 'use client';
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -48,7 +49,7 @@ import { useDocumentTitlePrefix } from '@/hooks/useDocumentTitlePrefix';
 // The thread (comments, composer) loads only when someone opens one.
 const DiscoverUpdateThread = dynamic(
     () => import('@/components/discover/DiscoverUpdateThread').then((mod) => mod.DiscoverUpdateThread),
-    { ssr: false, loading: () => <p role="status" className="nb-meta">Loading thread…</p> },
+    { ssr: false, loading: () => <p role="status" className="nb-waiting nb-meta"><PixelBeat />Loading thread…</p> },
 );
 
 interface DiscoverClientProps {
@@ -102,7 +103,7 @@ const FeedFooter: Components<DiscoverFeedItem, FeedContext>['Footer'] = ({ conte
                     <Button type="button" variant="outline" size="sm" onClick={context.retry} className="pointer-coarse:h-11">Retry</Button>
                 </>
             ) : context.loadingMore ? (
-                <span role="status" className="nb-meta">Loading more…</span>
+                <span role="status" className="nb-waiting nb-meta"><PixelBeat />Loading more…</span>
             ) : !context.hasMore ? (
                 // Trending and For you are a ranked top list, not every project.
                 <span role="status" className="nb-meta">{context.ranked ? "That’s the top of this list for now." : "You’ve seen everything here."}</span>
@@ -416,7 +417,7 @@ export default function DiscoverClient({
         if (view === FILTER_VIEWS.RECOMMENDATIONS) {
             return <EmptyState icon={Sparkles} title="No matches yet" description="Add skills and interests to your profile to get workspaces that fit you." action={<Button asChild variant="outline"><Link href={ROUTES.MY_PROFILE}>Edit your profile</Link></Button>} />;
         }
-        return <EmptyState icon={Compass} title={isDefault ? 'No workspaces yet' : 'No workspaces here yet'} description="Start one and invite people to build it with you." action={<Button asChild><Link href="/workspaces/new"><Plus className="size-4" aria-hidden="true" /> New workspace</Link></Button>} />;
+        return <EmptyState figure="workspace" title={isDefault ? 'No workspaces yet' : 'No workspaces here yet'} description="Start one and invite people to build it with you." action={<Button asChild><Link href="/workspaces/new"><Plus className="size-4" aria-hidden="true" /> New workspace</Link></Button>} />;
     })();
 
     const firstPageError = error && visibleProjects.length === 0 && !postsOnly;
@@ -518,7 +519,7 @@ export default function DiscoverClient({
                                     />
                                 </div>
                             ) : thread.loading ? (
-                                <p role="status" className="nb-meta">Loading update…</p>
+                                <p role="status" className="nb-waiting nb-meta"><PixelBeat />Loading update…</p>
                             ) : (
                                 <>
                                     {hasPeople ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" /> : null}

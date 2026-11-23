@@ -1,11 +1,12 @@
 'use client';
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCreateLocation, WherePicker } from '@/components/organizations/CreateLocation';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import dynamic from 'next/dynamic';
 import { useFormContext } from 'react-hook-form';
-import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, Loader2, RefreshCcw } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, RefreshCcw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast, feedbackError } from "@/lib/feedback";
 import type { CreateWorkspaceInput } from '@/lib/validations/workspace';
@@ -927,7 +928,7 @@ export default function Phase1SourceSelection({
                                         disabled={disabled}
                                         aria-expanded={isExpanded}
                                     >
-                                        {isLoading ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : isExpanded ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}
+                                        {isLoading ? <PixelBeat className="text-muted-foreground" /> : isExpanded ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}
                                         <Folder className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                                         <span className="min-w-0 truncate font-medium text-foreground">
                                             <span className="sr-only">Folder: </span>
@@ -960,8 +961,8 @@ export default function Phase1SourceSelection({
                             {isFolder && isExpanded && !disabled && (
                                 <div className="mt-1">
                                     {isLoading ? (
-                                        <div className={`py-2 text-xs text-muted-foreground ${TREE_INDENT_CLASSES[Math.min(depth + 1, TREE_INDENT_CLASSES.length - 1)]}`} role="status">
-                                            Loading…
+                                        <div className={`nb-waiting py-2 text-xs text-muted-foreground ${TREE_INDENT_CLASSES[Math.min(depth + 1, TREE_INDENT_CLASSES.length - 1)]}`} role="status">
+                                            <PixelBeat />Loading…
                                         </div>
                                     ) : (
                                         renderTree(children || [], depth + 1)
@@ -1060,7 +1061,7 @@ export default function Phase1SourceSelection({
                                     </h3>
                                     {isLoadingAuth ? (
                                         <span className="nb-status" data-status="archived">
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            <PixelBeat />
                                             Checking access
                                         </span>
                                     ) : githubAccountUnavailable && hasGithubIdentity ? (
@@ -1089,7 +1090,7 @@ export default function Phase1SourceSelection({
                                 </p>
                                 {isResumingGithubOAuth && (isLoadingAuth || isConnectingGithub) ? (
                                     <p className="nb-compact mt-3 flex items-center gap-2 text-muted-foreground" role="status">
-                                        <Loader2 className="size-3.5 animate-spin" />
+                                        <PixelBeat />
                                         GitHub is connected. Restoring your repository import…
                                     </p>
                                 ) : null}
@@ -1111,7 +1112,7 @@ export default function Phase1SourceSelection({
                                         >
                                             {isConnectingGithub ? (
                                                 <span className="inline-flex items-center gap-2">
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    <PixelBeat />
                                                     Redirecting to GitHub
                                                 </span>
                                             ) : 'Connect GitHub'}
@@ -1198,7 +1199,7 @@ export default function Phase1SourceSelection({
                                                 >
                                                     {isConnectingGithub ? (
                                                     <>
-                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                        <PixelBeat />
                                                         Refreshing access
                                                     </>
                                                 ) : (
@@ -1250,7 +1251,7 @@ export default function Phase1SourceSelection({
                                                     <div className="nb-compact px-3 py-5 text-muted-foreground">
                                                         {repoLoadedOnce
                                                             ? (repoQuery ? 'No repositories matched this search.' : 'No connected repositories were returned for this account.')
-                                                            : 'Loading connected repositories…'}
+                                                            : <span className="nb-waiting"><PixelBeat />Loading connected repositories…</span>}
                                                     </div>
                                                 ) : null}
                                                 {repoItems.map((item) => {
@@ -1281,7 +1282,7 @@ export default function Phase1SourceSelection({
                                         ) : null}
 
                                         {repoCursor ? (
-                                            <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={() => void loadRepositories(false, repoCursor)} disabled={isLoadingRepos}>
+                                            <Button pending={isLoadingRepos} pendingLabel="Loading" type="button" variant="ghost" size="sm" className="mt-3" onClick={() => void loadRepositories(false, repoCursor)} disabled={isLoadingRepos}>
                                                 Load more repositories
                                             </Button>
                                         ) : null}
@@ -1385,7 +1386,7 @@ export default function Phase1SourceSelection({
                                                 )}
                                                 {isLoadingBranches && (
                                                     <div className="nb-meta flex items-center gap-2 text-muted-foreground" role="status">
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                        <PixelBeat />
                                                         Loading branches…
                                                     </div>
                                                 )}
@@ -1403,7 +1404,7 @@ export default function Phase1SourceSelection({
                                                 >
                                                     {preflightState.status === 'loading' || githubPreview.status === 'loading' ? (
                                                         <>
-                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            <PixelBeat />
                                                             Loading repository…
                                                         </>
                                                     ) : 'Load repository'}
@@ -1418,7 +1419,7 @@ export default function Phase1SourceSelection({
                                                 >
                                                     {isConnectingGithub ? (
                                                         <span className="inline-flex items-center gap-2">
-                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            <PixelBeat />
                                                             Redirecting to GitHub
                                                         </span>
                                                     ) : 'Connect GitHub instead'}
@@ -1573,7 +1574,7 @@ export default function Phase1SourceSelection({
                             </div>
                             {isAnalyzingUpload ? (
                                 <div className="nb-compact mt-4 flex items-center gap-2 text-primary" role="status">
-                                    <Loader2 className="size-4 animate-spin" />
+                                    <PixelBeat />
                                     Inspecting uploaded files…
                                 </div>
                             ) : uploadAnalysisResult ? (

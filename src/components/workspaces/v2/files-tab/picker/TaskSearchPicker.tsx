@@ -9,8 +9,9 @@
 
 "use client";
 
+import { PixelBeat } from "@/components/ui/PixelBeat";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Search, X, CheckSquare } from "lucide-react";
+import { Search, X, CheckSquare } from "lucide-react";
 
 import {
   Dialog,
@@ -271,7 +272,7 @@ export function TaskSearchPicker({
             </div>
           ) : isLoading || query !== debouncedQuery || isSaving ? (
             <div role="status" className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <PixelBeat />
               {isSaving ? "Attaching file…" : "Searching tasks…"}
             </div>
           ) : showEmpty ? (

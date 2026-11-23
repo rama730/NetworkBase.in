@@ -18,6 +18,7 @@
 
 "use client";
 
+import { PixelBeat } from "@/components/ui/PixelBeat";
 import { useFilesViews } from "../FilesViews";
 import { toast, feedbackError } from "@/lib/feedback";
 
@@ -26,7 +27,6 @@ import {
   Download,
   GitCompare,
   History,
-  Loader2,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -354,7 +354,7 @@ export function FileVersionHistoryPanel({
       <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading && versions.length === 0 ? (
           <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <PixelBeat />
             Loading versions…
           </div>
         ) : error ? (
@@ -449,7 +449,7 @@ export function FileVersionHistoryPanel({
                           className="inline-flex size-6 items-center justify-center rounded-[3px] text-[#96201A] transition-colors hover:bg-[#FCEDEB] disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
                         >
                           {pendingAction === `delete:${version.id}` ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <PixelBeat />
                           ) : (
                             <Trash2 className="h-3.5 w-3.5" />
                           )}
@@ -501,7 +501,7 @@ export function FileVersionHistoryPanel({
                         className="nb-touch-target inline-flex h-7 items-center justify-center gap-1.5 rounded-[5px] border border-[#DBD5C8] bg-white px-2.5 text-[12px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
                       >
                         {pendingAction === dlKey ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <PixelBeat />
                         ) : (
                           <Download className="h-3.5 w-3.5 text-[#4C5A61] dark:text-muted-foreground shrink-0" />
                         )}
@@ -522,7 +522,7 @@ export function FileVersionHistoryPanel({
                           className="nb-touch-target inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#DBD5C8] bg-white px-1.5 text-[11px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
                         >
                           {pendingAction === dlKey ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <PixelBeat />
                           ) : (
                             <Download className="h-3.5 w-3.5 text-[#4C5A61] dark:text-muted-foreground shrink-0" />
                           )}
@@ -555,7 +555,7 @@ export function FileVersionHistoryPanel({
                             className="nb-touch-target inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#D14E24]/30 bg-[#FCF0EA] px-1.5 text-[11px] font-medium text-[#D14E24] whitespace-nowrap transition-colors hover:bg-[#F7DFD5] disabled:opacity-50 dark:border-[#D14E24]/50 dark:bg-[#D14E24]/20 dark:text-[#FCF0EA]"
                           >
                             {pendingAction === restoreKey ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <PixelBeat />
                             ) : (
                               <RotateCcw className="h-3.5 w-3.5 shrink-0" />
                             )}
@@ -576,7 +576,7 @@ export function FileVersionHistoryPanel({
                   onClick={() => void loadMoreVersions()}
                   className="nb-touch-target inline-flex min-h-9 items-center justify-center gap-2 rounded-[5px] border border-[#DBD5C8] bg-white px-3 text-xs font-medium text-[#141A1E] transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
                 >
-                  {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  {isLoading ? <PixelBeat /> : null}
                   Load older versions
                 </button>
               </li>

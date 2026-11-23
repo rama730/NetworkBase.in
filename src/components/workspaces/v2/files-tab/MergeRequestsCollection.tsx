@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useMemo, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -326,7 +327,7 @@ function AttachResult({ projectId, number, saveId, taskNumber }: { projectId: st
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className={"w-72 max-w-[calc(100vw-16px)] rounded-[8px] border border-border bg-card p-1 shadow-md"}>
         <p className="px-2 pb-1 pt-1 text-xs text-muted-foreground">Attach as a final file on #{taskNumber}</p>
-        {files.isLoading ? <p className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</p> : shown.length ? shown.map((f) => (
+        {files.isLoading ? <p role="status" className="nb-waiting px-2 py-1.5 text-xs text-muted-foreground"><PixelBeat />Loading files…</p> : shown.length ? shown.map((f) => (
           <DropdownMenuItem key={f.path} className="rounded-[5px] text-xs" onSelect={() => void attach(f.path)}><span className="truncate font-mono text-xs">{f.path}</span></DropdownMenuItem>
         )) : <p className="px-2 py-1.5 text-xs text-muted-foreground">No files to attach</p>}
       </DropdownMenuContent>

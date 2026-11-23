@@ -1,7 +1,8 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { ImageOff, LoaderCircle } from "lucide-react";
+import { ImageOff } from "lucide-react";
 
 import {
     Dialog,
@@ -104,7 +105,7 @@ export function WorkspaceUpdateMediaFrame({
                     role="status"
                     aria-live="polite"
                 >
-                    <LoaderCircle className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
+                    <PixelBeat />
                     <span className="sr-only">Loading media</span>
                 </div>
             ) : null}

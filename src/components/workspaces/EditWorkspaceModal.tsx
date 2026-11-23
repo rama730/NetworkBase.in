@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import React, { useState, useRef, useTransition } from "react";
@@ -528,8 +529,8 @@ export default function EditWorkspaceModal({ project, isOpen, onClose, onSaved }
                                 disabled={isPending}
                                 className="px-6 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
-                                {isPending && <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />}
-                                {isPending ? "Saving..." : "Save changes"}
+                                {isPending && <PixelBeat />}
+                                {isPending ? "Saving…" : "Save changes"}
                             </button>
                         </div>
                 </DialogContent>

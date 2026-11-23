@@ -1,7 +1,8 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from 'react'
-import { Globe, Loader2, MapPin } from 'lucide-react'
+import { Globe, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import ChipSelector from '@/components/onboarding/ChipSelector'
@@ -171,7 +172,7 @@ export default function Step2Details({
               disabled={isDetectingLocation}
               className="onb-focusable onb-link inline-flex min-h-11 items-center gap-1 self-start rounded text-[13px] text-primary hover:underline disabled:opacity-50"
             >
-              {isDetectingLocation ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : null}
+              {isDetectingLocation ? <PixelBeat /> : null}
               {isDetectingLocation ? 'Detecting…' : 'Use my location'}
             </button>
             {locationError ? <p id="location-error" className="onb-field-error" role="alert">{locationError}</p> : null}

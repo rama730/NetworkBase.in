@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { OrgRequestsSection, useOrgRequests } from "@/components/organizations/OrgRequestsSection";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -221,17 +222,6 @@ export default function InvitationsClient({
     async function acceptConnection(id: string, name: string) {
         try {
             await acceptRequest.mutateAsync(id);
-            try {
-                const confetti = (await import("canvas-confetti")).default;
-                confetti({
-                    particleCount: 40,
-                    spread: 60,
-                    origin: { y: 0.8 },
-                    disableForReducedMotion: true,
-                });
-            } catch {
-                // Ignore reduced motion or dynamic import errors
-            }
             toast.success(`You’re now connected with ${name}`);
             return true;
         } catch (error) {
@@ -534,10 +524,11 @@ export default function InvitationsClient({
             <div className="max-w-[620px]">
                 <EmptyState
                     icon={UserPlus}
+                    figure={filtered ? undefined : "person"}
                     title={
                         filtered
-                            ? "No invitations match your search or filters."
-                            : "No pending invitations."
+                            ? "No invitations match your search or filters"
+                            : "No invitations waiting"
                     }
                     description={
                         filtered
@@ -984,7 +975,7 @@ export default function InvitationsClient({
                         onClick={() => void invitationsQuery.fetchNextPage()}
                     >
                         {invitationsQuery.isFetchingNextPage
-                            ? "Loading…"
+                            ? <><PixelBeat />Loading…</>
                             : invitationsQuery.isFetchNextPageError
                               ? "Retry loading more"
                               : "Load more invitations"}

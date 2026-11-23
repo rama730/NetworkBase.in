@@ -1,6 +1,6 @@
 'use client';
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { Loader2 } from "lucide-react";
 import {
     WORKSPACE_PUBLIC_TAB_DESCRIPTIONS,
     WORKSPACE_PUBLIC_TAB_LABELS,
@@ -39,7 +39,7 @@ export function PublicTabVisibilityEditor({
                         <div className="flex shrink-0 items-center gap-3">
                             <span className="nb-meta text-muted-foreground select-none w-6 text-right flex items-center justify-end">
                                 {isSaving ? (
-                                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                    <PixelBeat className="text-primary" />
                                 ) : isEnabled ? (
                                     "On"
                                 ) : (

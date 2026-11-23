@@ -1,9 +1,9 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { toast, feedbackError } from "@/lib/feedback";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkspaceNode } from "@/lib/db/schema";
@@ -281,7 +281,7 @@ export default function FilesTab({
                 className="flex items-center gap-3 rounded-[6px] border border-border/70 bg-card p-2.5"
                 aria-hidden="true"
               >
-                <Skeleton className="size-8 shrink-0 rounded-[4px]" />
+                <Skeleton kind="tile" className="size-8 shrink-0 rounded-[4px]" />
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <Skeleton className="h-3.5 w-1/3 rounded-xs" />
                   <Skeleton className="h-2.5 w-1/5 rounded-xs" />
@@ -326,7 +326,7 @@ export default function FilesTab({
 
         {(isUploading || isProcessingDrop) ? (
           <div role="status" aria-live="polite" className="pointer-events-none sticky bottom-3 mx-auto flex w-fit items-center gap-2 rounded-[5px] border border-border bg-card px-3 py-1.5 font-mono text-xs font-medium text-foreground shadow-2xs">
-            <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-primary" />
+            <PixelBeat className="text-primary" />
             {isUploading ? "Uploading task files…" : "Preparing files…"}
           </div>
         ) : null}

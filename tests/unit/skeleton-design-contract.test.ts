@@ -50,12 +50,12 @@ test("Skeleton architectural contract: Header and Global overlay hygiene", () =>
 
     // Notification preview must not use raw bg-muted divs for skeleton
     assert.doesNotMatch(notifPreview, /<div className="h-\[34px\] w-\[34px\] shrink-0 rounded-md bg-muted" \/>/);
-    assert.match(notifPreview, /<Skeleton className="h-\[34px\] w-\[34px\] shrink-0 rounded-full" \/>/);
+    assert.match(notifPreview, /<Skeleton kind="tile" className="h-\[34px\] w-\[34px\] shrink-0" \/>/);
     assert.match(notifPreview, /role="status"/);
 
     // Command palette preview must not use raw bg-muted spans
     assert.doesNotMatch(cmdPalette, /<span className="size-10 shrink-0 rounded-\[5px\] bg-muted" \/>/);
-    assert.match(cmdPalette, /<Skeleton className="size-10 shrink-0 rounded-\[5px\]" \/>/);
+    assert.match(cmdPalette, /<Skeleton kind="tile" className="size-10 shrink-0 rounded-\[5px\]" \/>/);
 });
 
 test("Skeleton architectural contract: People and Network measured card skeletons", () => {

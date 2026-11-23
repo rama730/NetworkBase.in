@@ -1,4 +1,6 @@
 "use client";
+import { CharCount } from "@/components/ui/CharCount";
+import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
@@ -37,18 +39,7 @@ function toLocalInput(date: Date) {
 }
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: (next: boolean) => void; label: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={`relative h-6 w-10 flex-none rounded-full transition-colors ${checked ? "bg-primary" : "bg-border"}`}
-    >
-      <span className={`absolute top-[3px] size-[18px] rounded-full bg-card transition-[left] ${checked ? "left-[19px]" : "left-[3px]"}`} />
-    </button>
-  );
+  return <SettingsSwitch checked={checked} onCheckedChange={onChange} aria-label={label} />;
 }
 
 /** "Set a status": any emoji + your words (Slack style), suggestions, when it clears, pausing notifications, and who sees it. */
@@ -165,7 +156,7 @@ export function StatusPicker() {
                 onChange={(event) => setText(event.target.value)}
                 className="min-w-0 flex-1 bg-transparent text-[15px] outline-none"
               />
-              <span className="font-mono text-[11px] text-muted-foreground">{text.length}/{STATUS_TEXT_MAX}</span>
+              <CharCount value={text.length} max={STATUS_TEXT_MAX} />
             </div>
           </div>
 

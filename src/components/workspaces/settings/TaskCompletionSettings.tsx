@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -51,8 +52,8 @@ export function TaskCompletionSettings({ projectId }: { projectId: string }) {
       description="Choose whether completed work needs approval from an owner or admin."
     >
       {policy.isPending ? (
-        <p role="status" className="nb-compact text-muted-foreground">
-          Loading completion settings…
+        <p role="status" className="nb-waiting nb-compact text-muted-foreground">
+          <PixelBeat />Loading completion settings…
         </p>
       ) : policy.isError ? (
         <p role="alert" className="nb-compact text-destructive">
@@ -97,9 +98,9 @@ export function TaskCompletionSettings({ projectId }: { projectId: string }) {
             aria-live="polite"
           >
             {saving
-              ? "Saving…"
+              ? <span className="nb-waiting"><PixelBeat />Saving…</span>
               : policy.isPending
-                ? "Loading settings…"
+                ? <span className="nb-waiting"><PixelBeat />Loading settings…</span>
                 : "Applies to future completion attempts across the app and extension. Existing pending reviews still need a decision; completed tasks stay complete. File publishing is separate."}
           </p>
         </>

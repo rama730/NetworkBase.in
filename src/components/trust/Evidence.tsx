@@ -1,4 +1,5 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState, type ReactNode } from 'react'
 import { toast } from '@/lib/feedback'
@@ -147,7 +148,7 @@ function Thread({ caseId, s, targetSeq }: { caseId: string; s: Snap; targetSeq: 
     )
     return (
         <div className="rounded-[8px] border border-border bg-card">
-            {!done && first != null ? <button type="button" disabled={busy} onClick={more} className="w-full border-b border-border px-3 py-2 text-left text-[13px] text-muted-foreground hover:bg-muted/50">{busy ? 'Loading…' : 'Show 10 more'}</button> : null}
+            {!done && first != null ? <button type="button" disabled={busy} onClick={more} className="w-full border-b border-border px-3 py-2 text-left text-[13px] text-muted-foreground hover:bg-muted/50">{busy ? <span className="nb-waiting"><PixelBeat />Loading…</span> : 'Show 10 more'}</button> : null}
             <ol>
                 {older.map((m, i) => line(m, `o${i}`))}
                 {context.map((m, i) => line(m, `c${i}`))}
@@ -178,7 +179,7 @@ function FilePreview({ caseId, s }: { caseId: string; s: Snap }) {
                     : file.mime === 'application/pdf'
                         ? <iframe title={`Reported file ${file.name}`} src={file.url} sandbox="" className="h-[420px] w-full rounded-[6px] border border-border" />
                         : <a href={file.url} target="_blank" rel="noreferrer noopener" className="text-[13px] underline underline-offset-4">Open {file.name} in a new tab</a>
-            ) : <button type="button" disabled={busy} onClick={open} className="rounded-[5px] border border-border px-3 py-1.5 text-[13px]">{busy ? 'Opening…' : 'Preview file'}</button>}
+            ) : <button type="button" disabled={busy} onClick={open} className="rounded-[5px] border border-border px-3 py-1.5 text-[13px]">{busy ? <span className="nb-waiting"><PixelBeat />Opening…</span> : 'Preview file'}</button>}
         </div>
     )
 }

@@ -9,19 +9,7 @@ import {
     useQueryClient,
     type InfiniteData,
 } from "@tanstack/react-query";
-import {
-    FileText,
-    Heart,
-    Loader2,
-    MessageCircle,
-    MoreHorizontal,
-    PanelRightOpen,
-    Pin,
-    Flag,
-    Trash2,
-    Users,
-    EyeOff,
-} from "lucide-react";
+import { FileText, Heart, MessageCircle, MoreHorizontal, PanelRightOpen, Pin, Flag, Trash2, Users, EyeOff } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { BlockPersonDialog, type BlockPerson } from "@/components/privacy/BlockDialog";
 import { BlockPostAuthorItem, CommentPreview, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
@@ -394,16 +382,13 @@ function UpdateCard({
                 >
                   Cancel
                 </Button>
-                <Button
+                <Button pending={editMutation.isPending}
                   type="button"
                   size="sm"
                   className="rounded-[5px]"
                   disabled={!canSaveEdit || editMutation.isPending}
                   onClick={() => editMutation.mutate()}
                 >
-                  {editMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : null}
                   Save
                 </Button>
               </div>

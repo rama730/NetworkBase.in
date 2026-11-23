@@ -26,7 +26,7 @@ test('Phase 3 exposes accessible, progressive role controls and inline validatio
     const phase = source('src/components/workspaces/create-wizard/phases/Phase3TeamRoles.tsx');
 
     assert.match(phase, /htmlFor="create-project-lead-focus"/);
-    assert.match(phase, /\{leadFocus\.length\}\/80/);
+    assert.match(phase, /<CharCount value=\{leadFocus\.length\} max=\{80\}/);
     assert.match(phase, /aria-invalid=\{Boolean\(roleError\?\.role \|\| duplicateRoleMessage\)\}/);
     assert.match(phase, /Role requirements and offer/);
     assert.match(phase, /bg-secondary\/55/);

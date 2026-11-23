@@ -1,8 +1,9 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useRef, useState, type ReactNode } from 'react'
 import Image from 'next/image'
-import { Camera, Check, ChevronDown, Loader2, X } from 'lucide-react'
+import { Camera, Check, ChevronDown, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
@@ -121,7 +122,7 @@ export function DetailsSection({ profile, baseAvatarUrl, originalUsername, usern
     ) : username.status === 'idle' ? (
         handle ? <>Your profile link. You can change it once every 30 days.</> : <span className="bad"><X className="size-3" />Pick a username.</span>
     ) : username.status === 'checking' ? (
-        <><Loader2 className="inline size-3 animate-spin" /> Checking…</>
+        <><PixelBeat /> Checking…</>
     ) : username.status === 'invalid' && formatOk ? (
         <><span className="bad"><X className="size-3" />@{handle} is taken.</span> Try:{' '}
             {freeUsernames(handle).map((name) => <button key={name} type="button" className="nb-pf-unpick" onClick={() => onField('username', name)}>@{name}</button>)}</>
@@ -146,7 +147,7 @@ export function DetailsSection({ profile, baseAvatarUrl, originalUsername, usern
                     <div className={cn('nb-pf-eava', uploading && 'is-up')}>
                         {avatar ? <Image src={avatar.startsWith('blob:') ? avatar : publicAvatarVariantUrl(avatar, 128)} alt="" fill sizes="80px" className="object-cover" unoptimized />
                             : <UserAvatar identity={profile} className="size-full" roundedClassName="rounded-none" sizes="80px" />}
-                        {uploading ? <span className="nb-pf-upl"><Loader2 className="size-3 animate-spin" />Uploading</span> : null}
+                        {uploading ? <span className="nb-pf-upl"><PixelBeat />Uploading</span> : null}
                         {isNewPhoto && !uploading ? <span className="nb-pf-new">New · not saved</span> : null}
                     </div>
                     <div className="nb-pf-ptxt">

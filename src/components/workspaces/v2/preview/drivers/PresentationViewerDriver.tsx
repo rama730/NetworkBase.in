@@ -1258,7 +1258,7 @@ function PresentationSkeleton(): React.JSX.Element {
       role="status"
       aria-busy="true"
       aria-label="Loading presentation"
-      className="flex h-full w-full flex-col bg-background animate-pulse select-none"
+      className="flex h-full w-full flex-col bg-background select-none"
     >
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/40 px-4">
         <div className="flex items-center gap-2">

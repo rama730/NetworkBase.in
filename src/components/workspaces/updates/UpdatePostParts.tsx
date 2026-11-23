@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Heart, Share2 } from 'lucide-react';
+import { Check, Heart, Share2 } from 'lucide-react';
 import { useToggleWorkspaceFollow } from '@/hooks/mutations/useWorkspaceMutations';
 import { renderCommentContent } from '@/components/workspaces/updates/update-helpers';
 import { toast } from '@/lib/feedback';
@@ -49,6 +49,12 @@ export function CommentPreview({ preview, commentCount, onOpen }: { preview: Upd
 
 /** The phone's share sheet where there is one, otherwise a copied link. */
 export function ShareUpdateButton({ path }: { path: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1_500);
+    return () => clearTimeout(timer);
+  }, [copied]);
   const share = async () => {
     const url = new URL(path, window.location.origin).href;
     try {
@@ -57,14 +63,15 @@ export function ShareUpdateButton({ path }: { path: string }) {
         return;
       }
       await copyText(url);
-      toast.success('Link copied');
+      setCopied(true);
     } catch (error) {
       if ((error as Error)?.name !== 'AbortError') toast.error('Couldn’t copy the link');
     }
   };
   return (
-    <button type="button" onClick={(e) => { e.stopPropagation(); void share(); }} aria-label="Share this update" className="inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 text-xs transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted">
-      <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
+    <button type="button" onClick={(e) => { e.stopPropagation(); void share(); }} aria-label={copied ? 'Link copied' : 'Share this update'} title={copied ? 'Copied' : undefined} className="inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 text-xs transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted">
+      {copied ? <Check className="h-3.5 w-3.5 text-[var(--status-success)]" aria-hidden="true" /> : <Share2 className="h-3.5 w-3.5" aria-hidden="true" />}
+      {copied ? <span aria-live="polite">Copied</span> : null}
     </button>
   );
 }

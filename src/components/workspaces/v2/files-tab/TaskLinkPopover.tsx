@@ -1,8 +1,8 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import * as React from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTaskTitlePresentation } from "@/lib/workspaces/task-presentation";
 import { useTaskLinks, type LinkedTask } from "@/hooks/useTaskLinks";
@@ -67,7 +67,7 @@ function TaskLinkPopoverContent({ projectId, nodeId }: { projectId: string; node
     <div className="min-h-0 overflow-y-auto">
       {isLoading ? (
         <div role="status" className="flex items-center justify-center gap-2 px-3 py-4 text-xs text-[#6B7880] dark:text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />Loading…
+          <PixelBeat />Loading…
         </div>
       ) : error ? (
         <div role="alert" className="px-3 py-4 text-center text-xs text-red-500">{error} <button type="button" className="min-h-10 px-2 underline" onClick={() => void refresh()}>Retry</button></div>

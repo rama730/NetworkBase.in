@@ -1,4 +1,5 @@
 'use client'
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MoreHorizontal } from 'lucide-react'
@@ -265,7 +266,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
             )}
         </div>
     )
-    if (!rows) return <div data-review-full>{filters}<p className="p-5 text-sm text-muted-foreground">Loading submissions…</p></div>
+    if (!rows) return <div data-review-full>{filters}<p role="status" className="nb-waiting p-5 text-sm text-muted-foreground"><PixelBeat />Loading submissions…</p></div>
 
     const empty = (
         <div className="nb-empty-state nb-grid-ground m-4 rounded-lg py-16 sm:m-5" role="status">
@@ -289,7 +290,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                 recentReasons={reasons} onDecide={(row, decision, reason, fixBy) => decide(row, decision, reason, fixBy)}
                 onReturnApproved={returnApproved} onApproveAll={approveAll}
                 onOpen={(row) => { setCurrentId(row.copyId); setView('one') }} />
-            {cursor ? <button type="button" onClick={loadMore} disabled={loadingMore} className="mx-4 mb-4 h-7 self-start rounded-md border border-border px-3 text-xs text-muted-foreground hover:bg-muted sm:mx-5">{loadingMore ? 'Loading…' : 'Load more'}</button> : null}
+            {cursor ? <button type="button" onClick={loadMore} disabled={loadingMore} className="mx-4 mb-4 h-7 self-start rounded-md border border-border px-3 text-xs text-muted-foreground hover:bg-muted sm:mx-5"><span className="nb-waiting justify-center">{loadingMore ? <PixelBeat /> : null}Load more</span></button> : null}
         </section>
     )
 
@@ -344,7 +345,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                                     </button>
                                 </li>
                             ))}
-                            {cursor ? <li><button type="button" onClick={loadMore} disabled={loadingMore} className="h-7 w-full rounded-md border border-border text-xs text-muted-foreground hover:bg-muted">{loadingMore ? 'Loading…' : 'Load more'}</button></li> : null}
+                            {cursor ? <li><button type="button" onClick={loadMore} disabled={loadingMore} className="h-7 w-full rounded-md border border-border text-xs text-muted-foreground hover:bg-muted"><span className="nb-waiting justify-center">{loadingMore ? <PixelBeat /> : null}Load more</span></button></li> : null}
                         </ul>
                         <p className="border-t border-border pt-2.5 font-mono text-[11px] text-muted-foreground">J / K to move · A approve · R return · <button type="button" className="underline-offset-2 hover:underline" onClick={() => setKeysOpen(true)}>? keys</button></p>
                     </section>

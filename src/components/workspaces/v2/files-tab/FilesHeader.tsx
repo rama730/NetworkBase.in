@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, { useContext, useEffect, useRef, useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   Github,
   Laptop,
   Info,
-  Loader2,
   MoreHorizontal,
   PanelLeftOpen,
   Search,
@@ -334,7 +334,7 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
         }`}
       >
         {isSyncing ? (
-          <Loader2 className="size-3.5 animate-spin text-[#2563C9] dark:text-[#DCE7F8]" />
+          <PixelBeat className="text-[#2563C9] dark:text-[#DCE7F8]" />
         ) : (
           <Github className="size-3.5" aria-hidden="true" />
         )}
@@ -374,7 +374,7 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
                   : "bg-[#EDF5F0] text-[#1E7E34] border border-[#CDE5D4] dark:bg-emerald-950/40 dark:text-emerald-300"
               }`}
             >
-              {isSyncing ? "Syncing..." : hasIncoming ? "Incoming" : "Synced"}
+              {isSyncing ? "Syncing…" : hasIncoming ? "Incoming" : "Synced"}
             </span>
           </div>
 

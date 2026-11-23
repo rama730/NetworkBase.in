@@ -874,8 +874,7 @@ export function FilesTabSidebar({
                         Move…
                       </DropdownMenuItem>
                     ) : null}
-                    <DropdownMenuItem
-                      className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+                    <DropdownMenuItem variant="destructive"
                       onSelect={() =>
                         handleDeleteFromMenu(contextMenuState.node!)
                       }

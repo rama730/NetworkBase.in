@@ -2,15 +2,16 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, Info, Layers, Loader2, TriangleAlert, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Info, Layers, TriangleAlert, X, XCircle } from 'lucide-react';
+import { PixelBeat } from '@/components/ui/PixelBeat';
 import { feedbackStore, feedbackLabel } from '@/lib/feedback';
 import { feedbackText, type FeedbackItem } from '@/lib/feedback/store';
 import { useUIStore } from '@/stores/ui-store';
 import './feedback.css';
 
-const ICONS = { success: CheckCircle2, error: XCircle, warning: TriangleAlert, info: Info, loading: Loader2 };
+const ICONS = { success: CheckCircle2, error: XCircle, warning: TriangleAlert, info: Info };
 const RANK = { error: 4, warning: 3, loading: 2, info: 1, success: 0 };
-function StatusIcon({ item }: { item: FeedbackItem }) { const Icon = ICONS[item.type]; return <Icon aria-hidden="true" className={item.type === 'loading' ? 'nb-feedback-spinner' : undefined} />; }
+function StatusIcon({ item }: { item: FeedbackItem }) { if (item.type === 'loading') return <PixelBeat />; const Icon = ICONS[item.type]; return <Icon aria-hidden="true" />; }
 
 function useFeedbackOwner() {
   const [owner, setOwner] = useState<{ element: HTMLElement; kind: 'navigation' | 'fallback' | 'modal'; mobile: boolean } | null>(null);

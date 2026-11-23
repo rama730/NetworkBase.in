@@ -16,7 +16,7 @@ export function ListSkeleton({ label = "Loading", header = true, rows = 6 }: { l
       <div className="divide-y divide-border">
         {Array.from({ length: rows }, (_, row) => (
           <div key={row} className="flex items-center gap-3 px-4 py-3">
-            <Skeleton className="size-[34px] flex-none rounded-md" />
+            <Skeleton kind="tile" className="size-[34px] flex-none rounded-md" />
             <div className="flex-1 space-y-2">
               <Skeleton className="h-3 w-1/3 rounded-sm" />
               <Skeleton className="h-3 w-2/3 rounded-sm" />

@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { toast, feedbackError } from "@/lib/feedback";
 import { History } from "lucide-react";
@@ -22,7 +23,7 @@ import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHea
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Download, Loader2, RotateCcw, X } from "lucide-react";
+import { Download, RotateCcw, X } from "lucide-react";
 
 import {
   Dialog,
@@ -225,7 +226,7 @@ export function FileVersionHistoryDrawer({
         <div className="mt-3 min-h-[160px] max-h-[60vh] overflow-y-auto rounded-[5px] border border-border bg-muted/20">
           {state.kind === "loading" || state.kind === "idle" ? (
             <div className="flex items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <PixelBeat />
               Loading versions…
             </div>
           ) : state.kind === "error" ? (
@@ -292,7 +293,7 @@ export function FileVersionHistoryDrawer({
                         className="inline-flex items-center gap-1 rounded-[4px] border border-border bg-card px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                       >
                         {pendingAction === dlKey ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <PixelBeat />
                         ) : (
                           <Download className="h-3 w-3" />
                         )}
@@ -306,7 +307,7 @@ export function FileVersionHistoryDrawer({
                           className="inline-flex items-center gap-1 rounded-[4px] border border-primary/20 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
                         >
                           {pendingAction === restoreKey ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <PixelBeat />
                           ) : (
                             <RotateCcw className="h-3 w-3" />
                           )}
@@ -325,7 +326,7 @@ export function FileVersionHistoryDrawer({
                     onClick={() => void loadMore()}
                     className="inline-flex min-h-9 items-center gap-2 rounded-[4px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                   >
-                    {pendingAction === "load-more" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    {pendingAction === "load-more" ? <PixelBeat /> : null}
                     Load older versions
                   </button>
                 </li>

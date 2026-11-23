@@ -8,7 +8,7 @@ export function TimelineSkeleton({ variant = "conversation" }: { variant?: "conv
       <span className="sr-only">{variant === "thread" ? "Loading replies…" : "Loading messages…"}</span>
       {[64, 80, 48, 72, 56].map((width, row) => (
         <div key={row} className="flex gap-2.5">
-          <Skeleton className="size-[34px] flex-none rounded-md" />
+          <Skeleton kind="tile" className="size-[34px] flex-none rounded-md" />
           <div className="flex-1 space-y-2 pt-1">
             <Skeleton className="h-3 w-28 rounded-sm" />
             <Skeleton className="h-3 rounded-sm" style={{ width: `${width}%` }} />

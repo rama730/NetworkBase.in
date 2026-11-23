@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Rocket, FileText } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { PixelBurst } from "@/components/ui/PixelBurst";
 
 interface ProjectOnboardingModalProps {
     isOpen: boolean;
@@ -22,40 +22,14 @@ export function WorkspaceOnboardingModal({
     onViewTasks,
     onViewDocs
 }: ProjectOnboardingModalProps) {
-    const confettiFiredRef = useRef(false);
-
-    useEffect(() => {
-        if (!isOpen) {
-            confettiFiredRef.current = false;
-            return;
-        }
-        if (confettiFiredRef.current) return;
-        confettiFiredRef.current = true;
-        const timeoutId = window.setTimeout(async () => {
-            // Lazy import confetti keeps canvas-confetti out of initial client bundle
-            const { default: confetti } = await import("canvas-confetti");
-            confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 },
-                zIndex: 9999,
-            });
-        }, 300);
-        return () => {
-            window.clearTimeout(timeoutId);
-            confettiFiredRef.current = false;
-        };
-    }, [isOpen]);
-
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-card border-border text-foreground">
-                <div className="h-1 bg-primary" />
-                
                 <div className="p-6">
                     <DialogHeader>
-                        <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                            <Rocket className="w-6 h-6 text-primary" />
+                        <div className="relative mx-auto mb-4 flex size-12 items-center justify-center rounded-[6px] bg-primary/10">
+                            <Rocket className="size-6 text-primary" />
+                            {isOpen ? <PixelBurst /> : null}
                         </div>
                         <DialogTitle className="text-center text-xl font-semibold text-foreground">
                             Welcome to the Team
@@ -69,7 +43,7 @@ export function WorkspaceOnboardingModal({
                     <div className="mt-8 space-y-4">
                         <div className="p-4 bg-muted/30 rounded-lg border border-border flex gap-3">
                             <div className="mt-1">
-                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                <CheckCircle2 className="w-5 h-5 text-[var(--status-success)]" />
                             </div>
                             <div>
                                 <h4 className="font-medium text-sm text-foreground">Access granted</h4>

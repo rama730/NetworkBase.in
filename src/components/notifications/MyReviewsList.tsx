@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -13,7 +14,7 @@ export function MyReviewsList() {
     queryFn: async () => { const res = await myReviewsAction(); if (!res.success) throw new Error(res.error); return res.data.reviews; },
     staleTime: 15_000,
   });
-  if (q.isLoading) return <p role="status" className="px-4 py-6 text-center text-xs text-muted-foreground">Loading reviews…</p>;
+  if (q.isLoading) return <p role="status" className="nb-waiting justify-center px-4 py-6 text-xs text-muted-foreground"><PixelBeat />Loading reviews…</p>;
   if (q.isError) return <p className="px-4 py-6 text-center text-xs text-muted-foreground">Couldn’t load your reviews. <button type="button" className="underline" onClick={() => void q.refetch()}>Retry</button></p>;
   if (!q.data?.length) return <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nothing is waiting on your review.</p>;
   return (

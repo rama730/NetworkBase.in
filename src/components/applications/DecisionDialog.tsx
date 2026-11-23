@@ -1,7 +1,7 @@
 "use client";
+import { CharCount } from "@/components/ui/CharCount";
 
 import { useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -114,13 +114,12 @@ export function DecisionForm({
                     placeholder={declining ? "Shown to the applicant after the reason." : "Say hello, or what happens next."}
                     className="w-full resize-none rounded-[5px] border border-border bg-card p-3 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                 />
-                <p className="text-right text-xs text-muted-foreground">{note.length}/{NOTE_LIMIT}</p>
+                <p className="text-right"><CharCount value={note.length} max={NOTE_LIMIT} /></p>
             </div>
             {error ? <p role="alert" className="rounded-[5px] border border-border bg-muted p-3 text-sm text-foreground">{error}</p> : null}
             <DialogFooter className="gap-2">
                 <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>{"Cancel"}</Button>
-                <Button type="button" variant={declining ? "destructive" : "default"} onClick={() => void confirm()} disabled={busy}>
-                    {busy ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
+                <Button pending={busy} type="button" variant={declining ? "destructive" : "default"} onClick={() => void confirm()} disabled={busy}>
                     {declining ? "Decline" : "Accept"}
                 </Button>
             </DialogFooter>

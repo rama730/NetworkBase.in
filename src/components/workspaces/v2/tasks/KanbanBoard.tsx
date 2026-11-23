@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { completionOutcomeLabel } from "@/lib/workspaces/task-completion-policy";
 import { taskCompletionPolicyKey, syncTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
@@ -384,8 +385,8 @@ const KanbanColumn = React.memo(
                     </>
                   ) : null}
                   {!col.isDefault && isLeader && (
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive cursor-pointer text-xs font-medium"
+                    <DropdownMenuItem variant="destructive"
+                      className="cursor-pointer text-xs font-medium"
                       onClick={() => onRemoveColumn(col.id)}
                     >
                       <Trash2 className="size-3.5 mr-2" />
@@ -1178,7 +1179,7 @@ export default function KanbanBoard({
             disabled={isFetchingNextPage}
             className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-4 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
           >
-            {isFetchingNextPage ? "Loading more tasks…" : "Load more tasks"}
+            {isFetchingNextPage ? <><PixelBeat />Loading more tasks…</> : "Load more tasks"}
           </button>
         </div>
       )}

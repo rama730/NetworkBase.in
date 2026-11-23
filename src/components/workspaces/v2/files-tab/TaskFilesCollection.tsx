@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -554,7 +555,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                     onClick={() => void result.fetchNextPage()}
                     className="m-3 min-h-9 rounded-[5px] border border-border px-4 text-xs font-medium hover:bg-[#F3F0EA] dark:hover:bg-muted"
                   >
-                    {result.isFetchingNextPage ? "Loading…" : "Load more files"}
+                    {result.isFetchingNextPage ? <><PixelBeat />Loading…</> : "Load more files"}
                   </button>
                 ) : undefined,
               }}
@@ -990,7 +991,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                   disabled={result.isFetchingNextPage}
                   className="min-h-9 rounded-[5px] border border-border px-4 text-xs font-medium hover:bg-[#F3F0EA] dark:hover:bg-muted"
                 >
-                  {result.isFetchingNextPage ? "Loading…" : "Load more tasks"}
+                  {result.isFetchingNextPage ? <><PixelBeat />Loading…</> : "Load more tasks"}
                 </button>
               </div>
             )}

@@ -1000,7 +1000,7 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
                             <DropdownMenuItem onSelect={() => reuseOnBoard ? reuseOnBoard(masterId) : setDialog('reuse')}>Use again</DropdownMenuItem>
                             {row.status === 'open' ? <DropdownMenuItem onSelect={() => run(() => closeAssignmentAction(row.masterId))}>Close</DropdownMenuItem> : null}
                             {row.status === 'closed' ? <DropdownMenuItem onSelect={() => run(() => reopenAssignmentAction(row.masterId))}>Reopen</DropdownMenuItem> : null}
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={askDelete}>Delete</DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" onSelect={askDelete}>Delete</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 ) : null}

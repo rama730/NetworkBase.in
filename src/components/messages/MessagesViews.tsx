@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 
@@ -79,7 +80,7 @@ function LoadMore({ hasMore, loading, onLoad }: { hasMore: boolean; loading: boo
     return () => observer.disconnect();
   }, [hasMore]);
   if (!hasMore) return null;
-  return <div ref={ref} className="p-4 text-center text-[12px] text-muted-foreground">{loading ? "Loading…" : ""}</div>;
+  return <div ref={ref} className="p-4 text-center text-[12px] text-muted-foreground">{loading ? <span role="status" className="nb-waiting justify-center"><PixelBeat />Loading…</span> : null}</div>;
 }
 
 function where(item: { channel_name: string | null; channel_title?: string | null; channel_kind: string }) {

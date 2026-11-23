@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { ChildOrgSection, ChildVisibilityPicker } from "@/components/organizations/ChildOrgSection";
 import { TeamApplications } from '@/components/organizations/TeamApplications';
@@ -24,7 +25,7 @@ import dynamic from "next/dynamic";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Archive, Crown, Loader2, Lock, RefreshCw, Shield, Trash2, Users } from "lucide-react";
+import { Archive, Crown, Lock, RefreshCw, Shield, Trash2, Users } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
@@ -1580,7 +1581,7 @@ function ProjectSettingsContent({
                                             disabled={collaboratorRefreshing || collaboratorLoadingMore || collaboratorLoading}
                                             className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
                                         >
-                                            <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", collaboratorRefreshing && "animate-spin")} />
+                                            {collaboratorRefreshing ? <PixelBeat /> : <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />}
                                             Refresh
                                         </Button>
                                     </div>
@@ -1704,7 +1705,7 @@ function ProjectSettingsContent({
 
                                 {collaboratorLoading || loadingMembers ? (
                                     <div className="flex items-center justify-center py-12 gap-2 text-sm text-muted-foreground">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <PixelBeat />
                                         Loading members…
                                     </div>
                                 ) : (
@@ -1762,14 +1763,13 @@ function ProjectSettingsContent({
 
                                 {collaboratorData?.hasMore ? (
                                     <div className="mt-6 flex justify-center">
-                                        <Button
+                                        <Button pending={collaboratorLoadingMore}
                                             type="button"
                                             variant="outline"
                                             onClick={() => void loadCollaborators("more")}
                                             disabled={collaboratorLoadingMore || collaboratorRefreshing || collaboratorLoading}
                                             className="nb-touch-target h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground"
                                         >
-                                            {collaboratorLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                             Load more members
                                         </Button>
                                     </div>
@@ -1810,14 +1810,13 @@ function ProjectSettingsContent({
                                                 >
                                                     Cancel
                                                 </Button>
-                                                <Button
+                                                <Button pending={savingRoles}
                                                     type="button"
                                                     size="sm"
                                                     onClick={handleSaveRoles}
                                                     disabled={!rolesDirty || savingRoles}
                                                     className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                                                 >
-                                                    {savingRoles ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                                                     Save changes
                                                 </Button>
                                             </div>
@@ -1869,7 +1868,7 @@ function ProjectSettingsContent({
                                                     <div className="flex shrink-0 items-center gap-3">
                                                         <span className="nb-meta text-muted-foreground select-none w-6 text-right flex items-center justify-end">
                                                             {savingReadmeKey === key ? (
-                                                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                                                <PixelBeat className="text-primary" />
                                                             ) : Boolean(readmeSettingsDraft[key]) ? (
                                                                 "On"
                                                             ) : (
@@ -1929,7 +1928,7 @@ function ProjectSettingsContent({
                                             <div className="flex shrink-0 items-center gap-3">
                                                 <span className="nb-meta text-muted-foreground select-none w-6 text-right flex items-center justify-end">
                                                     {savingMemberUpdates ? (
-                                                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                                        <PixelBeat className="text-primary" />
                                                     ) : memberUpdatesEnabled ? (
                                                         "On"
                                                     ) : (
@@ -2009,7 +2008,7 @@ function ProjectSettingsContent({
                                         onClick={() => void loadFileAccessSettings()}
                                         className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium gap-2 self-start sm:self-auto border-border hover:bg-muted/50"
                                     >
-                                        <RefreshCw className={cn("size-3.5", fileAccessLoading && "animate-spin")} />
+                                        {fileAccessLoading ? <PixelBeat /> : <RefreshCw className="size-3.5" />}
                                         Refresh
                                     </Button>
                                 </div>
@@ -2089,14 +2088,13 @@ function ProjectSettingsContent({
                                             >
                                                 Cancel
                                             </Button>
-                                            <Button
+                                            <Button pending={savingNotifications}
                                                 type="button"
                                                 size="sm"
                                                 disabled={!projectNotificationData || Boolean(settingsErrors.notifications) || !notificationDirty || savingNotifications}
                                                 onClick={() => void handleSaveNotifications()}
                                                 className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] gap-1.5"
                                             >
-                                                {savingNotifications ? <Loader2 className="size-3.5 animate-spin" /> : null}
                                                 Save changes
                                             </Button>
                                         </div>
@@ -2178,7 +2176,7 @@ function ProjectSettingsContent({
                                     <span className="nb-meta text-muted-foreground">
                                         {dangerPreflightLoading ? (
                                             <span className="inline-flex items-center gap-1.5">
-                                                <Loader2 className="size-3 animate-spin" />
+                                                <PixelBeat />
                                                 Checking what this affects…
                                             </span>
                                         ) : dangerPreflight ? (
@@ -2195,7 +2193,7 @@ function ProjectSettingsContent({
                                     disabled={dangerPreflightLoading}
                                     className="nb-touch-target h-[28px] gap-1.5 rounded-[5px] border-border px-2.5 text-xs font-medium"
                                 >
-                                    <RefreshCw className={cn("size-3.5", dangerPreflightLoading && "animate-spin")} />
+                                    {dangerPreflightLoading ? <PixelBeat /> : <RefreshCw className="size-3.5" />}
                                     Refresh checks
                                 </Button>
                             </>

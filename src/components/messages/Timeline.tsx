@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
@@ -73,7 +74,7 @@ function TimelineHeader({ context }: { context?: TimelineContext }) {
       </div>
     );
   }
-  return <div className="py-3 text-center text-[12px] text-muted-foreground">{context.loadingOlder ? "Loading earlier messages…" : ""}</div>;
+  return <div className="py-3 text-center text-[12px] text-muted-foreground">{context.loadingOlder ? <span role="status" className="nb-waiting justify-center"><PixelBeat />Loading earlier messages…</span> : null}</div>;
 }
 // Room for the floating typing indicator only while someone types; otherwise the gap rests at h-6 (24px)
 // so the bottom message, reactions, and preview cards never touch the composer border.

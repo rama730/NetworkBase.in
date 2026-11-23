@@ -1,4 +1,5 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -277,8 +278,8 @@ export function V3AttachmentPicker({
                 </p>
               )}
               {result.isPending || query !== searchInput.trim() ? (
-                <p role="status" className="p-4 text-sm text-muted-foreground">
-                  Loading files…
+                <p role="status" className="nb-waiting p-4 text-sm text-muted-foreground">
+                  <PixelBeat />Loading files…
                 </p>
               ) : (
                 <>
@@ -336,7 +337,7 @@ export function V3AttachmentPicker({
                       className="m-3 min-h-10 rounded border px-4 text-sm"
                     >
                       {files.isFetchingNextPage
-                        ? "Loading…"
+                        ? <><PixelBeat />Loading…</>
                         : "Load more files"}
                     </button>
                   )}

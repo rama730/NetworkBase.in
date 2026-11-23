@@ -1,8 +1,9 @@
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Ban, Check, ChevronDown, Clock, Loader2, MessageSquare } from "lucide-react";
+import { Ban, Check, ChevronDown, Clock, MessageSquare } from "lucide-react";
 
 import type { SuggestedProfile } from "@/app/actions/connections";
 import { PersonCardContent } from "./PersonCardContent";
@@ -72,7 +73,7 @@ export function PersonCardGrid<T>({
                 More people could not be loaded. <button className="text-primary hover:underline" onClick={() => void fetchNextPage()}>Retry loading more</button>
             </div> : null}
             {isFetchingNextPage ? (
-                <div className="flex justify-center py-6"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={loadingLabel} /></div>
+                <div className="flex justify-center py-6"><PixelBeat className="text-muted-foreground" label={loadingLabel} /></div>
             ) : null}
         </div>
     );
@@ -164,7 +165,7 @@ function PersonCard({
                 className="nb-person-connect"
                 aria-label={`${CONNECTION_COPY.connect} with ${displayName}`}
             >
-                {connecting ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : null}{connecting ? "Sending" : CONNECTION_COPY.connect}
+                {connecting ? <PixelBeat /> : null}{connecting ? "Sending" : CONNECTION_COPY.connect}
             </button>
         )
     ) : status === "pending_sent" ? (
@@ -177,7 +178,7 @@ function PersonCard({
                     aria-label={`${CONNECTION_COPY.requested}: options for ${displayName}`}
                 >
                     {cancelling ? (
-                        <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
+                        <PixelBeat className="text-muted-foreground" />
                     ) : (
                         <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
                     )}
