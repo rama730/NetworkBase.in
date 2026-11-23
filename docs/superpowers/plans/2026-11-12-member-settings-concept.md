@@ -375,5 +375,8 @@ All routes:
 **Still open:**
 1. ~~Apply 0114 in production~~ done 2026-11-23: the 8 membership columns, both workspace columns, the periods table, the role function, the trigger, the 3 task policies and the completed check in the SQL write function are all there. Next: deploy (push).
 2. Release the CLI with the new commands (needs your go-ahead).
-3. Browser checks signed in, both themes, phone and desktop: not done yet. Now possible locally, since the local app reads the production database and 0114 is there.
+3. Signed-in check in Chrome, 2026-11-23, as the owner in wt-test-a2-3 (desktop, light):
+   - **Passed:** Your settings shows first with every part; mute for 1 day and turn back on; Your view saves; Roles shows today's rules with viewer writes locked, a change saves with its toast, Back to the default rules resets it; Let members choose and Complete this workspace are there; the profile loads; no console errors. Test changes were put back.
+   - **Found and fixed (ccc24ae93, local, not deployed):** Your view was saved but not applied for the owner (only members); "Delete tasks" still said "Today only the owner deletes tasks" after the owner turned it on.
+   - **Not checked:** complete, reopen, leave, Undo, Confirm and Not yet need a second (member) account; Complete this workspace wasn't pressed, as it ends the owner's own entry; dark theme and phone.
 4. Live check with an owner and a member account.
