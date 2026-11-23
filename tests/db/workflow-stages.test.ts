@@ -107,6 +107,8 @@ test("a member's item joins the Backlog, never a sprint (decision 146)", async (
   assert.equal((await row(id)).sprint_id, null);
 });
 
+const reason = (id: string, why: string) => sql`UPDATE tasks SET type_fields = coalesce(type_fields, '{}'::jsonb) || ${sql.json({ closeReason: why })} WHERE id = ${id}`;
+
 test("members can't take sprint work off the board, end a review with a stage, or close where review is on", async () => {
   const t = await workspace({ review: true });
   viewerId = t.owner;
@@ -117,11 +119,14 @@ test("members can't take sprint work off the board, end a review with a stage, o
   assert.match(leave.success ? "" : leave.error, /Ask an owner or admin/);
   assert.equal((await row(id)).sprint_id, t.sprint);
   const loose = await bug(t.ws, t.member, "confirmed");
+  // A2.2: a bug closes through Close…, which records its reason first; these check the stage rules after that.
+  await reason(loose, "wont_fix");
   const close = await actions.setTaskStageAction({ taskId: loose, projectId: t.ws, stage: "wont_fix" });
   assert.match(close.success ? "" : close.error, /Only owners and admins can close/);
   assert.equal((await actions.updateTaskStatusAction(id, "done", t.ws)).success, true);
   assert.equal((await row(id)).review_status, "pending");
   viewerId = t.owner;
+  await reason(id, "wont_fix");
   const skip = await actions.setTaskStageAction({ taskId: id, projectId: t.ws, stage: "wont_fix" });
   assert.match(skip.success ? "" : skip.error, /waiting for review/);
   assert.deepEqual([(await row(id)).stage, (await row(id)).review_status], ["fixing", "pending"]);
@@ -187,6 +192,8 @@ test("closing stages finish off the board without review; unknown stages and wor
   const t = await workspace({ review: true });
   viewerId = t.owner;
   const id = await bug(t.ws, t.owner);
+  assert.match(String((await actions.setTaskStageAction({ taskId: id, projectId: t.ws, stage: "wont_fix" }) as { error?: string }).error), /Close a bug with Close…/, "A2.2: no bare close");
+  await reason(id, "wont_fix");
   assert.equal((await actions.setTaskStageAction({ taskId: id, projectId: t.ws, stage: "wont_fix" })).success, true);
   assert.deepEqual(await row(id), { status: "done", stage: "wont_fix", on_board: false, workflow_column_id: null, sprint_id: null, review_status: "none" });
   const unknown = await actions.setTaskStageAction({ taskId: id, projectId: t.ws, stage: "shipped" });

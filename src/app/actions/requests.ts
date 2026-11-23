@@ -10,6 +10,8 @@ import { tasks, workspaceMembers, workspaces } from "@/lib/db/schema";
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { canChangeWorkflows } from "@/lib/workflows/rules";
 import { changeRequestTypes, readRequestTypes } from "@/lib/workflows/request-store";
+import { readWorkingHours, requestClock, rescheduleWorkspaceClocks, scheduleRequestClock, validZone } from "@/lib/workflows/request-clock-server";
+import { workingHoursSchema } from "@/lib/workflows/request-clock";
 import { activeTypes, MAX_TYPES, requestTypeSchema, type RequestType } from "@/lib/workflows/requests";
 
 /**
@@ -31,6 +33,8 @@ export type RequestRow = {
   id: string; taskNumber: number | null; title: string; stage: string | null; status: string; sprintId: string | null; dueDate: string | null;
   assigneeId: string | null; assigneeName: string | null; creatorId: string | null; creatorName: string | null; createdAt: string;
   typeFields: Record<string, unknown>;
+  /** A2.5: the running clock, worked out on the server (first reply while New, then deliver). */
+  clock: { kind: "first" | "deliver"; state: "running" | "soon" | "breached" | "paused" | "stopped" | "off"; leftMinutes: number; usedMinutes: number } | null;
 };
 
 /** The tab's read: every open and recent request, the types, and what the viewer may do. */
@@ -47,11 +51,15 @@ export async function readRequestsAction(projectId: string) {
       WHERE t.workspace_id = ${projectId}::uuid AND t.item_type = 'request' AND t.deleted_at IS NULL
         AND (t.stage NOT IN ('delivered', 'declined') OR t.updated_at > now() - interval '30 days')
       ORDER BY t.created_at DESC LIMIT 1000`));
+    const types = await readRequestTypes(projectId);
+    const work = await readWorkingHours(projectId);
+    const now = new Date();
     const requests: RequestRow[] = rows.map((r) => ({
       id: r.id, taskNumber: r.task_number, title: r.title, stage: r.stage, status: r.status, sprintId: r.sprint_id, dueDate: r.due_date ? r.due_date.slice(0, 10) : null,
       assigneeId: r.assignee_id, assigneeName: r.assignee_name, creatorId: r.creator_id, creatorName: r.creator_name, createdAt: new Date(r.created_at).toISOString(), typeFields: r.type_fields ?? {},
+      clock: requestClock({ stage: r.stage, created_at: r.created_at, type_fields: r.type_fields }, types.find((t) => t.id === (r.type_fields ?? {}).requestTypeId), work.hours, work.tz, now),
     }));
-    return { success: true as const, projectKey: ws?.key ?? null, requests, types: await readRequestTypes(projectId), canTriage, canManage, viewerId: user.id };
+    return { success: true as const, projectKey: ws?.key ?? null, requests, types, hours: work.hours, timeZone: work.tz, hoursSet: work.set, canTriage, canManage, viewerId: user.id };
   } catch (error) {
     return fail(error, "Couldn’t load requests");
   }
@@ -119,6 +127,7 @@ export async function acceptRequestAction(input: z.infer<typeof acceptInput>) {
     if (!moved.success) return moved;
     const now = new Date().toISOString();
     await mergeFields(taskId, { acceptedAt: now, firstRepliedAt: fields.firstRepliedAt ?? now });
+    await scheduleRequestClock(taskId);
     const { notifyRequestDecided } = await import("@/lib/workflows/request-notify");
     await notifyRequestDecided(taskId, user.id, "Accepted");
     return { success: true as const };
@@ -145,6 +154,7 @@ export async function declineRequestAction(input: z.infer<typeof declineInput>) 
       await mergeFields(taskId, { declineReason: null });
       return moved;
     }
+    await scheduleRequestClock(taskId);
     const { notifyRequestDecided } = await import("@/lib/workflows/request-notify");
     await notifyRequestDecided(taskId, user.id, "Declined");
     return { success: true as const };
@@ -187,6 +197,7 @@ export async function saveRequestTypeAction(input: z.infer<typeof saveInput>) {
       savedId = next.id;
       return existing ? types.map((t) => (t.id === next.id ? next : t)) : [...types, next];
     });
+    await rescheduleWorkspaceClocks(projectId);
     return { success: true as const, id: savedId };
   } catch (error) {
     return fail(error, "Couldn’t save the request type");
@@ -207,5 +218,27 @@ export async function archiveRequestTypeAction(input: { projectId: string; typeI
     return { success: true as const };
   } catch (error) {
     return fail(error, "Couldn’t change the request type");
+  }
+}
+
+const hoursInput = z.object({ projectId: id, hours: workingHoursSchema, timeZone: z.string().max(64) });
+
+/** W10: working hours (days, times, holidays) and the workspace's time zone; every open clock is recalculated. */
+export async function saveWorkingHoursAction(input: z.infer<typeof hoursInput>) {
+  try {
+    const parsed = hoursInput.safeParse(input);
+    if (!parsed.success) return { success: false as const, error: "Check the days and times: From comes before To" };
+    const { projectId, hours, timeZone } = parsed.data;
+    if (!validZone(timeZone)) throw new Error("Pick a time zone from the list");
+    await manager(projectId);
+    const clean = { ...hours, days: [...new Set(hours.days)].sort(), holidays: [...new Set(hours.holidays)].sort() };
+    await db.execute(sql`
+      UPDATE workspaces SET time_zone = ${timeZone},
+        workflow_settings = jsonb_set(coalesce(workflow_settings, '{}'::jsonb), '{workingHours}', ${JSON.stringify(clean)}::jsonb)
+      WHERE id = ${projectId}::uuid`);
+    const n = await rescheduleWorkspaceClocks(projectId);
+    return { success: true as const, recalculated: n };
+  } catch (error) {
+    return fail(error, "Couldn’t save the working hours");
   }
 }

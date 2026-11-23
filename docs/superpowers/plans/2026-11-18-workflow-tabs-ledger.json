@@ -8241,6 +8241,16 @@
       "status": "live-pending",
       "test": "tests/db/requests.test.ts; tests/browser/requests-tab.spec.ts; tests/unit/requests-rules.test.ts",
       "evidence": "0aa2a8ee5 live 2026-11-23 (web+worker SUCCESS). Live via API on wt-test-a2-3: starter types written on first read (General, Design), an ask without the required answer refused. Local: tests/db/requests.test.ts, tests/browser/requests-tab.spec.ts (chromium), tests/unit/requests-*.test.ts. Signed-in Chrome check pending (extension disconnected). revisit 2026-11-24"
+    },
+    {
+      "key": "38.7.call12",
+      "section": "38.7",
+      "text": "A2.5 (2026-11-23): Working hours sit in workspaces.workflowsettings.workingHours and the clock uses workspaces.timezone; ordinary workspaces had no time-zone se",
+      "kind": "call",
+      "milestone": "A2",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }

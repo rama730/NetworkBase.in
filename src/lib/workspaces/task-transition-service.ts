@@ -446,6 +446,11 @@ export async function afterTaskTransition(
   taskId: string,
   result: TaskTransitionResult,
 ) {
+  // Report 38.7 (A2.5): every stage or status move of a request recalculates its clock warnings.
+  if (locked.itemType === "request") {
+    const { scheduleRequestClock } = await import("@/lib/workflows/request-clock-server");
+    await scheduleRequestClock(taskId);
+  }
   const warnings =
     result.status === "done"
       ? await db

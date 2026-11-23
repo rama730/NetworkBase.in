@@ -500,6 +500,8 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Pick one of the options for “{label}”": { "title": "Pick one of the options for “{label}”", "type": "warning" },
   "Pick a date for “{label}”": { "title": "Pick a date for “{label}”", "type": "warning" },
   "Check the files for “{label}”": { "title": "Check the files for “{label}”", "type": "warning" },
+  "Check the days and times: From comes before To": { "title": "Check the days and times", "description": "From comes before To.", "type": "warning" },
+  "Pick a time zone from the list": { "title": "Pick a time zone from the list", "type": "warning" },
   "Pick an open bug": { "title": "Pick an open bug", "type": "warning" },
   "Pick a bug in this workspace": { "title": "Pick a bug in this workspace", "type": "warning" },
 };

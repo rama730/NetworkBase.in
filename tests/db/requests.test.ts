@@ -120,3 +120,44 @@ test("W4.4 and W9: a New request becomes a bug; types are owners' and admins', u
   viewerId = t.member;
   assert.equal((await ask(t.ws, "Old type", { requestTypeId: copyId, answers: { doc: "Home" } }) as { error?: string }).error, "That request type isn’t available");
 });
+
+test("A2.5 W7 and W10: the clock writes its warnings, Accept and working hours move them, the hourly job sends them once", async () => {
+  const t = await workspace();
+  viewerId = t.owner;
+  // Every day, all day, so the clock runs now.
+  const saved = await requests.saveWorkingHoursAction({ projectId: t.ws, hours: { days: [1, 2, 3, 4, 5, 6, 7], from: "00:00", to: "23:59", holidays: [] }, timeZone: "UTC" });
+  assert.ok(saved.success, JSON.stringify(saved));
+  viewerId = t.member;
+  const a = idOf(await ask(t.ws, "Logo please", { answers: { need: "Logo" } }));
+  const rows = async () => (await sql`SELECT user_id, note, remind_at FROM task_reminders WHERE task_id = ${a} AND sent_at IS NULL ORDER BY note, user_id`).map((r) => `${r.note}:${r.user_id === t.owner ? "owner" : r.user_id === t.member ? "member" : "?"}`);
+  assert.deepEqual(await rows(), ["request_clock:first:80:owner", "request_clock:first:breach:owner"], "General request: first reply within 4 h, to owners and admins");
+  const read = await requests.readRequestsAction(t.ws);
+  assert.ok(read.success);
+  assert.deepEqual([read.requests[0]!.clock?.kind, read.requests[0]!.clock?.state], ["first", "running"]);
+  // Working hours change: recalculated, still two rows.
+  viewerId = t.owner;
+  assert.ok((await requests.saveWorkingHoursAction({ projectId: t.ws, hours: { days: [1, 2, 3, 4, 5, 6, 7], from: "00:00", to: "23:00", holidays: [] }, timeZone: "UTC" })).success);
+  assert.equal((await rows()).length, 2);
+  // The person's own reminder list never shows the clock's rows.
+  const reminders = await loadAppModule(() => import("../../src/lib/domain/task-reminders"));
+  assert.deepEqual(await reminders.listTaskReminders(t.owner, a), []);
+  // Due now: the hourly job sends the breach notice once.
+  await sql`UPDATE task_reminders SET remind_at = now() - interval '1 minute' WHERE task_id = ${a} AND note = 'request_clock:first:breach'`;
+  await reminders.fireDueTaskReminders();
+  await reminders.fireDueTaskReminders();
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.owner} AND title = 'Breached: Logo please'`)[0]!.n, 1);
+  // Accept: the first-reply clock stops; General has no deliver time, so nothing is left to warn about.
+  assert.ok((await requests.acceptRequestAction({ projectId: t.ws, taskId: a, assigneeId: t.member })).success);
+  assert.deepEqual(await rows(), []);
+  // A Design request's deliver clock warns the handler at 80 %, and the handler and owners on breach.
+  viewerId = t.member;
+  const d = idOf(await ask(t.ws, "Deck", { requestTypeId: (await requests.readRequestTypesAction(t.ws) as { types: Array<{ id: string; name: string }> }).types.find((x) => x.name === "Design request")!.id, answers: { what: "Deck", brief: "Ten slides" } }));
+  viewerId = t.owner;
+  assert.ok((await requests.acceptRequestAction({ projectId: t.ws, taskId: d, assigneeId: t.member })).success);
+  assert.deepEqual((await sql`SELECT note, user_id FROM task_reminders WHERE task_id = ${d} AND sent_at IS NULL ORDER BY note, user_id`).map((r) => `${r.note}:${r.user_id === t.owner ? "owner" : "member"}`).sort(),
+    ["request_clock:deliver:80:member", "request_clock:deliver:breach:member", "request_clock:deliver:breach:owner"]);
+  // A stale row (the request moved on) is closed without a notice.
+  await sql`INSERT INTO task_reminders (task_id, user_id, remind_at, note) VALUES (${a}, ${t.owner}, now() - interval '1 minute', 'request_clock:first:80')`;
+  await reminders.fireDueTaskReminders();
+  assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${t.owner} AND title = 'Breaching soon: Logo please'`)[0]!.n, 0);
+});

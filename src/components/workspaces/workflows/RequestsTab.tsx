@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Inbox, MoreHorizontal } from "lucide-react";
+import { CalendarDays, Inbox, MoreHorizontal, Timer } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -12,13 +12,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import CreateTaskModal from "@/components/workspaces/v2/tasks/CreateTaskModal";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
-import { AcceptRequestDialog, DeclineRequestDialog, RequestTypesDialog, typesKey } from "@/components/workspaces/v2/tasks/RequestParts";
+import { AcceptRequestDialog, DeclineRequestDialog, RequestTypesDialog, typesKey, WorkingHoursDialog } from "@/components/workspaces/v2/tasks/RequestParts";
 import { TaskStageControl } from "@/components/workspaces/v2/tasks/TaskStageControl";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/added-workflows";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { formatTaskId } from "@/lib/workspace-key";
+import { clockText, hoursLine } from "@/lib/workflows/request-clock";
 import { inboxOrder } from "@/lib/workflows/requests";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
 import { buildTaskSubmitPayload } from "@/lib/workspaces/task-draft";
@@ -26,9 +27,10 @@ import { normalizeAssignableMembers, normalizeSprintOptions } from "@/lib/worksp
 
 /**
  * Report 38.7 T4 (plan A2.4): the Requests tab. Title row and Inbox · Board · Mine · My asks. Accept and Decline from
- * the Inbox (A, D on a focused row); a request opens in the task panel. The clock and Breaching soon arrive with A2.5.
+ * the Inbox (A, D on a focused row); a request opens in the task panel. A2.5: the clock on rows and cards, Breaching
+ * soon, and Working hours.
  */
-type View = "inbox" | "board" | "mine" | "asks";
+type View = "inbox" | "board" | "mine" | "asks" | "breaching";
 const BOARD = ["new", "accepted", "in_progress", "in_review", "delivered"];
 const OPEN = ["accepted", "in_progress", "in_review"];
 const stageLabel = (s: string | null) => WORKFLOW_TYPES.request!.stages.find((x) => x.key === s)?.label ?? "New";
@@ -48,11 +50,12 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
   useEffect(() => {
     let saved: string | null = null;
     try { saved = localStorage.getItem(`nb:requests-view:${projectId}`); } catch { /* private window */ }
-    if (saved === "inbox" || saved === "board" || saved === "mine" || saved === "asks") setView(saved);
+    if (saved === "inbox" || saved === "board" || saved === "mine" || saved === "asks" || saved === "breaching") setView(saved);
   }, [projectId]);
   const pickView = (v: View) => { setView(v); try { localStorage.setItem(`nb:requests-view:${projectId}`, v); } catch { /* private window */ } };
   const [asking, setAsking] = useState(false);
   const [editingTypes, setEditingTypes] = useState(false);
+  const [editingHours, setEditingHours] = useState(false);
   const [accepting, setAccepting] = useState<RequestRow | null>(null);
   const [declining, setDeclining] = useState<RequestRow | null>(null);
   const [requested, setRequested] = useState<{ id: string; stage: string; nonce: number } | null>(null);
@@ -65,6 +68,15 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
   const name = (r: RequestRow) => (r.taskNumber && data?.projectKey ? formatTaskId(data.projectKey, r.taskNumber) : "the request");
   const href = (r: RequestRow) => `/workspaces/${encodeURIComponent(projectSlug)}?${new URLSearchParams({ tab: "tasks", drawerType: "task", drawerId: r.id }).toString()}`;
   const inbox = inboxOrder(all);
+  // W7.1: accepted requests under 20 % left, and New ones near their first-reply time, by time left.
+  const breaching = all.filter((r) => r.clock && (r.clock.state === "soon" || r.clock.state === "breached")).sort((a, b) => a.clock!.leftMinutes - b.clock!.leftMinutes);
+  const clockLine = (r: RequestRow) => {
+    if (!r.clock || r.clock.state === "off") return null;
+    const words = clockText(r.clock, r.clock.kind === "first" ? "Replied" : "Delivered");
+    const label = r.clock.kind === "first" ? "First reply" : "Deliver";
+    return <span className={cn("inline-flex items-center gap-1 font-mono text-[11px]", r.clock.state === "breached" ? "text-destructive" : r.clock.state === "soon" ? "text-[var(--primary-active)] dark:text-primary" : "text-muted-foreground")} data-testid="request-clock">
+      <Timer aria-hidden="true" className="size-3" /><span className="sr-only">{label}: </span>{words}</span>;
+  };
   const memberOptions = assignable.map((m) => ({ id: m.id, label: m.label }));
 
   async function toBug(r: RequestRow) {
@@ -84,6 +96,7 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
         <span className="font-mono">{name(r)}</span>{chip(r)}
         {r.dueDate ? <span className="inline-flex items-center gap-0.5 font-mono"><CalendarDays aria-hidden="true" className="size-3" />{day(r.dueDate)}</span> : null}
+        {clockLine(r)}
         <span className="ml-auto truncate">{r.assigneeName ? r.assigneeName : `from ${r.creatorName ?? "someone"}`}</span>
       </div>
       {canTriage && r.stage === "new" ? (
@@ -102,7 +115,7 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
     <section aria-label="Requests" className="space-y-4" data-testid="requests-tab">
       <div className="flex flex-wrap items-center gap-3 border-b border-border pb-3">
         <h2 className="inline-flex items-center gap-2 text-[20px] font-semibold tracking-tight"><Inbox aria-hidden="true" className="size-5" />Requests</h2>
-        <span className="font-mono text-[12px] text-muted-foreground" data-testid="requests-counts">{inbox.length} new · {all.filter((r) => OPEN.includes(r.stage ?? "")).length} open</span>
+        <span className="font-mono text-[12px] text-muted-foreground" data-testid="requests-counts">{inbox.length} new · {breaching.length} breaching soon</span>
         <div className="ml-auto flex items-center gap-2">
           <button type="button" onClick={() => setAsking(true)} className={FORM_PRIMARY_CLASS}>New request</button>
           {data?.canManage ? (
@@ -112,6 +125,7 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={() => setEditingTypes(true)}>Request types</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setEditingHours(true)}>Working hours</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
@@ -119,12 +133,16 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
       </div>
 
       <UnderlineTabs label="Requests view" idPrefix="requests-view" value={view} onChange={pickView} className="min-h-10"
-        tabs={[{ key: "inbox" as const, label: "Inbox" }, { key: "board" as const, label: "Board" }, { key: "mine" as const, label: "Mine" }, { key: "asks" as const, label: "My asks" }]} />
+        tabs={[{ key: "inbox" as const, label: "Inbox" }, { key: "board" as const, label: "Board" }, { key: "mine" as const, label: "Mine" }, { key: "asks" as const, label: "My asks" }, { key: "breaching" as const, label: "Breaching soon" }]} />
 
       <div id={`requests-view-panel-${view}`} role="tabpanel" aria-labelledby={`requests-view-tab-${view}`} className="space-y-4">
         {query.isLoading ? <div aria-hidden="true" className="nb-skeleton h-40 rounded-[8px]" /> : null}
         {query.data && !query.data.success ? <p className="text-[13px] text-muted-foreground">Couldn’t load requests · <button type="button" className="text-primary hover:underline" onClick={() => void query.refetch()}>Try again</button></p> : null}
 
+        {/* W1.2: owners and admins see what the clock follows. */}
+        {data?.canManage && view === "inbox" ? (
+          <p className="text-xs text-muted-foreground" data-testid="hours-note">Response times follow working hours: {hoursLine(data.hours, data.timeZone)}. <button type="button" className="text-primary hover:underline" onClick={() => setEditingHours(true)}>Change</button></p>
+        ) : null}
         {data && view === "inbox" ? (
           !all.length ? (
             <div className="nb-empty-state rounded-[8px] border border-border bg-card px-4 py-8 text-center" data-testid="requests-empty">
@@ -148,6 +166,7 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
                   <Link href={href(r)} className="min-w-0 flex-1 truncate font-medium hover:underline"><span className="mr-1.5 font-mono text-[11px] text-muted-foreground">{name(r)}</span>{r.title}</Link>
                   <span className="text-[12px] text-muted-foreground">{r.creatorName ?? "Someone"}</span>
                   <span className="font-mono text-[11px] text-muted-foreground">{r.dueDate ? `Need by ${day(r.dueDate)}` : "No need-by"}</span>
+                  {clockLine(r)}
                   {canTriage ? <button type="button" onClick={() => setAccepting(r)} className={FORM_SECONDARY_CLASS}>Accept</button> : null}
                   {canTriage ? <button type="button" onClick={() => setDeclining(r)} className={FORM_SECONDARY_CLASS}>Decline</button> : null}
                   {canTriage && bugsAdded ? <button type="button" onClick={() => void toBug(r)} className={FORM_SECONDARY_CLASS}>This is a bug</button> : null}
@@ -182,6 +201,13 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
           </div>
         ) : null}
 
+        {data && view === "breaching" ? (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="requests-breaching">
+            {breaching.map(card)}
+            {!breaching.length ? <p className="text-[13px] text-muted-foreground">Nothing is close to its response time.</p> : null}
+          </div>
+        ) : null}
+
         {data && (view === "mine" || view === "asks") ? (() => {
           const list = view === "mine"
             ? all.filter((r) => r.assigneeId === currentUserId && OPEN.includes(r.stage ?? ""))
@@ -213,6 +239,7 @@ export function RequestsTab({ projectId, projectSlug, projectName, currentUserId
       {accepting ? <AcceptRequestDialog projectId={projectId} request={accepting} label={name(accepting)} members={memberOptions}
         sprints={sprintOptions.map((s) => ({ id: s.id, name: s.name, status: s.status ?? null }))} canPlanSprints={canPlanSprints} onDone={(done) => { setAccepting(null); if (done) void refresh(); }} /> : null}
       {declining ? <DeclineRequestDialog projectId={projectId} request={declining} label={name(declining)} onDone={(done) => { setDeclining(null); if (done) void refresh(); }} /> : null}
+      {editingHours && data ? <WorkingHoursDialog projectId={projectId} hours={data.hours} timeZone={data.hoursSet || data.timeZone !== "UTC" ? data.timeZone : null} onClose={(saved) => { setEditingHours(false); if (saved) void refresh(); }} /> : null}
       {editingTypes ? <RequestTypesDialog projectId={projectId} members={memberOptions} onClose={() => { setEditingTypes(false); void queryClient.invalidateQueries({ queryKey: typesKey(projectId) }); void refresh(); }} /> : null}
     </section>
   );

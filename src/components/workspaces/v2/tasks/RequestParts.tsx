@@ -4,12 +4,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { acceptRequestAction, archiveRequestTypeAction, declineRequestAction, readRequestAction, readRequestTypesAction, saveRequestTypeAction } from "@/app/actions/requests";
+import { acceptRequestAction, archiveRequestTypeAction, declineRequestAction, readRequestAction, readRequestTypesAction, saveRequestTypeAction, saveWorkingHoursAction } from "@/app/actions/requests";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, SectionDivider, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
+import { hoursLine, type WorkingHours } from "@/lib/workflows/request-clock";
 import { activeTypes, MAX_TYPES, QUESTION_KINDS, requestFooter, workingTime, type Question, type RequestType } from "@/lib/workflows/requests";
 
 /** Report 38.7 S5–S7 and W2–W4, W9 (plan A2.4): the ask form's section, the panel's section, Accept, Decline, types. */
@@ -306,6 +307,74 @@ export function RequestTypesDialog({ projectId, members, onClose }: { projectId:
               <button type="button" className={FORM_PRIMARY_CLASS} disabled={activeTypes(types).length >= MAX_TYPES} onClick={() => setDraft(blank())}>New type</button>
             </>
           )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const DAYS = [{ n: 1, label: "Mon" }, { n: 2, label: "Tue" }, { n: 3, label: "Wed" }, { n: 4, label: "Thu" }, { n: 5, label: "Fri" }, { n: 6, label: "Sat" }, { n: 7, label: "Sun" }];
+
+/** W10 and S8: days, from and to, the time zone and holidays; saving recalculates every open clock. */
+export function WorkingHoursDialog({ projectId, hours, timeZone, onClose }: { projectId: string; hours: WorkingHours; timeZone: string | null; onClose: (saved: boolean) => void }) {
+  const zones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+  const [draft, setDraft] = useState<WorkingHours>(hours);
+  const [zone, setZone] = useState(timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [holiday, setHoliday] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    const r = await saveWorkingHoursAction({ projectId, hours: draft, timeZone: zone });
+    setBusy(false);
+    if (!r.success) return void toast.error(r.error);
+    toast(`Working hours saved · ${r.recalculated} open ${r.recalculated === 1 ? "clock" : "clocks"} recalculated`);
+    onClose(true);
+  }
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(false); }}>
+      <DialogContent showCloseButton={false} className={FORM_DIALOG_CLASS} data-testid="working-hours-dialog">
+        <div className="border-b border-border px-6 py-4">
+          <DialogTitle className="text-base font-semibold">Working hours</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">Response times count only these hours. Changing them recalculates every open clock from its start.</DialogDescription>
+        </div>
+        <div className="space-y-3.5 px-6 py-4">
+          <div role="group" aria-label="Days" className="flex flex-wrap gap-1.5">
+            {DAYS.map((d) => {
+              const on = draft.days.includes(d.n);
+              return <button key={d.n} type="button" aria-pressed={on} onClick={() => setDraft({ ...draft, days: on ? draft.days.filter((x) => x !== d.n) : [...draft.days, d.n].sort() })}
+                className={cn("h-8 min-w-11 rounded-[5px] border px-2 text-xs font-medium", on ? "border-primary bg-primary/10" : "border-border text-muted-foreground hover:bg-muted")}>{d.label}</button>;
+            })}
+          </div>
+          <div className="grid grid-cols-2 gap-3.5">
+            <Field label="From" htmlFor="hours-from"><input id="hours-from" type="time" value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} className={inputClassName(false)} /></Field>
+            <Field label="To" htmlFor="hours-to"><input id="hours-to" type="time" value={draft.to} onChange={(e) => setDraft({ ...draft, to: e.target.value })} className={inputClassName(false)} /></Field>
+          </div>
+          <Field label="Time zone" htmlFor="hours-zone">
+            <SelectWrap><select id="hours-zone" value={zone} onChange={(e) => setZone(e.target.value)} className={selectClassName()}>
+              {(zones.includes(zone) ? zones : [zone, ...zones]).map((z) => <option key={z} value={z}>{z}</option>)}
+            </select></SelectWrap>
+          </Field>
+          <Field label="Holidays (optional)" htmlFor="hours-holiday">
+            <div className="flex gap-2">
+              <input id="hours-holiday" type="date" value={holiday} onChange={(e) => setHoliday(e.target.value)} className={inputClassName(false)} />
+              <button type="button" className={FORM_SECONDARY_CLASS} disabled={!holiday || draft.holidays.includes(holiday)}
+                onClick={() => { setDraft({ ...draft, holidays: [...draft.holidays, holiday].sort() }); setHoliday(""); }}>Add</button>
+            </div>
+          </Field>
+          {draft.holidays.length ? (
+            <ul className="flex flex-wrap gap-1.5" aria-label="Holidays">
+              {draft.holidays.map((h) => (
+                <li key={h} className="inline-flex h-7 items-center gap-1 rounded-[5px] border border-border px-2 font-mono text-[11px]">{h}
+                  <button type="button" aria-label={`Remove ${h}`} className="text-muted-foreground hover:text-foreground" onClick={() => setDraft({ ...draft, holidays: draft.holidays.filter((x) => x !== h) })}>×</button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="text-xs text-muted-foreground" data-testid="hours-preview">{hoursLine(draft, zone)}</p>
+        </div>
+        <div className={FORM_FOOTER_CLASS}>
+          <button type="button" className={FORM_SECONDARY_CLASS} disabled={busy} onClick={() => onClose(false)}>Cancel</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !draft.days.length || draft.from >= draft.to} onClick={() => void save()}>Save</button>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, notLike, or, sql } from "drizzle-orm";
 
 import { wakeChatDueIfSoon } from "@/inngest/wake";
 import { db } from "@/lib/db";
@@ -21,25 +21,28 @@ export async function addTaskReminder(userId: string, taskId: string, at: Date, 
   await readableTask(taskId, userId);
   if (at.getTime() < now.getTime() + 30_000) throw new TaskMetaError("That time has passed: pick one in the future", 409);
   if (at.getTime() > now.getTime() + 366 * 86_400_000) throw new TaskMetaError("Reminders can be up to a year ahead", 409);
-  const [pending] = await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${taskId} AND user_id = ${userId} AND sent_at IS NULL`);
+  const [pending] = await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM task_reminders WHERE task_id = ${taskId} AND user_id = ${userId} AND sent_at IS NULL AND (note IS NULL OR note NOT LIKE 'request_clock:%')`);
   if ((pending?.n ?? 0) >= PENDING_PER_TASK) throw new TaskMetaError(`You have ${PENDING_PER_TASK} reminders on this task already`, 409);
   const [row] = await db.insert(taskReminders).values({ taskId, userId, remindAt: at, note: note?.trim().slice(0, 300) || null }).returning();
   await wakeChatDueIfSoon(at, now);
   return row!;
 }
 
+// Report 38.7 (A2.5): a request's clock warnings are system rows (note "request_clock:…"), not the person's reminders.
+const ownRow = or(isNull(taskReminders.note), notLike(taskReminders.note, "request_clock:%"));
+
 export async function listTaskReminders(userId: string, taskId: string) {
   await readableTask(taskId, userId);
   return db.select({ id: taskReminders.id, remindAt: taskReminders.remindAt, note: taskReminders.note }).from(taskReminders)
-    .where(and(eq(taskReminders.taskId, taskId), eq(taskReminders.userId, userId), isNull(taskReminders.sentAt))).orderBy(asc(taskReminders.remindAt));
+    .where(and(eq(taskReminders.taskId, taskId), eq(taskReminders.userId, userId), isNull(taskReminders.sentAt), ownRow)).orderBy(asc(taskReminders.remindAt));
 }
 
 export async function cancelTaskReminders(userId: string, taskId: string) {
-  const gone = await db.delete(taskReminders).where(and(eq(taskReminders.taskId, taskId), eq(taskReminders.userId, userId), isNull(taskReminders.sentAt))).returning({ id: taskReminders.id });
+  const gone = await db.delete(taskReminders).where(and(eq(taskReminders.taskId, taskId), eq(taskReminders.userId, userId), isNull(taskReminders.sentAt), ownRow)).returning({ id: taskReminders.id });
   return gone.length;
 }
 
-type DueTaskReminder = { id: string; user_id: string; task_id: string; note: string | null; remind_at: string; title: string; task_number: number | null; workspace_id: string; slug: string | null; eligible: boolean };
+type DueTaskReminder = { id: string; user_id: string; task_id: string; note: string | null; remind_at: string; title: string; task_number: number | null; workspace_id: string; slug: string | null; eligible: boolean; stage: string | null; key: string | null };
 
 /** Sends what's due as an inbox item (and push or email, as the person's settings say). */
 export async function fireDueTaskReminders(limit = TASK_REMINDER_LIMIT) {
@@ -50,7 +53,7 @@ export async function fireDueTaskReminders(limit = TASK_REMINDER_LIMIT) {
       SELECT id FROM task_reminders WHERE sent_at IS NULL AND remind_at <= now() AND (claim_expires_at IS NULL OR claim_expires_at < now())
       ORDER BY remind_at LIMIT ${limit} FOR UPDATE SKIP LOCKED
     ) AND t.id = r.task_id
-    RETURNING r.id, r.user_id, r.task_id, r.note, r.remind_at::text AS remind_at, t.title, t.task_number, t.workspace_id, w.slug,
+    RETURNING r.id, r.user_id, r.task_id, r.note, r.remind_at::text AS remind_at, t.title, t.task_number, t.workspace_id, w.slug, t.stage, w.key,
       -- Gone, or the person left the workspace: close it without telling them about the task.
       (t.deleted_at IS NULL AND w.deleted_at IS NULL AND (w.owner_id = r.user_id OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = r.user_id))) AS eligible`);
   const done = (id: string) => db.update(taskReminders).set({ sentAt: new Date(), claimExpiresAt: null }).where(eq(taskReminders.id, id));
@@ -58,6 +61,21 @@ export async function fireDueTaskReminders(limit = TASK_REMINDER_LIMIT) {
   for (const row of due) {
     if (!row.eligible) { await done(row.id); continue; }
     try {
+      // Report 38.7 W7.2 (A2.5): a request's clock warning, unless the request was answered or delivered meanwhile.
+      if (row.note?.startsWith("request_clock:")) {
+        const { clockNoticeTitle } = await import("@/lib/workflows/request-clock-server");
+        const title = clockNoticeTitle(row.note, row.title, row.stage);
+        if (title) await createNotification({
+          recipientUserId: row.user_id, kind: "project_task_activity", category: "tasks", importance: "important", title,
+          href: projectTaskHref(row.slug || row.workspace_id, row.task_id),
+          entityRefs: { projectId: row.workspace_id, projectSlug: row.slug, taskId: row.task_id },
+          preview: { contextLabel: row.task_number && row.key ? `${row.key}-${row.task_number}` : "Request", contextKind: "task", secondaryText: "Request" },
+          dedupeKey: `task-reminder:${row.id}`,
+        });
+        await done(row.id);
+        if (title) reminders += 1;
+        continue;
+      }
       await createNotification({
         recipientUserId: row.user_id,
         kind: "task_reminder",

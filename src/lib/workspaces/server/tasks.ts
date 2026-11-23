@@ -1473,6 +1473,10 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       const { notifyRequestNew } = await import("@/lib/workflows/request-notify");
       await notifyRequestNew(createdTask.id, user.id, requestTriagers);
     }
+    if (itemType === "request") {
+      const { scheduleRequestClock } = await import("@/lib/workflows/request-clock-server");
+      await scheduleRequestClock(createdTask.id);
+    }
 
     await wakeEmailWorker();
     await queueCounterRefreshBestEffort([validated.assigneeId ?? null]);
