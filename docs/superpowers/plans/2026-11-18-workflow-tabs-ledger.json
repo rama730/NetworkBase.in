@@ -238,9 +238,9 @@
       "text": "A2.7 Content: tab, channels, ideas, calendar (38.8) — Build: migration workspaces.contentsettings; Calendar with Ideas rail; quick-adds; This week; Board; To sc",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "A2.8",
@@ -6548,9 +6548,9 @@
       "text": "Adding Content",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.8.W2",
@@ -6558,9 +6558,9 @@
       "text": "Capturing ideas",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean. W2.1 (+ Add idea) live; W2.2 'Save as content idea' from a meeting's action items or a request is not built yet: it lands with A4.1 meetings. revisit 2026-12-15"
     },
     {
       "key": "38.8.W3",
@@ -6568,9 +6568,9 @@
       "text": "Planning onto the calendar",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.8.W4",
@@ -6578,9 +6578,9 @@
       "text": "Making a piece directly",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.8.W5",
@@ -6638,9 +6638,9 @@
       "text": "This week and To schedule",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.8.W11",
@@ -6648,9 +6648,9 @@
       "text": "Phone",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.8.W12",
@@ -6668,9 +6668,9 @@
       "text": "Only the Blog and Social setups; Podcast and Video stay parked. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.8.call2",
@@ -6708,9 +6708,9 @@
       "text": "A type's checklist becomes subtasks when a piece enters Drafting. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.8.call6",
@@ -6718,9 +6718,9 @@
       "text": "Channels and types live in one workspace setting (contentsettings); campaigns are labels. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.8.call7",
@@ -6728,9 +6728,9 @@
       "text": "Publish time also sets the due date, so Calendar, My Work and reminders work as they do. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.8.call8",
@@ -6748,9 +6748,9 @@
       "text": "Views: Calendar · This week · Board · To schedule · Performance; by channel and by writer are Board groupings. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     },
     {
       "key": "38.9.W1",
@@ -8268,9 +8268,9 @@
       "text": "A2.7 (2026-11-23): Content ships in three units (A2.7 setup, ideas, Calendar, This week, Board, To schedule; A2.8 Write draft, Ready for edit, Mark published an",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/content.test.ts; tests/browser/content-tab.spec.ts; tests/unit/content-rules.test.ts",
+      "evidence": "17f6554a6 + fix 5c4f28e94 live 2026-11-23 (web+worker SUCCESS; full test:db 1249/1249, unit 3722). Checked live in Chrome on wt-test-a2-3: first-visit setup (Blog + Social, Instagram audience 1,200) saved; + Add idea; Plan… → WT-13 Drafting, on the board, writer set, publishAt 2026-11-26T04:30Z (10:00 Asia/Calcutta); This week 'Thu 26 Nov · 10:00'; Instagram quick-add → WT-14 with Instagram, Reel, 10:00 and the Reel checklist as subtasks. Fixes from the check: Ideas rail on the left; the module says when a piece publishes. Logs clean."
     }
   ]
 }
