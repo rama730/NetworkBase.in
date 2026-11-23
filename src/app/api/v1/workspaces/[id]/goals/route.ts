@@ -4,6 +4,7 @@ import { z } from "zod";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { denyOutsideTokenWorkspace, getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { checkInAction, readGoalsAction } from "@/app/actions/workspace/doc";
+import { agentGate } from "@/lib/agents/policy";
 import { db } from "@/lib/db";
 import { validateCsrf } from "@/lib/security/csrf";
 import { tasks, workspaceDocuments, workspaces } from "@/lib/db/schema";
@@ -61,6 +62,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const [kr] = await db.select({ id: tasks.id }).from(tasks)
       .where(and(eq(tasks.projectId, id), eq(tasks.taskNumber, body.data.task), inArray(tasks.itemType, ["key_result"]), isNull(tasks.deletedAt))).limit(1);
     if (!kr) return jsonError("That isn't a key result in this workspace", 404, "NOT_FOUND");
+    // Security review: a check-in is the person's own numbers (report W10, tier "yes"), so an agent waits for their yes.
+    const held = await agentGate(auth, request, body.data, { workspaceId: id, kinds: ["message"], summary: `Check in on NB-${body.data.task}: ${body.data.value} · confidence ${body.data.confidence}/10`, taskId: kr.id });
+    if (held) return held;
     const r = await checkInAction(id, { taskId: kr.id, value: body.data.value, confidence: body.data.confidence, ...(body.data.note ? { note: body.data.note } : {}) });
     if (!r.success) return jsonError(r.error, 403, "FORBIDDEN");
     return jsonSuccess({ checkedIn: true });
