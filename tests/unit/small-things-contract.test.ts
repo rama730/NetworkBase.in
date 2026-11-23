@@ -44,3 +44,9 @@ test("C11: a destructive menu item uses the menu's destructive variant, not its 
   const own = execSync(`grep -rnE "<DropdownMenuItem[^>]*className=[^>]*text-(destructive|red-)" src --include='*.tsx' || true`, { encoding: "utf8" }).split("\n").filter(Boolean).filter((l) => !l.includes('variant="destructive"'));
   assert.deepEqual(own, []);
 });
+
+test("a 'use client' file has no import above the directive (Next refuses to build it)", () => {
+  const files = execSync(`grep -rlE "^[\\"']use client[\\"']" src --include='*.tsx' --include='*.ts' || true`, { encoding: "utf8" }).split("\n").filter(Boolean);
+  const bad = files.filter((f) => { const s = execSync(`cat ${JSON.stringify(f)}`, { encoding: "utf8" }); return /^\s*import\b/m.test(s.slice(0, s.search(/^["']use client["']/m))); });
+  assert.deepEqual(bad, []);
+});

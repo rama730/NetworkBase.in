@@ -1,4 +1,3 @@
-import { PixelBeat } from "@/components/ui/PixelBeat";
 // Task 6.4: Files tab text viewer (Raw + thinned CodeMirror Edit).
 //
 // Validates: Req 5.2, Req 5.8, Req 15.4, Req 15.13.
@@ -38,6 +37,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 //     that fixes the Req 17 metadata-stale bug.
 
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 import { FilesHeaderSlot } from "../FilesHeaderSlot";
 
 import { toast, feedbackError } from "@/lib/feedback";

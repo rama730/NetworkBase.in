@@ -1,7 +1,7 @@
-import { PixelBeat } from "@/components/ui/PixelBeat";
 // Quick-open: parent owns ⌘P/open/query, this dialog owns debounced file search.
 
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, {
   useCallback,

@@ -1,4 +1,3 @@
-import { PixelBeat } from "@/components/ui/PixelBeat";
 // Task 5.1 — `FolderListView`.
 //
 // GitHub-style four-column file list that renders the children of the
@@ -14,6 +13,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 // Req 12.1–12.6. See design.md § FolderListView.
 
 "use client";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import dynamic from "next/dynamic";
 import { extOf } from "@/components/workspaces/v2/utils/fileKind";
