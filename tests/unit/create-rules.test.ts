@@ -45,3 +45,8 @@ test("newMenuLine: a type that joins the board names its stage; a project names 
   assert.equal(newMenuLine("bug"), "Joins Tasks at Fixing");
   assert.equal(newMenuLine("project"), "Shows in Projects");
 });
+
+test("A2.10 live check: a roadmap item's footer says its work tasks go on the board", () => {
+  assert.equal(footerLine("roadmap_item", "backlog", false), "Shows in Roadmap · never on the Tasks board · its work tasks are");
+  assert.equal(footerLine("project", "not_started", true), "Shows in Projects");
+});

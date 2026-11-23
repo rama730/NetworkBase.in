@@ -41,6 +41,8 @@ const ownTabName = (type: string) => WORKFLOW_CATALOG.find((w) => w.types.includ
 export function footerLine(type: string, stage: string | null, sprintAllowed: boolean) {
   if (type === "task" || !stage) return null;
   const tab = ownTabName(type);
+  // Report 38.9 W2 (A2.10 live check): a roadmap item says its work, not itself, goes on the board.
+  if (type === "roadmap_item") return `Shows in ${tab} · never on the Tasks board · its work tasks are`;
   if (!workflowType(type).joinStage) return `Shows in ${tab}`;
   if (!isOnBoard(type, stage)) return `Shows in ${tab} · not on the Tasks board yet`;
   const label = workflowType(type).stages.find((s) => s.key === stage)!.label;
