@@ -188,9 +188,9 @@
       "text": "A2.2 Bugs: close, duplicate, can't reproduce, reopen — Build: closeBugAction, reopenBugAction, resolveDuplicateTarget, mergeOnDuplicate. Journeys: T3 W5, W6, W9",
       "kind": "unit",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts",
+      "evidence": "LIVE 2026-11-23 eabb095b0, live fix b7c62dd99 (toast said \"this bug reopened\"). No migration. Live on wt-test-a2-2 (deleted): CLI bare `nb task move --stage wont_fix` refused; Triage X key → Close… Duplicate of WT-1 (toast, WT-2 left triage, tab count 3→2, duplicateOf stored); Can't reproduce with message posted as a comment; reporter Reopen with details → New; panel Stage menu Won't fix opened Close… preset; Stage menu Confirmed on a closed bug opened Reopen → Confirmed with comment; panel shows \"Duplicate of WT-1 · Payment gateway is down\"."
     },
     {
       "key": "A2.3",
@@ -6118,9 +6118,9 @@
       "text": "Duplicate",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts",
+      "evidence": "2026-11-23 Chrome: duplicate closed with picker; chain to the open original, merge and loop refusal in the db test."
     },
     {
       "key": "38.6.W6",
@@ -6128,9 +6128,9 @@
       "text": "Can't reproduce",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts",
+      "evidence": "2026-11-23 Chrome: Can't reproduce asks a message, posts it as a comment; reporter Reopen with details → New. The mention to another person is in the db test."
     },
     {
       "key": "38.6.W7",
@@ -6158,9 +6158,9 @@
       "text": "Moving back off the board",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "tested",
+      "test": "tests/unit/workflow-rules.test.ts",
+      "evidence": "Fixing → Confirmed leaves the board with the moved_back sprint event (A0.1/A0.10 rules, checked live then)."
     },
     {
       "key": "38.6.W10",
@@ -8218,9 +8218,9 @@
       "text": "A2.2 (2026-11-23): closing a bug always goes through Close… (the Triage row, X, or a closing stage in any Stage menu opens it); a bare stage move to Won't fix, ",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/bugs.test.ts",
+      "evidence": "2026-11-23: close only through Close…, bare moves refused, Reopen from any Stage menu, comment first, closed bugs leave the views."
     }
   ]
 }
