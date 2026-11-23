@@ -558,9 +558,9 @@
       "text": "A5.4 Team off-site — Journeys: D5 W1–W7.",
       "kind": "unit",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/offsite.test.ts; tests/browser/offsite-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b0411fdcf + 70f60515c): Add workflow → Team off-site; Plan an off-site WT team off-site 4–5 Dec, Goa; rows Before/Travel (Book travel — me, assigned)/After; My work asked; Going → 1 going; nb offsites list; Overview card \"Off-site in 10 days · everyone answered\"."
     },
     {
       "key": "A6.1",
@@ -7508,9 +7508,9 @@
       "text": "An off-site is a document with checklists as tasks; registrations and budgets stay with the parked Event planner. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/offsite.test.ts; tests/browser/offsite-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b0411fdcf + 70f60515c): Add workflow → Team off-site; Plan an off-site WT team off-site 4–5 Dec, Goa; rows Before/Travel (Book travel — me, assigned)/After; My work asked; Going → 1 going; nb offsites list; Overview card \"Off-site in 10 days · everyone answered\"."
     },
     {
       "key": "38.14.call2",
@@ -7518,9 +7518,9 @@
       "text": "Who's coming is a simple Going / Can't go per invited member, stored on the document. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/offsite.test.ts; tests/browser/offsite-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b0411fdcf + 70f60515c): Add workflow → Team off-site; Plan an off-site WT team off-site 4–5 Dec, Goa; rows Before/Travel (Book travel — me, assigned)/After; My work asked; Going → 1 going; nb offsites list; Overview card \"Off-site in 10 days · everyone answered\"."
     },
     {
       "key": "38.14.call3",
@@ -7528,9 +7528,9 @@
       "text": "One \"Book travel\" row per invitee, assigned to them. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/offsite.test.ts; tests/browser/offsite-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b0411fdcf + 70f60515c): Add workflow → Team off-site; Plan an off-site WT team off-site 4–5 Dec, Goa; rows Before/Travel (Book travel — me, assigned)/After; My work asked; Going → 1 going; nb offsites list; Overview card \"Off-site in 10 days · everyone answered\"."
     },
     {
       "key": "38.14.call4",
@@ -7538,9 +7538,9 @@
       "text": "Never public. [call]",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/offsite.test.ts; tests/browser/offsite-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b0411fdcf + 70f60515c): Add workflow → Team off-site; Plan an off-site WT team off-site 4–5 Dec, Goa; rows Before/Travel (Book travel — me, assigned)/After; My work asked; Going → 1 going; nb offsites list; Overview card \"Off-site in 10 days · everyone answered\"."
     },
     {
       "key": "38.15.W1",
@@ -8438,9 +8438,9 @@
       "text": "A5.4 (2026-11-24): Off-site's + opens Plan an off-site (name, from–to, place, invite from the members); the browser writes the document (title, Agenda with a he",
       "kind": "call",
       "milestone": "A5",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/offsite.test.ts; tests/browser/offsite-doc.spec.ts",
+      "evidence": "Live 2026-11-24 (b0411fdcf + 70f60515c): Add workflow → Team off-site; Plan an off-site WT team off-site 4–5 Dec, Goa; rows Before/Travel (Book travel — me, assigned)/After; My work asked; Going → 1 going; nb offsites list; Overview card \"Off-site in 10 days · everyone answered\"."
     }
   ]
 }
