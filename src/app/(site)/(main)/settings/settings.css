@@ -41,15 +41,13 @@
 .nbs-results .nbs-none { padding: 10px 12px; font: 12px var(--nbs-mono); color: var(--nbs-fg2); }
 .nbs-navnav { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .nbs-navlist { position: relative; display: grid; align-content: start; flex: 1; padding: 8px 0; overflow-y: auto; }
-.nbs-nl { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 16px; color: var(--nbs-fg2); text-decoration: none; font-size: 13.5px; font-weight: 500; }
-.nbs-nl .n { font: 500 11px var(--nbs-mono); color: var(--nbs-fg2); font-variant-numeric: tabular-nums; }
+.nbs-nl { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 16px; color: var(--nbs-fg2); text-decoration: none; font-size: 13.5px; font-weight: 500; }
 .nbs-nl .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nbs-nl .s { font: 500 10px var(--nbs-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--nbs-brand); white-space: nowrap; }
 .nbs-nl:hover { background: var(--nbs-soft); color: var(--foreground); }
 .nbs-nl[aria-current="location"] { color: var(--foreground); background: color-mix(in srgb, var(--nbs-soft) 70%, transparent); }
-.nbs-nl[aria-current="location"] .n { color: var(--nbs-brand); }
 .nbs-nl:focus-visible { outline: none; background: var(--nbs-tint); color: var(--foreground); }
-.nbs-nl.danger, .nbs-nl.danger .n, .nbs-nl.danger .s { color: var(--status-danger); }
+.nbs-nl.danger, .nbs-nl.danger .s { color: var(--status-danger); }
 .nbs-navfoot { border-top: 1px solid var(--nbs-line); padding: 8px 0; }
 .nbs-navlist .nbs-nl.only-phone { display: none; }
 
@@ -232,7 +230,7 @@
   .nbs-results { top: calc(100% + 2px); }
   .nbs-navlist { display: flex; overflow-x: auto; padding: 0; scrollbar-width: none; }
   .nbs-navlist::-webkit-scrollbar { display: none; }
-  .nbs-nl { flex: none; grid-template-columns: auto auto auto; min-height: 44px; padding: 0 14px; border-right: 1px solid var(--nbs-line); }
+  .nbs-nl { flex: none; grid-template-columns: auto auto; min-height: 44px; padding: 0 14px; border-right: 1px solid var(--nbs-line); }
   .nbs-navlist .nbs-nl.only-phone { display: grid; }
   .nbs-navfoot { display: none; }
   .nbs-reach { grid-template-columns: minmax(0, 1fr); }

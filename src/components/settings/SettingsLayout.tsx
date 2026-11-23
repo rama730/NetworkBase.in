@@ -8,7 +8,6 @@ import { isReducedMotionEnabled } from "@/lib/theme/appearance";
 import { resolveSettingsTarget, sectionFromElementId, settingsSectionHref, settingsSectionId, type SettingsSection } from "@/lib/settings/navigation";
 import { SettingsFind } from "@/components/settings/mix/SettingsFind";
 import { useSettingsSummary } from "@/components/settings/mix/useSettingsSummary";
-import { padCount } from "@/lib/ui/tab-marker";
 import { cn } from "@/lib/utils";
 
 type SettingsItem = { title: string; section: SettingsSection; href: string; danger?: boolean };
@@ -29,17 +28,15 @@ const ALIGN_WINDOW_MS = 4000;
 const SMOOTH_SCROLL_MS = 900;
 
 /**
- * The section nav (settings mix): hairline cells with a mono counter, a state only where something needs you
- * (VERIFY, 2FA OFF, PAUSED, a deletion date); the section you're in is tinted with a clay number (no edge line, by the
- * user's call 2026-11-23). Delete account sits apart at the bottom; on a phone the nav is one sticky strip.
+ * The section nav (settings mix): hairline cells, a state only where something needs you (VERIFY, 2FA OFF, PAUSED,
+ * a deletion date); the section you're in is tinted (no edge line and no 01–08 numbers, by the user's call 2026-11-23). Delete account sits apart at the bottom; on a phone the nav is one sticky strip.
  */
 function SettingsNav({ activeSection, onNavigate }: { activeSection: SettingsSection; onNavigate: (event: MouseEvent<HTMLAnchorElement>, item: SettingsItem) => void }) {
   const { states } = useSettingsSummary();
   const listRef = useRef<HTMLDivElement>(null);
-  const link = (item: SettingsItem, index: number, className?: string) => {
+  const link = (item: SettingsItem, className?: string) => {
     const state = states[item.section as keyof typeof states];
     return <Link key={`${item.section}-${className ?? ""}`} href={item.href} aria-current={activeSection === item.section ? "location" : undefined} onClick={(event) => onNavigate(event, item)} className={cn("nbs-nl", item.danger && "danger", className)}>
-      <span className="n" aria-hidden="true">{padCount(index + 1)}</span>
       <span className="t">{item.title}</span>
       <span className="s">{state ? <><span className="sr-only">, </span>{state}</> : null}</span>
     </Link>;
@@ -55,10 +52,10 @@ function SettingsNav({ activeSection, onNavigate }: { activeSection: SettingsSec
   // One landmark holds all eight: the list, and Delete account apart at the bottom (in the strip on a phone).
   return <nav aria-label="Settings sections" className="nbs-navnav">
     <div ref={listRef} className="nbs-navlist">
-      {settingsItems.map((item, index) => link(item, index))}
-      {link(deleteItem, settingsItems.length, "only-phone")}
+      {settingsItems.map((item) => link(item))}
+      {link(deleteItem, "only-phone")}
     </div>
-    <div className="nbs-navfoot">{link(deleteItem, settingsItems.length)}</div>
+    <div className="nbs-navfoot">{link(deleteItem)}</div>
   </nav>;
 }
 

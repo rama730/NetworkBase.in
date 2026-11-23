@@ -37,6 +37,7 @@ test("personal settings render as one navigable scroll document", () => {
   // No edge line on the current section (user, 2026-11-23): it is shown by its tint and clay number.
   assert.doesNotMatch(layout, /nbs-marker/, "no edge marker on the current section");
   assert.doesNotMatch(document, /\/ \{String\(SETTINGS_SECTIONS\.length\)/, "section eyebrows carry the name only, no 0N / 08");
+  assert.doesNotMatch(layout, /padCount\(index \+ 1\)|className="n"/, "nav cells carry the name only, no 01–08 (user, 2026-11-23)");
   assert.match(layout, /nbs-navfoot/, "Delete account sits apart at the bottom");
   assert.match(layout, /<SettingsFind onJump=\{findJump\} \/>/, "Find a setting lives in the nav head");
   assert.match(layout, /<h1 id="settings-navigation-title" className="nbs-eyebrow max-md:sr-only">Settings<\/h1>/);
