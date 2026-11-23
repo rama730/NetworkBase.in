@@ -370,7 +370,7 @@
       "milestone": "A4",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "A4.1a live 2026-11-23 (see 38.11 W1, W3, W5, W8, W9). A4.1b to build: Meetings calendar (W10), personal .ics feed, Overview card, My work's meetings, nb meetings/decisions (W12), D1 notifications for decisions."
     },
     {
       "key": "A4.2",
@@ -7098,9 +7098,9 @@
       "text": "New meeting",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/unit/meeting-rules.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "A4.1a 7ba659914 + live fix a65a19513 live 2026-11-23 (0115 applied in prod; full test:db 1267/1267). Checked live in Chrome on wt-test-a2-3 (Meetings added by SQL): New meeting 'WT Weekly', today 20:50 IST, 30 min, weekly, me as attendee → document with Notes and Action items, header 'Mon 23 Nov · 20:50–21:20 (Asia/Calcutta) · Blank · Every week'."
     },
     {
       "key": "38.11.W2",
@@ -7118,9 +7118,9 @@
       "text": "Before and during",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/unit/meeting-rules.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "A4.1a 7ba659914 + live fix a65a19513 live 2026-11-23 (0115 applied in prod; full test:db 1267/1267). Checked live in Chrome on wt-test-a2-3 (Meetings added by SQL): Now shown during the meeting; reminder row for the next meeting at 30 Nov 20:35 IST (15 min before); the reminder firing is covered by tests/db/meetings.test.ts."
     },
     {
       "key": "38.11.W4",
@@ -7138,9 +7138,9 @@
       "text": "Finish meeting",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/unit/meeting-rules.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "A4.1a 7ba659914 + live fix a65a19513 live 2026-11-23 (0115 applied in prod; full test:db 1267/1267). Checked live in Chrome on wt-test-a2-3 (Meetings added by SQL): Action item WT-49 added; Finish → WT Weekly · Nov 30 at the same time with WT-49 listed 'Carried over' (one task, not a copy)."
     },
     {
       "key": "38.11.W6",
@@ -7168,9 +7168,9 @@
       "text": "Series",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/unit/meeting-rules.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "A4.1a 7ba659914 + live fix a65a19513 live 2026-11-23 (0115 applied in prod; full test:db 1267/1267). Checked live in Chrome on wt-test-a2-3 (Meetings added by SQL): End the series ended it (Edit this meeting covered by tests/db and tests/browser)."
     },
     {
       "key": "38.11.W9",
@@ -7178,9 +7178,9 @@
       "text": "Open action items",
       "kind": "journey",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/unit/meeting-rules.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "A4.1a 7ba659914 + live fix a65a19513 live 2026-11-23 (0115 applied in prod; full test:db 1267/1267). Checked live in Chrome on wt-test-a2-3 (Meetings added by SQL): Rail → Open action items lists 'Send the recap · WT Weekly' (fixed live: the page dropped the URL parameter)."
     },
     {
       "key": "38.11.W10",
@@ -7238,9 +7238,9 @@
       "text": "Series make the next meeting on Finish, carrying open action items (the same tasks, not copies). [call]",
       "kind": "call",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/unit/meeting-rules.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (carry-over, same tasks)."
     },
     {
       "key": "38.11.call4",
@@ -7248,9 +7248,9 @@
       "text": "Meeting reminders use a small document-reminders table on the existing hourly job. [call]",
       "kind": "call",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts; tests/unit/meeting-rules.test.ts; tests/browser/meeting-doc.spec.ts",
+      "evidence": "Live 2026-11-23 (document reminders on the hourly due job; 0115)."
     },
     {
       "key": "38.11.call5",
