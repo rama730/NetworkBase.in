@@ -10,6 +10,9 @@ moduleStubs.set("@/lib/realtime/server-broadcast", { broadcast: async (messages:
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.16" }), cookies: async () => ({ get: () => undefined, getAll: () => [] }) });
 
+let viewerId: string | null = null;
+moduleStubs.set("@/lib/server/viewer-context", { getViewerIdentityContext: async () => ({ userId: viewerId, user: viewerId ? { id: viewerId } : null }) });
+
 let journey: typeof import("../../src/lib/workspaces/member-journey");
 let access: typeof import("../../src/lib/data/workspace-access");
 let profile: typeof import("../../src/lib/profile/collaboration");
@@ -248,4 +251,18 @@ test("profile: the closing note, marked completed by, confirmed by, and the earl
   assert.equal(back.earlierPeriods?.length, 1);
   assert.equal(back.earlierPeriods?.[0]?.reason, "completed");
   assert.ok(back.currentSince, "the current period's start");
+});
+
+test("activity: completing (note for members only), reopening and leaving show in the workspace's recent activity", async () => {
+  const s = await setup();
+  const { readWorkspaceRecentActivityAction } = await loadAppModule(() => import("../../src/app/actions/workspace/recent-activity"));
+  await journey.completePart(s.member, s.ws, s.member, { note: "Built the sign-in", tasks: "keep" });
+  await journey.reopenPart(s.member, s.ws);
+  await journey.leaveWorkspace(s.member, s.ws, { tasks: "unassign" });
+  viewerId = s.owner;
+  const texts = (await readWorkspaceRecentActivityAction(s.ws)).map((i) => i.text);
+  viewerId = null;
+  assert.ok(texts.some((t) => /left the workspace/.test(t)), texts.join(" | "));
+  assert.ok(texts.some((t) => /reopened their part/.test(t)), texts.join(" | "));
+  assert.ok(texts.some((t) => /completed their part · “Built the sign-in”/.test(t)), texts.join(" | "));
 });
