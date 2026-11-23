@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { routeErrorResponse } from "@/app/api/v1/_error";
+import { journeyError } from "@/app/api/v1/_member-journey";
 import { denyOutsideTokenWorkspace, getRequestId, idempotentWrite, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { bulkTrashNodes } from "@/app/actions/files/mutations";
 import { updateSubtaskAction } from "@/app/actions/subtask";
@@ -173,7 +174,7 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
     try {
       if (memberJourney) {
         const { undoMemberJourney } = await import("@/lib/workspaces/member-journey");
-        await undoMemberJourney(op.inverse as never);
+        await undoMemberJourney(op.inverse as never, auth.user.id);
         return jsonSuccess({ undone: op.summary, result: { undone: true }, operation: op.operation });
       }
       const inverse = op.inverse as unknown as UndoInverse;
@@ -183,7 +184,8 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
       await db.update(undoOperations).set({ usedAt: null }).where(eq(undoOperations.id, op.id));
       if (error instanceof Changed) return jsonError(error.message, 409, error.code);
       if (error instanceof ChangeSetError) return jsonError(error.message, error.status, error.code as never, error.details);
-      throw error;
+      return journeyError(error); // a member-journey refusal as its error; anything else is rethrown
+
     }
   } catch (error) {
     return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/undo", fallback: "Couldn’t undo that" });

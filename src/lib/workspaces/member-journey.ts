@@ -208,6 +208,12 @@ async function moveOpenTasks(tx: Executor, ws: NonNullable<Awaited<ReturnType<ty
 async function moveReviews(tx: Executor, ws: NonNullable<Awaited<ReturnType<typeof readWorkspace>>>, userId: string, reviewsTo: string | null) {
     const to = reviewsTo ?? ws.ownerId;
     if (to === userId) return [];
+    if (to !== ws.ownerId) {
+        // Same rule as giving tasks: a member here who can work, and whose part isn't completed.
+        const [r] = await tx.select({ role: workspaceMembers.role, completedAt: workspaceMembers.completedAt }).from(workspaceMembers)
+            .where(and(eq(workspaceMembers.projectId, ws.id), eq(workspaceMembers.userId, to))).limit(1);
+        if (!r || r.role === "viewer" || r.completedAt) fail("Hand your reviews to the owner or a member who can review", "BAD_REQUEST");
+    }
     const waiting = await tx.select({ id: mergeRequests.id, authorId: mergeRequests.authorId }).from(mergeRequestReviews)
         .innerJoin(mergeRequests, eq(mergeRequests.id, mergeRequestReviews.mergeRequestId))
         .where(and(eq(mergeRequests.workspaceId, ws.id), eq(mergeRequestReviews.reviewerId, userId), eq(mergeRequestReviews.state, "requested"), inArray(mergeRequests.state, ["open", "draft"])));
@@ -250,6 +256,13 @@ async function rateLimited(projectId: string, userId: string) {
     if (!r.allowed) fail("You've completed and reopened your part here 10 times today. Try again tomorrow.", "RATE_LIMITED");
 }
 
+/** The owner, or an admin for members and viewers (§3 "The owner completes someone's part"); read again at undo time. */
+async function mayActFor(tx: Executor, ws: { id: string; ownerId: string }, actorId: string, targetRole: string) {
+    const actor = ws.ownerId === actorId ? "owner" : (await lockMembership(tx, ws.id, actorId))?.role;
+    if (actor !== "owner" && actor !== "admin") fail("Only the owner or an admin can complete someone's part", "FORBIDDEN");
+    if (actor === "admin" && targetRole === "admin") fail("Admins can't complete another admin's part; ask the owner", "FORBIDDEN");
+}
+
 // ── Complete my part ─────────────────────────────────────────────────────────────────────────────────────────────
 
 export type CompleteInput = { note?: string | null; tasks?: TaskChoice; giveTo?: string | null; reviewsTo?: string | null };
@@ -269,11 +282,7 @@ export async function completePart(actorId: string, projectId: string, targetUse
         const m = await lockMembership(tx, projectId, targetUserId);
         const why = refusal(ws!, targetUserId, m, "complete");
         if (why) fail(self ? why : why.replace(/^You own/, "They own").replace(/^You aren't/, "They aren't"), "FORBIDDEN");
-        if (!self) {
-            const actor = ws!.ownerId === actorId ? "owner" : (await lockMembership(tx, projectId, actorId))?.role;
-            if (actor !== "owner" && actor !== "admin") fail("Only the owner or an admin can complete someone's part", "FORBIDDEN");
-            if (actor === "admin" && m!.role === "admin") fail("Admins can't complete another admin's part; ask the owner", "FORBIDDEN");
-        }
+        if (!self) await mayActFor(tx, ws!, actorId, m!.role);
         if (m!.completed_at) return { already: true as const, ws: ws!, undoId: null, notifications: [] };
         const choice = input.tasks ?? "keep";
         const taskMove = await moveOpenTasks(tx, ws!, actorId, targetUserId, choice, input.giveTo ?? null);
@@ -442,11 +451,18 @@ async function removePersonalLinks(tx: Executor, projectId: string, userId: stri
 // ── Undo ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Undo of a completion or a leave (§3, §4), from the toast or `nb undo`. Moves back only what nobody changed since. */
-export async function undoMemberJourney(inverse: MemberUndo) {
+export async function undoMemberJourney(inverse: MemberUndo, callerId: string) {
+    // Your own completion or leave is always yours to undo; someone else's only while you may still act for them.
+    if (callerId !== inverse.userId && (inverse.kind === "member.leave" || inverse.actorId !== callerId)) fail("Only the person who made this change can undo it", "FORBIDDEN");
     if (inverse.kind === "member.complete") {
         await transactionThen(async (tx) => {
             const m = await lockMembership(tx, inverse.projectId, inverse.userId);
             if (!m?.completed_at) return;
+            if (callerId !== inverse.userId) {
+                const ws = await readWorkspace(tx, inverse.projectId);
+                if (!ws) fail("Workspace not found", "NOT_FOUND");
+                await mayActFor(tx, ws!, callerId, m.role);
+            }
             await tx.update(workspaceMembers).set({ completedAt: null, completedBy: null, completionNote: null, completionConfirmedBy: null, completionConfirmedAt: null, notificationPreferences: inverse.previousNotifications as never })
                 .where(eq(workspaceMembers.id, m.id));
             if (inverse.periodId) await tx.delete(workspaceMemberPeriods).where(eq(workspaceMemberPeriods.id, inverse.periodId));
@@ -640,6 +656,7 @@ export async function updateMySettings(userId: string, projectId: string, patch:
         await setWorkspaceMute(userId, projectId, ws!.title ?? null, patch.muteUntil);
     }
     if (patch.showOnProfile !== undefined) await markProfileCollaborationSummaryStale(userId);
+    announce(projectId, userId, "settings");
     return getMyPart(projectId, userId);
 }
 

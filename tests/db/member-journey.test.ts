@@ -101,7 +101,7 @@ test("Undo of a completion leaves no trace: no period, the stage open again, tas
   const done = await journey.completePart(s.member, s.ws, s.member, { tasks: "give", giveTo: s.other });
   assert.equal((await sql`SELECT assignee_id FROM tasks WHERE id = ${s.taskId}`)[0]!.assignee_id, s.other, "given away");
   const [op] = await sql`SELECT inverse FROM undo_operations WHERE id = ${done.undoId}`;
-  await journey.undoMemberJourney(op!.inverse as never);
+  await journey.undoMemberJourney(op!.inverse as never, (op!.inverse as { userId: string }).userId);
   const [m] = await sql`SELECT completed_at, notification_preferences FROM workspace_members WHERE workspace_id = ${s.ws} AND user_id = ${s.member}`;
   assert.equal(m!.completed_at, null);
   assert.equal((m!.notification_preferences as { mode: string }).mode, "inherit");
@@ -121,7 +121,7 @@ test("leaving: a snapshot for Undo, a Left period and profile ending; Undo bring
   assert.equal((await sql`SELECT end_reason FROM workspace_member_periods WHERE workspace_id = ${s.ws} AND user_id = ${s.member}`)[0]!.end_reason, "left");
   assert.equal((await sql`SELECT end_reason FROM profile_contributions WHERE id = ${s.entryId}`)[0]!.end_reason, "left");
   const [op] = await sql`SELECT inverse FROM undo_operations WHERE id = ${left.undoId}`;
-  await journey.undoMemberJourney(op!.inverse as never);
+  await journey.undoMemberJourney(op!.inverse as never, (op!.inverse as { userId: string }).userId);
   const [back] = await sql`SELECT role FROM workspace_members WHERE workspace_id = ${s.ws} AND user_id = ${s.member}`;
   assert.equal(back!.role, "member");
   assert.equal((await sql`SELECT assignee_id FROM tasks WHERE id = ${s.taskId}`)[0]!.assignee_id, s.member);
@@ -200,4 +200,25 @@ test("the wrap-up preview counts open tasks and open work, and changes nothing",
   assert.equal(w.openTasks.count, 1);
   assert.equal(w.openTasks.items[0]!.title, "Open one");
   assert.equal((await sql`SELECT completed_at FROM workspace_members WHERE workspace_id = ${s.ws} AND user_id = ${s.member}`)[0]!.completed_at, null);
+});
+
+test("security: only the person, or the owner or admin who did it while still allowed, can undo; reviews only go to someone who can review", async () => {
+  const s = await setup();
+  // Someone else can't undo your completion or your leave.
+  const done = await journey.completePart(s.member, s.ws, s.member, { tasks: "keep" });
+  const [op] = await sql`SELECT inverse FROM undo_operations WHERE id = ${done.undoId}`;
+  await assert.rejects(journey.undoMemberJourney(op!.inverse as never, s.other), /Only the person/);
+  await journey.reopenPart(s.member, s.ws);
+  // An admin who completed someone, then lost admin, can't undo it any more.
+  await sql`UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ${s.ws} AND user_id = ${s.other}`;
+  const byAdmin = await journey.completePart(s.other, s.ws, s.member, { tasks: "keep" });
+  await sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${s.ws} AND user_id = ${s.other}`;
+  const [op2] = await sql`SELECT inverse FROM undo_operations WHERE id = ${byAdmin.undoId}`;
+  await assert.rejects(journey.undoMemberJourney(op2!.inverse as never, s.other), /Only the owner or an admin/);
+  await journey.reopenPart(s.member, s.ws);
+  // Reviews can't be handed to a viewer.
+  const [viewer] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  await sql.begin((tx) => addMember(tx, s.ws, viewer!, "viewer"));
+  await sql`DELETE FROM undo_operations WHERE workspace_id = ${s.ws}`;
+  await assert.rejects(journey.completePart(s.member, s.ws, s.member, { tasks: "keep", reviewsTo: viewer! }), /Hand your reviews/);
 });
