@@ -257,7 +257,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     try {
       const giveTo = complete.data.giveTo ? (await personByName(complete.data.giveTo))?.id ?? null : null;
       const done = await completePart(user!.id, id, person.id, { note: complete.data.note ?? null, tasks: complete.data.tasks, giveTo, reviewsTo: null });
-      return jsonSuccess({ username: person.username, completed: true, undoId: done.undoId });
+      return jsonSuccess({ username: person.username, completed: true, undoId: done.undoId, undoToken: done.undoId });
     } catch (error) {
       return journeyError(error);
     }
@@ -284,7 +284,9 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
       const giveTo = parsed.data.giveTo ? (await personByName(parsed.data.giveTo))?.id ?? null : null;
       if (parsed.data.giveTo && !giveTo) return jsonError(`No one called @${parsed.data.giveTo.replace(/^@/, "")}`, 404, "NOT_FOUND");
       const reviewsTo = parsed.data.reviewsTo ? (await personByName(parsed.data.reviewsTo))?.id ?? null : null;
-      return jsonSuccess(await leaveWorkspace(user!.id, id, { tasks: parsed.data.tasks, giveTo, reviewsTo }));
+      const left = await leaveWorkspace(user!.id, id, { tasks: parsed.data.tasks, giveTo, reviewsTo });
+      // undoToken: the CLI keeps it for `nb undo` (report A2.9).
+      return jsonSuccess({ ...left, undoToken: left.undoId, undone: "You left the workspace" });
     } catch (error) {
       return journeyError(error);
     }

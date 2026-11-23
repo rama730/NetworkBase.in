@@ -270,12 +270,77 @@ export async function memberRemove(ctx) {
   ctx.out.result("nb.member.remove/1", { username: who.replace(/^@/, "") }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Removed @${safe(d.username)}`);
 }
 
-/** `nb workspace leave` (the plain leave): your open tasks become unassigned; the owner can't leave. @param {Context} ctx */
+// ───────────────────────────────── your part here (member settings Parts 1–3): your own sign-in only
+
+/** @param {Context} ctx */
+const mePath = (ctx, tail = "") => `/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/me${tail}`;
+const month = (/** @type {string} */ iso) => new Date(iso).toLocaleDateString("en", { month: "short", year: "numeric" });
+const day = (/** @type {string} */ iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** What to do with your open tasks: --keep, --unassign or --give-tasks-to @user. @param {Context} ctx @param {"keep" | "unassign"} fallback */
+function taskChoice(ctx, fallback) {
+  const give = ctx.flags["give-tasks-to"];
+  const picked = [ctx.flags.keep && "keep", ctx.flags.unassign && "unassign", give && "give"].filter(Boolean);
+  if (picked.length > 1) throw usage("Choose one: --keep, --unassign or --give-tasks-to @username");
+  return give ? { tasks: "give", giveTo: String(give).replace(/^@/, "") } : { tasks: picked[0] ?? fallback };
+}
+
+/** The wrap-up check before completing or leaving, in lines. @param {Context} ctx @param {any} w @param {{ tasks: string, giveTo?: string }} choice */
+function wrapUpLines(ctx, w, choice) {
+  const n = w.openTasks.count;
+  const work = w.openWork;
+  const open = work.changeSets.length + work.branches.length + work.mergeRequests.length + work.docDrafts.length;
+  return [
+    n ? `${n} open ${n === 1 ? "task" : "tasks"}: ${choice.tasks === "keep" ? "stay assigned to you" : choice.tasks === "unassign" ? "become unassigned" : `go to @${safe(choice.giveTo ?? "")}`}` : "No open tasks",
+    ...(w.reviews.count ? [`${w.reviews.count} ${w.reviews.count === 1 ? "review" : "reviews"} waiting on you go to the owner`] : []),
+    ...(open ? [`${open} open ${open === 1 ? "item" : "items"} (change sets, branches, merge requests, drafts) stay as they are`] : []),
+    ctx.out.c.muted(w.stays),
+  ];
+}
+
+/** `nb workspace me`: your part here, and your settings. @param {Context} ctx */
+export async function workspaceMe(ctx) {
+  const part = /** @type {any} */ (await ctx.api.get(mePath(ctx)));
+  ctx.out.result("nb.workspace.me/1", part, (d) => [
+    `${ctx.out.c.bold(safe(d.workspace.title ?? ""))} · ${d.role}${d.joinedAt ? ` since ${month(d.joinedAt)}` : ""}`,
+    d.status === "completed" && d.completion
+      ? `Completed · ${day(d.completion.at)}${d.completion.note ? ` · "${safe(d.completion.note)}"` : ""}${d.completion.byOwner && d.completion.by ? ` · marked by ${safe(d.completion.by.name)}` : ""}${d.completion.confirmedBy ? ` · confirmed by ${safe(d.completion.confirmedBy.name)}` : ""}`
+      : "Active",
+    ctx.out.c.muted(d.canDo),
+    ...(d.periods.length ? [`Earlier: ${d.periods.map((/** @type {any} */ x) => `${month(x.startedAt)} – ${month(x.endedAt)} ${x.endReason}`).join(", ")}`] : []),
+    `Notifications: ${d.settings.notifications.mode === "inherit" ? "as the workspace sends them" : "your own choice"}${d.settings.muteUntil ? ` · muted ${d.settings.muteUntil === "forever" ? "until you turn them back on" : `until ${day(d.settings.muteUntil)}`}` : ""}`,
+    `Your agents here: ${d.settings.agentsBlocked ? "kept out" : "allowed"}`,
+    ...(d.canComplete ? [ctx.out.c.muted("nb workspace complete to complete your part")] : d.canReopen ? [ctx.out.c.muted("nb workspace reopen to reopen it")] : []),
+  ].join("\n"));
+}
+
+/** `nb workspace complete [-m note] [--keep | --unassign | --give-tasks-to @user]`: you stay a member, read-only. @param {Context} ctx */
+export async function workspaceComplete(ctx) {
+  const choice = taskChoice(ctx, "keep");
+  const note = ctx.flags.message ? String(ctx.flags.message) : null;
+  if (note && note.length > 280) throw usage("A closing note is up to 280 characters");
+  const w = /** @type {any} */ (await ctx.api.get(mePath(ctx, "/wrap-up")));
+  if (!(await confirm(ctx, { key: "complete", question: `Complete your part in ${w.workspace.title}? You stay a member, read-only, and can reopen it any time.`, preview: wrapUpLines(ctx, w, choice).join("\n"), yesLabel: "Complete my part", defaultYes: false }))) return EXIT.cancelled;
+  const res = /** @type {any} */ (await ctx.api.post(mePath(ctx, "/complete"), { ...choice, ...(note ? { note } : {}) }));
+  ctx.out.result("nb.workspace.complete/1", res, (d) => `${ctx.out.c.success(ctx.out.sym.done)} ${d.already ? "Your part was already completed" : "Your part is completed"} · nb workspace reopen to reopen it${d.undoToken ? " · nb undo to undo" : ""}`);
+}
+
+/** `nb workspace reopen`: your role and write access come back; a new period starts on your profile. @param {Context} ctx */
+export async function workspaceReopen(ctx) {
+  const res = /** @type {any} */ (await ctx.api.post(mePath(ctx, "/reopen"), {}));
+  ctx.out.result("nb.workspace.reopen/1", res, () => `${ctx.out.c.success(ctx.out.sym.done)} Your part is open again`);
+}
+
+/** `nb workspace leave [--unassign | --give-tasks-to @user]`: the wrap-up check, then leave (asks first); the owner can't leave. @param {Context} ctx */
 export async function workspaceLeave(ctx) {
-  const { confirm } = await import("../tui/ask.mjs");
-  if (!(await confirm(ctx, { key: "leave", question: "Leave this workspace? Your open tasks become unassigned, and you'll need a new invitation to come back.", yesLabel: "Leave", defaultYes: false }))) return EXIT.cancelled;
-  await members(ctx, "DELETE", { leave: true });
-  ctx.out.result("nb.workspace.leave/1", { left: true }, () => `${ctx.out.c.success(ctx.out.sym.done)} You left the workspace${ctx.root ? " · nb unlink to unlink this folder" : ""}`);
+  if (ctx.flags.keep) throw usage("Leaving can't keep tasks: --unassign (the default) or --give-tasks-to @username");
+  const choice = taskChoice(ctx, "unassign");
+  // A server from before member settings has no wrap-up check: ask the plain question then.
+  const w = /** @type {any} */ (await ctx.api.get(mePath(ctx, "/wrap-up")).catch(() => null));
+  const question = `Leave ${w?.workspace?.title ?? "this workspace"}? ${w ? "" : "Your open tasks become unassigned, and "}You'll need a new invitation to come back.`.replace("and You'll", "and you'll");
+  if (!(await confirm(ctx, { key: "leave", question, ...(w ? { preview: wrapUpLines(ctx, w, choice).join("\n") } : {}), yesLabel: "Leave", defaultYes: false }))) return EXIT.cancelled;
+  const res = /** @type {any} */ (await members(ctx, "DELETE", { leave: true, ...choice }));
+  ctx.out.result("nb.workspace.leave/1", { left: true, undoToken: res?.undoToken ?? null }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} You left the workspace${d.undoToken ? " · nb undo to undo" : ""}${ctx.root ? " · nb unlink to unlink this folder" : ""}`);
 }
 
 /**

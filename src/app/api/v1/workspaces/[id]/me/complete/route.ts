@@ -19,7 +19,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const reviewsTo = await idOfUsername(parsed.data.reviewsTo);
       if (parsed.data.reviewsTo && !reviewsTo) return jsonError(`No one called @${parsed.data.reviewsTo.replace(/^@/, "")}`, 404, "NOT_FOUND");
       const done = await completePart(user!.id, id, user!.id, { note: parsed.data.note ?? null, tasks: parsed.data.tasks, giveTo, reviewsTo });
-      return jsonSuccess(done, undefined, done.undoId ? { headers: { "x-nb-undo": done.undoId } } : undefined);
+      return jsonSuccess({ ...done, undoToken: done.undoId, undone: "Completed your part" });
     } catch (error) {
       try { return journeyError(error); } catch { return routeErrorResponse(error, { requestId: getRequestId(req), scope: "api/v1/workspaces/me/complete", fallback: "Couldn’t complete your part" }); }
     }

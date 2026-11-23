@@ -3470,10 +3470,74 @@
       ]
     },
     {
-      "name": "workspace leave",
-      "summary": "Leave this workspace (asks first)",
-      "usage": "nb workspace leave",
+      "name": "workspace me",
+      "summary": "Your part here: role, dates, completed or active, your settings",
+      "usage": "nb workspace me",
       "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "workspace complete",
+      "summary": "Complete your part: you stay a member, read-only (asks first)",
+      "usage": "nb workspace complete [-m note] [--keep | --unassign | --give-tasks-to @user]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "keep": {
+          "type": "boolean",
+          "describe": "Keep your open tasks assigned to you (the default)"
+        },
+        "unassign": {
+          "type": "boolean",
+          "describe": "Unassign your open tasks"
+        },
+        "give-tasks-to": {
+          "type": "string",
+          "describe": "Give your open tasks to this member",
+          "valueName": "@user"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        7,
+        130
+      ]
+    },
+    {
+      "name": "workspace reopen",
+      "summary": "Reopen your completed part",
+      "usage": "nb workspace reopen",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "workspace leave",
+      "summary": "Leave this workspace (shows what's open, asks first)",
+      "usage": "nb workspace leave [--unassign | --give-tasks-to @user]",
+      "flags": {
+        "unassign": {
+          "type": "boolean",
+          "describe": "Unassign your open tasks (the default)"
+        },
+        "give-tasks-to": {
+          "type": "string",
+          "describe": "Give your open tasks to this member",
+          "valueName": "@user"
+        }
+      },
       "examples": [],
       "exitCodes": [
         0,

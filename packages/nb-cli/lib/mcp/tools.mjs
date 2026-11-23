@@ -72,6 +72,10 @@ export const TOOLS = [
       if (!a.query) return r;
       return pick(rank(r.data.workspaces, a.query, (w) => [w.slug, w.id], (w) => w.title), "workspace", (w) => `${w.title} (${w.slug})`, (w) => w.slug);
     } },
+  // Member settings §7: an agent may read the person's part; no tool can complete or leave for them.
+  { name: "networkbase_my_part", title: "My part in a workspace", tier: "read", pack: "people", props: { workspace: workspaceProp },
+    description: "The user's part in a workspace: role, since when, active or completed (with their note), and their settings there. Read-only.",
+    run: (nb, a) => nb("workspace me", [], ws(a)) },
   { name: "networkbase_task_count", title: "Count my tasks", tier: "read", props: {},
     description: "Count the user's open tasks across all their workspaces, by status and per workspace. Say which workspace each overdue task is in.",
     run: (nb) => nb("task count") },
@@ -555,7 +559,7 @@ export const PACKS = /** @type {Record<Exclude<Pack, "core">, string>} */ ({
   files: "reading files and docs, history, attaching, moving, the Trash, folders, copies, stars, search",
   planning: "the workspace at a glance, activity, sprints, members, labels, blocked by, reminders, subtask edits",
   classes: "assignments, hand-ins and reviews",
-  people: "the inbox, updates, members and agent questions",
+  people: "the inbox, updates, members, your part in a workspace, and agent questions",
   changes: "change sets: your saves as one change, finished, applied and undone together",
   branches: "your branch and its merge request",
 });
