@@ -77,13 +77,14 @@ export async function setAssetDetailsAction(input: z.infer<typeof detailsInput>)
 export async function readAssetUsedInAction(projectId: string, nodeId: string) {
   try {
     if (!uuid.safeParse(projectId).success || !uuid.safeParse(nodeId).success) throw new Error("Not found");
-    await filesReader(projectId);
+    const { access } = await filesReader(projectId);
     const [file] = await db.select({ id: workspaceNodes.id, name: workspaceNodes.name, path: workspaceNodes.path }).from(workspaceNodes)
-      .where(and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId), isNull(workspaceNodes.deletedAt))).limit(1);
+      .where(and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.taskId))).limit(1);
     if (!file) throw new Error("File not found");
-    const linked = await db.select({ id: tasks.id, title: tasks.title, number: tasks.taskNumber, type: tasks.itemType }).from(taskNodeLinks)
+    // Tasks only for people who may read Tasks here (security review): Files can be public while Tasks isn't.
+    const linked = canReadWorkspaceTab(access, "tasks") ? await db.select({ id: tasks.id, title: tasks.title, number: tasks.taskNumber, type: tasks.itemType }).from(taskNodeLinks)
       .innerJoin(tasks, eq(tasks.id, taskNodeLinks.taskId))
-      .where(and(eq(taskNodeLinks.nodeId, nodeId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(50);
+      .where(and(eq(taskNodeLinks.nodeId, nodeId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(50) : [];
     // Documents: their text as readers see it (the Documents tab's own read), searched for the file's path, name or id.
     // ponytail: reads up to 40 documents' text per open; an index of image links when workspaces have more.
     const { listWorkspaceDocsAction, readWorkspaceDocAction } = await import("@/app/actions/workspace/doc");

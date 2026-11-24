@@ -89,3 +89,16 @@ test("W2 Used in: tasks the file is attached to and documents that name it, each
   assert.ok(r.success, JSON.stringify(r));
   assert.deepEqual(r.usedIn.map((u) => [u.kind, u.label.replace(/^NB-\d+ /, "")]), [["task", "Launch post"], ["doc", "Brand guide"]]);
 });
+
+test("security review: Used in hides tasks from someone who can read Files but not Tasks", async () => {
+  const t = await workspace();
+  await sql`INSERT INTO task_node_links (task_id, node_id) VALUES (${t.task}, ${t.logo})`;
+  await sql`UPDATE workspaces SET visibility = 'public', public_tab_visibility = public_tab_visibility || '{"files": true, "tasks": false}'::jsonb WHERE id = ${t.ws}`;
+  viewerId = t.outsider;
+  const r = await assets.readAssetUsedInAction(t.ws, t.logo);
+  assert.ok(r.success, JSON.stringify(r));
+  assert.deepEqual(r.usedIn.filter((u) => u.kind === "task"), []);
+  viewerId = t.owner;
+  const own = await assets.readAssetUsedInAction(t.ws, t.logo);
+  assert.equal(own.success && own.usedIn.filter((u) => u.kind === "task").length, 1);
+});
