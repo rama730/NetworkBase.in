@@ -1152,6 +1152,21 @@ export const keyResultCheckIns = pgTable("key_result_check_ins", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** Comments on a file's version, optionally at a spot or a moment (0119, report 38.16 O1, A7.2). Server only. */
+export const fileComments = pgTable("file_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  nodeId: uuid("node_id").notNull().references(() => workspaceNodes.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  anchor: jsonb("anchor").$type<{ x: number; y: number } | { t: number } | null>(),
+  parentId: uuid("parent_id").references((): AnyPgColumn => fileComments.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  authorId: uuid("author_id").references(() => profiles.id, { onDelete: "set null" }),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
 // ============================================================================
 // ORGANIZATIONS (0241): server-only tables, no browser grants.
 // ============================================================================

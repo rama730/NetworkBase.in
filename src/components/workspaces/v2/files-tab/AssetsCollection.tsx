@@ -6,7 +6,8 @@ import { useState } from "react";
 
 import { readAssetsAction, readAssetUsedInAction, setAssetDetailsAction, type AssetRow } from "@/app/actions/assets";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Field, FORM_PRIMARY_CLASS, inputClassName, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
+import { AssetViewer } from "./AssetViewer";
+import { Field, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, selectClassName, SelectWrap } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
@@ -86,6 +87,7 @@ function AssetDetailsPanel({ projectId, asset, canEdit, onClose }: { projectId: 
   const d = asset.details ?? {};
   const [v, setV] = useState({ type: d.type ?? asset.type, tags: (d.tags ?? []).join(", "), usageRights: d.usageRights ?? "", credit: d.credit ?? "", productionStatus: d.productionStatus ?? "", notes: d.notes ?? "" });
   const [busy, setBusy] = useState(false);
+  const [viewing, setViewing] = useState(false);
   async function save() {
     setBusy(true);
     try {
@@ -111,6 +113,9 @@ function AssetDetailsPanel({ projectId, asset, canEdit, onClose }: { projectId: 
         <button type="button" onClick={onClose} className="text-[12px] text-muted-foreground underline">Close</button>
       </div>
       <p className="font-mono text-[11px] text-muted-foreground">v{asset.version} · {asset.path}</p>
+      {/* A7.2: open it large, with pinned and timed comments. */}
+      <button type="button" className={cn(FORM_SECONDARY_CLASS, "w-full")} onClick={() => setViewing(true)}>Open with comments</button>
+      {viewing ? <AssetViewer projectId={projectId} asset={asset} onClose={() => setViewing(false)} /> : null}
       <Field label="Asset type" htmlFor="asset-type"><SelectWrap><select id="asset-type" disabled={!canEdit} value={v.type} onChange={(e) => setV({ ...v, type: e.target.value })} className={selectClassName()}>
         {ASSET_TYPES.map((t) => <option key={t} value={t}>{ASSET_TYPE_LABEL[t]}</option>)}
       </select></SelectWrap></Field>
