@@ -7288,6 +7288,11 @@ REVIEW QUEUE · exam
 3. Extra time is private to staff and that student, and moves only their close.
 4. Make-up for… creates a new exam for chosen students.
 5. Clash check warns, doesn't block.
+
+**B1.6 build calls (2026-11-24):**
+- **Split:** B1.6a builds the Exam kind in the assignment form (Format, Starts, Length, Room, Seats, What's in it from the class's units and weeks, Hold results until released), the window stored on the assignment (the due date is the close; timed and in person take no late work and no 15-minute allowance; in person has no hand-in), the paper locked on the server until it opens (files on the exam, and class files picked as its materials), no hand-in before a timed paper opens, held results (Approve keeps the mark hidden and sends no notice), Release results (the Teacher; one "… was marked" notice per student; in person releases every mark), the exam card on the student's copy and "Exam · Timed online · results held" on the assignment. **B1.6b** builds extra time (Settings → Exams; the Teacher sets it; private to staff and that student; a section-limited TA sees only their students'), Make-up for… the picked roster rows and the clash warning after saving. **B1.6c** brings second marking with Needs agreement, exam weeks (the school's calendar, no classes in them), the Term plan exam row and the school's Exams view. **[call]**
+- Make-up for… copies the original's frozen marking exactly, with the same length, format, room and covers; its start is picked in the viewer's own time zone. **[call]**
+- The clash check counts students with another exam (any class) whose window overlaps, after saving; it's a warning toast, never a block. **[call]**
 6. Second marking: all or a 10% sample; Needs agreement above a 10% difference.
 7. Hold results until released, on by default.
 8. A TA marks assigned copies; can't release or change the window.
