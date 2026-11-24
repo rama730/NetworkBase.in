@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { closeFor, examPhase, examStateText, overlaps, paperLocked, readExam, resultsHeld } from "../../src/lib/organizations/exams";
+import { closeFor, examPhase, examStateText, needsAgreement, overlaps, paperLocked, readExam, resultsHeld } from "../../src/lib/organizations/exams";
 
 // Plan B1.6 (report 30.5 W4).
 const base = { format: "timed", opensAt: "2027-02-26T10:00:00Z", closesAt: "2027-02-26T12:00:00Z", room: " LH-2 · 204 ", covers: { units: ["u1"], outcomes: ["CO1"] } };
@@ -34,4 +34,11 @@ test("state words: Paper opens · Closes in 42 min · Closed; held until release
   assert.equal(resultsHeld({ ...e, releasedAt: "2027-03-01T00:00:00Z" }), false);
   assert.equal(overlaps(e, { opensAt: "2027-02-26T11:00:00Z", closesAt: "2027-02-26T13:00:00Z" }), true);
   assert.equal(overlaps(e, { opensAt: "2027-02-26T12:00:00Z", closesAt: "2027-02-26T13:00:00Z" }), false);
+});
+
+test("B1.6c: second marking reads its marker and sample; more than 10% apart needs agreement", () => {
+  const e = readExam({ exam: { ...base, secondMarker: "u2", secondSample: "sample" } })!;
+  assert.deepEqual([e.secondMarker, e.secondSample], ["u2", "sample"]);
+  assert.equal(readExam({ exam: base })!.secondMarker, undefined);
+  assert.deepEqual([needsAgreement(40, 45, 50), needsAgreement(40, 46, 50), needsAgreement(40, null, 50)], [false, true, false]);
 });

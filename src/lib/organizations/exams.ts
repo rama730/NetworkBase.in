@@ -17,6 +17,9 @@ export type ExamSettings = {
   hold: boolean;
   /** Set by Release results; held marks show from then. */
   releasedAt?: string | null;
+  /** B1.6c second marking: who marks second, and every copy or a 10% sample. */
+  secondMarker?: string | null;
+  secondSample?: "all" | "sample";
 };
 
 export const EXAM_FORMATS: Record<ExamFormat, string> = { in_person: "In person", timed: "Timed online", take_home: "Take-home" };
@@ -33,6 +36,7 @@ export function readExam(settings: unknown): ExamSettings | null {
     covers: { units: list(e.covers?.units), outcomes: list(e.covers?.outcomes) },
     hold: e.hold !== false,
     releasedAt: typeof e.releasedAt === "string" ? e.releasedAt : null,
+    ...(typeof e.secondMarker === "string" ? { secondMarker: e.secondMarker, secondSample: e.secondSample === "sample" ? "sample" as const : "all" as const } : {}),
   };
 }
 
@@ -64,3 +68,6 @@ export const resultsHeld = (exam: ExamSettings | null) => Boolean(exam && exam.h
 /** The window of two exams overlaps (clash check, call 5). */
 export const overlaps = (a: { opensAt: string; closesAt: string }, b: { opensAt: string; closesAt: string }) =>
   Date.parse(a.opensAt) < Date.parse(b.closesAt) && Date.parse(b.opensAt) < Date.parse(a.closesAt);
+
+/** B1.6c (layer 5): the two marks differ by more than 10% of the out-of, so they need agreement. */
+export const needsAgreement = (first: number, second: number | null, outOf: number) => second != null && Math.abs(first - second) > outOf * 0.1;

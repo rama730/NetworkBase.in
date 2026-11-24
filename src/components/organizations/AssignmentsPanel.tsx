@@ -270,6 +270,8 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [examSeats, setExamSeats] = useState('')
     const [examHold, setExamHold] = useState(true)
     const [examUnits, setExamUnits] = useState<string[]>([])
+    const [secondMarker, setSecondMarker] = useState('')
+    const [secondSample, setSecondSample] = useState<'all' | 'sample'>('sample')
     const peerOk = marking !== 'none' && marking !== 'outof' && (submissionType === 'text' || submissionType === 'link')
     const [sectionIds, setSectionIds] = useState<string[]>([])
     // Errors sit under their field, like the Task tab; a server error sits at the top of the form.
@@ -379,7 +381,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             aiPolicy, ...(aiNote.trim() ? { aiNote: aiNote.trim() } : {}),
             ...(peerReview && peerOk ? { peerReview: true } : {}),
             ...(isExam && dueLocal ? { exam: { format: examFormat, opensAt: at(dueLocal), closesAt: new Date(Date.parse(at(dueLocal)) + Math.max(5, Number(examLength) || 0) * 60_000).toISOString(),
-                room: examRoom.trim() || null, seats: examSeats.trim() || null, covers: { units: examUnits, outcomes: [] }, hold: examHold } } : {}),
+                room: examRoom.trim() || null, seats: examSeats.trim() || null, covers: { units: examUnits, outcomes: [] }, hold: examHold, ...(secondMarker ? { secondMarker, secondSample } : {}) } } : {}),
             ...(marking === 'outof' ? { marking: { mode: 'outof' as const, outOf: Number(outOf) } } : marking !== 'none' ? { marking: { mode: 'rubric' as const, rubricId: marking } } : {}),
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
@@ -511,6 +513,26 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             </fieldset>
                         ) : null}
                         <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={examHold} onChange={(e) => setExamHold(e.target.checked)} />Hold results until released</label>
+                        {admins.length ? (
+                            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                                <Field label="Second marker" htmlFor="exam-second">
+                                    <SelectWrap>
+                                        <select id="exam-second" value={secondMarker} onChange={(e) => setSecondMarker(e.target.value)} className={cn('nb-select', selectClassName())}>
+                                            <option value="">No second marking</option>{admins.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                        </select>
+                                    </SelectWrap>
+                                </Field>
+                                {secondMarker ? (
+                                    <Field label="Second marks" htmlFor="exam-sample">
+                                        <SelectWrap>
+                                            <select id="exam-sample" value={secondSample} onChange={(e) => setSecondSample(e.target.value as typeof secondSample)} className={cn('nb-select', selectClassName())}>
+                                                <option value="sample">A 10% sample</option><option value="all">Every copy</option>
+                                            </select>
+                                        </SelectWrap>
+                                    </Field>
+                                ) : null}
+                            </div>
+                        ) : null}
                         {examFormat === 'timed' ? <p className="text-xs text-muted-foreground">The paper (files on this exam) stays locked until it opens. Late work isn’t accepted.</p> : null}
                     </div>
                 ) : null}

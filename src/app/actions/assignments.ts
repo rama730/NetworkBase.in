@@ -119,6 +119,9 @@ const createSchema = z.object({
         seats: z.string().trim().max(120).nullable().optional(),
         covers: z.object({ units: z.array(z.string().uuid()).max(40), outcomes: z.array(z.string().max(40)).max(40) }).optional(),
         hold: z.boolean().optional(),
+        /** B1.6c: a Teacher or TA of this class marks second, every copy or a 10% sample. */
+        secondMarker: z.string().uuid().nullable().optional(),
+        secondSample: z.enum(['all', 'sample']).optional(),
     }).optional(),
 });
 
@@ -156,6 +159,10 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     // and the 15-minute allowance doesn't apply (call); in person has no hand-in (staff enter marks).
     const exam = data.exam ? readExam({ exam: { ...data.exam, opensAt: new Date(data.exam.opensAt).toISOString(), closesAt: new Date(data.exam.closesAt).toISOString(), covers: data.exam.covers ?? { units: [], outcomes: [] } } }) : null;
     if (data.exam && !exam) return { success: false, error: 'The exam has to close after it opens.' };
+    if (exam?.secondMarker) {
+        const checked = await checkReviewers(data.projectId, [exam.secondMarker]);
+        if ('error' in checked) return { success: false, error: 'Pick a second marker from this class’s staff.' };
+    }
     if (exam) {
         data.dueDate = exam.closesAt;
         data.lateAfterMinutes = data.lateAfterMinutes ?? 0;

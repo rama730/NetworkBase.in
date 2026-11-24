@@ -1260,6 +1260,11 @@ export const assignmentMarks = pgTable("assignment_marks", {
   history: jsonb("history").$type<Array<{ total: string; by: string | null; at: string }>>().notNull().default([]),
   /** B1.5b (0129): Adjust for one person on a team copy, by member id. */
   adjustments: jsonb("adjustments").$type<Record<string, { total: number; reason: string; by: string; at: string }>>().notNull().default({}),
+  /** B1.6c (0132): second marking on exams; Needs agreement when the totals differ by more than 10% of the out-of. */
+  secondTotal: numeric("second_total", { precision: 8, scale: 2 }),
+  secondMarkerId: uuid("second_marker_id").references(() => profiles.id, { onDelete: "set null" }),
+  secondAt: timestamp("second_at", { withTimezone: true }),
+  agreedAt: timestamp("agreed_at", { withTimezone: true }),
 }, (t) => [index("assignment_marks_master_idx").on(t.masterId)]);
 
 /** B1.5c (0130, report 30.8 call): peer reviews — 2 other hand-ins per student, names hidden both ways. Server only. */

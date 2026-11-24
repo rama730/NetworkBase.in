@@ -134,7 +134,8 @@
     "drizzle/0128_assignment_marks.sql",
     "drizzle/0129_mark_adjustments.sql",
     "drizzle/0130_peer_reviews.sql",
-    "drizzle/0131_exam_extra_time.sql"
+    "drizzle/0131_exam_extra_time.sql",
+    "drizzle/0132_second_marks.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

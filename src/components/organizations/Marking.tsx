@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { adjustMarkAction, archiveRubricAction, readMarkingAction, readMarkingSettingsAction, readMyMarkAction, saveCommentBankAction, saveMarkAction, saveRubricAction } from "@/app/actions/marks";
+import { adjustMarkAction, agreeMarkAction, archiveRubricAction, saveSecondMarkAction, readMarkingAction, readMarkingSettingsAction, readMyMarkAction, saveCommentBankAction, saveMarkAction, saveRubricAction } from "@/app/actions/marks";
 import { Input } from "@/components/ui/input";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
@@ -31,6 +31,7 @@ export function MarkingPanel({ copyId }: { copyId: string }) {
   }, [data?.mark]);
   if (!data || data.marking.mode === "none") return null;
   if (data.excused) return <p className="text-[13px] text-muted-foreground">Excused · no mark.</p>;
+  if (data.secondRole === "second") return <SecondMarking copyId={copyId} mark={data.mark} second />;
   const m = data.marking;
   const save = async (next: { levels?: Record<string, number>; total?: number; comment?: string }) => {
     const r = await saveMarkAction(copyId, { levels: next.levels ?? levels, ...(m.mode === "outof" ? { total: next.total ?? Number(total) } : {}), comment: next.comment ?? comment });
@@ -68,7 +69,41 @@ export function MarkingPanel({ copyId }: { copyId: string }) {
       ) : null}
       <p className="font-mono text-[12px]" aria-live="polite" data-testid="marking-total">Total {live} / {outOf} · {outOf ? Math.round((live / outOf) * 100) : 0}%{saved ? " · saved" : ""}
         <span className="ml-2 font-sans text-muted-foreground">{data.mark?.visible ? "Visible to the student" : "Hidden until you approve"} · Marked {data.progress.marked} of {data.progress.total}</span></p>
+      {data.secondRole === "first" && data.mark?.second ? <SecondMarking copyId={copyId} mark={data.mark} second={false} /> : null}
       {data.team.length > 1 && data.mark ? <AdjustForOne copyId={copyId} team={data.team} outOf={data.mark.outOf} adjustments={data.mark.adjustments} /> : null}
+    </section>
+  );
+}
+
+type PanelMark = { total: number; outOf: number; marker: string | null; second: { total: number; marker: string | null; agreed: boolean } | null } | null;
+
+/**
+ * Second marking (B1.6c): the second marker sees the first mark and gives their own; more than 10% apart shows
+ * Needs agreement to both markers until one of them saves the agreed mark.
+ */
+function SecondMarking({ copyId, mark, second }: { copyId: string; mark: PanelMark; second: boolean }) {
+  const client = useQueryClient();
+  const [total, setTotal] = useState("");
+  const [agreed, setAgreed] = useState("");
+  const refresh = () => client.invalidateQueries({ queryKey: ["marking", copyId] });
+  const disagree = Boolean(mark?.second && !mark.second.agreed && Math.abs(mark.total - mark.second.total) > mark.outOf * 0.1);
+  return (
+    <section aria-label="Second marking" className="space-y-2 rounded-md border border-border bg-card p-3 text-[13px]" data-testid="second-marking">
+      {second ? (
+        mark ? <>
+          <p>First mark <span className="font-mono">{mark.total} / {mark.outOf}</span>{mark.marker ? ` by ${mark.marker}` : ""}</p>
+          <label className="flex items-center gap-2">Second mark <Input type="number" min={0} max={mark.outOf} aria-label={`Second mark out of ${mark.outOf}`} value={total || (mark.second ? String(mark.second.total) : "")}
+            onChange={(e) => setTotal(e.target.value)} className="w-[90px]" /> / {mark.outOf}
+            <button type="button" className={FORM_SECONDARY_CLASS} disabled={total === ""} onClick={() => void saveSecondMarkAction(copyId, Number(total)).then((r) => { if (!r.success) return void toast.error(r.error); setTotal(""); void refresh(); })}>Save second mark</button></label>
+        </> : <p className="text-muted-foreground">You’re the second marker. The first mark comes first.</p>
+      ) : mark?.second ? <p>Second mark <span className="font-mono">{mark.second.total} / {mark.outOf}</span>{mark.second.marker ? ` by ${mark.second.marker}` : ""}{mark.second.agreed ? " · agreed" : ""}</p> : null}
+      {disagree && mark ? (
+        <div className="space-y-1.5" role="status">
+          <p className="font-medium text-[var(--status-warning)]">Needs agreement: {mark.total} and {mark.second!.total} differ by more than 10%.</p>
+          <label className="flex items-center gap-2">Agreed mark <Input type="number" min={0} max={mark.outOf} aria-label={`Agreed mark out of ${mark.outOf}`} value={agreed} onChange={(e) => setAgreed(e.target.value)} className="w-[90px]" />
+            <button type="button" className={FORM_SECONDARY_CLASS} disabled={agreed === ""} onClick={() => void agreeMarkAction(copyId, Number(agreed)).then((r) => { if (!r.success) return void toast.error(r.error); toast.success("Mark agreed"); void refresh(); })}>Save agreed mark</button></label>
+        </div>
+      ) : null}
     </section>
   );
 }

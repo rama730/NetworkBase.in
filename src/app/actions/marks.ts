@@ -9,7 +9,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
 import { DEFAULT_LEVELS, markTotal, readMarking, readRubric, readRubrics, type MarkDraft } from "@/lib/organizations/marks";
 import { readSectionSettings } from "@/lib/organizations/sections";
-import { readExam, resultsHeld } from "@/lib/organizations/exams";
+import { needsAgreement, readExam, resultsHeld } from "@/lib/organizations/exams";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 /**
@@ -57,13 +57,16 @@ async function isOwnCopy(copyId: string, userId: string) {
 }
 
 type Adjustment = { total: number; reason: string; by: string; at: string };
-type MarkRow = { total: string; out_of: string; levels: Record<string, number>; comment: string | null; marker: string | null; marked_at: string; visible_at: string | null; adjustments: Record<string, Adjustment> | null };
+type MarkRow = { total: string; out_of: string; levels: Record<string, number>; comment: string | null; marker: string | null; marked_at: string; visible_at: string | null; adjustments: Record<string, Adjustment> | null;
+  marker_id: string | null; second_total: string | null; second_marker: string | null; agreed_at: string | null };
 async function readMark(copyId: string) {
   const [row] = Array.from(await db.execute<MarkRow>(sql`
-    SELECT a.total::text, a.out_of::text, a.levels, a.comment, coalesce(p.full_name, p.username) AS marker, a.marked_at::text, a.visible_at::text, a.adjustments
+    SELECT a.total::text, a.out_of::text, a.levels, a.comment, coalesce(p.full_name, p.username) AS marker, a.marked_at::text, a.visible_at::text, a.adjustments,
+      a.marker_id, a.second_total::text, (SELECT coalesce(q.full_name, q.username) FROM profiles q WHERE q.id = a.second_marker_id) AS second_marker, a.agreed_at::text
     FROM assignment_marks a LEFT JOIN profiles p ON p.id = a.marker_id WHERE a.copy_id = ${copyId}::uuid`));
   return row ? { total: Number(row.total), outOf: Number(row.out_of), levels: row.levels ?? {}, comment: row.comment, marker: row.marker, markedAt: row.marked_at, visible: Boolean(row.visible_at),
-    adjustments: row.adjustments ?? {} } : null;
+    adjustments: row.adjustments ?? {}, markerId: row.marker_id,
+    second: row.second_total == null ? null : { total: Number(row.second_total), marker: row.second_marker, agreed: Boolean(row.agreed_at) } } : null;
 }
 
 /** A team copy's people (B1.5b Adjust for one person); empty for a one-person copy. */
@@ -83,7 +86,9 @@ export async function readMarkingAction(copyId: string) {
     const [progress] = Array.from(await db.execute<{ marked: number; total: number }>(sql`
       SELECT (SELECT count(*)::int FROM assignment_marks WHERE master_id = ${copy.master_id}::uuid) AS marked,
         (SELECT count(*)::int FROM tasks WHERE assignment_id = ${copy.master_id}::uuid AND deleted_at IS NULL AND excused_at IS NULL) AS total`));
-    return { success: true as const, marking: readMarking(copy.settings), mark: await readMark(copyId), excused: copy.excused, progress: progress ?? { marked: 0, total: 0 }, team: await teamOf(copyId),
+    const exam = readExam(copy.settings);
+    const secondRole = exam?.secondMarker && (await inSecondSample(copy, exam.secondSample ?? "all")) ? (exam.secondMarker === userId ? "second" as const : "first" as const) : null;
+    return { success: true as const, marking: readMarking(copy.settings), mark: await readMark(copyId), excused: copy.excused, progress: progress ?? { marked: 0, total: 0 }, team: await teamOf(copyId), secondRole,
       commentBank: Array.isArray(bank) ? (bank as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 40) : [] };
   } catch (error) {
     logger.warn("marks.read_failed", { copyId, error: error instanceof Error ? error.message : String(error) });
@@ -100,6 +105,8 @@ export async function saveMarkAction(copyId: string, input: MarkDraft): Promise<
   const copy = userId ? await loadCopy(copyId) : null;
   if (!copy || !userId || !(await canMark(copy, userId))) return DENIED;
   if (copy.excused) return { success: false, error: "Excused work has no mark." };
+  const exam = readExam(copy.settings);
+  if (exam?.secondMarker === userId && (await inSecondSample(copy, exam.secondSample ?? "all"))) return { success: false, error: "You’re the second marker on this one: give the second mark." };
   const parsed = draftInput.safeParse(input);
   if (!parsed.success) return { success: false, error: "Check the mark." };
   const marking = readMarking(copy.settings);
@@ -127,7 +134,7 @@ export async function readMyMarkAction(copyId: string) {
   if (!mark || (!staff && !mark.visible)) return { success: true as const, mark: null, marking: marking.mode === "none" ? null : marking };
   if (staff) return { success: true as const, mark, marking };
   const own = mark.adjustments[userId];
-  return { success: true as const, mark: { ...mark, adjustments: {}, ...(own ? { total: own.total, adjustedReason: own.reason } : {}) }, marking };
+  return { success: true as const, mark: { ...mark, adjustments: {}, second: null, markerId: null, ...(own ? { total: own.total, adjustedReason: own.reason } : {}) }, marking };
 }
 
 /**
@@ -149,6 +156,57 @@ export async function adjustMarkAction(copyId: string, memberId: string, total: 
   await db.execute(sql`
     UPDATE assignment_marks SET adjustments = ${entry ? sql`adjustments || jsonb_build_object(${memberId}::text, ${JSON.stringify(entry)}::jsonb)` : sql`adjustments - ${memberId}::text`},
       history = history || jsonb_build_array(jsonb_build_object('adjusted', ${memberId}::text, 'total', ${entry?.total ?? null}::numeric, 'by', ${userId}::uuid, 'at', now()))
+    WHERE copy_id = ${copyId}::uuid`);
+  return { success: true };
+}
+
+/** B1.6c: every copy, or a 10% sample (at least one) picked the same way each time. */
+async function inSecondSample(copy: CopyRow, sample: "all" | "sample") {
+  if (sample === "all") return true;
+  const [row] = Array.from(await db.execute<{ ok: boolean }>(sql`
+    SELECT ${copy.copy_id}::uuid IN (SELECT id FROM tasks WHERE assignment_id = ${copy.master_id}::uuid AND deleted_at IS NULL AND excused_at IS NULL
+      ORDER BY md5(id::text) LIMIT greatest(1, ceil((SELECT count(*) FROM tasks WHERE assignment_id = ${copy.master_id}::uuid AND deleted_at IS NULL AND excused_at IS NULL) * 0.1))) AS ok`));
+  return Boolean(row?.ok);
+}
+
+/**
+ * Second marking (B1.6c, report 30.5 layer 5): the second marker gives their own total on a sampled copy after the
+ * first mark; more than 10% apart needs agreement, and both markers are told (Normal).
+ */
+export async function saveSecondMarkAction(copyId: string, total: number): Promise<{ success: true; needsAgreement: boolean } | Failure> {
+  const { userId, isAgent } = await viewer();
+  if (isAgent) return { success: false, error: "AI agents can’t set or change marks; a person does." };
+  const copy = userId ? await loadCopy(copyId) : null;
+  if (!copy || !userId || !(await canMark(copy, userId))) return DENIED;
+  const exam = readExam(copy.settings);
+  if (exam?.secondMarker !== userId || !(await inSecondSample(copy, exam.secondSample ?? "all"))) return DENIED;
+  const mark = await readMark(copyId);
+  if (!mark) return { success: false, error: "The first mark comes first." };
+  if (!Number.isFinite(total) || total < 0 || total > mark.outOf) return { success: false, error: `Give a mark from 0 to ${mark.outOf}.` };
+  const second = Math.round(total * 100) / 100;
+  await db.execute(sql`UPDATE assignment_marks SET second_total = ${second}, second_marker_id = ${userId}::uuid, second_at = now(), agreed_at = NULL WHERE copy_id = ${copyId}::uuid`);
+  const disagree = needsAgreement(mark.total, second, mark.outOf);
+  if (disagree && mark.markerId) {
+    const { notifyOrg, orgHref } = await import("@/lib/organizations/notify");
+    await notifyOrg({ orgId: copy.org_id, eventKey: "assignments.marks_agreement", actorId: userId, to: [mark.markerId, userId], title: `${copy.title}: marks need agreement`,
+      href: orgHref({ slug: null, id: copy.org_id }, `?tab=tasks&taskScope=review&assignment=${copy.master_id}&review=${copyId}`), sourceEventId: `${copyId}:agreement:${second}`, refs: { taskId: copyId } }).catch(() => undefined);
+  }
+  return { success: true, needsAgreement: disagree };
+}
+
+/** Agree on one final mark (either marker); it becomes the mark and Needs agreement clears. */
+export async function agreeMarkAction(copyId: string, total: number): Promise<{ success: true } | Failure> {
+  const { userId, isAgent } = await viewer();
+  if (isAgent) return { success: false, error: "AI agents can’t set or change marks; a person does." };
+  const copy = userId ? await loadCopy(copyId) : null;
+  if (!copy || !userId || !(await canMark(copy, userId))) return DENIED;
+  const mark = await readMark(copyId);
+  if (!mark?.second) return { success: false, error: "There’s no second mark to agree on." };
+  if (userId !== mark.markerId && userId !== readExam(copy.settings)?.secondMarker) return { success: false, error: "Only the two markers agree the mark." };
+  if (!Number.isFinite(total) || total < 0 || total > mark.outOf) return { success: false, error: `Give a mark from 0 to ${mark.outOf}.` };
+  await db.execute(sql`
+    UPDATE assignment_marks SET total = ${Math.round(total * 100) / 100}, agreed_at = now(),
+      history = history || jsonb_build_array(jsonb_build_object('total', total, 'second', second_total, 'agreed', ${total}::numeric, 'by', ${userId}::uuid, 'at', now()))
     WHERE copy_id = ${copyId}::uuid`);
   return { success: true };
 }

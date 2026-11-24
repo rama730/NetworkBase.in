@@ -30,6 +30,10 @@ export async function releaseResultsAction(masterId: string): Promise<{ success:
   const exam = readExam(master.settings);
   if (!exam?.hold) return { success: false, error: "This exam doesn’t hold its results." };
   if (exam.releasedAt) return { success: false, error: "Results are already released." };
+  // B1.6c: marks more than 10% apart wait for one agreed mark before anything is released.
+  const [open] = Array.from(await db.execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n FROM assignment_marks WHERE master_id = ${masterId}::uuid AND second_total IS NOT NULL AND agreed_at IS NULL AND abs(total - second_total) > out_of * 0.1`));
+  if (open?.n) return { success: false, error: `${open.n} ${open.n === 1 ? "mark needs" : "marks need"} agreement first.` };
   const copies = await db.transaction(async (tx) => {
     const moved = Array.from(await tx.execute<{ id: string }>(sql`
       UPDATE tasks SET assignment_settings = jsonb_set(assignment_settings, '{exam,releasedAt}', to_jsonb(${new Date().toISOString()}::text))

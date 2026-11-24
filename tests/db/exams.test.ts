@@ -142,3 +142,34 @@ test("B1.6b: extra time moves only that student's close and stays private; Make-
   const copies = await sql`SELECT assignee_id FROM tasks WHERE assignment_id = ${makeUp.masterId}`;
   assert.deepEqual([m!.title, m!.s.exam.format, copies.map((c) => c.assignee_id)], ["Quiz · make-up", "timed", [b]]);
 });
+
+test("B1.6c: the second marker gives their own mark; more than 10% apart needs agreement and blocks Release until agreed", async () => {
+  const t = await setup();
+  viewerId = t.teacher;
+  const made = await assignments.createAssignmentAction({ projectId: t.klass, title: "Finals", dueDate: inHours(100), publish: true, submissionType: "text", reviewRequired: true, lateRule: "always", target: { mode: "everyone" } as never, steps: [],
+    marking: { mode: "outof", outOf: 50 }, exam: { format: "take_home", opensAt: inHours(-2), closesAt: inHours(48), hold: true, secondMarker: t.ta, secondSample: "all" } });
+  assert.ok(made.success);
+  const bad = await assignments.createAssignmentAction({ projectId: t.klass, title: "Bad", dueDate: inHours(100), publish: false, submissionType: "text", lateRule: "always", target: { mode: "everyone" } as never, steps: [],
+    exam: { format: "take_home", opensAt: inHours(-2), closesAt: inHours(48), secondMarker: t.a } });
+  assert.match(errorOf(bad as never), /second marker from this class’s staff/);
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${made.masterId} AND assignee_id = ${t.a}`;
+  viewerId = t.a;
+  await assignments.submitAssignmentAction(copy!.id, { text: "essay" });
+  viewerId = t.ta;
+  assert.match(errorOf(await marks.saveSecondMarkAction(copy!.id, 40)), /first mark comes first/);
+  assert.match(errorOf(await marks.saveMarkAction(copy!.id, { total: 30 })), /second marker on this one/);
+  viewerId = t.teacher;
+  await marks.saveMarkAction(copy!.id, { total: 30 });
+  assert.equal((await assignments.reviewAssignmentCopyAction(copy!.id, "approve")).success, true);
+  assert.equal((await marks.saveSecondMarkAction(copy!.id, 40)).success, false, "only the named second marker");
+  viewerId = t.ta;
+  assert.deepEqual(await marks.saveSecondMarkAction(copy!.id, 40), { success: true, needsAgreement: true });
+  assert.equal((await sql`SELECT 1 FROM user_notifications WHERE user_id = ${t.teacher} AND title = 'Finals: marks need agreement'`).length, 1, "both markers are told");
+  viewerId = t.teacher;
+  assert.match(errorOf(await exams.releaseResultsAction(made.masterId)), /1 mark needs agreement/);
+  assert.equal((await marks.agreeMarkAction(copy!.id, 36)).success, true);
+  assert.deepEqual(await exams.releaseResultsAction(made.masterId), { success: true, released: 1 });
+  viewerId = t.a;
+  const mine = await marks.readMyMarkAction(copy!.id);
+  assert.ok(mine.success && mine.mark?.total === 36 && mine.mark.second === null, "the student sees the agreed mark only");
+});
