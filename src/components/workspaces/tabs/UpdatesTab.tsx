@@ -11,7 +11,10 @@ import {
 import { Virtuoso } from "react-virtuoso";
 import { MessageCircle } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
-import { createWorkspaceUpdateAction, readWorkspaceUpdateAction, readWorkspaceUpdatesAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
+import { createWorkspaceUpdateAction, readWorkspaceUpdateAction, readWorkspaceUpdatesAction, scheduleWorkspaceUpdateAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
+import { ScheduledUpdates, scheduledKey } from "@/components/workspaces/updates/ScheduledUpdates";
+import { Changelog } from "@/components/workspaces/updates/Changelog";
+import { useAddedWorkflows } from "@/components/workspaces/workflows/added-workflows";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useWorkspaceUpdatesLive } from "@/hooks/useUpdateLive";
@@ -240,6 +243,18 @@ export default function UpdatesTab({
       setOrgOptions({});
       return true;
     }, () => false);
+  };
+  // Report 38.17 W1 (A7.4): Schedule… in a workspace that added Changelog and scheduled Updates.
+  const addedWorkflows = useAddedWorkflows();
+  const canSchedule = !org && addedWorkflows.includes("changelog");
+  // Report 38.17 W5 (A7.5): All updates · Changelog where the workflow is added.
+  const [feedView, setFeedView] = useState<"all" | "changelog">("all");
+  const scheduleUpdate = async (input: { content: string; visibility: string; entityRefs: unknown; media: unknown; publishAt: string }) => {
+    const r = await scheduleWorkspaceUpdateAction(projectId, input as Parameters<typeof scheduleWorkspaceUpdateAction>[1]);
+    if (!r.success) { toast.error(r.error); return false; }
+    await queryClient.invalidateQueries({ queryKey: scheduledKey(projectId) });
+    toast(`Scheduled · posts ${new Date(r.publishAt).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}`);
+    return true;
   };
   const canCreate = Boolean(capabilities?.canCreate ?? canCreateUpdates);
   const canManage = Boolean(capabilities?.canManage ?? canManageUpdates);
@@ -527,11 +542,19 @@ export default function UpdatesTab({
             isPosting={createMutation.isPending}
             defaultVisibility={capabilities?.defaultVisibility}
             onPost={postWithOrgOptions}
+            onSchedule={canSchedule ? scheduleUpdate : undefined}
             orgControls={orgControls}
             defaultPlaceholder={isOrganization ? `Share with ${projectName}…` : isChild ? "Share something with your team…" : undefined}
           />
         ) : null}
 
+        {canSchedule ? (
+          <div role="group" aria-label="Updates view" className="mb-3 inline-flex rounded-[6px] border border-border p-0.5 text-[12px]" data-testid="updates-view-switch">
+            {(["all", "changelog"] as const).map((v) => <button key={v} type="button" aria-pressed={feedView === v} onClick={() => setFeedView(v)} className={cn("rounded-[4px] px-2.5 py-1", feedView === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>{v === "all" ? "All updates" : "Changelog"}</button>)}
+          </div>
+        ) : null}
+        {canSchedule && feedView === "changelog" ? <Changelog projectId={projectId} /> : null}
+        {canSchedule && canCreate && feedView === "all" ? <ScheduledUpdates projectId={projectId} onPosted={() => void queryClient.invalidateQueries({ queryKey: updatesQueryKey })} /> : null}
         {incoming.length ? (
           <div className="flex justify-center py-2">
             <Button type="button" size="sm" variant="outline" onClick={showIncoming} className="pointer-coarse:h-11">
@@ -599,9 +622,9 @@ export default function UpdatesTab({
 
         {org?.kind === "org" ? <OrgFeedFilters value={orgFilter} onChange={setOrgFilter} /> : null}
         {org?.kind === "child" ? <OrgPinnedLine projectId={projectId} /> : null}
-        {feed}
+        {canSchedule && feedView === "changelog" ? null : feed}
 
-        {updatesQuery.hasNextPage ? (
+        {updatesQuery.hasNextPage && !(canSchedule && feedView === "changelog") ? (
           <div className="px-1 py-4">
             <Button pending={updatesQuery.isFetchingNextPage}
               type="button"
@@ -650,6 +673,7 @@ export default function UpdatesTab({
                   isPosting={createMutation.isPending}
                   defaultVisibility={capabilities?.defaultVisibility}
                   onPost={postWithOrgOptions}
+                  onSchedule={canSchedule ? scheduleUpdate : undefined}
                   orgControls={orgControls}
                   defaultPlaceholder={isOrganization ? `Share with ${projectName}…` : isChild ? "Share something with your team…" : undefined}
                 />

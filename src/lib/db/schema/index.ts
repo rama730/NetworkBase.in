@@ -1152,6 +1152,27 @@ export const keyResultCheckIns = pgTable("key_result_check_ins", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** Updates that post themselves at a set time, as their author (0120, report 38.17 O2, A7.4). Server only. */
+export const workspaceScheduledUpdates = pgTable("workspace_scheduled_updates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  authorId: uuid("author_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  updateType: text("update_type"),
+  visibility: text("visibility").notNull().default("public"),
+  media: jsonb("media").$type<unknown[]>().notNull().default([]),
+  entityRefs: jsonb("entity_refs").$type<Record<string, unknown>>().notNull().default({}),
+  publishAt: timestamp("publish_at", { withTimezone: true }).notNull(),
+  publishedUpdateId: uuid("published_update_id"),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  failedReason: text("failed_reason"),
+  claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
+  sourceTaskId: uuid("source_task_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /** Comments on a file's version, optionally at a spot or a moment (0119, report 38.16 O1, A7.2). Server only. */
 export const fileComments = pgTable("file_comments", {
   id: uuid("id").primaryKey().defaultRandom(),

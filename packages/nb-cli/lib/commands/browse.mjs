@@ -1,3 +1,4 @@
+import fs from "node:fs";
 // workspace view, activity, sprint list|view, update post, file history|move|rename|delete|attach|detach
 // (report §17.4, A2.5, A8.7, D25).
 import path from "node:path";
@@ -138,6 +139,39 @@ export async function updatePost(ctx) {
   if (!(await confirm(ctx, { key: "post", heldByServer: true, question: "Post this update? Everyone in the workspace sees it.", preview: content, yesLabel: "Post", defaultYes: true }))) return EXIT.cancelled;
   await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates`, { content });
   ctx.out.result("nb.update.post/1", { posted: true }, () => `${ctx.out.c.success(ctx.out.sym.done)} Posted the update`);
+}
+
+/** `nb update schedule --at "2026-12-03 10:00" -m text|--file post.md [--release]` (report 38.17 W7, A7.4). @param {Context} ctx */
+export async function updateSchedule(ctx) {
+  const fromFile = ctx.flags.file ? fs.readFileSync(String(ctx.flags.file) === "-" ? 0 : String(ctx.flags.file), "utf8") : null;
+  const content = String(fromFile ?? ctx.flags.message ?? ctx.positionals.join(" ")).trim();
+  const at = ctx.flags.at ? new Date(String(ctx.flags.at).replace(" ", "T")) : null;
+  if (!content || !at || !Number.isFinite(at.getTime())) throw usage('nb update schedule --at "2026-12-03 10:00" -m "text"', "The time is your computer's local time");
+  const d = /** @type {any} */ (await ctx.api.post(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates`, { content, publishAt: at.toISOString(), ...(ctx.flags.release ? { release: true } : {}) }));
+  ctx.out.result("nb.update.schedule/1", d, (r) => `${ctx.out.c.success(ctx.out.sym.done)} Scheduled · posts ${new Date(r.scheduled.publishAt).toLocaleString()}`);
+}
+
+/** `nb update scheduled`: what waits to post. @param {Context} ctx */
+export async function updateScheduled(ctx) {
+  const d = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates`, { query: { scheduled: "1" } }));
+  ctx.out.result("nb.update.scheduled/1", { scheduled: d.scheduled }, (r) => {
+    if (!r.scheduled.length) return "Nothing scheduled";
+    return ctx.out.table([
+      { title: "Posts", value: (s) => (s.failedReason ? "didn't post" : new Date(s.publishAt).toLocaleString()) },
+      { title: "Update", value: (s) => safe(String(s.content).split("\n")[0]).slice(0, 80), flex: true },
+      { title: "By", value: (s) => safe(s.authorName), optional: true },
+    ], r.scheduled);
+  });
+}
+
+/** `nb changelog` (report 38.17 W7, A7.5): release Updates as versions. @param {Context} ctx */
+export async function changelog(ctx) {
+  const d = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(ctx.requireWorkspace())}/updates`, { query: { filter: "release" } }));
+  const updates = d.updates ?? [];
+  ctx.out.result("nb.changelog/1", { releases: updates.map((/** @type {any} */ u) => ({ id: u.id, createdAt: u.createdAt, content: u.content })) }, (r) => {
+    if (!r.releases.length) return "No releases yet";
+    return r.releases.flatMap((/** @type {any} */ u) => [`${ctx.out.c.muted(new Date(u.createdAt).toLocaleDateString())}`, safe(u.content).trim(), ""]);
+  });
 }
 
 /**

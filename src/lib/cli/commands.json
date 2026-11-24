@@ -4041,6 +4041,59 @@
       ]
     },
     {
+      "name": "update schedule",
+      "summary": "Schedule an update to post later, as you",
+      "usage": "nb update schedule --at \"2026-12-03 10:00\" -m text [--release]",
+      "flags": {
+        "message": {
+          "type": "string",
+          "short": "m",
+          "describe": "Text for this command",
+          "valueName": "text"
+        },
+        "at": {
+          "type": "string",
+          "describe": "When, in your local time"
+        },
+        "file": {
+          "type": "string",
+          "describe": "Read the text from a file (or - for stdin)",
+          "valueName": "path"
+        },
+        "release": {
+          "type": "boolean",
+          "describe": "A release Update (## v2.4, ### Added …)"
+        }
+      },
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "update scheduled",
+      "summary": "Updates waiting to post",
+      "usage": "nb update scheduled",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "changelog",
+      "summary": "Release Updates as versions",
+      "usage": "nb changelog",
+      "flags": {},
+      "examples": [],
+      "exitCodes": [
+        0,
+        1
+      ]
+    },
+    {
       "name": "update view",
       "summary": "One update and its comments",
       "usage": "nb update view <n>",

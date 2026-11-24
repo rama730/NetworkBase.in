@@ -46,6 +46,7 @@ import {
     workspaceUpdateLikes,
     workspaceUpdateMediaAssets,
     workspaceUpdates,
+    workspaceScheduledUpdates,
     storageAssets,
     storageLegacyCleanupTargets,
     tasks,
@@ -2859,5 +2860,123 @@ export async function saveWorkspaceUpdateDraftAction(
         return { success: true, data: draft };
     } catch (error) {
         return { success: false, error: "Failed to save draft" };
+    }
+}
+
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Report 38.17 O2 W1–W3 (plan A7.4): scheduled Updates. People who may post schedule one; it posts at the time as its
+ * author, through createWorkspaceUpdateAction, so every rule of posting applies then (call 3). Workspaces only for now.
+ * ---------------------------------------------------------------------------------------------------------------- */
+type ScheduleInput = { content: string; updateType?: string | null; visibility?: string | null; media?: WorkspaceUpdateMediaItem[] | null; entityRefs?: WorkspaceUpdateEntityRefs | null; publishAt: string; sourceTaskId?: string | null };
+
+function checkPublishAt(value: string) {
+    const at = new Date(value);
+    if (!Number.isFinite(at.getTime())) throw new Error("Pick a date and time.");
+    if (at.getTime() < Date.now() + 60_000) throw new Error("Pick a time at least a minute from now.");
+    if (at.getTime() > Date.now() + 366 * 86_400_000) throw new Error("Schedule up to a year ahead.");
+    return at;
+}
+
+async function scheduleAccess(projectId: string) {
+    const viewer = await getViewerProfileContext();
+    if (!viewer.userId) throw new Error("Sign in to schedule updates.");
+    const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+    if (!access.canCreate || !access.project) throw new Error("You don’t have access to post updates here.");
+    if (access.org) throw new Error("Scheduling is for workspaces for now.");
+    return { viewer, access, userId: viewer.userId };
+}
+
+/** W1: Schedule… from the composer (or a content item, T5). */
+export async function scheduleWorkspaceUpdateAction(projectId: string, input: ScheduleInput) {
+    try {
+        const { userId } = await scheduleAccess(projectId);
+        const at = checkPublishAt(input.publishAt);
+        const content = sanitizeWorkspaceUpdateContent(input.content);
+        const media = normalizeMedia(input.media);
+        if (!content && !media.length) return { success: false as const, error: "Update cannot be empty." };
+        const [pending] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaceScheduledUpdates)
+            .where(and(eq(workspaceScheduledUpdates.projectId, projectId), eq(workspaceScheduledUpdates.authorId, userId), isNull(workspaceScheduledUpdates.publishedAt), isNull(workspaceScheduledUpdates.cancelledAt)));
+        if ((pending?.n ?? 0) >= 50) return { success: false as const, error: "You have 50 scheduled updates here; post or cancel some first." };
+        const [row] = await db.insert(workspaceScheduledUpdates).values({ projectId, authorId: userId, content, updateType: normalizeWorkspaceUpdateType(input.updateType), visibility: input.visibility === "members" ? "members" : "public",
+            media, entityRefs: normalizeEntityRefs(input.entityRefs), publishAt: at, sourceTaskId: input.sourceTaskId && isLooseUuid(input.sourceTaskId) ? input.sourceTaskId : null }).returning({ id: workspaceScheduledUpdates.id });
+        const { wakeChatDueIfSoon } = await import("@/inngest/wake");
+        await wakeChatDueIfSoon(at);
+        return { success: true as const, id: row!.id, publishAt: at.toISOString() };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t schedule the update." };
+    }
+}
+
+/** W2: the Scheduled list (members who may post): waiting and failed ones, soonest first, with their authors. */
+export async function readScheduledUpdatesAction(projectId: string) {
+    try {
+        const { userId, access } = await scheduleAccess(projectId);
+        const rows = await db.select({ id: workspaceScheduledUpdates.id, content: workspaceScheduledUpdates.content, updateType: workspaceScheduledUpdates.updateType, visibility: workspaceScheduledUpdates.visibility,
+            publishAt: workspaceScheduledUpdates.publishAt, failedReason: workspaceScheduledUpdates.failedReason, authorId: workspaceScheduledUpdates.authorId,
+            authorName: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Someone')` })
+            .from(workspaceScheduledUpdates).leftJoin(profiles, eq(profiles.id, workspaceScheduledUpdates.authorId))
+            .where(and(eq(workspaceScheduledUpdates.projectId, projectId), isNull(workspaceScheduledUpdates.publishedAt), isNull(workspaceScheduledUpdates.cancelledAt)))
+            .orderBy(asc(workspaceScheduledUpdates.publishAt)).limit(100);
+        return { success: true as const, me: userId, canManage: access.canManage, scheduled: rows.map((r) => ({ ...r, publishAt: r.publishAt.toISOString() })) };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t load scheduled updates." };
+    }
+}
+
+async function ownScheduled(projectId: string, id: string, allowManager = false) {
+    const { userId, access } = await scheduleAccess(projectId);
+    if (!isLooseUuid(id)) throw new Error("Not found");
+    const [row] = await db.select().from(workspaceScheduledUpdates)
+        .where(and(eq(workspaceScheduledUpdates.id, id), eq(workspaceScheduledUpdates.projectId, projectId), isNull(workspaceScheduledUpdates.publishedAt), isNull(workspaceScheduledUpdates.cancelledAt))).limit(1);
+    if (!row) throw new Error("That scheduled update has posted or was cancelled.");
+    if (row.authorId !== userId && !(allowManager && access.canManage)) throw new Error("Only its author changes a scheduled update.");
+    return row;
+}
+
+/** W2: Edit (text, time, who sees it); a failed one is tried again at its new time. */
+export async function editScheduledUpdateAction(projectId: string, id: string, input: { content?: string; publishAt?: string; visibility?: string | null }) {
+    try {
+        await ownScheduled(projectId, id);
+        const patch: Partial<typeof workspaceScheduledUpdates.$inferInsert> = { updatedAt: new Date(), failedReason: null, claimExpiresAt: null };
+        if (input.content !== undefined) {
+            const content = sanitizeWorkspaceUpdateContent(input.content);
+            if (!content) return { success: false as const, error: "Update cannot be empty." };
+            patch.content = content;
+        }
+        if (input.publishAt) patch.publishAt = checkPublishAt(input.publishAt);
+        if (input.visibility) patch.visibility = input.visibility === "members" ? "members" : "public";
+        await db.update(workspaceScheduledUpdates).set(patch).where(eq(workspaceScheduledUpdates.id, id));
+        if (patch.publishAt) { const { wakeChatDueIfSoon } = await import("@/inngest/wake"); await wakeChatDueIfSoon(patch.publishAt); }
+        return { success: true as const };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t change it." };
+    }
+}
+
+/** W2: Cancel (its author, or the workspace's owner and admins). */
+export async function cancelScheduledUpdateAction(projectId: string, id: string) {
+    try {
+        await ownScheduled(projectId, id, true);
+        await db.update(workspaceScheduledUpdates).set({ cancelledAt: new Date(), updatedAt: new Date() }).where(and(eq(workspaceScheduledUpdates.id, id), isNull(workspaceScheduledUpdates.publishedAt)));
+        return { success: true as const };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t cancel it." };
+    }
+}
+
+/** W2: Post now: posts it as the author straight away (it leaves Scheduled). */
+export async function postScheduledNowAction(projectId: string, id: string) {
+    try {
+        const row = await ownScheduled(projectId, id);
+        // Claim it first so the hourly job can't post it as well.
+        const [claimed] = await db.update(workspaceScheduledUpdates).set({ claimExpiresAt: new Date(Date.now() + 5 * 60_000) })
+            .where(and(eq(workspaceScheduledUpdates.id, id), isNull(workspaceScheduledUpdates.publishedAt), sql`(${workspaceScheduledUpdates.claimExpiresAt} IS NULL OR ${workspaceScheduledUpdates.claimExpiresAt} < now())`)).returning({ id: workspaceScheduledUpdates.id });
+        if (!claimed) return { success: false as const, error: "It’s posting now." };
+        const { postScheduledRow } = await import("@/lib/workflows/scheduled-updates-server");
+        const result = await postScheduledRow(row);
+        return result.posted ? { success: true as const, updateId: result.updateId } : { success: false as const, error: result.reason };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t post it." };
     }
 }

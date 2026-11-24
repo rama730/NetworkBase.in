@@ -53,9 +53,9 @@ More
     workspace archive, export, workspace open, activity, sprint list,
     sprint view, sprint create, sprint add, sprint close, update post,
     member invite, member role, member remove, workspace me, workspace complete,
-    workspace reopen, workspace leave, update list, update view, update like,
-    update comment, message list, message read, message send, member list,
-    search
+    workspace reopen, workspace leave, update list, update schedule,
+    update scheduled, changelog, update view, update like, update comment,
+    message list, message read, message send, member list, search
   Classes
     assignment list, class progress, class announcements, assignment view,
     assignment pull, assignment hand-in, assignment unsubmit,

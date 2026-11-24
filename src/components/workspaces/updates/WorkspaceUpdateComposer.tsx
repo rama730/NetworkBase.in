@@ -32,6 +32,7 @@ import {
     type WorkspaceUpdateVisibility,
 } from "@/lib/workspaces/updates";
 import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
+import { DateTimeField } from "@/components/organizations/DateTimeField";
 import { cn } from "@/lib/utils";
 import { normalizeReadmeReferenceLabel } from "@/lib/workspaces/doc-blocks";
 import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval";
@@ -140,6 +141,7 @@ export function WorkspaceUpdateComposer({
     isPosting,
     defaultVisibility = "public",
     onPost,
+    onSchedule,
     orgControls = null,
     defaultPlaceholder,
 }: {
@@ -157,10 +159,12 @@ export function WorkspaceUpdateComposer({
     orgControls?: OrgComposerControls | null;
     /** The placeholder before the organization's options load, so the wording is right from the start (live-fix 29). */
     defaultPlaceholder?: string;
+    /** Report 38.17 W1 (A7.4): Schedule… beside Post (workspaces); resolves false when it failed so the text stays. */
+    onSchedule?: (input: { content: string; updateType: "release" | null; visibility: WorkspaceUpdateVisibility; entityRefs: WorkspaceUpdateEntityRefs; media: WorkspaceUpdateMediaItem[]; publishAt: string }) => Promise<boolean>;
     /** Resolves false when the post failed, so what was written and its audience stay (report §42.15 problem 44). */
     onPost: (input: {
         content: string;
-        updateType: null;
+        updateType: "release" | null;
         visibility: WorkspaceUpdateVisibility;
         entityRefs: WorkspaceUpdateEntityRefs;
     media: WorkspaceUpdateMediaItem[];
@@ -178,6 +182,10 @@ export function WorkspaceUpdateComposer({
     const [pendingMediaUploads, setPendingMediaUploads] = useState<PendingMediaUpload[]>([]);
     const [activePanel, setActivePanel] = useState<ComposerPanel>(null);
     const [filePickerOpen, setFilePickerOpen] = useState(false);
+    const [scheduleAt, setScheduleAt] = useState<string | null>(null);
+    // Report 38.17 W4 (A7.5): a release Update, in the shape the Changelog reads.
+    const [release, setRelease] = useState(false);
+    const browserZone = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
     const editorRef = useRef<{ insertTextAtCursor: (t: string) => void } | null>(null);
 
     const [contextQuery, setContextQuery] = useState("");
@@ -646,6 +654,7 @@ export function WorkspaceUpdateComposer({
     };
 
     const resetAfterPost = () => {
+        setRelease(false);
         setContent("");
         setEntityRefs(EMPTY_REFS);
         setMedia([]);
@@ -1002,7 +1011,7 @@ export function WorkspaceUpdateComposer({
                                     onClick={() => {
                                         void Promise.resolve(onPost({
                                             content,
-                                            updateType: null,
+                                            updateType: release ? "release" : null,
                                             visibility: orgControls ? orgControls.visibility : canManage ? visibility : defaultVisibility,
                                             entityRefs: {
                                                 ...entityRefs,
@@ -1017,8 +1026,36 @@ export function WorkspaceUpdateComposer({
                                 >
                                     {orgControls?.postLabel ?? "Post"}
                                 </Button>
+                                {onSchedule && !orgControls ? (
+                                    <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                                        <input type="checkbox" checked={release} onChange={(e) => {
+                                            setRelease(e.target.checked);
+                                            if (e.target.checked && !content.trim()) setContent("## v\n\n### Added\n- \n\n### Improved\n- \n\n### Fixed\n- ");
+                                        }} />Release
+                                    </label>
+                                ) : null}
+                                {onSchedule && !orgControls ? (
+                                    <Button type="button" variant="outline" disabled={disabled} aria-expanded={scheduleAt != null} onClick={() => setScheduleAt(scheduleAt == null ? "" : null)}
+                                        className="nb-touch-target h-[34px] rounded-[5px] border-border px-3 text-[13px] font-medium">Schedule…</Button>
+                                ) : null}
                             </div>
                         </div>
+                        {onSchedule && !orgControls && scheduleAt != null ? (
+                            <div className="flex flex-wrap items-end gap-2 border-t border-border px-3 py-2" data-testid="schedule-update">
+                                <div className="min-w-[240px] flex-1">
+                                    <label htmlFor="schedule-update-at" className="text-[12px] font-medium">Post at <span className="font-normal text-muted-foreground">· your time ({browserZone})</span></label>
+                                    <DateTimeField id="schedule-update-at" value={scheduleAt} onChange={setScheduleAt} timeZone={browserZone} summary="Posts" defaultTime="10:00" />
+                                </div>
+                                <Button type="button" disabled={disabled || !scheduleAt} className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
+                                    onClick={() => {
+                                        const at = new Date(scheduleAt);
+                                        if (!Number.isFinite(at.getTime())) return;
+                                        void onSchedule({ content, updateType: release ? "release" : null, visibility: canManage ? visibility : defaultVisibility,
+                                            entityRefs: { ...entityRefs, references: normalizeWorkspaceUpdateReferences(entityRefs.references) }, media, publishAt: at.toISOString() })
+                                            .then((ok) => { if (ok) { setScheduleAt(null); resetAfterPost(); } });
+                                    }}>Schedule</Button>
+                            </div>
+                        ) : null}
                     </>
                 ) : null}
             </div>

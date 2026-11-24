@@ -558,7 +558,10 @@ const patterns = [
     state.sprintClosed = req.params[1];
     return { data: { sprint: { id: req.params[1], name: "Unit 1" }, moved: 1, to: "backlog" } };
   }],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/updates$/, "POST", (req, /** @type {FakeState} */ state) => { state.updates.push(req.body.content); return { data: { success: true } }; }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/updates$/, "POST", (req, /** @type {FakeState} */ state) => {
+    if (req.body.publishAt) { /** @type {any} */ (state).scheduled = [...(/** @type {any} */ (state).scheduled ?? []), { id: "s1", content: req.body.content, publishAt: req.body.publishAt, authorName: "Sam Lee", failedReason: null, release: Boolean(req.body.release) }]; return { data: { scheduled: { id: "s1", publishAt: req.body.publishAt } } }; }
+    state.updates.push(req.body.content); return { data: { success: true } };
+  }],
   [/^\/api\/v1\/tasks\/([^/]+)\/files$/, "POST", (req, /** @type {FakeState} */ state) => {
     const t = findTask(state, req.params[0] ?? "");
     if (!t) return fail(404, "NOT_FOUND", "Task not found");
@@ -653,7 +656,8 @@ const patterns = [
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "POST", (req, state) => (req.body.role === "Designer" ? { data: { invited: `@${req.body.username}`, role: "Designer", invitationId: crypto.randomUUID() } } : fail(404, "NOT_FOUND", `No open role "${req.body.role}". Open roles: Designer`))],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "PATCH", (req, state) => { state.memberOps = [...(state.memberOps ?? []), { op: "role", ...req.body }]; return { data: { username: req.body.username, role: req.body.role } }; }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "DELETE", (req, state) => { state.memberOps = [...(state.memberOps ?? []), { op: req.body.leave ? "leave" : "remove", ...req.body }]; return { data: req.body.leave ? { left: true } : { removed: req.body.username } }; }],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/updates$/, "GET", (_req, state) => ({ data: { updates: (state.feed ?? []), nextCursor: null, hasMore: false } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/updates$/, "GET", (req, state) => req.query.get("scheduled") ? { data: { scheduled: /** @type {any} */ (state).scheduled ?? [] } }
+    : ({ data: { updates: (state.feed ?? []).filter((/** @type {any} */ u) => req.query.get("filter") !== "release" || u.updateType === "release"), nextCursor: null, hasMore: false } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/updates\/([^/]+)$/, "GET", (req, state) => ({ data: { comments: (state.feed ?? []).find((u) => u.id === req.params[1])?.commentList ?? [], nextCursor: null, hasMore: false } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/updates\/([^/]+)$/, "POST", (req, state) => {
     const u = (state.feed ?? []).find((x) => x.id === req.params[1]);

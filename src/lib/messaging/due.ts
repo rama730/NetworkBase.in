@@ -82,6 +82,10 @@ export async function dueTimesWithinNextHour(limit = 200) {
       -- Meeting reminders (report 38.11 call 4, A4.1).
       SELECT remind_at FROM workspace_document_reminders
       WHERE sent_at IS NULL AND remind_at > now() AND remind_at <= now() + interval '65 minutes'
+      UNION ALL
+      -- Scheduled Updates (report 38.17, A7.4).
+      SELECT publish_at FROM workspace_scheduled_updates
+      WHERE published_at IS NULL AND cancelled_at IS NULL AND failed_reason IS NULL AND publish_at > now() AND publish_at <= now() + interval '65 minutes'
     ) due
     ORDER BY at LIMIT ${limit}
   `);

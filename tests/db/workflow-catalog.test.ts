@@ -93,7 +93,7 @@ test("owners and admins add; adding twice is a no-op; members, viewers and outsi
 test("workflows whose round isn't built, and unknown ones, are refused", async () => {
   const t = await workspace();
   viewerId = t.owner;
-  assert.match(errorOf(await actions.addWorkflowAction({ workspaceId: t.ws, workflow: "changelog" })), /coming later/);
+  assert.match(errorOf(await actions.addWorkflowAction({ workspaceId: t.ws, workflow: "learning_path" })), /coming later/);
   assert.match(errorOf(await actions.addWorkflowAction({ workspaceId: t.ws, workflow: "pipeline" })), /Unknown workflow/);
 });
 
@@ -194,7 +194,7 @@ test("W8: an organization pushes a workflow to every workspace; members can't; R
   viewerId = t.admin;
   const pushed = await actions.pushWorkflowAction({ orgId: t.org, workflow: "bugs" });
   assert.deepEqual(pushed.success && [pushed.name, pushed.workspaces], ["Bugs", 2]);
-  assert.match(errorOf(await actions.pushWorkflowAction({ orgId: t.org, workflow: "changelog" })), /coming later/);
+  assert.match(errorOf(await actions.pushWorkflowAction({ orgId: t.org, workflow: "learning_path" })), /coming later/);
   const list = await actions.readOrgWorkflowsAction(t.org);
   assert.deepEqual(list.success && [list.workspaces, list.rows], [2, [{ workflow: "bugs", pushed: true }]]);
 
@@ -223,8 +223,8 @@ test("W9: the wizard's ticked workflows are added for the new workspace's owner 
   viewerId = t.owner;
   const pushedList = await actions.orgPushedWorkflowsAction(t.org);
   assert.deepEqual(pushedList.success && [pushedList.by, pushedList.workflows], ["Northgate CS", ["bugs"]]);
-  const made = await actions.addWorkflowsOnCreateAction(t.ws, ["bugs", "project_planner", "changelog"]);
-  assert.deepEqual(made.success && made.added, ["project_planner"], "Bugs is pushed already; Changelog isn't built");
+  const made = await actions.addWorkflowsOnCreateAction(t.ws, ["bugs", "project_planner", "learning_path"]);
+  assert.deepEqual(made.success && made.added, ["project_planner"], "Bugs is pushed already; Learning path isn't built");
   const [ws] = await sql`SELECT workflows_enabled FROM workspaces WHERE id = ${t.ws}`;
   assert.equal(ws!.workflows_enabled, true);
   assert.deepEqual((await added(t.ws)).sort(), ["bugs", "project_planner"]);

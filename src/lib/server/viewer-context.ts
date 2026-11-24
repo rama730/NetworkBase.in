@@ -9,6 +9,7 @@ import { profiles } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
 import { getUserProfile } from "@/lib/data/profile";
 import { logger } from "@/lib/logger";
+import { actingAsUserId } from "@/lib/server/acting-as";
 
 /**
  * SEC-M6: `ViewerAuthContext` is SERVER-ONLY. It holds the raw Supabase
@@ -77,7 +78,7 @@ async function getAuthResolution(client: Awaited<ReturnType<typeof createClient>
   return resolveAuthSnapshot(client);
 }
 
-export const getViewerAuthContext = cache(async (): Promise<ViewerAuthContext> => {
+const cachedViewerAuthContext = cache(async (): Promise<ViewerAuthContext> => {
   const supabase = await getSupabaseClient();
   // A CLI or agent token (report A2.1: one implementation for app and API): the token's person, but only on the
   // API routes tokens may call (token-access.ts); anywhere else this reads as signed out.
@@ -103,7 +104,15 @@ export const getViewerAuthContext = cache(async (): Promise<ViewerAuthContext> =
   };
 });
 
-export const getViewerProfileContext = cache(async (): Promise<ViewerProfileContext> => {
+/** The signed-in person, or (server jobs only) the person a job acts for (acting-as.ts). */
+export const getViewerAuthContext = async (): Promise<ViewerAuthContext> => {
+  const actingAs = actingAsUserId();
+  if (!actingAs) return cachedViewerAuthContext();
+  // No browser session here: anything that needs the Supabase client must not run inside a job.
+  return { supabase: null as unknown as ViewerAuthContext["supabase"], snapshot: null, user: { id: actingAs } as User, userId: actingAs, emailVerified: true };
+};
+
+const cachedViewerProfileContext = cache(async (): Promise<ViewerProfileContext> => {
   const auth = await getViewerAuthContext();
   const profile = auth.userId ? await getUserProfile(auth.userId) : null;
   return {
@@ -116,6 +125,12 @@ export const getViewerProfileContext = cache(async (): Promise<ViewerProfileCont
  * Project pages only render the viewer's name and avatar. Avoid loading the
  * complete profile bootstrap record on their critical route path.
  */
+export const getViewerProfileContext = async (): Promise<ViewerProfileContext> => {
+  const actingAs = actingAsUserId();
+  if (!actingAs) return cachedViewerProfileContext();
+  return { ...(await getViewerAuthContext()), profile: await getUserProfile(actingAs) };
+};
+
 export const getViewerIdentityContext = cache(async (): Promise<ViewerIdentityContext> => {
   const auth = await getViewerAuthContext();
   if (!auth.userId) return { ...auth, profile: null };
