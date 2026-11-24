@@ -19,7 +19,7 @@ stubNextAfter();
 
 let marks: typeof import("../../src/app/actions/marks");
 let assignments: typeof import("../../src/app/actions/assignments");
-let agent = false;
+let token: string | null = null;
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -28,7 +28,7 @@ before(async () => {
     getViewerIdentityContext: async () => ({ user: viewerId ? { id: viewerId } : null, userId: viewerId || null, profile: null }),
   });
   const shared = await loadAppModule(() => import("../../src/app/api/v1/_shared"));
-  moduleStubs.set("@/app/api/v1/_shared", { ...shared, requireAuthenticatedUser: async () => (viewerId ? { user: { id: viewerId }, tokenKind: agent ? "agent" : "session" } : Promise.reject(new Error("401"))) });
+  moduleStubs.set("@/app/api/v1/_shared", { ...shared, requireAuthenticatedUser: async () => (viewerId ? { user: { id: viewerId }, tokenKind: token } : Promise.reject(new Error("401"))) });
   marks = await loadAppModule(() => import("../../src/app/actions/marks"));
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
 });
@@ -69,9 +69,12 @@ test("a rubric is saved and frozen; staff mark as a hidden draft; the student se
   const panel = await marks.readMarkingAction(copies[0]!);
   assert.ok(panel.success && panel.marking.mode === "rubric" && panel.marking.rubric.criteria.length === 2, "the assignment keeps the rubric it was saved with");
   const [c0, c1] = panel.success && panel.marking.mode === "rubric" ? panel.marking.rubric.criteria : [];
-  agent = true;
+  token = "agent";
   assert.match(errorOf(await marks.saveMarkAction(copies[0]!, { levels: { [c0!.id]: 0, [c1!.id]: 1 } })), /agents can’t/);
-  agent = false;
+  token = "pat";
+  assert.equal((await marks.saveMarkAction(copies[0]!, { levels: { [c0!.id]: 0, [c1!.id]: 1 } })).success, false, "security review: no token writes marks");
+  assert.equal((await marks.readMarkingAction(copies[0]!)).success, false, "nor reads a staff draft");
+  token = null;
   assert.match(errorOf(await marks.saveMarkAction(copies[0]!, { levels: { [c0!.id]: 0 } })), /Pick a level for Report/);
   viewerId = t.ta;
   assert.deepEqual(await marks.saveMarkAction(copies[0]!, { levels: { [c0!.id]: 0, [c1!.id]: 1 }, comment: "Explain the edge case" }), { success: true, total: 17, outOf: 20 });

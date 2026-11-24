@@ -21,7 +21,9 @@ const DENIED: Failure = { success: false, error: "You can’t do that here." };
 
 async function viewer() {
   const auth: { user: { id: string } | null; tokenKind?: string | null } = await requireAuthenticatedUser().catch(() => ({ user: null }));
-  return { userId: auth.user?.id ?? null, isAgent: auth.tokenKind === "agent" };
+  // Security review: any token (agent, device or personal) only reads its own visible marks; writes and staff views
+  // need a person signed in to the app (a cookie session has no token kind).
+  return { userId: auth.user?.id ?? null, isAgent: auth.tokenKind != null };
 }
 
 type CopyRow = { copy_id: string; master_id: string; org_id: string; title: string; assignee_id: string | null; approved: boolean; settings: unknown; org_settings: unknown; excused: boolean };
@@ -64,8 +66,8 @@ async function readMark(copyId: string) {
 /** The Marking panel (review queue): the assignment's marking, the draft or mark, and the class's comment bank. */
 export async function readMarkingAction(copyId: string) {
   try {
-    const { userId } = await viewer();
-    const copy = userId ? await loadCopy(copyId) : null;
+    const { userId, isAgent } = await viewer();
+    const copy = userId && !isAgent ? await loadCopy(copyId) : null;
     if (!copy || !userId || !(await canMark(copy, userId))) return DENIED;
     const bank = (copy.org_settings as { commentBank?: unknown } | null)?.commentBank;
     return { success: true as const, marking: readMarking(copy.settings), mark: await readMark(copyId), excused: copy.excused,
@@ -102,10 +104,10 @@ export async function saveMarkAction(copyId: string, input: MarkDraft): Promise<
 
 /** The student's own result (visible marks only); staff who review the copy see the draft too. */
 export async function readMyMarkAction(copyId: string) {
-  const { userId } = await viewer();
+  const { userId, isAgent } = await viewer();
   const copy = userId ? await loadCopy(copyId) : null;
   if (!copy || !userId) return DENIED;
-  const staff = await canMark(copy, userId);
+  const staff = !isAgent && (await canMark(copy, userId));
   if (!staff && !(await isOwnCopy(copyId, userId))) return DENIED;
   const mark = await readMark(copyId);
   const marking = readMarking(copy.settings);
@@ -144,8 +146,8 @@ export async function archiveRubricAction(orgId: string, rubricId: string, archi
 
 /** The class's rubrics and comment bank (staff). */
 export async function readMarkingSettingsAction(orgId: string) {
-  const { userId } = await viewer();
-  if (!userId || !isLooseUuid(orgId)) return DENIED;
+  const { userId, isAgent } = await viewer();
+  if (!userId || isAgent || !isLooseUuid(orgId)) return DENIED;
   const a = await getWorkspaceAccessById(orgId, userId);
   if (!(a.isOwner || a.memberRole === "admin")) return DENIED;
   const [row] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid`));
