@@ -6,7 +6,7 @@ import CreateTaskModal from '@/components/workspaces/v2/tasks/CreateTaskModal';
 import { OrgFilesCollection, OrgStorageNotice } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { FormProvider, useForm } from 'react-hook-form';
-import { ChildLeadAndUnassigned, InheritedAdminRows, UnitPeople } from '@/components/organizations/ChildTeamFields';
+import { InheritedAdminRows, NotInTeamFrame, UnitPeople, WorkspaceLeadRow } from '@/components/organizations/ChildTeamFields';
 import { ChildUnitsPanel } from '@/components/organizations/ChildUnitsPanel';
 import { CreateLocationProvider } from '@/components/organizations/CreateLocation';
 import WorkspaceLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
@@ -27,7 +27,8 @@ function Team() {
         <FormProvider {...methods}>
             <CreateLocationProvider value={{ locations: [orgLocation], locked: true, notice: null }}>
                 <UnitPeople index={0} unitName="Frontend developers" />
-                <ChildLeadAndUnassigned />
+                <WorkspaceLeadRow />
+                <NotInTeamFrame />
                 <InheritedAdminRows />
             </CreateLocationProvider>
         </FormProvider>

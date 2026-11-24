@@ -21,9 +21,14 @@ import { useAuth } from '@/hooks/use-auth';
 export interface WizardContextType {
     openRoles: OpenRoleInput[];
     openRoleIds: string[];
-    addRole: () => void;
+    /** Adds a role (optionally with a title from the composer or a popular role). */
+    addRole: (init?: Partial<OpenRoleInput>) => void;
     updateRole: (index: number, updates: Partial<OpenRoleInput>) => void;
     removeRole: (index: number) => void;
+    /** Inserts "{title} (copy)" right below, without its people (a person sits in one team at a time). */
+    duplicateRole: (index: number) => void;
+    /** Reorders roles (drag on the number box, or ArrowUp/ArrowDown on it). */
+    moveRole: (from: number, to: number) => void;
     /** Fills an empty team from the org's default units, once per org (report §14.4 additions). */
     prefillUnits: (orgId: string, names: string[]) => void;
 }
@@ -132,6 +137,8 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
         fields: openRoleFields,
         append: appendOpenRole,
         remove: removeOpenRole,
+        insert: insertOpenRole,
+        move: moveOpenRole,
     } = useFieldArray({
         control: methods.control,
         name: 'roles',
@@ -461,7 +468,7 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
     }, [isDirty, watch, saveDraft]);
 
     // --- Role Management ---
-    const addRole = useCallback(() => {
+    const addRole = useCallback((init?: Partial<OpenRoleInput>) => {
         appendOpenRole({
             role: '',
             count: 1,
@@ -470,8 +477,21 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
             experienceLevel: 'any',
             compensationType: 'unpaid',
             compensationDetails: '',
-        }, { shouldFocus: true });
+            ...init,
+        }, { shouldFocus: false });
     }, [appendOpenRole]);
+
+    const duplicateRole = useCallback((index: number) => {
+        const role = (getValues('roles') || [])[index];
+        if (!role) return;
+        insertOpenRole(index + 1, { ...role, role: `${role.role.trim()} (copy)`.slice(0, 100), people: [], lead_user_id: undefined }, { shouldFocus: false });
+    }, [getValues, insertOpenRole]);
+
+    const moveRole = useCallback((from: number, to: number) => {
+        const length = (getValues('roles') || []).length;
+        if (from === to || from < 0 || to < 0 || from >= length || to >= length) return;
+        moveOpenRole(from, to);
+    }, [getValues, moveOpenRole]);
 
     const updateRole = useCallback((index: number, updates: Partial<OpenRoleInput>) => {
         const roles = getValues('roles') || [];
@@ -498,8 +518,10 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
         addRole,
         updateRole,
         removeRole,
+        duplicateRole,
+        moveRole,
         prefillUnits,
-    }), [openRoles, openRoleFields, addRole, updateRole, removeRole, prefillUnits]);
+    }), [openRoles, openRoleFields, addRole, updateRole, removeRole, duplicateRole, moveRole, prefillUnits]);
 
     // Phase is navigation only. Reaching a later step does not make the
     // project dirty, so closing after restoring all values must not prompt.

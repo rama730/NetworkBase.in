@@ -8,39 +8,41 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 }
 
-test('Phase 3 uses the canonical wizard hierarchy and flat team composition', () => {
+test('Phase 3 (v6) lays the team out in frames: Owner, Open roles with a composer, and the org frames', () => {
     const phase = source('src/components/workspaces/create-wizard/phases/Phase3TeamRoles.tsx');
 
     assert.match(phase, /<PhaseHead noun="workspace" step="Team" title="Who’s building it\?"/);
-    assert.match(phase, /Set up your team/);
-    assert.match(phase, /title="Owner"/);
-    assert.match(phase, /Set up your team/);
-    assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
-    assert.match(phase, /border-t border-border pt-6/);
-    assert.match(phase, /No openings added/);
+    assert.match(phase, /className="nbs-frame"/);
+    assert.match(phase, /'Owner and lead' : 'Owner'/);
+    assert.match(phase, /Open roles/);
+    assert.match(phase, /No openings yet/);
+    assert.match(phase, /className="nb-composer"/);
+    assert.match(phase, /<WorkspaceLeadRow \/>/);
+    assert.match(phase, /<NotInTeamFrame \/>/);
+    assert.match(phase, /<InheritedAdminRows \/>/);
     assert.doesNotMatch(phase, /border-dashed/);
     assert.doesNotMatch(phase, /<datalist/);
+    assert.doesNotMatch(phase, /<details/);
 });
 
-test('Phase 3 exposes accessible, progressive role controls and inline validation', () => {
+test('Phase 3 (v6) role editor: Basics, Requirements, Offer, People, one action bar, accessible validation', () => {
     const phase = source('src/components/workspaces/create-wizard/phases/Phase3TeamRoles.tsx');
 
     assert.match(phase, /htmlFor="create-project-lead-focus"/);
     assert.match(phase, /<CharCount value=\{leadFocus\.length\} max=\{80\}/);
     assert.match(phase, /aria-invalid=\{Boolean\(roleError\?\.role \|\| duplicateRoleMessage\)\}/);
-    assert.match(phase, /Role requirements and offer/);
-    assert.match(phase, /bg-secondary\/55/);
-    assert.match(phase, /<ChevronDown/);
-    assert.match(phase, /group-open:rotate-180/);
-    assert.match(phase, /<SkillPicker/);
+    assert.match(phase, /This matches role \$\{dup \+ 1\}\. Use one role per title\./);
+    for (const group of ['Basics', 'Requirements', 'Offer']) assert.match(phase, new RegExp(`nbs-glabel[^>]*>${group}<`));
     assert.match(phase, /Experience level/);
     assert.match(phase, /Compensation details/);
-    assert.match(phase, /font-mono text-\[11px\] uppercase tracking-\[0\.09em\]/);
+    assert.match(phase, /typeProfile\(org\.orgType\)\.showCompensation/);
+    assert.match(phase, /is a class, so its roles don’t show pay\./);
+    assert.match(phase, /<UnitPeople index=\{index\}/);
+    assert.match(phase, /Remove role/);
+    assert.match(phase, /Duplicate/);
+    assert.match(phase, /saved as you type/);
+    assert.match(phase, /data-role-grip/);
     assert.match(phase, /Complete or remove the unfinished roles/);
-    assert.match(phase, /Popular roles/);
-    assert.match(phase, /Required details complete/);
-    assert.match(phase, /Add another role/);
-    assert.match(phase, /optionalDetailSummary/);
 });
 
 test('Phase 3 roles participate in form drafts, validation, and final project creation', () => {

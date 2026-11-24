@@ -20,7 +20,10 @@ w.__actions = {
     createWorkspaceAction: record('createWorkspaceAction', { success: true, project: { id: 'p1', title: 'Garden Map', slug: 'garden-map' } }),
     ...(w.__extraActions ?? {}),
 };
-const locations = params.get('org') ? [{ id: 'o1', title: 'Riverside Robotics Club', slug: 'riverside', orgType: 'club', visibilityCap: 'public', orgPublic: true, isAdmin: true }] : [];
+// ?org=class gives a class (education: roles show no pay) instead of the club.
+const locations = params.get('org') === 'class'
+    ? [{ id: 'o1', title: 'CSE-3A', slug: 'cse-3a', orgType: 'education', visibilityCap: 'public', orgPublic: true, isAdmin: true }]
+    : params.get('org') ? [{ id: 'o1', title: 'Riverside Robotics Club', slug: 'riverside', orgType: 'club', visibilityCap: 'public', orgPublic: true, isAdmin: true }] : [];
 
 function App() {
     useSyncExternalStore(w.__router.subscribe, w.__router.get);
