@@ -3011,3 +3011,38 @@ html[data-reduce-motion="true"] :is(.nb-step-enter, .nb-step-marker) { animation
 .nb-where-tick { position: absolute; top: 12px; right: 10px; color: var(--primary); }
 .nb-where-ask { margin: 4px 10px 6px; font-size: 12.5px; color: var(--muted-foreground); }
 @media (max-width: 760px) { .nb-where-menu { left: 0; right: auto; } }
+
+/* ---------- Create workspace v6: Info — fields inside frames, category cells, chip box, filled-from note ---------- */
+.nb-wizard-body .nbs-frame + .nbs-frame { margin-top: 20px; }
+.nb-wizard-body .nbs-frame { margin-top: 24px; }
+.nb-fld { padding: 14px var(--nbs-pad); border-top: 1px solid var(--nbs-line); }
+.nb-fld-first { border-top: 0; padding-top: 4px; }
+.nb-fld-tight { padding: 0 var(--nbs-pad); border-top: 0; }
+.nb-fld-tight:empty { display: none; }
+.nb-fld-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--nbs-line); }
+.nb-fld-two > .nb-fld { border-top: 0; }
+.nb-fld-two > .nb-fld + .nb-fld { border-left: 1px solid var(--nbs-line); }
+@media (max-width: 640px) { .nb-fld-two { grid-template-columns: minmax(0, 1fr); } .nb-fld-two > .nb-fld + .nb-fld { border-left: 0; border-top: 1px solid var(--nbs-line); } }
+.nb-choice-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--nbs-line); }
+.nb-choice-grid.nb-choice-bad { box-shadow: inset 0 0 0 1px var(--status-danger); }
+.nb-choice { position: relative; display: grid; gap: 3px; align-content: start; min-height: 64px; padding: 12px 28px 12px 14px; border: 0; border-right: 1px solid var(--nbs-line); border-bottom: 1px solid var(--nbs-line); background: none; text-align: left; cursor: pointer; }
+.nb-choice:nth-child(4n) { border-right: 0; }
+.nb-choice b { font-size: 13.5px; font-weight: 500; color: var(--foreground); }
+.nb-choice span { font: 11.5px/1.35 var(--nbs-mono); color: var(--nbs-fg2); }
+.nb-choice:hover { background: color-mix(in srgb, var(--nbs-soft) 60%, transparent); }
+.nb-choice:focus-visible { outline: none; background: var(--nbs-tint); }
+.nb-choice[aria-checked="true"] { background: var(--nbs-soft); }
+.nb-choice-tick { position: absolute; top: 12px; right: 12px; color: var(--primary); }
+@media (max-width: 640px) { .nb-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .nb-choice:nth-child(4n) { border-right: 1px solid var(--nbs-line); } .nb-choice:nth-child(2n) { border-right: 0; } }
+.nb-more { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; border: 0; border-bottom: 1px solid var(--nbs-line); background: none; font-weight: 500; color: var(--primary); cursor: pointer; }
+.nb-more:hover { background: var(--nbs-soft); }
+.nb-more:focus-visible { outline: none; background: var(--nbs-tint); }
+.nb-chipbox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 40px; padding: 5px 8px; border: 1px solid var(--input); border-radius: 5px; background: var(--card); }
+.nb-chipbox:focus-within { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent); }
+.nb-chipbox input { flex: 1; min-width: 180px; height: 28px; padding: 0 4px; border: 0; background: transparent; font-size: 14px; color: var(--foreground); outline: 0; }
+.nb-chip-x { display: grid; place-items: center; width: 16px; height: 16px; margin-right: -3px; padding: 0; border: 0; border-radius: 2px; background: none; color: var(--muted-foreground); cursor: pointer; }
+.nb-chip-x:hover, .nb-chip-x:focus-visible { outline: none; background: var(--secondary); color: var(--foreground); }
+.nb-tag-add { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border: 1px dashed var(--border); border-radius: 3px; background: var(--card); font: 11.5px var(--nbs-mono); letter-spacing: .04em; color: var(--muted-foreground); cursor: pointer; }
+.nb-tag-add:hover, .nb-tag-add:focus-visible { outline: none; border-style: solid; color: var(--foreground); }
+.nb-srcnote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 20px; padding: 12px 16px; border: 1px solid var(--nbs-line); border-radius: 8px; background: var(--card); font-size: 14px; }
+.nb-srcnote > span:nth-child(2) { flex: 1; min-width: 220px; }

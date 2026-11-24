@@ -11,13 +11,17 @@ test('Phase 2 uses the flat NetworkBase project-information composition', () => 
     const phase = source('src/components/workspaces/create-wizard/phases/Phase2Information.tsx');
 
     assert.match(phase, /<PhaseHead noun=\{orgCopy \? 'organization' : 'workspace'\} step=\{orgCopy \? 'Details' : 'Info'\} title="Name it, then explain it\."/);
-    assert.match(phase, /Name and classify the workspace/);
-    assert.match(phase, /Explain the work/);
-    assert.match(phase, /Make the workspace easier to find/);
+    // v6: three frames in the Settings grammar — Identity, Story, Discovery.
+    assert.match(phase, /className="nbs-glabel pt-\[18px\]">Identity<\/p>/);
+    assert.match(phase, /\{orgCopy \? 'About' : 'Story'\}/);
+    assert.match(phase, /className="nbs-glabel pt-\[18px\]">Discovery<\/p>/);
+    // Categories are choice cells (8 common + More), not a select.
+    assert.match(phase, /role="radiogroup" aria-labelledby="create-project-category-label"/);
+    assert.match(phase, /More categories/);
     // Journey stages moved to step 4 (Stages and workflow), matching Workspace settings.
     assert.doesNotMatch(phase, /Outline the stages ahead|LifecycleEditor/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
-    assert.match(phase, /border-t border-border pt-6/);
+    assert.match(phase, /className="nbs-frame"/);
     assert.doesNotMatch(phase, /rounded-lg border border-border bg-card p-6/);
 });
 
@@ -51,7 +55,9 @@ test('Phase 2 preserves draft safety; step 4 reuses the canonical Settings lifec
     assert.match(launch, /set\('lifecycle_stages', stages\)/);
     assert.match(phase, /progressive/);
     assert.match(phase, /projectTagLimit = 8/);
-    assert.match(phase, /font-mono text-\[11px\] uppercase tracking-\[0\.09em\]/);
+    // v6: tags sit in one chip box with the input; suggestions are dashed + tags under it.
+    assert.match(phase, /className="nb-chipbox"/);
+    assert.match(phase, /className="nb-tag-add"/);
     assert.doesNotMatch(phase, /variant="wizard"/);
     // No current-stage picker at creation: new workspaces start at the first stage.
     assert.match(launch, /showCurrentStage=\{false\}/);

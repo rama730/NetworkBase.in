@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PhaseHead } from '../PhaseHead';
 import type { WorkspaceSourceType, StartingPoint } from '@/components/workspaces/create-wizard/phase1/source-types';
+import type { SourceFill } from '@/components/workspaces/create-wizard/useCreateWorkspaceWizard';
 import { StartPanel, type StartSummary } from '@/components/workspaces/create-wizard/phase1/StartPanel';
 import { UnderlineTabs } from '@/components/ui/UnderlineTabs';
 import { listImportedRepoUrlsAction, type ImportedRepo } from '@/app/actions/workspace/imported-repos';
@@ -83,6 +84,7 @@ export default function Phase1SourceSelection({
     startAsOrganization = false,
     onSourceChange,
     isResumingGithubOAuth = false,
+    onSourceFill,
 }: {
     uploadFiles: FileList | null;
     setUploadFiles: (files: FileList | null) => void;
@@ -100,6 +102,8 @@ export default function Phase1SourceSelection({
     startAsOrganization?: boolean;
     onSourceChange?: (source: SourceType | null) => void;
     isResumingGithubOAuth?: boolean;
+    /** Tells Info what was filled from the source, so it can mark it and offer Undo (v6). */
+    onSourceFill?: (fill: SourceFill) => void;
 }) {
     const { getValues, setValue, watch, getFieldState } = useFormContext<CreateWorkspaceInput>();
     const importSourceType = watch('import_source.type') as SourceType | undefined;
@@ -438,6 +442,22 @@ export default function Phase1SourceSelection({
 
     const [switchAsk, setSwitchAsk] = useState<StartingPoint | null>(null);
     // Opened from "Create an organization" (report §45.8): start there once; nothing is picked for them after that.
+    // Fills only empty Info fields from the source's README and package.json, and says which (v6: marks + Undo).
+    const fillFromSource = useCallback((kind: SourceFill['kind'], label: string, analysis: { title: string; description: string; technologies: string[] }) => {
+        const fill: SourceFill = { kind, label, fields: [], values: {}, previous: {} };
+        const put = (field: SourceFill['fields'][number], value: unknown) => {
+            fill.previous[field] = getValues(field);
+            setValue(field, value as never, { shouldDirty: true });
+            fill.values[field] = value;
+            fill.fields.push(field);
+        };
+        if (analysis.title && !getValues('title')?.trim()) put('title', analysis.title);
+        const firstSentence = analysis.description?.split(/(?<=[.!?])\s/)[0]?.trim().slice(0, 200);
+        if (firstSentence && !getValues('short_description')?.trim()) put('short_description', firstSentence);
+        if (analysis.description && !getValues('description')?.trim()) put('description', analysis.description);
+        if (analysis.technologies.length > 0 && (getValues('technologies_used')?.length ?? 0) === 0) put('technologies_used', analysis.technologies);
+        if (fill.fields.length) onSourceFill?.(fill);
+    }, [getValues, setValue, onSourceFill]);
     const startedAsOrg = useRef(false);
     const lastChecked = useRef(false);
     useEffect(() => {
@@ -574,15 +594,7 @@ export default function Phase1SourceSelection({
                 return;
             }
             setGithubAnalysisResult(result);
-            if (result.title && !getValues('title')?.trim()) {
-                setValue('title', result.title, { shouldDirty: true });
-            }
-            if (result.description && !getValues('description')?.trim()) {
-                setValue('description', result.description, { shouldDirty: true });
-            }
-            if (result.technologies.length > 0 && (getValues('technologies_used')?.length ?? 0) === 0) {
-                setValue('technologies_used', result.technologies, { shouldDirty: true });
-            }
+            fillFromSource('repo', normalizedUrl.replace('https://github.com/', '') || result.title, result);
         } catch (error: any) {
             if (error?.name !== 'AbortError' && latestRepoAnalysisKeyRef.current === normalizedUrl) {
                 console.error('Failed to analyze repository', error);
@@ -592,7 +604,7 @@ export default function Phase1SourceSelection({
                 setIsAnalyzingGithub(false);
             }
         }
-    }, [getValues, importSourceMetadata.githubInstallationId, normalizeGitHubRepoUrl, setValue]);
+    }, [getValues, importSourceMetadata.githubInstallationId, normalizeGitHubRepoUrl, setValue, fillFromSource]);
 
     const runPreflightChecks = useCallback(async (nextRepoUrl?: string, nextBranch?: string | null) => {
         const normalizedUrl = normalizeGitHubRepoUrl(nextRepoUrl || repoUrl || '');
@@ -817,15 +829,7 @@ export default function Phase1SourceSelection({
             if (analysisSequence !== uploadAnalysisSequenceRef.current || controller?.signal.aborted) return;
             if (analysis.title || (analysis.technologies && analysis.technologies.length > 0)) {
                 setUploadAnalysisResult(analysis);
-                if (analysis.title && !getValues('title')?.trim()) {
-                    setValue('title', analysis.title, { shouldDirty: true });
-                }
-                if (analysis.description && !getValues('description')?.trim()) {
-                    setValue('description', analysis.description, { shouldDirty: true });
-                }
-                if (analysis.technologies.length > 0 && (getValues('technologies_used')?.length ?? 0) === 0) {
-                    setValue('technologies_used', analysis.technologies, { shouldDirty: true });
-                }
+                fillFromSource('folder', `${files[0]?.webkitRelativePath?.split('/')[0] || 'the folder'}/`, analysis);
             }
         } catch (error: any) {
             if (error?.name !== 'AbortError' && analysisSequence === uploadAnalysisSequenceRef.current) {

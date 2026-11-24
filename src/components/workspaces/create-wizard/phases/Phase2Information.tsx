@@ -5,18 +5,25 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { Plus, X } from 'lucide-react';
 import { SkillPicker } from '@/components/skills/SkillPicker';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PhaseHead } from '../PhaseHead';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { POPULAR_WORKSPACE_TAGS, WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { childTitleTakenAction } from '@/app/actions/organizations';
+import { previewWorkspaceSlugAction } from '@/app/actions/workspace/slug-preview';
+import { PixelTick } from '@/components/ui/PixelTick';
+import type { SourceFill } from '../useCreateWorkspaceWizard';
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { CreateWorkspaceInput } from '@/lib/validations/workspace';
 
 type Phase2InformationProps = {
     showValidationSummary?: boolean;
+    /** Filled from the repository's or folder's README on Start (create wizard v6), with Undo. */
+    sourceFill?: SourceFill | null;
+    onUndoSourceFill?: () => void;
 };
+
+// The categories most workspaces pick; the rest open with More (v6).
+const COMMON_CATEGORIES = ['side_project', 'startup', 'open_source', 'learning', 'hackathon', 'web_app', 'tool'];
 
 const fieldLabelClass = 'mb-2 block text-[13px] font-medium leading-[1.2] text-foreground';
 const fieldClass = 'h-[var(--ui-control-height-lg)] bg-card text-[15px]';
@@ -44,11 +51,12 @@ function DescriptionCount() {
     return <CharCount value={description.length} max={5000} className="mb-2 shrink-0" />;
 }
 
-function FieldLabel({ htmlFor, children, required = false }: { htmlFor: string; children: ReactNode; required?: boolean }) {
+function FieldLabel({ htmlFor, children, required = false, from }: { htmlFor: string; children: ReactNode; required?: boolean; from?: string | false }) {
     return (
         <label htmlFor={htmlFor} className={fieldLabelClass}>
             {children}
             {required ? <><span aria-hidden="true"> *</span><span className="sr-only"> (required)</span></> : null}
+            {from ? <span className="nbs-tag ok ml-2 align-[1px]">{from}</span> : null}
         </label>
     );
 }
@@ -63,7 +71,7 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
     );
 }
 
-export default function Phase2Information({ showValidationSummary = false }: Phase2InformationProps) {
+export default function Phase2Information({ showValidationSummary = false, sourceFill = null, onUndoSourceFill }: Phase2InformationProps) {
     const { register, setValue, watch, control, formState: { errors } } = useFormContext<CreateWorkspaceInput>();
     const isOrganization = Boolean(watch('organization'));
     // Report §34.3: an organization's words and examples follow its type.
@@ -88,10 +96,26 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
     const [tagInput, setTagInput] = useState('');
     const [tagError, setTagError] = useState('');
 
+    // The address Create will give this name (v6): the plain name when free, else -2, -3 …
+    const [address, setAddress] = useState<{ base: string; slug: string; taken: boolean } | null>(null);
+    useEffect(() => {
+        if (isOrganization || childTitle.trim().length < 1) { setAddress(null); return; }
+        let cancelled = false;
+        const timer = setTimeout(() => void previewWorkspaceSlugAction(childTitle).then((result) => {
+            if (cancelled) return;
+            setAddress(result);
+            if (result) setValue('slug', result.slug);
+        }).catch(() => undefined), 300);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [childTitle, isOrganization, setValue]);
+    const [allCategories, setAllCategories] = useState(false);
+    const [storyOpen, setStoryOpen] = useState(false);
+    // A filled field keeps its tag until someone changes it.
+    const filled = (field: SourceFill['fields'][number]) => sourceFill?.fields.includes(field) && JSON.stringify(watch(field)) === JSON.stringify(sourceFill.values[field]) ? `from ${sourceFill.kind}` : false;
+
     const tags = watch('tags') || [];
     const technologies = watch('technologies_used') || [];
     const projectType = watch('project_type');
-    const selectedProjectType = WORKSPACE_TYPE_OPTIONS.find((type) => type.id === projectType);
 
     const validationErrors = [
         errors.project_type?.message ? { id: 'create-project-category', message: errors.project_type.message } : null,
@@ -150,193 +174,183 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 </div>
             ) : null}
 
-            <section aria-labelledby="project-identity-heading" className="border-t border-border pt-6">
-                <SectionHeading
-                    id="project-identity-heading"
-                    eyebrow="Identity"
-                    title={orgCopy ? 'Name your organization' : 'Name and classify the workspace'}
-                    description={orgCopy ? 'What people see first on cards, search and the About tab.' : 'Start with the information people see first when they encounter your workspace.'}
-                />
+            {sourceFill && sourceFill.fields.length ? (
+                <div className="nb-srcnote" role="status">
+                    <PixelTick className="text-[var(--status-success)]" />
+                    <span>Filled from <b className="font-mono">{sourceFill.label}</b> (its README and package.json): {sourceFill.fields.map((f) => ({ title: 'name', short_description: 'summary', description: 'description', technologies_used: 'skills' })[f]).join(', ')}. Check them, then change anything.</span>
+                    <button type="button" className="nb-link font-medium hover:underline" onClick={onUndoSourceFill}>Undo</button>
+                </div>
+            ) : null}
 
-                <div className="mt-5 space-y-5">
-                    {orgCopy ? <OrgSubjectField /> : <div>
-                        <FieldLabel htmlFor="create-project-category" required>Workspace category</FieldLabel>
+            <section aria-labelledby="project-identity-heading" className="nbs-frame">
+                <p id="project-identity-heading" className="nbs-glabel pt-[18px]">Identity</p>
+                <div className="nb-fld nb-fld-first">
+                    <div className="flex items-end justify-between gap-3">
+                        <FieldLabel htmlFor="create-project-title" required from={filled('title')}>{orgCopy ? 'Name' : 'Workspace name'}</FieldLabel>
+                        <TitleCount />
+                    </div>
+                    <Input
+                        id="create-project-title"
+                        {...register('title')}
+                        className={fieldClass}
+                        placeholder={orgCopy?.name ?? 'Garden Map'}
+                        maxLength={100}
+                        aria-invalid={Boolean(errors.title)}
+                        aria-describedby="create-project-title-help create-project-title-error"
+                        required
+                    />
+                    <p id="create-project-title-help" data-address className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">
+                        {orgCopy ? 'The name members know it by.'
+                            : !address ? 'A clear, specific name people will recognise.'
+                            : address.taken ? <><span className="text-[var(--status-warning)]">networkbase.in/w/{address.base} is taken.</span> It gets <b className="font-mono font-medium text-foreground">networkbase.in/w/{address.slug}</b>, or change the name.</>
+                            : <span className="inline-flex items-center gap-1.5 font-mono text-[12px]"><PixelTick className="text-[var(--status-success)]" />networkbase.in/w/{address.slug} · free</span>}
+                    </p>
+                    <FieldError id="create-project-title-error" message={errors.title?.message} />
+                    {titleTaken && org ? <p role="status" className="mt-1.5 text-[13px] leading-[1.5] text-[var(--status-warning)]">Another workspace in {org.title} is already called this. You can keep it.</p> : null}
+                </div>
+
+                {orgCopy ? <div className="nb-fld"><OrgSubjectField /></div> : (
+                    <>
+                        <p className="nbs-glabel pt-4" id="create-project-category-label">Category<span className="r"><span className="nbs-tag">Required</span></span></p>
                         <Controller
                             name="project_type"
                             control={control}
-                            render={({ field }) => (
-                                <Select value={field.value || ''} onValueChange={field.onChange}>
-                                    <SelectTrigger
-                                        id="create-project-category"
-                                        ref={field.ref}
-                                        onBlur={field.onBlur}
-                                        className={`${fieldClass} bg-card text-[15px]`}
-                                        aria-invalid={Boolean(errors.project_type)}
-                                        aria-required="true"
-                                        aria-describedby="create-project-category-help create-project-category-error"
-                                    >
-                                        <SelectValue placeholder="Select a category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {WORKSPACE_TYPE_OPTIONS.map((type) => (
-                                            <SelectItem key={type.id} value={type.id}>{type.label}</SelectItem>
-                                        ))}
-                                        <SelectItem value="other">Other</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            )}
+                            render={({ field }) => {
+                                const shown = allCategories ? WORKSPACE_TYPE_OPTIONS : WORKSPACE_TYPE_OPTIONS.filter((type) => COMMON_CATEGORIES.includes(type.id) || type.id === field.value);
+                                const more = WORKSPACE_TYPE_OPTIONS.length - shown.length;
+                                return (
+                                    <div>
+                                        <div id="create-project-category" role="radiogroup" aria-labelledby="create-project-category-label" aria-describedby="create-project-category-error" aria-invalid={Boolean(errors.project_type)} tabIndex={-1} className={`nb-choice-grid${errors.project_type ? ' nb-choice-bad' : ''}`}>
+                                            {[...shown.map((type) => ({ id: type.id, label: type.label, hint: type.description })), { id: 'other', label: 'Other', hint: 'Name it yourself' }].map((option) => (
+                                                <button key={option.id} type="button" role="radio" aria-checked={field.value === option.id} onClick={() => field.onChange(option.id)} className="nb-choice">
+                                                    <b>{option.label}</b><span>{option.hint}</span>
+                                                    {field.value === option.id ? <PixelTick className="nb-choice-tick" draw /> : null}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {!allCategories && more > 0 ? <button type="button" className="nb-more" onClick={() => setAllCategories(true)}>More categories <span className="font-mono text-[12px] text-muted-foreground">{more} more</span></button> : null}
+                                    </div>
+                                );
+                            }}
                         />
-                        <p id="create-project-category-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">
-                            {selectedProjectType?.description || (projectType === 'other' ? 'Use a category that is not represented in the list.' : 'Choose the format that best describes this work.')}
-                        </p>
-                        <FieldError id="create-project-category-error" message={errors.project_type?.message} />
-                    </div>}
+                        <div className="nb-fld nb-fld-tight"><FieldError id="create-project-category-error" message={errors.project_type?.message} /></div>
+                    </>
+                )}
 
-                    {!orgCopy && projectType === 'other' ? (
-                        <div className="border-l-2 border-border pl-4">
-                            <FieldLabel htmlFor="create-project-custom-category" required>Other</FieldLabel>
-                            <Input
-                                id="create-project-custom-category"
-                                {...register('custom_project_type', {
-                                    required: 'Enter a category',
-                                    minLength: { value: 2, message: 'Use at least 2 characters' },
-                                    maxLength: { value: 50, message: 'Use 50 characters or fewer' },
-                                })}
-                                className={fieldClass}
-                                placeholder="For example, Research, hardware, or biotech"
-                                aria-invalid={Boolean(errors.custom_project_type)}
-                                aria-describedby="create-project-custom-category-error"
-                                required
-                            />
-                            <FieldError id="create-project-custom-category-error" message={errors.custom_project_type?.message} />
-                        </div>
-                    ) : null}
-
-                    <div>
-                        <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-title" required>{orgCopy ? 'Name' : 'Workspace title'}</FieldLabel>
-                            <TitleCount />
-                        </div>
+                {!orgCopy && projectType === 'other' ? (
+                    <div className="nb-fld">
+                        <FieldLabel htmlFor="create-project-custom-category" required>Name the category</FieldLabel>
                         <Input
-                            id="create-project-title"
-                            {...register('title')}
+                            id="create-project-custom-category"
+                            {...register('custom_project_type', {
+                                required: 'Enter a category',
+                                minLength: { value: 2, message: 'Use at least 2 characters' },
+                                maxLength: { value: 50, message: 'Use 50 characters or fewer' },
+                            })}
                             className={fieldClass}
-                            placeholder={orgCopy?.name ?? 'Name your workspace'}
-                            maxLength={100}
-                            aria-invalid={Boolean(errors.title)}
-                            aria-describedby="create-project-title-help create-project-title-error"
+                            placeholder="For example, Research, hardware, or biotech"
+                            aria-invalid={Boolean(errors.custom_project_type)}
+                            aria-describedby="create-project-custom-category-error"
                             required
                         />
-                        <p id="create-project-title-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'The name members know it by.' : 'Use a clear, specific name people will recognize.'}</p>
-                        <FieldError id="create-project-title-error" message={errors.title?.message} />
-                        {titleTaken && org ? <p role="status" className="mt-1.5 text-[13px] leading-[1.5] text-[var(--status-warning)]">Another workspace in {org.title} is already called this. You can keep it.</p> : null}
+                        <FieldError id="create-project-custom-category-error" message={errors.custom_project_type?.message} />
                     </div>
+                ) : null}
 
-
-                    <div>
-                        <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-tagline">Summary</FieldLabel>
-                            <TaglineCount />
-                        </div>
-                        <Input
-                            id="create-project-tagline"
-                            {...register('short_description')}
-                            className={fieldClass}
-                            placeholder={orgCopy?.tagline ?? 'A short sentence that explains the workspace'}
-                            maxLength={200}
-                            aria-describedby="create-project-tagline-help"
-                        />
-                        <p id="create-project-tagline-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'Optional. One line people see on cards and search results.' : 'Optional. This appears beside the workspace name in compact contexts.'}</p>
+                <div className="nb-fld">
+                    <div className="flex items-end justify-between gap-3">
+                        <FieldLabel htmlFor="create-project-tagline" from={filled('short_description')}>{orgCopy ? 'Summary' : 'One-line summary'}</FieldLabel>
+                        <TaglineCount />
                     </div>
-
-                    {orgCopy ? <OrgIdentityFields /> : null}
+                    <Input
+                        id="create-project-tagline"
+                        {...register('short_description')}
+                        className={fieldClass}
+                        placeholder={orgCopy?.tagline ?? 'Every plot, crop and volunteer day in town, on one map.'}
+                        maxLength={200}
+                        aria-describedby="create-project-tagline-help"
+                    />
+                    <p id="create-project-tagline-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'Optional. One line people see on cards and search results.' : 'Optional. Shows beside the name on cards.'}</p>
                 </div>
+
+                {orgCopy ? <div className="nb-fld"><OrgIdentityFields /></div> : null}
             </section>
 
-            <section aria-labelledby="project-story-heading" className="border-t border-border pt-6">
-                <SectionHeading
-                    id="project-story-heading"
-                    eyebrow={orgCopy ? 'About' : 'Workspace story'}
-                    title={orgCopy ? 'What happens here' : 'Explain the work'}
-                    description={orgCopy ? 'What future members want to know before they join.' : 'Give future members enough context to decide whether this workspace is a fit.'}
-                />
-
-                <div className="mt-5 space-y-5">
-                    <div>
-                        <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-description" required>{orgCopy ? 'About' : 'Description'}</FieldLabel>
-                            <DescriptionCount />
-                        </div>
-                        <textarea
-                            id="create-project-description"
-                            {...register('description')}
-                            rows={6}
-                            className={textAreaClass}
-                            placeholder={orgCopy?.about ?? 'Describe the problem, the workspace’s goals, and what a contributor should understand before joining.'}
-                            maxLength={5000}
-                            aria-invalid={Boolean(errors.description)}
-                            aria-describedby="create-project-description-help create-project-description-error"
-                            required
-                        />
-                        <p id="create-project-description-help" className="mt-1.5 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'Shown first on the About tab.' : 'A short, concrete explanation is more useful than a product pitch.'}</p>
-                        <FieldError id="create-project-description-error" message={errors.description?.message} />
+            <section aria-labelledby="project-story-heading" className="nbs-frame">
+                <p id="project-story-heading" className="nbs-glabel pt-[18px]">{orgCopy ? 'About' : 'Story'}</p>
+                <div className="nb-fld nb-fld-first">
+                    <div className="flex items-end justify-between gap-3">
+                        <FieldLabel htmlFor="create-project-description" required from={filled('description')}>{orgCopy ? 'About' : 'Description'}</FieldLabel>
+                        <DescriptionCount />
                     </div>
+                    <textarea
+                        id="create-project-description"
+                        {...register('description')}
+                        rows={6}
+                        className={textAreaClass}
+                        placeholder={orgCopy?.about ?? 'What it is, who it’s for, what a contributor should know first.'}
+                        maxLength={5000}
+                        aria-invalid={Boolean(errors.description)}
+                        aria-describedby="create-project-description-help create-project-description-error"
+                        required
+                    />
+                    <p id="create-project-description-help" className="mt-1.5 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'Shown first on the About tab.' : 'A short, concrete explanation is more useful than a product pitch.'}</p>
+                    <FieldError id="create-project-description-error" message={errors.description?.message} />
+                </div>
 
-                    <div className="grid grid-cols-1 gap-6 border-t border-border pt-5 md:grid-cols-2">
-                        <div>
+                {orgCopy || storyOpen || watch('problem_statement')?.trim() || watch('solution_statement')?.trim() ? (
+                    <div className="nb-fld-two">
+                        <div className="nb-fld">
                             <FieldLabel htmlFor="create-project-problem">{orgCopy ? "Who it’s for" : 'Problem'}</FieldLabel>
                             <textarea
                                 id="create-project-problem"
                                 {...register('problem_statement')}
                                 rows={4}
                                 className={`${textAreaClass} min-h-32`}
-                                placeholder={orgCopy?.audience ?? 'What problem are you solving?'}
+                                placeholder={orgCopy?.audience ?? 'What’s broken today?'}
                             />
                         </div>
-                        <div>
+                        <div className="nb-fld">
                             <FieldLabel htmlFor="create-project-solution">{orgCopy ? 'What members do here' : 'Approach'}</FieldLabel>
                             <textarea
                                 id="create-project-solution"
                                 {...register('solution_statement')}
                                 rows={4}
                                 className={`${textAreaClass} min-h-32`}
-                                placeholder={orgCopy?.activities ?? 'How does this workspace address it?'}
+                                placeholder={orgCopy?.activities ?? 'How this fixes it.'}
                             />
                         </div>
                     </div>
-                    {orgCopy ? <OrgWelcomeField /> : null}
-                </div>
+                ) : (
+                    <div className="nb-fld flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <button type="button" className="nb-link inline-flex items-center gap-1.5 font-medium hover:underline" onClick={() => { setStoryOpen(true); setTimeout(() => document.getElementById('create-project-problem')?.focus(), 0); }}>
+                            <Plus className="size-3.5" aria-hidden="true" />Add problem and approach
+                        </button>
+                        <span className="text-[13px] text-muted-foreground">Optional. What’s broken today, and how this fixes it.</span>
+                    </div>
+                )}
+                {orgCopy ? <div className="nb-fld"><OrgWelcomeField /></div> : null}
             </section>
 
-            <section aria-labelledby="project-discovery-heading" className="border-t border-border pt-6">
-                <SectionHeading
-                    id="project-discovery-heading"
-                    eyebrow="Discovery"
-                    title={orgCopy ? 'Help the right people find it' : 'Make the workspace easier to find'}
-                    description={orgCopy ? 'Shown on Discover only when the organization is public (Setup step).' : 'Add concise topics and the skills people will use while contributing.'}
-                />
-
-                <div className="mt-5 space-y-6">
-                    <div>
-                        <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-tag-input">{orgCopy ? 'Topics' : 'Tags'}</FieldLabel>
-                            <CharCount value={tags.length} max={projectTagLimit} className="mb-2 shrink-0" />
-                        </div>
-                        <p id="create-project-tags-help" className="mb-2 text-[13px] leading-[1.5] text-muted-foreground">Keyword tags used for search indexing and discovery filters (up to {projectTagLimit} tags).</p>
-                        {tags.length > 0 ? (
-                            <div className="mb-3 flex min-w-0 flex-wrap gap-2" aria-label="Selected tags">
-                                {tags.map((tag) => (
-                                    <span key={tag} className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-[3px] border border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.09em] text-foreground transition-colors hover:border-border/80">
-                                        <span className="truncate">{tag}</span>
-                                        <button type="button" className="text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30" onClick={() => removeTag(tag)} aria-label={`Remove ${tag}`}>
-                                            <X className="size-3.5" aria-hidden="true" />
-                                        </button>
-                                    </span>
-                                ))}
-                            </div>
-                        ) : null}
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            <Input
+            <section aria-labelledby="project-discovery-heading" className="nbs-frame">
+                <p id="project-discovery-heading" className="nbs-glabel pt-[18px]">Discovery</p>
+                <div className="nb-fld nb-fld-first">
+                    <div className="flex items-end justify-between gap-3">
+                        <FieldLabel htmlFor="create-project-tag-input">{orgCopy ? 'Topics' : 'Tags'}</FieldLabel>
+                        <CharCount value={tags.length} max={projectTagLimit} className="mb-2 shrink-0" />
+                    </div>
+                    {/* One chip box (v6): chips and the input in the same field, suggestions under it. */}
+                    <div className="nb-chipbox" aria-label="Selected tags">
+                        {tags.map((tag) => (
+                            <span key={tag} className="nb-tag nb-enter-chip">
+                                <span className="truncate">{tag}</span>
+                                <button type="button" className="nb-chip-x" onClick={() => removeTag(tag)} aria-label={`Remove ${tag}`}>
+                                    <X className="size-3" aria-hidden="true" />
+                                </button>
+                            </span>
+                        ))}
+                        {tags.length < projectTagLimit ? (
+                            <input
                                 id="create-project-tag-input"
                                 value={tagInput}
                                 onChange={(event) => setTagInput(event.target.value)}
@@ -346,46 +360,37 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                                         addTag(tagInput);
                                     }
                                 }}
-                                className="h-[var(--ui-control-height-lg)] flex-1 text-[13px] leading-[1.5]"
-                                placeholder="Add a topic, such as AI/ML or fintech"
+                                placeholder={tags.length ? 'Add another' : 'Add a topic, such as AI/ML or fintech'}
                                 aria-describedby="create-project-tags-help create-project-tags-error"
-                                disabled={tags.length >= projectTagLimit}
                             />
-                            <Button type="button" variant="outline" onClick={() => addTag(tagInput)} disabled={!tagInput.trim() || tags.length >= projectTagLimit} className="h-[var(--ui-control-height-lg)] shrink-0">
-                                <Plus className="size-4" aria-hidden="true" />
-                                Add tag
-                            </Button>
-                        </div>
-                        {tagError ? <p id="create-project-tags-error" role="alert" className="mt-1.5 text-[13px] leading-[1.5] text-destructive">{tagError}</p> : null}
-                        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5" aria-label="Suggested tags">
+                        ) : null}
+                    </div>
+                    {tagError ? <p id="create-project-tags-error" role="alert" className="mt-1.5 text-[13px] leading-[1.5] text-destructive">{tagError}</p> : null}
+                    {tags.length < projectTagLimit ? (
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5" aria-label="Suggested tags">
+                            <span className="nb-meta mr-1">suggested</span>
                             {suggestedTags.filter((tag) => !tags.some((item) => item.toLocaleLowerCase() === tag.toLocaleLowerCase())).slice(0, 5).map((tag) => (
-                                <button
-                                    key={tag}
-                                    type="button"
-                                    onClick={() => addTag(tag)}
-                                    disabled={tags.length >= projectTagLimit}
-                                    className="rounded-[3px] border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground transition hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                    + {tag}
-                                </button>
+                                <button key={tag} type="button" onClick={() => addTag(tag)} className="nb-tag-add">+ {tag}</button>
                             ))}
                         </div>
-                    </div>
-
-                    {/* Organizations find people by topic; skills belong to the projects inside (decision 182). */}
-                    {orgCopy ? null : <div className="border-t border-border pt-5">
-                        <SkillPicker
-                            value={technologies}
-                            onChange={(next) => setValue('technologies_used', next, { shouldDirty: true, shouldValidate: true })}
-                            label="Workspace skills and technologies"
-                            description="Search for the skills contributors will use."
-                            compact
-                            progressive
-                            controlSize="large"
-                            className="space-y-3"
-                        />
-                    </div>}
+                    ) : null}
+                    <p id="create-project-tags-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">Suggested from the category first. Up to {projectTagLimit}.</p>
                 </div>
+
+                {/* Organizations find people by topic; skills belong to the projects inside (decision 182). */}
+                {orgCopy ? null : <div className="nb-fld">
+                    {filled('technologies_used') ? <span className="nbs-tag ok mb-2">{filled('technologies_used')}</span> : null}
+                    <SkillPicker
+                        value={technologies}
+                        onChange={(next) => setValue('technologies_used', next, { shouldDirty: true, shouldValidate: true })}
+                        label="Skills contributors will use"
+                        description="Search for the skills contributors will use."
+                        compact
+                        progressive
+                        controlSize="large"
+                        className="space-y-3"
+                    />
+                </div>}
             </section>
 
         </div>

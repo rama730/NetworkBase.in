@@ -62,7 +62,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
         githubPreview, githubFolderEntries, loadGithubFolder, startGithubRootPreview,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
         handleNext, handleBack, goToPhase, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
-        fromReview, returnToReview,
+        fromReview, returnToReview, sourceFill, setSourceFill, undoSourceFill,
         onSubmit, draftInfo, restoreDraft, deleteDraft
     } = useCreateWorkspaceWizard({
         onClose,
@@ -361,9 +361,10 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                                                 startAsOrganization={startAsOrganization && !isResumingGithubOAuth}
                                                 onSourceChange={onSourceChange}
                                                 isResumingGithubOAuth={isResumingGithubOAuth}
+                                                onSourceFill={setSourceFill}
                                             />
                                         )}
-                                        {phase === 2 && <Phase2Information showValidationSummary={phase2ValidationAttempted} />}
+                                        {phase === 2 && <Phase2Information showValidationSummary={phase2ValidationAttempted} sourceFill={sourceFill} onUndoSourceFill={undoSourceFill} />}
                                         {phase === 3 && <Phase3TeamRoles wizardContext={wizardContext} showValidationSummary={phase3ValidationAttempted} />}
                                         {phase === 4 && <Phase4Settings showValidationSummary={phase4ValidationAttempted} linkComposerPending={phase4LinkComposerPending} onLinkComposerPending={setPhase4LinkComposerPending} projectImage={projectImage} onProjectImageChange={setProjectImage} />}
                                         {phase === 5 && <Phase5Review goToPhase={goToPhase} onReady={handleReviewReady} projectImage={projectImage} />}

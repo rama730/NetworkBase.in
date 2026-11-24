@@ -39,6 +39,10 @@ interface UseCreateProjectWizardProps {
  * useCreateWorkspaceWizard - The master hook for project creation.
  * Pure Optimization: Unified constants, reactive draft management, and scalable logic.
  */
+type SourceFillField = 'title' | 'short_description' | 'description' | 'technologies_used';
+/** What Start filled into empty Info fields from a README, what each field held before, and where it came from. */
+export type SourceFill = { kind: 'repo' | 'folder'; label: string; fields: SourceFillField[]; values: Partial<Record<SourceFillField, unknown>>; previous: Partial<Record<SourceFillField, unknown>> };
+
 export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
     const { user } = useAuth();
     const userId = user?.id || null;
@@ -117,6 +121,13 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
     });
 
     const { getValues, setValue, trigger, formState: { isDirty }, watch, reset } = methods;
+    // What Start filled from a repository's or folder's README (v6), so Info can mark it and Undo it. Not a form value.
+    const [sourceFill, setSourceFill] = useState<SourceFill | null>(null);
+    const undoSourceFill = useCallback(() => {
+        if (!sourceFill) return;
+        for (const field of sourceFill.fields) setValue(field, (sourceFill.previous[field] ?? (field === 'technologies_used' ? [] : '')) as never, { shouldDirty: true });
+        setSourceFill(null);
+    }, [setValue, sourceFill]);
     const {
         fields: openRoleFields,
         append: appendOpenRole,
@@ -1082,7 +1093,7 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
     onSubmitRef.current = onSubmit;
 
     return {
-        fromReview, returnToReview,
+        fromReview, returnToReview, sourceFill, setSourceFill, undoSourceFill,
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending,
         isPhaseTransitioning, isReviewReady, setIsReviewReady,

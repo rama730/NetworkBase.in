@@ -3,6 +3,7 @@ import { customRoleNames, savedTypeSettings, typeProfile } from "@/lib/organizat
 
 import { type WorkspaceVisibility, isWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { db } from "@/lib/db";
+import { nextFreeWorkspaceSlug } from "@/lib/workspaces/server/slug-preview";
 import { recheckOrgVerification } from "@/lib/organizations/verification";
 import { workspaces, workspaceMembers, profiles, workspaceOpenRoles, tags, workspaceTags, storageAssets, workspaceNodeEvents, workspaceMentors, workspaceFollows, roleApplications } from "@/lib/db/schema";
 import { eq, sql, inArray, and, desc, isNull, gt, ilike } from "drizzle-orm";
@@ -816,11 +817,12 @@ export async function createWorkspaceAction(
       requestedSlug = "";
     }
     // Report §17.8, §18.7: a workspace in an organization gets its plain address when it's free; a clash still adds an ending below.
-    let finalSlug = requestedSlug || (parentOrgId && generateSlugBase(input.title) ? generateSlugBase(input.title) : generateSlug(input.title));
-    // A held organization handle stays free for its organization to take back.
-    // Audit N25: any workspace, not only one in an organization, leaves a held handle alone.
-    const held = !organization ? (await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM org_handle_holds WHERE handle = ${finalSlug}`))[0]?.n : 0;
-    if (isReservedWorkspaceSlug(finalSlug) || held) {
+    // Create wizard v6: a workspace gets the address Info previewed — its plain name when free, else -2, -3 … (never a
+    // random ending). nextFreeWorkspaceSlug skips reserved words and held organization handles (audit N25).
+    let finalSlug = organization
+      ? requestedSlug || generateSlug(input.title)
+      : await nextFreeWorkspaceSlug(requestedSlug || generateSlugBase(input.title) || "project");
+    if (organization && isReservedWorkspaceSlug(finalSlug)) {
       finalSlug = `${generateSlugBase(input.title) || "project"}-${Math.random().toString(36).substring(2, 7)}`;
     }
     // Initial Key Generation
@@ -1252,8 +1254,8 @@ export async function createWorkspaceAction(
             // An org's handle was free a moment ago; someone else just took it.
             if (orgHandle) return { success: false, error: `@${orgHandle} is taken.` };
             attempts++;
-            const suffix = Math.random().toString(36).substring(2, 6);
-            finalSlug = `${generateSlugBase(input.title) || "project"}-${suffix}`;
+            // Someone took this address a moment ago: the next free -N, as Info would preview it now.
+            finalSlug = await nextFreeWorkspaceSlug(generateSlugBase(input.title) || "project");
             continue;
           }
           // Project Key Collision (e.g. "NB" already exists)
