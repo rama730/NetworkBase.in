@@ -180,8 +180,8 @@
   --popover: #FFFFFF;
   --popover-foreground: #141A1E;
   --primary: var(--theme-action-solid-light);
-  /* Likes take the brand colour, so red stays for danger and errors only. */
-  --like: var(--primary);
+  /* Liked hearts are red (the user's call, 2026-11-24), one token for posts, comments, replies and Liked by. */
+  --like: var(--status-danger);
   --primary-foreground: #FFFFFF;
   --primary-hover: var(--theme-action-hover-light);
   --primary-active: var(--theme-action-active-light);
