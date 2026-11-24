@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 
 import { addFileCommentAction, changeFileCommentAction, readFileCommentsAction } from "@/app/actions/file-comments";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { PixelBeat } from "@/components/ui/PixelBeat";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
@@ -66,7 +67,7 @@ export function AssetViewer({ projectId, asset, onClose }: { projectId: string; 
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[92vh] w-[96vw] max-w-[1100px] overflow-y-auto p-0 sm:max-w-[1100px]" data-testid="asset-viewer">
+      <DialogContent size="wide" className="max-h-[92vh] w-[96vw] max-w-[1100px] overflow-y-auto p-0 sm:max-w-[1100px]" data-testid="asset-viewer">
         <div className="border-b border-border px-5 py-3">
           <DialogTitle className="text-base font-semibold">{asset.name} <span className="font-mono text-[12px] font-normal text-muted-foreground">v{version}</span></DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">Comments stay on the version they were made on.</DialogDescription>
@@ -108,7 +109,7 @@ export function AssetViewer({ projectId, asset, onClose }: { projectId: string; 
                 <div className="flex justify-end gap-2"><button type="button" className={small} onClick={() => setDraft(null)}>Cancel</button><button type="submit" className={cn(FORM_PRIMARY_CLASS, "h-7 px-3 text-[12px]")} disabled={busy || !draft.text.trim()}>Post</button></div>
               </form>
             ) : null}
-            {query.isLoading ? <p className="text-[12px] text-muted-foreground">Loading comments…</p> : !threads.length && !draft ? <p className="text-[12px] text-muted-foreground">No comments on version {version} yet.</p> : null}
+            {query.isLoading ? <p role="status" className="nb-waiting text-[12px] text-muted-foreground"><PixelBeat />Loading comments…</p> : !threads.length && !draft ? <p className="text-[12px] text-muted-foreground">No comments on version {version} yet.</p> : null}
             <ol className="space-y-2">
               {threads.map((c) => <Thread key={c.id} c={c} label={label(c.anchor as Anchor | null, c.pin)} canComment={Boolean(data?.canComment)} canResolve={Boolean(data?.canResolve) || c.authorId === data?.me} mine={c.authorId === data?.me}
                 onJump={c.anchor && "t" in c.anchor ? () => jump((c.anchor as { t: number }).t) : undefined} onReply={(text) => post(null, text, c.id)} onChange={(a) => void change(c.id, a)} />)}
