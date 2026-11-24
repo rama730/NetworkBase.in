@@ -60,9 +60,13 @@ function Section({ id, children }: { id: string; children: ReactNode }) {
 }
 
 /** B0.2: a class in a school shows what the school sets, locked. */
-function SetBySchool({ organization, fields, what }: { organization: OrgDetail; fields: string[]; what: string }) {
-    if (!organization.school || !fields.some((f) => organization.schoolLocks?.includes(f))) return null
-    return <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground" data-testid="set-by-school"><Lock className="size-3.5" aria-hidden="true" />{what} · Set by {organization.school.title}</p>
+/** Live check (B0.2): names only what the school actually set, e.g. "Late work and AI agents · Set by Northgate". */
+const LOCK_WORDS: Record<string, string> = { review_required: 'Check finished work', late_rule: 'Late work', ai_policy: 'AI agents', visibility_cap: 'Highest allowed visibility', term_start: 'Term dates' }
+function SetBySchool({ organization, fields }: { organization: OrgDetail; fields: string[] }) {
+    const locked = fields.filter((f) => organization.schoolLocks?.includes(f)).map((f) => LOCK_WORDS[f] ?? f)
+    if (!organization.school || locked.length === 0) return null
+    const words = locked.length > 1 ? `${locked.slice(0, -1).join(', ')} and ${locked.at(-1)!.toLowerCase()}` : locked[0]
+    return <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground" data-testid="set-by-school"><Lock className="size-3.5" aria-hidden="true" />{words} · Set by {organization.school.title}</p>
 }
 const lockedBySchool = (organization: OrgDetail, field: string) => Boolean(organization.schoolLocks?.includes(field))
 
@@ -294,7 +298,7 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
                     {typeProfile(organization.type).termDates ? <fieldset>
                         <legend className={labelClass}>Term</legend>
                         <p className={helpClass}>Optional, for example Aug–Dec 2026. Shown on About, and it sets the week line.</p>
-                        <SetBySchool organization={organization} fields={['term_start']} what="Term dates" />
+                        <SetBySchool organization={organization} fields={['term_start']} />
                         <div className="mt-2 grid max-w-md gap-3 sm:grid-cols-2">
                             <label><span className={labelClass}>Starts</span><Input type="date" value={termStart} disabled={lockedBySchool(organization, 'term_start')} onChange={(e) => setTermStart(e.target.value)} className="mt-1.5" /></label>
                             <label><span className={labelClass}>Ends</span><Input type="date" value={termEnd} disabled={lockedBySchool(organization, 'term_end')} min={termStart || undefined} onChange={(e) => setTermEnd(e.target.value)} className="mt-1.5" aria-invalid={termWrong || undefined} /></label>
@@ -544,7 +548,7 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
                     </fieldset>
                     <fieldset>
                         <legend className={labelClass}>Highest allowed visibility</legend>
-                        <SetBySchool organization={organization} fields={['visibility_cap']} what="Highest allowed visibility" />
+                        <SetBySchool organization={organization} fields={['visibility_cap']} />
                         <p className={helpClass}>The most open a workspace here can be. Tightening it lowers workspaces above it, after you confirm.</p>
                         <div className="mt-2 space-y-2.5 text-[13px]">
                             {CAP_OPTIONS.map((option) => (
@@ -595,7 +599,7 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
             <SettingsCard title="Work" headingLevel={2} description="Defaults for new tasks and sprints. Each one can still change them." footer={lastChanged(organization, 'work')}>
                 <div className="space-y-6">
                     <h3 className="nb-micro">Tasks</h3>
-                    <SetBySchool organization={organization} fields={['review_required', 'late_rule', 'ai_policy']} what="Review, late hand-ins and AI agents" />
+                    <SetBySchool organization={organization} fields={['review_required', 'late_rule', 'ai_policy']} />
                     <InstantSwitch label={L.reviewRequired.label} help={`${L.reviewRequired.help} Fills in the task form.`} checked={organization.work.reviewRequired} disabled={lockedBySchool(organization, 'review_required')} save={instant('review_required')} />
                     <div className="grid gap-5 sm:grid-cols-2">
                         <label className="flex flex-col"><span className={labelClass}>{L.lateRule.label}</span><span className={`block pb-2 ${helpClass}`}>{L.lateRule.help}</span>

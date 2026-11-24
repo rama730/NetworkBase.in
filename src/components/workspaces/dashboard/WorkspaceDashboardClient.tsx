@@ -356,9 +356,10 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const [activeTab, setActiveTab] = useState(() => resolvedActiveTab);
     // Tabs change the address without a server round trip, so the tab title follows here (unified back R8).
     useEffect(() => {
-        const label = activeTab ? (WORKSPACE_TAB_LABELS as Record<string, string>)[activeTab] : undefined;
+        // A school's Workspaces tab is its Classes (B0.2 live check: the title still said Workspaces).
+        const label = activeTab === 'projects' && organization?.isSchool ? 'Classes' : activeTab ? (WORKSPACE_TAB_LABELS as Record<string, string>)[activeTab] : undefined;
         if (label) document.title = `${label} · ${project.title} · NetworkBase`;
-    }, [activeTab, project.title]);
+    }, [activeTab, project.title, organization?.isSchool]);
 
     const refreshProjectData = useCallback(
         (scopeTab?: string) => {
