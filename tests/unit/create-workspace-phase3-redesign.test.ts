@@ -61,7 +61,7 @@ test('Phase 3 roles participate in form drafts, validation, and final project cr
     assert.match(schema, /max\(10, 'Up to 10 people per role'\)/);
     assert.match(schema, /Each open role needs a unique title\./);
     assert.match(review, /openPositionCount/);
-    assert.match(review, /font-mono text-\[11px\] uppercase tracking-\[0\.09em\]/);
+    assert.match(review, /<DetailLabel>\{role\.count\}/);
 });
 
 test('Phase 3 rejects duplicate role titles before the workspace can be created', () => {

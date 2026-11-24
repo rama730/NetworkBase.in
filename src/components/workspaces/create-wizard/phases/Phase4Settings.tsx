@@ -2,10 +2,10 @@
 
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { PhaseHead } from '../PhaseHead';
-import { allowedChildVisibilities, capChildVisibility, type VisibilityCap } from '@/lib/organizations/child-rules';
+import { allowedChildVisibilities, type VisibilityCap } from '@/lib/organizations/child-rules';
+import { settingsChanges, settingsDefaults } from '../settings-changes';
 import { OrgCalendarFields, OrgSettingsFields } from '@/components/organizations/OrgWizardFields';
-import { ORG_CREATION_COPY, orgTypeDefaults } from '@/lib/organizations/creation';
-import { getLifecycleStagesForWorkspaceType } from '@/lib/workspaces/lifecycle-templates';
+import { ORG_CREATION_COPY } from '@/lib/organizations/creation';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { listOrgTemplateFoldersAction } from '@/app/actions/org-files';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -242,46 +242,40 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
             : 'Starts empty. Add files from the Files tab after creation';
 
     // What each section starts at (v6.7), so a section can say Changed and go Back to default.
-    const orgDefaults = isOrganization ? orgTypeDefaults(orgType ?? 'other') : null;
-    const defaults = {
-        visibility: orgDefaults?.visibility ?? (childOrg ? capChildVisibility('org', childOrg.visibilityCap as VisibilityCap, childOrg.orgPublic) : 'public'),
-        memberUpdates: orgDefaults?.memberUpdates ?? childOrg?.memberUpdatesEnabled ?? true,
-        memberUploads: childOrg?.memberFileUploadDefault ?? true,
-        followSprints: Boolean(childOrg?.followSprintsDefault),
-        stages: projectType ? getLifecycleStagesForWorkspaceType(projectType) : [],
-    };
-    const sameTabs = PUBLIC_TAB_ORDER.every((tab) => publicTabs[tab] === DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY[tab]);
+    const formValues = useWatch({ control }) as CreateWorkspaceInput;
+    const defaults = settingsDefaults(formValues, childOrg);
+    const changes = settingsChanges(formValues, { childOrg, hasPicture: Boolean(projectImage) });
     const reset = { shouldDirty: true, shouldValidate: true } as const;
     const sectionState: Record<SectionId, { changed: boolean; state: string; reset: () => void }> = {
-        calendar: { changed: false, state: 'Optional', reset: () => undefined },
-        inside: { changed: false, state: 'Default', reset: () => undefined },
-        picture: { changed: Boolean(projectImage), state: projectImage ? 'Added' : 'None', reset: () => onProjectImageChange(null) },
+        calendar: { changed: changes.calendar, state: 'Optional', reset: () => undefined },
+        inside: { changed: changes.inside, state: 'Default', reset: () => undefined },
+        picture: { changed: changes.picture, state: projectImage ? 'Added' : 'None', reset: () => onProjectImageChange(null) },
         access: {
-            changed: visibility !== defaults.visibility || !sameTabs,
+            changed: changes.access,
             state: visibility === 'private' ? 'Private' : visibility === 'org' ? 'Members' : 'Public',
-            reset: () => { setValue('visibility', defaults.visibility as CreateWorkspaceInput['visibility'], reset); setValue('public_tab_visibility', { ...DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY }, reset); },
+            reset: () => { setValue('visibility', defaults.visibility, reset); setValue('public_tab_visibility', { ...DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY }, reset); },
         },
-        links: { changed: externalLinks.length > 0, state: externalLinks.length ? pad(externalLinks.length) : 'None', reset: () => setValue('external_links', [], reset) },
+        links: { changed: changes.links, state: externalLinks.length ? pad(externalLinks.length) : 'None', reset: () => setValue('external_links', [], reset) },
         documentation: {
-            changed: docMode === 'skip' || Boolean(readme?.publishOnCreate) || docEditPolicy === 'members' || Boolean(readme?.orgTemplateDocId),
+            changed: changes.documentation,
             state: docMode === 'skip' ? 'None' : readme?.orgTemplateDocId ? 'Org doc' : 'Template',
             reset: () => { setValue('readme', { ...readme, mode: 'starter', publishOnCreate: false, orgTemplateDocId: null } as CreateWorkspaceInput['readme'], reset); setValue('doc_edit_policy', 'leaders', reset); },
         },
         lifecycle: {
-            changed: Boolean(projectType) && lifecycleStages.join('\u0000') !== defaults.stages.join('\u0000'),
+            changed: changes.lifecycle,
             state: pad(lifecycleStages.length),
             reset: () => setValue('lifecycle_stages', defaults.stages, reset),
         },
         permissions: {
-            changed: (memberUpdatesEnabled !== false) !== defaults.memberUpdates || (memberFileUploadDefault !== false) !== defaults.memberUploads || (Boolean(childOrg) && Boolean(followOrgSprints) !== defaults.followSprints),
+            changed: changes.permissions,
             state: '',
             reset: () => { setValue('member_updates_enabled', defaults.memberUpdates, reset); setValue('member_file_upload_default', defaults.memberUploads, reset); if (childOrg) setValue('follow_org_sprints', defaults.followSprints, reset); },
         },
-        files: { changed: Boolean(templateFolderId), state: sourceType === 'github' ? 'GitHub' : sourceType === 'upload' ? 'Upload' : 'Empty', reset: () => setValue('org_template_folder_id', null, reset) },
+        files: { changed: changes.files, state: sourceType === 'github' ? 'GitHub' : sourceType === 'upload' ? 'Upload' : 'Empty', reset: () => setValue('org_template_folder_id', null, reset) },
         notifications: {
-            changed: notificationsOn !== CREATE_WORKSPACE_NOTIFICATION_ROWS.length,
+            changed: changes.notifications,
             state: `${notificationsOn} of ${CREATE_WORKSPACE_NOTIFICATION_ROWS.length}`,
-            reset: () => setValue('notification_rows', { roles_applications: true, work: true, updates_docs: true }, reset),
+            reset: () => setValue('notification_rows', { ...defaults.notifications }, reset),
         },
     };
     sectionState.permissions.state = sectionState.permissions.changed ? 'Changed' : 'Default';

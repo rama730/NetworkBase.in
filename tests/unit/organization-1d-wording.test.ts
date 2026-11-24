@@ -26,7 +26,7 @@ test("parity bug 12: a long rail heading cuts off instead of widening the page",
 test("27.2: the review step's card line follows visibility", () => {
   const review = source("src/components/workspaces/create-wizard/phases/Phase5Review.tsx");
   assert.doesNotMatch(review, /This is how your workspace card will appear in Discover/);
-  assert.match(review, /This is how it appears on Discover\./);
+  assert.match(review, /Exactly as it shows on Discover\./);
   assert.match(review, /Only members see this card\./);
 });
 

@@ -7,27 +7,26 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 }
 
-test('Phase 5 is a complete, live review including every step 4 launch setting', () => {
+test('Phase 5 (v6) is a live review: one-line sections, changed-only, a sticky side with the real card and what Create does', () => {
     const phase = source('src/components/workspaces/create-wizard/phases/Phase5Review.tsx');
 
     assert.match(phase, /useWatch\(\{ control \}\)/);
     assert.match(phase, /step="Review" title=\{reviewReady \? 'Ready to create\.' : 'Almost there\.'\}/);
-    assert.match(phase, /eyebrow="Step 1"/);
-    assert.match(phase, /eyebrow="Step 2"/);
-    assert.match(phase, /eyebrow="Step 3"/);
-    assert.match(phase, /eyebrow="Step 4"/);
-    assert.match(phase, /Workspace journey/);
-    assert.match(phase, /\$\{Noun\} links/);
-    assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
-    assert.doesNotMatch(phase, /max-w-4xl/);
-    assert.match(phase, /Nothing has been created yet/);
-    assert.match(phase, /Nothing is created until you select Create workspace/);
-    // Step 4 now chooses the starter doc, so Review shows it (as "Documentation"), plus the other launch settings.
-    for (const label of ['Visibility', 'Documentation', 'Workspace journey', 'Team permissions', 'Files and storage', 'Notifications']) {
-        assert.match(phase, new RegExp(`label="${label}"`));
-    }
-    // Org design plan CR1: picture and links take the step's noun, so an organization's creator never reads "workspace".
-    for (const label of ['picture', 'links']) assert.match(phase, new RegExp(`label=\\{\`\\$\\{Noun\\} ${label}\`\\}`));
+    for (const step of [1, 2, 3, 4]) assert.match(phase, new RegExp(`<ReviewSection step=\\{${step}\\}`));
+    assert.match(phase, /data-review-line/);
+    assert.match(phase, /Show only what I changed/);
+    assert.match(phase, /Nothing changed from the defaults\./);
+    assert.match(phase, /settingsChanges\(formData/);
+    assert.match(phase, /Worth a look/);
+    assert.match(phase, /data-review-side/);
+    assert.match(phase, /<ProjectCard project=\{previewProject\}/);
+    assert.match(phase, /<WorkspaceSearchResultCard /);
+    assert.match(phase, /Exactly as it shows on Discover\./);
+    assert.match(phase, /createSteps\(formData/);
+    assert.match(phase, /keeps going if you leave/);
+    assert.match(phase, /keep this tab open/);
+    assert.match(phase, /Nothing is made until you press Create/);
+    assert.doesNotMatch(phase, /border-l-2/);
     assert.doesNotMatch(phase, /Collaborator availability/);
 });
 

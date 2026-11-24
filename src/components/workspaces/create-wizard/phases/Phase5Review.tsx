@@ -3,18 +3,23 @@
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { PhaseHead } from '../PhaseHead';
 import { phaseProblems } from '../phase-problems';
+import { createSteps } from '../create-steps';
+import { settingsChanges, ORG_SETTINGS_SECTIONS, WORKSPACE_SETTINGS_SECTIONS, type SettingsSectionId } from '../settings-changes';
 import { typeProfile } from '@/lib/organizations/type-profile'
-import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { Edit3, Folder, GitBranch, Globe, Lock } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { CreateWorkspaceInput } from '@/lib/validations/workspace';
 import { SkillList } from '@/components/skills/SkillList';
-import { Button } from '@/components/ui/button';
 import { WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { resolveSocialPresence, socialLinkItemsFromStorage } from '@/lib/profile/normalization';
 import { CREATE_WORKSPACE_NOTIFICATION_ROWS } from '@/lib/notifications/workspace-policy';
 import { DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY, WORKSPACE_PUBLIC_TAB_LABELS, type WorkspacePublicTabId } from '@/lib/workspaces/settings-policies';
 import ProjectCard from '@/components/workspaces/WorkspaceCard';
+import { WorkspaceSearchResultCard } from '@/components/layout/header/GlobalSearchResultCards';
+import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch';
+import { TabMarker } from '@/components/ui/TabMarker';
+import { PixelTick } from '@/components/ui/PixelTick';
 import { orgTypeLabel } from '@/lib/organizations/config';
 import { ORG_CREATION_COPY, orgTypeDefaults } from '@/lib/organizations/creation';
 import { parseInviteEmails } from '@/lib/organizations/member-rules';
@@ -28,81 +33,50 @@ interface Phase5ReviewProps {
     projectImage?: File | null;
 }
 
+type Step = 1 | 2 | 3 | 4;
 const PUBLIC_TAB_ORDER: WorkspacePublicTabId[] = ['dashboard', 'readme', 'updates', 'files', 'sprints', 'tasks'];
+const pad = (n: number) => String(n).padStart(2, '0');
 
-interface ReviewSectionProps {
-    eyebrow: string;
-    title: string;
-    onEdit: () => void;
-    children: ReactNode;
-}
-
-function ReviewSection({ eyebrow, title, onEdit, children }: ReviewSectionProps) {
+/** One step as a frame (v6.7): its summary line until opened, then its rows. Edit goes to the step; the footer then
+ *  offers Back to Review. */
+function ReviewSection({ step, label, line, open, onToggle, onEdit, children }: { step: Step; label: string; line: string; open: boolean; onToggle: () => void; onEdit: () => void; children: ReactNode }) {
     return (
-        <section className="border-t border-border pt-6">
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">{eyebrow}</p>
-                    <h4 className="nb-card-title mt-1 text-foreground">{title}</h4>
-                </div>
-                <Button type="button" onClick={onEdit} variant="link" size="sm" className="nb-touch-target shrink-0">
-                    <Edit3 className="size-3" />
-                    Edit
-                </Button>
-            </div>
-            <div className="mt-4 border-y border-border">{children}</div>
+        <section data-review-section={step} aria-labelledby={`review-step-${step}`} className="nbs-frame">
+            <p className="nbs-glabel pt-[18px]" id={`review-step-${step}`}>
+                {label}
+                <span className="r">
+                    {open ? <button type="button" className="nb-link text-[13px]" aria-expanded="true" onClick={onToggle}>Hide</button> : null}
+                    <button type="button" className="nb-link inline-flex items-center gap-1 text-[13px]" onClick={onEdit}><Pencil className="size-3" aria-hidden="true" />Edit</button>
+                </span>
+            </p>
+            {open ? <div className="nb-rv-rows nb-enter-reveal">{children}</div> : (
+                <button type="button" data-review-line className="nb-rv-line" aria-expanded="false" onClick={onToggle}>
+                    <span className="min-w-0 truncate">{line}</span><span className="nb-meta shrink-0">Show</span>
+                </button>
+            )}
         </section>
     );
 }
 
-interface ReviewRowProps {
-    label: string;
-    icon?: ComponentType<{ className?: string }>;
-    children: ReactNode;
-}
-
-function ReviewRow({ label, icon: Icon, children }: ReviewRowProps) {
+function ReviewRow({ label, tag, children }: { label: string; tag?: 'Changed' | 'Default'; children: ReactNode }) {
     return (
-        <div className={`border-b border-border py-3.5 last:border-b-0${Icon ? " flex gap-3" : ""}`}>
-            {Icon ? <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
-            <div className="min-w-0 flex-1">
-                <p className="nb-meta text-muted-foreground">{label}</p>
-                <div className="mt-1 text-foreground">{children}</div>
-            </div>
+        <div className="nb-rv">
+            <span className="nb-rv-l">{label}</span>
+            <div className="min-w-0 text-[14px] text-foreground">{children}</div>
+            {tag ? <span className={`nbs-tag${tag === 'Changed' ? ' hot' : ''}`}>{tag}</span> : <span />}
         </div>
     );
 }
 
 function DetailLabel({ children }: { children: ReactNode }) {
-    return (
-        <span className="inline-flex rounded-[3px] border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.09em] text-foreground">
-            {children}
-        </span>
-    );
+    return <span className="nbs-tag">{children}</span>;
 }
-
-const sourceCopy = {
-    scratch: {
-        title: 'Start empty',
-        detail: 'A new workspace will be created without imported files.',
-        icon: Folder,
-    },
-    github: {
-        title: 'Import from GitHub',
-        detail: 'Repository files and the selected branch will be imported after creation.',
-        icon: GitBranch,
-    },
-    upload: {
-        title: 'Upload a folder',
-        detail: 'The selected local files will be uploaded after creation.',
-        icon: Folder,
-    },
-};
 
 export default function Phase5Review({ goToPhase, onReady, projectImage = null }: Phase5ReviewProps) {
     const { control } = useFormContext<CreateWorkspaceInput>();
     const formData = useWatch({ control }) as CreateWorkspaceInput;
     const childOrg = useCreateLocation().org;
+    const { user } = useAuth();
     // The team line, report §14.3 Phase 5: "4 added · 3 invited · 1 open seat". People outside the org are always invited.
     const placed = [...(formData.roles ?? []).flatMap((role) => role.people ?? []), ...(formData.unassigned_people ?? [])] as Array<{ outside?: boolean }>;
     const teamCount = placed.length;
@@ -128,31 +102,69 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const Noun = org ? 'Organization' : 'Workspace';
     const orgRoles = org ? org.role_names ?? orgTypeDefaults(org.org_type ?? 'other').roleNames : null;
     const orgInvites = org?.invite_emails ? parseInviteEmails(org.invite_emails).valid.length : 0;
-    const orgChecks = org ? [
-        !org.co_admins?.length ? "You’re the only admin. Add a co-admin in People?" : null,
-        !formData.problem_statement?.trim() ? "Visitors won’t see who it’s for (Who it’s for is empty)." : null,
-        formData.visibility === 'public' && !(formData.tags || []).length ? 'Public, but no topics: it will be hard to find.' : null,
-    ].filter((c): c is string => Boolean(c)) : [];
     const projectTypeLabel = org ? formData.custom_project_type?.trim() || 'No subject added' : formData.project_type === 'other'
         ? formData.custom_project_type || 'Other'
         : projectType?.label || 'No category selected';
     const sourceType = formData.import_source?.type || 'scratch';
-    const source = sourceCopy[sourceType];
-    const SourceIcon = source.icon;
-    const sourceMetadata = formData.import_source?.metadata || {};
+    const sourceMetadata = (formData.import_source?.metadata || {}) as { folderName?: string; fileCount?: number };
     const uploadFileCount = Number(sourceMetadata.fileCount || 0);
+    const repo = formData.import_source?.repoUrl?.replace(/^https:\/\/github\.com\//, '') || 'a GitHub repository';
+    const sourceLine = sourceType === 'github' ? `${repo} · ${formData.import_source?.branch || 'default branch'}, imported after it’s made`
+        : sourceType === 'upload' ? `${sourceMetadata.folderName || 'your folder'}/ from this device · ${uploadFileCount} files`
+        : 'From scratch';
     const lifecycleStages = formData.lifecycle_stages || [];
-    const VisibilityIcon = formData.visibility === 'private' ? Lock : Globe;
     const publicTabs = { ...DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY, ...(formData.public_tab_visibility || {}) };
     const publicTabLabels = PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => WORKSPACE_PUBLIC_TAB_LABELS[tab]);
     const docSkipped = formData.readme?.mode === 'skip';
     const notificationRows = { roles_applications: true, work: true, updates_docs: true, ...(formData.notification_rows || {}) };
     const memberUpdates = formData.member_updates_enabled !== false;
     const memberUploads = formData.member_file_upload_default !== false;
+    const visibilityWord = formData.visibility === 'private' ? 'Private' : formData.visibility === 'org' ? `${childOrg?.title ?? 'Organization'} members` : 'Public';
+    const ownerName = (user?.user_metadata?.full_name as string | undefined) || 'You';
 
-    const { user } = useAuth();
+    // Settings: what changed from where it started (shared with the Settings step).
+    const changes = settingsChanges(formData, { childOrg, hasPicture: Boolean(projectImage) });
+    const settingsIds = org ? ORG_SETTINGS_SECTIONS : WORKSPACE_SETTINGS_SECTIONS;
+    const changedCount = settingsIds.filter((id) => changes[id]).length;
+    const [changedOnly, setChangedOnly] = useState(false);
+    const [open, setOpen] = useState<Set<Step>>(() => new Set());
+    const isOpen = (step: Step) => open.has(step) || (changedOnly && step === 4);
+    const toggle = (step: Step) => setOpen((current) => { const next = new Set(current); if (next.has(step)) next.delete(step); else next.add(step); return next; });
+    const allOpen = ([1, 2, 3, 4] as Step[]).every(isOpen);
+    const tag = (id: SettingsSectionId): 'Changed' | 'Default' => (changes[id] ? 'Changed' : 'Default');
+    const showSetting = (id: SettingsSectionId) => !changedOnly || changes[id];
+
+    // The check-up: what Create needs, each with Fix.
+    const required: Array<[string, boolean, Step]> = org
+        ? [['Kind of organization', problemCount[1] === 0, 1], ['Name', (formData.title ?? '').trim().length >= 3, 2], ['Web address', Boolean(org.handle?.trim()), 2], ['Description', (formData.description ?? '').trim().length >= 20, 2]]
+        : [['Starting point', problemCount[1] === 0, 1], ['Name', (formData.title ?? '').trim().length >= 3, 2],
+            ['Category', Boolean(formData.project_type) && (formData.project_type !== 'other' || Boolean(formData.custom_project_type?.trim())), 2],
+            ['Description', (formData.description ?? '').trim().length >= 20, 2], ['Roles complete', problemCount[3] === 0, 3]];
+    const doneCount = required.filter(([, ok]) => ok).length;
+    const worth: Array<[string, string, Step]> = (org
+        ? [[!formData.organization?.welcome_note?.trim(), 'Welcome note', 'People see it right after they join.', 2], [!org.co_admins?.length, 'Co-admins', 'You’ll run it alone until you add one.', 3], [!projectImage, 'Picture', 'A pixel picture is used until you add one.', 4]]
+        : [[!projectImage, 'Picture', 'A pixel picture is used until you add one.', 4], [!formData.short_description?.trim(), 'Summary', 'The card uses the description’s first sentence.', 2],
+            [!(formData.tags || []).length, 'Tags', 'Tags help people find it on Discover.', 2], [!openRoles.length, 'Open roles', 'People can follow it, but can’t apply.', 3],
+            [!projectLinks.length, 'Links', 'No website, repository or demo linked.', 4]]
+    ).filter(([missing]) => missing).map(([, label, line, step]) => [label as string, line as string, step as Step]);
+
+    const lines: Record<Step, string> = org ? {
+        1: orgTypeLabel(org.org_type, { typeLabel: org.type_label }) ?? 'Organization',
+        2: `${formData.title || '—'} · networkbase.in/org/${org.handle || '…'}`,
+        3: orgRoles ? `${[orgRoles.owner, orgRoles.admin, orgRoles.member, orgRoles.viewer].join(' · ')} · ${org.co_admins?.length ?? 0} co-admins` : 'People',
+        4: `${visibilityWord} · ${changedCount} changed from defaults`,
+    } : {
+        1: `${childOrg?.title ?? 'Personal'} · ${sourceType === 'scratch' ? 'From scratch' : sourceType === 'github' ? repo : `${sourceMetadata.folderName || 'your folder'}/ from this device`}`,
+        2: `${formData.title || '—'} · ${projectTypeLabel} · ${(formData.tags?.length ?? 0) + (formData.technologies_used?.length ?? 0)} tags and skills`,
+        3: `${ownerName} · ${openRoles.length} ${openRoles.length === 1 ? 'role' : 'roles'}, ${openPositionCount} ${openPositionCount === 1 ? 'opening' : 'openings'}`,
+        4: `${visibilityWord} · ${lifecycleStages.length} stages · ${changedCount} changed from defaults`,
+    };
+
+    const steps = createSteps(formData, { uploadCount: uploadFileCount, peopleCount: teamCount, orgTitle: childOrg?.title });
+
+    // Where it shows (v6.7): the real Discover card, the search row, and the org's Workspaces tab.
+    const [where, setWhere] = useState<'discover' | 'search' | 'org'>('discover');
     const [previewCoverUrl, setPreviewCoverUrl] = useState<string | null>(null);
-
     useEffect(() => {
         if (!projectImage) {
             setPreviewCoverUrl(null);
@@ -212,259 +224,219 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 orgTypeLabel: orgTypeLabel(formData.organization.org_type, { typeLabel: formData.organization.type_label }),
                 category: formData.custom_project_type || null, skills: formData.tags || [], childProjectCount: 0,
             } : {}),
-            // The card preview shows the org chip (report §14.3 Phase 5).
-            cardOrg: childOrg ? { id: childOrg.id, title: childOrg.title, slug: childOrg.slug } : undefined,
+            // The card shows the org above the title on Discover (report §14.3 Phase 5); its own tab leaves it out.
+            cardOrg: childOrg && where === 'discover' ? { id: childOrg.id, title: childOrg.title, slug: childOrg.slug } : undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         } as unknown as Workspace;
-    }, [formData, previewCoverUrl, user, childOrg]);
+    }, [formData, previewCoverUrl, user, childOrg, noun, where]);
+
+    const whereOptions = [
+        { id: 'discover' as const, label: 'Discover' },
+        ...(org ? [] : [{ id: 'search' as const, label: 'Search' }]),
+        ...(childOrg ? [{ id: 'org' as const, label: `${childOrg.title} tab` }] : []),
+    ];
 
     return (
-        <div className="min-w-0 w-full space-y-8 pb-6">
+        <div className="min-w-0 w-full pb-6">
             <PhaseHead noun={org ? 'organization' : 'workspace'} step="Review" title={reviewReady ? 'Ready to create.' : 'Almost there.'} line="Nothing is made until you press Create. Edit takes you to that step; Back to Review brings you straight here." />
 
-            {/* Mobile / Tablet Card Preview */}
-            <div className="lg:hidden">
-                <p className="nb-meta mb-2 font-mono uppercase tracking-[0.12em] text-muted-foreground">Card preview</p>
-                <div className="pointer-events-none select-none">
-                    <ProjectCard project={previewProject} />
-                </div>
-            </div>
+            <div className="nb-review">
+                <div className="min-w-0">
+                    <div data-review-bar className="nb-review-bar">
+                        <span className="font-mono text-[12px] tabular-nums text-muted-foreground">{changedCount} of {settingsIds.length} settings changed</span>
+                        <label className="inline-flex items-center gap-2 text-[13px]">
+                            <SettingsSwitch checked={changedOnly} onCheckedChange={setChangedOnly} aria-label="Show only what I changed" />
+                            Show only what I changed
+                        </label>
+                        <button type="button" className="nb-link ml-auto text-[13px]" onClick={() => setOpen(allOpen ? new Set() : new Set([1, 2, 3, 4]))}>{allOpen ? 'Collapse all' : 'Expand all'}</button>
+                    </div>
 
-            <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8 lg:items-start">
-                <div className="min-w-0 space-y-8">
-                    <ReviewSection eyebrow="Step 1" title="How you started" onEdit={() => goToPhase(1)}>
-                        <ReviewRow label="Source" icon={SourceIcon}>
-                            <p className="nb-ui-label text-foreground">{org ? 'An organization' : source.title}</p>
-                            <p className="nb-compact mt-1 text-muted-foreground">{org ? `${orgTypeLabel(org.org_type, { typeLabel: org.type_label })}. It starts empty; workspaces are added inside it.` : source.detail}</p>
-                        </ReviewRow>
-                {sourceType === 'github' ? (
-                    <>
-                        <ReviewRow label="Repository" icon={GitBranch}>
-                            <p className="nb-body break-all text-foreground">{formData.import_source?.repoUrl || 'No repository selected'}</p>
-                        </ReviewRow>
-                        <ReviewRow label="Branch">
-                            <DetailLabel>{formData.import_source?.branch || 'Default branch'}</DetailLabel>
-                        </ReviewRow>
-                    </>
-                ) : null}
-                {sourceType === 'upload' ? (
-                    <ReviewRow label="Folder contents" icon={Folder}>
-                        <p className="nb-body text-foreground">
-                            {uploadFileCount > 0
-                                ? `${uploadFileCount} ${uploadFileCount === 1 ? 'file is' : 'files are'} ready to upload.`
-                                : 'The selected folder is ready to upload.'}
-                        </p>
-                    </ReviewRow>
-                ) : null}
-            </ReviewSection>
+                    <ReviewSection step={1} label="Start" line={lines[1]} open={isOpen(1)} onToggle={() => toggle(1)} onEdit={() => goToPhase(1)}>
+                        <ReviewRow label="Lives in">{childOrg ? <>{childOrg.title}<p className="nb-rv-s">It shows at the top of {childOrg.title}’s Workspaces tab.</p></> : org ? 'Its own organization' : 'Personal'}</ReviewRow>
+                        <ReviewRow label="Source">{org ? `${orgTypeLabel(org.org_type, { typeLabel: org.type_label })}. It starts empty; workspaces are added inside it.` : sourceLine}</ReviewRow>
+                    </ReviewSection>
 
-            <ReviewSection eyebrow="Step 2" title={`${Noun} details`} onEdit={() => goToPhase(2)}>
-                <ReviewRow label={`${Noun} name`}>
-                    <p className="nb-body font-medium text-foreground">{formData.title || `Untitled ${noun}`}</p>
-                </ReviewRow>
-                {childOrg ? (
-                    <ReviewRow label="Organization">
-                        <p className="nb-body text-foreground">In {childOrg.title}</p>
-                        <p className="nb-compact mt-1 text-muted-foreground">
-                            {teamCount === 0 ? 'No one placed yet' : [addedCount ? `${addedCount} added` : null, invitedCount ? `${invitedCount} invited` : null].filter(Boolean).join(' · ')}
-                            {openSeats > 0 ? ` · ${openSeats} open ${openSeats === 1 ? 'seat' : 'seats'}` : ''}
-                            {formData.lead_user_id ? ' · lead picked by you' : ''}
-                        </p>
-                    </ReviewRow>
-                ) : null}
-                {childOrg ? (
-                    <ReviewRow label="Admins from the organization">
-                        <p className="nb-compact text-muted-foreground">{childOrg.title}&apos;s owner and admins can see and help with this workspace.</p>
-                    </ReviewRow>
-                ) : null}
-                {childOrg ? (
-                    <ReviewRow label="Follows org sprints">
-                        <p className="nb-compact text-foreground">{formData.follow_org_sprints ? `Yes · sprints stay inside ${childOrg.title}'s` : 'No'}</p>
-                    </ReviewRow>
-                ) : null}
-                {org && orgRoles ? (
-                    <>
-                        <ReviewRow label="Organization">
-                            <p className="nb-body text-foreground"><span className="font-mono">networkbase.in/org/{org.handle}</span> · {orgTypeLabel(org.org_type, { typeLabel: org.type_label })}</p>
-                            <p className="nb-compact mt-1 text-muted-foreground">
-                                {[org.part_of ? `Part of ${org.part_of}` : null, org.location || null, org.time_zone || null].filter(Boolean).join(' · ') || 'No place added'}
-                            </p>
+                    <ReviewSection step={2} label={org ? 'Details' : 'Info'} line={lines[2]} open={isOpen(2)} onToggle={() => toggle(2)} onEdit={() => goToPhase(2)}>
+                        <ReviewRow label="Name">
+                            <span className="font-medium">{formData.title || `Untitled ${noun}`}</span>
+                            {!org && formData.slug ? <p className="nb-rv-s font-mono">networkbase.in/w/{formData.slug}</p> : null}
+                            {org ? <p className="nb-rv-s font-mono">networkbase.in/org/{org.handle}</p> : null}
                         </ReviewRow>
-                        <ReviewRow label="People">
-                            <p className="nb-compact text-foreground">{orgRoles.owner} · {orgRoles.admin} · {orgRoles.member} · {orgRoles.viewer}{org.creator_title ? ` · you’re ${org.creator_title}` : ''}</p>
-                            <p className="nb-compact mt-1 text-muted-foreground">
-                                {[org.co_admins?.length ? `${org.co_admins.length} ${org.co_admins.length === 1 ? 'co-admin' : 'co-admins'} invited` : null,
-                                    orgInvites ? `${orgInvites} member ${orgInvites === 1 ? 'invite' : 'invites'}` : null,
-                                    org.join_mode === 'approval' ? 'Joining needs approval' : 'Anyone with the code joins',
-                                    org.max_members ? `up to ${org.max_members} members` : null].filter(Boolean).join(' · ')}
-                            </p>
+                        <ReviewRow label={org ? ORG_CREATION_COPY[org.org_type ?? 'other'].subjectLabel : 'Category'}>{projectTypeLabel}</ReviewRow>
+                        {formData.short_description ? <ReviewRow label="Summary">{formData.short_description}</ReviewRow> : null}
+                        <ReviewRow label={org ? 'About' : 'Description'}><p className="whitespace-pre-wrap">{formData.description || 'No description added.'}</p></ReviewRow>
+                        {formData.problem_statement ? <ReviewRow label={org ? 'Who it’s for' : 'Problem'}><p className="whitespace-pre-wrap">{formData.problem_statement}</p></ReviewRow> : null}
+                        {formData.solution_statement ? <ReviewRow label={org ? 'What members do here' : 'Approach'}><p className="whitespace-pre-wrap">{formData.solution_statement}</p></ReviewRow> : null}
+                        {org ? (
+                            <ReviewRow label="Place">{[org.part_of ? `Part of ${org.part_of}` : null, org.location || null, org.time_zone || null].filter(Boolean).join(' · ') || 'No place added'}</ReviewRow>
+                        ) : null}
+                        <ReviewRow label={org ? 'Topics' : 'Tags and skills'}>
+                            {formData.tags?.length || formData.technologies_used?.length ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {formData.tags?.map((t) => <DetailLabel key={t}>{t}</DetailLabel>)}
+                                    <SkillList skills={formData.technologies_used || []} size="sm" />
+                                </div>
+                            ) : <span className="text-muted-foreground">None added.</span>}
                         </ReviewRow>
-                        <ReviewRow label="Setup">
-                            <p className="nb-compact text-foreground">
+                    </ReviewSection>
+
+                    <ReviewSection step={3} label={org ? 'People' : 'Team'} line={lines[3]} open={isOpen(3)} onToggle={() => toggle(3)} onEdit={() => goToPhase(3)}>
+                        {org && orgRoles ? (
+                            <>
+                                <ReviewRow label="Roles">{orgRoles.owner} · {orgRoles.admin} · {orgRoles.member} · {orgRoles.viewer}{org.creator_title ? ` · you’re ${org.creator_title}` : ''}</ReviewRow>
+                                <ReviewRow label="Joining">
+                                    {[org.co_admins?.length ? `${org.co_admins.length} ${org.co_admins.length === 1 ? 'co-admin' : 'co-admins'} invited` : null,
+                                        orgInvites ? `${orgInvites} member ${orgInvites === 1 ? 'invite' : 'invites'}` : null,
+                                        org.join_mode === 'approval' ? 'Joining needs approval' : 'Anyone with the code joins',
+                                        org.max_members ? `up to ${org.max_members} members` : null].filter(Boolean).join(' · ')}
+                                </ReviewRow>
+                            </>
+                        ) : (
+                            <>
+                                <ReviewRow label="Owner">{formData.lead_user_id ? 'The lead you picked' : ownerName}{formData.creator_role?.title ? ` · ${formData.creator_role.title}` : ''}{formData.lead_user_id && childOrg ? <p className="nb-rv-s">You stay an admin through {childOrg.title}.</p> : null}</ReviewRow>
+                                {childOrg ? (
+                                    <ReviewRow label="People">
+                                        {teamCount === 0 ? 'No one placed yet' : [addedCount ? `${addedCount} added` : null, invitedCount ? `${invitedCount} invited` : null].filter(Boolean).join(' · ')}
+                                        {openSeats > 0 ? ` · ${openSeats} open ${openSeats === 1 ? 'seat' : 'seats'}` : ''}
+                                        <p className="nb-rv-s">{childOrg.title}’s owner and admins can see and help with this workspace.</p>
+                                    </ReviewRow>
+                                ) : null}
+                                <ReviewRow label="Open roles">
+                                    {openRoles.length ? (
+                                        <div className="space-y-3">
+                                            {openRoles.map((role, index) => (
+                                                <div key={`${role.role}-${index}`}>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="font-medium">{role.role}</span>
+                                                        <DetailLabel>{role.count} {role.count === 1 ? 'opening' : 'openings'}</DetailLabel>
+                                                        <DetailLabel>{role.experienceLevel || 'any'}</DetailLabel>
+                                                        {!childOrg || typeProfile(childOrg.orgType).showCompensation ? <DetailLabel>{(role.compensationType || 'unpaid').replace('_', ' ')}</DetailLabel> : null}
+                                                        {role.lead_user_id ? <DetailLabel>★ {role.people?.find((person) => person.user_id === role.lead_user_id)?.label ?? 'Team lead'}</DetailLabel> : null}
+                                                    </div>
+                                                    {role.skills?.length ? <div className="mt-1.5"><SkillList skills={role.skills} size="sm" /></div> : null}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : <span className="text-muted-foreground">No open roles. People can follow it, but can’t apply.</span>}
+                                </ReviewRow>
+                            </>
+                        )}
+                    </ReviewSection>
+
+                    <ReviewSection step={4} label={org ? 'Setup' : 'Settings'} line={lines[4]} open={isOpen(4)} onToggle={() => toggle(4)} onEdit={() => goToPhase(4)}>
+                        {changedOnly && changedCount === 0 ? <p className="nb-rv-none">Nothing changed from the defaults.</p> : null}
+                        {org && !changedOnly ? (
+                            <ReviewRow label="Workspaces inside">
                                 {org.child_creation === 'admins' ? 'Admins create workspaces' : 'All members create workspaces'}
                                 {org.term_start || org.term_end ? ` · ${ORG_CREATION_COPY[org.org_type ?? 'other'].termLabel} ${org.term_start || '…'} to ${org.term_end || '…'}` : ''}
                                 {org.plan_sprints ? ` · ${org.plan_sprints.count} sprints planned` : ''}
-                            </p>
-                        </ReviewRow>
-                        {orgChecks.length ? (
-                            <ReviewRow label="Worth a look">
-                                <ul className="nb-compact space-y-1 text-muted-foreground" data-testid="create-org-soft-checks">{orgChecks.map((c) => <li key={c}>{c}</li>)}</ul>
                             </ReviewRow>
                         ) : null}
-                    </>
-                ) : null}
-                <ReviewRow label={org ? ORG_CREATION_COPY[org.org_type ?? 'other'].subjectLabel : 'Category'}>
-                    <p className="nb-body text-foreground">{projectTypeLabel}</p>
-                    {projectType?.description ? <p className="nb-compact mt-1 text-muted-foreground">{projectType.description}</p> : null}
-                </ReviewRow>
-                {formData.short_description ? (
-                    <ReviewRow label="Summary">
-                        <p className="nb-body text-foreground">{formData.short_description}</p>
-                    </ReviewRow>
-                ) : null}
-                <ReviewRow label={org ? 'About' : 'Description'}>
-                    <p className="nb-body whitespace-pre-wrap text-foreground">{formData.description || 'No description added.'}</p>
-                </ReviewRow>
-                {formData.problem_statement || formData.solution_statement ? (
-                    <div className="grid border-b border-border md:grid-cols-2">
-                        {formData.problem_statement ? (
-                            <div className="border-b border-border px-0 py-3.5 md:border-b-0 md:border-r md:px-4 md:first:pl-0">
-                                <p className="nb-meta text-muted-foreground">{org ? "Who it’s for" : 'Problem'}</p>
-                                <p className="nb-compact mt-1 whitespace-pre-wrap text-foreground">{formData.problem_statement}</p>
-                            </div>
+                        {showSetting('picture') ? <ReviewRow label="Picture" tag={tag('picture')}>{projectImage ? `${projectImage.name} · uploads after it’s made` : 'A pixel picture until you add one.'}</ReviewRow> : null}
+                        {showSetting('access') ? (
+                            <ReviewRow label="Visibility" tag={tag('access')}>
+                                {visibilityWord}
+                                <p className="nb-rv-s">{formData.visibility === 'private' ? `Only members can see this ${noun}.` : `Tabs: ${publicTabLabels.join(' · ') || 'none'}.`}</p>
+                            </ReviewRow>
                         ) : null}
-                        {formData.solution_statement ? (
-                            <div className="px-0 py-3.5 md:px-4 md:last:pr-0">
-                                <p className="nb-meta text-muted-foreground">{org ? 'What members do here' : 'Solution'}</p>
-                                <p className="nb-compact mt-1 whitespace-pre-wrap text-foreground">{formData.solution_statement}</p>
-                            </div>
+                        {showSetting('links') ? (
+                            <ReviewRow label="Links" tag={tag('links')}>
+                                {projectLinks.length ? (
+                                    <ul className="space-y-1.5">
+                                        {projectLinks.map((link) => {
+                                            const resolved = resolveSocialPresence(link.platform, link.url);
+                                            const title = link.label || link.destinationLabel || resolved?.platformLabel || `${Noun} link`;
+                                            return <li key={link.id} className="min-w-0 truncate">{title} <span className="text-muted-foreground">· {link.audience === 'members' ? 'Members only' : 'Public'}</span></li>;
+                                        })}
+                                    </ul>
+                                ) : <span className="text-muted-foreground">No links.</span>}
+                            </ReviewRow>
                         ) : null}
-                    </div>
-                ) : null}
-                <ReviewRow label="Tags and technologies">
-                    {formData.tags?.length || formData.technologies_used?.length ? (
-                        <div className="flex flex-wrap gap-2">
-                            {formData.tags?.map((tag) => <DetailLabel key={tag}>{tag}</DetailLabel>)}
-                            <SkillList skills={formData.technologies_used || []} size="sm" />
-                        </div>
-                    ) : <p className="nb-compact text-muted-foreground">No tags or technologies added.</p>}
-                </ReviewRow>
-            </ReviewSection>
+                        {showSetting('documentation') ? (
+                            <ReviewRow label="Starter doc" tag={tag('documentation')}>
+                                {docSkipped ? 'No documents yet.' : `Starter template, ${formData.readme?.publishOnCreate ? 'published when it’s made' : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'The owner and admins edit.'}`}
+                            </ReviewRow>
+                        ) : null}
+                        {!org && showSetting('lifecycle') ? <ReviewRow label="Stages" tag={tag('lifecycle')}>{lifecycleStages.length ? lifecycleStages.join(' → ') : 'No stages yet.'}</ReviewRow> : null}
+                        {showSetting('permissions') ? (
+                            <ReviewRow label="Permissions" tag={tag('permissions')}>
+                                Updates: {memberUpdates ? 'members can post' : 'owner and admins only'} · New-member uploads: {memberUploads ? 'on' : 'off'}
+                                {childOrg ? <p className="nb-rv-s">{formData.follow_org_sprints ? `Follows ${childOrg.title}’s sprints` : `Doesn’t follow ${childOrg.title}’s sprints`}</p> : null}
+                            </ReviewRow>
+                        ) : null}
+                        {showSetting('files') ? <ReviewRow label="Files" tag={tag('files')}>{sourceLine}</ReviewRow> : null}
+                        {showSetting('notifications') ? (
+                            <ReviewRow label="Notifications" tag={tag('notifications')}>
+                                {CREATE_WORKSPACE_NOTIFICATION_ROWS.map((row) => `${row.label}: ${notificationRows[row.id] ? 'on' : 'off'}`).join(' · ')}
+                            </ReviewRow>
+                        ) : null}
+                    </ReviewSection>
 
-            <ReviewSection eyebrow="Step 3" title="Team and roles" onEdit={() => goToPhase(3)}>
-                <ReviewRow label="Owner">
-                    <p className="nb-ui-label text-foreground">You{formData.creator_role?.title ? ` · ${formData.creator_role.title}` : ''}</p>
-                    {formData.creator_role?.time_commitment ? <p className="nb-compact mt-1 text-muted-foreground">{formData.creator_role.time_commitment} hours a week</p> : null}
-                </ReviewRow>
-                <ReviewRow label="Open roles">
-                    {openRoles.length ? (
-                        <div className="space-y-4">
-                            <p className="nb-compact text-muted-foreground">{openPositionCount} open {openPositionCount === 1 ? 'position' : 'positions'} across {openRoles.length} {openRoles.length === 1 ? 'role' : 'roles'}.</p>
-                            {openRoles.map((role, index) => (
-                                <div key={`${role.role}-${index}`} className="border-l-2 border-primary pl-3">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <p className="nb-ui-label text-foreground">{role.role}</p>
-                                        <DetailLabel>{role.count} {role.count === 1 ? 'opening' : 'openings'}</DetailLabel>
-                                        <DetailLabel>{role.experienceLevel || 'any'}</DetailLabel>
-                                        {!childOrg || typeProfile(childOrg.orgType).showCompensation ? <DetailLabel>{(role.compensationType || 'unpaid').replace('_', ' ')}</DetailLabel> : null}
-                                        {role.lead_user_id ? <DetailLabel>★ {role.people?.find((person) => person.user_id === role.lead_user_id)?.label ?? 'Team lead'}</DetailLabel> : null}
-                                    </div>
-                                    {role.description ? <p className="nb-compact mt-2 whitespace-pre-wrap text-muted-foreground">{role.description}</p> : null}
-                                    {role.skills?.length ? <div className="mt-2"><SkillList skills={role.skills} size="sm" /></div> : null}
+                    {worth.length ? (
+                        <section aria-labelledby="review-worth" className="nbs-frame">
+                            <p id="review-worth" className="nbs-glabel pt-[18px]">Worth a look<span className="r"><span className="nbs-tag">Optional</span></span></p>
+                            {worth.map(([label, line, step]) => (
+                                <div key={label} className="nbs-row">
+                                    <div className="min-w-0"><p className="t">{label}</p><p className="d">{line}</p></div>
+                                    <div className="ctl"><button type="button" className="nb-link text-[13px]" onClick={() => goToPhase(step)}>Add</button></div>
                                 </div>
                             ))}
-                        </div>
-                    ) : <p className="nb-compact text-muted-foreground">No open roles added.</p>}
-                </ReviewRow>
-            </ReviewSection>
+                        </section>
+                    ) : null}
+                </div>
 
-            <ReviewSection eyebrow="Step 4" title="Starting settings" onEdit={() => goToPhase(4)}>
-                <ReviewRow label={`${Noun} picture`}>
-                    <p className="nb-compact text-foreground">{projectImage ? `${projectImage.name} · uploads after creation` : 'Initials until a picture is added.'}</p>
-                </ReviewRow>
-                <ReviewRow label="Visibility" icon={VisibilityIcon}>
-                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? `Private ${noun}` : formData.visibility === 'org' ? `Organization only · members of ${childOrg?.title ?? 'the organization'}` : `Public ${noun}`}</p>
-                    <p className="nb-compact mt-1 text-muted-foreground">
-                        {formData.visibility === 'private'
-                            ? `Only members can see this ${noun} when it’s created.`
-                            : `Public tabs: ${publicTabLabels.join(' · ') || 'none'}.`}
-                    </p>
-                </ReviewRow>
-                <ReviewRow label={`${Noun} links`}>
-                    {projectLinks.length ? (
-                        <ul className="space-y-3">
-                            {projectLinks.map((link) => {
-                                const resolved = resolveSocialPresence(link.platform, link.url);
-                                const title = link.label || link.destinationLabel || resolved?.platformLabel || `${Noun} link`;
-                                const secondary = link.destinationLabel && link.destinationLabel !== title
-                                    ? link.destinationLabel
-                                    : resolved?.accountLabel || link.url;
-                                return (
-                                    <li key={link.id} className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <p className="nb-ui-label text-foreground">{title}</p>
-                                            <DetailLabel>{link.audience === 'members' ? 'Members only' : 'Public'}</DetailLabel>
-                                            {link.purpose ? <DetailLabel>{link.purpose.replaceAll('-', ' ')}</DetailLabel> : null}
-                                        </div>
-                                        <p className="nb-compact mt-1 truncate text-muted-foreground" title={link.url}>{secondary}</p>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    ) : <p className="nb-compact text-muted-foreground">No {noun} links added.</p>}
-                </ReviewRow>
-                <ReviewRow label="Documentation">
-                    <p className="nb-compact text-foreground">
-                        {docSkipped
-                            ? 'No documents yet.'
-                            : `Starter template, ${formData.readme?.publishOnCreate ? `published when the ${noun} is created` : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'The owner and admins edit.'}`}
-                    </p>
-                </ReviewRow>
-                <ReviewRow label="Workspace journey">
-                    {lifecycleStages.length ? (
-                        <ol className="space-y-2">
-                            {lifecycleStages.map((stage, index) => (
-                                <li key={`${stage}-${index}`} className="flex items-center gap-2">
-                                    <span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] border border-border font-mono text-[11px] text-muted-foreground">{index + 1}</span>
-                                    <span className="nb-compact text-foreground">{stage}</span>
+                <aside data-review-side aria-label="Check-up and preview" className="nb-review-side">
+                    <section className="nbs-frame" aria-labelledby="review-checkup">
+                        <p id="review-checkup" className="nbs-glabel pt-[18px]">Check-up<span className="r"><span className="font-mono text-[12px] tabular-nums text-muted-foreground">{doneCount} of {required.length} required</span></span></p>
+                        <div className="nb-sq-row" aria-hidden="true">{required.map(([label, ok], i) => <span key={label} className="nb-sq" data-on={ok || undefined} style={{ ['--i' as string]: i }} />)}</div>
+                        {doneCount === required.length ? (
+                            <p className="nb-ready"><PixelTick className="text-[var(--status-success)]" draw /><span><b>Ready to create.</b> Everything else can change later in Settings.</span></p>
+                        ) : required.filter(([, ok]) => !ok).map(([label, , step]) => (
+                            <div key={label} className="nbs-row">
+                                <p className="t">{label}</p>
+                                <div className="ctl"><button type="button" className="nb-link text-[13px]" onClick={() => goToPhase(step)}>Fix</button></div>
+                            </div>
+                        ))}
+                    </section>
+
+                    <section className="nbs-frame" aria-labelledby="review-where">
+                        <p id="review-where" className="nbs-glabel pt-[18px]">Where it shows</p>
+                        <div className="nb-sbody">
+                            {whereOptions.length > 1 ? (
+                                <div className="nb-seg mb-3" data-size="sm" data-fill role="radiogroup" aria-label="Where it shows">
+                                    {whereOptions.map((option) => <button key={option.id} type="button" role="radio" aria-checked={where === option.id} onClick={() => setWhere(option.id)}>{option.label}</button>)}
+                                    <TabMarker />
+                                </div>
+                            ) : null}
+                            <div className="pointer-events-none select-none" inert>
+                                {where === 'search' ? (
+                                    <div role="listbox" aria-label="Search preview" className="rounded-lg border border-border bg-card p-1.5">
+                                        <WorkspaceSearchResultCard index={0} activeIndex={-1} onActivate={() => undefined} onOpen={() => undefined}
+                                            result={{ kind: 'project', id: 'preview', title: formData.title || `Untitled ${noun}`, subtitle: formData.short_description || formData.description || '', href: '', matchReason: null,
+                                                username: null, status: null, skills: formData.technologies_used || [], openRolesCount: openRoles.length, followersCount: 0, viewCount: 0,
+                                                connectedFriends: [], additionalConnectedFriendsCount: 0, coverImage: previewCoverUrl }} />
+                                    </div>
+                                ) : <ProjectCard project={previewProject} titleChip={where === 'org' ? <span className="nbs-tag hot">New</span> : undefined} />}
+                            </div>
+                            <p className="mt-2.5 text-[12.5px] leading-[1.5] text-muted-foreground">
+                                {formData.visibility === 'private' ? 'Only members see this card.' : where === 'search' ? 'As it shows in the search menu.' : where === 'org' ? `At the top of ${childOrg?.title}’s Workspaces tab.` : 'Exactly as it shows on Discover. “Updated by” appears after the first update.'}
+                            </p>
+                        </div>
+                    </section>
+
+                    <section className="nbs-frame" aria-labelledby="review-create">
+                        <p id="review-create" className="nbs-glabel pt-[18px]">When you press Create</p>
+                        <ol data-create-steps className="nb-create-steps">
+                            {steps.map((step, i) => (
+                                <li key={step.key}>
+                                    <span className="nb-create-n">{pad(i + 1)}</span>
+                                    <span className="min-w-0">{step.label}{step.count ? ` · ${step.count} ${step.unit}` : ''}</span>
+                                    {step.background ? <span className="nbs-tag">keeps going if you leave</span> : step.keepTabOpen ? <span className="nbs-tag warn">keep this tab open</span> : <span />}
                                 </li>
                             ))}
                         </ol>
-                    ) : <p className="nb-compact text-muted-foreground">No journey stages added.</p>}
-                </ReviewRow>
-                <ReviewRow label="Team permissions">
-                    <p className="nb-compact text-foreground">Updates: {memberUpdates ? 'members can post' : 'owner and admins only'} · New-member uploads: {memberUploads ? 'on' : 'off'}</p>
-                </ReviewRow>
-                <ReviewRow label="Files and storage">
-                    <p className="nb-compact text-foreground">{source.detail}</p>
-                </ReviewRow>
-                <ReviewRow label="Notifications">
-                    <p className="nb-compact text-foreground">
-                        {CREATE_WORKSPACE_NOTIFICATION_ROWS.map((row) => `${row.label}: ${notificationRows[row.id] ? 'on' : 'off'}`).join(' · ')}
-                    </p>
-                    <p className="nb-compact mt-1 text-muted-foreground">Membership and security alerts always stay on.</p>
-                </ReviewRow>
-            </ReviewSection>
-
-                    <aside className="border-l-2 border-primary bg-secondary/35 px-4 py-3.5" aria-label="Creation confirmation">
-                        <p className="nb-ui-label text-foreground">Ready to create</p>
-                        <p className="nb-compact mt-1 text-muted-foreground">{org ? 'Nothing has been created yet. Create the organization only when you select Create organization in the footer.' : 'Nothing is created until you select Create workspace.'}</p>
-                    </aside>
-                </div>
-
-                {/* Desktop Sticky Card Preview (>= lg) */}
-                <aside aria-label={`${Noun} card preview`} className="hidden lg:block sticky top-24 space-y-3">
-                    <div className="flex items-center justify-between">
-                        <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Card preview</p>
-                        <span className="nb-compact font-mono text-[11px] text-muted-foreground">Live preview</span>
-                    </div>
-                    <div className="pointer-events-none select-none">
-                        <ProjectCard project={previewProject} />
-                    </div>
-                    <p className="nb-compact text-muted-foreground">
-                        {formData.visibility === 'public' ? 'This is how it appears on Discover.' : 'Only members see this card.'}
-                    </p>
+                    </section>
                 </aside>
             </div>
         </div>

@@ -3123,6 +3123,38 @@ html[data-reduce-motion="true"] .nb-role-bar { animation: none; }
 .nb-srows-mid { margin-bottom: 0; border-bottom: 1px solid var(--nbs-line); }
 @media (prefers-reduced-motion: reduce) { .nb-nav-hl { transition: none; } }
 html[data-reduce-motion="true"] .nb-nav-hl { transition: none; }
+
+/* ---------- Create workspace v6: Review — sections left, sticky check-up / where it shows / what Create does right ---------- */
+.nb-review { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; margin-top: 24px; }
+.nb-review > div > .nbs-frame { margin-top: 16px; }
+.nb-review-side { position: sticky; top: 16px; display: grid; gap: 16px; animation: nb-enter-settle 300ms var(--nb-ease) backwards; }
+.nb-review-side > .nbs-frame { margin-top: 0; }
+/* One card, always on screen and sized by its content (its h-full is for grid feeds). */
+.nb-review-side .nb-project-card { height: auto; content-visibility: visible; contain-intrinsic-size: none; }
+.nb-review-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 10px 16px; border: 1px solid var(--nbs-line); border-radius: 8px; background: var(--card); }
+.nb-rv-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 2px var(--nbs-pad) 16px; border: 0; background: none; text-align: left; font-size: 14px; color: var(--foreground); cursor: pointer; }
+.nb-rv-line:hover .nb-meta, .nb-rv-line:focus-visible .nb-meta { color: var(--foreground); }
+.nb-rv-line:focus-visible { outline: none; background: var(--nbs-tint); }
+.nb-rv-rows { border-top: 1px solid var(--nbs-line); }
+.nb-rv { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 4px 16px; align-items: start; padding: 12px var(--nbs-pad); border-bottom: 1px solid var(--nbs-line); }
+.nb-rv:last-child { border-bottom: 0; }
+.nb-rv-l { padding-top: 2px; font: 11.5px var(--nbs-mono); color: var(--nbs-fg2); }
+.nb-rv-s { margin-top: 2px; font-size: 12.5px; color: var(--nbs-fg2); }
+.nb-rv-none { margin: 0; padding: 12px var(--nbs-pad) 16px; font-size: 13px; color: var(--nbs-fg2); }
+.nb-sq-row { display: flex; gap: 4px; padding: 0 var(--nbs-pad) 12px; }
+.nb-sq { width: 14px; height: 14px; border: 1.5px solid var(--nbs-line); border-radius: 2px; transition: background-color 220ms var(--nb-ease) calc(var(--i, 0) * 40ms), border-color 220ms var(--nb-ease) calc(var(--i, 0) * 40ms); }
+.nb-sq[data-on] { border-color: var(--status-success); background: var(--status-success); }
+.nb-ready { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px var(--nbs-pad) 16px; border-top: 1px solid var(--nbs-line); font-size: 13px; color: var(--nbs-fg2); }
+.nb-ready b { font-weight: 500; color: var(--foreground); }
+.nb-create-steps { margin: 0; padding: 0 0 6px; list-style: none; border-top: 1px solid var(--nbs-line); }
+.nb-create-steps li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px var(--nbs-pad); font-size: 13px; }
+.nb-create-steps li + li { border-top: 1px solid var(--nbs-line); }
+.nb-create-n { font: 11px var(--nbs-mono); color: var(--nbs-fg2); }
+@media (max-width: 1100px) { .nb-review { grid-template-columns: minmax(0, 1fr); } .nb-review-side { position: static; order: -1; } }
+@media (max-width: 560px) { .nb-rv { grid-template-columns: minmax(0, 1fr) auto; } .nb-rv-l { grid-column: 1 / -1; } }
+@media (prefers-reduced-motion: reduce) { .nb-review-side { animation: none; } .nb-sq { transition: none; } }
+html[data-reduce-motion="true"] .nb-review-side { animation: none; }
+html[data-reduce-motion="true"] .nb-sq { transition: none; }
 @media (max-width: 767px) {
   .nb-settings-step { display: block; }
   .nb-sdock { height: auto; border-right: 0; border-bottom: 1px solid var(--nbs-line); }

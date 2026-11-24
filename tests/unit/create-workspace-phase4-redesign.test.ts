@@ -51,7 +51,7 @@ test('Phase 4 blocks unfinished link work and carries launch settings into revie
     assert.match(wizard, /trigger\(\['visibility', 'external_links'\], \{ shouldFocus: true \}\)/);
     assert.match(modal, /showValidationSummary=\{phase4ValidationAttempted\}/);
     assert.match(modal, /projectImage=\{projectImage\} onProjectImageChange=\{setProjectImage\}/);
-    assert.match(review, /Starting settings/);
+    assert.match(review, /label=\{org \? 'Setup' : 'Settings'\}/);
     assert.match(review, /goToPhase\(4\)/);
     assert.match(review, /projectLinks/);
 });
