@@ -36,6 +36,7 @@ import { GRANT_WORDS, PERMISSION_AREAS } from '@/lib/organizations/permission-la
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { cleanMainWord, MAIN_WORD_CHOICES } from '@/lib/organizations/sprint-words'
 import { Notice } from '@/components/ui/notice'
+import { timeZoneOptions } from '@/lib/organizations/zoned-time'
 import { orgChatSettings } from '@/lib/organizations/chat-rules'
 import { updateOrgChatSettingsAction } from '@/app/actions/org-chat'
 import { PartOfField } from '@/components/organizations/OrgDiscoverySections'
@@ -234,8 +235,6 @@ export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/di
     )
 }
 
-/** Every zone the browser knows, for the time zone select (report §22.4), the same control as creation (ST12). */
-const TIME_ZONES: string[] = (() => { try { return Intl.supportedValuesOf('timeZone') } catch { return [] } })()
 
 export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
     const [type, setType] = useState(organization.type ?? 'community')
@@ -255,7 +254,7 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
     // Report §22.1 #2: the confirmation lists what really changes; roles you renamed keep your names.
     const nextNames = orgRoleNames(type, { roleNames: Object.fromEntries(Object.entries(organization.roleNames).filter(([k, v]) => v !== orgRoleNames(organization.type, {})[k as keyof typeof organization.roleNames])) })
     const renamed = (Object.keys(nextNames) as Array<keyof typeof nextNames>).filter((k) => nextNames[k] !== organization.roleNames[k])
-    const zones = timeZone && !TIME_ZONES.includes(timeZone) ? [timeZone, ...TIME_ZONES] : TIME_ZONES
+    const zones = timeZoneOptions(timeZone)
     return (
         <Section id="org-profile">
             <SettingsCard title="Organization profile" headingLevel={2} description="What people see on About, and how the organization keeps time." footer={lastChanged(organization, 'profile')}>

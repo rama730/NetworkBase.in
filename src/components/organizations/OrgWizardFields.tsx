@@ -1,5 +1,6 @@
 'use client'
 
+import { timeZoneOptions } from '@/lib/organizations/zoned-time'
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFieldArray, useFormContext, useWatch, type UseFormReturn } from 'react-hook-form'
@@ -120,7 +121,7 @@ export function OrgIdentityFields() {
     const partOf = useWatch<CreateWorkspaceInput, 'organization.part_of'>({ name: 'organization.part_of' }) || ''
     const [partOfLinked, setPartOfLinked] = useState<{ id: string; title: string; verified: boolean } | null>(null)
     const edited = useRef(Boolean(getValues('organization.handle')))
-    const zones = useMemo(() => (typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : []), [])
+    const zones = useMemo(() => timeZoneOptions(), [])
 
     // Suggested from the name ("CSE-3A 2026" -> cse-3a-2026) until the person types their own.
     useEffect(() => {

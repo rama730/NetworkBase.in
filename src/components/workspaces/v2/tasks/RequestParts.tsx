@@ -1,5 +1,6 @@
 "use client";
 
+import { timeZoneOptions } from "@/lib/organizations/zoned-time";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -407,7 +408,7 @@ const DAYS = [{ n: 1, label: "Mon" }, { n: 2, label: "Tue" }, { n: 3, label: "We
 
 /** W10 and S8: days, from and to, the time zone and holidays; saving recalculates every open clock. */
 export function WorkingHoursDialog({ projectId, hours, timeZone, onClose }: { projectId: string; hours: WorkingHours; timeZone: string | null; onClose: (saved: boolean) => void }) {
-  const zones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+  const zones = timeZoneOptions(timeZone);
   const [draft, setDraft] = useState<WorkingHours>(hours);
   const [zone, setZone] = useState(timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [holiday, setHoliday] = useState("");

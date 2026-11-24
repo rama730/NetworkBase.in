@@ -26,6 +26,20 @@ export function isoToZonedInput(iso: string, timeZone: string | null | undefined
   return new Date(date.getTime() + offsetMs(date, timeZone)).toISOString().slice(0, 16);
 }
 
+/**
+ * Every zone the browser lists, plus the ones it names differently: Chrome lists "Asia/Calcutta" but reports
+ * "Asia/Kolkata" as your zone, so without this a select showed its first option and saved Africa/Abidjan
+ * (found in the B1.1 live check). `extra` is the saved value and the browser's own zone.
+ */
+export function timeZoneOptions(...extra: Array<string | null | undefined>): string[] {
+  let list: string[] = [];
+  try { list = Intl.supportedValuesOf("timeZone"); } catch { /* old browsers: just the extras */ }
+  let own: string | null = null;
+  try { own = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* none */ }
+  const missing = [...new Set([...extra, own].filter((z): z is string => Boolean(z) && !list.includes(z!)))];
+  return [...missing, ...list];
+}
+
 /** "India Standard Time", for "11:59 PM, India Standard Time" beside the field. */
 export function zoneName(timeZone: string | null | undefined) {
   if (!timeZone) return "your time";

@@ -36,3 +36,11 @@ test("next class is the first not yet ended, in the class's zone; office hours o
   assert.ok(officeHoursToday(details, "Asia/Kolkata", new Date("2027-01-13T06:00:00Z")), "Wednesday");
   assert.equal(officeHoursToday(details, "Asia/Kolkata", new Date("2027-01-14T06:00:00Z")), null);
 });
+
+test("live check B1.1: a saved or browser zone the browser lists by another name is still an option (never falls back to Africa/Abidjan)", async () => {
+  const { timeZoneOptions } = await import("../../src/lib/organizations/zoned-time");
+  const list = timeZoneOptions("Mars/Olympus_Mons", null);
+  assert.equal(list[0], "Mars/Olympus_Mons");
+  assert.ok(list.includes(Intl.DateTimeFormat().resolvedOptions().timeZone));
+  assert.equal(timeZoneOptions("UTC").filter((z) => z === "UTC").length <= 1, true, "no duplicates");
+});
