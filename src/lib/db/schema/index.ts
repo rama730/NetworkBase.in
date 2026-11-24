@@ -1280,6 +1280,14 @@ export const peerReviews = pgTable("peer_reviews", {
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
 }, (t) => [unique("peer_reviews_one_each").on(t.copyId, t.reviewerId), index("peer_reviews_master_reviewer_idx").on(t.masterId, t.reviewerId)]);
 
+/** B1.7a (0133, report 30.4 call 3): Pin for today — up to 3 of your own tasks for one day. Private; server only. */
+export const dayPins = pgTable("day_pins", {
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  day: date("day").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.userId, t.day, t.taskId] })]);
+
 /** B1.6b (0131, report 30.5 call 3): a student's extra time in a class; moves only their exam close. Server only. */
 export const examExtraTime = pgTable("exam_extra_time", {
   projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),

@@ -925,6 +925,13 @@
       "when": 1795545201980,
       "tag": "0132_second_marks",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1795547113869,
+      "tag": "0133_day_pins",
+      "breakpoints": true
     }
   ]
 }

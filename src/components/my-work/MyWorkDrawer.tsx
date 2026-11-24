@@ -16,6 +16,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { localDayKey } from "@/lib/workflows/planner";
 import { fullDayName, inDay, inkLine, requestsLine, weekColumns, dayName, type DayKey } from "@/lib/my-work/panel";
 import MyWorkTasksTab, { type MyWorkWeekItem } from "./MyWorkTasksTab";
+import { MyWorkWeek, useMyWeek } from "./MyWorkWeek";
 import MyWorkRequestsTab, { type MyWorkWaiting } from "./MyWorkRequestsTab";
 import { MyWorkEditor } from "./MyWorkEditor";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
@@ -63,6 +64,9 @@ export default function MyWorkDrawer() {
     const [pinned, setPinned] = useState(false);
     const [day, setDay] = useState<DayKey | null>(null);
     const [week, setWeek] = useState<MyWorkWeekItem[] | null>(null);
+    const myWeek = useMyWeek(isMyWorkOpen);
+    const inClass = Boolean(myWeek.data?.success && myWeek.data.inClass);
+    const [view, setView] = useState<"week" | "list">("week");
     const [finished, setFinished] = useState(0);
     const [handled, setHandled] = useState(0);
     const [load, setLoad] = useState(false);
@@ -254,7 +258,21 @@ export default function MyWorkDrawer() {
 
                     <div id={`workspace-${activeTab}-panel`} role="tabpanel" aria-labelledby={`workspace-${activeTab}-tab`} className="nb-mw-body" data-dir={dir ?? undefined}>
                         {activeTab === "tasks" ? (
-                            <MyWorkTasksTab isActive day={day} onDay={setDay} pinned={pinned} onWeek={setWeek} finished={finished} onFinished={(delta) => setFinished((n) => Math.max(0, n + delta))} meId={user?.id ?? null} />
+                            <>
+                                {/* B1.7a (report 30.4 call 1): people in a class open on Week; List is today's view, kept mounted for the strip. */}
+                                {inClass ? (
+                                    <div role="group" aria-label="Show" className="flex gap-1 px-3 pt-2 text-[12px]">
+                                        {(["week", "list"] as const).map((v) => (
+                                            <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}
+                                                className={view === v ? "rounded-sm bg-foreground px-2 py-1 font-semibold text-background" : "rounded-sm px-2 py-1 text-muted-foreground hover:bg-muted"}>{v === "week" ? "Week" : "List"}</button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                                {inClass && view === "week" ? <MyWorkWeek keepOpen={pinned} /> : null}
+                                <div hidden={inClass && view === "week"}>
+                                    <MyWorkTasksTab isActive day={day} onDay={setDay} pinned={pinned} onWeek={setWeek} finished={finished} onFinished={(delta) => setFinished((n) => Math.max(0, n + delta))} meId={user?.id ?? null} />
+                                </div>
+                            </>
                         ) : (
                             <MyWorkRequestsTab isActive onWaiting={setWaitingNow} onHandled={(delta) => setHandled((n) => Math.max(0, n + delta))} />
                         )}
