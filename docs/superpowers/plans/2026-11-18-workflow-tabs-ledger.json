@@ -1058,9 +1058,9 @@
       "text": "B1.6 W4 Exams (30.5) — Build: assignment type: exam settings (format, window, room, covers, out of, second marker, hold); extra time per student; server-locked ",
       "kind": "unit",
       "milestone": "B1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/exams.test.ts; tests/unit/class-sessions.test.ts; tests/db/exams.test.ts; tests/browser/exam-card.spec.ts; tests/browser/marking.spec.ts; tests/browser/school-card.spec.ts",
+      "evidence": "B1.6a dcb1e0f34, B1.6b a628f7795 (0131), B1.6c/d eb0dd9ade (0132) live 2026-11-25. Live in Chrome on wt-test-b0-class: the assignment form's Kind → Exam shows Exam details (Format, Length, Room, Seats, What's in it from Unit 1 / Week 1, Hold results, Second marker); a timed exam draft saved with the window, no late work and the week it covers (checked in the database) and was deleted; the panel says \"Exam · Timed online · results held\". Found live and fixed: the form sent the 15-minute allowance (now 0 for exams) and kept \"A file\" for In person (now No submission). On wt-test-b0-school, Exam weeks saved \"WT Midterms\" 1–5 Feb 2027, pushed to the class (database), the class showed \"No classes during the school's exam weeks (1)\"; then removed. Locked paper, held results and Release, extra time, Make-up, clash warning, second marking and the school's Exams view are proven by DB tests (one test account, so no students live). Security reviews fixed: materials locked with the paper; extra time never moves a team's close; agreeing a mark only between the two marks. Left: the Term plan's exam row and shading."
     },
     {
       "key": "B1.7",
