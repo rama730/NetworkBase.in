@@ -19,6 +19,8 @@ async function open(page: Page, view: string, state: Record<string, unknown> = {
       pickSectionAction: async (_o: string, sId: string) => { calls.push(['pick', sId]); return { success: true }; },
       saveSectionSettingsAction: async (_o: string, v: unknown) => { calls.push(['settings', v]); return { success: true }; },
       readOrgMembersAction: async () => ({ success: true, rows: [{ userId: 'ta1', name: 'Priya', role: 'admin' }] }),
+      readReviewLoadAction: async () => ({ success: true, load: [{ userId: 'ta1', name: 'Priya', toReview: 12, over: false }, { userId: 'ta2', name: 'Arjun', toReview: 3, over: false }, { userId: 'ta3', name: 'Meera', toReview: 20, over: true }] }),
+      rebalanceReviewsAction: async (_o: string, apply: boolean) => { calls.push(['rebalance', apply]); return { success: true, moves: 8, summary: [{ from: 'Meera', to: 'Arjun', count: 8 }] }; },
     };
   }, state);
   await openApp(page, 'tests/browser/sections.fixture.tsx', { path: `/?view=${view}` });
@@ -68,4 +70,16 @@ test('Settings → Sections: the word and the switches save', async ({ page }) =
   await page.getByLabel(/Students pick their own section/).check();
   await page.getByRole('button', { name: 'Save section settings' }).click();
   await expect.poll(() => calls(page)).toEqual([['settings', { word: 'Batch', taOnlyOwn: true, selfPick: true }]]);
+});
+
+test('B1.3b: Review load flags the TA over 1.5× the average; Rebalance previews, then applies', async ({ page }) => {
+  await open(page, 'sections', { sections: [sec('A', 'Section A', 2)] });
+  const load = page.getByTestId('review-load');
+  await expect(load).toContainText('Meera 20');
+  await expect(load.getByText('Over')).toHaveCount(1);
+  await load.getByRole('button', { name: 'Rebalance…' }).click();
+  await expect(page.getByTestId('rebalance-preview')).toContainText('8 from Meera to Arjun');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Rebalance' }).click();
+  await expect.poll(async () => (await calls(page)).some((c: unknown[]) => c[0] === 'rebalance' && c[1] === true)).toBe(true);
+  expect((await calls(page))[0]).toEqual(['rebalance', false]);
 });

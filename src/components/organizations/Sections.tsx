@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { deleteSectionAction, moveStudentAction, pickSectionAction, readSectionsAction, saveSectionAction, saveSectionSettingsAction, splitStudentsAction, type SectionRow } from "@/app/actions/sections";
+import { deleteSectionAction, moveStudentAction, pickSectionAction, readReviewLoadAction, readSectionsAction, rebalanceReviewsAction, saveSectionAction, saveSectionSettingsAction, splitStudentsAction, type SectionRow } from "@/app/actions/sections";
 import { readOrgMembersAction } from "@/app/actions/org-members";
 import { messageUserInWindow } from "@/components/messages/message-user";
-import { OrgCard } from "@/components/organizations/org-ui";
+import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { meetsText } from "@/components/organizations/ClassHomeParts";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -110,6 +110,7 @@ export function SectionsView({ orgId }: { orgId: string }) {
           <span className="text-muted-foreground"> {data.unplaced.slice(0, 5).map((u) => u.name).join(", ")}{data.unplaced.length > 5 ? "…" : ""}</span>
           {teacher && data.sections.length ? <> · <button type="button" className={LINK} onClick={() => setSplitting(true)}>Split students…</button></> : null}</p>
       ) : null}
+      {data.sections.some((x) => x.tas.length) ? <ReviewLoad orgId={orgId} teacher={teacher} /> : null}
       {editing ? <SectionDialog orgId={orgId} word={word} section={editing === "new" ? null : editing} onClose={(saved) => { setEditing(null); if (saved) void refresh(); }} /> : null}
       {splitting ? <SplitDialog orgId={orgId} word={word} kinds={[...new Set(data.sections.map((s) => s.kind))]} onClose={(done) => { setSplitting(false); if (done) void refresh(); }} /> : null}
       <ConfirmDialog open={Boolean(removing)} onOpenChange={(o) => { if (!o) setRemoving(null); }} title={`Remove ${removing?.name ?? ""}?`}
@@ -272,5 +273,39 @@ export function SectionSettingsCard({ orgId }: { orgId: string }) {
         </div>
       </SettingsCard>
     </section>
+  );
+}
+
+/** Review load per TA (call 9: flagged above 1.5× the average) and Rebalance… with a preview. */
+function ReviewLoad({ orgId, teacher }: { orgId: string; teacher: boolean }) {
+  const client = useQueryClient();
+  const q = useQuery({ queryKey: ["review-load", orgId], queryFn: () => readReviewLoadAction(orgId), staleTime: 15_000 });
+  const [asking, setAsking] = useState(false);
+  const preview = useQuery({ queryKey: ["rebalance", orgId], queryFn: () => rebalanceReviewsAction(orgId, false), enabled: asking, staleTime: 0 });
+  const data = q.data?.success ? q.data : null;
+  if (!data?.load.length) return null;
+  const p = preview.data?.success ? preview.data : null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]" data-testid="review-load">
+      <span className="font-medium">Review load</span>
+      {data.load.map((l) => (
+        <span key={l.userId} className="flex items-center gap-1">{l.name} <span className="font-mono">{l.toReview}</span>{l.over ? <StatusBadge state="at_risk">Over</StatusBadge> : null}</span>
+      ))}
+      {teacher && data.load.length > 1 ? <button type="button" className={LINK} onClick={() => setAsking(true)}>Rebalance…</button> : null}
+      <ConfirmDialog open={asking} onOpenChange={setAsking} title="Rebalance reviews" confirmLabel="Rebalance" size="wide"
+        description="Hand-ins not reviewed yet move from TAs above the average to TAs below it. Reviewed work stays."
+        onConfirm={async () => {
+          const r = await rebalanceReviewsAction(orgId, true);
+          if (!r.success) throw new Error(r.error);
+          toast(r.moves ? `${r.moves} hand-ins moved` : "Already balanced");
+          await Promise.all([client.invalidateQueries({ queryKey: ["review-load", orgId] }), client.invalidateQueries({ queryKey: ["rebalance", orgId] })]);
+        }}>
+        <div className="text-[13px]" data-testid="rebalance-preview">
+          {!p ? <p className="text-muted-foreground">{preview.data && !preview.data.success ? preview.data.error : "Working it out…"}</p>
+            : p.moves === 0 ? <p>Already balanced. Nothing moves.</p>
+              : <ul className="space-y-1">{p.summary.map((m) => <li key={`${m.from}-${m.to}`}><span className="font-mono">{m.count}</span> from {m.from} to {m.to}</li>)}</ul>}
+        </div>
+      </ConfirmDialog>
+    </div>
   );
 }

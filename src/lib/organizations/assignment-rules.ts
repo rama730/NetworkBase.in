@@ -11,7 +11,9 @@ export type AssignmentTarget =
   | { mode: "people"; userIds: string[] }
   | { mode: "teams"; teams: Array<{ name: string; userIds: string[]; leadId?: string | null }>; individuals: string[] }
   | { mode: "each_child" }
-  | { mode: "children"; projectIds: string[] };
+  | { mode: "children"; projectIds: string[] }
+  /** B1.3b (report 30.9 call 5): the students in these sections of the class. */
+  | { mode: "sections"; sectionIds: string[] };
 
 /** Stored on the master. */
 export type AssignmentSettings = {

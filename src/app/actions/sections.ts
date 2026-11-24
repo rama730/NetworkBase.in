@@ -208,3 +208,65 @@ async function tellPlaced(orgId: string, slug: string | null, actorId: string, u
       dedupeKey: `section-placed:${sectionId}:${userId}:${Date.now()}` }).catch(() => undefined);
   }
 }
+
+/** Pending hand-ins routed to each TA (report 30.9 views: Review load): section routing plus Rebalance overrides. */
+async function pendingByTa(orgId: string) {
+  return Array.from(await db.execute<{ copy_id: string; ta: string }>(sql`
+    SELECT c.id AS copy_id, ta.user_id::text AS ta FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+      JOIN class_section_members st ON st.workspace_id = m.workspace_id AND st.user_id = c.assignee_id AND st.role = 'student'
+      JOIN class_section_members ta ON ta.section_id = st.section_id AND ta.role = 'ta'
+    WHERE m.workspace_id = ${orgId}::uuid AND c.review_status = 'pending' AND c.deleted_at IS NULL
+      AND NOT (coalesce(c.type_fields, '{}'::jsonb) ? 'reviewer') AND coalesce(jsonb_array_length(m.assignment_settings->'reviewers'), 0) = 0
+    UNION ALL
+    SELECT c.id, c.type_fields->>'reviewer' FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+    WHERE m.workspace_id = ${orgId}::uuid AND c.review_status = 'pending' AND c.deleted_at IS NULL AND coalesce(c.type_fields, '{}'::jsonb) ? 'reviewer'`));
+}
+
+/** Review load per TA, with call 9's warning (above 1.5× the average). Teachers and TAs. */
+export async function readReviewLoadAction(orgId: string) {
+  const ctx = await classAccess(orgId);
+  if (!ctx?.staff) return DENIED;
+  const { reviewLoadWarnings } = await import("@/lib/organizations/sections");
+  const tas = await db.select({ id: workspaceMembers.userId, fullName: profiles.fullName, username: profiles.username }).from(workspaceMembers)
+    .innerJoin(profiles, eq(profiles.id, workspaceMembers.userId)).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, "admin")));
+  const pending = await pendingByTa(orgId);
+  const load = tas.map((t) => ({ userId: t.id, name: name(t), toReview: pending.filter((p) => p.ta === t.id).length }));
+  const warn = reviewLoadWarnings(load);
+  return { success: true as const, load: load.map((l) => ({ ...l, over: warn.has(l.userId) })) };
+}
+
+/**
+ * Rebalance… : moves hand-ins not yet reviewed from TAs above the average to TAs below it, as a per-copy reviewer
+ * (the preview first; apply = true makes the change). The teacher.
+ */
+export async function rebalanceReviewsAction(orgId: string, apply: boolean) {
+  const ctx = await classAccess(orgId);
+  if (!ctx?.teacher || !ctx.canWrite) return DENIED;
+  const tas = (await db.select({ id: workspaceMembers.userId }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, "admin")))).map((t) => t.id);
+  if (tas.length < 2) return { success: false as const, error: "Rebalancing needs two TAs or more." };
+  const pending = (await pendingByTa(orgId)).filter((p) => tas.includes(p.ta));
+  // A copy shared by two TAs of one section counts once, with the first.
+  const owner = new Map<string, string>();
+  for (const p of pending) if (!owner.has(p.copy_id)) owner.set(p.copy_id, p.ta);
+  const counts = new Map(tas.map((t) => [t, 0]));
+  for (const ta of owner.values()) counts.set(ta, (counts.get(ta) ?? 0) + 1);
+  const target = Math.ceil(owner.size / tas.length);
+  const moves: Array<{ copyId: string; from: string; to: string }> = [];
+  for (const [copyId, from] of owner) {
+    if ((counts.get(from) ?? 0) <= target) continue;
+    const to = [...counts.entries()].filter(([t]) => t !== from).sort((a, b) => a[1] - b[1])[0];
+    if (!to || to[1] >= target) continue;
+    moves.push({ copyId, from, to: to[0] });
+    counts.set(from, counts.get(from)! - 1);
+    counts.set(to[0], to[1] + 1);
+  }
+  if (apply && moves.length) {
+    await db.transaction(async (tx) => {
+      for (const m of moves) await tx.execute(sql`UPDATE tasks SET type_fields = coalesce(type_fields, '{}'::jsonb) || ${JSON.stringify({ reviewer: m.to })}::jsonb WHERE id = ${m.copyId}::uuid AND review_status = 'pending'`);
+    });
+  }
+  const names = new Map((await db.select({ id: profiles.id, fullName: profiles.fullName, username: profiles.username }).from(profiles).where(inArray(profiles.id, tas))).map((p) => [p.id, name(p)]));
+  const summary = [...moves.reduce((acc, m) => acc.set(`${m.from}>${m.to}`, (acc.get(`${m.from}>${m.to}`) ?? 0) + 1), new Map<string, number>())]
+    .map(([k, n]) => { const [f, t] = k.split(">"); return { from: names.get(f!) ?? "TA", to: names.get(t!) ?? "TA", count: n }; });
+  return { success: true as const, moves: moves.length, summary };
+}

@@ -99,3 +99,43 @@ test("layer 16: a student sees only their own section's names; self-pick respect
   assert.deepEqual(mine.sections.map((s) => [s.name, s.mine, s.students.length]), [["A", false, 0], ["B", true, 1]], "other sections show times and seats, never names");
   assert.deepEqual(mine.unplaced, []);
 });
+
+test("B1.3b: routing — a hand-in goes to its student's section TA; another TA can't review it; Rebalance overrides; the Sections target", async () => {
+  const t = await setup(4);
+  const [ta2] = [await sql.begin((tx) => createUser(tx))];
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${t.klass}, ${ta2!}, 'admin')`;
+  viewerId = t.teacher;
+  const a = await sec.saveSectionAction(t.klass, section("A", { taIds: [t.ta] }));
+  const b = await sec.saveSectionAction(t.klass, section("B", { taIds: [ta2!] }));
+  assert.ok(a.success && b.success);
+  for (const k of t.kids.slice(0, 3)) await sec.moveStudentAction(t.klass, k, a.id);
+  await sec.moveStudentAction(t.klass, t.kids[3]!, b.id);
+  const recipients = await loadAppModule(() => import("../../src/lib/organizations/assignments"));
+  const { db } = await loadAppModule(() => import("../../src/lib/db"));
+  const got = await recipients.resolveRecipients(db, t.klass, { mode: "sections", sectionIds: [b.id] });
+  assert.deepEqual(got.map((r) => r.assigneeId), [t.kids[3]], "the Sections target reaches that section's students");
+  const [master] = await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, assignment_settings) VALUES (${t.klass}, 'Lab 1', 'todo', 'medium', ${t.teacher}, 'assignment', '{"version":1,"reviewRequired":true}'::jsonb) RETURNING id`;
+  const copies: string[] = [];
+  for (const k of t.kids) {
+    const [c] = await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, assignment_id, assignee_id, review_status) VALUES (${t.klass}, 'Lab 1', 'done', 'medium', ${k}, 'task', ${master!.id}, ${k}, 'pending') RETURNING id`;
+    copies.push(c!.id);
+  }
+  const { reviewsCopySql } = await loadAppModule(() => import("../../src/lib/organizations/sections-server"));
+  const { sql: dsql } = await import("drizzle-orm");
+  const routed = async (viewer: string) => Array.from(await db.execute<{ id: string; ok: boolean }>(dsql`SELECT c.id, ${reviewsCopySql(viewer)} AS ok FROM tasks c JOIN tasks m ON m.id = c.assignment_id WHERE m.id = ${master!.id}::uuid ORDER BY c.created_at`)).map((r) => r.ok);
+  assert.deepEqual(await routed(t.ta), [true, true, true, false]);
+  assert.deepEqual(await routed(ta2!), [false, false, false, true]);
+  const load = await sec.readReviewLoadAction(t.klass);
+  assert.deepEqual(load.success && load.load.map((l) => [l.userId === t.ta ? "ta" : "ta2", l.toReview]).sort(), [["ta", 3], ["ta2", 1]]);
+  const preview = await sec.rebalanceReviewsAction(t.klass, false);
+  assert.ok(preview.success && preview.moves === 1);
+  assert.deepEqual(await routed(t.ta), [true, true, true, false], "a preview changes nothing");
+  await sec.rebalanceReviewsAction(t.klass, true);
+  assert.deepEqual((await routed(ta2!)).filter(Boolean).length, 2, "one hand-in moved to the lighter TA");
+  await sql`UPDATE tasks SET type_fields = '{}'::jsonb WHERE assignment_id = ${master!.id}`;
+  const assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
+  viewerId = ta2!;
+  const r = await assignments.reviewAssignmentCopyAction(copies[0]!, "approve");
+  assert.equal(r.success, false);
+  assert.match(r.success ? "" : r.error, /another section’s TA/);
+});

@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { taskActivityEvents, workspaceMembers, workspaceSprints, workspaceWorkflowColumns, workspaces, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
+import { classSectionMembers, taskActivityEvents, workspaceMembers, workspaceSprints, workspaceWorkflowColumns, workspaces, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { assignmentWriteBlock, autoStartLine, copyState, reviewDeadlock, lateAfterMs, type AssignmentSettings, type AssignmentTarget, type AssignmentWrite, type CopyState, type StartTrigger } from "@/lib/organizations/assignment-rules";
 import { orgCan, orgRoleOf, type OrgRole } from "@/lib/organizations/permissions";
@@ -225,6 +225,14 @@ export async function resolveRecipients(executor: Executor, orgId: string, targe
 
   if (target.mode === "everyone") return members.filter((m) => m.role === "member").map((m) => ({ projectId: orgId, assigneeId: m.userId }));
   if (target.mode === "role") return members.filter((m) => m.role === target.role || (target.role === "admin" && m.role === "owner")).map((m) => ({ projectId: orgId, assigneeId: m.userId }));
+  // B1.3b (report 30.9 call 5): the students now in the picked sections (one copy each, even in two picked sections).
+  if (target.mode === "sections") {
+    const rows = target.sectionIds.length ? await executor.select({ userId: classSectionMembers.userId }).from(classSectionMembers)
+      .where(and(eq(classSectionMembers.projectId, orgId), inArray(classSectionMembers.sectionId, target.sectionIds), eq(classSectionMembers.role, "student"))) : [];
+    const ids = [...new Set(rows.map((r) => r.userId))].filter((id) => roleOf.get(id) === "member");
+    if (ids.length === 0) throw new Error("Those sections have no students yet.");
+    return ids.map((assigneeId) => ({ projectId: orgId, assigneeId }));
+  }
   // People who left since the draft was saved: asked about first, then left out (problem 15).
   const named = target.mode === "people" ? target.userIds : target.mode === "teams" ? [...target.teams.flatMap((t) => t.userIds), ...target.individuals] : [];
   const left = [...new Set(named)].filter((id) => !assignable(id));

@@ -256,7 +256,8 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [announcement, setAnnouncement] = useState<string | null>(null)
     const [stepDraft, setStepDraft] = useState('')
     const [roster, setRoster] = useState<OrgRosterPerson[]>([])
-    const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string; endDate?: string | null }>; teamAssignments?: Array<{ id: string; title: string }> }>({ children: [], sprints: [] })
+    const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string; endDate?: string | null }>; teamAssignments?: Array<{ id: string; title: string }>; sections?: Array<{ id: string; name: string; students: number }> }>({ children: [], sprints: [] })
+    const [sectionIds, setSectionIds] = useState<string[]>([])
     // Errors sit under their field, like the Task tab; a server error sits at the top of the form.
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [error, setError] = useState<string | null>(null)
@@ -277,7 +278,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
         void listOrgRosterAction(orgId, '').then(setRoster)
         void readAssignmentComposerOptionsAction(orgId).then((r) => {
             if (!r.success) return
-            setOptions({ children: r.children, sprints: r.sprints, teamAssignments: r.teamAssignments })
+            setOptions({ children: r.children, sprints: r.sprints, teamAssignments: r.teamAssignments, sections: r.sections })
             setAdmins(r.admins ?? [])
             // A new assignment starts from the org's Work defaults (report §21.2 #5).
             setReviewRequired(r.defaults.reviewRequired)
@@ -297,7 +298,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                 setTitle(f.title); setDescription(f.description); setSubmissionType(f.submissionType as typeof submissionType); setReviewRequired(f.reviewRequired)
                 setLateRule(f.lateRule as typeof lateRule); setLateAfter(f.lateAfterMinutes); setSteps(f.steps); setDueLocal('')
                 setMaterials(f.materials.map((m) => ({ ...m, adminsOnly: false })))
-                if (f.target.mode === 'people') { setMode('people'); setPeople(f.target.userIds) } else if (f.target.mode === 'everyone' || f.target.mode === 'each_child') setMode(f.target.mode)
+                if (f.target.mode === 'people') { setMode('people'); setPeople(f.target.userIds) } else if (f.target.mode === 'sections') { setMode('sections'); setSectionIds(f.target.sectionIds) } else if (f.target.mode === 'everyone' || f.target.mode === 'each_child') setMode(f.target.mode)
             })
         })
     }, [orgId, reuseFrom])
@@ -319,20 +320,23 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const individuals = leftover === 'own' ? pool.map((p) => p.userId) : []
     const problems = teamProblems(teams.map((t) => ({ name: t.name, size: t.people.length })))
     const problemCount = problems.filter(Boolean).length
+    const pickedStudents = (options.sections ?? []).filter((x) => sectionIds.includes(x.id)).reduce((n, x) => n + x.students, 0)
     const preview = mode === 'everyone' ? 'One assignment per member'
         : mode === 'role' ? 'One assignment per admin'
             : mode === 'people' ? `Creates ${people.length} ${people.length === 1 ? 'assignment' : 'assignments'}`
                 : mode === 'teams' ? teamsSummary(teams.length, placed.size, pool.length, leftover === 'own')
+                    : mode === 'sections' ? `Creates ${pickedStudents} ${pickedStudents === 1 ? 'assignment' : 'assignments'} · one per student in the picked sections`
                     : mode === 'each_child' ? `Creates ${options.children.length} assignments · one per workspace`
                         : `Creates ${childIds.length} assignments · one per workspace`
 
     // Board/review report §4: the button says what happens — "Publish to 60".
     const goesTo = mode === 'everyone' ? roster.filter((p) => p.role === 'member').length : mode === 'people' ? people.length
-        : mode === 'teams' ? teams.length + individuals.length : mode === 'each_child' ? options.children.length : mode === 'children' ? childIds.length : 0
+        : mode === 'teams' ? teams.length + individuals.length : mode === 'each_child' ? options.children.length : mode === 'children' ? childIds.length : mode === 'sections' ? pickedStudents : 0
     const target = (): AssignmentTarget => mode === 'everyone' ? { mode }
         : mode === 'role' ? { mode, role: 'admin' }
             : mode === 'people' ? { mode, userIds: people }
                 : mode === 'teams' ? { mode, teams: teams.map((t) => ({ name: t.name, userIds: t.people.map((p) => p.userId), leadId: t.leadId })), individuals }
+                    : mode === 'sections' ? { mode, sectionIds }
                     : mode === 'each_child' ? { mode } : { mode: 'children', projectIds: childIds }
 
     // The announcement says the due date in the organization's zone, like everything else on the form.
@@ -464,6 +468,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                                     <option value="role">Admins</option>
                                     <option value="people">Selected people</option>
                                     <option value="teams">Teams</option>
+                                    {options.sections?.length ? <option value="sections">Sections</option> : null}
                                     <option value="each_child">Each workspace in the organization</option>
                                     <option value="children">Selected workspaces</option>
                                 </select>
@@ -493,6 +498,15 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             </ul>
                             {people.length ? <p className="text-xs text-muted-foreground">{people.length} picked</p> : null}
                         </div>
+                    ) : null}
+                    {mode === 'sections' ? (
+                        <fieldset className="space-y-1.5" data-testid="assignment-sections">
+                            <legend className="text-[13px] font-medium">Sections</legend>
+                            {(options.sections ?? []).map((x) => (
+                                <label key={x.id} className="flex items-center gap-2.5 text-[13px]"><input className="nb-check" type="checkbox" checked={sectionIds.includes(x.id)}
+                                    onChange={(e) => setSectionIds((cur) => e.target.checked ? [...cur, x.id] : cur.filter((id) => id !== x.id))} />{x.name} <span className="nb-meta font-mono">{x.students} students</span></label>
+                            ))}
+                        </fieldset>
                     ) : null}
                     {mode === 'teams' ? (
                         <div className="space-y-3">

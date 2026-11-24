@@ -1,5 +1,6 @@
 'use server';
 
+import { reviewsCopySql } from '@/lib/organizations/sections-server';
 import { revalidatePath } from 'next/cache';
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
@@ -67,6 +68,7 @@ const targetSchema: z.ZodType<AssignmentTarget> = z.union([
     }),
     z.object({ mode: z.literal('each_child') }),
     z.object({ mode: z.literal('children'), projectIds: z.array(z.string().uuid()).min(1).max(200) }),
+    z.object({ mode: z.literal('sections'), sectionIds: z.array(z.string().uuid()).min(1, 'Pick a section.').max(50) }),
 ]);
 
 const createSchema = z.object({
@@ -855,6 +857,15 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
     if (fixBy && !(fixBy.getTime() > Date.now())) return { success: false, error: 'Pick a Fix by date after now.' };
     const [own] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, copyId), ownWork(copyId, viewer.userId))).limit(1);
     if (own) return { success: false, error: "You can’t review your own work. Ask another admin." };
+    // B1.3b (report 30.9 call 2): with "TAs work only with their section" on, a TA reviews their section's work only.
+    if (viewer.role === 'admin') {
+        const { readSectionSettings } = await import('@/lib/organizations/sections');
+        const [org] = await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, loaded.master.projectId)).limit(1);
+        if (readSectionSettings(org?.settings).taOnlyOwn) {
+            const [row] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT ${reviewsCopySql(viewer.userId)} AS ok FROM tasks c JOIN tasks m ON m.id = c.assignment_id WHERE c.id = ${copyId}::uuid`));
+            if (row && !row.ok) return { success: false, error: "This hand-in is for another section’s TA." };
+        }
+    }
     const reviewed = await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000), fixBy, Boolean(options.change && approved)).catch((error: Error) => error);
     if (reviewed instanceof Error) return { success: false, error: reviewed.message };
     if (!reviewed) {
@@ -1119,7 +1130,11 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
         SELECT p.id, coalesce(p.full_name, p.username, 'Admin') AS name FROM profiles p
         WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${orgId} UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${orgId} AND role = 'admin')
         ORDER BY 2`);
-    return { success: true as const, children, sprints, teamAssignments, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule, dueTime: work.dueTime, aiPolicy: work.aiPolicy }, admins: [...admins] };
+    // B1.3b: a class's sections, for the Sections target (report 30.9 call 5).
+    const sections = Array.from(await db.execute<{ id: string; name: string; students: number }>(sql`
+        SELECT s.id, s.name, (SELECT count(*)::int FROM class_section_members m WHERE m.section_id = s.id AND m.role = 'student') AS students
+        FROM class_sections s WHERE s.workspace_id = ${orgId}::uuid ORDER BY s.position, s.created_at`));
+    return { success: true as const, children, sprints, teamAssignments, sections, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule, dueTime: work.dueTime, aiPolicy: work.aiPolicy }, admins: [...admins] };
 }
 
 export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; dueDate: string | null; state: CopyState; late: boolean; submissionType: string; canSubmit: boolean };
@@ -1329,7 +1344,7 @@ export async function readReviewQueueAction(orgId: string, cursor?: string | nul
                   WHERE p.id = c.assignee_id OR p.id IN (SELECT tm.user_id FROM task_team_members tm WHERE tm.task_id = c.id)) AS people,
                (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = c.id AND tc.deleted_at IS NULL AND tc.user_id IS DISTINCT FROM ${viewer.userId}
                   AND tc.created_at > coalesce((SELECT r.last_read_at FROM task_read_receipts r WHERE r.task_id = c.id AND r.user_id = ${viewer.userId}), '-infinity'::timestamptz)) AS new_messages,
-               (coalesce(jsonb_array_length(m.assignment_settings->'reviewers'), 0) = 0 OR m.assignment_settings->'reviewers' ? ${viewer.userId}) AS mine,
+               ${reviewsCopySql(viewer.userId)} AS mine,
                (SELECT jsonb_agg(jsonb_build_object('nodeId', f->>'nodeId', 'name', f->>'name', 'size', n.size)) FROM assignment_submissions s CROSS JOIN jsonb_array_elements(s.files) f
                   LEFT JOIN workspace_nodes n ON n.id = (f->>'nodeId')::uuid WHERE s.copy_id = c.id AND s.version = (c.submission->>'version')::int) AS files,
                (SELECT jsonb_agg(jsonb_build_object('version', s.version, 'at', s.submitted_at, 'files', (SELECT coalesce(jsonb_agg(jsonb_build_object('nodeId', g->>'nodeId', 'name', g->>'name', 'size', gn.size)), '[]'::jsonb)
