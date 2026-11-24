@@ -59,6 +59,13 @@ test("the thesis: chapters count their own words, research questions save, a sup
   assert.equal((await doc.saveThesisAction(ws, { supervisorId: supervisor! })).success, true);
   const again = await doc.readThesisAction(ws);
   assert.ok(again.success && again.thesis.questions.length === 1 && again.thesis.supervisor);
+  // Security review: a leaders-only chapter isn't counted for a member who can't read it.
+  const [member] = [await sql.begin((tx) => createUser(tx))];
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${member}, 'member')`;
+  await sql`UPDATE workspace_documents SET settings = settings || '{"visibilityOverride":"leaders_only"}'::jsonb WHERE workspace_id = ${ws} AND slug = 'method'`;
+  viewerId = member;
+  const limited = await doc.readThesisAction(ws);
+  assert.ok(limited.success && limited.thesis.chapters.map((c) => c.title).join() === "Introduction");
   viewerId = stranger!;
   assert.equal((await doc.readThesisAction(ws)).success, false, "thesis text stays with insiders");
   assert.equal((await doc.saveThesisAction(ws, { questions: ["hijack"] })).success, false);

@@ -3114,8 +3114,11 @@ export async function readThesisAction(projectId: string) {
         const t = await import("@/lib/workflows/thesis");
         const [ws] = await db.select({ settings: workspaces.workflowSettings, slug: workspaces.slug, parentId: workspaces.parentId }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
         const settings = t.readThesisSettings(ws?.settings);
-        const docs = await db.select({ slug: workspaceDocuments.slug, filename: workspaceDocuments.filename, settings: workspaceDocuments.settings, versionId: workspaceDocuments.publishedVersionId })
+        const all = await db.select({ slug: workspaceDocuments.slug, filename: workspaceDocuments.filename, settings: workspaceDocuments.settings, versionId: workspaceDocuments.publishedVersionId })
             .from(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.settings}->>'section' = 'chapters'`)).limit(60);
+        // Security review: only chapters this person may read are counted (a leaders-only chapter stays out).
+        const base = await loadDocProjectBase(projectId, actor);
+        const docs = all.filter((d) => { const p = docContext(base, actor, d.slug).permission; return p.canReadPublished || p.canEdit; });
         const chapters = [];
         for (const d of docs) {
             // A document moved into Chapters without numbers yet counts with the defaults.
