@@ -184,3 +184,49 @@ export async function saveTermPlanSettingsAction(orgId: string, input: unknown):
   await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ termPlan: data.data })}::jsonb` }).where(eq(workspaces.id, orgId));
   return { success: true };
 }
+
+/**
+ * Move a lesson to another week (the menu path for the drag, layer 14). With "Shift the rest", every later lesson
+ * that isn't taught moves by the same number of weeks, kept inside the term. The teacher.
+ */
+export async function moveLessonAction(orgId: string, input: { taskId: string; weekId: string; shiftRest: boolean }): Promise<{ success: true; moved: number } | Failure> {
+  const ctx = await classAccess(orgId);
+  if (!ctx?.teacher || !ctx.canWrite || !isLooseUuid(input.taskId) || !isLooseUuid(input.weekId)) return DENIED;
+  const weeks = await db.select({ id: workspaceSprints.id, start: workspaceSprints.startDate }).from(workspaceSprints)
+    .where(and(eq(workspaceSprints.projectId, orgId), sql`${workspaceSprints.parentSprintId} IS NOT NULL`, isNull(workspaceSprints.pathPosition))).orderBy(asc(workspaceSprints.startDate));
+  const index = new Map(weeks.map((w, i) => [w.id, i]));
+  const [lesson] = await db.select({ id: tasks.id, weekId: tasks.sprintId }).from(tasks)
+    .where(and(eq(tasks.id, input.taskId), eq(tasks.projectId, orgId), eq(tasks.itemType, "class_lesson"), isNull(tasks.deletedAt))).limit(1);
+  if (!lesson) return { success: false, error: "That lesson isn’t in this class." };
+  const from = lesson.weekId ? index.get(lesson.weekId) : undefined;
+  const to = index.get(input.weekId);
+  if (to === undefined) return { success: false, error: "Pick a week of this term." };
+  if (!input.shiftRest || from === undefined) {
+    await db.update(tasks).set({ sprintId: input.weekId, updatedAt: new Date() }).where(eq(tasks.id, lesson.id));
+    return { success: true, moved: 1 };
+  }
+  const delta = to - from;
+  const later = await db.select({ id: tasks.id, weekId: tasks.sprintId, stage: tasks.stage }).from(tasks)
+    .where(and(eq(tasks.projectId, orgId), eq(tasks.itemType, "class_lesson"), isNull(tasks.deletedAt)));
+  const moves = later.filter((l) => l.id === lesson.id || (l.weekId && (index.get(l.weekId) ?? -1) > from && l.stage !== "taught"))
+    .map((l) => ({ id: l.id, week: weeks[Math.max(0, Math.min(weeks.length - 1, (l.id === lesson.id ? from : index.get(l.weekId!)!) + delta))]!.id }));
+  await db.transaction(async (tx) => {
+    for (const m of moves) await tx.update(tasks).set({ sprintId: m.week, updatedAt: new Date() }).where(eq(tasks.id, m.id));
+  });
+  return { success: true, moved: moves.length };
+}
+
+/** Duplicate a lesson into the same week, back at Planned (teacher notes stay with the original). The teacher. */
+export async function duplicateLessonAction(orgId: string, taskId: string): Promise<{ success: true; id: string } | Failure> {
+  const ctx = await classAccess(orgId);
+  if (!ctx?.teacher || !ctx.canWrite || !isLooseUuid(taskId)) return DENIED;
+  const [l] = await db.select({ title: tasks.title, weekId: tasks.sprintId, fields: tasks.typeFields }).from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.projectId, orgId), eq(tasks.itemType, "class_lesson"), isNull(tasks.deletedAt))).limit(1);
+  if (!l?.weekId) return { success: false, error: "That lesson isn’t in a week of this class." };
+  const made = await addTermLessonAction(orgId, { weekId: l.weekId, title: `${l.title} (copy)`.slice(0, 200), outcomes: ((l.fields ?? {}) as { outcomes?: string[] }).outcomes });
+  if (!made.success) return made;
+  const f = (l.fields ?? {}) as Record<string, unknown>;
+  const copy = Object.fromEntries(["before", "during", "after", "minutes", "links"].filter((k) => f[k] !== undefined).map((k) => [k, f[k]]));
+  if (Object.keys(copy).length) await db.update(tasks).set({ typeFields: sql`coalesce(${tasks.typeFields}, '{}'::jsonb) || ${JSON.stringify(copy)}::jsonb` }).where(eq(tasks.id, made.id));
+  return made;
+}

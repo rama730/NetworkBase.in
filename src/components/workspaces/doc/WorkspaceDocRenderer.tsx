@@ -1,5 +1,6 @@
 "use client";
 
+import { TermPlanBlock } from "@/components/organizations/TermPlan";
 import { RemovedListsNote, WorkspaceDocLiveBlock } from "@/components/workspaces/doc/WorkspaceDocLiveBlock";
 import { DocDecisionsBlock } from "@/components/workspaces/doc/DocDecisions";
 import { GoalsBlock } from "@/components/workspaces/doc/DocGoals";
@@ -843,6 +844,12 @@ export const WorkspaceDocRenderer = React.memo(function WorkspaceDocRenderer({
                             return !editorMode && allowSmartBlocks
                                 ? <IdeasBlock key={`block-${plan.index}`} projectId={project.id} docSlug={normalizedDocSlug} />
                                 : <div key={`block-${plan.index}`} className="my-4 rounded-[8px] border border-dashed border-border px-4 py-3 text-[13px] text-muted-foreground">Ideas · the ranked list shows on the Documents tab</div>;
+                        }
+                        // Report 30.3 (B1.2b): a class's Term plan, units and weeks with their topics.
+                        if (live?.kind === "termplan") {
+                            return !editorMode && allowSmartBlocks
+                                ? <TermPlanBlock key={`block-${plan.index}`} orgId={project.id} />
+                                : <div key={`block-${plan.index}`} className="my-4 rounded-[8px] border border-dashed border-border px-4 py-3 text-[13px] text-muted-foreground">Term plan · units and weeks from Sprints show here</div>;
                         }
                         // Report 38.16 W7 (A7.3): the workspace's brand colors.
                         if (live?.kind === "colors") {

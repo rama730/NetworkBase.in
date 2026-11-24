@@ -30,6 +30,8 @@ async function open(page: Page, view: string, role = 'teacher') {
       updateLessonAction: async (_o: string, id: string, p: unknown) => { calls.push(['update', id, p]); return { success: true }; },
       saveLessonNotesAction: async (_o: string, id: string, n: string) => { calls.push(['notes', id, n]); return { success: true }; },
       saveTermPlanSettingsAction: async (_o: string, s: unknown) => { calls.push(['settings', s]); return { success: true }; },
+      moveLessonAction: async (_o: string, input: unknown) => { calls.push(['move', input]); return { success: true, moved: 2 }; },
+      duplicateLessonAction: async (_o: string, id: string) => { calls.push(['duplicate', id]); return { success: true, id: 'd' }; },
     };
   }, role);
   await page.addInitScript((ls) => { Object.assign(window as any, ls); }, {
@@ -90,4 +92,24 @@ test('Settings → Term plan: add an outcome and save', async ({ page }) => {
   await page.getByRole('button', { name: 'Save term plan settings' }).click();
   await expect.poll(() => calls(page)).toEqual([['settings', { outcomes: [{ code: 'CO1', text: 'Arrays' }, { code: 'CO2', text: 'Trees' }, { code: 'CO3', text: 'Graphs' }], studentsSee: 'ready', topicsLabel: 'Topics' }]]);
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B1.2b: Move to week asks Shift the rest; Duplicate', async ({ page }) => {
+  await open(page, 'plan');
+  await page.getByLabel('Move Linked lists to week').selectOption({ label: 'Unit 1 · Arrays · Week 1' });
+  await expect(page.getByTestId('shift-the-rest')).toBeVisible();
+  await page.getByRole('button', { name: 'Shift the rest' }).click();
+  await page.getByRole('button', { name: 'Duplicate Stacks' }).click();
+  await expect.poll(() => calls(page)).toEqual([['move', { taskId: 'l2', weekId: 'w1', shiftRest: true }], ['duplicate', 'l3']]);
+});
+
+test('B1.2b: the Calendar puts lessons on their session day and assessments on their due day', async ({ page }) => {
+  await open(page, 'calendar');
+  await page.getByRole('button', { name: 'Next month' }).click();
+  await page.getByRole('button', { name: 'Previous month' }).click();
+  const cal = page.getByTestId('term-calendar');
+  await expect(cal.getByRole('heading')).toHaveText(/January 2027|November 2026/);
+  if (await cal.getByRole('heading').textContent() !== 'January 2027') return;
+  await expect(cal).toContainText('Due · Lab 1');
+  await expect(cal).toContainText('10:30 AM Linked lists');
 });

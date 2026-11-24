@@ -11,6 +11,7 @@ export function attentionReasons(c: InstitutionClass, now = Date.now()): string[
   if (!c.counted) return [];
   const reasons: string[] = [];
   if (c.toReview >= 10) reasons.push(`${c.toReview} hand-ins waiting for review`);
+  if ((c.behindPlan ?? 0) >= 2) reasons.push(`${c.behindPlan} lessons behind plan`);
   if (!c.lastActivity || now - Date.parse(c.lastActivity) > 14 * 86_400_000) reasons.push("No activity for 14 days");
   return reasons;
 }

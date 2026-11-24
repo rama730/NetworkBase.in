@@ -114,3 +114,47 @@ test("settings refuse duplicate outcome codes; Topics is the week's goal; a draf
   const student = await plan.readTermPlanAction(t.klass);
   assert.deepEqual(student.success && student.units[0]!.weeks[0]!.assessments.map((x) => x.title), ["Lab 1"]);
 });
+
+test("B1.2b: Move to week, Shift the rest keeps taught lessons; Duplicate makes a Planned copy without teacher notes", async () => {
+  const t = await setup();
+  const [w2] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${t.klass}, 3, 'Week 2', '2027-01-18', '2027-01-24', 'planning', ${t.unit}) RETURNING id`;
+  const [w3] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${t.klass}, 4, 'Week 3', '2027-01-25', '2027-01-31', 'planning', ${t.unit}) RETURNING id`;
+  viewerId = t.teacher;
+  const a = await plan.addTermLessonAction(t.klass, { weekId: t.week, title: "A" });
+  const b = await plan.addTermLessonAction(t.klass, { weekId: w2!.id, title: "B" });
+  const c = await plan.addTermLessonAction(t.klass, { weekId: w2!.id, title: "C" });
+  assert.ok(a.success && b.success && c.success);
+  await plan.setLessonStageAction(t.klass, c.id, "taught");
+  viewerId = t.ta;
+  assert.equal((await plan.moveLessonAction(t.klass, { taskId: a.id, weekId: w2!.id, shiftRest: true })).success, false, "the teacher moves lessons");
+  viewerId = t.teacher;
+  const moved = await plan.moveLessonAction(t.klass, { taskId: a.id, weekId: w2!.id, shiftRest: true });
+  assert.deepEqual(moved, { success: true, moved: 2 });
+  const where = async (id: string) => (await sql`SELECT sprint_id FROM tasks WHERE id = ${id}`)[0]!.sprint_id;
+  assert.deepEqual([await where(a.id), await where(b.id), await where(c.id)], [w2!.id, w3!.id, w2!.id], "B shifts a week; taught C stays");
+  await plan.saveLessonNotesAction(t.klass, a.id, "secret");
+  const copy = await plan.duplicateLessonAction(t.klass, a.id);
+  assert.ok(copy.success);
+  const [row] = await sql`SELECT title, stage, sprint_id FROM tasks WHERE id = ${copy.id}`;
+  assert.deepEqual([row!.title, row!.stage, row!.sprint_id], ["A (copy)", "draft", w2!.id]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM lesson_staff_notes WHERE task_id = ${copy.id}`)[0]!.n, 0);
+});
+
+test("B1.2b: Behind plan and the Mark taught reminder count lessons whose class has passed, once a day", async () => {
+  const t = await setup();
+  viewerId = t.teacher;
+  const a = await plan.addTermLessonAction(t.klass, { weekId: t.week, title: "Arrays" });
+  const b = await plan.addTermLessonAction(t.klass, { weekId: t.week, title: "Complexity" });
+  assert.ok(a.success && b.success);
+  await plan.setLessonStageAction(t.klass, a.id, "taught");
+  const server = await loadAppModule(() => import("../../src/lib/organizations/term-plan-server"));
+  const now = new Date("2027-01-20T10:00:00Z");
+  const state = (await server.classPlanStates([t.klass], now)).get(t.klass)!;
+  assert.deepEqual([state.due, state.taught, state.unmarked.map((l) => l.title)], [2, 1, ["Complexity"]]);
+  const early = (await server.classPlanStates([t.klass], new Date("2027-01-12T00:00:00Z"))).get(t.klass)!;
+  assert.equal(early.due, 0, "nothing is due before its class");
+  await server.notifyLessonsToMarkTaught(now);
+  await server.notifyLessonsToMarkTaught(now);
+  const notes = await sql`SELECT title FROM user_notifications WHERE user_id = ${t.teacher} AND title LIKE 'Mark %taught'`;
+  assert.deepEqual(notes.map((n) => n.title), ["Mark 1 lesson taught"], "once a day");
+});

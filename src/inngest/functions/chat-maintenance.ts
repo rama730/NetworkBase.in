@@ -75,6 +75,8 @@ export const chatDue = inngest.createFunction(
       // A5.1b: "Check in on 3 key results" on each workspace's check-in day (dedupe keys hold).
       await step.run("goal-checkins", async () => (await import("@/lib/workflows/goals-notify")).notifyGoalCheckIns());
       await step.run("goals-closing", async () => (await import("@/lib/workflows/goals-notify")).notifyGoalsClosingSoon());
+      // B1.2b (report 30.3 layer 15): "Mark 2 lessons taught" to each class's teacher, Summary, once a day.
+      await step.run("lessons-to-mark", async () => (await import("@/lib/organizations/term-plan-server")).notifyLessonsToMarkTaught());
       const times = await step.run("due-times", () => dueTimesWithinNextHour());
       if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
     }

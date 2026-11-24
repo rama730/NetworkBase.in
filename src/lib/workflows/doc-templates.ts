@@ -584,8 +584,7 @@ _Address, parking, nearest hospital._
 - By the end, you can…
 
 ## Units
-1. Unit 1 —
-2. Unit 2 —
+{% project.termplan %}
 
 ## How it's marked
 | Part | Weight |

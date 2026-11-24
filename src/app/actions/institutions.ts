@@ -136,6 +136,8 @@ export type InstitutionClass = {
   id: string; title: string; slug: string | null; teacher: string | null; department: string | null; termStart: string | null; termEnd: string | null;
   /** Counts reach the school's admins, and a head of department for their department's classes; zeros otherwise. */
   counted: boolean; members: number; openAssignments: number; toReview: number; lastActivity: string | null;
+  /** B1.2b Behind plan: lessons whose class has passed but aren't marked taught. */
+  behindPlan: number;
 };
 export type Department = { id: string; name: string; heads: string[] };
 const departmentsOf = (o: { orgSettings: unknown }): Department[] => {
@@ -170,6 +172,8 @@ export async function readInstitutionClassesAction(institutionId: string) {
     const requests = isAdmin ? Array.from(await db.execute<{ id: string; title: string }>(sql`
       SELECT id, title FROM workspaces WHERE deleted_at IS NULL AND org_settings->'institutionRequest'->>'institutionId' = ${institutionId} ORDER BY title`)) : [];
     const known = new Set(departments.map((d) => d.id));
+    const { classPlanStates } = await import("@/lib/organizations/term-plan-server");
+    const plans = await classPlanStates(rows.map((r) => r.id));
     return { success: true as const, isAdmin, headOf: [...heads], requests,
       // Heads' names are the admins' business; everyone else sees department names.
       departments: departments.map((d) => ({ id: d.id, name: d.name, heads: isAdmin ? d.heads : [] })),
@@ -177,7 +181,8 @@ export async function readInstitutionClassesAction(institutionId: string) {
         const department = r.department && known.has(r.department) ? r.department : null;
         const counted = isAdmin || Boolean(department && heads.has(department));
         return { id: r.id, title: r.title, slug: r.slug, teacher: r.teacher, department, termStart: r.term_start, termEnd: r.term_end, counted,
-          members: counted ? r.members : 0, openAssignments: counted ? r.open_assignments : 0, toReview: counted ? r.to_review : 0, lastActivity: counted ? r.last_activity : null };
+          members: counted ? r.members : 0, openAssignments: counted ? r.open_assignments : 0, toReview: counted ? r.to_review : 0, lastActivity: counted ? r.last_activity : null,
+          behindPlan: counted ? plans.get(r.id)?.unmarked.length ?? 0 : 0 };
       }) };
   } catch (error) {
     logger.warn("institutions.classes_failed", { institutionId, error: error instanceof Error ? error.message : String(error) });
