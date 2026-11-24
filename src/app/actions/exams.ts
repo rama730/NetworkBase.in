@@ -70,7 +70,7 @@ export async function readExtraTimeAction(orgId: string) {
   const staff = access.isOwner || access.memberRole === "admin";
   if (!staff) {
     const [mine] = Array.from(await db.execute<{ minutes: number }>(sql`SELECT minutes FROM exam_extra_time WHERE workspace_id = ${orgId}::uuid AND user_id = ${userId}::uuid`));
-    return { success: true as const, teacher: false, rows: mine ? [{ userId, name: "You", minutes: mine.minutes }] : [], students: [] as Array<{ id: string; name: string }> };
+    return { success: true as const, teacher: false, rows: mine ? [{ userId, name: "You", minutes: mine.minutes }] : [], students: [] as Array<{ id: string; name: string }>, noClasses: true, examWeeks: 0 };
   }
   const [org] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid`));
   const limited = !access.isOwner && readSectionSettings(org?.settings).taOnlyOwn;
@@ -80,8 +80,20 @@ export async function readExtraTimeAction(orgId: string) {
     SELECT m.user_id AS id, coalesce(p.full_name, p.username, 'Student') AS name, x.minutes
     FROM workspace_members m JOIN profiles p ON p.id = m.user_id LEFT JOIN exam_extra_time x ON x.workspace_id = m.workspace_id AND x.user_id = m.user_id
     WHERE m.workspace_id = ${orgId}::uuid AND m.role = 'member' ${scope} ORDER BY 2 LIMIT 2000`));
+  const { readExamWeeks } = await import("@/lib/organizations/class-sessions");
   return { success: true as const, teacher: access.isOwner, rows: students.filter((s) => s.minutes).map((s) => ({ userId: s.id, name: s.name, minutes: s.minutes! })),
-    students: students.map((s) => ({ id: s.id, name: s.name })) };
+    students: students.map((s) => ({ id: s.id, name: s.name })),
+    noClasses: (org?.settings as { examNoClasses?: unknown } | null)?.examNoClasses !== false, examWeeks: readExamWeeks(org?.settings).length };
+}
+
+/** B1.6d (call 2): "No classes during exam weeks" — on by default; the Teacher can turn it off for this class. */
+export async function saveExamNoClassesAction(orgId: string, on: boolean): Promise<{ success: true } | Failure> {
+  const userId = await person();
+  if (!userId || !isLooseUuid(orgId)) return DENIED;
+  const access = await getWorkspaceAccessById(orgId, userId);
+  if (!access.isOwner || !access.canWrite) return DENIED;
+  await db.execute(sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('examNoClasses', ${Boolean(on)}::boolean) WHERE id = ${orgId}::uuid`);
+  return { success: true };
 }
 
 export async function setExtraTimeAction(orgId: string, studentId: string, minutes: number | null): Promise<{ success: true } | Failure> {

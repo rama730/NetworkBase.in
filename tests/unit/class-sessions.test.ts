@@ -44,3 +44,12 @@ test("live check B1.1: a saved or browser zone the browser lists by another name
   assert.ok(list.includes(Intl.DateTimeFormat().resolvedOptions().timeZone));
   assert.equal(timeZoneOptions("UTC").filter((z) => z === "UTC").length <= 1, true, "no duplicates");
 });
+
+test("B1.6d: the school's exam weeks are skipped too, unless the class turns No classes during exam weeks off", () => {
+  const raw = { classDetails: { meets: [{ day: 2, start: "10:30", end: "12:00" }], breaks: [] }, examWeeks: [{ name: "Midterms", start: "2027-01-18", end: "2027-01-22" }, { name: "bad", start: "2027-02-02", end: "2027-02-01" }] };
+  const on = readClassDetails(raw)!;
+  assert.deepEqual(on.examWeeks, [{ name: "Midterms", start: "2027-01-18", end: "2027-01-22" }]);
+  assert.deepEqual(termSessions(on, { start: "2027-01-11", end: "2027-01-29" }).map((s) => s.key), ["2027-01-12T10:30", "2027-01-26T10:30"]);
+  const off = readClassDetails({ ...raw, examNoClasses: false })!;
+  assert.equal(termSessions(off, { start: "2027-01-11", end: "2027-01-29" }).length, 3);
+});

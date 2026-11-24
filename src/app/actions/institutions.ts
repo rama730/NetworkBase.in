@@ -199,7 +199,8 @@ export async function readInstitutionClassesAction(institutionId: string) {
       return { avg: pcts.length ? Math.round(pcts.reduce((n, x) => n + x, 0) / pcts.length) : null, below: st.minimum == null ? 0 : pcts.filter((x) => x < st.minimum!).length };
     };
     const minimum = (inst.orgSettings as { attendanceMinimum?: unknown } | null)?.attendanceMinimum;
-    return { success: true as const, isAdmin, headOf: [...heads], requests, attendanceMinimum: typeof minimum === "number" ? minimum : null,
+    const { readExamWeeks } = await import("@/lib/organizations/class-sessions");
+    return { success: true as const, isAdmin, headOf: [...heads], requests, attendanceMinimum: typeof minimum === "number" ? minimum : null, examWeeks: readExamWeeks(inst.orgSettings),
       // Heads' names are the admins' business; everyone else sees department names.
       departments: departments.map((d) => ({ id: d.id, name: d.name, heads: isAdmin ? d.heads : [] })),
       classes: rows.map((r): InstitutionClass => {
@@ -261,6 +262,49 @@ export async function readSchoolAboutAction(schoolId: string) {
 }
 
 /** B1.4b (report 30.7): the school's attendance minimum, pushed into every class and locked there ("Set by"). Admins. */
+/** B1.6d (report 30.5 layer 2): the school's exam weeks, pushed to every class (no classes then, unless a class turns that off). */
+export async function saveSchoolExamWeeksAction(schoolId: string, weeks: Array<{ name: string; start: string; end: string }>): Promise<{ success: true } | Failure> {
+  const userId = await me();
+  const school = await org(schoolId);
+  if (!userId || !school || school.orgLevel !== "institution" || !admin(await roleIn(schoolId, userId, "write"))) return DENIED;
+  const { readExamWeeks } = await import("@/lib/organizations/class-sessions");
+  const clean = readExamWeeks({ examWeeks: Array.isArray(weeks) ? weeks : [] });
+  if (clean.length !== (Array.isArray(weeks) ? weeks.length : 0)) return { success: false, error: "Each exam week needs a start and an end on or after it." };
+  await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ examWeeks: clean })}::jsonb` }).where(eq(workspaces.id, schoolId));
+  await pushSchoolSettings(schoolId);
+  return { success: true };
+}
+
+export type SchoolExam = { id: string; title: string; classTitle: string; format: string; opensAt: string; closesAt: string; room: string | null; students: number; clashes: number };
+
+/**
+ * B1.6d (report 30.5 layer 4): the school's Exams view, read only — every exam in its classes from 30 days ago on, by
+ * day, with room and how many students have another exam then. Admins see all classes, a head of department their
+ * department's. Never marks, papers or names.
+ */
+export async function readSchoolExamsAction(schoolId: string) {
+  const userId = await me();
+  const school = await org(schoolId);
+  if (!userId || !school || school.orgLevel !== "institution") return DENIED;
+  const role = await roleIn(schoolId, userId, "read");
+  if (!role) return DENIED;
+  const heads = departmentsOf(school).filter((d) => d.heads.includes(userId)).map((d) => d.id);
+  if (!admin(role) && heads.length === 0) return DENIED;
+  const rows = Array.from(await db.execute<{ id: string; title: string; class_title: string; exam: { format: string; opensAt: string; closesAt: string; room: string | null }; students: number }>(sql`
+    SELECT m.id, m.title, c.title AS class_title, m.assignment_settings->'exam' AS exam,
+      (SELECT count(*)::int FROM tasks x WHERE x.assignment_id = m.id AND x.deleted_at IS NULL) AS students
+    FROM tasks m JOIN workspaces c ON c.id = m.workspace_id
+    WHERE c.institution_id = ${schoolId}::uuid AND c.deleted_at IS NULL AND m.kind = 'assignment' AND m.assignment_id IS NULL AND m.deleted_at IS NULL
+      AND m.assignment_settings ? 'exam' AND m.assignment_settings->>'publishedAt' IS NOT NULL
+      AND m.assignment_settings->'exam'->>'closesAt' >= ${new Date(Date.now() - 30 * 86_400_000).toISOString()}
+      ${admin(role) ? sql`` : sql`AND c.org_settings->>'department' IN ${heads}`}
+    ORDER BY m.assignment_settings->'exam'->>'opensAt' LIMIT 300`));
+  const { examClashes } = await import("@/lib/organizations/exams-server");
+  const exams: SchoolExam[] = [];
+  for (const r of rows) exams.push({ id: r.id, title: r.title, classTitle: r.class_title, format: r.exam.format, opensAt: r.exam.opensAt, closesAt: r.exam.closesAt, room: r.exam.room ?? null, students: r.students, clashes: await examClashes(r.id) });
+  return { success: true as const, exams };
+}
+
 export async function saveSchoolAttendanceMinimumAction(schoolId: string, minimum: number | null): Promise<{ success: true } | Failure> {
   const userId = await me();
   const school = await org(schoolId);

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { readInstitutionClassesAction, readSchoolAboutAction, type InstitutionClass } from "@/app/actions/institutions";
+import { readInstitutionClassesAction, readSchoolAboutAction, readSchoolExamsAction, type InstitutionClass } from "@/app/actions/institutions";
 import { attentionReasons, classCounts } from "@/lib/organizations/school-rules";
 import { OrgCard } from "@/components/organizations/org-ui";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -55,6 +55,7 @@ export function SchoolClassesTab({ orgId }: { orgId: string }) {
           </ul>
         </section>
       ))}
+      <SchoolExamsView orgId={orgId} />
     </div>
   );
 }
@@ -100,5 +101,34 @@ export function SchoolAboutSections({ orgId }: { orgId: string }) {
         ) : <p className="text-[13px] text-muted-foreground">No public classes yet.</p>}
       </RailSection>
     </>
+  );
+}
+
+/** B1.6d (report 30.5 layer 4): the school's Exams view — by day, with class, room and clashes; read only, never marks. */
+export function SchoolExamsView({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ["school-exams", orgId], queryFn: () => readSchoolExamsAction(orgId), staleTime: 60_000 });
+  const exams = q.data?.success ? q.data.exams : null;
+  if (!exams?.length) return null;
+  const day = new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" });
+  const time = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" });
+  const byDay = new Map<string, typeof exams>();
+  for (const e of exams) { const k = day.format(new Date(e.opensAt)); byDay.set(k, [...(byDay.get(k) ?? []), e]); }
+  return (
+    <section aria-label="Exams" className="space-y-2" data-testid="school-exams">
+      <h3 className="nb-micro">Exams</h3>
+      {[...byDay].map(([d, list]) => (
+        <div key={d} className="space-y-1">
+          <h4 className="font-mono text-[12px] text-muted-foreground">{d}</h4>
+          <ul className="divide-y divide-border rounded-md border border-border text-[13px]">
+            {list.map((e) => (
+              <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <span className="min-w-0"><span className="font-medium">{e.title}</span> <span className="text-muted-foreground">· {e.classTitle}</span></span>
+                <span className="nb-meta font-mono">{time.format(new Date(e.opensAt))}–{time.format(new Date(e.closesAt))}{e.room ? ` · ${e.room}` : ""} · {e.students} {e.students === 1 ? "student" : "students"}{e.clashes ? ` · ${e.clashes} with a clash` : ""}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
   );
 }

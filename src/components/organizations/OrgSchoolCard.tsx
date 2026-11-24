@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { decideClassRequestAction, joinInstitutionAction, makeInstitutionAction, readClassInstitutionAction, readInstitutionClassesAction, saveDepartmentsAction, saveSchoolAttendanceMinimumAction, setClassDepartmentAction, unlinkClassAction, type Department, type InstitutionClass } from "@/app/actions/institutions";
+import { decideClassRequestAction, joinInstitutionAction, makeInstitutionAction, readClassInstitutionAction, readInstitutionClassesAction, saveDepartmentsAction, saveSchoolAttendanceMinimumAction, saveSchoolExamWeeksAction, setClassDepartmentAction, unlinkClassAction, type Department, type InstitutionClass } from "@/app/actions/institutions";
 import { readOrgMembersAction } from "@/app/actions/org-members";
 import { Input } from "@/components/ui/input";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
@@ -86,6 +86,7 @@ export function OrgSchoolCard({ orgId, isSchool }: { orgId: string; isSchool: bo
         </SettingsCard>
         <DepartmentsCard schoolId={orgId} departments={school.departments} onSaved={refresh} />
         <SchoolMinimum schoolId={orgId} value={school.attendanceMinimum} onSaved={refresh} />
+        <SchoolExamWeeks schoolId={orgId} value={school.examWeeks ?? []} onSaved={refresh} />
       </section>
     );
   }
@@ -188,6 +189,37 @@ function SchoolMinimum({ schoolId, value, onSaved }: { schoolId: string; value: 
       <div className="flex flex-wrap items-center gap-3 text-[13px]" data-testid="school-attendance-minimum">
         <label className="flex items-center gap-2">Minimum <Input type="number" min={1} max={100} aria-label="School attendance minimum, percent" value={draft} placeholder="None" onChange={(e) => setDraft(e.target.value)} className="w-[80px]" />%</label>
         <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save minimum</button>
+      </div>
+    </SettingsCard>
+  );
+}
+
+/** B1.6d (report 30.5): the school's exam weeks; every class skips its sessions then unless it turns that off. */
+function SchoolExamWeeks({ schoolId, value, onSaved }: { schoolId: string; value: Array<{ name: string; start: string; end: string }>; onSaved: () => Promise<void> }) {
+  const [rows, setRows] = useState(value);
+  useEffect(() => setRows(value), [value]);
+  const save = async () => {
+    const r = await saveSchoolExamWeeksAction(schoolId, rows);
+    if (!r.success) return void toast.error(r.error);
+    toast.success(rows.length ? "Exam weeks set for every class" : "No exam weeks");
+    await onSaved();
+  };
+  const set = (i: number, patch: Partial<{ name: string; start: string; end: string }>) => setRows((cur) => cur.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return (
+    <SettingsCard title="Exam weeks" headingLevel={2} description="Every class sees them on its Term plan, and has no classes then unless it turns that off.">
+      <div className="space-y-2 text-[13px]" data-testid="school-exam-weeks">
+        {rows.map((r, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2">
+            <Input aria-label={`Exam week ${i + 1} name`} value={r.name} maxLength={60} onChange={(e) => set(i, { name: e.target.value })} placeholder="Midterms" className="w-[160px]" />
+            <Input type="date" aria-label={`Exam week ${i + 1} starts`} value={r.start} onChange={(e) => set(i, { start: e.target.value })} className="w-auto font-mono" />
+            <Input type="date" aria-label={`Exam week ${i + 1} ends`} value={r.end} min={r.start || undefined} onChange={(e) => set(i, { end: e.target.value })} className="w-auto font-mono" />
+            <button type="button" className="nb-touch-target text-[13px] font-medium text-primary hover:underline" onClick={() => setRows((cur) => cur.filter((_, j) => j !== i))}>Remove<span className="sr-only"> exam week {i + 1}</span></button>
+          </div>
+        ))}
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setRows((cur) => [...cur, { name: "", start: "", end: "" }])}>Add exam week</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save exam weeks</button>
+        </div>
       </div>
     </SettingsCard>
   );

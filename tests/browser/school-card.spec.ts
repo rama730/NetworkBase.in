@@ -15,7 +15,7 @@ async function open(page: Page, view: 'class' | 'school' | 'classes' | 'attentio
       joinInstitutionAction: async (c: string, i: string) => { calls.push(['join', i]); return { success: true, outcome: 'requested' }; },
       unlinkClassAction: async (c: string) => { calls.push(['unlink']); return { success: true }; },
       makeInstitutionAction: async () => { calls.push(['make']); return { success: true }; },
-      readInstitutionClassesAction: async () => ({ success: true, isAdmin: s.isAdmin ?? true, headOf: s.headOf ?? [], requests: [{ id: 'c9', title: 'Physics 9B' }],
+      readInstitutionClassesAction: async () => ({ success: true, isAdmin: s.isAdmin ?? true, headOf: s.headOf ?? [], requests: [{ id: 'c9', title: 'Physics 9B' }], examWeeks: [{ name: 'Midterms', start: '2027-03-01', end: '2027-03-05' }],
         departments: [{ id: 'd1', name: 'Science', heads: [] }, { id: 'd2', name: 'Arts', heads: [] }],
         classes: [
           { id: 'c1', title: 'Maths 10A', slug: 'maths-10a', teacher: 'Asha', department: 'd1', termStart: '2026-08-01', termEnd: '2026-12-15', counted: true, members: 31, openAssignments: 2, toReview: 5, lastActivity: new Date().toISOString() },
@@ -25,6 +25,8 @@ async function open(page: Page, view: 'class' | 'school' | 'classes' | 'attentio
       setClassDepartmentAction: async (_s: string, c: string, d: string | null) => { calls.push(['dept', c, d]); return { success: true }; },
       saveDepartmentsAction: async (_s: string, rows: unknown) => { calls.push(['depts', rows]); return { success: true, departments: rows }; },
       readOrgMembersAction: async () => ({ success: true, rows: [{ userId: 'u1', name: 'Asha' }] }),
+      readSchoolExamsAction: async () => ({ success: true, exams: [{ id: 'm1', title: 'Midterm', classTitle: 'Maths 10A', format: 'in_person', opensAt: '2027-03-02T10:00:00Z', closesAt: '2027-03-02T12:00:00Z', room: 'LH-2', students: 31, clashes: 3 }] }),
+      saveSchoolExamWeeksAction: async (_s: string, rows: unknown) => { calls.push(['weeks', rows]); return { success: true }; },
       decideClassRequestAction: async (_i: string, c: string, ok: boolean) => { calls.push(['decide', c, ok]); return { success: true }; },
     };
   }, state);
@@ -109,4 +111,20 @@ test('B0.2: Overview lists classes needing attention for admins and heads, nobod
 test('B0.2: a plain member of the school gets no attention card', async ({ page }) => {
   await open(page, 'attention', { isAdmin: false });
   await expect(page.getByTestId('school-attention')).toHaveCount(0);
+});
+
+test('B1.6d: the school sets exam weeks, and its Classes tab lists exams by day with room and clashes', async ({ page }) => {
+  await open(page, 'school');
+  const weeks = page.getByTestId('school-exam-weeks');
+  await expect(weeks.getByLabel('Exam week 1 name')).toHaveValue('Midterms');
+  await weeks.getByRole('button', { name: 'Add exam week' }).click();
+  await weeks.getByLabel('Exam week 2 name').fill('Finals');
+  await weeks.getByLabel('Exam week 2 starts').fill('2027-05-10');
+  await weeks.getByLabel('Exam week 2 ends').fill('2027-05-14');
+  await weeks.getByRole('button', { name: 'Save exam weeks' }).click();
+  expect((await calls(page)).at(-1)).toEqual(['weeks', [{ name: 'Midterms', start: '2027-03-01', end: '2027-03-05' }, { name: 'Finals', start: '2027-05-10', end: '2027-05-14' }]]);
+  await open(page, 'classes');
+  await expect(page.getByTestId('school-exams')).toContainText('Midterm · Maths 10A');
+  await expect(page.getByTestId('school-exams')).toContainText('LH-2 · 31 students · 3 with a clash');
+  expect(await axeViolations(page)).toEqual([]);
 });

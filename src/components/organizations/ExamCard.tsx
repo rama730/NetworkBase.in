@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { readExtraTimeAction, setExtraTimeAction } from "@/app/actions/exams";
+import { readExtraTimeAction, saveExamNoClassesAction, setExtraTimeAction } from "@/app/actions/exams";
 import { Input } from "@/components/ui/input";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
@@ -43,7 +43,7 @@ export function ExamCard({ exam, coverNames, rules, extraMinutes = 0 }: { exam: 
 export function ExamSettingsCard({ orgId }: { orgId: string }) {
   const client = useQueryClient();
   const q = useQuery({ queryKey: ["exam-extra-time", orgId], queryFn: () => readExtraTimeAction(orgId), staleTime: 30_000 });
-  const data = q.data?.success && q.data.students.length ? q.data : null;
+  const data = q.data?.success && q.data.teacher !== undefined && (q.data.students.length || q.data.examWeeks) ? q.data : null;
   const [who, setWho] = useState("");
   const [minutes, setMinutes] = useState("30");
   if (!data) return null;
@@ -56,6 +56,11 @@ export function ExamSettingsCard({ orgId }: { orgId: string }) {
     <section id="project-settings-exams" data-project-settings-section className="space-y-6">
       <SettingsCard title="Exams" headingLevel={2} description="Extra time moves only that student’s close on timed and take-home exams. Only staff and that student see it.">
         <div className="space-y-3 text-[13px]" data-testid="exam-settings">
+          {data.examWeeks ? (
+            <label className="flex items-center gap-2"><input className="nb-check" type="checkbox" checked={data.noClasses} disabled={!data.teacher}
+              onChange={(e) => void saveExamNoClassesAction(orgId, e.target.checked).then((r) => { if (!r.success) return void toast.error(r.error); void client.invalidateQueries({ queryKey: ["exam-extra-time", orgId] }); })} />
+              No classes during the school’s exam weeks ({data.examWeeks})</label>
+          ) : null}
           {data.rows.length ? (
             <ul className="space-y-1" aria-label="Extra time">{data.rows.map((r) => (
               <li key={r.userId} className="flex items-center justify-between gap-2"><span>{r.name} <span className="font-mono">+{r.minutes} min</span></span>

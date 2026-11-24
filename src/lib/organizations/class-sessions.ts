@@ -14,6 +14,8 @@ export type ClassDetails = {
   officeHours: { days: number[]; start: string; end: string; place: string | null } | null;
   credits: number | null;
   breaks: Array<{ name: string; start: string; end: string }>;
+  /** B1.6d (report 30.5 call 2): the school's exam weeks when "No classes during exam weeks" is on (the default). */
+  examWeeks?: Array<{ name: string; start: string; end: string }>;
   /** Show to visitors: on for course code, meets and term; off for room and office hours. */
   show: { courseCode: boolean; meets: boolean; term: boolean; room: boolean; officeHours: boolean };
 };
@@ -43,7 +45,15 @@ export function readClassDetails(orgSettings: unknown): ClassDetails | null {
     breaks: (Array.isArray(raw.breaks) ? raw.breaks : []).filter((b) => b && DAY.test(b.start) && DAY.test(b.end) && b.end >= b.start)
       .map((b) => ({ name: text(b.name, 60) ?? "Break", start: b.start, end: b.end })).slice(0, 20),
     show: { ...DEFAULT_SHOW, ...Object.fromEntries(Object.entries(show).filter(([, v]) => typeof v === "boolean")) },
+    examWeeks: (orgSettings as { examNoClasses?: unknown }).examNoClasses === false ? [] : readExamWeeks(orgSettings),
   };
+}
+
+/** B1.6d: exam weeks as stored on a school (and pushed to its classes): a name and two days each. */
+export function readExamWeeks(orgSettings: unknown): Array<{ name: string; start: string; end: string }> {
+  const list = (orgSettings as { examWeeks?: unknown } | null)?.examWeeks;
+  return (Array.isArray(list) ? list : []).filter((b) => b && DAY.test(b.start) && DAY.test(b.end) && b.end >= b.start)
+    .map((b) => ({ name: text(b.name, 60) ?? "Exam week", start: b.start as string, end: b.end as string })).slice(0, 12);
 }
 
 export function readSessionChanges(orgSettings: unknown): Record<string, SessionChange> {
@@ -61,12 +71,12 @@ const plus = (local: string, mins: number) => {
 };
 
 /** Every session of the term in order: meets on term days, minus breaks, with each change applied. */
-export function termSessions(details: Pick<ClassDetails, "meets" | "breaks">, term: { start: string | null; end: string | null }, changes: Record<string, SessionChange> = {}): Session[] {
+export function termSessions(details: Pick<ClassDetails, "meets" | "breaks" | "examWeeks">, term: { start: string | null; end: string | null }, changes: Record<string, SessionChange> = {}): Session[] {
   if (!term.start || !term.end || term.end < term.start || details.meets.length === 0) return [];
   const out: Session[] = [];
   // ponytail: a year of days at most; a longer "term" is a typo.
   for (let day = term.start, i = 0; day <= term.end && i < 400; day = addDaysToDay(day, 1), i++) {
-    if (details.breaks.some((b) => day >= b.start && day <= b.end)) continue;
+    if (details.breaks.some((b) => day >= b.start && day <= b.end) || details.examWeeks?.some((b) => day >= b.start && day <= b.end)) continue;
     const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
     for (const m of details.meets.filter((x) => x.day === weekday).sort((a, b) => a.start.localeCompare(b.start))) {
       const key = `${day}T${m.start}`;

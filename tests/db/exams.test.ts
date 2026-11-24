@@ -167,9 +167,44 @@ test("B1.6c: the second marker gives their own mark; more than 10% apart needs a
   assert.equal((await sql`SELECT 1 FROM user_notifications WHERE user_id = ${t.teacher} AND title = 'Finals: marks need agreement'`).length, 1, "both markers are told");
   viewerId = t.teacher;
   assert.match(errorOf(await exams.releaseResultsAction(made.masterId)), /1 mark needs agreement/);
+  assert.match(errorOf(await marks.agreeMarkAction(copy!.id, 45)), /from 30 to 40/, "security review: between the two marks");
   assert.equal((await marks.agreeMarkAction(copy!.id, 36)).success, true);
+  assert.match(errorOf(await marks.agreeMarkAction(copy!.id, 31)), /don’t need agreement/, "security review: once agreed, never again");
   assert.deepEqual(await exams.releaseResultsAction(made.masterId), { success: true, released: 1 });
   viewerId = t.a;
   const mine = await marks.readMyMarkAction(copy!.id);
   assert.ok(mine.success && mine.mark?.total === 36 && mine.mark.second === null, "the student sees the agreed mark only");
+});
+
+test("B1.6d: the school's exam weeks reach its classes; its Exams view lists exams by day with clashes, never marks; members can't read it", async () => {
+  const t = await setup();
+  const principal = await sql.begin((tx) => createUser(tx));
+  const school = await sql.begin((tx) => createProject(tx, principal, { visibility: "private" }));
+  created.push(school);
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', org_level = 'institution', join_code = ${generateJoinCode()} WHERE id = ${school}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${school}, ${principal}, 'owner'), (${school}, ${t.a}, 'member')`;
+  await sql`UPDATE workspaces SET institution_id = ${school} WHERE id = ${t.klass}`;
+  const inst = await loadAppModule(() => import("../../src/app/actions/institutions"));
+  viewerId = principal;
+  assert.match(errorOf(await inst.saveSchoolExamWeeksAction(school, [{ name: "Midterms", start: "2027-03-08", end: "2027-03-01" }])), /end on or after/);
+  assert.equal((await inst.saveSchoolExamWeeksAction(school, [{ name: "Midterms", start: "2027-03-01", end: "2027-03-05" }])).success, true);
+  const [klass] = await sql`SELECT org_settings->'examWeeks' AS weeks FROM workspaces WHERE id = ${t.klass}`;
+  assert.deepEqual(klass!.weeks, [{ name: "Midterms", start: "2027-03-01", end: "2027-03-05" }], "pushed to the class");
+  viewerId = t.teacher;
+  const made = await assignments.createAssignmentAction({ projectId: t.klass, title: "Midterm", dueDate: inHours(100), publish: true, submissionType: "none", lateRule: "none", target: { mode: "everyone" } as never, steps: [],
+    marking: { mode: "outof", outOf: 50 }, exam: { format: "in_person", opensAt: inHours(30), closesAt: inHours(32), room: "LH-2" } });
+  assert.ok(made.success);
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${made.masterId}`;
+  await marks.saveMarkAction(copy!.id, { total: 44 });
+  viewerId = principal;
+  const view = await inst.readSchoolExamsAction(school);
+  assert.ok(view.success);
+  assert.deepEqual(view.exams.map((e) => [e.title, e.room, e.students, e.clashes]), [["Midterm", "LH-2", 1, 0]]);
+  assert.equal(JSON.stringify(view).includes("44"), false, "no marks reach the school");
+  viewerId = t.a;
+  assert.equal((await inst.readSchoolExamsAction(school)).success, false, "a member of the school doesn't see the Exams view");
+  viewerId = t.teacher;
+  assert.equal((await exams.saveExamNoClassesAction(t.klass, false)).success, true);
+  const settings = await exams.readExtraTimeAction(t.klass);
+  assert.ok(settings.success && settings.noClasses === false && settings.examWeeks === 1);
 });
