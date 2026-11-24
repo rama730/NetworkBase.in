@@ -124,6 +124,12 @@ test("B1.6b: extra time moves only that student's close and stays private; Make-
   assert.equal((await assignments.submitAssignmentAction(await copyOf(t.a), { text: "answer" })).success, true, "a's close is an hour and a half later");
   viewerId = b;
   assert.match(errorOf(await assignments.submitAssignmentAction(await copyOf(b), { text: "answer" })), /not accepted/, "b's close didn't move");
+  // Security review: on a team copy a teammate's extra time never moves the team's close.
+  const [team] = await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, assignment_id, team_name, assignee_id, due_date) SELECT ${t.klass}, 'Quiz', 'todo', 'medium', ${t.teacher}, 'task', id, 'Team 1', ${t.a}, due_date FROM tasks WHERE id = ${made.masterId} RETURNING id`;
+  await sql`INSERT INTO task_team_members (task_id, user_id, is_lead) VALUES (${team!.id}, ${t.a}, true), (${team!.id}, ${b}, false)`;
+  viewerId = t.a;
+  assert.match(errorOf(await assignments.submitAssignmentAction(team!.id, { text: "team answer" })), /not accepted/);
+  viewerId = b;
   const mine = await exams.readExtraTimeAction(t.klass);
   assert.ok(mine.success && mine.rows.length === 0 && mine.students.length === 0, "b never sees a's extra time");
   viewerId = t.teacher;

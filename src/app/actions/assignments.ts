@@ -347,8 +347,10 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
     // Submit is open per the same rules the server checks on Submit.
     const replaceLocked = approved || (copy.status === 'done' && copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil));
     const exam = readExam(master.settings);
-    const extra = exam && holder ? await extraMinutes(master.projectId, userId) : 0;
-    const until = exam ? await examSubmitUntil(master.settings, master.projectId, holder ? userId : null, copy.submitUntil) : copy.submitUntil;
+    // Security review (B1.6b): extra time is the copy's own person's, on a one-person copy only — never a team's close.
+    const ownExtra = !copy.teamName && copy.assigneeId === userId ? userId : null;
+    const extra = exam && ownExtra ? await extraMinutes(master.projectId, ownExtra) : 0;
+    const until = exam ? await examSubmitUntil(master.settings, master.projectId, ownExtra, copy.submitUntil) : copy.submitUntil;
     const canSubmit = holder && !copy.excusedAt && !replaceLocked && canStillSubmit(master.settings, copy.dueDate, now, until) && !(exam?.format === 'timed' && examPhase(exam, now.getTime()) === 'before');
     const coverNames = exam?.covers.units.length ? (await db.select({ id: workspaceSprints.id, name: workspaceSprints.name }).from(workspaceSprints)
         .where(and(eq(workspaceSprints.projectId, master.projectId), inArray(workspaceSprints.id, exam.covers.units)))).map((u) => u.name) : [];
@@ -723,7 +725,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     if (copy.status === 'done' && copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil)) {
         return { success: false, error: 'The due date has passed, so this can’t be replaced.' };
     }
-    if (!canStillSubmit(master.settings, copy.dueDate, now, await examSubmitUntil(master.settings, master.projectId, userId, copy.submitUntil))) return { success: false, error: master.settings.closedAt ? 'This assignment is closed.' : 'Late submissions are not accepted.' };
+    if (!canStillSubmit(master.settings, copy.dueDate, now, await examSubmitUntil(master.settings, master.projectId, !copy.teamName && copy.assigneeId === userId ? userId : null, copy.submitUntil))) return { success: false, error: master.settings.closedAt ? 'This assignment is closed.' : 'Late submissions are not accepted.' };
     const { link, text, note } = parsed.data;
     const type = master.settings.submissionType;
     if (type === 'link' && !link) return { success: false, error: 'Add the link to your work.' };
