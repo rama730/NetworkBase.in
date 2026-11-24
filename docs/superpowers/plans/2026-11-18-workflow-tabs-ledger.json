@@ -1048,9 +1048,9 @@
       "text": "B1.5 W7 Marks and rubric (30.8) — Build: marking setting on assignment master; Rubric record frozen on publish; marks table (total, per-criterion, comments, mar",
       "kind": "unit",
       "milestone": "B1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/marks.test.ts; tests/db/marks.test.ts; tests/db/peer-review.test.ts; tests/browser/marking.spec.ts; tests/browser/peer-review.spec.ts",
+      "evidence": "B1.5a 398fa1235 + cc29d055e (0128), B1.5b 5904fff3c..4143837cd (0129), B1.5b-2/c c0a56e7d1..01405f54a (0130) live 2026-11-24. Live in Chrome on wt-test-b0-class: Settings → Marking made \"WT Lab rubric\" (2 criteria · out of 20; kept for later checks); the composer lists Not marked · Out of · Rubric · WT Lab rubric (20); a draft saved with the rubric had it frozen in its settings (checked in the database) and was deleted; with Rubric + Text the Peer review option appears (form cancelled). Marking panel, hidden drafts until Approve, Return hiding, \"was marked\" notice, roster Marks column, Export marks, drawer marks, Adjust for one person, peer review and the school counts are proven by DB and browser tests — one test account, so no students live. Security review fix: every token refused for marks. Peer review covers text and link hand-ins only (files stay private)."
     },
     {
       "key": "B1.6",
