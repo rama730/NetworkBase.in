@@ -1,7 +1,7 @@
 import { TabMarker } from "@/components/ui/TabMarker";
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { UserRound } from 'lucide-react'
+import { UserRound } from '@/components/ui/icons'
 
 import { ActiveTable, AuditTable } from '@/components/trust/ConsoleTabs'
 import { ConsoleScroll } from '@/components/trust/ConsoleScroll'

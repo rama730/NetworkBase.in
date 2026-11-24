@@ -7,7 +7,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { readWorkspaceUnitsAction } from "@/app/actions/child-units";
 import { TeamTaskDialog } from "@/components/organizations/TeamTaskDialog";
-import { Plus, Check, Search, X, MoreHorizontal, Laptop, ChevronDown, FolderKanban } from "lucide-react";
+import { Plus, Check, Search, X, MoreHorizontal, Laptop, ChevronDown, FolderKanban } from "@/components/ui/icons";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { workflowIcon } from "@/components/workspaces/workflows/workflow-icons";
 import { addedTypes, newMenuLine } from "@/lib/workflows/create-rules";

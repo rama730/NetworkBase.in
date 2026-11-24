@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, FileDiff, GitMerge, Github, MessageSquare, RefreshCw, Search, Undo2, X } from "lucide-react";
+import { ArrowLeft, Copy, FileDiff, GitMerge, Github, MessageSquare, RefreshCw, Search, Undo2, X } from "@/components/ui/icons";
 import { Virtuoso } from "react-virtuoso";
 
 import {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { UserX } from 'lucide-react'
+import { UserX } from '@/components/ui/icons'
 
 import {
     changeMemberRoleAction,

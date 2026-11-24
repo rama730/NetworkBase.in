@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock } from "@/components/ui/icons";
 import Link from "next/link";
 
 import { readMyMeetingsTodayAction } from "@/app/actions/meeting-feed";

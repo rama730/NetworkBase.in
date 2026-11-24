@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ShieldCheck, Sparkles, X } from 'lucide-react'
+import { ShieldCheck, Sparkles, X } from '@/components/ui/icons'
 import { toast } from 'sonner'
 
 import { decideDeviceCodeAction } from '@/app/actions/device-codes'

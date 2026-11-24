@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { TerminalBlock } from '@/components/ui/terminal-block';
 import Link from 'next/link'
-import { FolderOpen } from 'lucide-react'
+import { FolderOpen } from '@/components/ui/icons'
 import { FileTypeChip } from '@/components/workspaces/v2/files-tab/FileTypeChip'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Notice } from '@/components/ui/notice'

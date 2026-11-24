@@ -3,7 +3,7 @@ import { OrgIdentityFields, OrgSubjectField, OrgWelcomeField } from '@/component
 import { ORG_CREATION_COPY } from '@/lib/organizations/creation';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
-import { Plus, X } from 'lucide-react';
+import { Plus, X } from '@/components/ui/icons';
 import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

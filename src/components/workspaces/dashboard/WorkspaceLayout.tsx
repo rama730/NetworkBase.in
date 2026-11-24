@@ -8,8 +8,8 @@ import { WORKSPACE_TAB_LABELS } from "@/lib/copy/terms";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
     Settings, Share2, UserPlus, UserCheck, IterationCcw, Newspaper, MoreHorizontal, Info, Users, FolderKanban, Lock, Plus,
-    type LucideIcon,
-} from "lucide-react";
+    type IconComponent,
+} from "@/components/ui/icons";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -94,7 +94,7 @@ interface ProjectLayoutProps {
     compactPrefix?: React.ReactNode;
     compactMenuItems?: React.ReactNode;
     /** Report 38.2 S1: tabs added by workflows, after a divider; a locked one was added by the organization. */
-    workflowTabs?: Array<{ id: string; label: string; icon: LucideIcon; locked: boolean; by: string | null }>;
+    workflowTabs?: Array<{ id: string; label: string; icon: IconComponent; locked: boolean; by: string | null }>;
     /** Owners and admins with workflows on: "+ Add workflow" at the end of the row. */
     onAddWorkflow?: () => void;
 }

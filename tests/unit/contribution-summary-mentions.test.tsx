@@ -283,7 +283,7 @@ test("reference serialization retains identities and shared options use the same
   );
   assert.match(html, /aria-label="Find teammate"/);
   assert.match(html, /<button[^>]*type="button"/);
-  assert.match(html, /lucide-user-round/);
+  assert.match(html, /nb-pi-user\b/);
   assert.match(html, /Ram/);
   for (const file of [
     "src/components/workspaces/updates/WorkspaceUpdateComposer.tsx",

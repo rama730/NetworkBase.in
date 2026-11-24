@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, X } from "@/components/ui/icons";
 import { useEffect, useRef, useState } from "react";
 
 import { completeProjectAction, readProjectWorkAction, setTaskStageAction } from "@/app/actions/task";

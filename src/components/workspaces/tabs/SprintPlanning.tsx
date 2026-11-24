@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Plus } from "lucide-react";
+import { CalendarDays, Plus } from "@/components/ui/icons";
 import { toast, feedbackError } from "@/lib/feedback";
 
 import { SprintHeader } from "@/components/workspaces/tabs/sprint/SprintHeader";

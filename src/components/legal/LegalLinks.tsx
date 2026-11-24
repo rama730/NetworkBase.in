@@ -3,7 +3,7 @@
 import { LEGAL_PAGE_NAMES } from "@/lib/copy/terms";
 import * as React from "react";
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/components/ui/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,

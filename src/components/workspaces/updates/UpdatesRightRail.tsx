@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from "react";
-import { History } from "lucide-react";
+import { History } from "@/components/ui/icons";
 import { type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { updateAuthorName, updateAuthorRoleLabel, updateRelativeTime } from '@/components/workspaces/updates/update-helpers';

@@ -12,6 +12,7 @@
 "use client";
 
 import * as React from "react";
+import { ArrowDown, ArrowUp } from "@/components/ui/icons";
 
 import { cn } from "@/lib/utils";
 
@@ -60,9 +61,9 @@ export function FolderListHeader({
   const getSortArrow = (column: "name" | "updated" | "size") => {
     if (sort !== column) return null;
     if (column === "name") {
-      return <span aria-hidden="true">{sortDirection === "desc" ? "↓" : "↑"}</span>;
+      return sortDirection === "desc" ? <ArrowDown size={12} aria-hidden="true" /> : <ArrowUp size={12} aria-hidden="true" />;
     }
-    return <span aria-hidden="true">{sortDirection === "asc" ? "↑" : "↓"}</span>;
+    return sortDirection === "asc" ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />;
   };
 
   return (
@@ -97,7 +98,7 @@ export function FolderListHeader({
               Name {getSortArrow("name")}
             </button>
           ) : (
-            <>Name {sort === "name" ? <span aria-hidden="true">↑</span> : sort === "type" ? <span className="normal-case">(by type)</span> : null}</>
+            <>Name {sort === "name" ? <ArrowUp size={12} aria-hidden="true" /> : sort === "type" ? <span className="normal-case">(by type)</span> : null}</>
           )}
         </div>
       </div>
@@ -111,7 +112,7 @@ export function FolderListHeader({
             {updatedLabel} {getSortArrow("updated")}
           </button>
         ) : (
-          <>{updatedLabel} {sort === "updated" && <span aria-hidden="true">↓</span>}</>
+          <>{updatedLabel} {sort === "updated" && <ArrowDown size={12} aria-hidden="true" />}</>
         )}
       </div>
       <div

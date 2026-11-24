@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { FileText, Search, X } from "lucide-react";
+import { FileText, Search, X } from "@/components/ui/icons";
 
 import { listWorkspaceCanvases } from "@/app/actions/chat/canvas";
 import { CanvasPreview } from "@/components/messages/CanvasEditor";

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { readUrlParam, useUrlMirror } from "@/lib/navigation/url-state";
 import { formatTaskDueDate } from "@/lib/workspaces/task-presentation";
 import Link from "next/link";
-import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Link2, ListTodo, User } from "lucide-react";
+import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Link2, ListTodo, User } from "@/components/ui/icons";
 
 import {
   SPRINT_TASK_STATUS_PRESENTATION,

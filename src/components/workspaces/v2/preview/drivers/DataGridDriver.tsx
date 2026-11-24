@@ -2,17 +2,7 @@
 
 import * as React from "react";
 import { TableVirtuoso } from "react-virtuoso";
-import {
-  Search,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Copy,
-  Check,
-  Download,
-  Table as TableIcon,
-  ClipboardList,
-} from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Copy, Check, Download, Table as TableIcon, ClipboardList, X } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/feedback";
@@ -403,9 +393,10 @@ export function DataGridDriver({
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
                 className="absolute right-2 text-[10px] text-muted-foreground hover:text-foreground"
               >
-                ✕
+                <X size={12} aria-hidden="true" />
               </button>
             )}
           </div>

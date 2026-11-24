@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Eye, Pencil } from "lucide-react";
+import { AlertTriangle, Check, Eye, Pencil } from "@/components/ui/icons";
 import { toast, feedbackError } from "@/lib/feedback";
 
 import { saveProfileContributionsAction } from "@/app/actions/profile-contributions";

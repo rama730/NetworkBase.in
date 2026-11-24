@@ -9,7 +9,7 @@ import * as z from "zod";
 import { LifecycleEditor } from "@/components/workspaces/LifecycleEditor";
 import { WorkspaceRolesEditor } from "@/components/workspaces/settings/WorkspaceRolesEditor";
 import { normalizeWorkspaceRoleFormValues } from "@/lib/workspaces/workspace-roles-form";
-import { Layout, FileText, Layers, Users, X, Check, Info, CheckCircle } from "lucide-react";
+import { Layout, FileText, Layers, Users, X, Check, Info, CheckCircle } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/feedback";
 import { updateWorkspace, updateWorkspaceLifecycleAction } from "@/app/actions/workspace";

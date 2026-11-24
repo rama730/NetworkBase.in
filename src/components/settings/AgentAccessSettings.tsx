@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from 'react'
-import { Bot} from 'lucide-react'
+import { Bot} from '@/components/ui/icons'
 
 import { changeAgentAccessAction, decideAgentAccessRequestAction, renewAgentAccessAction } from '@/app/actions/agent-access'
 import { AGENT_EXPIRY_CHOICES, AgentAccessPicker, agentAccessSentence, type AgentAccessValue, type AgentWorkspaceOption } from '@/components/agents/AgentAccessPicker'

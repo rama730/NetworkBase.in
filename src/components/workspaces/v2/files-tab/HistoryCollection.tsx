@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FolderTree, GitCommitHorizontal, Undo2 } from "lucide-react";
+import { Download, FolderTree, GitCommitHorizontal, Undo2 } from "@/components/ui/icons";
 
 import { filesAtSaveAction, getSaveAction, listSavesAction, revertSaveAction, saveDiffAction } from "@/app/actions/files/saves";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";

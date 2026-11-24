@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CloudUpload } from "lucide-react";
+import { CloudUpload } from "@/components/ui/icons";
 
 import { cn } from "@/lib/utils";
 import { TaskFilesActionMenu } from "@/components/workspaces/v2/tasks/components/TaskFilesActionMenu";

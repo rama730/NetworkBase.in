@@ -3,7 +3,7 @@ import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
-import { BadgeCheck, Inbox, Lock, Scale, SlidersHorizontal, Users } from 'lucide-react'
+import { BadgeCheck, Inbox, Lock, Scale, SlidersHorizontal, Users } from '@/components/ui/icons'
 
 import { inboxOrgsAction } from '@/app/actions/moderation-staff'
 import { caseState, Deadline } from '@/components/trust/format'

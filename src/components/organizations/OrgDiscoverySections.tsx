@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from 'reac
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, Check, Clock, Code2, Mail, UserCheck } from 'lucide-react'
+import { Building2, Check, Clock, Code2, Mail, UserCheck } from '@/components/ui/icons'
 
 import { renameOrgHandleAction } from '@/app/actions/organizations'
 import { askParentOrgAction, cancelOrgVerificationAction, checkOrgProofAction, confirmOrgEmailCodeAction, requestOrgEmailCodeAction, requestOrgVerificationAction, searchParentOrgsAction } from '@/app/actions/trust'

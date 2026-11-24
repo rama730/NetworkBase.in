@@ -11,14 +11,14 @@ import {
   Check,
   Copy,
   CornerDownRight,
-  Heart,
   Link as LinkIcon,
   MessageSquare,
   MoreHorizontal,
   Send,
   Trash2,
   X,
-} from "lucide-react";
+} from "@/components/ui/icons";
+import { LikeHeart } from "@/components/ui/LikeHeart";
 import { ReportDialog, ReportMenuItem } from "@/components/reports/ReportDialog";
 import { ModeratedPlaceholder, useModeratedItems } from "@/components/reports/ModeratedPlaceholder";
 
@@ -345,20 +345,15 @@ function DiscussionEntry({
               className={cn(
                 "inline-flex items-center gap-1 transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                 entry.likedByViewer
-                  ? "text-destructive"
-                  : "text-muted-foreground hover:text-destructive",
+                  ? "text-[var(--like)]"
+                  : "text-muted-foreground hover:text-[var(--like)]",
               )}
               aria-label={entry.likedByViewer ? "Remove like" : "Like comment"}
             >
               {pendingLike ? (
                 <PixelBeat />
               ) : (
-                <Heart
-                  className={cn(
-                    "h-3.5 w-3.5",
-                    entry.likedByViewer && "fill-current",
-                  )}
-                />
+                <LikeHeart liked={entry.likedByViewer} className="h-3.5 w-3.5" />
               )}
               {entry.likeCount > 0 ? (
                 <span className="font-mono">{entry.likeCount}</span>

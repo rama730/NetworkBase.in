@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock } from "@/components/ui/icons";
 import { useState } from "react";
 
 import { cancelScheduledUpdateAction, editScheduledUpdateAction, postScheduledNowAction, readScheduledUpdatesAction } from "@/app/actions/workspace/updates";

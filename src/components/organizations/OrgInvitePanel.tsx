@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal } from '@/components/ui/icons'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 
 import { inviteByEmailAction, previewOrgInviteEmailAction, readOrgInvitePanelAction, type OrgInvitePanelData } from '@/app/actions/org-members'

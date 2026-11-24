@@ -1,7 +1,7 @@
 "use client";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 
-import { BarChart3, ChevronLeft, LockKeyhole, X } from "lucide-react";
+import { BarChart3, ChevronLeft, LockKeyhole, X } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 
 export default function CookieConsentPanel({

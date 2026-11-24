@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { Check, X } from "lucide-react";
+import { Check, X } from "@/components/ui/icons";
 import { ORG_PHASE_LABELS, WIZARD_PHASES, type WizardPhaseId } from "@/constants/workspace-wizard";
 import { Button } from "@/components/ui/button";
 

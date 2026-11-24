@@ -18,7 +18,7 @@
 
 import { PixelBeat } from "@/components/ui/PixelBeat";
 import * as React from "react";
-import { Check, Pencil, X } from "lucide-react";
+import { Check, Pencil, X } from "@/components/ui/icons";
 
 import { cn } from "@/lib/utils";
 import { getTaskTitlePresentation } from "@/lib/workspaces/task-presentation";

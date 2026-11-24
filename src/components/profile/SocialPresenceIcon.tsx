@@ -41,12 +41,12 @@ import {
     Twitch,
     Users,
     Workflow,
-    type LucideIcon,
-} from 'lucide-react';
+    type IconComponent,
+} from '@/components/ui/icons';
 import Image from 'next/image';
 import type { SocialPresenceIconKey } from '@/lib/profile/normalization';
 
-const ICONS: Partial<Record<SocialPresenceIconKey, LucideIcon>> = {
+const ICONS: Partial<Record<SocialPresenceIconKey, IconComponent>> = {
     github: Github,
     linkedin: Linkedin,
     instagram: Instagram,

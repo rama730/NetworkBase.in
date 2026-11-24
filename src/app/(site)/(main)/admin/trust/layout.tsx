@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from '@/components/ui/icons'
 
 import { ConsoleHeader } from '@/components/trust/ConsoleHeader'
 import { Button } from '@/components/ui/button'

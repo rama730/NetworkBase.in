@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Smile } from "lucide-react";
+import { Smile } from "@/components/ui/icons";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { isStatusEmoji } from "@/lib/presence/model";

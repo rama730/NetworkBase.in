@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Plus, X } from "lucide-react";
+import { ExternalLink, Plus, X } from "@/components/ui/icons";
 import { useState } from "react";
 
 import { readAssetsAction, saveAssetLibraryAction } from "@/app/actions/assets";

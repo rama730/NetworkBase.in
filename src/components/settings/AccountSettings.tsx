@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Database, LogOut } from "lucide-react";
+import { Database, LogOut } from "@/components/ui/icons";
 import { toast } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { SettingsRow, SettingsRows } from "@/components/settings/ui/SettingsRow";

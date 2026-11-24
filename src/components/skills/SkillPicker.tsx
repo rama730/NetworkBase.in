@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import { defaultClientSkills, resolveClientSkill, useSkillCatalog, type SkillCatalog } from '@/lib/skills/client'
 import { normalizeSkillLookup } from '@/lib/skills/normalization'

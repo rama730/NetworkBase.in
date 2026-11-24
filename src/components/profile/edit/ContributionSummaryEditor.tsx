@@ -29,7 +29,7 @@ import {
   ListChecks,
   Timer,
   X,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { ComposerReferenceOptions } from "@/components/workspaces/updates/ComposerReferenceOptions";
 import { referenceLinkBackspaceExtension } from "@/lib/editor/reference-link-backspace";

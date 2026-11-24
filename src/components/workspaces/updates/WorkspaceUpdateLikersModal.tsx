@@ -4,7 +4,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Heart} from 'lucide-react';
+import { Heart} from '@/components/ui/icons';
 import {
     Dialog,
     DialogContent,
@@ -85,7 +85,7 @@ export function WorkspaceUpdateLikersModal({
             <DialogContent size="confirm" className="gap-0 p-0 overflow-hidden sm:rounded-[12px]">
                 <DialogHeader className="border-b border-border px-5 py-4 text-left">
                     <DialogTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                        <Heart className="h-4 w-4 fill-rose-500 text-rose-500" aria-hidden="true" />
+                        <Heart className="h-4 w-4 fill-current text-[var(--like)]" aria-hidden="true" />
                         <span>Liked by</span>
                         {typeof likeCount === 'number' && likeCount > 0 ? (
                             <span className="font-mono text-xs text-muted-foreground font-normal">

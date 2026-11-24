@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { ChevronDown, ExternalLink, Laptop, KeyRound } from "lucide-react";
+import { ChevronDown, ExternalLink, Laptop, KeyRound } from "@/components/ui/icons";
 import {
   SUPPORTED_IDES,
   type SupportedIde,

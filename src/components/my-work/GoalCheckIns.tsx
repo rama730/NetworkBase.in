@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Gauge } from "lucide-react";
+import { Gauge } from "@/components/ui/icons";
 import Link from "next/link";
 
 import { readMyGoalCheckInsAction } from "@/app/actions/goal-checkins";

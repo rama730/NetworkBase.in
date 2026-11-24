@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Code2, Copy } from "lucide-react";
+import { Code2, Copy } from "@/components/ui/icons";
 import { useEffect, useRef, useState } from "react";
 
 import { createSnippetAction, readSnippetCodeAction, readSnippetsAction } from "@/app/actions/workspace/doc";

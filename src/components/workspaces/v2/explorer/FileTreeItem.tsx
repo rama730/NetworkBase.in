@@ -7,7 +7,7 @@ import {
     ChevronDown,
     FolderPlus,
     Plus,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { TaskLinkPopover } from "../files-tab/TaskLinkPopover";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Trash2 } from "lucide-react";
+import { Bot, Trash2 } from "@/components/ui/icons";
 
 import { feedbackError, toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";

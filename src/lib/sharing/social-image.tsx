@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { BarChart2, UsersRound } from 'lucide-react';
+import { BarChart2, UsersRound } from '@/components/ui/icons';
 import { ImageResponse } from 'next/og';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';

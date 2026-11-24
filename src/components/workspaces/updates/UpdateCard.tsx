@@ -9,7 +9,8 @@ import {
     useQueryClient,
     type InfiniteData,
 } from "@tanstack/react-query";
-import { FileText, Heart, MessageCircle, MoreHorizontal, PanelRightOpen, Pin, Flag, Trash2, Users, EyeOff } from "lucide-react";
+import { FileText, MessageCircle, MoreHorizontal, PanelRightOpen, Pin, Flag, Trash2, Users, EyeOff } from "@/components/ui/icons";
+import { LikeHeart } from "@/components/ui/LikeHeart";
 import { toast, feedbackError } from "@/lib/feedback";
 import { BlockPersonDialog, type BlockPerson } from "@/components/privacy/BlockDialog";
 import { BlockPostAuthorItem, CommentPreview, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
@@ -414,7 +415,7 @@ function UpdateCard({
             <div className="mt-2.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
               <div className={cn(
                 "nb-touch-target inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-foreground",
-                update.likedByViewer && "text-[var(--status-danger)]",
+                update.likedByViewer && "text-[var(--like)]",
               )}>
                 <button
                   type="button"
@@ -431,16 +432,11 @@ function UpdateCard({
                   aria-pressed={update.likedByViewer}
                   aria-label="Like update"
                   className={cn(
-                    "inline-flex items-center justify-center transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
-                    update.likedByViewer && "text-[var(--status-danger)]",
+                    "inline-flex items-center justify-center transition-transform active:translate-y-px focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
+                    update.likedByViewer && "text-[var(--like)]",
                   )}
                 >
-                  <Heart
-                    className={cn(
-                      "h-3.5 w-3.5",
-                      update.likedByViewer && "fill-current text-[var(--status-danger)]",
-                    )}
-                  />
+                  <LikeHeart liked={update.likedByViewer} className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
@@ -454,7 +450,7 @@ function UpdateCard({
                   className={cn(
                     "inline-flex items-center tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
                     update.likeCount > 0 ? "cursor-pointer hover:underline" : "cursor-default disabled:opacity-100",
-                    update.likedByViewer && "text-[var(--status-danger)] font-medium",
+                    update.likedByViewer && "text-[var(--like)] font-medium",
                   )}
                 >
                   <span aria-hidden="true">{update.likeCount}</span>

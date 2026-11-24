@@ -3,7 +3,7 @@
 import React from "react";
 import { typeProfile } from "@/lib/organizations/type-profile";
 import { buildSprintSeries, insideError, nextOrgSprintStart, nextSeriesNumber, seriesPreview } from "@/lib/organizations/sprint-rules";
-import { ChevronDown, Trash2, X } from "lucide-react";
+import { ChevronDown, Trash2, X } from "@/components/ui/icons";
 import { z } from "zod";
 
 import type { SprintListItem } from "@/lib/workspaces/sprint-detail";

@@ -10,7 +10,7 @@ import {
   Github,
   Search,
   X,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import * as sync from "@/app/actions/github-sync";
 import {
   fetchGithubImportBranches,

@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { ChevronDown, ClipboardList, MoreHorizontal, Plus, Shuffle, Star, Users, X, Zap } from 'lucide-react'
+import { ChevronDown, ClipboardList, MoreHorizontal, Plus, Shuffle, Star, Users, X, Zap } from '@/components/ui/icons'
 import { fieldError, fieldLabel } from '@/lib/organizations/display'
 
 import {

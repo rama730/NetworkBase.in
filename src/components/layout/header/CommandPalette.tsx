@@ -3,7 +3,7 @@
 import { confirmAppNavigation } from "@/lib/navigation/confirm-navigation";
 
 import { CONNECTION_COPY } from "@/lib/connections/copy";
-import { History, RotateCcw, Search, ShieldCheck, X } from "lucide-react";
+import { History, RotateCcw, Search, ShieldCheck, X } from "@/components/ui/icons";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";

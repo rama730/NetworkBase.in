@@ -27,7 +27,7 @@ test("groups come in the agreed order and parked rows say Coming later", () => {
   assert.match(dialog, /role="list" aria-label=\{group\.label\}/, "each group is a labelled list");
 });
 
-test("no colours of their own: tokens only, Lucide icons only, no emoji", () => {
+test("no colours of their own: tokens only, app icons only, no emoji", () => {
   for (const [name, source] of files) {
     assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}\b|\b(?:bg|text|border)-\[#|rgb\(|hsl\(/, `${name} uses a raw colour`);
     assert.doesNotMatch(source, /\p{Extended_Pictographic}/u, `${name} uses an emoji`);

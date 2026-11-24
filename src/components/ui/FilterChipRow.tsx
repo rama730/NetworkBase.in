@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Plus, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronDown, Plus, SlidersHorizontal, X } from "@/components/ui/icons";
 import { useState, type ReactNode } from "react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";

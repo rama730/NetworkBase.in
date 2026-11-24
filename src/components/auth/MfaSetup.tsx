@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   Copy,
   Download,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {

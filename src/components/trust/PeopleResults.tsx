@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { UserRound } from 'lucide-react'
+import { UserRound } from '@/components/ui/icons'
 
 import { personDetailAction } from '@/app/actions/moderation-staff'
 import { PersonView } from '@/components/trust/PersonView'

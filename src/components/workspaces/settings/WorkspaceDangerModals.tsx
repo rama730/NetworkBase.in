@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertTriangle, Archive, Crown, Trash2 } from "lucide-react";
+import { AlertTriangle, Archive, Crown, Trash2 } from "@/components/ui/icons";
 import {
     type WorkspaceSettingsMember,
     getWorkspaceMemberDisplayName,

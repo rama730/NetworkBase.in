@@ -2,7 +2,7 @@
 
 import { useId } from 'react'
 import { cn } from '@/lib/utils'
-import { Plus } from 'lucide-react'
+import { Plus } from '@/components/ui/icons'
 interface CardProps {
     title: string
     children?: React.ReactNode

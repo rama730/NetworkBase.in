@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Lock, MoreHorizontal, Plus, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Lock, MoreHorizontal, Plus, X } from '@/components/ui/icons'
 
 import {
     ensureDocsFolderAction,

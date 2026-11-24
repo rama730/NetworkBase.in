@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { AlertTriangle, File, FolderTree } from "lucide-react";
+import { AlertTriangle, File, FolderTree } from "@/components/ui/icons";
 import type { UploadManifest } from "./upload-manifest";
 import { formatUploadBytes } from "./upload-manifest";
 

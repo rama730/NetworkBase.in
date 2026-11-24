@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { X } from "lucide-react";
+import { X } from "@/components/ui/icons";
 import { toast } from "@/lib/feedback";
 
 import { MessageRow } from "@/components/messages/MessageRow";

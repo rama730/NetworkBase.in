@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus } from '@/components/ui/icons'
 import { SkillIcon } from '@/components/skills'
 import { resolveClientSkill, useSkillCatalog } from '@/lib/skills/client'
 

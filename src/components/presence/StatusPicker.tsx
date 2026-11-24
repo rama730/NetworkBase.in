@@ -3,7 +3,7 @@ import { CharCount } from "@/components/ui/CharCount";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { X } from "@/components/ui/icons";
 import { toast } from "@/lib/feedback";
 
 import { clearMyStatus, setMyStatus, setShowActivity, setStatusVisibility } from "@/app/actions/presence";

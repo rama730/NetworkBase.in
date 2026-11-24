@@ -1,9 +1,9 @@
-import { Monitor, Smartphone, Tablet, Globe, type LucideIcon } from "lucide-react";
+import { Monitor, Smartphone, Tablet, Globe, type IconComponent } from "@/components/ui/icons";
 
 export interface DeviceInfo {
   browser: string;
   os: string;
-  icon: LucideIcon;
+  icon: IconComponent;
 }
 
 export function cleanIpAddress(rawIp: string | null | undefined): string {
@@ -19,7 +19,7 @@ export function cleanIpAddress(rawIp: string | null | undefined): string {
 export function parseUserAgent(userAgent?: string | null): DeviceInfo {
   let browser = "Unknown browser";
   let os = "Unknown OS";
-  let icon: LucideIcon = Globe;
+  let icon: IconComponent = Globe;
 
   let ua = typeof userAgent === "string" ? userAgent.trim() : "";
 

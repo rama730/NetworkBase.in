@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { FileDiff } from "lucide-react";
+import { FileDiff } from "@/components/ui/icons";
 
 /** "2 change sets ready" in the workspace header (report G12): for people who can change files, when something waits. */
 export function ChangeSetsReadyLink({ projectId, slug }: { projectId: string; slug: string }) {

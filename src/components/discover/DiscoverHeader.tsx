@@ -2,7 +2,7 @@
 
 import { ORG_TYPES, orgTypeLabel } from '@/lib/organizations/config';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { SlidersHorizontal, Users, X } from 'lucide-react';
+import { SlidersHorizontal, Users, X } from '@/components/ui/icons';
 
 import { Button } from '@/components/ui/button';
 import { SearchField } from '@/components/ui/SearchField';

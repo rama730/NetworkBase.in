@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Hash, Mail, MoreHorizontal, Pin, Users } from 'lucide-react'
+import { Hash, Mail, MoreHorizontal, Pin, Users } from '@/components/ui/icons'
 
 import { countAnnouncementAudienceAction, readOrgPinnedLineAction, readUnseenPeopleAction, remindUnseenAction, setOrgUpdateAudienceAction } from '@/app/actions/org-updates'
 import { Button } from '@/components/ui/button'

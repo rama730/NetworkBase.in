@@ -41,7 +41,7 @@ import {
   RotateCcw,
   Globe,
   FileText,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/messaging/image-compression";

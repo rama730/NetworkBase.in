@@ -3,7 +3,7 @@
 "use client";
 
 import * as React from "react";
-import { MoreHorizontal, Star, X } from "lucide-react";
+import { MoreHorizontal, Star, X } from "@/components/ui/icons";
 
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";

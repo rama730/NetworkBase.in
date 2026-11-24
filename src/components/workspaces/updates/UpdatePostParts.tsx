@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Check, Heart, Share2 } from 'lucide-react';
+import { Check, Heart, Share2 } from '@/components/ui/icons';
+import { LikeHeart } from '@/components/ui/LikeHeart';
 import { useToggleWorkspaceFollow } from '@/hooks/mutations/useWorkspaceMutations';
 import { renderCommentContent } from '@/components/workspaces/updates/update-helpers';
 import { toast } from '@/lib/feedback';
@@ -124,10 +125,10 @@ export function CommentLikeButton({ comment, projectId, signedIn }: { comment: W
     setBusy(false);
   };
   return (
-    <span className={cn('inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground', state.liked && 'text-[var(--status-danger)]')}>
+    <span className={cn('inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground', state.liked && 'text-[var(--like)]')}>
       {signedIn ? (
-        <button type="button" onClick={() => void toggle()} aria-pressed={state.liked} aria-label="Like this comment" className="nb-touch-target inline-flex items-center justify-center rounded-sm transition-transform active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100">
-          <Heart className={cn('h-3.5 w-3.5', state.liked && 'fill-current')} aria-hidden="true" />
+        <button type="button" onClick={() => void toggle()} aria-pressed={state.liked} aria-label="Like this comment" className="nb-touch-target inline-flex items-center justify-center rounded-sm transition-transform active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0">
+          <LikeHeart liked={state.liked} className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       ) : <Heart className="h-3.5 w-3.5" aria-hidden="true" />}
       {state.count > 0 ? (

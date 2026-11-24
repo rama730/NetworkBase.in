@@ -4,7 +4,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { SharedOrgChip } from '@/components/organizations/SharedOrgChip';
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { MapPin, Users } from 'lucide-react';
+import { MapPin, Users } from '@/components/ui/icons';
 import { readPersonSharedConnectionsAction } from '@/app/actions/connections';
 import type { SharedConnectionsSummary } from '@/lib/connections/shared';
 import { personCardName, personCardSkills, personCardSubtitle, personCompactCount, personConnectedDate, personPortfolioText, personSharedCount, type PersonCardIdentity } from '@/lib/network/person-card';

@@ -7,7 +7,7 @@ import {
     Image as ImageIcon,
     Play,
     Video,
-} from 'lucide-react';
+} from '@/components/ui/icons';
 import {
     fitMediaWithinBounds,
     MESSAGE_MEDIA_INLINE_BOUNDS,

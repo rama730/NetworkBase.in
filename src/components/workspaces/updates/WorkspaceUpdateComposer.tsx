@@ -4,7 +4,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
-import { ChevronDown, ChevronUp, Globe2, ImagePlus, Link2, ListTodo, Paperclip, Timer, Users, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Globe2, ImagePlus, Link2, ListTodo, Paperclip, Timer, Users, X } from "@/components/ui/icons";
 import { toast } from "@/lib/feedback";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { MultiAttachmentPicker } from "@/components/workspaces/v2/files-tab/picker/MultiAttachmentPicker";

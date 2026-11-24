@@ -33,7 +33,7 @@ import {
   Upload,
   X,
   MoreHorizontal, Download, Info, History, ListTodo, ArrowDownWideNarrow, FileUp, Link2, Tag,
-} from "lucide-react";
+} from "@/components/ui/icons";
 
 import {
   DropdownMenu,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Code2, FolderUp, Github, type LucideIcon } from "lucide-react";
+import { Building2, Code2, FolderUp, Github, type IconComponent } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 export type WorkspaceSourceType = "scratch" | "github" | "upload";
@@ -11,7 +11,7 @@ const SOURCE_OPTIONS: Array<{
   type: StartingPoint;
   title: string;
   description: string;
-  icon: LucideIcon;
+  icon: IconComponent;
 }> = [
   {
     type: "scratch",

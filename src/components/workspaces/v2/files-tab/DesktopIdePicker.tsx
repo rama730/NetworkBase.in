@@ -2,7 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
-import { Check, ExternalLink, Plus, Search } from "lucide-react";
+import { Check, ExternalLink, Plus, Search } from "@/components/ui/icons";
 import {
   SUPPORTED_IDES,
   type IdeDefinition,

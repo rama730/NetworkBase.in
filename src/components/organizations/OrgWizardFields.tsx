@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFieldArray, useFormContext, useWatch, type UseFormReturn } from 'react-hook-form'
 import { typeProfile } from '@/lib/organizations/type-profile'
-import { Check, X } from 'lucide-react'
+import { Check, X } from '@/components/ui/icons'
 
 import { checkOrgHandleAction } from '@/app/actions/organizations'
 import { PartOfField } from '@/components/organizations/OrgDiscoverySections'

@@ -4,7 +4,7 @@ import { useState, useTransition, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { BadgeCheck, ChevronRight, Pencil, Pin, X } from 'lucide-react'
+import { BadgeCheck, ChevronRight, Pencil, Pin, X } from '@/components/ui/icons'
 
 import { acceptOrgInviteAction, declineOrgInviteAction } from '@/app/actions/org-members'
 import { Button } from '@/components/ui/button'
@@ -24,7 +24,7 @@ export function StatusBadge({ state, children, className }: { state: string; chi
     return <span className={cn('nb-status shrink-0', className)} data-tone={orgStatusTone(state)}>{children}</span>
 }
 
-/** The one verified mark: Lucide BadgeCheck in clay, named for screen readers, with its label visible on request. */
+/** The one verified mark: the BadgeCheck icon in clay, named for screen readers, with its label visible on request. */
 export function VerifiedMark({ label, size = 16, className }: { label?: string | null; size?: 14 | 16 | 18; className?: string }) {
     const name = label ?? 'Verified organization'
     return (

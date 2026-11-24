@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Controller, type Control, type FieldErrors, type UseFormRegister } from "react-hook-form";
-import { Eye, Plus, Trash2, UserCog, UserPlus } from "lucide-react";
+import { Eye, Plus, Trash2, UserCog, UserPlus } from "@/components/ui/icons";
 import type { WorkspaceRoleFormValue } from "@/lib/workspaces/workspace-roles-form";
 import type { WorkspaceSettingsMember } from "@/lib/workspaces/settings-policies";
 import { SkillPicker } from "@/components/skills/SkillPicker";

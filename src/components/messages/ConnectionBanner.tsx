@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { WifiOff } from "lucide-react";
+import { WifiOff } from "@/components/ui/icons";
 
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import type { BroadcastStatus } from "@/lib/realtime/private-broadcast";

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { FileText, Image as ImageIcon, Paperclip, Video } from "lucide-react";
+import { FileText, Image as ImageIcon, Paperclip, Video } from "@/components/ui/icons";
 
 import { listFiles } from "@/app/actions/chat/messages";
 import { RowsSkeleton } from "@/components/messages/parts/RowsSkeleton";
@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatChatTime, formatFileSize, fullTime } from "@/lib/messaging/channel-view";
 import { messageHref } from "@/lib/messaging/routes";
 import { queryKeys } from "@/lib/query-keys";
-import { Download } from "lucide-react";
+import { Download } from "@/components/ui/icons";
 import { DownloadLink } from "@/components/ui/download-link";
 
 /** Every file shared in the conversation, newest first, each linking to its message. */

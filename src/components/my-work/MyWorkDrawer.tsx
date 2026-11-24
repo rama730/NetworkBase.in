@@ -3,7 +3,7 @@ import { TabMarker } from "@/components/ui/TabMarker";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Inbox, ListChecks, Pin, X } from "lucide-react";
+import { Inbox, ListChecks, Pin, X } from "@/components/ui/icons";
 import { useQuery } from "@tanstack/react-query";
 import { useUIStore } from "@/stores/ui-store";
 import { queryKeys } from "@/lib/query-keys";

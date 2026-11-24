@@ -4,7 +4,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Bell, Compass, Plus, Search, Sparkles } from 'lucide-react';
+import { Bell, Compass, Plus, Search, Sparkles } from '@/components/ui/icons';
 import { Virtuoso, type Components } from 'react-virtuoso';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 

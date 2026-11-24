@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from 'react'
-import { Globe, MapPin } from 'lucide-react'
+import { Globe, MapPin } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import ChipSelector from '@/components/onboarding/ChipSelector'

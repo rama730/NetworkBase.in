@@ -5,7 +5,7 @@ import { useMemo, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { useQuery } from '@tanstack/react-query'
-import { X } from 'lucide-react'
+import { X } from '@/components/ui/icons'
 
 import {
     leaveOrgAction,

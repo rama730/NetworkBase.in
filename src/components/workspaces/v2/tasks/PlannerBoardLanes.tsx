@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, FolderKanban, FolderPlus } from "lucide-react";
+import { ChevronDown, FolderKanban, FolderPlus } from "@/components/ui/icons";
 import { useState } from "react";
 
 import { groupIntoProjectAction, moveTaskToWorkflowColumnAction, readProjectsAction, setPartOfAction } from "@/app/actions/task";

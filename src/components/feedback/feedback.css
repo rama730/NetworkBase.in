@@ -21,7 +21,7 @@
 .nb-feedback-card:not(:has(.nb-feedback-context,.nb-feedback-footer,.nb-feedback-progress-label)) .nb-feedback-status{margin-top:0}
 .nb-feedback-context{font-size:12px;line-height:16px;margin-top:3px;color:var(--muted-foreground)}
 .nb-feedback-dismiss{position:absolute;top:7px;right:9px;width:24px;height:24px;display:grid;place-items:center;background:transparent;border:0;border-radius:4px;color:var(--muted-foreground);padding:0}
-.nb-feedback-dismiss svg{width:11px;height:11px}
+.nb-feedback-dismiss svg{width:12px;height:12px}
 .nb-feedback-dismiss:hover{background:var(--muted);color:var(--foreground)}
 .nb-feedback-footer{grid-column:2/-1;display:flex;align-items:center;gap:8px;margin-top:4px;min-width:0}
 .nb-feedback-action{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--muted);color:var(--foreground);font-family:inherit;font-size:11px;line-height:16px;font-weight:550;flex-shrink:0;max-width:100%;white-space:normal;text-align:left}
@@ -35,7 +35,7 @@
 .nb-feedback-countdown{background:var(--feedback-state);opacity:.45}
 .nb-feedback-exit{animation:nb-feedback-exit 140ms cubic-bezier(.4,0,1,1) both;pointer-events:none}
 .nb-feedback-chip{position:relative;display:grid;place-items:center;width:44px;height:44px;margin-inline:auto;border:1px solid var(--border);border-radius:8px;background:var(--popover);color:var(--feedback-state)}
-.nb-feedback-chip>svg{width:17px;height:17px}
+.nb-feedback-chip>svg{width:16px;height:16px}
 .nb-feedback-chip>span{position:absolute;top:-5px;right:-3px;min-width:16px;height:16px;padding:0 3px;border-radius:12px;background:var(--foreground);color:var(--background);font-size:9px;display:grid;place-items:center}
 .nb-feedback-queue-trigger{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;min-height:28px;margin-top:6px;padding:3px 7px;border:1px solid var(--border);border-radius:5px;background:var(--muted);color:var(--muted-foreground);font-size:10px;line-height:16px}
 .nb-feedback-queue-trigger svg{width:12px;height:12px}

@@ -2,7 +2,7 @@
 
 import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
 import { useState } from "react";
-import { Link2 } from "lucide-react";
+import { Link2 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";

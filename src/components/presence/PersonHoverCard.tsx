@@ -3,7 +3,7 @@
 import * as Popover from "@radix-ui/react-popover";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { Ban, Flag } from "lucide-react";
+import { Ban, Flag } from "@/components/ui/icons";
 
 import { useBlockedIds } from "@/components/messages/ChatShellProvider";
 import { messageUserInWindow } from "@/components/messages/message-user";

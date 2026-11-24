@@ -21,7 +21,7 @@ import {
     Users,
     UsersRound,
     X,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { LinkPending } from "@/components/ui/LinkPending";

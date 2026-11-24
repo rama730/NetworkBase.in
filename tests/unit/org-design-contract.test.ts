@@ -80,7 +80,7 @@ test('organization screens follow the design contract', async (t) => {
     await t.test('checkboxes use .nb-check', () => none(tagsWithout('input', 'nb-check', /type="checkbox"/), '§10 Checkbox'))
     await t.test('radios use .nb-radio', () => none(tagsWithout('input', 'nb-radio', /type="radio"/), '§10 Radio'))
     await t.test('no generic spinners', () => none(hits(/Loader2|animate-spin/), '§06A: no generic spinner'))
-    await t.test('no glyphs standing in for icons', () => none(hits(/[✓★→←↓📌]/), '§06: Lucide icons, not text glyphs'))
+    await t.test('no glyphs standing in for icons', () => none(hits(/[✓★→←↓📌]/), '§06: app icons, not text glyphs'))
     await t.test('no text-only loading', () => none(hits(/Loading…<|Loading members…/), '§33: layout-matched skeleton'))
     await t.test('dates use the organization zone', () => none(hits(/toLocaleDateString\(/), '§04: formatInZone'))
     await t.test('archived and private are not draft-coloured', () => none(hits(/data-status="draft">(?:Archived|Private)|data-status="draft"\s*>\s*\{visibilityChip\}/), '§10: system-known status'))

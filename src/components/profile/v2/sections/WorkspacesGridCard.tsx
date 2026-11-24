@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FolderKanban, Pin } from "lucide-react";
+import { FolderKanban, Pin } from "@/components/ui/icons";
 import { setPortfolioPinAction } from "@/app/actions/profile-mix";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/feedback";

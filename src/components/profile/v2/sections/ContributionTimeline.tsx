@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Globe, MoreHorizontal, Pencil, Pin, PinOff, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Globe, MoreHorizontal, Pencil, Pin, PinOff, Plus, X } from '@/components/ui/icons'
 import { setContributionTimelineOrderAction } from '@/app/actions/profile-mix'
 import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
 import { previewText } from '@/lib/profile/contribution-editor-text'
@@ -314,7 +314,7 @@ export function ContributionTimeline({
                 draftsOpen ? (
                     <section className="nb-pf-panel nb-pf-drafts" aria-label="Not on your profile yet">
                         <h3 className="nb-pf-label">Not on your profile yet · <b>{drafts.length}</b>
-                            <button type="button" className="nb-pf-ib ml-auto" onClick={() => setDraftsOpen(false)} aria-label="Hide drafts">×</button></h3>
+                            <button type="button" className="nb-pf-ib ml-auto" onClick={() => setDraftsOpen(false)} aria-label="Hide drafts"><X size={12} aria-hidden="true" /></button></h3>
                         {drafts.map((c) => {
                             const nudge = (c.projectKind === 'organization' || c.parentOrg) && !c.nudgeDismissed && !dismissed.has(c.id)
                             const href = profileEditHref('experience', 'overview', { contribution: c.id })
@@ -324,7 +324,7 @@ export function ContributionTimeline({
                                     <span className="min-w-0"><b>{c.projectTitle}</b><span className="s">Draft{nudge ? ' · write about your work' : ''}</span>{editing && plainSummary(c) ? <span className="s clamp2">{plainSummary(c)}</span> : null}</span>
                                     <span className="a">
                                         {editing && onEdit ? <button type="button" className="nb-pf-btn-sm" onClick={() => onEdit(c.id)} aria-label={`Write about ${c.projectTitle}`}>Write about it</button> : <a href={href} className="nb-pf-btn-sm">Write about it</a>}
-                                        {nudge ? <button type="button" className="nb-pf-ib" aria-label={`Dismiss ${c.projectTitle}`} onClick={() => { setDismissed((d) => new Set(d).add(c.id)); void dismissContributionNudgeAction(c.id) }}>×</button> : null}
+                                        {nudge ? <button type="button" className="nb-pf-ib" aria-label={`Dismiss ${c.projectTitle}`} onClick={() => { setDismissed((d) => new Set(d).add(c.id)); void dismissContributionNudgeAction(c.id) }}><X size={12} aria-hidden="true" /></button> : null}
                                     </span>
                                 </div>
                             )

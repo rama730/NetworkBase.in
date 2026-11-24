@@ -4,7 +4,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { LEGAL_PAGE_NAMES } from "@/lib/copy/terms";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Copy, Download, ExternalLink, Scale } from "lucide-react";
+import { CheckCircle2, Copy, Download, ExternalLink, Scale } from "@/components/ui/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { SettingsRow, SettingsRows } from "@/components/settings/ui/SettingsRow";
 import { useOpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
@@ -161,7 +161,7 @@ export function LegalAndDataRightsSection({ inWorkspace = false }: { inWorkspace
 
         <SettingsSectionCard id="settings-privacy-policies-list" title="Policies" description={`In force since ${LEGAL_EFFECTIVE_DATE}.`} flush findKeys="policy terms privacy cookies dpa copyright">
           <div className="nbs-policies">
-            {governingDocuments.map((doc) => <Link key={doc.href} href={doc.href} target="_blank" rel="noopener noreferrer">{doc.title}<span aria-hidden="true">↗</span></Link>)}
+            {governingDocuments.map((doc) => <Link key={doc.href} href={doc.href} target="_blank" rel="noopener noreferrer">{doc.title}<ExternalLink size={12} aria-hidden="true" /></Link>)}
           </div>
         </SettingsSectionCard>
 

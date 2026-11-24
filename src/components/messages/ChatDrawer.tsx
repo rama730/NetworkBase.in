@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, X } from "@/components/ui/icons";
 
 import { usePanes } from "@/components/messages/usePanes";
 import { ThreadSkeleton } from "@/components/messages/ConversationSkeleton";

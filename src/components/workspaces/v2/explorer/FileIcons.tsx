@@ -23,7 +23,7 @@ import {
   Code2,
   Folder,
   FolderOpen,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 // Exact filename mappings (normalized to lowercase for case-insensitivity)

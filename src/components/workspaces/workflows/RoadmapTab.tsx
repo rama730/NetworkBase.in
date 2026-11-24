@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, GripVertical, Map as MapIcon, MoreHorizontal } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Map as MapIcon, MoreHorizontal } from "@/components/ui/icons";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 

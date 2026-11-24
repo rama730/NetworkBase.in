@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-    Heart,
     MessageCircle,
     X,
-} from "lucide-react";
+} from "@/components/ui/icons";
+import { LikeHeart } from "@/components/ui/LikeHeart";
 import { type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
@@ -156,7 +156,7 @@ export function UpdateDetailPanel({
                 <div className="mt-2.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
                   <div className={cn(
                     "inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 text-xs transition-colors hover:bg-muted hover:text-foreground",
-                    update.likedByViewer && "text-[var(--status-danger)]",
+                    update.likedByViewer && "text-[var(--like)]",
                   )}>
                     <button
                       type="button"
@@ -171,11 +171,11 @@ export function UpdateDetailPanel({
                       aria-pressed={update.likedByViewer}
                       aria-label="Like update"
                       className={cn(
-                        "inline-flex items-center justify-center transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
-                        update.likedByViewer && "text-[var(--status-danger)]",
+                        "inline-flex items-center justify-center transition-transform active:translate-y-px focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
+                        update.likedByViewer && "text-[var(--like)]",
                       )}
                     >
-                      <Heart className={cn("h-3.5 w-3.5", update.likedByViewer && "fill-current text-[var(--status-danger)]")} aria-hidden="true" />
+                      <LikeHeart liked={update.likedByViewer} className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                     <button
                       type="button"
@@ -189,7 +189,7 @@ export function UpdateDetailPanel({
                       className={cn(
                         "inline-flex items-center tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
                         update.likeCount > 0 ? "cursor-pointer hover:underline" : "cursor-default disabled:opacity-100",
-                        update.likedByViewer && "text-[var(--status-danger)] font-medium",
+                        update.likedByViewer && "text-[var(--like)] font-medium",
                       )}
                     >
                       <span aria-hidden="true">{update.likeCount}</span>

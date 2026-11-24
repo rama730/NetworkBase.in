@@ -288,11 +288,11 @@ test("contribution links use only accessible GitHub or globe icons, deduplicate 
     <ContributionIdentityLinks links={links} />,
   );
   assert.equal((html.match(/<a /g) ?? []).length, 4);
-  assert.equal((html.match(/lucide-github/g) ?? []).length, 1);
-  assert.equal((html.match(/lucide-globe/g) ?? []).length, 3);
+  assert.equal((html.match(/nb-pi-github/g) ?? []).length, 1);
+  assert.equal((html.match(/nb-pi-globe/g) ?? []).length, 3);
   assert.match(html, /aria-label="Open GitHub repository:/);
   assert.match(html, /aria-label="Open Case study:/);
-  assert.doesNotMatch(html, /javascript:|lucide-code|↗/);
+  assert.doesNotMatch(html, /javascript:|nb-pi-code|↗/);
   for (const anchor of html.matchAll(/<a [^>]*>([\s\S]*?)<\/a>/g)) {
     assert.match(anchor[1]!, /^<svg /);
     assert.equal(anchor[1]!.replace(/<svg[\s\S]*?<\/svg>/g, ""), "");

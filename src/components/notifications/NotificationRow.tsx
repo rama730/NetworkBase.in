@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellOff, Clock, ExternalLink, EyeOff, MoreVertical, RotateCcw } from "lucide-react";
+import { BellOff, Clock, ExternalLink, EyeOff, MoreVertical, RotateCcw } from "@/components/ui/icons";
 
 import {
     DropdownMenu,

@@ -56,7 +56,7 @@ import {
   VideoOff,
   VolumeOff,
   X,
-} from "lucide-react";
+} from "@/components/ui/icons";
 
 import { useRouter, usePathname } from "next/navigation";
 import { useWorkspaceDocList } from "@/hooks/workspaces/useWorkspaceDocData";

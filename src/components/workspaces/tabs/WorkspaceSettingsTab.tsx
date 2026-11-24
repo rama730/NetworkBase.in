@@ -25,7 +25,7 @@ import dynamic from "next/dynamic";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Archive, Crown, RefreshCw, Shield, Trash2, Users } from "lucide-react";
+import { Archive, Crown, RefreshCw, Shield, Trash2, Users } from "@/components/ui/icons";
 import { toast, feedbackError } from "@/lib/feedback";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ComponentProps, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
-import { ExternalLink, Eye, EyeOff, Github } from 'lucide-react'
+import { ExternalLink, Eye, EyeOff, Github } from '@/components/ui/icons'
 import Logo from '@/components/layout/header/Logo'
 import { LegalLinks } from '@/components/legal/LegalLinks'
 import { Button } from '@/components/ui/button'

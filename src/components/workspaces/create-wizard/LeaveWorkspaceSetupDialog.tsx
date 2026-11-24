@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Save, X } from "lucide-react";
+import { AlertTriangle, Save, X } from "@/components/ui/icons";
 import {
   Dialog,
   DialogContent,

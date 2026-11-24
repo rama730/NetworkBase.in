@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { BarChart2, UsersRound } from 'lucide-react';
+import { BarChart2, UsersRound } from '@/components/ui/icons';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatCount } from '@/lib/format-count';

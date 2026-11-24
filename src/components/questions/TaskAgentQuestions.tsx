@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot } from "lucide-react";
+import { Bot } from "@/components/ui/icons";
 
 import { answerAgentQuestionAction, listMyTaskQuestionsAction, muteAgentQuestionAction } from "@/app/actions/agent-questions";
 import { QuestionCard, type CardQuestion } from "@/components/questions/QuestionCard";

@@ -1,5 +1,6 @@
 "use client";
 
+import { TASK_STATUS_CELLS } from "@/lib/icon-cells";
 import { TodaysMeetings } from "@/components/my-work/TodaysMeetings";
 import { GoalCheckIns } from "@/components/my-work/GoalCheckIns";
 import { UpNextLessons } from "@/components/my-work/UpNextLessons";
@@ -8,7 +9,7 @@ import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "r
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Clock, Copy, ExternalLink, Play, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronDown, Clock, Copy, ExternalLink, Play, SlidersHorizontal, X, Search } from "@/components/ui/icons";
 import { readMySubmissionsAction } from "@/app/actions/assignments";
 import { webLink } from "@/lib/organizations/assignment-rules";
 import { fetchMyWorkTasksAction } from "@/app/actions/my-work";
@@ -71,13 +72,13 @@ type MyWorkStatusFilter = "all" | "overdue" | "missing" | (typeof OPEN_STATUSES)
 type Shown = "review" | TaskWorkflowStatus;
 type Override = { status?: TaskWorkflowStatus; due?: string | null };
 
-// Status in pixels: an empty box, a half box, a crossed box, a box with a dot, a tick.
+// Status in pixels, from the shared icon set: an empty box, a half box, a crossed box, a box with a dot, a tick.
 const STATUS_PIXELS: Record<Shown, string[]> = {
-    todo: ["######", "#....#", "#....#", "#....#", "#....#", "######"],
-    in_progress: ["######", "###..#", "###..#", "###..#", "###..#", "######"],
-    blocked: ["######", "##..##", "#.##.#", "#.##.#", "##..##", "######"],
-    review: ["######", "#....#", "#.##.#", "#.##.#", "#....#", "######"],
-    done: ["......", ".....#", "....##", "#..##.", "####..", ".##..."],
+    todo: TASK_STATUS_CELLS.todo.split("/"),
+    in_progress: TASK_STATUS_CELLS.doing.split("/"),
+    blocked: TASK_STATUS_CELLS.blocked.split("/"),
+    review: TASK_STATUS_CELLS.review.split("/"),
+    done: TASK_STATUS_CELLS.done.split("/"),
 };
 const STATUS_WORDS: Record<Shown, string> = { todo: "To do", in_progress: "In progress", blocked: "Blocked", review: "In review", done: "Done" };
 
@@ -771,5 +772,5 @@ export default function MyWorkTasksTab({ isActive = true, day = null, onDay, pin
 }
 
 function SearchIcon() {
-    return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
+    return <Search size={14} aria-hidden="true" />;
 }

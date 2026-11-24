@@ -8,7 +8,7 @@ import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { listOrgTemplateFoldersAction } from '@/app/actions/org-files';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { Bell, Building2, CalendarDays, Check, ChevronDown, FileText, Folder, FolderKanban, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
+import { Bell, Building2, CalendarDays, Check, ChevronDown, FileText, Folder, FolderKanban, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
 import { WizardWorkflowsField } from '@/components/workspaces/workflows/WizardWorkflowsField';
 import { toast } from '@/lib/feedback';

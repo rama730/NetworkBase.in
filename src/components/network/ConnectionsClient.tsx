@@ -12,7 +12,7 @@ import {
     MessageSquare,
     UserMinus,
     Users,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { toast } from "@/lib/feedback";
 
 import { EmptyState } from "@/components/ui/EmptyState";

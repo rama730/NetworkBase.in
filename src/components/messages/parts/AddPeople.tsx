@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Check, Search, UserPlus } from "lucide-react";
+import { Check, Search, UserPlus } from "@/components/ui/icons";
 import { toast } from "@/lib/feedback";
 
 import { addMembers } from "@/app/actions/chat/members";

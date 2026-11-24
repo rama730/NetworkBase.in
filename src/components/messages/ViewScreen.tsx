@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, X } from "@/components/ui/icons";
 
 import { ConnectionBanner } from "@/components/messages/ConnectionBanner";
 import { useBack } from "@/hooks/useBack";

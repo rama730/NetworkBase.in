@@ -1,7 +1,7 @@
 "use client";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { Search, X } from "lucide-react";
+import { Search, X } from "@/components/ui/icons";
 
 import { cn } from "@/lib/utils";
 

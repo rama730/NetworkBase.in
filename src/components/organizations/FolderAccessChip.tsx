@@ -1,7 +1,7 @@
 'use client'
 
 import { useContext } from 'react'
-import { Globe, Lock } from 'lucide-react'
+import { Globe, Lock } from '@/components/ui/icons'
 
 import { FilesTabRoleContext } from '@/components/workspaces/v2/files-tab/FilesTabRoleContext'
 

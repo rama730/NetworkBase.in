@@ -5,7 +5,7 @@ import { TerminalBlock } from "@/components/ui/terminal-block";
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ExternalLink, RefreshCw, ShieldCheck } from 'lucide-react'
+import { ExternalLink, RefreshCw, ShieldCheck } from '@/components/ui/icons'
 
 import { generateExtensionAuthCode } from '@/app/actions/extension-sessions'
 import { AUTH_LINK, AuthAlert, AuthShell } from '@/components/auth/AuthShell'

@@ -3,7 +3,7 @@ import { TabMarker } from "@/components/ui/TabMarker";
 
 import Link from "next/link";
 import { useRef, type KeyboardEvent } from "react";
-import { Bell, Settings } from "lucide-react";
+import { Bell, Settings } from "@/components/ui/icons";
 import { useChanged } from "@/hooks/useChanged";
 
 import { NotificationList } from "@/components/notifications/NotificationList";

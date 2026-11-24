@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
-import { Laptop, LogOut, Menu, Moon, Plus, Search, ShieldCheck, Smile, Sun, UserRound } from "lucide-react";
+import { Laptop, LogOut, Menu, Moon, Plus, Search, ShieldCheck, Smile, Sun, UserRound } from "@/components/ui/icons";
 import Logo from "./Logo";
 import { BackLogoSwap, BackSlot } from "./BackButton";
 import { arrivedByTraverse, subscribeEntry } from "@/lib/navigation/in-app-history";

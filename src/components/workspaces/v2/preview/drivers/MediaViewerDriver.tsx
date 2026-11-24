@@ -28,7 +28,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Flag,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";

@@ -4,7 +4,7 @@ import { TabMarker } from "@/components/ui/TabMarker";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Check, MoreHorizontal, Plus, Search, FolderKanban, SearchX } from 'lucide-react'
+import { AlertTriangle, Check, MoreHorizontal, Plus, Search, FolderKanban, SearchX } from '@/components/ui/icons'
 
 import { readMyMovableWorkspacesAction, readOrgWorkspacesAction, remindLeadsAction, type OrgWorkspaceRow } from '@/app/actions/org-dashboard'
 import { approveMoveInAction, archiveChildAction, assignChildLeadAction, cancelDetachRequestAction, cancelMoveInAction, detachChildAction, moveWorkspaceToOrgAction, readLeadCandidatesAction, unarchiveChildAction } from '@/app/actions/organizations'

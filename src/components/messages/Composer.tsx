@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { EditorContent, type Editor } from "@tiptap/react";
 import { EditorState } from "@tiptap/pm/state";
-import { ALargeSmall, BarChart3, Camera, ChevronDown, Code2, FileText, Hash, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
+import { ALargeSmall, BarChart3, Camera, ChevronDown, Code2, FileText, Hash, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "@/components/ui/icons";
 import { toast, feedbackError, feedbackDate } from "@/lib/feedback";
 
 import { scheduleMessage } from "@/app/actions/chat/later";

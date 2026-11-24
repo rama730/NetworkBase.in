@@ -1,4 +1,4 @@
-import { Compass, MessageSquare, Settings, Users } from "lucide-react";
+import { Compass, MessageSquare, Settings, Users } from "@/components/ui/icons";
 
 import { ROUTES } from "@/constants/routes";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { Bell } from "lucide-react";
+import { Bell } from "@/components/ui/icons";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { ChevronDown, ClipboardList, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus } from 'lucide-react'
+import { ChevronDown, ClipboardList, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus } from '@/components/ui/icons'
 
 import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction } from '@/app/actions/organizations'
 import { JoinRequestNote } from '@/components/organizations/JoinOrgButton'

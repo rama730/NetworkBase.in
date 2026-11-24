@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Gauge, Plus, Target, X } from "lucide-react";
+import { Gauge, Plus, Target, X } from "@/components/ui/icons";
 import { useState } from "react";
 
 import { addKeyResultAction, addObjectiveAction, checkInAction, closePeriodAction, createGoalsDocAction, readGoalsAction, setGoalStatusAction } from "@/app/actions/workspace/doc";

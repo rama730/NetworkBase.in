@@ -12,7 +12,7 @@ import { ProfileTabBar } from './ProfileTabBar'
 import { SkillsStrip } from './SkillsStrip'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { Button } from '@/components/ui/button'
-import { Clock, MessageSquare, Pencil, UserCheck, UserPlus } from 'lucide-react'
+import { Clock, MessageSquare, Pencil, UserCheck, UserPlus } from '@/components/ui/icons'
 import { toast, feedbackError } from "@/lib/feedback";
 import { useAuth } from '@/hooks/use-auth';
 import { invalidatePrivacyDependents } from '@/lib/privacy/client-invalidation';

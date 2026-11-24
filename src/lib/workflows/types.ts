@@ -8,7 +8,7 @@ export type Stage = { key: string; label: string; status: TaskStatus; onBoard: b
 export type WorkflowType = {
   id: string;
   label: string;
-  /** Lucide icon name. */
+  /** Icon name, as exported by @/components/ui/icons. */
   icon: string;
   stages: Stage[];
   /** Where an item lands when it joins the board, and where it returns when it leaves Completed. */

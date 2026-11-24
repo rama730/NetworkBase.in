@@ -4,7 +4,7 @@ import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { completionActionLabel } from "@/lib/workspaces/task-completion-policy";
 import React from "react";
 import { SPRINT_STATUS_PRESENTATION } from "@/lib/workspaces/sprint-detail";
-import { CheckSquare, ChevronDown, Paperclip, Trash2, User, X, Zap } from "lucide-react";
+import { CheckSquare, ChevronDown, Paperclip, Trash2, User, X, Zap } from "@/components/ui/icons";
 import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHeadings";
 
 import { cn } from "@/lib/utils";

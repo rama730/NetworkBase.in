@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { GitBranch } from "lucide-react";
+import { GitBranch } from "@/components/ui/icons";
 
 import { createBranchAction } from "@/app/actions/files/branches";
 import { branchNameForTask } from "@/lib/branches/names";

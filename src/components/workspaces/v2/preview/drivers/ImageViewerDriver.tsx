@@ -14,7 +14,7 @@ import {
   Copy,
   Check,
   AlertTriangle,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WorkspaceNode } from "@/lib/db/schema";

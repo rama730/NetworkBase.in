@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot } from "lucide-react";
+import { Bot } from "@/components/ui/icons";
 import { useEffect, useState } from "react";
 
 import { queryKeys } from "@/lib/query-keys";

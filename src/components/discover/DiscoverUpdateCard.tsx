@@ -2,7 +2,8 @@
 
 import { memo, useRef, useState } from "react";
 import Link from "next/link";
-import { ImageOff, MoreHorizontal, Heart, MessageCircle, Pin } from "lucide-react";
+import { ImageOff, MoreHorizontal, Heart, MessageCircle, Pin } from "@/components/ui/icons";
+import { LikeHeart } from "@/components/ui/LikeHeart";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import {
     DropdownMenu,
@@ -188,7 +189,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                 <div className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
                     <div className={cn(
                         "inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 text-xs transition-colors hover:bg-muted hover:text-foreground",
-                        update.likedByViewer && "text-[var(--status-danger)]",
+                        update.likedByViewer && "text-[var(--like)]",
                     )}>
                         {viewerId ? (
                             <button
@@ -200,11 +201,11 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                                 aria-pressed={update.likedByViewer}
                                 aria-label="Like this update"
                                 className={cn(
-                                    "inline-flex items-center justify-center transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
-                                    update.likedByViewer && "text-[var(--status-danger)]",
+                                    "inline-flex items-center justify-center transition-transform active:translate-y-px focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
+                                    update.likedByViewer && "text-[var(--like)]",
                                 )}
                             >
-                                <Heart className={cn("h-3.5 w-3.5", update.likedByViewer && "fill-current text-[var(--status-danger)]")} aria-hidden="true" />
+                                <LikeHeart liked={update.likedByViewer} className="h-3.5 w-3.5" aria-hidden="true" />
                             </button>
                         ) : (
                             <Link prefetch={false}
@@ -228,7 +229,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                             className={cn(
                                 "inline-flex items-center tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
                                 update.likeCount > 0 ? "cursor-pointer hover:underline" : "cursor-default disabled:opacity-100",
-                                update.likedByViewer && "text-[var(--status-danger)] font-medium",
+                                update.likedByViewer && "text-[var(--like)] font-medium",
                             )}
                         >
                             <span aria-hidden="true">{update.likeCount}</span>

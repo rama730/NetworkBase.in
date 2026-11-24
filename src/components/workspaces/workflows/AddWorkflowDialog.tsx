@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Lock, Search, X } from "lucide-react";
+import { Check, Lock, Search, X } from "@/components/ui/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { addWorkflowAction, removeWorkflowAction, undoAddWorkflowAction, workflowRemovalCountsAction } from "@/app/actions/workflows";

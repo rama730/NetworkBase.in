@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen } from "lucide-react";
+import { BookOpen } from "@/components/ui/icons";
 import Link from "next/link";
 
 import { readMyUpNextAction } from "@/app/actions/learning-path";

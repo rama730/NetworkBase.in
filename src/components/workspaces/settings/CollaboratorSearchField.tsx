@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
+import { Search } from "@/components/ui/icons";
 
 const SEARCH_COMMIT_DELAY_MS = 180;
 

@@ -1,6 +1,7 @@
 'use client'
 
 
+import { X } from '@/components/ui/icons';
 import { ViaLabel } from '@/components/ui/via-label'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -42,7 +43,7 @@ function FileRow({ file, onRemove }: { file: HandInFile; onRemove?: () => void }
                 <ViaLabel via={file.viaAgent ? 'agent' : null} agentName={file.agentName} />
                 <span className="font-mono text-[12px] text-muted-foreground">{fileSize(file.size)}</span>
                 <button type="button" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Preview'} ${name}`} className="rounded-sm px-1.5 text-[12px] text-primary hover:bg-muted" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Preview'}</button>
-                {onRemove ? <button type="button" aria-label={`Remove ${name}`} className="rounded-sm px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onRemove}>×</button> : null}
+                {onRemove ? <button type="button" aria-label={`Remove ${name}`} className="rounded-sm px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onRemove}><X size={12} aria-hidden="true" /></button> : null}
             </div>
             {open ? <FileViewer projectId={file.projectId} file={file} className="m-2 mt-0 h-[50vh]" /> : null}
         </li>

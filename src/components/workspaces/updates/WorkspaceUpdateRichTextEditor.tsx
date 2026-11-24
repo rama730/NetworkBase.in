@@ -6,7 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import Link from "@tiptap/extension-link";
 import { referenceLinkBackspaceExtension } from "@/lib/editor/reference-link-backspace";
-import { ListTodo, Paperclip, Timer } from "lucide-react";
+import { ListTodo, Paperclip, Timer } from "@/components/ui/icons";
 
 import type { WorkspaceUpdateContextKind } from "@/lib/workspaces/updates";
 

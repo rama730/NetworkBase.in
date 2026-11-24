@@ -2,21 +2,7 @@
 
 import * as React from "react";
 import * as fflate from "fflate";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Maximize2,
-  Minimize2,
-  FileText,
-  Download,
-  AlertTriangle,
-  Presentation,
-  Sliders,
-  ZoomIn,
-  ZoomOut,
-  LayoutGrid,
-  Layers,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, FileText, Download, AlertTriangle, Presentation, Sliders, ZoomIn, ZoomOut, LayoutGrid, Layers, X } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkspaceNode } from "@/lib/db/schema";
@@ -1059,9 +1045,10 @@ export function PresentationViewerDriver({
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowNotes(false)}
+                aria-label="Close notes"
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
               >
-                ✕
+                <X size={12} aria-hidden="true" />
               </Button>
             </div>
 

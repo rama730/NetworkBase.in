@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, ExternalLink, Link2, MoreHorizontal, Pin, PinOff, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Link2, MoreHorizontal, Pin, PinOff, Plus, Search } from "@/components/ui/icons";
 
 import { setSidebarPinAction, type SidebarOrg, type SidebarRow, type SidebarWorkspaces as Data } from "@/app/actions/org-workspace";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";

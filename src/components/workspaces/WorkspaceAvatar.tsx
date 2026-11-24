@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { Camera } from "lucide-react";
+import { Camera } from "@/components/ui/icons";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { PixelPlace } from "@/components/ui/PixelPerson";

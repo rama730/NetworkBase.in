@@ -14,7 +14,7 @@ import {
   MessageSquare,
   Paperclip,
   User,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SPRINT_STATUS_PRESENTATION } from "@/lib/workspaces/sprint-detail";

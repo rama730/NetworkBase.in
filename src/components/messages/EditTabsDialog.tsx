@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDown, ArrowUp, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, SlidersHorizontal, Trash2 } from "@/components/ui/icons";
 import { TAB_ICONS } from "@/components/messages/ChannelTabBar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";

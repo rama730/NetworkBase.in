@@ -2,19 +2,7 @@
 
 import * as React from "react";
 import * as docx from "docx-preview";
-import {
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Search,
-  Download,
-  Printer,
-  FileText,
-  AlertTriangle,
-  RefreshCw,
-  ListTree,
-  BookOpen,
-} from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, Search, Download, Printer, FileText, AlertTriangle, RefreshCw, ListTree, BookOpen, X } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -533,9 +521,10 @@ export function DocxViewerDriver({
                   setShowSearch(false);
                   handleSearch("");
                 }}
+                aria-label="Clear search"
                 className="text-[10px] text-muted-foreground hover:text-foreground ml-1"
               >
-                ✕
+                <X size={12} aria-hidden="true" />
               </button>
             </div>
           ) : (
@@ -610,9 +599,10 @@ export function DocxViewerDriver({
               <button
                 type="button"
                 onClick={() => setShowOutline(false)}
+                aria-label="Close outline"
                 className="text-xs text-muted-foreground hover:text-foreground p-0.5 rounded-[3px]"
               >
-                ✕
+                <X size={12} aria-hidden="true" />
               </button>
             </div>
             {headings.map((h, i) => (

@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload } from 'lucide-react';
+import { Upload } from '@/components/ui/icons';
 
 interface DropZoneOverlayProps {
     visible: boolean;

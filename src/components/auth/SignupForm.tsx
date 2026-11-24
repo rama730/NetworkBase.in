@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from '@/components/ui/icons'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { loadBrowserSupabase, signUpWithPassword as signUp, verifyEmailOtp as verifyOtp } from '@/lib/auth/browser-auth-actions'
 import { Input } from '@/components/ui/input'

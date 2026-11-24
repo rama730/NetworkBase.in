@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useMemo, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleDot, GitMerge, GitPullRequest, MessageSquare, Paperclip, Trash2, Undo2, X } from "lucide-react";
+import { Check, CircleDot, GitMerge, GitPullRequest, MessageSquare, Paperclip, Trash2, Undo2, X } from "@/components/ui/icons";
 
 import { branchDiffAction, deleteBranchAction } from "@/app/actions/files/branches";
 import {

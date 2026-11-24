@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin } from "lucide-react";
+import { MapPin } from "@/components/ui/icons";
 import { useRef, useState } from "react";
 
 import { addFileCommentAction, changeFileCommentAction, readFileCommentsAction } from "@/app/actions/file-comments";

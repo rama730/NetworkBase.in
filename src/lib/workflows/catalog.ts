@@ -19,7 +19,7 @@ export type CatalogEntry = {
   name: string;
   group: Exclude<WorkflowGroup, "parked">;
   line: string;
-  /** Lucide icon name. */
+  /** Icon name, as exported by @/components/ui/icons. */
   icon: string;
   /** Item types it adds (src/lib/workflows/types.ts). */
   types: string[];

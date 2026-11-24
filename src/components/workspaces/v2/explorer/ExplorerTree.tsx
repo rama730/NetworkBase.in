@@ -2,7 +2,7 @@
 
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { FolderPlus } from "lucide-react";
+import { FolderPlus } from "@/components/ui/icons";
 import { FileTreeItem, type FileTreeItemContext } from "./FileTreeItem";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
