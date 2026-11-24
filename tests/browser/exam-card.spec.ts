@@ -16,7 +16,26 @@ test('before: format, time, room, What’s in it, Rules, the paper opens later, 
   expect(await axeViolations(page)).toEqual([]);
 });
 
-test('during: Closes in N min', async ({ page }) => {
+test('during, with 30 minutes extra time: Closes in N min', async ({ page }) => {
   await openApp(page, 'tests/browser/exam-card.fixture.tsx', { path: '/?phase=open' });
-  await expect(page.getByTestId('exam-state')).toHaveText(/Closes in 4[12] min/);
+  await expect(page.getByTestId('exam-state')).toHaveText(/Closes in 7[12] min/);
+  await expect(page.getByTestId('exam-card')).toContainText('You have 30 minutes extra time.');
+});
+
+test('Settings → Exams: the Teacher gives a student extra time; the list shows it with Remove', async ({ page }) => {
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as any).__calls = calls;
+    (window as any).__actions = {
+      readExtraTimeAction: async () => ({ success: true, teacher: true, rows: [{ userId: 'u1', name: 'A. Rao', minutes: 45 }], students: [{ id: 'u1', name: 'A. Rao' }, { id: 'u2', name: 'K. Shah' }] }),
+      setExtraTimeAction: async (_o: string, u: string, m: number | null) => { calls.push([u, m]); return { success: true }; },
+    };
+  });
+  await openApp(page, 'tests/browser/exam-card.fixture.tsx', { path: '/?phase=settings' });
+  await expect(page.getByRole('list', { name: 'Extra time' })).toContainText('A. Rao +45 min');
+  await page.getByLabel('Student').selectOption('u2');
+  await page.getByLabel('Extra minutes').fill('60');
+  await page.getByRole('button', { name: 'Give extra time' }).click();
+  expect(await page.evaluate(() => (window as any).__calls)).toEqual([['u2', 60]]);
+  expect(await axeViolations(page)).toEqual([]);
 });

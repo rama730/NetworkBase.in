@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
-import { releaseResultsAction } from '@/app/actions/exams'
+import { makeUpExamAction, releaseResultsAction } from '@/app/actions/exams'
 import { filterRoster, remindSkips, rosterSections, rosterTiles } from '@/lib/organizations/assignment-rules'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { remindSummary } from '@/lib/organizations/member-rules'
@@ -71,6 +71,7 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
     useEffect(() => { load() }, [load, countsKey])
     // B1.6a: Release results (the Teacher; the server refuses a TA).
     const [releaseAsk, setReleaseAsk] = useState(false)
+    const [makeUpAt, setMakeUpAt] = useState('')
     const run = (action: () => Promise<{ success: boolean; error?: string }>, done?: string) => startTransition(async () => {
         const result = await action()
         setError(result.success ? null : result.error ?? 'Something went wrong.')
@@ -127,6 +128,13 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
                 {row.submissionType === 'file' && tiles.submitted + tiles.done > 0 ? <Button asChild size="sm" variant="outline"><DownloadLink href={`/api/v1/workspaces/${orgId}/tasks/${row.masterId}/submissions`}>Download all</DownloadLink></Button> : null}
                 <Button type="button" size="sm" variant="outline" onClick={onExport}>Export</Button>
                 {row.exam?.held ? <Button type="button" size="sm" disabled={pending} onClick={() => setReleaseAsk(true)}>Release results</Button> : null}
+                {row.exam && picked.size ? (
+                    <span className="flex items-center gap-1.5" data-testid="make-up">
+                        <Input type="datetime-local" aria-label="Make-up starts" value={makeUpAt} onChange={(e) => setMakeUpAt(e.target.value)} className="h-8 w-auto font-mono" />
+                        <Button type="button" size="sm" variant="outline" disabled={pending || !makeUpAt}
+                            onClick={() => { const ids = rows.filter((r) => picked.has(r.copyId) && r.userId).map((r) => r.userId!); run(() => makeUpExamAction(row.masterId, ids, new Date(makeUpAt).toISOString()), `Make-up made for ${ids.length}`) }}>Make-up for {picked.size}</Button>
+                    </span>
+                ) : null}
                 {withoutCopy.length ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setAsk({ kind: 'give' })}>Give to…</Button> : null}
             </div>
             {/* Decision 60, finding 1.14: say who Remind skips before the click, not after. */}

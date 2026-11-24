@@ -106,3 +106,33 @@ test("held results: Approve keeps the mark hidden and quiet; only the Teacher re
   assert.ok(shown.success && shown.mark?.total === 42);
   assert.deepEqual((await sql`SELECT title FROM user_notifications WHERE user_id = ${t.a} AND title LIKE 'Final%'`).map((n) => n.title), ["Final was marked"]);
 });
+
+test("B1.6b: extra time moves only that student's close and stays private; Make-up for… and the clash warning", async () => {
+  const t = await setup();
+  const b = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${t.klass}, ${b}, 'member')`;
+  viewerId = t.teacher;
+  const made = await assignments.createAssignmentAction({ projectId: t.klass, title: "Quiz", dueDate: inHours(100), publish: true, submissionType: "text", lateRule: "always", target: { mode: "everyone" } as never, steps: [],
+    exam: { format: "timed", opensAt: inHours(-2), closesAt: inHours(-1), hold: false } });
+  assert.ok(made.success);
+  viewerId = t.ta;
+  assert.equal((await exams.setExtraTimeAction(t.klass, t.a, 90)).success, false, "only the Teacher sets extra time");
+  viewerId = t.teacher;
+  assert.equal((await exams.setExtraTimeAction(t.klass, t.a, 90)).success, true);
+  const copyOf = async (u: string) => (await sql`SELECT id FROM tasks WHERE assignment_id = ${made.masterId} AND assignee_id = ${u}`)[0]!.id as string;
+  viewerId = t.a;
+  assert.equal((await assignments.submitAssignmentAction(await copyOf(t.a), { text: "answer" })).success, true, "a's close is an hour and a half later");
+  viewerId = b;
+  assert.match(errorOf(await assignments.submitAssignmentAction(await copyOf(b), { text: "answer" })), /not accepted/, "b's close didn't move");
+  const mine = await exams.readExtraTimeAction(t.klass);
+  assert.ok(mine.success && mine.rows.length === 0 && mine.students.length === 0, "b never sees a's extra time");
+  viewerId = t.teacher;
+  const later = await assignments.createAssignmentAction({ projectId: t.klass, title: "Other exam", dueDate: inHours(100), publish: true, submissionType: "none", lateRule: "none", target: { mode: "everyone" } as never, steps: [],
+    exam: { format: "in_person", opensAt: inHours(-1.5), closesAt: inHours(1) } });
+  assert.ok(later.success && later.clashes === 2, "both students have Quiz at that time: a warning, not a block");
+  const makeUp = await exams.makeUpExamAction(made.masterId, [b], inHours(48));
+  assert.ok(makeUp.success);
+  const [m] = await sql`SELECT title, assignment_settings AS s FROM tasks WHERE id = ${makeUp.masterId}`;
+  const copies = await sql`SELECT assignee_id FROM tasks WHERE assignment_id = ${makeUp.masterId}`;
+  assert.deepEqual([m!.title, m!.s.exam.format, copies.map((c) => c.assignee_id)], ["Quiz · make-up", "timed", [b]]);
+});

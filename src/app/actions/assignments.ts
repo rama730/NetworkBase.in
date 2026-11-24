@@ -5,6 +5,7 @@ import { freezeMarking, marksForStaff } from '@/lib/organizations/marks-server';
 import { readMarking, readRubrics, rubricOutOf } from '@/lib/organizations/marks';
 import { typeProfile } from '@/lib/organizations/type-profile';
 import { examPhase, readExam, resultsHeld } from '@/lib/organizations/exams';
+import { examClashes, examSubmitUntil, extraMinutes } from '@/lib/organizations/exams-server';
 import { revalidatePath } from 'next/cache';
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
@@ -145,7 +146,7 @@ function scheduleFields(schedule: z.infer<typeof scheduleSchema> | null | undefi
 }
 
 /** New assignment: a master, and copies when published (report §16.2). Drafts make no copies. */
-export async function createAssignmentAction(input: z.input<typeof createSchema>): Promise<{ success: true; masterId: string; copies: number; drafts?: number } | Failure | NoReviewer> {
+export async function createAssignmentAction(input: z.input<typeof createSchema>): Promise<{ success: true; masterId: string; copies: number; drafts?: number; clashes?: number } | Failure | NoReviewer> {
     const parsed = createSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? 'Check the assignment details.' };
     const data = parsed.data;
@@ -242,7 +243,9 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
         if (data.publish && data.shareToGeneral) await afterSave('share', () => shareToOrgGeneral(data.projectId, viewer.userId, { kind: 'assignment', ref_id: result.masterId }));
         if (data.publish && data.announcement) await afterSave('announcement', () => postOrgAnnouncement(data.projectId, viewer.userId, data.announcement!));
         if (data.publish) await afterSave('notify', () => notifyAssignmentPublished(result.masterId, viewer.userId));
-        return { success: true, ...result };
+        // B1.6b call 5: students with another exam at the same time — a warning, never a block.
+        const clashes = exam && data.publish ? await examClashes(result.masterId).catch(() => 0) : 0;
+        return { success: true, ...result, ...(clashes ? { clashes } : {}) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t create the assignment.' };
     }
@@ -303,7 +306,7 @@ export type HandIn = {
     wouldBeLate: boolean;
     materials: Array<{ nodeId: string; name: string; projectId: string }>;
     /** B1.6a: the exam (window, room, What's in it as unit names) when this assignment is one. */
-    exam?: { settings: import('@/lib/organizations/exams').ExamSettings; coverNames: string[] } | null;
+    exam?: { settings: import('@/lib/organizations/exams').ExamSettings; coverNames: string[]; /** Private: only the holder's own (call 3). */ extraMinutes: number } | null;
     /** Review UX: the copy's workspace, its steps (2.7), the upload limit (2.10), and what happened to it, newest first (2.9, 3.14, 3.15). */
     projectId: string; orgId: string; masterId: string;
     steps: Array<{ id: string; title: string; done: boolean }>;
@@ -344,7 +347,9 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
     // Submit is open per the same rules the server checks on Submit.
     const replaceLocked = approved || (copy.status === 'done' && copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil));
     const exam = readExam(master.settings);
-    const canSubmit = holder && !copy.excusedAt && !replaceLocked && canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil) && !(exam?.format === 'timed' && examPhase(exam, now.getTime()) === 'before');
+    const extra = exam && holder ? await extraMinutes(master.projectId, userId) : 0;
+    const until = exam ? await examSubmitUntil(master.settings, master.projectId, holder ? userId : null, copy.submitUntil) : copy.submitUntil;
+    const canSubmit = holder && !copy.excusedAt && !replaceLocked && canStillSubmit(master.settings, copy.dueDate, now, until) && !(exam?.format === 'timed' && examPhase(exam, now.getTime()) === 'before');
     const coverNames = exam?.covers.units.length ? (await db.select({ id: workspaceSprints.id, name: workspaceSprints.name }).from(workspaceSprints)
         .where(and(eq(workspaceSprints.projectId, master.projectId), inArray(workspaceSprints.id, exam.covers.units)))).map((u) => u.name) : [];
     // Mockup task 3: "This will be marked Late." when handing in now would be.
@@ -370,7 +375,7 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
         latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name, size: sizes.get(f.nodeId)?.size ?? null, projectId: sizes.get(f.nodeId)?.projectId ?? copy.projectId, ...label(f.nodeId) })) } : null,
         files: files.map((f) => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size), projectId: f.project_id, ...label(f.node_id) })), materials: materials.success ? materials.materials : [],
         wouldBeLate, projectId: copy.projectId, orgId: master.projectId, masterId: master.id, steps, maxFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES,
-        exam: exam ? { settings: exam, coverNames: [...coverNames, ...exam.covers.outcomes] } : null,
+        exam: exam ? { settings: exam, coverNames: [...coverNames, ...exam.covers.outcomes], extraMinutes: extra } : null,
         history: history.map((e) => ({ kind: e.kind, at: new Date(e.at).toISOString(), by: e.by, ...(e.kind === 'handed_in' ? { version: Number(e.version), late: Boolean(e.late) } : { reason: e.reason }) })),
     } };
 }
@@ -718,7 +723,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     if (copy.status === 'done' && copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil)) {
         return { success: false, error: 'The due date has passed, so this can’t be replaced.' };
     }
-    if (!canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil)) return { success: false, error: master.settings.closedAt ? 'This assignment is closed.' : 'Late submissions are not accepted.' };
+    if (!canStillSubmit(master.settings, copy.dueDate, now, await examSubmitUntil(master.settings, master.projectId, userId, copy.submitUntil))) return { success: false, error: master.settings.closedAt ? 'This assignment is closed.' : 'Late submissions are not accepted.' };
     const { link, text, note } = parsed.data;
     const type = master.settings.submissionType;
     if (type === 'link' && !link) return { success: false, error: 'Add the link to your work.' };

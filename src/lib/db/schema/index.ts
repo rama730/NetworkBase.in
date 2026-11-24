@@ -1275,6 +1275,15 @@ export const peerReviews = pgTable("peer_reviews", {
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
 }, (t) => [unique("peer_reviews_one_each").on(t.copyId, t.reviewerId), index("peer_reviews_master_reviewer_idx").on(t.masterId, t.reviewerId)]);
 
+/** B1.6b (0131, report 30.5 call 3): a student's extra time in a class; moves only their exam close. Server only. */
+export const examExtraTime = pgTable("exam_extra_time", {
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  minutes: integer("minutes").notNull(),
+  setBy: uuid("set_by").references(() => profiles.id, { onDelete: "set null" }),
+  setAt: timestamp("set_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.projectId, t.userId] })]);
+
 // ============================================================================
 // ORGANIZATIONS (0241): server-only tables, no browser grants.
 // ============================================================================

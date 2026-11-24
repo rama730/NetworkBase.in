@@ -385,6 +385,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
             ...(repeatUntil ? { repeatWeeklyUntil: at(`${repeatUntil}T23:59`) } : {}),
         })
+        if (result.success && 'clashes' in result && result.clashes) toast.warning(`${result.clashes} ${result.clashes === 1 ? 'student also has' : 'students also have'} another exam at that time.`)
         setNoReviewer(!result.success && 'noReviewer' in result && result.noReviewer === true)
         if (!result.success) return setError(result.error)
         // Student check 17: say it worked, and to how many.
