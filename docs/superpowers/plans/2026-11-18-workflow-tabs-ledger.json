@@ -968,9 +968,9 @@
       "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/learning-path-rules.test.ts; tests/db/learning-path.test.ts; tests/browser/learning-path.spec.ts; packages/nb-cli/test/path.test.mjs",
+      "evidence": "Live 2026-11-24 (40d9079da, 0121 in prod): Learning path added to wt-test-a2-3; Path → + Step \"WT Basics\" → + Lesson \"WT Variables\" (NB-68) → ticked \"1 of 1 done\" in Chrome; Progress view opens; nb path / nb path done NB-68 (and --undo) against prod. Live-check fix 11e587a0a: steps stay out of the Sprints list. Public path and Up next proven by tests/db/learning-path.test.ts."
     },
     {
       "key": "A7.7",
@@ -978,9 +978,9 @@
       "text": "A7.1 Assets gallery + details + Used in (O1) · A7.2 File comments: pins and moments (O1, migration filecomments) · A7.3 Colors + outside links + new-version not",
       "kind": "unit",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/learning-path-rules.test.ts; tests/db/learning-path.test.ts; tests/browser/learning-path.spec.ts; packages/nb-cli/test/path.test.mjs",
+      "evidence": "Live 2026-11-24 (40d9079da, 0121 in prod): Learning path added to wt-test-a2-3; Path → + Step \"WT Basics\" → + Lesson \"WT Variables\" (NB-68) → ticked \"1 of 1 done\" in Chrome; Progress view opens; nb path / nb path done NB-68 (and --undo) against prod. Live-check fix 11e587a0a: steps stay out of the Sprints list. Public path and Up next proven by tests/db/learning-path.test.ts."
     },
     {
       "key": "B0.1",
@@ -7768,9 +7768,9 @@
       "text": "Progress is a small lessonprogress table (person × lesson), not assignment copies; this replaces 28.4's smaller rule for ordinary workspaces. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/learning-path-rules.test.ts; tests/db/learning-path.test.ts; tests/browser/learning-path.spec.ts; packages/nb-cli/test/path.test.mjs",
+      "evidence": "Live 2026-11-24 (40d9079da, 0121 in prod): Learning path added to wt-test-a2-3; Path → + Step \"WT Basics\" → + Lesson \"WT Variables\" (NB-68) → ticked \"1 of 1 done\" in Chrome; Progress view opens; nb path / nb path done NB-68 (and --undo) against prod. Live-check fix 11e587a0a: steps stay out of the Sprints list. Public path and Up next proven by tests/db/learning-path.test.ts."
     },
     {
       "key": "38.18.call2",
@@ -7778,9 +7778,9 @@
       "text": "Sprint dates become optional for path steps, and undated sprints never auto-start (also unblocks C2). [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/learning-path-rules.test.ts; tests/db/learning-path.test.ts; tests/browser/learning-path.spec.ts; packages/nb-cli/test/path.test.mjs",
+      "evidence": "Live 2026-11-24 (40d9079da, 0121 in prod): Learning path added to wt-test-a2-3; Path → + Step \"WT Basics\" → + Lesson \"WT Variables\" (NB-68) → ticked \"1 of 1 done\" in Chrome; Progress view opens; nb path / nb path done NB-68 (and --undo) against prod. Live-check fix 11e587a0a: steps stay out of the Sprints list. Public path and Up next proven by tests/db/learning-path.test.ts."
     },
     {
       "key": "38.18.call3",
@@ -7788,9 +7788,9 @@
       "text": "Lock in order is off by default. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/learning-path-rules.test.ts; tests/db/learning-path.test.ts; tests/browser/learning-path.spec.ts; packages/nb-cli/test/path.test.mjs",
+      "evidence": "Live 2026-11-24 (40d9079da, 0121 in prod): Learning path added to wt-test-a2-3; Path → + Step \"WT Basics\" → + Lesson \"WT Variables\" (NB-68) → ticked \"1 of 1 done\" in Chrome; Progress view opens; nb path / nb path done NB-68 (and --undo) against prod. Live-check fix 11e587a0a: steps stay out of the Sprints list. Public path and Up next proven by tests/db/learning-path.test.ts."
     },
     {
       "key": "38.18.call4",
@@ -7798,9 +7798,9 @@
       "text": "Admins see Progress as plain counts; no ranking, streaks or points. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/learning-path-rules.test.ts; tests/db/learning-path.test.ts; tests/browser/learning-path.spec.ts; packages/nb-cli/test/path.test.mjs",
+      "evidence": "Live 2026-11-24 (40d9079da, 0121 in prod): Learning path added to wt-test-a2-3; Path → + Step \"WT Basics\" → + Lesson \"WT Variables\" (NB-68) → ticked \"1 of 1 done\" in Chrome; Progress view opens; nb path / nb path done NB-68 (and --undo) against prod. Live-check fix 11e587a0a: steps stay out of the Sprints list. Public path and Up next proven by tests/db/learning-path.test.ts."
     },
     {
       "key": "38.18.call5",
@@ -7808,9 +7808,9 @@
       "text": "A self-paced path can be made public without anyone's progress. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/learning-path-rules.test.ts; tests/db/learning-path.test.ts; tests/browser/learning-path.spec.ts; packages/nb-cli/test/path.test.mjs",
+      "evidence": "Live 2026-11-24 (40d9079da, 0121 in prod): Learning path added to wt-test-a2-3; Path → + Step \"WT Basics\" → + Lesson \"WT Variables\" (NB-68) → ticked \"1 of 1 done\" in Chrome; Progress view opens; nb path / nb path done NB-68 (and --undo) against prod. Live-check fix 11e587a0a: steps stay out of the Sprints list. Public path and Up next proven by tests/db/learning-path.test.ts."
     },
     {
       "key": "38.18.call6",
@@ -7818,9 +7818,9 @@
       "text": "Agents can't mark lessons done. [call]",
       "kind": "call",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/learning-path-rules.test.ts; tests/db/learning-path.test.ts; tests/browser/learning-path.spec.ts; packages/nb-cli/test/path.test.mjs",
+      "evidence": "Live 2026-11-24 (40d9079da, 0121 in prod): Learning path added to wt-test-a2-3; Path → + Step \"WT Basics\" → + Lesson \"WT Variables\" (NB-68) → ticked \"1 of 1 done\" in Chrome; Progress view opens; nb path / nb path done NB-68 (and --undo) against prod. Live-check fix 11e587a0a: steps stay out of the Sprints list. Public path and Up next proven by tests/db/learning-path.test.ts."
     },
     {
       "key": "38.2.call11",
@@ -8551,6 +8551,16 @@
       "status": "live-pending",
       "test": "tests/db/scheduled-updates.test.ts",
       "evidence": "See A7.4/A7.5. revisit 2026-11-25"
+    },
+    {
+      "key": "38.18.call7",
+      "section": "38.18",
+      "text": "A7.6–A7.7 Learning path (2026-11-24): migration 0121learningpath (sprint dates optional, both or neither; pathposition; lessonprogress). Where Learning path is ",
+      "kind": "call",
+      "milestone": "A7",
+      "status": "live",
+      "test": "tests/unit/learning-path-rules.test.ts; tests/db/learning-path.test.ts; tests/browser/learning-path.spec.ts; packages/nb-cli/test/path.test.mjs",
+      "evidence": "Live 2026-11-24 (40d9079da, 0121 in prod): Learning path added to wt-test-a2-3; Path → + Step \"WT Basics\" → + Lesson \"WT Variables\" (NB-68) → ticked \"1 of 1 done\" in Chrome; Progress view opens; nb path / nb path done NB-68 (and --undo) against prod. Live-check fix 11e587a0a: steps stay out of the Sprints list. Public path and Up next proven by tests/db/learning-path.test.ts."
     }
   ]
 }
