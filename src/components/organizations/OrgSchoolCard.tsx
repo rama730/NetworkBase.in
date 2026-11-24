@@ -206,7 +206,7 @@ function SchoolExamWeeks({ schoolId, value, onSaved }: { schoolId: string; value
   };
   const set = (i: number, patch: Partial<{ name: string; start: string; end: string }>) => setRows((cur) => cur.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
-    <SettingsCard title="Exam weeks" headingLevel={2} description="Every class sees them on its Term plan, and has no classes then unless it turns that off.">
+    <SettingsCard title="Exam weeks" headingLevel={2} description="Every class has no classes then, unless it turns that off in its own Settings → Exams.">
       <div className="space-y-2 text-[13px]" data-testid="school-exam-weeks">
         {rows.map((r, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2">

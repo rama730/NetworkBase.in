@@ -61,13 +61,13 @@ export function ExamSettingsCard({ orgId }: { orgId: string }) {
               onChange={(e) => void saveExamNoClassesAction(orgId, e.target.checked).then((r) => { if (!r.success) return void toast.error(r.error); void client.invalidateQueries({ queryKey: ["exam-extra-time", orgId] }); })} />
               No classes during the school’s exam weeks ({data.examWeeks})</label>
           ) : null}
-          {data.rows.length ? (
+          {!data.students.length ? null : data.rows.length ? (
             <ul className="space-y-1" aria-label="Extra time">{data.rows.map((r) => (
               <li key={r.userId} className="flex items-center justify-between gap-2"><span>{r.name} <span className="font-mono">+{r.minutes} min</span></span>
                 {data.teacher ? <button type="button" className="nb-touch-target text-[13px] font-medium text-primary hover:underline" onClick={() => void save(r.userId, null)}>Remove<span className="sr-only"> {r.name}’s extra time</span></button> : null}</li>
             ))}</ul>
           ) : <p className="text-muted-foreground">No one has extra time.</p>}
-          {data.teacher ? (
+          {data.teacher && data.students.length ? (
             <div className="flex flex-wrap items-center gap-2">
               <select className="nb-select" data-size="sm" aria-label="Student" value={who} onChange={(e) => setWho(e.target.value)}>
                 <option value="">Pick a student…</option>{data.students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
