@@ -137,7 +137,8 @@
     "drizzle/0131_exam_extra_time.sql",
     "drizzle/0132_second_marks.sql",
     "drizzle/0133_day_pins.sql",
-    "drizzle/0134_literature_sources.sql"
+    "drizzle/0134_literature_sources.sql",
+    "drizzle/0135_programs.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

@@ -26,6 +26,10 @@ async function open(page: Page, view: 'class' | 'school' | 'classes' | 'attentio
       saveDepartmentsAction: async (_s: string, rows: unknown) => { calls.push(['depts', rows]); return { success: true, departments: rows }; },
       readOrgMembersAction: async () => ({ success: true, rows: [{ userId: 'u1', name: 'Asha' }] }),
       readSchoolExamsAction: async () => ({ success: true, exams: [{ id: 'm1', title: 'Midterm', classTitle: 'Maths 10A', format: 'in_person', opensAt: '2027-03-02T10:00:00Z', closesAt: '2027-03-02T12:00:00Z', room: 'LH-2', students: 31, clashes: 3 }] }),
+      readProgramsAction: async () => ({ success: true, programs: [{ id: 'p1', name: 'Full-stack Web', weeks: 12, status: 'active', sourceClass: 'Maths 10A', seats: 30, cohorts: 1, nextStart: null,
+        list: [{ id: 'c1', title: 'Full-stack Web · Cohort 1', slug: 'fsw-1', start: '2027-01-04', end: '2027-03-28', state: 'running', members: 18 }] }] }),
+      startCohortAction: async (id: string, input: unknown) => { calls.push(['start', id, input]); return { success: true, ends: '2027-07-11' }; },
+      saveAsProgramAction: async (id: string, name: string) => { calls.push(['save', id, name]); return { success: true, id: 'p2' }; },
       saveSchoolExamWeeksAction: async (_s: string, rows: unknown) => { calls.push(['weeks', rows]); return { success: true }; },
       decideClassRequestAction: async (_i: string, c: string, ok: boolean) => { calls.push(['decide', c, ok]); return { success: true }; },
     };
@@ -126,5 +130,25 @@ test('B1.6d: the school sets exam weeks, and its Classes tab lists exams by day 
   await open(page, 'classes');
   await expect(page.getByTestId('school-exams')).toContainText('Midterm · Maths 10A');
   await expect(page.getByTestId('school-exams')).toContainText('LH-2 · 31 students · 3 with a clash');
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B2.1a: Programs with their cohorts; Start a cohort shows the end and sends seats, join method and what to copy; Save as program on a class', async ({ page }) => {
+  await open(page, 'classes');
+  const programs = page.getByTestId('programs');
+  await expect(programs).toContainText('Full-stack Web');
+  await expect(programs).toContainText('12 weeks · 1 cohort');
+  await expect(programs.getByRole('list', { name: 'Full-stack Web cohorts' })).toContainText('Running');
+  await expect(programs.getByRole('list', { name: 'Full-stack Web cohorts' })).toContainText('18 / 30');
+  await programs.getByRole('button', { name: 'Start a cohort of Full-stack Web' }).click();
+  const form = page.getByTestId('start-cohort');
+  await expect(form.getByRole('textbox').first()).toHaveValue('Full-stack Web · Cohort 2');
+  await form.locator('input[type="date"]').fill('2027-04-19');
+  await expect(form).toContainText('Ends Jul 11, 2027 (12 weeks)');
+  await form.getByRole('button', { name: 'Start cohort' }).click();
+  const sent = (await calls(page)).find((c: unknown[]) => c[0] === 'start');
+  expect(sent[2]).toMatchObject({ name: 'Full-stack Web · Cohort 2', start: '2027-04-19', seats: 30, joinMode: 'approval', copy: { sprints: true, admins: false } });
+  await page.getByRole('button', { name: 'Save as program from Maths 10A' }).click();
+  expect((await calls(page)).at(-1)).toEqual(['save', 'c1', 'Maths 10A']);
   expect(await axeViolations(page)).toEqual([]);
 });

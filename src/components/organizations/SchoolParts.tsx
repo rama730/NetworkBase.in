@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { readInstitutionClassesAction, readSchoolAboutAction, readSchoolExamsAction, type InstitutionClass } from "@/app/actions/institutions";
 import { attentionReasons, classCounts } from "@/lib/organizations/school-rules";
 import { OrgCard } from "@/components/organizations/org-ui";
+import { ProgramsSection, SaveAsProgram } from "@/components/organizations/Programs";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { PixelBeat } from "@/components/ui/PixelBeat";
@@ -39,6 +40,7 @@ export function SchoolClassesTab({ orgId }: { orgId: string }) {
         <UnderlineTabs label="Group classes by" idPrefix="school-group" controls={false} className="w-auto border-b-0" value={group} onChange={setGroup}
           tabs={[{ key: "department", label: "Department" }, { key: "teacher", label: "Teacher" }, { key: "term", label: "Term" }]} />
       </div>
+      {data.isAdmin ? <ProgramsSection schoolId={orgId} /> : null}
       {[...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([name, rows]) => (
         <section key={name} aria-label={name}>
           <h3 className="nb-micro mb-2">{name} <span className="font-mono">{rows.length}</span></h3>
@@ -49,7 +51,10 @@ export function SchoolClassesTab({ orgId }: { orgId: string }) {
                   <Link href={href(c)} className="font-medium text-foreground hover:underline">{c.title}</Link>
                   {c.teacher && group !== "teacher" ? <span className="ml-2 text-[13px] text-muted-foreground">{c.teacher}</span> : null}
                 </span>
-                {c.counted ? <span className="nb-meta font-mono">{classCounts(c)}</span> : null}
+                <span className="flex flex-wrap items-baseline gap-3">
+                  {c.counted ? <span className="nb-meta font-mono">{classCounts(c)}</span> : null}
+                  {data.isAdmin ? <SaveAsProgram classId={c.id} title={c.title} schoolId={orgId} /> : null}
+                </span>
               </li>
             ))}
           </ul>

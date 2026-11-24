@@ -1280,6 +1280,20 @@ export const peerReviews = pgTable("peer_reviews", {
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
 }, (t) => [unique("peer_reviews_one_each").on(t.copyId, t.reviewerId), index("peer_reviews_master_reviewer_idx").on(t.masterId, t.reviewerId)]);
 
+/** B2.1a (0135, report 31.2 C1): a school's programs; a cohort is a class with the program's id in its settings. */
+export const programs = pgTable("programs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  institutionId: uuid("institution_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  weeks: integer("weeks"),
+  status: text("status", { enum: ["draft", "active", "retired"] }).default("active").notNull(),
+  sourceClassId: uuid("source_class_id").references(() => workspaces.id, { onDelete: "set null" }),
+  seats: integer("seats"),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("programs_institution_idx").on(t.institutionId)]);
+
 /** B1.8b (0134, report 30.6 layer 3): a thesis workspace's literature sources. Server only. */
 export const literatureSources = pgTable("literature_sources", {
   id: uuid("id").primaryKey().defaultRandom(),

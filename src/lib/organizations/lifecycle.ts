@@ -203,6 +203,8 @@ export type DuplicateOptions = {
   handle: string;
   termStart: string | null;
   copy: { about: boolean; docs: boolean; files: boolean; sprints: boolean; assignments: boolean; channels: boolean; admins: boolean };
+  /** B2.1a Start a cohort (report 31.2): the program it runs, its seats and how people join. */
+  cohort?: { programId: string; seats: number | null; joinMode: "approval" | "instant" };
 };
 
 /** Shift a date by the term move (new term start − old term start), whole days. */
@@ -253,6 +255,12 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
     const filled = await fillDuplicate(sourceId, newId, actorId, options, deltaMs);
     // B0.2 Start next term: the copy joins the same school the way a new class does — at once for its admins, else as a request.
     if (source.institutionId) await joinSchoolAs(newId, source.institutionId, actorId);
+    if (options.cohort) {
+      await db.update(workspaces).set({
+        orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ programId: options.cohort.programId, joinMode: options.cohort.joinMode })}::jsonb`,
+        maxCollaborators: options.cohort.seats == null ? null : String(options.cohort.seats),
+      }).where(eq(workspaces.id, newId));
+    }
     return filled;
   } catch (error) {
     // Report §27.4: a failed duplicate leaves nothing half made, and the owner is told.
