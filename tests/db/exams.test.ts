@@ -208,3 +208,20 @@ test("B1.6d: the school's exam weeks reach its classes; its Exams view lists exa
   const settings = await exams.readExtraTimeAction(t.klass);
   assert.ok(settings.success && settings.noClasses === false && settings.examWeeks === 1);
 });
+
+test("B1.6: the Term plan names the school's exam week on its week and marks exams among the assessments", async () => {
+  const t = await setup();
+  await sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || ${sql.json({ examWeeks: [{ name: "Midterms", start: "2027-03-01", end: "2027-03-05" }] } as never)} WHERE id = ${t.klass}`;
+  const [unit] = await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status, sprint_number) VALUES (${t.klass}, ${t.teacher}, 'Unit 1', '2027-02-22', '2027-03-12', 'planning', 1) RETURNING id`;
+  await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status, parent_sprint_id, sprint_number) VALUES (${t.klass}, ${t.teacher}, 'Week 2', '2027-03-01', '2027-03-07', 'planning', ${unit!.id}, 2)`;
+  await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status, parent_sprint_id, sprint_number) VALUES (${t.klass}, ${t.teacher}, 'Week 1', '2027-02-22', '2027-02-28', 'planning', ${unit!.id}, 3)`;
+  await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, due_date, assignment_settings) VALUES (${t.klass}, 'Midterm', 'todo', 'medium', ${t.teacher}, 'assignment', '2027-03-02T12:00:00Z',
+    ${sql.json({ version: 1, submissionType: "none", reviewRequired: false, lateRule: "none", target: { mode: "everyone" }, publishedAt: new Date().toISOString(), exam: { format: "in_person", opensAt: "2027-03-02T10:00:00.000Z", closesAt: "2027-03-02T12:00:00.000Z" } } as never)})`;
+  const plan = await loadAppModule(() => import("../../src/app/actions/term-plan"));
+  viewerId = t.teacher;
+  const r = await plan.readTermPlanAction(t.klass);
+  assert.ok(r.success);
+  const weeks = r.units.flatMap((u) => u.weeks);
+  assert.deepEqual(weeks.map((w) => [w.name, w.examWeek ?? null]).sort(), [["Week 1", null], ["Week 2", "Midterms"]]);
+  assert.deepEqual(weeks.find((w) => w.name === "Week 2")!.assessments.map((a) => [a.title, a.exam ?? false]), [["Midterm", true]]);
+});

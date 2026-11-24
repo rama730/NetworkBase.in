@@ -127,7 +127,8 @@ function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen,
   return (
     <>
       <tr className={cn("border-b border-border align-top", current && "bg-muted")} data-testid="term-week">
-        <th scope="row" className="whitespace-nowrap px-3 py-2 text-left font-medium">{week.name}{current ? <StatusBadge state="new" className="ml-2">Now</StatusBadge> : null}</th>
+        <th scope="row" className="whitespace-nowrap px-3 py-2 text-left font-medium">{week.name}{current ? <StatusBadge state="new" className="ml-2">Now</StatusBadge> : null}
+          {week.examWeek ? <StatusBadge state="at_risk" className="ml-2">{week.examWeek}</StatusBadge> : null}</th>
         <td className="whitespace-nowrap px-3 py-2 font-mono text-[12px] text-muted-foreground">{day(week.start)}–{day(week.end)}</td>
         <td className="px-3 py-2">
           {teacher ? <Input aria-label={`${label} for ${week.name}`} defaultValue={week.goal ?? ""} maxLength={500} placeholder="—" onBlur={(e) => { if (e.target.value !== (week.goal ?? "")) onTopics(e.target.value); }} className="h-8" />
@@ -140,7 +141,7 @@ function WeekRows({ week, staff, teacher, label, current, breaks, open, setOpen,
           {live.length > week.sessions && week.sessions > 0 ? <span className="ml-2 text-[12px] text-[var(--status-warning)]">{live.length} lessons, {week.sessions} sessions</span> : null}
         </td>
         <td className="px-3 py-2">
-          {week.assessments.length ? week.assessments.map((a) => <span key={a.id} className="mr-2 inline-block text-[12px]">{a.title} · due {day(a.due)}</span>) : <span className="text-muted-foreground">—</span>}
+          {week.assessments.length ? week.assessments.map((a) => <span key={a.id} className="mr-2 inline-flex items-center gap-1 text-[12px]">{a.exam ? <StatusBadge state="at_risk">Exam</StatusBadge> : null}{a.title} · {a.exam ? "" : "due "}{day(a.due)}</span>) : <span className="text-muted-foreground">—</span>}
         </td>
       </tr>
       {week.lessons.map((l) => (

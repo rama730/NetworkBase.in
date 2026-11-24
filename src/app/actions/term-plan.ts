@@ -7,7 +7,8 @@ import { db } from "@/lib/db";
 import { lessonStaffNotes, tasks, workspaceSprints, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
-import { readClassDetails, readSessionChanges, termSessions, type Session } from "@/lib/organizations/class-sessions";
+import { readClassDetails, readExamWeeks, readSessionChanges, termSessions, type Session } from "@/lib/organizations/class-sessions";
+import { readExam } from "@/lib/organizations/exams";
 import type { OrgType } from "@/lib/organizations/config";
 import { lessonOrder, matchSessions, outcomeCoverage, readTermPlanSettings, sessionsInWeek, unitProgress, visibleLessons, weekNumber, type PlanLesson, type PlanWeek } from "@/lib/organizations/term-plan";
 import { typeProfile } from "@/lib/organizations/type-profile";
@@ -38,7 +39,9 @@ async function classAccess(orgId: string) {
 }
 
 export type TermPlanLesson = PlanLesson & { session: Session | null; needsNewSession: boolean; before: string | null; during: string | null; after: string | null; notes?: string | null };
-export type TermPlanWeek = PlanWeek & { lessons: TermPlanLesson[]; sessions: number; assessments: Array<{ id: string; title: string; due: string }> };
+export type TermPlanWeek = PlanWeek & { lessons: TermPlanLesson[]; sessions: number; assessments: Array<{ id: string; title: string; due: string; exam?: boolean }>;
+  /** B1.6 (report 30.5 layer 4): the school's exam week this week falls in, by name. */
+  examWeek?: string | null };
 
 export async function readTermPlanAction(orgId: string) {
   try {
@@ -68,12 +71,14 @@ export async function readTermPlanAction(orgId: string) {
     const masters = await db.select({ id: tasks.id, title: tasks.title, due: tasks.dueDate, settings: tasks.assignmentSettings }).from(tasks)
       .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, "assignment"), isNull(tasks.assignmentId), isNull(tasks.deletedAt)));
     const due = masters.filter((m) => m.due && (staff || (m.settings as { publishedAt?: string | null } | null)?.publishedAt))
-      .map((m) => ({ id: m.id, title: m.title, due: m.due!.toISOString() }));
+      .map((m) => ({ id: m.id, title: m.title, due: m.due!.toISOString(), ...(readExam(m.settings) ? { exam: true } : {}) }));
+    const examWeeks = readExamWeeks(c.orgSettings);
     const shaped: TermPlanWeek[] = weeks.map((w) => {
       const inWeek = lessons.filter((l) => l.weekId === w.id).sort(lessonOrder);
       const weekSessions = sessionsInWeek(sessions, w);
       const slots = new Map(matchSessions(inWeek, weekSessions).map((s) => [s.lessonId, s]));
-      return { ...w, sessions: weekSessions.filter((s) => s.status !== "cancelled").length,
+      const examWeek = w.start && w.end ? examWeeks.find((e) => e.start <= w.end!.slice(0, 10) && e.end >= w.start!.slice(0, 10))?.name ?? null : null;
+      return { ...w, examWeek, sessions: weekSessions.filter((s) => s.status !== "cancelled").length,
         assessments: due.filter((a) => w.start && w.end && a.due >= w.start && a.due.slice(0, 10) <= w.end.slice(0, 10)),
         lessons: inWeek.map((l) => ({ id: l.id, number: l.number, title: l.title, stage: l.stage, weekId: l.weekId, order: l.order, outcomes: l.outcomes, createdAt: l.createdAt,
           session: slots.get(l.id)?.session ?? null, needsNewSession: staff && Boolean(slots.get(l.id)?.needsNewSession),
