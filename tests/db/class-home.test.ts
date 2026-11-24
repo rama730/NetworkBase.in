@@ -67,6 +67,7 @@ test("only the teacher saves details; students see them all; visitors only the r
   assert.ok(seen.success);
   assert.deepEqual([seen.role, seen.details?.courseCode, seen.details?.room, seen.details?.onlineLink, seen.details?.officeHours, seen.next], ["visitor", "CS 301", null, null, null, null]);
   assert.deepEqual(seen.details?.meets, details.meets);
+  assert.deepEqual(seen.units, [], "security review: units are sprints, hidden while Sprints isn't a public tab");
 });
 
 test("a TA cancels, moves and restores one session; a made-up session is refused; students can't", async () => {
@@ -85,12 +86,15 @@ test("a TA cancels, moves and restores one session; a made-up session is refused
   assert.deepEqual((await sql`SELECT org_settings->'sessionChanges' AS c FROM workspaces WHERE id = ${t.klass}`)[0]!.c, { "2027-01-26T10:30": { movedTo: "2027-01-27T09:00" } });
 });
 
-test("the syllabus card shows the Syllabus document; outsiders only once it's published and not members-only", async () => {
+test("the syllabus card follows the document read rule: drafts for teachers, published for everyone allowed, leaders-only stays with leaders", async () => {
   const t = await setup();
   const [doc] = await sql`INSERT INTO workspace_documents (workspace_id, filename, slug, settings) VALUES (${t.klass}, 'Syllabus.md', 'syllabus', '{"kind":"syllabus"}'::jsonb) RETURNING id`;
+  viewerId = t.teacher;
+  const draft = await home.readClassHomeAction(t.klass);
+  assert.deepEqual(draft.success && draft.syllabus && [draft.syllabus.title, draft.syllabus.published], ["Syllabus", false], "the teacher sees the draft");
   viewerId = t.student;
-  const inside = await home.readClassHomeAction(t.klass);
-  assert.deepEqual(inside.success && inside.syllabus && [inside.syllabus.title, inside.syllabus.published], ["Syllabus", false]);
+  const student = await home.readClassHomeAction(t.klass);
+  assert.equal(student.success && student.syllabus, null, "students see it once it's published");
   viewerId = t.visitor;
   const before = await home.readClassHomeAction(t.klass);
   assert.equal(before.success && before.syllabus, null);
@@ -99,4 +103,8 @@ test("the syllabus card shows the Syllabus document; outsiders only once it's pu
   await sql`UPDATE workspace_documents SET published_version_id = ${v!.id} WHERE id = ${doc!.id}`;
   const after = await home.readClassHomeAction(t.klass);
   assert.equal(after.success && after.syllabus?.firstParagraph, "Trees, graphs and hashing in ten weeks.");
+  await sql`UPDATE workspace_documents SET settings = settings || '{"visibilityOverride":"leaders_only"}'::jsonb WHERE id = ${doc!.id}`;
+  viewerId = t.student;
+  const leadersOnly = await home.readClassHomeAction(t.klass);
+  assert.equal(leadersOnly.success && leadersOnly.syllabus, null, "security review: a leaders-only syllabus stays with teachers");
 });

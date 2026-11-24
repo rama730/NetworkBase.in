@@ -9,6 +9,8 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
 import { nextSession, officeHoursToday, readClassDetails, readSessionChanges, termSessions, type ClassDetails, type Session } from "@/lib/organizations/class-sessions";
 import { typeProfile } from "@/lib/organizations/type-profile";
+import { resolveWorkspaceDocPermission } from "@/lib/workspaces/doc";
+import { normalizeWorkspacePublicTabVisibility } from "@/lib/workspaces/settings-policies";
 import type { OrgType } from "@/lib/organizations/config";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -65,15 +67,22 @@ export async function readClassHomeAction(orgId: string): Promise<ClassHome | Fa
     const next = nextSession(sessions, c.timeZone);
     const [teacher] = await db.select({ id: profiles.id, name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Teacher')` }).from(profiles).where(eq(profiles.id, c.ownerId)).limit(1);
     // The syllabus: the class document made from the Syllabus template; outsiders see it only once it's public.
-    const [doc] = Array.from(await db.execute<{ slug: string; filename: string; content: string | null; published: boolean; visibility: string | null }>(sql`
-      SELECT d.slug, d.filename, v.content, d.published_version_id IS NOT NULL AS published, d.settings->>'visibilityOverride' AS visibility
+    const [doc] = Array.from(await db.execute<{ slug: string; filename: string; content: string | null; published: boolean; settings: unknown }>(sql`
+      SELECT d.slug, d.filename, v.content, d.published_version_id IS NOT NULL AS published, d.settings
       FROM workspace_documents d LEFT JOIN workspace_document_versions v ON v.id = d.published_version_id
       WHERE d.workspace_id = ${orgId}::uuid AND d.settings->>'kind' = 'syllabus' ORDER BY d.created_at LIMIT 1`));
-    const showDoc = doc && (v.inside || (doc.published && doc.visibility !== "members_only"));
+    // Security review (B1.1): the syllabus follows the same read rule as the document itself (leaders-only, members-only,
+    // the public Documents tab, a draft class); drafts only for people who may read drafts.
+    const perm = doc ? resolveWorkspaceDocPermission({ actorUserId: v.userId, projectVisibility: v.access.project?.visibility, projectStatus: v.access.project?.status,
+      publicTabVisibility: v.access.project?.publicTabVisibility, settings: doc.settings, membershipRole: v.inside ? v.role : null, isOwner: v.access.isOwner,
+      isActiveMember: v.inside, hasPublishedReadme: doc.published, orgRules: true }) : null;
+    const showDoc = doc && perm && (doc.published ? perm.canReadPublished : perm.canReadDraft);
     const units = await db.select({ id: workspaceSprints.id, name: workspaceSprints.name, start: workspaceSprints.startDate, end: workspaceSprints.endDate, status: workspaceSprints.status })
       .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, orgId), isNull(workspaceSprints.parentSprintId), isNull(workspaceSprints.pathPosition)))
       .orderBy(asc(workspaceSprints.startDate)).limit(30);
     const showTerm = v.inside || Boolean(full?.show.term);
+    // Security review (B1.1): units are sprints, so outsiders see them only when the class shows Sprints publicly.
+    const showUnits = v.inside || normalizeWorkspacePublicTabVisibility(v.access.project?.publicTabVisibility).sprints;
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: c.timeZone || "UTC" }).format(new Date());
     return {
       success: true, zone: c.timeZone, details,
@@ -87,7 +96,7 @@ export async function readClassHomeAction(orgId: string): Promise<ClassHome | Fa
       officeHoursToday: full && v.inside ? officeHoursToday(full, c.timeZone) : null,
       syllabus: showDoc ? { slug: doc.slug, title: doc.filename.replace(/\.md$/i, ""), published: doc.published,
         firstParagraph: doc.content ? firstParagraph(doc.content) : null } : null,
-      units: showTerm ? units.map((u) => ({ id: u.id, name: u.name, start: u.start?.toISOString() ?? null, end: u.end?.toISOString() ?? null, status: u.status })) : [],
+      units: showUnits ? units.map((u) => ({ id: u.id, name: u.name, start: u.start?.toISOString() ?? null, end: u.end?.toISOString() ?? null, status: u.status })) : [],
     };
   } catch (error) {
     logger.warn("class_home.read_failed", { orgId, error: error instanceof Error ? error.message : String(error) });
