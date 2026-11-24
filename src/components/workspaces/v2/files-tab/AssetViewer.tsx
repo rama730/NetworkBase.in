@@ -11,7 +11,7 @@ import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName } from "@/comp
 import { toast } from "@/lib/feedback";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
-import { formatMoment, otherVersionCount, versionComments, type Anchor } from "@/lib/workflows/file-comments";
+import { formatMoment, mediaKindOf, otherVersionCount, versionComments, type Anchor } from "@/lib/workflows/file-comments";
 
 const commentsKey = (projectId: string, nodeId: string) => [...queryKeys.project.detail.tasksRoot(projectId), "file-comments", nodeId];
 const small = cn(FORM_SECONDARY_CLASS, "h-7 px-2 text-[12px]");
@@ -62,7 +62,8 @@ export function AssetViewer({ projectId, asset, onClose }: { projectId: string; 
     setDraft({ anchor: { x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000 }, text: "" });
   }
   const jump = (t: number) => { if (media.current) { media.current.currentTime = t; void media.current.play().catch(() => undefined); } };
-  const kind = data?.kind ?? "other";
+  // Until the comments load, the file's own type decides how it shows (A7.2 live check: no "No preview" flash).
+  const kind = data?.kind ?? mediaKindOf(asset.mimeType);
   const label = (a: Anchor | null, pin: number | null) => (a && "t" in a ? `At ${formatMoment(a.t)}` : pin ? `Pin ${pin}` : null);
 
   return (
