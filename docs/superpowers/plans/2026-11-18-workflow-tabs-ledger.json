@@ -5838,9 +5838,9 @@
       "text": "Type-only fields are kept while switching tabs and dropped only on create. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": "2026-11-24 sweep: type sections are read from the form on create; check that values survive switching type tabs (sections may unmount)."
+      "status": "tested",
+      "test": "tests/browser/create-module.spec.ts",
+      "evidence": "2026-11-24 sweep: fixed (ebbbdfab7) — visited type sections stay mounted, hidden and disabled; only the chosen type is sent. Live with the next push."
     },
     {
       "key": "38.4.call6",
@@ -7018,9 +7018,9 @@
       "text": "Phone and public",
       "kind": "journey",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": "2026-11-24 sweep: launch phone layout stacks; the public reader view (countdown + What's new only) needs a check."
+      "status": "tested",
+      "test": "tests/db/launches.test.ts",
+      "evidence": "2026-11-24 sweep: phone stacks (launch-doc spec); visitor What's new fixed — only after launch, no bug titles, no items. Live with the next push."
     },
     {
       "key": "38.10.W10",
