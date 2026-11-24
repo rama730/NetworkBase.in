@@ -1258,6 +1258,8 @@ export const assignmentMarks = pgTable("assignment_marks", {
   markedAt: timestamp("marked_at", { withTimezone: true }).defaultNow().notNull(),
   visibleAt: timestamp("visible_at", { withTimezone: true }),
   history: jsonb("history").$type<Array<{ total: string; by: string | null; at: string }>>().notNull().default([]),
+  /** B1.5b (0129): Adjust for one person on a team copy, by member id. */
+  adjustments: jsonb("adjustments").$type<Record<string, { total: number; reason: string; by: string; at: string }>>().notNull().default({}),
 }, (t) => [index("assignment_marks_master_idx").on(t.masterId)]);
 
 // ============================================================================

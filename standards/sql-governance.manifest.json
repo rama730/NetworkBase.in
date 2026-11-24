@@ -131,7 +131,8 @@
     "drizzle/0125_section_audience.sql",
     "drizzle/0126_attendance_records.sql",
     "drizzle/0127_attendance_absence_notes.sql",
-    "drizzle/0128_assignment_marks.sql"
+    "drizzle/0128_assignment_marks.sql",
+    "drizzle/0129_mark_adjustments.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

@@ -6,13 +6,16 @@ import { axeViolations } from './axe';
 // Report 30.8 W7 (plan B1.5a).
 const LEVELS = [{ label: 'Excellent', points: 10, text: '' }, { label: 'Good', points: 7, text: '' }, { label: 'Fair', points: 4, text: '' }, { label: 'Missing', points: 0, text: '' }];
 const RUBRIC = { id: 'r1', name: 'Lab rubric', criteria: [{ id: 'c1', name: 'Correctness', levels: LEVELS }, { id: 'c2', name: 'Report', levels: LEVELS }] };
-async function open(page: Page, view: string) {
+async function open(page: Page, view: string, team = false) {
   await page.setViewportSize({ width: 900, height: 800 });
   await page.addInitScript((s) => {
     const calls: unknown[] = [];
     (window as any).__calls = calls;
     (window as any).__actions = {
-      readMarkingAction: async () => ({ success: true, marking: { mode: 'rubric', rubric: s.rubric }, mark: null, excused: false, commentBank: ['Show your working'], progress: { marked: 24, total: 60 } }),
+      readMarkingAction: async () => s.team
+        ? { success: true, marking: { mode: 'outof', outOf: 50 }, mark: { total: 40, outOf: 50, levels: {}, comment: null, marker: 'Dr Rao', markedAt: '', visible: false, adjustments: { u2: { total: 30, reason: 'Missed two sessions' } } }, excused: false, commentBank: [], progress: { marked: 1, total: 2 }, team: [{ id: 'u1', name: 'A. Rao' }, { id: 'u2', name: 'K. Shah' }] }
+        : { success: true, marking: { mode: 'rubric', rubric: s.rubric }, mark: null, excused: false, commentBank: ['Show your working'], progress: { marked: 24, total: 60 }, team: [] },
+      adjustMarkAction: async (_c: string, who: string, total: number | null, why: string) => { calls.push(['adjust', who, total, why]); return { success: true }; },
       saveMarkAction: async (_c: string, d: { levels: Record<string, number> }) => {
         calls.push(['mark', d]);
         return Object.keys(d.levels).length < 2 ? { success: false, error: 'Pick a level for Report.' } : { success: true, total: 17, outOf: 20 };
@@ -23,7 +26,7 @@ async function open(page: Page, view: string) {
       archiveRubricAction: async () => ({ success: true }),
       saveCommentBankAction: async (_o: string, l: string[]) => { calls.push(['bank', l]); return { success: true }; },
     };
-  }, { rubric: RUBRIC });
+  }, { rubric: RUBRIC, team });
   await openApp(page, 'tests/browser/marking.fixture.tsx', { path: `/?view=${view}` });
 }
 const calls = (page: Page) => page.evaluate(() => (window as any).__calls);
@@ -67,5 +70,17 @@ test('Settings → Marking: a new rubric with two criteria; the comment bank sav
   await page.getByRole('button', { name: 'Save comment bank' }).click();
   expect((await calls(page)).at(-1)).toEqual(['bank', ['Good start', 'Cite sources']]);
   await expect(page.getByRole('button', { name: 'Save comment bank' })).toHaveCount(0);
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('Adjust for one person on a team copy: shows the adjustment; a new one needs a member, a mark and a reason', async ({ page }) => {
+  await open(page, 'panel', true);
+  await page.getByText('Adjust for one person').click();
+  await expect(page.getByTestId('adjust-for-one')).toContainText('K. Shah 30 / 50 · Missed two sessions');
+  await page.getByLabel('Team member').selectOption('u1');
+  await page.getByLabel('Their mark out of 50').fill('35');
+  await page.getByLabel('Reason').fill('Led the demo');
+  await page.getByRole('button', { name: 'Adjust', exact: true }).click();
+  expect((await calls(page)).at(-1)).toEqual(['adjust', 'u1', 35, 'Led the demo']);
   expect(await axeViolations(page)).toEqual([]);
 });

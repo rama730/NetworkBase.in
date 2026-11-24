@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { archiveRubricAction, readMarkingAction, readMarkingSettingsAction, readMyMarkAction, saveCommentBankAction, saveMarkAction, saveRubricAction } from "@/app/actions/marks";
+import { adjustMarkAction, archiveRubricAction, readMarkingAction, readMarkingSettingsAction, readMyMarkAction, saveCommentBankAction, saveMarkAction, saveRubricAction } from "@/app/actions/marks";
 import { Input } from "@/components/ui/input";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
@@ -68,7 +68,39 @@ export function MarkingPanel({ copyId }: { copyId: string }) {
       ) : null}
       <p className="font-mono text-[12px]" aria-live="polite" data-testid="marking-total">Total {live} / {outOf} · {outOf ? Math.round((live / outOf) * 100) : 0}%{saved ? " · saved" : ""}
         <span className="ml-2 font-sans text-muted-foreground">{data.mark?.visible ? "Visible to the student" : "Hidden until you approve"} · Marked {data.progress.marked} of {data.progress.total}</span></p>
+      {data.team.length > 1 && data.mark ? <AdjustForOne copyId={copyId} team={data.team} outOf={data.mark.outOf} adjustments={data.mark.adjustments} /> : null}
     </section>
+  );
+}
+
+/** Adjust for one person (B1.5b): a team copy's mark is everyone's unless one member gets their own, with a reason. */
+function AdjustForOne({ copyId, team, outOf, adjustments }: { copyId: string; team: Array<{ id: string; name: string }>; outOf: number; adjustments: Record<string, { total: number; reason: string }> }) {
+  const client = useQueryClient();
+  const [who, setWho] = useState(team[0]!.id);
+  const [total, setTotal] = useState("");
+  const [reason, setReason] = useState("");
+  const run = async (memberId: string, value: number | null, why: string) => {
+    const r = await adjustMarkAction(copyId, memberId, value, why);
+    if (!r.success) return void toast.error(r.error);
+    setTotal(""); setReason("");
+    await client.invalidateQueries({ queryKey: ["marking", copyId] });
+  };
+  return (
+    <details className="border-t border-border pt-2" data-testid="adjust-for-one">
+      <summary className="cursor-pointer font-medium">Adjust for one person</summary>
+      <ul className="mt-1.5 space-y-1">
+        {team.filter((m) => adjustments[m.id]).map((m) => (
+          <li key={m.id} className="flex flex-wrap items-center gap-2"><span>{m.name} <span className="font-mono">{adjustments[m.id]!.total} / {outOf}</span> · {adjustments[m.id]!.reason}</span>
+            <button type="button" className={LINK} onClick={() => void run(m.id, null, "")}>Remove<span className="sr-only"> {m.name}’s adjustment</span></button></li>
+        ))}
+      </ul>
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <select className="nb-select" data-size="sm" aria-label="Team member" value={who} onChange={(e) => setWho(e.target.value)}>{team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
+        <Input type="number" min={0} max={outOf} aria-label={`Their mark out of ${outOf}`} value={total} onChange={(e) => setTotal(e.target.value)} className="w-[90px]" />
+        <Input aria-label="Reason" placeholder="Reason" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} className="min-w-[160px] flex-1" />
+        <button type="button" className={FORM_SECONDARY_CLASS} disabled={total === ""} onClick={() => void run(who, Number(total), reason)}>Adjust</button>
+      </div>
+    </details>
   );
 }
 
@@ -83,6 +115,7 @@ export function MyMarkCard({ copyId }: { copyId: string }) {
     <div className="space-y-1 rounded-md bg-muted px-3 py-2.5" data-testid="my-mark" aria-label="Mark">
       <p className="text-[13px]"><span className="font-semibold">Mark </span><span className="font-mono text-[15px] font-semibold">{markText(mk.total, mk.outOf)}</span>{mk.marker ? <span className="text-muted-foreground"> · marked by {mk.marker}</span> : null}</p>
       {rubric ? <p className="text-[13px] text-muted-foreground">{rubric.criteria.map((c) => `${c.name} ${mk.levels[c.id] != null ? c.levels[mk.levels[c.id]!]!.label : "—"}`).join(" · ")}</p> : null}
+      {(mk as { adjustedReason?: string }).adjustedReason ? <p className="text-[13px] text-muted-foreground">Adjusted for you: {(mk as { adjustedReason?: string }).adjustedReason}</p> : null}
       {mk.comment ? <p className="whitespace-pre-wrap text-[13px]">“{mk.comment}”</p> : null}
     </div>
   );

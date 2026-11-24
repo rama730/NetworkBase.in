@@ -126,3 +126,31 @@ test("Out of: 0..N only; excused work has no mark; each change is kept", async (
   const taCsv = await assignments.readAssignmentExportAction(master);
   assert.ok(taCsv.success && !taCsv.rows[0]!.includes("Mark"), "a TA's export leaves marks out");
 });
+
+test("B1.5b: a team's mark is everyone's; Adjust for one person needs a reason, and each member sees only their own", async () => {
+  const t = await setup();
+  const { master } = await assignment(t.klass, t.teacher, { mode: "outof", outOf: 50 }, []);
+  const [copy] = await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, kind, assignment_id, team_name, review_status) VALUES (${t.klass}, 'Lab 3', 'done', 'medium', ${t.teacher}, 'task', ${master}, 'Team 1', 'pending') RETURNING id`;
+  const id = copy!.id as string;
+  await sql`INSERT INTO task_team_members (task_id, user_id, is_lead) VALUES (${id}, ${t.a}, true), (${id}, ${t.b}, false)`;
+  viewerId = t.teacher;
+  assert.match(errorOf(await marks.adjustMarkAction(id, t.b, 30, "Missed two sessions")), /Mark the team first/);
+  await marks.saveMarkAction(id, { total: 40 });
+  assert.match(errorOf(await marks.adjustMarkAction(id, t.b, 30, " ")), /Say why/);
+  assert.match(errorOf(await marks.adjustMarkAction(id, t.ta, 30, "x")), /aren’t on this team/);
+  assert.equal((await marks.adjustMarkAction(id, t.b, 30, "Missed two sessions")).success, true);
+  await sql`UPDATE assignment_marks SET visible_at = now() WHERE copy_id = ${id}`;
+  viewerId = t.a;
+  const a = await marks.readMyMarkAction(id);
+  assert.ok(a.success && a.mark);
+  assert.deepEqual([a.mark.total, JSON.stringify(a.mark).includes("Missed")], [40, false], "a never sees b's adjustment");
+  viewerId = t.b;
+  const b = await marks.readMyMarkAction(id);
+  assert.ok(b.success && b.mark);
+  assert.deepEqual([b.mark.total, (b.mark as { adjustedReason?: string }).adjustedReason], [30, "Missed two sessions"]);
+  viewerId = t.teacher;
+  assert.equal((await marks.adjustMarkAction(id, t.b, null, "")).success, true);
+  viewerId = t.b;
+  const back = await marks.readMyMarkAction(id);
+  assert.ok(back.success && back.mark && back.mark.total === 40, "Remove gives back the team's mark");
+});

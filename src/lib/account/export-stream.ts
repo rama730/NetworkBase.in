@@ -243,7 +243,7 @@ async function* streamAccountExport(input: {
   // B1.5a (report 30.8 layer 16): your marks once they're visible to you (drafts stay with the marker).
   yield ",\"marks\":";
   yield json(Array.from(await db.execute(sql`
-    SELECT a.workspace_id AS "projectId", t.title, a.total::float8 AS total, a.out_of::float8 AS "outOf", a.levels, a.comment, a.visible_at AS "visibleAt"
+    SELECT a.workspace_id AS "projectId", t.title, coalesce((a.adjustments -> ${userId}::text ->> 'total')::float8, a.total::float8) AS total, a.out_of::float8 AS "outOf", a.levels, a.comment, a.visible_at AS "visibleAt"
     FROM assignment_marks a JOIN tasks t ON t.id = a.copy_id
     WHERE a.visible_at IS NOT NULL AND (t.assignee_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}::uuid))
     LIMIT 20000`)));

@@ -55,12 +55,21 @@ async function isOwnCopy(copyId: string, userId: string) {
   return Boolean(row?.mine);
 }
 
-type MarkRow = { total: string; out_of: string; levels: Record<string, number>; comment: string | null; marker: string | null; marked_at: string; visible_at: string | null };
+type Adjustment = { total: number; reason: string; by: string; at: string };
+type MarkRow = { total: string; out_of: string; levels: Record<string, number>; comment: string | null; marker: string | null; marked_at: string; visible_at: string | null; adjustments: Record<string, Adjustment> | null };
 async function readMark(copyId: string) {
   const [row] = Array.from(await db.execute<MarkRow>(sql`
-    SELECT a.total::text, a.out_of::text, a.levels, a.comment, coalesce(p.full_name, p.username) AS marker, a.marked_at::text, a.visible_at::text
+    SELECT a.total::text, a.out_of::text, a.levels, a.comment, coalesce(p.full_name, p.username) AS marker, a.marked_at::text, a.visible_at::text, a.adjustments
     FROM assignment_marks a LEFT JOIN profiles p ON p.id = a.marker_id WHERE a.copy_id = ${copyId}::uuid`));
-  return row ? { total: Number(row.total), outOf: Number(row.out_of), levels: row.levels ?? {}, comment: row.comment, marker: row.marker, markedAt: row.marked_at, visible: Boolean(row.visible_at) } : null;
+  return row ? { total: Number(row.total), outOf: Number(row.out_of), levels: row.levels ?? {}, comment: row.comment, marker: row.marker, markedAt: row.marked_at, visible: Boolean(row.visible_at),
+    adjustments: row.adjustments ?? {} } : null;
+}
+
+/** A team copy's people (B1.5b Adjust for one person); empty for a one-person copy. */
+async function teamOf(copyId: string) {
+  return Array.from(await db.execute<{ id: string; name: string }>(sql`
+    SELECT tm.user_id AS id, coalesce(p.full_name, p.username, 'Member') AS name FROM task_team_members tm JOIN profiles p ON p.id = tm.user_id
+    WHERE tm.task_id = ${copyId}::uuid ORDER BY 2`));
 }
 
 /** The Marking panel (review queue): the assignment's marking, the draft or mark, and the class's comment bank. */
@@ -73,7 +82,7 @@ export async function readMarkingAction(copyId: string) {
     const [progress] = Array.from(await db.execute<{ marked: number; total: number }>(sql`
       SELECT (SELECT count(*)::int FROM assignment_marks WHERE master_id = ${copy.master_id}::uuid) AS marked,
         (SELECT count(*)::int FROM tasks WHERE assignment_id = ${copy.master_id}::uuid AND deleted_at IS NULL AND excused_at IS NULL) AS total`));
-    return { success: true as const, marking: readMarking(copy.settings), mark: await readMark(copyId), excused: copy.excused, progress: progress ?? { marked: 0, total: 0 },
+    return { success: true as const, marking: readMarking(copy.settings), mark: await readMark(copyId), excused: copy.excused, progress: progress ?? { marked: 0, total: 0 }, team: await teamOf(copyId),
       commentBank: Array.isArray(bank) ? (bank as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 40) : [] };
   } catch (error) {
     logger.warn("marks.read_failed", { copyId, error: error instanceof Error ? error.message : String(error) });
@@ -115,7 +124,32 @@ export async function readMyMarkAction(copyId: string) {
   const mark = await readMark(copyId);
   const marking = readMarking(copy.settings);
   if (!mark || (!staff && !mark.visible)) return { success: true as const, mark: null, marking: marking.mode === "none" ? null : marking };
-  return { success: true as const, mark, marking };
+  if (staff) return { success: true as const, mark, marking };
+  const own = mark.adjustments[userId];
+  return { success: true as const, mark: { ...mark, adjustments: {}, ...(own ? { total: own.total, adjustedReason: own.reason } : {}) }, marking };
+}
+
+/**
+ * Adjust for one person (B1.5b, report 30.8 call: team copies): a team copy has one mark for every member; staff can
+ * set a different total for one member, with a reason. A null total takes the adjustment away. Each change is kept.
+ */
+export async function adjustMarkAction(copyId: string, memberId: string, total: number | null, reason: string): Promise<{ success: true } | Failure> {
+  const { userId, isAgent } = await viewer();
+  if (isAgent) return { success: false, error: "AI agents can’t set or change marks; a person does." };
+  const copy = userId && isLooseUuid(memberId) ? await loadCopy(copyId) : null;
+  if (!copy || !userId || !(await canMark(copy, userId))) return DENIED;
+  if (!(await teamOf(copyId)).some((m) => m.id === memberId)) return { success: false, error: "They aren’t on this team." };
+  const mark = await readMark(copyId);
+  if (!mark) return { success: false, error: "Mark the team first." };
+  const why = String(reason ?? "").trim().slice(0, 200);
+  if (total !== null && (!Number.isFinite(total) || total < 0 || total > mark.outOf)) return { success: false, error: `Give a mark from 0 to ${mark.outOf}.` };
+  if (total !== null && !why) return { success: false, error: "Say why this person’s mark is different." };
+  const entry = total === null ? null : { total: Math.round(total * 100) / 100, reason: why, by: userId, at: new Date().toISOString() };
+  await db.execute(sql`
+    UPDATE assignment_marks SET adjustments = ${entry ? sql`adjustments || jsonb_build_object(${memberId}::text, ${JSON.stringify(entry)}::jsonb)` : sql`adjustments - ${memberId}::text`},
+      history = history || jsonb_build_array(jsonb_build_object('adjusted', ${memberId}::text, 'total', ${entry?.total ?? null}::numeric, 'by', ${userId}::uuid, 'at', now()))
+    WHERE copy_id = ${copyId}::uuid`);
+  return { success: true };
 }
 
 /** Settings → Marking (the Teacher): rubrics (new, edit, archive) and the comment bank. */
