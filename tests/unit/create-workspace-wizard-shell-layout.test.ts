@@ -47,7 +47,9 @@ test("create-workspace is a normal page inside the app shell: no modal, one 1000
   assert.match(chat, /NO_WINDOW_PREFIXES = \["\/messages", "\/workspaces\/new", "\/my-profile\/edit"\]/);
   // Browser Back keeps work: unsaved changes are saved as a draft on unmount unless the user chose to leave.
   assert.match(hook, /if \(hasUnsavedRef\.current && !skipDraftOnUnmountRef\.current\) void saveDraftRef\.current\(true\)/);
-  assert.match(hook, /if \(createdProjectId && onSuccess\) onSuccess\(createdProjectId, createdOrganization\);\s*else onClose\(\);/);
+  // v6: Create ends in `finished` (the Finish view); the draft is cleared and not re-saved on unmount.
+  assert.match(hook, /skipDraftOnUnmountRef\.current = true;\s*submissionRef\.current = false;/);
+  assert.match(hook, /setFinished\(\{ projectId: run\.projectId/);
 });
 
 test("create-project page refinements: Esc asks like Cancel, clickable finished steps, current-page button, quiet saving, draft choice first, one mobile header row", async () => {

@@ -18,6 +18,7 @@ import { useCreateWorkspaceWizard } from './useCreateWorkspaceWizard';
 import WizardHeader from './WizardHeader';
 import { phaseProblems } from './phase-problems';
 import WizardFooter, { WIZARD_COLUMN } from './WizardFooter';
+import { CreatingView } from './CreatingView';
 import { Button } from '@/components/ui/button';
 import LeaveWorkspaceSetupDialog from './LeaveWorkspaceSetupDialog';
 import { getCreateWorkspaceReturnPath, readGithubOAuthResume, type CreateWorkspaceGithubOAuthResume } from './github-oauth-resume';
@@ -58,12 +59,13 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
     const {
         phase, methods, wizardContext, isSubmitting, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
-        uploadFiles, setUploadFiles, uploadProgress, projectImage, setProjectImage,
+        uploadFiles, setUploadFiles, projectImage, setProjectImage,
         githubPreview, githubFolderEntries, loadGithubFolder, startGithubRootPreview,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
         handleNext, handleBack, goToPhase, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
         fromReview, returnToReview, sourceFill, setSourceFill, undoSourceFill,
-        onSubmit, draftInfo, restoreDraft, deleteDraft
+        onSubmit, draftInfo, restoreDraft, deleteDraft,
+        createProgress, finished, retryFrom, openNow, openAnyway,
     } = useCreateWorkspaceWizard({
         onClose,
         onSuccess,
@@ -72,6 +74,10 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
     });
 
     const { handleSubmit } = methods;
+    // Create finished: hand the made workspace to the page (Task 9 shows the Finish view here instead).
+    useEffect(() => {
+        if (finished) onSuccess?.(finished.projectId, finished.organization);
+    }, [finished, onSuccess]);
 
     // Opened from an org (?org=): the project starts inside it, Org only, lowered to the org's cap (report §14.1, §14.3).
     useEffect(() => {
@@ -315,30 +321,12 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                         <div ref={scrollBodyRef} data-wizard-scroll className="relative app-scroll app-scroll-y app-scroll-gutter min-h-0 flex-1 scroll-pb-32 overflow-y-auto overscroll-contain">
                         {/* One layout rule (v6): every step starts at the same left edge with a 24px gutter. */}
                         <div className={`nb-wizard-body w-full ${phase === 1 || phase === 4 ? 'max-w-none' : phase === 5 ? 'max-w-[1220px]' : 'max-w-[940px]'} ${phase === 4 ? '' : 'px-4 pb-12 pt-6 md:px-6 md:pt-7'}`} data-phase={phase}>
-                            {uploadProgress?.isUploading && (
-                                <div className="mb-4 rounded-lg border border-border bg-secondary/45 p-4" role="status" aria-live="polite">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div className="min-w-0">
-                                            <div className="nb-card-title text-foreground">
-                                                Importing files…
-                                            </div>
-                                            <div className="nb-meta truncate text-muted-foreground">
-                                                {uploadProgress.currentFile || 'Preparing uploads'}
-                                            </div>
-                                        </div>
-                                        <div className="text-sm font-semibold text-primary shrink-0 tabular-nums">
-                                            {uploadProgress.percent}%
-                                        </div>
-                                    </div>
-                                    <div className="mt-3 h-1.5 overflow-hidden rounded-sm bg-muted">
-                                        <div
-                                            className="h-full bg-primary transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms]"
-                                            style={{ width: `${uploadProgress.percent}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
+                            {createProgress ? (
+                                <CreatingView progress={createProgress} sourceType={sourceType ?? 'scratch'}
+                                    onRetry={(i) => void retryFrom(i)} onOpenNow={openNow} onOpenAnyway={openAnyway} />
+                            ) : null}
                             <form
+                                hidden={Boolean(createProgress)}
                                 id="create-project-form"
                                 onSubmit={handleSubmit(onSubmit as any, handleInvalid)}
                                 onKeyDown={(e) => {
@@ -373,8 +361,8 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                         </div>
                         </div>
 
-                        {/* Footer */}
-                        <div className="flex-shrink-0">
+                        {/* Footer (hidden while Create runs: the Creating view has its own actions) */}
+                        <div className="flex-shrink-0" hidden={Boolean(createProgress)}>
                             <WizardFooter
                                 phase={phase}
                                 totalPhases={TOTAL_PHASES}

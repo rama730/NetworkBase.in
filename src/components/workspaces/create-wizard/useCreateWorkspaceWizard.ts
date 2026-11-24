@@ -17,6 +17,20 @@ import { buildWorkspaceDocStarterDraft } from '@/lib/workspaces/doc-create-inten
 import { buildWorkspaceImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
 import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key';
 import { useAuth } from '@/hooks/use-auth';
+import { createSteps, type CreateStep } from './create-steps';
+import type { CreatedOrganization } from '@/components/organizations/OrganizationCreatedScreen';
+
+/** The Creating view's state (v6): which step runs, its file count, and where it stopped. */
+export type CreateProgress = { steps: CreateStep[]; index: number; title: string; count?: number; total?: number; failedAt?: number; error?: string; projectId?: string };
+/** Create finished, fully or with a step left over (the Finish view's first Get started task). */
+export type CreateFinished = {
+    projectId: string;
+    slug: string | null;
+    organization?: CreatedOrganization;
+    partial?: { key: string; label: string; at?: number; total?: number };
+    importing?: { at: number; total: number };
+};
+const IMPORT_POLL_MS = 2000;
 
 export interface WizardContextType {
     openRoles: OpenRoleInput[];
@@ -706,7 +720,57 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
         else onClose();
     }, [hasUnsavedWizardChanges, onClose]);
 
-    // --- Submission ---
+    // --- Submission (create wizard v6): one runner per step in createSteps order, reported to the Creating view ---
+    const [createProgress, setCreateProgress] = useState<CreateProgress | null>(null);
+    const [finished, setFinished] = useState<CreateFinished | null>(null);
+    const progressRef = useRef<CreateProgress | null>(null);
+    progressRef.current = createProgress;
+    const runRef = useRef<{ steps: CreateStep[]; runners: Array<() => Promise<void>>; projectId: string | null; slug: string | null; organization?: CreatedOrganization; stopped: boolean } | null>(null);
+
+    const completeRun = useCallback(async (extra?: Pick<CreateFinished, 'partial' | 'importing'>) => {
+        const run = runRef.current;
+        if (!run?.projectId) return;
+        run.stopped = true;
+        const { draftStore } = await import('@/lib/storage/draft-store');
+        await draftStore.clear(userId).catch(() => undefined);
+        skipDraftOnUnmountRef.current = true;
+        submissionRef.current = false;
+        setIsSubmitting(false);
+        setFinished({ projectId: run.projectId, slug: run.slug, organization: run.organization, ...extra });
+    }, [userId]);
+
+    /** Runs the steps from `start`. A step that fails stops the run there; what's made stays made. */
+    const runFrom = useCallback(async (start: number) => {
+        const run = runRef.current;
+        if (!run) return;
+        for (let i = start; i < run.steps.length; i++) {
+            if (run.stopped) return;
+            setCreateProgress((p) => (p ? { ...p, index: i, failedAt: undefined, error: undefined, count: undefined, total: undefined } : p));
+            try {
+                await run.runners[i]!();
+            } catch (error) {
+                if (!run.projectId) throw error;
+                console.warn('[create-project] Step failed', run.steps[i]!.key, error);
+                setCreateProgress((p) => (p ? { ...p, failedAt: i, error: error instanceof Error ? error.message : 'It stopped.' } : p));
+                return;
+            }
+        }
+        if (!run.stopped) await completeRun();
+    }, [completeRun]);
+
+    const retryFrom = useCallback((index: number) => runFrom(index), [runFrom]);
+    /** Only the GitHub import is left: finish now; the import keeps going on the server (nothing is cancelled). */
+    const openNow = useCallback(() => {
+        const p = progressRef.current;
+        void completeRun({ importing: { at: p?.count ?? 0, total: p?.total ?? 0 } });
+    }, [completeRun]);
+    /** A step failed: open what was made; the failed step becomes the first Get started task. */
+    const openAnyway = useCallback(() => {
+        const p = progressRef.current;
+        const step = p && p.failedAt !== undefined ? p.steps[p.failedAt] : undefined;
+        void completeRun(step ? { partial: { key: step.key, label: step.label, at: p?.count, total: p?.total } } : undefined);
+    }, [completeRun]);
+
     const onSubmit = useCallback(async (data: CreateWorkspaceInput) => {
         if (phase !== TOTAL_PHASES || !isReviewReady || phaseTransitionRef.current || submissionRef.current) return;
 
@@ -715,14 +779,14 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
         const importType = data.import_source?.type || 'scratch';
         // Audit N26: an organization is called one here too.
         const noun = data.organization ? 'Organization' : 'Workspace';
-        const creationToastId = toast.loading(`Creating ${noun.toLowerCase()}…`);
+        // Things that didn't stop a step (an invitation refused by privacy rules, a template that fell back).
         const creationWarnings: string[] = [];
         const warnCreation = (message: string) => {
-            if (!creationWarnings.includes(message)) creationWarnings.push(message);
-            toast.warning(`${noun} created`, { id: creationToastId, description: creationWarnings.join(' ') });
+            if (creationWarnings.includes(message)) return;
+            creationWarnings.push(message);
+            toast.warning(`${noun} created`, { description: message });
         };
         let createdProjectId: string | null = null;
-        let createdOrganization: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization | undefined;
         let uploadSessionContext: { sessionId?: string; manifestHash?: string } | null = null;
         const resolvedRoles = (data.roles || []).filter((role) => (role.role || '').trim().length > 0);
         const readmeIntent = data.readme ?? {
@@ -775,7 +839,7 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
                 readmeApplied = true;
             } catch (error) {
                 console.warn('[create-project] Doc setup failed', error);
-                warnCreation('Doc setup failed.');
+                throw new Error('The starter doc wasn’t drafted.');
             }
         };
 
@@ -832,268 +896,275 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
             }
         };
 
-        try {
+        const pre = () => {
             if (importType === 'upload') {
-                if (!uploadFiles || uploadFiles.length === 0) {
-                    throw new Error('Select a folder to upload.');
-                }
-                if (uploadMetadata.uploadValidationStatus !== 'ok') {
-                    throw new Error(String(uploadMetadata.uploadValidationError || 'The selected folder contains blocked files.'));
-                }
+                if (!uploadFiles || uploadFiles.length === 0) throw new Error('Select a folder to upload.');
+                if (uploadMetadata.uploadValidationStatus !== 'ok') throw new Error(String(uploadMetadata.uploadValidationError || 'The selected folder contains blocked files.'));
             }
-
-            const result = await createWorkspaceAction({
-                ...data,
-                roles: resolvedRoles,
-            });
-
-            if (!result.success || !result.project) throw Object.assign(new Error(result.error || 'Creation failed'), { code: (result as { code?: string }).code });
-            createdProjectId = result.project.id;
-            if (result.project.joinCode) createdOrganization = { title: result.project.title, joinCode: result.project.joinCode, handle: result.project.slug ?? data.organization?.handle ?? null, invites: result.project.invites, creatorTitle: data.organization?.creator_title || null, joinMode: data.organization?.join_mode ?? null };
-            // Things that didn't happen but didn't stop creation, e.g. an invitation refused by privacy rules.
-            for (const notice of result.notices ?? []) warnCreation(notice);
-            // Report 38.2 W9: the ticked workflows, right after the workspace exists.
-            if (!data.organization && data.workflows?.length) {
+        };
+        const projectIdOrThrow = () => {
+            if (!createdProjectId) throw new Error('Workspace creation did not return a workspace ID.');
+            return createdProjectId;
+        };
+        const placed = [...resolvedRoles.flatMap((role) => role.people ?? []), ...(data.unassigned_people ?? [])].length;
+        const steps = createSteps(data, { uploadCount: uploadFiles?.length ?? 0, peopleCount: placed, orgTitle: null });
+        const run = { steps, runners: [] as Array<() => Promise<void>>, projectId: null as string | null, slug: null as string | null, organization: undefined as CreatedOrganization | undefined, stopped: false };
+        run.runners = steps.map((step) => {
+            if (step.key === 'make') return async () => {
+                const result = await createWorkspaceAction({ ...data, roles: resolvedRoles });
+                if (!result.success || !result.project) throw Object.assign(new Error(result.error || 'Creation failed'), { code: (result as { code?: string }).code });
+                createdProjectId = result.project.id;
+                run.projectId = result.project.id;
+                run.slug = result.project.slug ?? null;
+                if (result.project.joinCode) run.organization = { title: result.project.title, joinCode: result.project.joinCode, handle: result.project.slug ?? data.organization?.handle ?? null, invites: result.project.invites, creatorTitle: data.organization?.creator_title || null, joinMode: data.organization?.join_mode ?? null };
+                for (const notice of result.notices ?? []) warnCreation(notice);
+                setCreateProgress((p) => (p ? { ...p, projectId: result.project!.id } : p));
+                // Picture, template folder and doc editing ride along with making it; each stays editable in Settings.
+                await applyLaunchSettingsAfterCreate(result.project.id);
+            };
+            // A README read from an uploaded folder needs the files first; it's drafted at the end of the upload.
+            if (step.key === 'doc') return async () => { if (!(importType === 'upload' && readmeIntent.mode === 'detected')) await applyReadmeSetup(projectIdOrThrow()); };
+            if (step.key.startsWith('workflow:')) return async () => {
                 const { addWorkflowsOnCreateAction } = await import('@/app/actions/workflows');
-                const added = await addWorkflowsOnCreateAction(createdProjectId, data.workflows).catch(() => null);
-                if (!added?.success) warnCreation('Workflows weren’t added. Add them from + Add workflow.');
-            }
-
-            // Upload flow (Folder Upload import)
-            if (importType === 'upload') {
-                if (!uploadFiles || uploadFiles.length === 0) {
-                    throw new Error('Select a folder to upload.');
-                }
+                const added = await addWorkflowsOnCreateAction(projectIdOrThrow(), [step.key.slice('workflow:'.length)]).catch(() => null);
+                if (!added?.success) throw new Error('The tab wasn’t added. Add it later from + Add workflow.');
+            };
+            // People and openings are saved with the workspace itself (createWorkspaceAction).
+            if (step.key === 'people' || step.key === 'openings') return async () => undefined;
+            if (step.key === 'upload') return async () => {
+                pre();
+                if (!uploadFiles) return;
                 setUploadProgress({ percent: 0, currentFile: '', isUploading: true });
-                toast.loading('Uploading folder…', { id: creationToastId });
+                try {
+                    const createdProjectId = projectIdOrThrow();
+                    const [{ uploadFolder }, uploadActions, importActions] = await Promise.all([
+                        import('@/lib/upload/chunked-upload'),
+                        import('@/app/actions/upload'),
+                        import('@/app/actions/upload-import'),
+                    ]);
 
-                const [{ uploadFolder }, uploadActions, importActions] = await Promise.all([
-                    import('@/lib/upload/chunked-upload'),
-                    import('@/app/actions/upload'),
-                    import('@/app/actions/upload-import'),
-                ]);
+                    const { getUploadPresignedUrl, getBatchUploadUrls } = uploadActions;
+                    const { registerUploadedFolderAction, updateUploadSessionAction } = importActions;
+                    const uploadProjectId = createdProjectId;
+                    const totalFiles = uploadFiles.length;
+                    if (!uploadProjectId) {
+                        throw new Error('Workspace creation did not return a workspace ID.');
+                    }
 
-                const { getUploadPresignedUrl, getBatchUploadUrls } = uploadActions;
-                const { registerUploadedFolderAction, updateUploadSessionAction } = importActions;
-                const uploadProjectId = createdProjectId;
-                if (!uploadProjectId) {
-                    throw new Error('Workspace creation did not return a workspace ID.');
-                }
+                    const filesArr = Array.from(uploadFiles);
+                    const meta = filesArr.map((f) => {
+                        const relativePath = f.webkitRelativePath || f.name;
+                        const key = buildWorkspaceFileKey(uploadProjectId, relativePath);
+                        return {
+                            key,
+                            relativePath,
+                            size: f.size,
+                            mimeType: f.type || 'application/octet-stream',
+                        };
+                    });
+                    const sessionId = globalThis.crypto?.randomUUID?.()
+                        || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+                    const manifestHash = buildUploadManifestHash(
+                        meta.map((entry) => ({
+                            relativePath: entry.relativePath,
+                            size: entry.size,
+                            mimeType: entry.mimeType,
+                        }))
+                    );
+                    const importEventId = buildWorkspaceImportEventId({
+                        projectId: uploadProjectId,
+                        source: 'upload',
+                        normalizedTarget: 'upload',
+                        branchOrManifestHash: manifestHash,
+                    });
+                    uploadSessionContext = { sessionId, manifestHash };
 
-                const filesArr = Array.from(uploadFiles);
-                const meta = filesArr.map((f) => {
-                    const relativePath = f.webkitRelativePath || f.name;
-                    const key = buildWorkspaceFileKey(uploadProjectId, relativePath);
-                    return {
-                        key,
-                        relativePath,
-                        size: f.size,
-                        mimeType: f.type || 'application/octet-stream',
-                    };
-                });
-                const sessionId = globalThis.crypto?.randomUUID?.()
-                    || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-                const manifestHash = buildUploadManifestHash(
-                    meta.map((entry) => ({
-                        relativePath: entry.relativePath,
-                        size: entry.size,
-                        mimeType: entry.mimeType,
-                    }))
-                );
-                const importEventId = buildWorkspaceImportEventId({
-                    projectId: uploadProjectId,
-                    source: 'upload',
-                    normalizedTarget: 'upload',
-                    branchOrManifestHash: manifestHash,
-                });
-                uploadSessionContext = { sessionId, manifestHash };
+                    await updateUploadSessionAction(uploadProjectId, {
+                        sessionId,
+                        manifestHash,
+                        totalFiles: meta.length,
+                        uploadedFiles: 0,
+                        status: 'uploading',
+                        importEventId,
+                    });
 
-                await updateUploadSessionAction(uploadProjectId, {
-                    sessionId,
-                    manifestHash,
-                    totalFiles: meta.length,
-                    uploadedFiles: 0,
-                    status: 'uploading',
-                    importEventId,
-                });
+                    // Batch-cache presigned URLs up to 50 at a time to minimize server roundtrips
+                    const presignCache = new Map<string, {
+                        url: string;
+                        uploadToken: string;
+                        storageKey: string;
+                        uploadIntentId: string;
+                    }>();
+                    let pendingBatchPromise: Promise<void> | null = null;
+                    let nextBatchIndex = 0;
 
-                // Batch-cache presigned URLs up to 50 at a time to minimize server roundtrips
-                const presignCache = new Map<string, {
-                    url: string;
-                    uploadToken: string;
-                    storageKey: string;
-                    uploadIntentId: string;
-                }>();
-                let pendingBatchPromise: Promise<void> | null = null;
-                let nextBatchIndex = 0;
+                    const fetchNextBatch = async () => {
+                        if (nextBatchIndex >= meta.length) return;
+                        const batchItems = meta.slice(nextBatchIndex, nextBatchIndex + 50).map((m) => ({
+                            key: m.key,
+                            contentType: m.mimeType,
+                            sizeBytes: m.size,
+                        }));
+                        nextBatchIndex += 50;
 
-                const fetchNextBatch = async () => {
-                    if (nextBatchIndex >= meta.length) return;
-                    const batchItems = meta.slice(nextBatchIndex, nextBatchIndex + 50).map((m) => ({
-                        key: m.key,
-                        contentType: m.mimeType,
-                        sizeBytes: m.size,
-                    }));
-                    nextBatchIndex += 50;
-
-                    try {
-                        const res = await getBatchUploadUrls(batchItems, { sessionId });
-                        if (!('error' in res)) {
-                            for (const item of batchItems) {
-                                const url = res.urls[item.key];
-                                const uploadToken = res.uploadTokens[item.key];
-                                const storageKey = res.storageKeys[item.key];
-                                const uploadIntentId = res.uploadIntentIds[item.key];
-                                if (url && storageKey && uploadIntentId) {
-                                    presignCache.set(item.key, {
-                                        url,
-                                        uploadToken: uploadToken || '',
-                                        storageKey,
-                                        uploadIntentId,
-                                    });
+                        try {
+                            const res = await getBatchUploadUrls(batchItems, { sessionId });
+                            if (!('error' in res)) {
+                                for (const item of batchItems) {
+                                    const url = res.urls[item.key];
+                                    const uploadToken = res.uploadTokens[item.key];
+                                    const storageKey = res.storageKeys[item.key];
+                                    const uploadIntentId = res.uploadIntentIds[item.key];
+                                    if (url && storageKey && uploadIntentId) {
+                                        presignCache.set(item.key, {
+                                            url,
+                                            uploadToken: uploadToken || '',
+                                            storageKey,
+                                            uploadIntentId,
+                                        });
+                                    }
                                 }
                             }
+                        } catch {
+                            // Fall back transparently to single presign on batch failure
                         }
-                    } catch {
-                        // Fall back transparently to single presign on batch failure
-                    }
-                };
+                    };
 
-                const getPresignedUrl = async (key: string, contentType: string, sizeBytes: number) => {
-                    if (presignCache.has(key)) {
-                        return presignCache.get(key)!;
-                    }
-
-                    while (!presignCache.has(key) && nextBatchIndex < meta.length) {
-                        if (!pendingBatchPromise) {
-                            pendingBatchPromise = fetchNextBatch().finally(() => {
-                                pendingBatchPromise = null;
-                            });
-                        }
-                        await pendingBatchPromise;
+                    const getPresignedUrl = async (key: string, contentType: string, sizeBytes: number) => {
                         if (presignCache.has(key)) {
                             return presignCache.get(key)!;
                         }
-                    }
 
-                    if (presignCache.has(key)) {
-                        return presignCache.get(key)!;
-                    }
+                        while (!presignCache.has(key) && nextBatchIndex < meta.length) {
+                            if (!pendingBatchPromise) {
+                                pendingBatchPromise = fetchNextBatch().finally(() => {
+                                    pendingBatchPromise = null;
+                                });
+                            }
+                            await pendingBatchPromise;
+                            if (presignCache.has(key)) {
+                                return presignCache.get(key)!;
+                            }
+                        }
 
-                    const single = await getUploadPresignedUrl(key, contentType, sizeBytes, { sessionId });
-                    if ('error' in single) throw new Error(single.error);
-                    return {
-                        url: single.url,
-                        uploadToken: single.token,
-                        storageKey: single.storageKey,
-                        uploadIntentId: single.uploadIntentId,
+                        if (presignCache.has(key)) {
+                            return presignCache.get(key)!;
+                        }
+
+                        const single = await getUploadPresignedUrl(key, contentType, sizeBytes, { sessionId });
+                        if ('error' in single) throw new Error(single.error);
+                        return {
+                            url: single.url,
+                            uploadToken: single.token,
+                            storageKey: single.storageKey,
+                            uploadIntentId: single.uploadIntentId,
+                        };
                     };
-                };
 
-                const uploadRes = await uploadFolder(
-                    uploadFiles,
-                    uploadProjectId,
-                    (p) => {
-                        setUploadProgress({
-                            percent: p.percent,
-                            currentFile: p.currentFile,
-                            isUploading: p.percent < 100,
-                        });
-                    },
-                    getPresignedUrl,
-                    {
+                    const uploadRes = await uploadFolder(
+                        uploadFiles,
+                        uploadProjectId,
+                        (p) => {
+                            setUploadProgress({
+                                percent: p.percent,
+                                currentFile: p.currentFile,
+                                isUploading: p.percent < 100,
+                            });
+                            setCreateProgress((prev) => (prev ? { ...prev, count: Math.min(totalFiles, Math.round((p.percent / 100) * totalFiles)), total: totalFiles } : prev));
+                        },
+                        getPresignedUrl,
+                        {
+                            sessionId,
+                            manifestHash,
+                        }
+                    );
+
+                    // Register ONLY successfully uploaded files so Files tab never references missing keys
+                    const uploadedByRequestKey = new Map(
+                        uploadRes.uploadedAssets.map((asset) => [asset.requestKey, asset]),
+                    );
+                    const manifest = meta
+                        .map((m) => {
+                            const uploaded = uploadedByRequestKey.get(m.key);
+                            if (!uploaded) return null;
+                            return {
+                                relativePath: m.relativePath,
+                                size: m.size,
+                                mimeType: m.mimeType,
+                                storageKey: uploaded.storageKey,
+                                uploadIntentId: uploaded.uploadIntentId,
+                            };
+                        })
+                        .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+                    await updateUploadSessionAction(uploadProjectId, {
                         sessionId,
                         manifestHash,
-                    }
-                );
-
-                // Register ONLY successfully uploaded files so Files tab never references missing keys
-                const uploadedByRequestKey = new Map(
-                    uploadRes.uploadedAssets.map((asset) => [asset.requestKey, asset]),
-                );
-                const manifest = meta
-                    .map((m) => {
-                        const uploaded = uploadedByRequestKey.get(m.key);
-                        if (!uploaded) return null;
-                        return {
-                            relativePath: m.relativePath,
-                            size: m.size,
-                            mimeType: m.mimeType,
-                            storageKey: uploaded.storageKey,
-                            uploadIntentId: uploaded.uploadIntentId,
-                        };
-                    })
-                    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-
-                await updateUploadSessionAction(uploadProjectId, {
-                    sessionId,
-                    manifestHash,
-                    totalFiles: meta.length,
-                    uploadedFiles: manifest.length,
-                    status: 'registering',
-                    importEventId,
-                });
-
-                const registerResult = await registerUploadedFolderAction(uploadProjectId, manifest, {
-                    sessionId,
-                    manifestHash,
-                    reconcilePolicy: 'mirror',
-                });
-                if (!registerResult.success) {
-                    if (registerResult.skipped) {
-                        const ownerInfo = registerResult.lockOwnerSessionId
-                            ? ` (active session: ${registerResult.lockOwnerSessionId})`
-                            : '';
-                        toast.loading('Registering uploaded files…', { id: creationToastId });
-                    } else {
-                        throw new Error('Couldn’t register uploaded files.');
-                    }
-                }
-
-                await applyReadmeSetup(uploadProjectId);
-                setUploadProgress({ percent: 100, currentFile: '', isUploading: false });
-
-                if (!uploadRes.success) {
-                    warnCreation(`${uploadRes.failedFiles.length} files failed.`);
-                } else {
-                    // Final outcome resolves the same card after post-create setup.
-                }
-            } else {
-                if (createdProjectId) {
-                    await applyReadmeSetup(createdProjectId);
-                }
-                // Post-create setup determines the final outcome.
-            }
-
-            if (createdProjectId && !readmeApplied) {
-                await applyReadmeSetup(createdProjectId);
-            }
-            if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
-            if (!creationWarnings.length) toast.success(importType === 'upload' ? `${noun} and files ready` : `${noun} created`, { id: creationToastId });
-
-            const { draftStore } = await import('@/lib/storage/draft-store');
-            await draftStore.clear(userId);
-            skipDraftOnUnmountRef.current = true;
-            // Success navigates to the new project; closing as well would navigate away from it.
-            if (createdProjectId && onSuccess) onSuccess(createdProjectId, createdOrganization);
-            else onClose();
-        } catch (error: any) {
-            // If upload import failed after project creation, mark syncStatus=failed so Files tab can show retry UI.
-            try {
-                if (createdProjectId && importType === 'upload') {
-                    const { markWorkspaceSyncFailedAction } = await import('@/app/actions/upload-import');
-                    await markWorkspaceSyncFailedAction(createdProjectId, {
-                        sessionId: uploadSessionContext?.sessionId,
-                        manifestHash: uploadSessionContext?.manifestHash,
-                        reason: error?.message || 'Upload import failed',
+                        totalFiles: meta.length,
+                        uploadedFiles: manifest.length,
+                        status: 'registering',
+                        importEventId,
                     });
+
+                    const registerResult = await registerUploadedFolderAction(uploadProjectId, manifest, {
+                        sessionId,
+                        manifestHash,
+                        reconcilePolicy: 'mirror',
+                    });
+                    if (!registerResult.success) {
+                        if (registerResult.skipped) {
+                            const ownerInfo = registerResult.lockOwnerSessionId
+                                ? ` (active session: ${registerResult.lockOwnerSessionId})`
+                                : '';
+                            console.info('[create-project] Upload registration skipped', ownerInfo);
+                        } else {
+                            throw new Error('Couldn’t register uploaded files.');
+                        }
+                    }
+
+                    if (readmeIntent.mode === 'detected') await applyReadmeSetup(uploadProjectId);
+                    setUploadProgress({ percent: 100, currentFile: '', isUploading: false });
+                    if (!uploadRes.success) throw Object.assign(new Error(`${uploadRes.failedFiles.length} files didn’t upload.`), { uploaded: manifest.length });
+                } catch (error) {
+                    setUploadProgress(null);
+                    // Files shows the upload as failed, with retry.
+                    try {
+                        const { markWorkspaceSyncFailedAction } = await import('@/app/actions/upload-import');
+                        await markWorkspaceSyncFailedAction(projectIdOrThrow(), { sessionId: uploadSessionContext?.sessionId, manifestHash: uploadSessionContext?.manifestHash, reason: error instanceof Error ? error.message : 'Upload import failed' });
+                    } catch { }
+                    throw error;
                 }
-            } catch { }
-            if (createdProjectId) warnCreation('Some setup needs attention.');
-            else if (error?.code === 'ORG_BLOCKED') {
+            };
+            // The GitHub import runs on the server; this follows it (the same reading the Files banner uses).
+            return async () => {
+                const { getWorkspaceHydrationProgressAction } = await import('@/app/actions/workspace');
+                const projectId = projectIdOrThrow();
+                for (;;) {
+                    if (run.stopped) return;
+                    const meta = await getWorkspaceHydrationProgressAction(projectId).catch(() => null);
+                    if (meta) setCreateProgress((p) => (p ? { ...p, count: meta.completed, total: meta.total } : p));
+                    if (meta?.status === 'completed') return;
+                    if (meta?.status === 'failed') throw new Error('GitHub stopped answering. Files shows the import as paused.');
+                    await new Promise((resolve) => setTimeout(resolve, IMPORT_POLL_MS));
+                }
+            };
+        });
+
+        try {
+            pre();
+            runRef.current = run;
+            setFinished(null);
+            setCreateProgress({ steps, index: 0, title: data.title || `the ${noun.toLowerCase()}` });
+            await runFrom(0);
+        } catch (error: any) {
+            // Nothing was made: back to Review, everything entered stays.
+            runRef.current = null;
+            setCreateProgress(null);
+            submissionRef.current = false;
+            setIsSubmitting(false);
+            if (error?.code === 'ORG_BLOCKED') {
                 // Report §14.6: everything entered stays; the person can make it a personal project instead.
                 toast.error(error.message, {
-                    id: creationToastId,
                     action: {
                         label: 'Create as a personal workspace',
                         onClick: () => {
@@ -1105,12 +1176,9 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
                     },
                 });
             }
-            else toast.error(feedbackError(error.message || 'Couldn’t create workspace', 'Couldn’t create workspace'), { id: creationToastId });
-        } finally {
-            submissionRef.current = false;
-            setIsSubmitting(false);
+            else toast.error(feedbackError(error?.message || 'Couldn’t create workspace', 'Couldn’t create workspace'));
         }
-    }, [onSuccess, onClose, phase, isReviewReady, uploadFiles, projectImage]);
+    }, [phase, isReviewReady, uploadFiles, projectImage, runFrom]);
     const onSubmitRef = useRef(onSubmit);
     onSubmitRef.current = onSubmit;
 
@@ -1126,6 +1194,7 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
         githubFolderEntries,
         loadGithubFolder,
         startGithubRootPreview,
-        onSubmit, draftInfo, restoreDraft, deleteDraft
+        onSubmit, draftInfo, restoreDraft, deleteDraft,
+        createProgress, finished, retryFrom, openNow, openAnyway,
     };
 }

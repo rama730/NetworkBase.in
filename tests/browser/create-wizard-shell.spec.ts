@@ -34,6 +34,9 @@ test('leaving Review comes back with Back to Review', async ({ page }) => {
     await page.getByRole('button', { name: /^Info, done/ }).click();
     await page.getByRole('button', { name: /^Back to Review/ }).click();
     await expect(heading(page, /Ready to create|Almost there/)).toBeVisible();
+    // Back to Review never presses Create (the footer button used to turn into the submit under the click).
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => (window as any).__calls.filter((c: { name: string }) => c.name === 'createWorkspaceAction').length)).toBe(0);
 });
 
 test('Cmd+Enter continues; Esc in a text field does nothing; Esc on the page opens Leave', async ({ page }) => {

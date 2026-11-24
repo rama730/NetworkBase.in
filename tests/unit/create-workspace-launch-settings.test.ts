@@ -73,7 +73,8 @@ test('step 4 shows the eight Workspace settings sections in order; picture and d
     const hook = read('src/components/workspaces/create-wizard/useCreateWorkspaceWizard.ts');
     assert.match(hook, /await uploadWorkspaceImage\(projectId, projectImage\)/);
     assert.match(hook, /updateWorkspaceDocSettingsAction\(projectId, \{ editPolicy: 'members' \}\)/);
-    assert.match(hook, /if \(createdProjectId\) await applyLaunchSettingsAfterCreate\(createdProjectId\);/);
+    // v6: picture, template folder and doc editing ride along with the make step.
+    assert.match(hook, /await applyLaunchSettingsAfterCreate\(result\.project\.id\);/);
 });
 
 test('step 4 docks its section list like main Settings (v6.3) while Project Settings uses the shared navigation', () => {

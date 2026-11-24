@@ -68,16 +68,19 @@ export default function WizardFooter({ phase, totalPhases, onNext, onBack, isSub
         </div>
 
         <div className="order-2 flex items-center justify-end sm:order-3 sm:justify-self-end">
+          {/* Each action is its own button (keys): reusing one element let a Back to Review click land on the Create
+              submit it turned into, which created the workspace. */}
           {isLastPhase ? (
-            <Button pending={isSubmitting} type="submit" form="create-project-form" disabled={busy || !isReviewReady} aria-busy={busy} className="w-full min-w-[140px] sm:w-auto">
+            <Button key="create" pending={isSubmitting} type="submit" form="create-project-form" disabled={busy || !isReviewReady} aria-busy={busy} className="w-full min-w-[140px] sm:w-auto">
               {isSubmitting ? "Creating…" : isReviewReady ? createLabel : "Preparing review…"}
             </Button>
           ) : fromReview && onReturnToReview ? (
-            <Button type="button" onClick={busy ? undefined : onReturnToReview} aria-disabled={busy} className="w-full min-w-[140px] sm:w-auto">
+            <Button key="back-to-review" type="button" onClick={busy ? undefined : onReturnToReview} aria-disabled={busy} className="w-full min-w-[140px] sm:w-auto">
               Back to Review <ChevronRight aria-hidden="true" />
             </Button>
           ) : (
             <Button
+              key="next"
               type="button"
               onClick={nextDisabled || busy ? (e) => { e.preventDefault(); } : onNext}
               aria-disabled={Boolean(nextDisabled) || busy}
