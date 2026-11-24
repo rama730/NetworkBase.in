@@ -59,6 +59,7 @@ test("the thesis: chapters count their own words, research questions save, a sup
   assert.equal((await doc.saveThesisAction(ws, { supervisorId: supervisor! })).success, true);
   const again = await doc.readThesisAction(ws);
   assert.ok(again.success && again.thesis.questions.length === 1 && again.thesis.supervisor);
+  assert.deepEqual([again.thesis.supervisorId, again.thesis.staff.map((s) => s.id)], [supervisor!, [supervisor!]], "the picker offers the workspace's admins");
   // Security review: a leaders-only chapter isn't counted for a member who can't read it.
   const [member] = [await sql.begin((tx) => createUser(tx))];
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${member}, 'member')`;

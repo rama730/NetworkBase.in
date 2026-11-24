@@ -100,7 +100,17 @@ function Card({ projectId, slug }: { projectId: string; slug: string }) {
           <dt className="text-muted-foreground">Next milestone</dt>
           <dd>{t.nextMilestone ? <Link href={t.nextMilestone.href} className="hover:underline">{t.nextMilestone.title}{t.nextMilestone.due ? ` · due ${DAY.format(new Date(t.nextMilestone.due))}` : ""}</Link> : "None yet"}</dd>
           <dt className="text-muted-foreground">Supervisor</dt>
-          <dd>{t.supervisor ?? "Not set"}{t.coSupervisor ? ` · co-supervisor ${t.coSupervisor}` : ""}</dd>
+          <dd>{t.canEdit && t.staff.length ? (
+            <span className="flex flex-col gap-1">
+              {(["supervisorId", "coSupervisorId"] as const).map((key) => (
+                <select key={key} className="nb-select" data-size="sm" aria-label={key === "supervisorId" ? "Supervisor" : "Co-supervisor"} value={t[key] ?? ""}
+                  onChange={(e) => void saveThesisAction(projectId, { [key]: e.target.value || null }).then((r) => { if (!r.success) return void toast.error(r.error); void refresh(); })}>
+                  <option value="">{key === "supervisorId" ? "No supervisor" : "No co-supervisor"}</option>
+                  {t.staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              ))}
+            </span>
+          ) : <>{t.supervisor ?? "Not set"}{t.coSupervisor ? ` · co-supervisor ${t.coSupervisor}` : ""}</>}</dd>
           <dt className="text-muted-foreground">Last supervision</dt>
           <dd>{t.lastSupervision ? <Link href={docHref(t.lastSupervision.slug)} className="hover:underline">{DAY.format(new Date(`${t.lastSupervision.date}T12:00:00Z`))}{t.lastSupervision.openItems ? ` · ${t.lastSupervision.openItems} action ${t.lastSupervision.openItems === 1 ? "item" : "items"}` : ""}</Link> : "None yet"}</dd>
           {t.outputs.length ? <><dt className="text-muted-foreground">Outputs</dt><dd>{t.outputs.map((o) => `${o.title} · ${o.state}`).join("; ")}</dd></> : null}

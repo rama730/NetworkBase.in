@@ -3148,8 +3148,15 @@ export async function readThesisAction(projectId: string) {
         const [openItems] = last ? await db.select({ n: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.sourceDocId, last.id), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`)) : [];
         const outputs = await db.select({ title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus, labels: tasks.labels }).from(tasks)
             .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), sql`${tasks.labels} && ARRAY['publication', 'talk', 'Publication', 'Talk']::text[]`)).limit(20);
+        // Found live (B1.8a): the people who can be Supervisor — the workspace's admins and its class's staff.
+        const staff = context.permission.canEdit ? Array.from(await db.execute<{ id: string; name: string }>(sql`
+            SELECT p.id, coalesce(p.full_name, p.username, 'Member') AS name FROM profiles p WHERE p.id IN (
+              SELECT m.user_id FROM workspace_members m WHERE m.workspace_id = ${projectId}::uuid AND m.role = 'admin'
+              UNION SELECT c.owner_id FROM workspaces c WHERE c.id = ${ws?.parentId ?? null}::uuid
+              UNION SELECT pm.user_id FROM workspace_members pm WHERE pm.workspace_id = ${ws?.parentId ?? null}::uuid AND pm.role = 'admin') ORDER BY 2`)) : [];
         return { success: true as const, thesis: {
-            canEdit: context.permission.canEdit, questions: settings.questions, chapters, words: totals.words, target: totals.target,
+            canEdit: context.permission.canEdit, questions: settings.questions, chapters, words: totals.words, target: totals.target, staff,
+            supervisorId: settings.supervisorId, coSupervisorId: settings.coSupervisorId,
             nextMilestone: milestone ? { title: milestone.title, due: milestone.due?.toISOString() ?? null, href: `/workspaces/${encodeURIComponent(ws?.slug ?? projectId)}?tab=tasks&drawerType=task&drawerId=${milestone.id}` } : null,
             supervisor: nameOf(settings.supervisorId), coSupervisor: nameOf(settings.coSupervisorId),
             lastSupervision: last?.date ? { date: last.date, slug: last.slug, openItems: openItems?.n ?? 0 } : null,
