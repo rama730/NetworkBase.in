@@ -33,6 +33,7 @@ async function open(page: Page, view: 'class' | 'school' | 'classes' | 'attentio
       saveSchoolExamWeeksAction: async (_s: string, rows: unknown) => { calls.push(['weeks', rows]); return { success: true }; },
       decideClassRequestAction: async (_i: string, c: string, ok: boolean) => { calls.push(['decide', c, ok]); return { success: true }; },
       saveSchoolKindAction: async (_s: string, k: unknown) => { calls.push(['kind', k]); return { success: true }; },
+      updateProgramAction: async (id: string, patch: unknown) => { calls.push(['update', id, patch]); return { success: true }; },
     };
   }, state);
   await openApp(page, 'tests/browser/school-card.fixture.tsx', { path: `/?view=${view}` });
@@ -173,4 +174,10 @@ test('B2.1d: the school picks its kind; Coaching or bootcamp says what new class
   await expect(kind).toContainText('Instructor · Mentor · Learner, Modules, joining by approval');
   await kind.getByRole('button', { name: 'Save kind' }).click();
   await expect.poll(() => calls(page)).toContainEqual(['kind', 'coaching']);
+});
+
+test('B2.1: Update from a cohort points the program at another class; running cohorts are not touched', async ({ page }) => {
+  await open(page, 'classes');
+  await page.getByLabel('Update Full-stack Web from a cohort').selectOption({ label: 'History 8' });
+  await expect.poll(() => calls(page)).toContainEqual(['update', 'p1', { sourceClassId: 'c2' }]);
 });

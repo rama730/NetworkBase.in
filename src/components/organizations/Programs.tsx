@@ -20,7 +20,7 @@ const fmt = (d: string | null) => (d ? DAY.format(new Date(`${d}T00:00:00Z`)) : 
 const COPY = [["sprints", "Plan and lessons"], ["assignments", "Assignments (as drafts)"], ["docs", "Documents"], ["files", "Materials"], ["about", "About and settings"], ["channels", "Channels"], ["admins", "Staff"]] as const;
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 
-export function ProgramsSection({ schoolId }: { schoolId: string }) {
+export function ProgramsSection({ schoolId, classes = [] }: { schoolId: string; classes?: Array<{ id: string; title: string }> }) {
   const client = useQueryClient();
   const q = useQuery({ queryKey: ["programs", schoolId], queryFn: () => readProgramsAction(schoolId), staleTime: 30_000 });
   const [starting, setStarting] = useState<string | null>(null);
@@ -55,7 +55,17 @@ export function ProgramsSection({ schoolId }: { schoolId: string }) {
                     {p.status === "retired" ? "Restore" : "Retire"}<span className="sr-only"> {p.name}</span></button>
                 </span>
               </div>
-              {p.sourceClass ? <p className="text-[12px] text-muted-foreground">From {p.sourceClass}</p> : null}
+              <p className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+                {p.sourceClass ? <span>From {p.sourceClass}</span> : null}
+                {/* Call 4: Update from a cohort replaces what new cohorts copy; running cohorts never change. */}
+                {classes.length > 1 ? (
+                  <select className="nb-select" data-size="sm" aria-label={`Update ${p.name} from a cohort`} value=""
+                    onChange={(e) => { const c = classes.find((x) => x.id === e.target.value); if (c) void updateProgramAction(p.id, { sourceClassId: c.id }).then((r) => { if (!r.success) return void toast.error(r.error); toast.success(`${p.name} now copies ${c.title}. Running cohorts don’t change.`); void refresh(); }); }}>
+                    <option value="">Update from a cohort…</option>
+                    {classes.filter((c) => c.title !== p.sourceClass).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  </select>
+                ) : null}
+              </p>
               {p.list.length ? (
                 <ul className="flex flex-wrap gap-2" aria-label={`${p.name} cohorts`}>
                   {p.list.map((c) => (

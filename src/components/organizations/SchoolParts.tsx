@@ -40,7 +40,7 @@ export function SchoolClassesTab({ orgId }: { orgId: string }) {
         <UnderlineTabs label="Group classes by" idPrefix="school-group" controls={false} className="w-auto border-b-0" value={group} onChange={setGroup}
           tabs={[{ key: "department", label: "Department" }, { key: "teacher", label: "Teacher" }, { key: "term", label: "Term" }]} />
       </div>
-      {data.isAdmin ? <ProgramsSection schoolId={orgId} /> : null}
+      {data.isAdmin ? <ProgramsSection schoolId={orgId} classes={data.classes.map((c) => ({ id: c.id, title: c.title }))} /> : null}
       {[...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([name, rows]) => (
         <section key={name} aria-label={name}>
           <h3 className="nb-micro mb-2">{name} <span className="font-mono">{rows.length}</span></h3>
