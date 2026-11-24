@@ -6762,6 +6762,13 @@ OVERVIEW (members): one line added to Today
 5. Room and office hours hidden from visitors by default.
 6. Tell the class starts unticked.
 
+**B1.1 build calls (2026-11-24):**
+- Class details live in `org_settings.classDetails` (course code, meets, room, an https online link that is members-only and never fetched, office hours, credits, breaks, Show to visitors per row). Changed sessions live in `org_settings.sessionChanges`, keyed by the session's own wall time. **[call]**
+- **Breaks** are typed in the class's Class details for now; a school's academic calendar with breaks comes with S1 (B3.1) and will be pushed down like the term. **[call]**
+- The **Syllabus** is a NetworkBase template (Learning group). A class's teacher adds it from the About card (Add a syllabus); the card shows the published version's first paragraph, and outsiders see it only once published and not members-only. **[call]**
+- **Next class** and **Office hours today** sit at the top of Overview for members; teachers and TAs cancel, move or restore that session there, and members get an Important notice ("org.class_changed"). **[call]**
+- The workspace header line "Next class Thu 10:30 · 1 assignment due" in the class's workspaces waits for W3 (B1.7, Student's week), which builds the same rows for My work. **[call]**
+
 ### 30.3 W2 · Term plan + lessons (agreed 2026-11-17)
 **References:**
 

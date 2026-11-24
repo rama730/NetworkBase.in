@@ -127,7 +127,8 @@ export type OrgNotificationEventKey =
     | "org.child_notice"
     | "org_sprints.started"
     | "org_sprints.completed"
-    | "org_sprints.notice";
+    | "org_sprints.notice"
+    | "org.class_changed";
 
 export type WorkspaceNotificationRule = {
     enabled: boolean;
@@ -1078,6 +1079,7 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
     "org.team_changed": orgEvent("org.team_changed", "org_membership", "Team or group moves", "A member hears they were moved to another team or group.", "important"),
     "org.member_deleted": orgEvent("org.member_deleted", "org_membership", "Deleted accounts", "Admins hear when a member’s account is deleted, with how many submissions went.", "important", { recipients: ["owner", "co_leaders"] }),
     "announcements.posted": orgEvent("announcements.posted", "org_announcements", "Announcements", "Each announcement’s audience hears about it.", "important"),
+    "org.class_changed": orgEvent("org.class_changed", "org_announcements", "Class cancelled or moved", "Members hear when a class session is cancelled or moved (report 30.2).", "important"),
     "credit.changed": orgEvent("credit.changed", "org_credit", "Verified or removed", "A member hears their role was verified or the verification removed.", "important"),
     "org.child_created": orgEvent("org.child_created", "org_membership", "Workspace created in the organization", "Admins hear when someone creates a workspace in the organization, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
     "org.code_changed": orgEvent("org.code_changed", "org_membership", "Join code changed", "Admins hear when someone makes a new join code.", "more", { recipients: ["owner", "co_leaders"] }),

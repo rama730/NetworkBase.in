@@ -576,6 +576,29 @@ _Address, parking, nearest hospital._
 ## Weather and notes
 ` },
   // 15.3: Cornell capture (4.8 from 100+): cues, notes, summary.
+  // Report 30.2 W1 (plan B1.1): a class's syllabus, pinned to About as a card; its first paragraph is the card's line.
+  { id: "syllabus", name: "Syllabus", group: "learning", line: "What the course covers, how it's marked, and the term's units.",
+    body: `What this course covers and who it's for, in two or three sentences.
+
+## Outcomes
+- By the end, you can…
+
+## Units
+1. Unit 1 —
+2. Unit 2 —
+
+## How it's marked
+| Part | Weight |
+|---|---|
+| Assignments | |
+| Exam | |
+
+## Policies
+Late work, AI agents and attendance: see Settings, or ask your teacher.
+
+## Reading
+- `,
+  },
   { id: "class-notes", name: "Class notes", group: "learning", line: "Cornell notes: cues, notes and a summary.",
     body: `**Lesson:** · **Unit:** · **Week:**
 

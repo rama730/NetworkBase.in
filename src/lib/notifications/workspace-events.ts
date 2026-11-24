@@ -75,7 +75,7 @@ type MemberRow = {
 const PLACE_EVENTS = new Set<string>([
     "members.removed", "members.role_changed", "members.ownership_transferred", "access.file_upload_permission_changed",
     "applications.decision", "assignments.published", "assignments.reviewed", "assignments.due_changed", "assignments.due_soon", "assignments.reminded", "assignments.answer_shared", "org.team_changed", "org.member_deleted",
-    "announcements.posted", "org.role_changed", "org.lifecycle", "org.child_added", "org.child_notice", "org_sprints.notice",
+    "announcements.posted", "org.role_changed", "org.lifecycle", "org.child_added", "org.child_notice", "org_sprints.notice", "org.class_changed",
     "security.project_archived", "security.delete_scheduled",
 ]);
 const ASSIGN_EVENTS = new Set<string>(["tasks.assigned", "tasks.created_assigned"]);

@@ -1,6 +1,7 @@
 'use client'
 
 import { SchoolAttentionCard } from '@/components/organizations/SchoolParts'
+import { ClassNextLine } from '@/components/organizations/ClassHomeParts'
 import { useEffect, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -220,7 +221,7 @@ function DashboardSkeleton() {
 }
 
 /** The org Dashboard for people in the org (report §27). */
-export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false, started = null }: { orgId: string; orgSlug: string | null; orgType?: string | null; isSchool?: boolean; started?: ReturnType<typeof readOrgDashboardAction> | null }) {
+export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false, isClass = false, started = null }: { orgId: string; orgSlug: string | null; orgType?: string | null; isSchool?: boolean; isClass?: boolean; started?: ReturnType<typeof readOrgDashboardAction> | null }) {
     const [filter, setFilter] = useState('all')
     const [moreToday, setMoreToday] = useState(false)
     const [moreActivity, setMoreActivity] = useState(false)
@@ -261,6 +262,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, isSchool = false,
                 {/* Report §29.2: everyone inside sees it; the owner's reason and Appeal live in Settings → Moderation. */}
                 {data.restricted ? <Notice tone="warning">This organization is restricted for now.</Notice> : null}
                 {isSchool ? <SchoolAttentionCard orgId={orgId} /> : null}
+                {isClass ? <ClassNextLine orgId={orgId} /> : null}
                 {record.length ? <Notice><span data-testid={data.archivedSummary ? 'org-archived-summary' : 'org-term-mine'}>{record.join(' · ')}</span></Notice> : null}
                 {data.welcome && !welcomeClosed ? (
                     // Report §26.7, decision 49: once after joining; × hides it for good.

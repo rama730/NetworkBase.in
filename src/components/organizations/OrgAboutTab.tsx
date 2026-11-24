@@ -14,6 +14,7 @@ import JourneyTimeline from '@/components/workspaces/dashboard/JourneyTimeline'
 import ProjectOverviewCard from '@/components/workspaces/dashboard/WorkspaceOverviewCard'
 import { RailSection } from '@/components/ui/rail-section'
 import { SchoolAboutSections } from '@/components/organizations/SchoolParts'
+import { ClassDetailsRail, SyllabusAndTerm } from '@/components/organizations/ClassHomeParts'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import type { Workspace } from '@/types/discover'
 import { formatInZone } from '@/lib/organizations/zoned-time'
@@ -45,6 +46,8 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
     const data = about.data?.success ? about.data : null
     const stickyRail = useBottomStickyRail({ topInset: 'calc(var(--workspace-tabs-height, 0px) + 24px)' })
     const base = `/org/${encodeURIComponent(project.slug || project.id)}`
+    // Report 30.2 W1: an Education class (not a school) has a Class home.
+    const isClass = Boolean(org && !org.isSchool && typeProfile(org.type).schools)
     // A member's card already says their role; owners and admins see theirs here.
     const yourRole = data?.card.kind === 'invite' && memberRole ? org?.roleNames?.[memberRole] ?? null : null
     const details: Array<[string, ReactNode]> = []
@@ -74,6 +77,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                     <Link href={`${base}?tab=settings`} className="nb-link inline-block text-[13px]">Add a welcome note</Link>
                 ) : null}
                 <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={ORG_LABELS} editLabel="Edit details" />
+                {isClass ? <SyllabusAndTerm orgId={project.id} base={base} /> : null}
                 {/* Empty-state prompts for admins (report §22.3). */}
                 {isCreator && (!statements.problemStatement || !statements.solutionStatement) ? (
                     <p className="flex flex-wrap gap-4 text-[13px]">
@@ -91,6 +95,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 {org?.isSchool ? <SchoolAboutSections orgId={project.id} /> : null}
             </div>
             <aside {...stickyRail} aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">
+                {isClass ? <ClassDetailsRail orgId={project.id} settingsHref={`${base}?tab=settings&section=org-profile`} /> : null}
                 {railLoading ? <div role="status" aria-label="Loading details" className="space-y-6">{[0, 1, 2].map((i) => <div key={i} className="nb-skeleton h-28 rounded-lg" aria-hidden="true" />)}</div> : null}
                 {/* Report §7.3, decision 79: stages come from sprints; one sprint is the first stop; none teaches. */}
                 {(stages === 'timeline' || stages === 'single') && data?.journey ? (
