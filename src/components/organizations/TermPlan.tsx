@@ -1,5 +1,7 @@
 "use client";
 
+import { readPathAction, setPathSettingsAction } from "@/app/actions/learning-path";
+import { PathView } from "@/components/workspaces/tabs/sprint/LearningPath";
 import { Fragment, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -25,6 +27,9 @@ const planKey = (orgId: string) => ["term-plan", orgId] as const;
 /** A class's Sprints tab: Term plan (default) or today's Sprint view. */
 export function ClassSprints({ orgId, children }: { orgId: string; children: ReactNode }) {
   const [view, setView] = useState<"plan" | "calendar" | "sprint">("plan");
+  // B2.2a (report 31.3 call 1): a self-paced class plans a Path instead; one or the other, never both.
+  const path = useQuery({ queryKey: ["learning-path", orgId], queryFn: () => readPathAction(orgId), staleTime: 15_000 });
+  if (path.data?.success && path.data.settings.pacing === "self") return <SelfPacedSprints orgId={orgId}>{children}</SelfPacedSprints>;
   return (
     <div>
       <div role="group" aria-label="Sprints view" className="mb-3 inline-flex rounded-md border border-border p-0.5 text-[12px]" data-testid="class-sprints-switch">
@@ -35,6 +40,22 @@ export function ClassSprints({ orgId, children }: { orgId: string; children: Rea
         ))}
       </div>
       {view === "plan" ? <TermPlanView orgId={orgId} /> : view === "calendar" ? <TermCalendar orgId={orgId} /> : children}
+    </div>
+  );
+}
+
+function SelfPacedSprints({ orgId, children }: { orgId: string; children: ReactNode }) {
+  const [view, setView] = useState<"path" | "sprint">("path");
+  return (
+    <div>
+      <div role="group" aria-label="Sprints view" className="mb-3 inline-flex rounded-md border border-border p-0.5 text-[12px]" data-testid="class-sprints-switch">
+        {(["path", "sprint"] as const).map((v) => (
+          <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
+            {v === "path" ? "Path" : "Sprint"}
+          </button>
+        ))}
+      </div>
+      {view === "path" ? <PathView projectId={orgId} /> : children}
     </div>
   );
 }
@@ -241,6 +262,29 @@ function LessonRow({ lesson: l, staff, teacher, expanded, toggle, onStage, onUpd
 }
 
 /** Settings → Term plan (the teacher): outcomes, when students see lessons, the Topics label. */
+/** B2.2a (report 31.3 layer 1): Scheduled (the Term plan) or Self-paced (the Path); switches only before learners join. */
+function PacingRow({ orgId }: { orgId: string }) {
+  const client = useQueryClient();
+  const path = useQuery({ queryKey: ["learning-path", orgId], queryFn: () => readPathAction(orgId), staleTime: 15_000 });
+  if (!path.data?.success || !path.data.canManage) return null;
+  const pacing = path.data.settings.pacing;
+  const set = async (next: "self" | "scheduled") => {
+    const r = await setPathSettingsAction(orgId, { pacing: next, ...(next === "scheduled" ? { public: false } : {}) });
+    if (!r.success) return void toast.error(r.error);
+    toast.success(next === "self" ? "Self-paced: the Sprints tab shows the Path" : "Scheduled: the Sprints tab shows the Term plan");
+    void client.invalidateQueries({ queryKey: ["learning-path", orgId] });
+  };
+  return (
+    <SettingsCard title="Pacing" headingLevel={2} description="Scheduled follows the Term plan; Self-paced gives each learner a Path at their own speed. It switches only before the first learner joins.">
+      <fieldset className="flex flex-wrap items-center gap-4 text-[13px]" data-testid="class-pacing">
+        <legend className="sr-only">Pacing</legend>
+        <label className="flex items-center gap-1.5"><input className="nb-radio" type="radio" name="class-pacing" checked={pacing === "scheduled"} onChange={() => void set("scheduled")} />Scheduled (Term plan)</label>
+        <label className="flex items-center gap-1.5"><input className="nb-radio" type="radio" name="class-pacing" checked={pacing === "self"} onChange={() => void set("self")} />Self-paced (Path)</label>
+      </fieldset>
+    </SettingsCard>
+  );
+}
+
 export function TermPlanSettings({ orgId }: { orgId: string }) {
   const client = useQueryClient();
   const q = useQuery({ queryKey: planKey(orgId), queryFn: () => readTermPlanAction(orgId), staleTime: 15_000 });
@@ -259,6 +303,7 @@ export function TermPlanSettings({ orgId }: { orgId: string }) {
   };
   return (
     <section id="project-settings-term-plan" data-project-settings-section className="space-y-6">
+      <PacingRow orgId={orgId} />
       <SettingsCard title="Term plan" headingLevel={2} description="Outcomes the course teaches, when students see lessons, and what the week's column is called.">
         <div className="space-y-5" data-testid="term-plan-settings">
           <fieldset className="space-y-2">

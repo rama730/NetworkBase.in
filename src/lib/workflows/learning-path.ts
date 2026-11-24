@@ -4,7 +4,9 @@ import { z } from "zod";
  * Report 38.18 O3 (A7.6–A7.7): a learning path is Sprints' steps in order (dates optional), each holding lessons
  * (`class_lesson` items); everyone ticks lessons Done for themselves (`lesson_progress`, call 1).
  */
-export const pathSettingsSchema = z.object({ pacing: z.enum(["self", "scheduled"]).default("self"), lockInOrder: z.boolean().default(false), public: z.boolean().default(false) });
+export const pathSettingsSchema = z.object({ pacing: z.enum(["self", "scheduled"]).default("self"), lockInOrder: z.boolean().default(false), public: z.boolean().default(false),
+  /** B2.2a (report 31.3): Suggested pace in weeks per module (off by default) and Stuck after N days. */
+  paceWeeks: z.number().int().min(1).max(52).nullable().default(null), stuckDays: z.number().int().min(3).max(90).default(14) });
 export type PathSettings = z.infer<typeof pathSettingsSchema>;
 export const readPathSettings = (raw: unknown): PathSettings => pathSettingsSchema.parse(((raw ?? {}) as { path?: unknown }).path ?? {});
 

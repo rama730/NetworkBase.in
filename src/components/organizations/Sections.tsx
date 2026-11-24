@@ -1,5 +1,7 @@
 "use client";
 
+import { readPathAction } from "@/app/actions/learning-path";
+import { ProgressTable } from "@/components/workspaces/tabs/sprint/LearningPath";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,17 +34,20 @@ const useSections = (orgId: string) => useQuery({ queryKey: key(orgId), queryFn:
 
 /** A class's Members tab: Roster (today's) or Sections. */
 export function ClassMembers({ orgId, children }: { orgId: string; children: ReactNode }) {
-  const [view, setView] = useState<"roster" | "sections" | "attendance" | "completion">("roster");
+  const [view, setView] = useState<"roster" | "sections" | "attendance" | "completion" | "progress">("roster");
+  // B2.2a (report 31.3 layer 4): a self-paced class adds Progress (learners × modules, pace, Stuck) for staff.
+  const path = useQuery({ queryKey: ["learning-path", orgId], queryFn: () => readPathAction(orgId), staleTime: 15_000 });
+  const selfPaced = path.data?.success && path.data.settings.pacing === "self" && path.data.seesProgress;
   return (
     <div>
       <div role="group" aria-label="Members view" className="mb-3 inline-flex rounded-md border border-border p-0.5 text-[12px]" data-testid="class-members-switch">
-        {(["roster", "sections", "attendance", "completion"] as const).map((v) => (
+        {(["roster", "sections", "attendance", "completion", ...(selfPaced ? ["progress" as const] : [])] as const).map((v) => (
           <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
-            {v === "roster" ? "Roster" : v === "sections" ? "Sections" : v === "attendance" ? "Attendance" : "Completion"}
+            {v === "roster" ? "Roster" : v === "sections" ? "Sections" : v === "attendance" ? "Attendance" : v === "completion" ? "Completion" : "Progress"}
           </button>
         ))}
       </div>
-      {view === "sections" ? <SectionsView orgId={orgId} /> : view === "attendance" ? <AttendanceView orgId={orgId} /> : view === "completion" ? <CompletionView orgId={orgId} /> : children}
+      {view === "sections" ? <SectionsView orgId={orgId} /> : view === "attendance" ? <AttendanceView orgId={orgId} /> : view === "completion" ? <CompletionView orgId={orgId} /> : view === "progress" ? <ProgressTable projectId={orgId} /> : children}
     </div>
   );
 }

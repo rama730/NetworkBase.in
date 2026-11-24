@@ -8,7 +8,7 @@ test("A7.6: sprint dates are both or neither; undated sprints never auto-start",
   const now = new Date("2026-12-02T00:00:00Z");
   assert.equal(autoStartEligible({ startDate: null, autoStart: true, status: "planning" }, now), false);
   assert.equal(autoStartEligible({ startDate: new Date("2026-12-01"), autoStart: true, status: "planning" }, now), true);
-  assert.deepEqual(readPathSettings(null), { pacing: "self", lockInOrder: false, public: false });
+  assert.deepEqual(readPathSettings(null), { pacing: "self", lockInOrder: false, public: false, paceWeeks: null, stuckDays: 14 });
 });
 
 test("A7.6–A7.7: progress per person, Up next, Lock in order", () => {
