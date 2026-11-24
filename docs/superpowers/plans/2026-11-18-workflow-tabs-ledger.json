@@ -1028,9 +1028,9 @@
       "text": "B1.3 W8 Sections and TAs (30.9) — Build: section table + membership (one per student per kind); Split students; Sections assignment target; review routing to se",
       "kind": "unit",
       "milestone": "B1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/sections.test.ts; tests/db/sections.test.ts; tests/browser/sections.spec.ts",
+      "evidence": "3cdc3139e + 2f0da194e + 480024c4f + a311b5460 live 2026-11-24 (0124, 0125 in prod). Live in Chrome on wt-test-b0-class: Members → Sections, + New section \"WT Section A\" (Wed 2:00–4:00 PM) shows \"No TA · reviews go to the teacher\"; the Updates audience menu lists WT Section A (nothing posted). Split students, self-pick, review routing, TA-only reviews (single and Approve all), Rebalance, the Sections target and section audiences (incl. the database rule) proven by DB tests — one test account, so no students or TAs live. Security review fix: Approve all follows the section rule."
     },
     {
       "key": "B1.4",
