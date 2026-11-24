@@ -64,8 +64,11 @@ export async function moveToLaterCohortAction(fromId: string, userId: string, to
     if (m?.role !== "member") return { success: false as const, error: "Only a learner in this cohort can move." };
     const [already] = await tx.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, toId), eq(workspaceMembers.userId, userId))).limit(1);
     if (already) return { success: false as const, error: "They’re already in that cohort." };
+    // Security review: the target row is locked before counting, as approving join requests does, so two moves
+    // into the last seat can't both pass.
+    const [locked] = await tx.select({ max: workspaces.maxCollaborators }).from(workspaces).where(eq(workspaces.id, toId)).for("update").limit(1);
     const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(eq(workspaceMembers.projectId, toId));
-    if (n >= orgMemberCap(to.max)) return { success: false as const, error: `${to.title} is full.` };
+    if (n >= orgMemberCap(locked?.max ?? null)) return { success: false as const, error: `${to.title} is full.` };
     const limit = await accountOrgLimit(tx, userId, "join");
     if (limit) return { success: false as const, error: limit };
     // Open copies in the old cohort are Excused, never deleted; handed-in work stays as it is.
