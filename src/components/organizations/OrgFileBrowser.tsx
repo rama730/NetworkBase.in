@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronRight, MoreHorizontal, Search } from '@/components/ui/icons'
+import { ChevronRight, MoreHorizontal, Search } from 'lucide-react'
 
 import { FileViewer, fileSize } from '@/components/organizations/FileViewer'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'

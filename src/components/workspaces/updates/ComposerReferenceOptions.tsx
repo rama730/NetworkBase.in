@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ListTodo, Paperclip, Timer, UserRound } from "@/components/ui/icons";
+import { ListTodo, Paperclip, Timer, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ComposerReferenceOption = {

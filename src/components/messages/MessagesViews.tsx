@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlarmClock, AtSign, BellOff, Bookmark, CalendarClock, Check, CheckCheck, ChevronDown, Clock, Hash, Inbox, MailOpen, MoreHorizontal, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2, X, type IconComponent } from "@/components/ui/icons";
+import { AlarmClock, AtSign, BellOff, Bookmark, CalendarClock, Check, CheckCheck, ChevronDown, Clock, Hash, Inbox, MailOpen, MoreHorizontal, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2, X, type LucideIcon } from "lucide-react";
 import { toast, feedbackDate } from "@/lib/feedback";
 
 import { listInbox, listThreads, markInboxRead, markInboxUnread, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
@@ -53,7 +53,7 @@ const Composer = dynamic(() => import("@/components/messages/Composer").then((m)
 const when = (value: string | null) => (value ? formatChatTime(value) : "");
 
 /** An empty list: the app's empty state (icon, what goes here, and how). */
-function Empty({ icon = Inbox, title, children }: { icon?: IconComponent; title: string; children?: React.ReactNode }) {
+function Empty({ icon = Inbox, title, children }: { icon?: LucideIcon; title: string; children?: React.ReactNode }) {
   return <EmptyState compact icon={icon} title={title} description={children} className="m-4" />;
 }
 

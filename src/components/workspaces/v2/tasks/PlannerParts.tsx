@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderKanban, Plus, X } from "@/components/ui/icons";
+import { FolderKanban, Plus, X } from "lucide-react";
 import { useState } from "react";
 
 import { assignTaskAction, readProjectsAction, readProjectWorkAction, setPartOfAction, setTaskDatesAction, updateTaskFieldAction } from "@/app/actions/task";

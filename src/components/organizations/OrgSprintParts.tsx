@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState, useTransition } from 'react'
-import { AlertTriangle, CalendarRange, FileText, Paperclip, Play, X } from '@/components/ui/icons'
+import { AlertTriangle, CalendarRange, FileText, Paperclip, Play, X } from 'lucide-react'
 
 import {
     addSprintMaterialAction,

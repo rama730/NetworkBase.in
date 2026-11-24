@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Users } from '@/components/ui/icons';
+import { Search, Users } from 'lucide-react';
 import { getAcceptedConnections } from '@/app/actions/connections';
 import Image from 'next/image';
 import Link from 'next/link';

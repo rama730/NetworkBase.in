@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GitBranch, MoreHorizontal, Pencil, RotateCcw, Trash2 } from "@/components/ui/icons";
+import { GitBranch, MoreHorizontal, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
 import {
   branchChangesAction, branchDiffAction, createBranchAction, deleteBranchAction, listBranchesAction, renameBranchAction, restoreBranchAction,

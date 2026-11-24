@@ -24,7 +24,7 @@ import {
   Github,
   Pin,
   ShieldCheck,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { SkillChip } from "@/components/skills/SkillChip";

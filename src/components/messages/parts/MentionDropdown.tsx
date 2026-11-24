@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { buildIdentityPresentation } from '@/lib/ui/identity';
-import { Megaphone } from '@/components/ui/icons';
+import { Megaphone } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 
 interface MentionParticipant {

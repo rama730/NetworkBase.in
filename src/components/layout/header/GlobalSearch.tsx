@@ -2,7 +2,7 @@
 
 import { confirmAppNavigation } from "@/lib/navigation/confirm-navigation";
 
-import { Search, X } from "@/components/ui/icons";
+import { Search, X } from "lucide-react";
 import { useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 

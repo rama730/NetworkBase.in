@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Globe } from "@/components/ui/icons";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Globe } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { readDocsSettingsAction, setDocsSettingsAction, setDocsSiteAction } from "@/app/actions/workspace/doc";

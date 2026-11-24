@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Download, FileSpreadsheet } from "@/components/ui/icons";
+import { AlertTriangle, Download, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkspaceNode } from "@/lib/db/schema";

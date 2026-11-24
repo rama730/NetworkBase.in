@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useLayoutEffect, useRef } from "react";
-import { ArrowLeft, ArrowRight, Check } from "@/components/ui/icons";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RailSection } from "@/components/ui/rail-section";
 import { formatJourneyCompletionDate, getStageCompletionTooltip } from "@/lib/workspaces/journey-completion";

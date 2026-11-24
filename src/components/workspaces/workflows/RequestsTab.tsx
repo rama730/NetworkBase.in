@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Inbox, MoreHorizontal, Timer } from "@/components/ui/icons";
+import { CalendarDays, Inbox, MoreHorizontal, Timer } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 

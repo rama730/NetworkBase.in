@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode, type Ref } from "react";
-import { ArrowLeft, ArrowRight, GitBranch } from "@/components/ui/icons";
+import { ArrowLeft, ArrowRight, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   SyncFile,

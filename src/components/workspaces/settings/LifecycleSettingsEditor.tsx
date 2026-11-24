@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Info } from "@/components/ui/icons";
+import { Info } from "lucide-react";
 import { toast } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { LifecycleEditor as BaseLifecycleEditor } from "@/components/workspaces/LifecycleEditor";

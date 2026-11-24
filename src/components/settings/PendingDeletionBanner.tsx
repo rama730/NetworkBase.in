@@ -2,7 +2,7 @@
 
 import { toast, feedbackError } from "@/lib/feedback";
 import { useState } from "react";
-import { AlertTriangle } from "@/components/ui/icons";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cancelAccountDeletion } from "@/app/actions/account";
 import { formatCalendarDate } from "@/lib/ui/date-formatting";

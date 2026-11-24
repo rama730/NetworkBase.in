@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/utils/date";
-import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, KeyRound, Terminal, X } from "@/components/ui/icons";
+import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, KeyRound, Terminal, X } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";

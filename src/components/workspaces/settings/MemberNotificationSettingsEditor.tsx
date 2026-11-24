@@ -4,7 +4,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import React, { useMemo } from "react";
 import {
     Lock,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {

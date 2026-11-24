@@ -2,7 +2,7 @@
 import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "@/components/ui/icons";
+import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { createElement, useMemo, useState, type ReactNode } from "react";
 
 import { readCalendarAction } from "@/app/actions/workspace";

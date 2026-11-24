@@ -2,7 +2,7 @@
 
 import { memo, useRef, useState } from "react";
 import Link from "next/link";
-import { ImageOff, MoreHorizontal, Heart, MessageCircle, Pin } from "@/components/ui/icons";
+import { ImageOff, MoreHorizontal, MessageCircle, Pin } from "lucide-react";
 import { LikeHeart } from "@/components/ui/LikeHeart";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import {
@@ -205,7 +205,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                                     update.likedByViewer && "text-[var(--like)]",
                                 )}
                             >
-                                <LikeHeart liked={update.likedByViewer} className="h-3.5 w-3.5" aria-hidden="true" />
+                                <LikeHeart liked={update.likedByViewer} className="h-3.5 w-3.5" />
                             </button>
                         ) : (
                             <Link prefetch={false}
@@ -214,7 +214,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                                 className="inline-flex items-center justify-center hover:text-foreground focus-visible:underline"
                                 aria-label="Sign in to like this update"
                             >
-                                <Heart className="h-3.5 w-3.5" aria-hidden="true" />
+                                <LikeHeart liked={false} className="h-3.5 w-3.5" />
                             </Link>
                         )}
                         <button

@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Flag, MessageSquare, MoreHorizontal } from '@/components/ui/icons';
+import { ChevronDown, Flag, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { useReportDialog, type ReportTarget } from '@/components/reports/ReportDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';

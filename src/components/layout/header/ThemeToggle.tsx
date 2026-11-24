@@ -1,6 +1,6 @@
 "use client";
 
-import { Laptop, Moon, Sun } from "@/components/ui/icons";
+import { Laptop, Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/providers/theme-provider";

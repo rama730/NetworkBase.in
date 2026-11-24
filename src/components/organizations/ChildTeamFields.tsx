@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
-import { Star, UserPlus, X } from '@/components/ui/icons'
+import { Star, UserPlus, X } from 'lucide-react'
 
 import { listOrgRosterAction, listOutsidePeopleAction, type OrgRosterPerson } from '@/app/actions/organizations'
 import { useCreateLocation } from '@/components/organizations/CreateLocation'

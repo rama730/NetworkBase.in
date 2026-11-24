@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, X } from '@/components/ui/icons'
+import { AlertTriangle, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'

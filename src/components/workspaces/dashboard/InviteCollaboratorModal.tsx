@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { AlertCircle, Briefcase, Check, Search, Users } from "@/components/ui/icons";
+import { AlertCircle, Briefcase, Check, Search, Users } from "lucide-react";
 import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHeadings";
 import { del, get, set } from "idb-keyval";
 import { toast } from "@/lib/feedback";

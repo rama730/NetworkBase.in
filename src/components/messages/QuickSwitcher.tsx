@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Users } from "@/components/ui/icons";
+import { Search, Users } from "lucide-react";
 import { ConversationIcon, type ConversationKind } from "@/components/messages/ConversationIcon";
 import { keyLabel } from "@/components/messages/keys";
 import { toast } from "@/lib/feedback";

@@ -3,7 +3,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
-import { ChevronDown, FileText, Plus, X } from "@/components/ui/icons";
+import { ChevronDown, FileText, Plus, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast } from "@/lib/feedback";

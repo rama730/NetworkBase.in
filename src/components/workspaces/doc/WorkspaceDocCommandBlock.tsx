@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Copy } from "@/components/ui/icons";
+import { Check, Copy } from "lucide-react";
 import { projectDocEditorTargetId } from "@/lib/workspaces/doc-editor-source-map";
 import { cn } from "@/lib/utils";
 import { COPY_FAILED, copyText } from "@/lib/clipboard";

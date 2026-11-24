@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import * as React from "react";
-import { AlertTriangle, Folder } from "@/components/ui/icons";
+import { AlertTriangle, Folder } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

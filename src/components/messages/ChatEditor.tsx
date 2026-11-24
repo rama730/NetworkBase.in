@@ -6,7 +6,7 @@ import { Extension, Node as TiptapNode, type Editor } from "@tiptap/core";
 import { useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
-import { Bold, Code, FileCode, Italic, Link2, List, ListOrdered, Quote, Strikethrough } from "@/components/ui/icons";
+import { Bold, Code, FileCode, Italic, Link2, List, ListOrdered, Quote, Strikethrough } from "lucide-react";
 
 import { keyLabel, rovingTabKey } from "@/components/messages/keys";
 

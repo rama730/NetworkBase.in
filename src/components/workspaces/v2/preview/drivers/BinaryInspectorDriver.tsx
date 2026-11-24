@@ -9,7 +9,7 @@ import {
   Check,
   FileCode,
   Info,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";

@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { ImageOff } from "@/components/ui/icons";
+import { ImageOff } from "lucide-react";
 
 import {
     Dialog,

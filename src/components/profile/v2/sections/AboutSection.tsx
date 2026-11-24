@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, Pencil, Plus } from '@/components/ui/icons'
+import { ChevronDown, Pencil, Plus } from 'lucide-react'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { Button } from '@/components/ui/button'
 import { currentRoles } from '@/lib/profile/mix'

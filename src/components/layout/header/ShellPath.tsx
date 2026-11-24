@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { ChevronDown, Search } from "@/components/ui/icons";
+import { ChevronDown, Search } from "lucide-react";
 import { useTypedPath } from "@/components/auth/AuthPanel";
 import { WorkspaceAvatar } from "@/components/workspaces/WorkspaceAvatar";
 import { useSidebarWorkspacesQuery } from "@/components/layout/AppSidebar";

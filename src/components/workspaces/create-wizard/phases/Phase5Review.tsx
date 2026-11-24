@@ -4,7 +4,7 @@ import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { Edit3, Folder, GitBranch, Globe, Lock } from '@/components/ui/icons';
+import { Edit3, Folder, GitBranch, Globe, Lock } from 'lucide-react';
 import { CreateWorkspaceInput } from '@/lib/validations/workspace';
 import { SkillList } from '@/components/skills/SkillList';
 import { Button } from '@/components/ui/button';

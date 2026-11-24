@@ -11,7 +11,7 @@
 
 import { PixelBeat } from "@/components/ui/PixelBeat";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, X, CheckSquare } from "@/components/ui/icons";
+import { Search, X, CheckSquare } from "lucide-react";
 
 import {
   Dialog,

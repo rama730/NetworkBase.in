@@ -3,7 +3,7 @@
 import { normalizeLinkPreview } from '@/lib/links/preview-data';
 import Image from 'next/image';
 import { memo, useEffect, useRef, useState } from 'react';
-import { X } from '@/components/ui/icons';
+import { X } from 'lucide-react';
 import type { LinkPreview } from '@/hooks/useLinkPreview';
 import { SharePreviewCard } from '@/components/sharing/SharePreviewCard';
 

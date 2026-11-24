@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useRef, useState, type ReactNode } from 'react'
 import Image from 'next/image'
-import { Camera, Check, ChevronDown, X } from '@/components/ui/icons'
+import { Camera, Check, ChevronDown, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ShieldCheck, Terminal } from '@/components/ui/icons'
+import { ShieldCheck, Terminal } from 'lucide-react'
 
 import { grantCliStepUpAction } from '@/app/actions/cli-step-up'
 import { useStepUp } from '@/components/trust/StepUp'

@@ -1,6 +1,5 @@
 "use client";
 
-import { Search } from "@/components/ui/icons";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { SETTINGS_SECTION_META } from "@/constants/settings";
 import { FIND_EXTRAS, searchSettings, type FindEntry } from "@/lib/settings/find";
@@ -72,7 +71,7 @@ export function SettingsFind({ onJump }: { onJump: (elementId: string) => void }
   return (
     <>
       <label className="nbs-find">
-        <Search size={14} aria-hidden="true" />
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5 14 14" /></svg>
         <span className="sr-only">Find a setting</span>
         <input
           ref={inputRef}

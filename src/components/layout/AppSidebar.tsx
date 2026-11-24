@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { LayoutGrid, PanelLeftClose, PanelLeftOpen, ShieldCheck, UserRound } from "@/components/ui/icons";
+import { LayoutGrid, PanelLeftClose, PanelLeftOpen, ShieldCheck, UserRound } from "lucide-react";
 import * as Popover from "@radix-ui/react-popover";
 import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./header/nav-items";
 import { ROUTES } from "@/constants/routes";

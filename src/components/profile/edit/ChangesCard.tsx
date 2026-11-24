@@ -1,7 +1,7 @@
 'use client'
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { ArrowRight, Check, Globe, Lock, Undo2 } from '@/components/ui/icons'
+import { ArrowRight, Check, Globe, Lock, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { ProfileEditSection } from '@/lib/profile/edit-route'
 

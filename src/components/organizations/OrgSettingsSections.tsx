@@ -5,7 +5,7 @@ import { useMemo, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { useQuery } from '@tanstack/react-query'
-import { Lock, X } from '@/components/ui/icons'
+import { Lock, X } from 'lucide-react'
 
 import {
     leaveOrgAction,

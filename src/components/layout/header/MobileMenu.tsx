@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type MouseEvent, type RefObject } from "react";
-import { LogOut, Plus, Share2, Smile, WifiOff, X } from "@/components/ui/icons";
+import { LogOut, Plus, Share2, Smile, WifiOff, X } from "lucide-react";
 
 import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
 import { SidebarNav } from "@/components/layout/AppSidebar";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AudioLines, FileType2, Film, Image as ImageIcon, Images, Shapes } from "@/components/ui/icons";
+import { AudioLines, FileType2, Film, Image as ImageIcon, Images, Shapes } from "lucide-react";
 import { useState } from "react";
 
 import { readAssetsAction, readAssetUsedInAction, setAssetDetailsAction, type AssetRow } from "@/app/actions/assets";

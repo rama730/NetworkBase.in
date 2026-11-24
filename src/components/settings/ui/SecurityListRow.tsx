@@ -1,11 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { IconComponent } from "@/components/ui/icons";
+import type { LucideIcon } from "lucide-react";
 import { useOpenSettingsSections } from "./SettingsSectionLayout";
 
 type SecurityListRowProps = {
-  icon?: IconComponent;
+  icon?: LucideIcon;
   /** Replaces the icon tile (a picture, a pixel figure). */
   tile?: ReactNode;
   title: ReactNode;

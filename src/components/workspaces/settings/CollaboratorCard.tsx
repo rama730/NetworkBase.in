@@ -12,7 +12,7 @@ import {
     ShieldCheck,
     UserMinus,
     Users,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,

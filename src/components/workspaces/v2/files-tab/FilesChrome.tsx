@@ -2,7 +2,7 @@
 import { TabMarker } from "@/components/ui/TabMarker";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { Search, X } from "@/components/ui/icons";
+import { Search, X } from "lucide-react";
 
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";

@@ -9,7 +9,7 @@ import {
   Download,
   Search,
   AlertTriangle,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { WorkspaceNode } from "@/lib/db/schema";

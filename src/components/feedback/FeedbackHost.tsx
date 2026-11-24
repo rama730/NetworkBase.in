@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, Info, Layers, TriangleAlert, X, XCircle } from '@/components/ui/icons';
+import { CheckCircle2, Info, Layers, TriangleAlert, X, XCircle } from 'lucide-react';
 import { PixelBeat } from '@/components/ui/PixelBeat';
 import { feedbackStore, feedbackLabel } from '@/lib/feedback';
 import { feedbackText, type FeedbackItem } from '@/lib/feedback/store';
@@ -11,7 +11,7 @@ import './feedback.css';
 
 const ICONS = { success: CheckCircle2, error: XCircle, warning: TriangleAlert, info: Info };
 const RANK = { error: 4, warning: 3, loading: 2, info: 1, success: 0 };
-function StatusIcon({ item, size = 14 }: { item: FeedbackItem; size?: number }) { if (item.type === 'loading') return <PixelBeat />; const Icon = ICONS[item.type]; return <Icon size={size} rise={item.type === 'success'} aria-hidden="true" />; }
+function StatusIcon({ item }: { item: FeedbackItem }) { if (item.type === 'loading') return <PixelBeat />; const Icon = ICONS[item.type]; return <Icon aria-hidden="true" />; }
 
 function useFeedbackOwner() {
   const [owner, setOwner] = useState<{ element: HTMLElement; kind: 'navigation' | 'fallback' | 'modal'; mobile: boolean } | null>(null);
@@ -162,7 +162,7 @@ export function FeedbackHost() {
     {collapsedHere ? highest && <button ref={chip} type="button" className="nb-feedback-chip" data-type={highest.type} aria-label={`${feedbackLabel(highest.title)}. ${snapshot.items.length} pending messages. Expand navigation to review.`} onClick={() => {
       setCollapsed(false); try { localStorage.setItem('networkbase:sidebar-collapsed', 'false'); } catch { /* Navigation still expands. */ }
       feedbackStore.select(highest.id); requestAnimationFrame(() => card.current?.focus({ preventScroll: true }));
-    }}><StatusIcon item={highest} size={16} />{snapshot.items.length > 1 && <span>{snapshot.items.length}</span>}</button> : <>
+    }}><StatusIcon item={highest} />{snapshot.items.length > 1 && <span>{snapshot.items.length}</span>}</button> : <>
       {shown && <article key={shown.id} ref={card} tabIndex={-1} aria-label={label} className={`nb-feedback-card${exiting ? ' nb-feedback-exit' : ''}`} data-type={shown.type} data-feedback-id={shown.id} data-testid={shown.options.testId ?? "toast"}
         onPointerDown={event => { if (event.pointerType !== 'mouse' && !(event.target as HTMLElement).closest('button')) pointer.current = { x: event.clientX, y: event.clientY }; }}
         onPointerCancel={() => { pointer.current = null; }} onPointerUp={event => { const start = pointer.current; pointer.current = null; if (start && event.clientX - start.x > 70 && Math.abs(event.clientY - start.y) < 60) dismiss(); }}>
@@ -172,15 +172,15 @@ export function FeedbackHost() {
           {shown.description && !inlineContext && <div className="nb-feedback-context">{shown.description}</div>}
           {shown.options.progress && <div className="nb-feedback-progress-label"><span>{shown.options.progress.completed} / {shown.options.progress.total} files</span><span>{Math.round(shown.options.progress.completed / Math.max(1, shown.options.progress.total) * 100)}%</span></div>}
         </div>
-        {shown.options.dismissible !== false && <button type="button" className="nb-feedback-dismiss" aria-label={`Dismiss ${label}`} onClick={dismiss}><X size={12} aria-hidden="true" /></button>}
+        {shown.options.dismissible !== false && <button type="button" className="nb-feedback-dismiss" aria-label={`Dismiss ${label}`} onClick={dismiss}><X aria-hidden="true" /></button>}
         {shown.action && <div className="nb-feedback-footer">{inlineContext && <span className="nb-feedback-inline-context">{shown.description}</span>}<button type="button" className="nb-feedback-action" disabled={busy || exiting} onClick={event => void runAction(event)}>{shown.action.label}</button>{feedbackText(shown.action.label) === 'Undo' && Number.isFinite(shown.remaining) && <span className="nb-feedback-seconds" aria-hidden="true">{Math.ceil(shown.remaining / 1000)}s</span>}</div>}
         {shown.options.progress && <div className="nb-feedback-progress" role="progressbar" aria-label="Upload progress" aria-valuemin={0} aria-valuemax={shown.options.progress.total} aria-valuenow={shown.options.progress.completed}><i style={{ transform: `scaleX(${shown.options.progress.completed / Math.max(1, shown.options.progress.total)})` }} /></div>}
         {feedbackText(shown.action?.label) === 'Undo' && Number.isFinite(shown.remaining) && <div className="nb-feedback-countdown" aria-hidden="true" style={{ transform: `scaleX(${shown.remaining / shown.duration})` }} />}
       </article>}
-      {waiting > 0 && <button type="button" className="nb-feedback-queue-trigger" aria-expanded={reviewing} aria-controls="feedback-pending" onClick={event => { origin.current = event.currentTarget; setRecent(false); setReviewing(true); }}><span>{waiting} waiting{issues ? ` · ${issues} issue${issues === 1 ? '' : 's'}` : ''}</span><Layers size={12} aria-hidden="true" /></button>}
+      {waiting > 0 && <button type="button" className="nb-feedback-queue-trigger" aria-expanded={reviewing} aria-controls="feedback-pending" onClick={event => { origin.current = event.currentTarget; setRecent(false); setReviewing(true); }}><span>{waiting} waiting{issues ? ` · ${issues} issue${issues === 1 ? '' : 's'}` : ''}</span><Layers aria-hidden="true" /></button>}
     </>}
     {reviewing && <div ref={queue} id="feedback-pending" className="nb-feedback-queue" tabIndex={-1} role="region" aria-label="Pending feedback">
-      <div className="nb-feedback-queue-heading"><strong>{recent ? 'Recent feedback' : 'Pending feedback'}</strong><button type="button" className="nb-feedback-dismiss" aria-label="Close pending feedback" onClick={closeReview}><X size={12} aria-hidden="true" /></button></div>
+      <div className="nb-feedback-queue-heading"><strong>{recent ? 'Recent feedback' : 'Pending feedback'}</strong><button type="button" className="nb-feedback-dismiss" aria-label="Close pending feedback" onClick={closeReview}><X aria-hidden="true" /></button></div>
       <p>Choose a message to show in the navigation. Unread messages keep their reading time.</p>
       <button type="button" className="nb-feedback-history-toggle" onClick={() => setRecent(value => !value)}>{recent ? 'Back to pending' : `Recent feedback (${snapshot.history.length})`}</button>
       {snapshot.overflow > 0 && <p>Older feedback has been grouped here. Check the affected item for its current state.</p>}

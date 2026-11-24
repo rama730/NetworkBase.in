@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { Check, ChevronDown } from "@/components/ui/icons";
+import { Check, ChevronDown } from "lucide-react";
 
 import { resolveWorkspaceInvitationAction } from "@/app/actions/workspace/guidance";
 import { updateTaskStatusAction, type TaskStatus } from "@/app/actions/task";

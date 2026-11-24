@@ -5,7 +5,7 @@ import React, { useCallback, useId, useState } from "react";
 import {
     Plus,
     X,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { toast } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

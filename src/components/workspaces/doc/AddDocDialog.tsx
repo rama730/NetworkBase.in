@@ -5,7 +5,7 @@ import type { DocSection } from "@/lib/workspaces/doc-sections";
 import { useMemo, useState } from "react";
 
 import { DOC_TEMPLATES, TEMPLATE_GROUPS, templateBody, templateFileName } from "@/lib/workflows/doc-templates";
-import { Check, FileText} from "@/components/ui/icons";
+import { Check, FileText} from "lucide-react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast, feedbackError } from "@/lib/feedback";

@@ -11,7 +11,7 @@ import {
   Edit2,
   Plus,
   Trash2,
-} from "@/components/ui/icons";
+} from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";

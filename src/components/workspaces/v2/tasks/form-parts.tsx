@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronDown } from "@/components/ui/icons";
+import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 

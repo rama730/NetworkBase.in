@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ItemMenu } from '@/components/reports/ItemMenu'
 import { useMuteToggle } from '@/components/privacy/BlockDialog'
 import { useMutedIds } from '@/components/messages/ChatShellProvider'
-import { Ban, BellOff, ChevronDown, Clock, Link2, Lock, MapPin, MessageSquare, Pencil, Share2, Smile, UserCheck, UserMinus, UserPlus } from '@/components/ui/icons'
+import { Ban, BellOff, ChevronDown, Clock, Link2, Lock, MapPin, MessageSquare, Pencil, Share2, Smile, UserCheck, UserMinus, UserPlus } from 'lucide-react'
 import { buildPrivacyPresentation } from '@/lib/privacy/presentation'
 import type { ConnectionState, ProfilePrivacyRelationship } from './types'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'

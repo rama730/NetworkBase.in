@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Laptop } from '@/components/ui/icons'
+import { Laptop } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tag } from '@/components/settings/mix/parts'
 import { SecurityListRow } from '@/components/settings/ui/SecurityListRow'

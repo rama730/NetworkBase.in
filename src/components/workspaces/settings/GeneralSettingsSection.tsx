@@ -8,7 +8,7 @@ import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { broadcastWorkspaceUpdated } from "@/components/workspaces/WorkspaceAvatar";
-import { Camera, ChevronDown, Trash2, Upload } from "@/components/ui/icons";
+import { Camera, ChevronDown, Trash2, Upload } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,

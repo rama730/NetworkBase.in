@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle } from "@/lib/messaging/channel-view";
-import { ArrowLeft, ExternalLink, Minus, X } from "@/components/ui/icons";
+import { ArrowLeft, ExternalLink, Minus, X } from "lucide-react";
 
 import { useChatWindow } from "@/components/messages/chat-window-store";
 import { useMessageTarget } from "@/components/messages/useConversation";

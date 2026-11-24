@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, CalendarClock, ChevronDown, Flame, MoreHorizontal, UserPlus, X } from "@/components/ui/icons";
+import { Archive, CalendarClock, ChevronDown, Flame, MoreHorizontal, UserPlus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { assignTaskAction, updateTaskFieldAction } from "@/app/actions/task";

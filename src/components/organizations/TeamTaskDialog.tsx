@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, Star, X } from '@/components/ui/icons'
+import { Plus, Star, X } from 'lucide-react'
 
 import { createTeamTasksAction } from '@/app/actions/child-units'
 import { Button } from '@/components/ui/button'

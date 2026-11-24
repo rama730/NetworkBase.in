@@ -101,13 +101,6 @@ const eslintConfig = defineConfig([
     ignores: ["packages/nb-cli/lib/print/**"],
     rules: { "no-console": "error" },
   },
-  {
-    // One icon set: pixel icons on whole-pixel cells. Brand marks live there too.
-    files: ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": ["error", { paths: [{ name: "lucide-react", message: "Use @/components/ui/icons, the app's pixel icons." }] }],
-    },
-  },
 ]);
 
 export default eslintConfig;

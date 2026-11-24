@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlarmClock, CheckCheck, Compass, Dot, Inbox, SquarePen } from "@/components/ui/icons";
+import { AlarmClock, CheckCheck, Compass, Dot, Inbox, SquarePen } from "lucide-react";
 
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { useWide } from "@/components/messages/useWide";

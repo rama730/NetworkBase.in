@@ -14,7 +14,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ArrowLeft, Download, PanelLeftClose } from "@/components/ui/icons";
+import { ArrowLeft, Download, PanelLeftClose } from "lucide-react";
 
 const EMPTY_FOLDER_SIZES: Record<string, number> = {};
 import {
@@ -48,7 +48,7 @@ import {
   StarOff,
   Trash2,
   Upload,
-} from "@/components/ui/icons";
+} from "lucide-react";
 
 import { useExplorerDragDrop } from "../explorer/useExplorerDragDrop";
 import { useExplorerMutations } from "../explorer/useExplorerMutations";

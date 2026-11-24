@@ -5,7 +5,7 @@ import { toast, feedbackError } from "@/lib/feedback";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, KeyRound } from "@/components/ui/icons";
+import { Eye, EyeOff, KeyRound } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SavedTick } from "@/components/ui/SavedTick";
 import { Tag } from "@/components/settings/mix/parts";

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Inbox, Plus } from "@/components/ui/icons";
+import { ChevronDown, ChevronRight, Inbox, Plus } from "lucide-react";
 
 import { buildWorkspaceSprintDetailHref, formatSprintDateRange, type SprintListItem } from "@/lib/workspaces/sprint-detail";
 import { nestTerm, PHASE_WORDS, sprintPhase, sprintTime, startsIn, termRail, weekOf, withGaps } from "@/lib/workspaces/sprint-plan";

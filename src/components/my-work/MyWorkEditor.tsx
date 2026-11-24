@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, ChevronDown, ChevronLeft, Copy, ExternalLink, Laptop, Plus, Search, X } from "@/components/ui/icons";
+import { ArrowRight, Check, ChevronDown, ChevronLeft, Copy, ExternalLink, Laptop, Plus, Search, X } from "lucide-react";
 import {
     SUPPORTED_IDES,
     type IdeDefinition,

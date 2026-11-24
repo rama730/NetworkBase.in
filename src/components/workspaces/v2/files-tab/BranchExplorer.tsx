@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check, ChevronDown, ChevronRight, Download, FileText, Folder, FolderInput, FolderOpen, GitBranch, GitCompare, GitPullRequest, History, MoreHorizontal, Pencil, Plus,
   RefreshCw, Trash2, Upload,
-} from "@/components/ui/icons";
+} from "lucide-react";
 
 import {
   beginUploadOnBranchAction, branchByNameAction, branchFileTextAction, branchFolderAction, branchPathsAction, createBranchAction, deleteBranchAction, restoreBranchAction,

@@ -3,7 +3,7 @@
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users } from "@/components/ui/icons";
+import { Users } from "lucide-react";
 import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 

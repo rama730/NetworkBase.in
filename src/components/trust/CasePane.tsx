@@ -4,7 +4,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
-import { Gavel, MoreHorizontal, Scale, ShieldAlert, Users } from '@/components/ui/icons'
+import { Gavel, MoreHorizontal, Scale, ShieldAlert, Users } from 'lucide-react'
 import { toast } from '@/lib/feedback'
 
 import {

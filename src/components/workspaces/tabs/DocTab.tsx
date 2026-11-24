@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpenText, Plus } from "@/components/ui/icons";
+import { BookOpenText, Plus } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 import { AddDocDialog } from "@/components/workspaces/doc/AddDocDialog";

@@ -22,7 +22,7 @@ import {
   Building2,
   FileDiff,
   History,
-  GitBranch, GitPullRequest, Images } from "@/components/ui/icons";
+  GitBranch, GitPullRequest, Images } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { OrgFilesInfo } from "@/components/organizations/OrgFilesPanel";
 import { useFilesTabRole } from "./FilesTabRoleContext";

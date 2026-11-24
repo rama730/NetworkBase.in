@@ -6,7 +6,7 @@ import { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'rea
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast, feedbackError } from "@/lib/feedback";
-import { Lock } from '@/components/ui/icons';
+import { Lock } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AddWorkflowDialog } from '@/components/workspaces/workflows/AddWorkflowDialog';
 import { AddedWorkflowsContext, useWorkspaceWorkflows } from '@/components/workspaces/workflows/useWorkspaceWorkflows';

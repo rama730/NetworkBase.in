@@ -1,7 +1,7 @@
 "use client";
 
 import { Component, ReactNode } from "react";
-import { AlertTriangle, RefreshCw } from "@/components/ui/icons";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { logger } from "@/lib/logger";
 
 const STACK_PREFIX_COMPONENT_LIMIT = 4;

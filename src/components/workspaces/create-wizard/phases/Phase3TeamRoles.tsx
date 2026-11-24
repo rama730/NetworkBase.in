@@ -9,7 +9,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { CreateWorkspaceInput, type OpenRoleInput } from '@/lib/validations/workspace';
 import { WizardContextType } from '../useCreateWorkspaceWizard';
-import { ChevronDown, Plus, Trash2 } from '@/components/ui/icons';
+import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Bell, BellOff, Bookmark, CheckCheck, ChevronDown, Compass, FolderOpen, House, Inbox, Keyboard, LayoutGrid, Link2, ListFilter, LogOut, MailOpen, MoreHorizontal, Pencil, Plus, Search, Settings, SquarePen, Star, StarOff, UserPlus, X } from "@/components/ui/icons";
+import { Bell, BellOff, Bookmark, CheckCheck, ChevronDown, Compass, FolderOpen, House, Inbox, Keyboard, LayoutGrid, Link2, ListFilter, LogOut, MailOpen, MoreHorizontal, Pencil, Plus, Search, Settings, SquarePen, Star, StarOff, UserPlus, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { getOrCreateDm, setMemberState } from "@/app/actions/chat/members";

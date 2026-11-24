@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { resolvePreviewType, type UniversalPreviewType } from "../utils/fileKind";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, RefreshCw } from "@/components/ui/icons";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logger } from "@/lib/logger";
 

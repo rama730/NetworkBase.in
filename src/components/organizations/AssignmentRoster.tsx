@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
-import { MoreHorizontal } from '@/components/ui/icons'
+import { MoreHorizontal } from 'lucide-react'
 
 import {
     addAssignmentStepAction, excuseCopyAction, excuseTeamMemberAction, extendCopiesAction, extendCopyAction, giveCopyAction, moveTeamMemberAction,

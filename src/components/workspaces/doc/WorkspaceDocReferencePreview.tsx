@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, FileText, FolderKanban, ListTodo, Timer, Users } from "@/components/ui/icons";
+import { AlertTriangle, FileText, FolderKanban, ListTodo, Timer, Users } from "lucide-react";
 import Image from "next/image";
 
 import type { WorkspaceDocReferenceOption, WorkspaceDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks";

@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart2, UsersRound } from "@/components/ui/icons";
+import { BarChart2, UsersRound } from "lucide-react";
 import { useId } from "react";
 import { formatCount, viewCountDisplay } from "@/lib/format-count";
 import { cn } from "@/lib/utils";

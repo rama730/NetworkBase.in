@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { Check, Link2, MoreHorizontal, SquareArrowOutUpRight } from "@/components/ui/icons";
+import { Check, Link2, MoreHorizontal, SquareArrowOutUpRight } from "lucide-react";
 import { LatestBar } from "@/components/messages/parts/LatestBar";
 import { Button } from "@/components/ui/button";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";

@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ExternalLink, Globe, Link2, LockKeyhole, Pencil, Plus, RefreshCw, Trash2 } from '@/components/ui/icons';
+import { AlertTriangle, ExternalLink, Globe, Link2, LockKeyhole, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/lib/feedback';
 import { updateWorkspaceExternalLinksAction } from '@/app/actions/workspace';

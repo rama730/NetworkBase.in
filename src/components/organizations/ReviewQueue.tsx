@@ -3,7 +3,7 @@ import { TabMarker } from "@/components/ui/TabMarker";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MoreHorizontal, ChevronLeft, ChevronRight } from '@/components/ui/icons'
+import { MoreHorizontal } from 'lucide-react'
 
 import { approveAllSubmittedAction, readReviewLanesAction, readReviewQueueAction, reviewAssignmentCopyAction, type ReviewLaneRow, type ReviewQueueRow } from '@/app/actions/assignments'
 import { ReviewLanes } from '@/components/organizations/ReviewLanes'
@@ -315,9 +315,9 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                         <div className="flex h-6 items-center justify-between">
                             <h3 className={label}>Waiting · {total}</h3>
                             <span className="flex items-center gap-1">
-                                <button type="button" aria-label="Previous" disabled={shown.length < 2} onClick={() => keys.current.step(-1)} className="inline-flex size-6 items-center justify-center rounded-md border border-border text-xs hover:bg-muted disabled:opacity-40"><ChevronLeft size={12} aria-hidden="true" /></button>
+                                <button type="button" aria-label="Previous" disabled={shown.length < 2} onClick={() => keys.current.step(-1)} className="inline-flex size-6 items-center justify-center rounded-md border border-border text-xs hover:bg-muted disabled:opacity-40">‹</button>
                                 <span className="px-1 font-mono text-[11px] text-muted-foreground">{index + 1} of {shown.length}</span>
-                                <button type="button" aria-label="Next" disabled={shown.length < 2} onClick={() => keys.current.step(1)} className="inline-flex size-6 items-center justify-center rounded-md border border-border text-xs hover:bg-muted disabled:opacity-40"><ChevronRight size={12} aria-hidden="true" /></button>
+                                <button type="button" aria-label="Next" disabled={shown.length < 2} onClick={() => keys.current.step(1)} className="inline-flex size-6 items-center justify-center rounded-md border border-border text-xs hover:bg-muted disabled:opacity-40">›</button>
                             </span>
                         </div>
                         {incoming.length ? <button type="button" onClick={showIncoming} className="h-7 rounded-md border border-border bg-[var(--status-info-soft)] text-xs font-medium text-primary">{incoming.length} new · Show</button> : null}

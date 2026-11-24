@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, CheckCircle2, MoreHorizontal, Pencil, XCircle } from "@/components/ui/icons";
+import { Archive, CheckCircle2, MoreHorizontal, Pencil, XCircle } from "lucide-react";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatSprintDateRange, formatSprintTimelineStamp, type SprintListItem, type SprintPermissionSet } from "@/lib/workspaces/sprint-detail";

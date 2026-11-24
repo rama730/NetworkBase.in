@@ -2,7 +2,7 @@ import React from "react";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Inbox } from "@/components/ui/icons";
+import { Inbox } from "lucide-react";
 import { EmptyState, NoResults } from "@/components/ui/EmptyState";
 
 test("an empty state can show a pixel figure instead of an icon, one line, one action and an only-you note", () => {

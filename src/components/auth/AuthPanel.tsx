@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Check, Copy } from '@/components/ui/icons'
+import { Check, Copy } from 'lucide-react'
 import { COPY_FAILED, copyText } from '@/lib/clipboard'
 import type { AuthPanelContent, PanelOutcome } from '@/components/auth/auth-panels'
 

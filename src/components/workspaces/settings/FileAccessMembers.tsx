@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
-import { Lock } from "@/components/ui/icons";
+import { Lock } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";

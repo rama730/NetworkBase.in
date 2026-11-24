@@ -162,6 +162,7 @@ const nextConfig: NextConfig = {
     // ponytail: disabling persistent dev cache avoids observed multi-second compaction stalls. ceiling: slower cold dev starts. upgrade: re-enable once Turbopack compaction stops stalling.
     turbopackFileSystemCacheForDev: false,
     optimizePackageImports: [
+      'lucide-react',
       '@tanstack/react-query',
       '@radix-ui/react-avatar',
       '@radix-ui/react-dialog',

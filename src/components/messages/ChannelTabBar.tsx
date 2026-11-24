@@ -2,7 +2,7 @@
 import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckSquare, Copy, ExternalLink, FileText, Files, LayoutTemplate, Link2, MessageSquare, Pin, Plus, SlidersHorizontal, X } from "@/components/ui/icons";
+import { CheckSquare, Copy, ExternalLink, FileText, Files, LayoutTemplate, Link2, MessageSquare, Pin, Plus, SlidersHorizontal, X } from "lucide-react";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ChannelTabItem } from "@/lib/messaging/channel-tabs";

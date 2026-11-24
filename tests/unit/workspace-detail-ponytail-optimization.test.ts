@@ -131,7 +131,7 @@ test("Domain E: WorkspaceStatsBar renders both project metrics without legacy ic
   );
 
   assert.doesNotMatch(statsBarContent, /\bBookmark\b/);
-  assert.match(statsBarContent, /import { BarChart2, UsersRound } from "@\/components\/ui\/icons";/);
+  assert.match(statsBarContent, /import { BarChart2, UsersRound } from "lucide-react";/);
   assert.match(statsBarContent, /follower-count/);
 });
 

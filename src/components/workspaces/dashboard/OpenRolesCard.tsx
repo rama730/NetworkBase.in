@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { memo, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle, Clock, MinusCircle, RotateCcw, XCircle } from "@/components/ui/icons";
+import { CheckCircle, Clock, MinusCircle, RotateCcw, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RailSection } from "@/components/ui/rail-section";
 import { SkillList } from "@/components/skills/SkillList";

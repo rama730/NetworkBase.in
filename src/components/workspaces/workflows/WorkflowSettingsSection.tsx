@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, Plus } from "@/components/ui/icons";
+import { Lock, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";

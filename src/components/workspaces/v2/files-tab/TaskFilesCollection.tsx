@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, FolderOpen, Filter, MoreHorizontal, Link2, Upload, Search } from "@/components/ui/icons";
+import { ArrowRight, FolderOpen, Filter, MoreHorizontal, Link2, Upload, Search } from "lucide-react";
 import { unlinkNodeFromTask, linkNodeToTask, updateTaskNodeLink } from "@/app/actions/files/links";
 import { extractLabel, composeAnnotation } from "@/lib/workspaces/task-file-label";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";

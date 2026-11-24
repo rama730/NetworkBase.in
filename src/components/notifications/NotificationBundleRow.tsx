@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellOff, ChevronDown, ChevronRight, ExternalLink, MoreVertical } from "@/components/ui/icons";
+import { BellOff, ChevronDown, ChevronRight, ExternalLink, MoreVertical } from "lucide-react";
 
 import { NotificationRow } from "@/components/notifications/NotificationRow";
 import { NotificationAvatar } from "@/components/notifications/NotificationAvatar";

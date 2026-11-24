@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown } from '@/components/ui/icons'
+import { ChevronDown } from 'lucide-react'
 
 import {
     readChildFinalFilesAction,

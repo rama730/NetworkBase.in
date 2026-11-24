@@ -29,7 +29,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, Home, MoreHorizontal } from "@/components/ui/icons";
+import { ChevronRight, Home, MoreHorizontal } from "lucide-react";
 import { useFilesViews } from "../FilesViews";
 import { useFilesTabRole } from "../FilesTabRoleContext";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "@/components/ui/icons";
+import { ChevronDown } from "lucide-react";
 import { Fragment, useState } from "react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";

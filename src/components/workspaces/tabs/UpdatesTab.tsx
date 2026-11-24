@@ -9,7 +9,7 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import { Virtuoso } from "react-virtuoso";
-import { MessageCircle } from "@/components/ui/icons";
+import { MessageCircle } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { createWorkspaceUpdateAction, readWorkspaceUpdateAction, readWorkspaceUpdatesAction, scheduleWorkspaceUpdateAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { ScheduledUpdates, scheduledKey } from "@/components/workspaces/updates/ScheduledUpdates";

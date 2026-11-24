@@ -13,7 +13,7 @@ import {
   PanelLeftOpen,
   Search,
   X,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { readHeaderGitHubSyncStatus } from "@/lib/files-tab-batch";
 import {
   DropdownMenu,

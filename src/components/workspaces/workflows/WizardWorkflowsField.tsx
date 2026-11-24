@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock } from "@/components/ui/icons";
+import { Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 

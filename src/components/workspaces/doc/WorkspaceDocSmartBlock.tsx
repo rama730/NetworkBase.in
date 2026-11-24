@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, FileText, FolderKanban, FolderOpen, ListTodo, Sparkles, Timer, Users } from "@/components/ui/icons";
+import { AlertCircle, FileText, FolderKanban, FolderOpen, ListTodo, Sparkles, Timer, Users } from "lucide-react";
 
 import { WorkspaceDocSmartBlockPreviewCard } from "@/components/workspaces/doc/WorkspaceDocReferencePreview";
 import type { WorkspaceDocSmartBlock, WorkspaceDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks";

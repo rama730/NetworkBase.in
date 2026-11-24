@@ -28,7 +28,7 @@ import {
   User,
   X as XIcon,
   Zap,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { addDays, format, formatDistanceToNow } from "@/lib/utils/date";
 import { AgentNotes } from "./AgentNotes";
 import { AgentPresence } from "./AgentPresence";

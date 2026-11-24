@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SquarePen } from "@/components/ui/icons";
+import { SquarePen } from "lucide-react";
 
 import { ChatSections } from "@/components/messages/ChatSections";
 import { ConnectionBanner } from "@/components/messages/ConnectionBanner";

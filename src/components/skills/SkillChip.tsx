@@ -1,6 +1,6 @@
 'use client'
 
-import { X } from '@/components/ui/icons'
+import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { resolveClientSkill, useSkillCatalog } from '@/lib/skills/client'
 import type { SkillSummary } from '@/lib/skills/types'

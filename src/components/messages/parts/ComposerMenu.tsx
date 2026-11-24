@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { IconComponent } from "@/components/ui/icons";
+import type { LucideIcon } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-export type ComposerMenuItem = { label: string; icon?: IconComponent; onSelect: () => void; separatorBefore?: boolean };
+export type ComposerMenuItem = { label: string; icon?: LucideIcon; onSelect: () => void; separatorBefore?: boolean };
 
 const coarse = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 

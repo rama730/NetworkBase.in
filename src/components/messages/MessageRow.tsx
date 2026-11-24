@@ -6,8 +6,8 @@ import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlarmClock, Archive, Ban, BellOff, Bookmark, BookmarkCheck, Bug, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
-  MoreHorizontal, Pencil, Pin, RotateCcw, Send, SmilePlus, SquareCheck, Trash2, Undo2, UserMinus, XCircle, type IconComponent,
-} from "@/components/ui/icons";
+  MoreHorizontal, Pencil, Pin, RotateCcw, Send, SmilePlus, SquareCheck, Trash2, Undo2, UserMinus, XCircle, type LucideIcon,
+} from "lucide-react";
 import { toast, feedbackError, deferredFeedback } from "@/lib/feedback";
 
 import { createTaskFromMessage, deleteMessage, reportBugFromMessage, editMessage, hideLinkPreview, listReactors, markUnread, pinMessage, react } from "@/app/actions/chat/messages";
@@ -62,7 +62,7 @@ function toViewerAttachment(attachment: ChatAttachmentView): ChatAttachmentV2 {
 const CreateTaskModal = dynamic(() => import("@/components/workspaces/v2/tasks/CreateTaskModal"), { ssr: false });
 const EditBox = dynamic(() => import("@/components/messages/MessageEditBox").then((m) => m.EditBox), { ssr: false });
 
-type Action = { id: string; label: string; icon: IconComponent; run: () => void; shortcut?: string; destructive?: boolean; group: 1 | 2 | 3 };
+type Action = { id: string; label: string; icon: LucideIcon; run: () => void; shortcut?: string; destructive?: boolean; group: 1 | 2 | 3 };
 
 // Deletes of your own messages wait out an Undo window; pending ones live here.
 const pendingDeletes = new Map<string, { commit: () => void }>();
@@ -122,13 +122,13 @@ function ReactionChip({ emoji, count, me, seq, onToggle }: { emoji: string; coun
   );
 }
 
-const SYSTEM_ICONS: Array<[RegExp, IconComponent]> = [
+const SYSTEM_ICONS: Array<[RegExp, LucideIcon]> = [
   [/^joined/, LogIn], [/^left/, LogOut], [/^removed/, UserMinus], [/^(renamed|named|removed the group)/, Pencil],
   [/^set the topic/, MessageSquareText], [/^(unarchived|archived)/, Archive], [/^created/, Hash],
 ];
 
 // Application status lines: each verb has its own mark, so a decline never looks like a channel being created.
-const APPLICATION_LINE_ICONS: Record<ApplicationLineKind, IconComponent> = {
+const APPLICATION_LINE_ICONS: Record<ApplicationLineKind, LucideIcon> = {
   accepted: CheckCircle2, declined: XCircle, withdrew: Undo2, reopened: RotateCcw, applied: Send, edited: Pencil, closed: Lock,
 };
 

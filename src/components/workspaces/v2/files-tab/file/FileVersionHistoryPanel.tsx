@@ -29,7 +29,7 @@ import {
   History,
   RotateCcw,
   Trash2,
-} from "@/components/ui/icons";
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";

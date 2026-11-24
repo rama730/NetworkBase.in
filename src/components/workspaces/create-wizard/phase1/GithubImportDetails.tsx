@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AlertTriangle, GitBranch, Globe2, LockKeyhole } from "@/components/ui/icons";
+import { AlertTriangle, GitBranch, Globe2, LockKeyhole } from "lucide-react";
 import { SkillList } from "@/components/skills/SkillList";
 
 type GithubImportDetailsProps = {

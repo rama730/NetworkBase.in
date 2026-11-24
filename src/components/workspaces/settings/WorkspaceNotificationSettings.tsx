@@ -1,7 +1,7 @@
 "use client";
 
 import { DELIVERY_LEVEL_LABELS } from "@/lib/copy/terms";
-import { ChevronDown, Lock } from "@/components/ui/icons";
+import { ChevronDown, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   resolveWorkspaceNotificationDecision,

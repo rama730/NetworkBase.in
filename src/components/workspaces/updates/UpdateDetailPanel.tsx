@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
     MessageCircle,
     X,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { LikeHeart } from "@/components/ui/LikeHeart";
 import { type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -175,7 +175,7 @@ export function UpdateDetailPanel({
                         update.likedByViewer && "text-[var(--like)]",
                       )}
                     >
-                      <LikeHeart liked={update.likedByViewer} className="h-3.5 w-3.5" aria-hidden="true" />
+                      <LikeHeart liked={update.likedByViewer} className="h-3.5 w-3.5" />
                     </button>
                     <button
                       type="button"

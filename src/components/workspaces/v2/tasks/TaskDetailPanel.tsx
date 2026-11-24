@@ -21,7 +21,7 @@ import {
   Trash2,
   Users,
   X,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { AssignmentManageSection } from "@/components/organizations/AssignmentsPanel";
 import { HandInChip } from "@/components/organizations/HandInSection";
 

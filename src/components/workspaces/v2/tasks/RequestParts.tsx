@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Trash2, X } from "@/components/ui/icons";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { acceptRequestAction, answerSolvedAction, archiveRequestTypeAction, declineRequestAction, deliverRequestAction, readRequestAction, readRequestTypesAction, resumeRequestAction, saveRequestTypeAction, saveWorkingHoursAction, setWaitingAction } from "@/app/actions/requests";
@@ -455,7 +455,7 @@ export function WorkingHoursDialog({ projectId, hours, timeZone, onClose }: { pr
             <ul className="flex flex-wrap gap-1.5" aria-label="Holidays">
               {draft.holidays.map((h) => (
                 <li key={h} className="inline-flex h-7 items-center gap-1 rounded-[5px] border border-border px-2 font-mono text-[11px]">{h}
-                  <button type="button" aria-label={`Remove ${h}`} className="text-muted-foreground hover:text-foreground" onClick={() => setDraft({ ...draft, holidays: draft.holidays.filter((x) => x !== h) })}><X size={12} aria-hidden="true" /></button>
+                  <button type="button" aria-label={`Remove ${h}`} className="text-muted-foreground hover:text-foreground" onClick={() => setDraft({ ...draft, holidays: draft.holidays.filter((x) => x !== h) })}>×</button>
                 </li>
               ))}
             </ul>

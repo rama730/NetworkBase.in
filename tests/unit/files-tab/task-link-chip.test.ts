@@ -155,7 +155,7 @@ describe("TaskLinkChip — rendering (Req 7.1)", () => {
 // ─── Structural: uses LinkIcon for visual indicator ──────────────────
 
 describe("TaskLinkChip — visual indicator", () => {
-  it("renders a link icon from the app's icon set", () => {
+  it("renders a link icon from lucide-react", () => {
     assert.match(
       SRC,
       /LinkIcon/,
@@ -163,11 +163,11 @@ describe("TaskLinkChip — visual indicator", () => {
     );
   });
 
-  it("imports from the app's icon set", () => {
+  it("imports from lucide-react", () => {
     assert.match(
       SRC,
-      /from\s+["']@\/components\/ui\/icons["']/,
-      "Must import icons from @/components/ui/icons",
+      /from\s+["']lucide-react["']/,
+      "Must import icons from lucide-react",
     );
   });
 });

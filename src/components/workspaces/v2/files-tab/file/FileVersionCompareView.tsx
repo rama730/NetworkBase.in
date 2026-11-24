@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import * as React from "react";
-import { X, ArrowRight, Columns2, SlidersHorizontal, Image as ImageIcon, GitCompare } from "@/components/ui/icons";
+import { X, ArrowRight, Columns2, SlidersHorizontal, Image as ImageIcon, GitCompare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getFileVersionContentAction } from "@/app/actions/files/versions";
 

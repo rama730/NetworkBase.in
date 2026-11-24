@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Lock, Route } from "@/components/ui/icons";
+import { ArrowDown, ArrowUp, Lock, Route } from "lucide-react";
 import { useState } from "react";
 
 import { addLessonAction, createStepAction, markLessonAction, moveStepAction, readPathAction, readProgressAction, setPathSettingsAction } from "@/app/actions/learning-path";

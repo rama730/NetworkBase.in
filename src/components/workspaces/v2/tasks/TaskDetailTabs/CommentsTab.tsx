@@ -17,7 +17,7 @@ import {
   Send,
   Trash2,
   X,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { LikeHeart } from "@/components/ui/LikeHeart";
 import { ReportDialog, ReportMenuItem } from "@/components/reports/ReportDialog";
 import { ModeratedPlaceholder, useModeratedItems } from "@/components/reports/ModeratedPlaceholder";

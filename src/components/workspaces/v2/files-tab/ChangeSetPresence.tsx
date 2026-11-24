@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { FileDiff } from "@/components/ui/icons";
+import { FileDiff } from "lucide-react";
 
 type Open = { id: string; title: string; status: string; agent: string | null; files: number };
 

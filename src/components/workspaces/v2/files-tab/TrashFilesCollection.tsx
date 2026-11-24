@@ -11,7 +11,7 @@ import {
   X,
   Clock,
   Info,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { useDebounce } from "use-debounce";
 import {

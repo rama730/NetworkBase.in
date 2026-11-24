@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin } from "@/components/ui/icons";
+import { MapPin } from "lucide-react";
 import { useState } from "react";
 
 import { answerOffsiteAction, createOffsiteAction, readMeetingsAction, readOffsiteAction } from "@/app/actions/workspace/doc";

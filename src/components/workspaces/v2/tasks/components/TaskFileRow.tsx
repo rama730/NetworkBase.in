@@ -15,7 +15,7 @@ import {
   X,
   FolderInput,
   UploadCloud,
-} from "@/components/ui/icons";
+} from "lucide-react";
 
 import {
   DropdownMenu,

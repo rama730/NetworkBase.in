@@ -4,7 +4,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 import { OrgRequestsSection, useOrgRequests } from "@/components/organizations/OrgRequestsSection";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { UserPlus } from "@/components/ui/icons";
+import { UserPlus } from "lucide-react";
 import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { toast, feedbackError } from "@/lib/feedback";
 

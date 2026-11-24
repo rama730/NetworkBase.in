@@ -19,7 +19,7 @@ import {
   Trash2,
   GripVertical,
   Palette,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { TaskCard, Task } from "./TaskCard";
 import { cn } from "@/lib/utils";
 import { queryKeys } from "@/lib/query-keys";

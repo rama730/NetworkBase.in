@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CreateLocationProvider, type CreateLocation } from '@/components/organizations/CreateLocation';
 import { capChildVisibility, type VisibilityCap } from '@/lib/organizations/child-rules';
 import { FormProvider, useWatch } from 'react-hook-form';
-import { Save } from '@/components/ui/icons';
+import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 import { TOTAL_PHASES, WIZARD_PHASES } from '@/constants/workspace-wizard';

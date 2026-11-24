@@ -1,6 +1,6 @@
 import React from "react";
-import { Lock } from "@/components/ui/icons";
-import type { IconComponent } from "@/components/ui/icons";
+import { Lock } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PixelPerson, PixelPlace } from "@/components/ui/PixelPerson";
@@ -9,7 +9,7 @@ type Figure = "person" | "workspace" | "organization" | "child";
 
 interface EmptyStateProps {
     /** A lucide icon, or `figure` for a pixel person / workspace / organization / child workspace. */
-    icon?: IconComponent;
+    icon?: LucideIcon;
     figure?: Figure;
     title: string;
     description?: React.ReactNode;

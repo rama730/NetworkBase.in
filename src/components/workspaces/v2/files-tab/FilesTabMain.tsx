@@ -3,7 +3,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle } from "@/components/ui/icons";
+import { AlertTriangle } from "lucide-react";
 
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { useFilesStore } from "@/stores/filesStore";

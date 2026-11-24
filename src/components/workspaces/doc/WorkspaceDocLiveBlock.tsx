@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, MoreHorizontal, Plus } from "@/components/ui/icons";
+import { ChevronDown, MoreHorizontal, Plus } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { addDocRowAction, detachDocRowAction, moveDocRowAction, readDocRowKeysAction, readDocRowsAction, type DocRow } from "@/app/actions/workspace/doc";

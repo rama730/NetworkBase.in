@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { useState } from "react";
-import { Compass } from "@/components/ui/icons";
+import { Compass } from "lucide-react";
 
 import { joinChannel } from "@/app/actions/chat/channels";
 import { browseOrgWorkspaceChannelsAction, type BrowseWorkspaceRow } from "@/app/actions/org-chat";

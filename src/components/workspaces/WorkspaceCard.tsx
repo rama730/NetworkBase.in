@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Users, Bell, BellRing, BarChart2, ExternalLink, Globe, MoreHorizontal } from "@/components/ui/icons";
+import { Users, Bell, BellRing, BarChart2, ExternalLink, Globe, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/constants/routes";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";

@@ -4,7 +4,7 @@ import {
     ChevronDown,
     CheckSquare,
     Square,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FileIcon } from "./FileIcons";
 import { WorkspaceNode } from "@/lib/db/schema";

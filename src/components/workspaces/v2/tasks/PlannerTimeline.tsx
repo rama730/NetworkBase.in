@@ -2,7 +2,7 @@
 import { TabMarker } from "@/components/ui/TabMarker";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, FolderKanban, MoreHorizontal } from "@/components/ui/icons";
+import { ChevronLeft, ChevronRight, FolderKanban, MoreHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { readProjectsAction, setBlockedByAction, setTaskDatesAction, shiftDependentsAction } from "@/app/actions/task";

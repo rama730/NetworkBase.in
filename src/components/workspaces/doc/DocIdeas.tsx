@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lightbulb, MoreHorizontal, Plus } from "@/components/ui/icons";
+import { Lightbulb, MoreHorizontal, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { addIdeaAction, createIdeasDocAction, dropIdeaAction, readIdeasAction, scoreIdeaAction, startBuildingAction, validateIdeaAction } from "@/app/actions/workspace/doc";

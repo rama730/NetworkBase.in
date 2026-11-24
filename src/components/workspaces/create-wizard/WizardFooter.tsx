@@ -1,7 +1,7 @@
 "use client";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { ChevronLeft, ChevronRight} from "@/components/ui/icons";
+import { ChevronLeft, ChevronRight} from "lucide-react";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 

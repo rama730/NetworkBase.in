@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { MoreHorizontal } from '@/components/ui/icons'
+import { MoreHorizontal } from 'lucide-react'
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ReportMenuItem, useReportDialog, type ReportTarget } from '@/components/reports/ReportDialog'

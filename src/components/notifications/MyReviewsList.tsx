@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { GitPullRequest } from "@/components/ui/icons";
+import { GitPullRequest } from "lucide-react";
 
 import { myReviewsAction } from "@/app/actions/files/merge-requests";
 

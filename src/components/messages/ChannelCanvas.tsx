@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Copy, Eraser, FileDown, FileText, ImagePlus, Link2, MoreHorizontal, Sparkles, Trash2, X } from "@/components/ui/icons";
+import { Check, Copy, Eraser, FileDown, FileText, ImagePlus, Link2, MoreHorizontal, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { saveCanvas, type ChannelCanvas as CanvasRow } from "@/app/actions/chat/canvas";

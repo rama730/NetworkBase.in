@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Ban, Check, ChevronDown, Clock, MessageSquare } from "@/components/ui/icons";
+import { Ban, Check, ChevronDown, Clock, MessageSquare } from "lucide-react";
 
 import type { SuggestedProfile } from "@/app/actions/connections";
 import { PersonCardContent } from "./PersonCardContent";
@@ -191,10 +191,10 @@ function PersonCard({
                     {cancelling ? (
                         <PixelBeat className="text-muted-foreground" />
                     ) : (
-                        <Clock className="size-3 text-muted-foreground" aria-hidden="true" />
+                        <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
                     )}
                     <span className="max-sm:sr-only">{CONNECTION_COPY.requested}</span>
-                    <ChevronDown className="size-3 opacity-70" aria-hidden="true" />
+                    <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
                 </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -205,7 +205,7 @@ function PersonCard({
                             onClick={(event) => messageUserInWindow(profile.id, event)}
                             className="flex items-center gap-2 cursor-pointer w-full"
                         >
-                            <MessageSquare className="size-3" />
+                            <MessageSquare className="size-4" />
                             Message
                         </Link>
                     </DropdownMenuItem>
@@ -216,7 +216,7 @@ function PersonCard({
                     disabled={connecting || cancelling}
                     className="flex items-center gap-2 cursor-pointer"
                 >
-                    <Clock className="size-3" />
+                    <Clock className="size-4" />
                     Cancel
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -233,7 +233,7 @@ function PersonCard({
         </DropdownMenu>
     ) : status === "pending_received" ? (
         <Link href="/network?tab=invitations" className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-primary hover:bg-muted">
-            <Clock className="size-3" aria-hidden="true" /> {CONNECTION_COPY.review}
+            <Clock className="size-4" aria-hidden="true" /> {CONNECTION_COPY.review}
         </Link>
     ) : status === "connected" ? (
         <DropdownMenu>
@@ -243,9 +243,9 @@ function PersonCard({
                     className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
                     aria-label={`Connected: options for ${displayName}`}
                 >
-                    <Check className="size-3 text-[var(--status-success)]" aria-hidden="true" />
+                    <Check className="size-4 text-[var(--status-success)]" aria-hidden="true" />
                     <span className="max-sm:sr-only">{CONNECTION_COPY.connected}</span>
-                    <ChevronDown className="size-3 opacity-70" aria-hidden="true" />
+                    <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
                 </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">

@@ -3,7 +3,7 @@ import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, Download, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Layers, FileText, Bookmark, X } from "@/components/ui/icons";
+import { ExternalLink, Download, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Layers, FileText, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkspaceNode } from "@/lib/db/schema";
@@ -472,10 +472,9 @@ export function PdfViewerDriver({
               <button
                 type="button"
                 onClick={() => setShowBookmarks(false)}
-                aria-label="Close bookmarks"
                 className="text-xs text-muted-foreground hover:text-foreground p-0.5 rounded-[3px]"
               >
-                <X size={12} aria-hidden="true" />
+                ✕
               </button>
             </div>
             {renderBookmarkItems(bookmarks, 0)}

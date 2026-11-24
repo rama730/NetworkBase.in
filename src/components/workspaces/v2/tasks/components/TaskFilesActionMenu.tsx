@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, FolderPlus, Link2, MoreHorizontal, Upload } from "@/components/ui/icons";
+import { ChevronDown, FolderPlus, Link2, MoreHorizontal, Upload } from "lucide-react";
 
 import {
   DropdownMenu,

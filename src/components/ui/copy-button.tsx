@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy } from "@/components/ui/icons";
+import { Check, Copy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/feedback";

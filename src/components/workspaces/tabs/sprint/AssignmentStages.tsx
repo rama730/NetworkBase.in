@@ -8,7 +8,7 @@ import { ASSIGNMENT_STATE_LABELS } from "@/lib/copy/terms";
 import type { AssignmentStages, CopyStage } from "@/lib/organizations/assignments";
 import { stuckPart, type CopyState } from "@/lib/organizations/assignment-rules";
 import { cn } from "@/lib/utils";
-import { ClipboardCheck, ClipboardList } from "@/components/ui/icons";
+import { ClipboardCheck, ClipboardList } from "lucide-react";
 import type { AssignmentChipTone } from "@/lib/organizations/assignment-chip";
 
 // Sprint cleanup §4: where everyone is on an assignment, stage by stage — the Assignment tab's own stages and words,

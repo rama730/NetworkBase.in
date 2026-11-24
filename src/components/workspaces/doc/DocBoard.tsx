@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Gavel, Plus } from "@/components/ui/icons";
+import { Gavel, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { addMotionAction, approveMinutesAction, markPresentAction, recordDecisionAction, recordVoteAction, unlinkWorkspaceDocAction } from "@/app/actions/workspace/doc";

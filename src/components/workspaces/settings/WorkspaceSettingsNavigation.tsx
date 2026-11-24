@@ -24,7 +24,7 @@ import {
   HardDrive,
   Flag,
   Bot,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import type { WorkspaceSettingsSectionId } from "@/lib/workspaces/settings-policies";
 
 export type WorkspaceSettingsSection = {

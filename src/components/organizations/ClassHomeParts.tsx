@@ -9,7 +9,7 @@ import { createDocFile } from "@/components/organizations/OrgDocParts";
 import { DateTimeField } from "@/components/organizations/DateTimeField";
 import { OrgCard } from "@/components/organizations/org-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { BookOpenText, CalendarClock, CalendarRange, Clock, Hash, Link2, MapPin, UserRound } from "@/components/ui/icons";
+import { BookOpenText, CalendarClock, CalendarRange, Clock, Hash, Link2, MapPin, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { RailSection } from "@/components/ui/rail-section";
 import { messageUserInWindow } from "@/components/messages/message-user";

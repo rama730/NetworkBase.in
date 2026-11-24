@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, X } from "@/components/ui/icons";
+import { Search, X } from "lucide-react";
 import { CanvasPreview } from "@/components/messages/CanvasEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

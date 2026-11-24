@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown } from "@/components/ui/icons";
+import { Check, ChevronDown } from "lucide-react";
 
 import { getApplicationAlignmentAction } from "@/app/actions/applications";
 import type { AttributeAlignment } from "@/app/actions/matchmaking/resolver";

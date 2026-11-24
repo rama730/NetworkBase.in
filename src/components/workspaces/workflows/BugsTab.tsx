@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bug, Download, GitPullRequest, Search, Users } from "@/components/ui/icons";
+import { Bug, Download, GitPullRequest, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 

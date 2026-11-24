@@ -1,6 +1,5 @@
 "use client";
 
-import { ChevronRight } from "@/components/ui/icons";
 import { memo, useCallback, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { SkillList } from "@/components/skills/SkillList";
@@ -184,7 +183,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                                 <details key={title} className="group">
                                     <summary className="nb-ui-label flex min-h-11 cursor-pointer list-none items-center justify-between px-3 text-foreground">
                                         {title}
-                                        <ChevronRight size={12} aria-hidden="true" className="text-muted-foreground transition-transform group-open:rotate-90" />
+                                        <span aria-hidden="true" className="text-muted-foreground transition-transform group-open:rotate-90">›</span>
                                     </summary>
                                     <p className="nb-compact whitespace-pre-wrap px-3 pb-3 text-muted-foreground">{text}</p>
                                 </details>

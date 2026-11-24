@@ -9,7 +9,7 @@ import {
     useQueryClient,
     type InfiniteData,
 } from "@tanstack/react-query";
-import { FileText, MessageCircle, MoreHorizontal, PanelRightOpen, Pin, Flag, Trash2, Users, EyeOff } from "@/components/ui/icons";
+import { FileText, MessageCircle, MoreHorizontal, PanelRightOpen, Pin, Flag, Trash2, Users, EyeOff } from "lucide-react";
 import { LikeHeart } from "@/components/ui/LikeHeart";
 import { toast, feedbackError } from "@/lib/feedback";
 import { BlockPersonDialog, type BlockPerson } from "@/components/privacy/BlockDialog";

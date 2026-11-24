@@ -18,7 +18,7 @@ import {
   Copy,
   Info,
   History,
-} from "@/components/ui/icons";
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,7 +41,7 @@ import {
 import { FilesTabRoleContext } from "../FilesTabRoleContext";
 import { useFilesViews } from "../FilesViews";
 import { useFilesStore } from "@/stores/filesStore";
-import { Star, FolderInput, Trash2 } from "@/components/ui/icons";
+import { Star, FolderInput, Trash2 } from "lucide-react";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 import { downloadWorkspaceNode } from "./downloadWorkspaceNode";
 import { copyText } from "@/lib/clipboard";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Lightbulb, MoreHorizontal, PenLine, Plus } from "@/components/ui/icons";
+import { ChevronLeft, ChevronRight, Lightbulb, MoreHorizontal, PenLine, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";

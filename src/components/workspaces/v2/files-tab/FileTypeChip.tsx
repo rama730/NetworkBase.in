@@ -24,7 +24,7 @@ import {
   GitGraph,
   Folder,
   FolderOpen,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extOf } from "@/components/workspaces/v2/explorer/FileIcons";
 

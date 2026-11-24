@@ -15,7 +15,7 @@ import {
     Pencil,
     ArrowUp,
     ArrowDown,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { Button } from "@/components/ui/button";

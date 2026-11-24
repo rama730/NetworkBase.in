@@ -12,7 +12,7 @@
 "use client";
 
 import * as React from "react";
-import { LinkIcon } from "@/components/ui/icons";
+import { LinkIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";

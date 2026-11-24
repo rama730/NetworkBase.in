@@ -16,7 +16,7 @@ import {
     Send,
     Trash2,
     X,
-} from "@/components/ui/icons";
+} from "lucide-react";
 import { ItemMenu } from "@/components/reports/ItemMenu";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { toast, feedbackError } from "@/lib/feedback";

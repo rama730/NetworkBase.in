@@ -2,7 +2,7 @@
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
 import { toast, feedbackError } from "@/lib/feedback";
-import { History } from "@/components/ui/icons";
+import { History } from "lucide-react";
 import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHeadings";
 /**
  * Version-history side drawer for a single file node.
@@ -23,7 +23,7 @@ import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHea
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Download, RotateCcw, X } from "@/components/ui/icons";
+import { Download, RotateCcw, X } from "lucide-react";
 
 import {
   Dialog,

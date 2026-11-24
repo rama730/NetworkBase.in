@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Fragment, useId, useState } from 'react'
-import { AlertTriangle, ArrowRight, Check, ExternalLink, Link2, Pencil, Plus } from '@/components/ui/icons'
+import { AlertTriangle, ArrowRight, Check, ExternalLink, Link2, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'

@@ -1029,13 +1029,12 @@ button.nb-cell-conn:hover { background:var(--status-warning-soft); }
   .nb-textarea::placeholder { color:var(--muted-foreground); }
   .nb-check, .nb-radio { appearance:none; -webkit-appearance:none; flex:none; display:inline-grid; place-content:center; width:16px; height:16px; margin:0; border:1px solid var(--input); background:var(--card); cursor:pointer; vertical-align:middle; }
   .nb-check { border-radius:var(--radius-sm); }
-  /* The tick is the pixel set's 5x5 tick at 2px cells; in-between is a 3-cell dash; the radio dot is 3x3 cells. */
-  .nb-check::before { content:""; width:10px; height:10px; background:var(--primary-foreground); -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Crect x='8' y='2' width='2' height='2'/%3E%3Crect x='6' y='4' width='2' height='2'/%3E%3Crect x='0' y='6' width='2' height='2'/%3E%3Crect x='4' y='6' width='2' height='2'/%3E%3Crect x='2' y='8' width='2' height='2'/%3E%3C/svg%3E") center/10px 10px no-repeat; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Crect x='8' y='2' width='2' height='2'/%3E%3Crect x='6' y='4' width='2' height='2'/%3E%3Crect x='0' y='6' width='2' height='2'/%3E%3Crect x='4' y='6' width='2' height='2'/%3E%3Crect x='2' y='8' width='2' height='2'/%3E%3C/svg%3E") center/10px 10px no-repeat; transform:scale(0); }
+  .nb-check::before { content:""; width:10px; height:10px; background:var(--primary-foreground); clip-path:polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0%,43% 62%); transform:scale(0); }
   .nb-check:checked, .nb-check:indeterminate { border-color:var(--primary); background:var(--primary); }
   .nb-check:checked::before { transform:scale(1); }
-  .nb-check:indeterminate::before { width:6px; height:2px; -webkit-mask:none; mask:none; transform:scale(1); }
+  .nb-check:indeterminate::before { height:2px; clip-path:none; transform:scale(1); }
   .nb-radio { border-radius:999px; }
-  .nb-radio::before { content:""; width:6px; height:6px; background:var(--primary); transform:scale(0); }
+  .nb-radio::before { content:""; width:8px; height:8px; border-radius:999px; background:var(--primary); transform:scale(0); }
   .nb-radio:checked { border-color:var(--primary); }
   .nb-radio:checked::before { transform:scale(1); }
   .nb-link { color:var(--primary); font-weight:500; text-underline-offset:4px; cursor:pointer; }
@@ -1102,11 +1101,12 @@ button.nb-cell-conn:hover { background:var(--status-warning-soft); }
   .nb-icon-button[aria-pressed="true"] { color:var(--primary); background:color-mix(in srgb, var(--primary) 12%, transparent); }
 }
 .nb-tool-surface { min-width:0; background:var(--card); border:1px solid var(--border); border-radius:8px; }
-/* Pixel icons (src/components/ui/icons.tsx). Liking fills the inside cells row by row from the point up: 7 steps, about 140ms. */
-@keyframes nb-pi-rise { from { clip-path:inset(100% 0 0 0); } to { clip-path:inset(0 0 0 0); } }
-.nb-pi-rise .nb-pi-in { animation:nb-pi-rise 140ms steps(7, end) both; }
-.nb-pi-rise:not(:has(.nb-pi-in)) path { animation:nb-pi-rise 140ms steps(7, end) both; }
-@media (prefers-reduced-motion: reduce) { .nb-pi-rise path { animation:none !important; } }
+/* Lucide icons only. Third-party logos and rendered user SVGs retain their own strokes. */
+svg.lucide { stroke-width:1.75; }
+/* The like heart (src/components/ui/LikeHeart.tsx): liking fills the inside row by row from the point up, 7 steps, about 140ms. */
+@keyframes nb-like-rise { from { clip-path:inset(100% 0 0 0); } to { clip-path:inset(0 0 0 0); } }
+.nb-like-heart.is-rising .nb-like-heart-in { animation:nb-like-rise 140ms steps(7, end) both; }
+@media (prefers-reduced-motion: reduce) { .nb-like-heart.is-rising .nb-like-heart-in { animation:none; } }
 [data-slot="user-avatar"] { color:var(--foreground); }
 [data-slot="user-avatar"] > div { color:var(--foreground); background:var(--secondary); }
 [data-slot="dialog-content"][data-presentation="center"] { max-height:calc(100dvh - 32px); overflow-y:auto; }

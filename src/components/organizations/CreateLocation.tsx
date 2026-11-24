@@ -3,7 +3,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import Link from 'next/link'
-import { Lock } from '@/components/ui/icons'
+import { Lock } from 'lucide-react'
 import { Notice } from '@/components/ui/notice'
 
 import { messageUserInWindow } from '@/components/messages/message-user'

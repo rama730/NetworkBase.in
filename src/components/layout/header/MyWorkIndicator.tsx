@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, ListChecks } from "@/components/ui/icons";
+import { ChevronRight, ListChecks } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readShellPart } from "@/lib/shell-batch";
 import { queryKeys } from "@/lib/query-keys";

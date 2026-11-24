@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { EyeOff } from '@/components/ui/icons'
+import { EyeOff } from 'lucide-react'
 
 import type { ModeratedItem } from '@/lib/trust/placeholders'
 import { ruleLabel } from '@/lib/trust/rules'

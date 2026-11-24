@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import dynamic from 'next/dynamic';
 import { useFormContext } from 'react-hook-form';
-import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, RefreshCcw } from '@/components/ui/icons';
+import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, RefreshCcw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast, feedbackError } from "@/lib/feedback";
 import type { CreateWorkspaceInput } from '@/lib/validations/workspace';
