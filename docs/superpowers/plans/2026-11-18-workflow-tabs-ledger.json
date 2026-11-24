@@ -988,9 +988,9 @@
       "text": "B0.1 Institution level (29.2)",
       "kind": "unit",
       "milestone": "B0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/institutions.test.ts; tests/browser/school-card.spec.ts",
+      "evidence": "e4fb5e42c + 004d51520 live 2026-11-24, 0122 applied in prod. Live in Chrome: wt-test-b0-school made a school (Make a school), wt-test-b0-class joined at once (Join a school), class header \"Part of wt-test-b0-school\" links to it, sidebar nests the class under the school, school Settings → Classes lists the class with counts only. Fix: \"1 members\" wording (ecdd40217, ships with B0.2). Security review: read-only states, atomic decide, private school names hidden (004d51520)."
     },
     {
       "key": "B0.2",
