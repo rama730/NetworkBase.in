@@ -2748,3 +2748,81 @@ html[data-dragging] [data-drop-target] { outline: 1.5px dashed var(--muted-foreg
 .nb-retry b { font: 500 10.5px var(--font-mono, ui-monospace), ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
 .nb-retry button { padding: 0; border: 0; background: none; color: var(--foreground); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .nb-retry button:focus-visible { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+
+/* ---------- Settings docked nav (moved from settings/settings.css; also the create wizard's Settings step) ---------- */
+.nbs {
+  --nbs-brand: var(--primary);
+  --nbs-on-brand: var(--primary-foreground);
+  --nbs-tint: color-mix(in srgb, var(--primary) 14%, transparent);
+  --nbs-line: var(--border);
+  --nbs-soft: var(--secondary);
+  --nbs-fg2: var(--muted-foreground);
+  --nbs-pad: 22px;
+  --nbs-row-y: 13px;
+  --nbs-mono: var(--font-mono, ui-monospace), ui-monospace, monospace;
+  --nbs-serif: var(--font-serif, Georgia), Georgia, serif;
+}
+:root[data-density="compact"] .nbs { --nbs-row-y: 9px; }
+:root[data-density="comfortable"] .nbs { --nbs-row-y: 17px; }
+
+.nbs .nbs-mono { font-family: var(--nbs-mono); }
+.nbs .nbs-meta { font: 12px var(--nbs-mono); color: var(--nbs-fg2); }
+.nbs .nbs-eyebrow { display: flex; align-items: center; gap: 10px; margin: 0; font: 500 11px/1 var(--nbs-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--nbs-fg2); }
+.nbs .nbs-eyebrow::before { content: ""; width: 8px; height: 8px; flex: none; background: var(--nbs-brand); }
+.nbs .nbs-eyebrow b { color: var(--foreground); font-weight: 500; }
+
+/* ---------- nav ---------- */
+.nbs-nav { display: flex; flex-direction: column; min-height: 0; }
+.nbs-nav-head { position: relative; display: grid; gap: 12px; padding: 18px 16px 14px; border-bottom: 1px solid var(--nbs-line); }
+.nbs-find { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px 0 10px; border: 1px solid var(--nbs-line); border-radius: 5px; background: var(--background); }
+.nbs-find svg { width: 14px; height: 14px; flex: none; color: var(--nbs-fg2); }
+.nbs-find input { width: 100%; min-width: 0; border: 0; background: transparent; font-size: 13px; color: var(--foreground); outline: none; }
+.nbs-find input::placeholder { color: var(--nbs-fg2); }
+.nbs-find input::-webkit-search-cancel-button { display: none; }
+.nbs-find kbd { padding: 0 5px; border: 1px solid var(--nbs-line); border-radius: 3px; font: 500 10.5px/1.5 var(--nbs-mono); color: var(--nbs-fg2); }
+.nbs-find:focus-within { border-color: var(--foreground); }
+.nbs-results { position: absolute; left: 16px; right: 16px; top: calc(100% - 10px); z-index: 30; display: grid; max-height: 320px; overflow: auto; border: 1px solid var(--nbs-line); border-radius: 6px; background: var(--card); box-shadow: 0 10px 24px rgb(13 17 20 / 10%); }
+.nbs-results [role="option"] { display: grid; gap: 1px; padding: 8px 12px; border-bottom: 1px solid var(--nbs-line); text-align: left; cursor: pointer; }
+.nbs-results [role="option"]:last-child { border-bottom: 0; }
+.nbs-results [role="option"] > span { font: 11px var(--nbs-mono); color: var(--nbs-fg2); }
+.nbs-results [role="option"] b { font-size: 13px; font-weight: 500; }
+.nbs-results mark { background: var(--nbs-tint); color: inherit; }
+.nbs-results [role="option"]:hover, .nbs-results [role="option"][aria-selected="true"] { background: var(--nbs-soft); }
+.nbs-results .nbs-none { padding: 10px 12px; font: 12px var(--nbs-mono); color: var(--nbs-fg2); }
+.nbs-navnav { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.nbs-navlist { position: relative; display: grid; align-content: start; flex: 1; padding: 8px 0; overflow-y: auto; }
+.nbs-nl { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 16px; color: var(--nbs-fg2); text-decoration: none; font-size: 13.5px; font-weight: 500; }
+.nbs-nl .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nbs-nl .s { font: 500 10px var(--nbs-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--nbs-brand); white-space: nowrap; }
+.nbs-nl:hover { background: var(--nbs-soft); color: var(--foreground); }
+.nbs-nl[aria-current="location"] { color: var(--foreground); background: color-mix(in srgb, var(--nbs-soft) 70%, transparent); }
+.nbs-nl:focus-visible { outline: none; background: var(--nbs-tint); color: var(--foreground); }
+.nbs-nl.danger, .nbs-nl.danger .s { color: var(--status-danger); }
+.nbs-navfoot { border-top: 1px solid var(--nbs-line); padding: 8px 0; }
+.nbs-navlist .nbs-nl.only-phone { display: none; }
+@media (max-width: 767px) {
+  .nbs-nav-head { padding: 8px 16px; }
+  .nbs-nav-head > .nbs-eyebrow { display: none; }
+  .nbs-results { top: calc(100% + 2px); }
+  .nbs-navlist { display: flex; overflow-x: auto; padding: 0; scrollbar-width: none; }
+  .nbs-navlist::-webkit-scrollbar { display: none; }
+  .nbs-nl { flex: none; grid-template-columns: auto auto; min-height: 44px; padding: 0 14px; border-right: 1px solid var(--nbs-line); }
+  .nbs-navlist .nbs-nl.only-phone { display: grid; }
+  .nbs-navfoot { display: none; }
+}
+
+/* ---------- Create workspace v6 motion (Work level: 150 / 220 / 300 ms on --nb-ease). Enter animations play when an element mounts. ---------- */
+@keyframes nb-enter-settle { from { opacity: 0; transform: translateY(6px); } }
+@keyframes nb-enter-drop { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes nb-enter-chip { from { opacity: 0; transform: scale(.96); } }
+@keyframes nb-enter-reveal { from { opacity: 0; transform: translateY(-6px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); } }
+@keyframes nb-px-in { from { opacity: 0; } }
+.nb-enter-settle { animation: nb-enter-settle 220ms var(--nb-ease) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
+.nb-enter-drop { animation: nb-enter-drop 150ms var(--nb-ease) backwards; }
+.nb-enter-chip { animation: nb-enter-chip 150ms var(--nb-ease) backwards; }
+.nb-enter-reveal { animation: nb-enter-reveal 220ms var(--nb-ease) backwards; }
+.nb-pxtick { display: inline-block; width: 12px; height: 12px; flex: none; }
+.nb-pxtick svg { display: block; width: 100%; height: 100%; }
+.nb-pxtick[data-draw="true"] rect { animation: nb-px-in 1ms steps(1, end) backwards; animation-delay: calc(var(--d) * 45ms); }
+@media (prefers-reduced-motion: reduce) { .nb-enter-settle, .nb-enter-drop, .nb-enter-chip, .nb-enter-reveal, .nb-pxtick rect { animation: none !important; } }
+html[data-reduce-motion="true"] :is(.nb-enter-settle, .nb-enter-drop, .nb-enter-chip, .nb-enter-reveal, .nb-pxtick rect) { animation: none !important; }

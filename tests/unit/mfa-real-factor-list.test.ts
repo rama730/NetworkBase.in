@@ -59,7 +59,8 @@ test("the settings nav's current section gets the same highlight as the app's ot
   const layout = readFileSync("src/components/settings/SettingsLayout.tsx", "utf8");
   // Settings mix: the nav is its own cells (settings.css), with the sliding marker on the current one.
   assert.match(layout, /aria-current=\{activeSection === item\.section \? "location"/);
-  assert.match(readFileSync("src/app/(site)/(main)/settings/settings.css", "utf8"), /\.nbs-nl\[aria-current="location"\] \{ color: var\(--foreground\); background:/);
+  // The docked nav moved to globals.css (create wizard v6 shares it).
+  assert.match(css, /\.nbs-nl\[aria-current="location"\] \{ color: var\(--foreground\); background:/);
   assert.match(css, /\.nb-nav-link\[aria-current="location"\][^{]*\{ background:var\(--sidebar-accent\)/);
   assert.match(css, /\.nb-nav-link\[aria-current="location"\] > svg[^{]*\{ color:var\(--primary\)/);
 });
