@@ -40,3 +40,9 @@ test('the doc, each workflow tab and the people placed in teams each get a row; 
     assert.equal(steps[3]!.label, 'Adding 2 people to the teams');
     assert.ok(!createSteps({ ...base, readme: { mode: 'skip' } } as unknown as CreateWorkspaceInput, ctx).some((s) => s.key === 'doc'));
 });
+
+test("an organization drafts its starter doc too (its type's template), unless the doc is skipped", () => {
+    const org = { ...base, title: 'Riverside', organization: { org_type: 'club' } } as unknown as CreateWorkspaceInput;
+    assert.deepEqual(createSteps(org, ctx).map((s) => s.key), ['make', 'doc']);
+    assert.deepEqual(createSteps({ ...org, readme: { mode: 'skip' } } as unknown as CreateWorkspaceInput, ctx).map((s) => s.key), ['make']);
+});

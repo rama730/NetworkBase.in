@@ -726,6 +726,8 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
     const progressRef = useRef<CreateProgress | null>(null);
     progressRef.current = createProgress;
     const runRef = useRef<{ steps: CreateStep[]; runners: Array<() => Promise<void>>; projectId: string | null; slug: string | null; organization?: CreatedOrganization; stopped: boolean } | null>(null);
+    // Leaving the page stops following the import (it keeps going on the server) and any steps not started yet.
+    useEffect(() => () => { if (runRef.current) runRef.current.stopped = true; }, []);
 
     const completeRun = useCallback(async (extra?: Pick<CreateFinished, 'partial' | 'importing'>) => {
         const run = runRef.current;
@@ -890,9 +892,14 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
                 }
             }
             if (readmeIntent.mode !== 'skip' && data.doc_edit_policy === 'members') {
-                const { updateWorkspaceDocSettingsAction } = await import('@/app/actions/workspace/doc');
-                const result = await updateWorkspaceDocSettingsAction(projectId, { editPolicy: 'members' });
-                if (!result.success) warnCreation('Documents stay visible to the owner and admins only.');
+                try {
+                    const { updateWorkspaceDocSettingsAction } = await import('@/app/actions/workspace/doc');
+                    const result = await updateWorkspaceDocSettingsAction(projectId, { editPolicy: 'members' });
+                    if (!result.success) warnCreation('Only the owner and admins can edit the doc for now. Change it in Settings.');
+                } catch (error) {
+                    console.warn('[create-project] Doc editing setting failed', error);
+                    warnCreation('Only the owner and admins can edit the doc for now. Change it in Settings.');
+                }
             }
         };
 
@@ -911,11 +918,16 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
         const run = { steps, runners: [] as Array<() => Promise<void>>, projectId: null as string | null, slug: null as string | null, organization: undefined as CreatedOrganization | undefined, stopped: false };
         run.runners = steps.map((step) => {
             if (step.key === 'make') return async () => {
+                // Try again after the workspace exists never makes a second one: only what follows creation re-runs.
+                if (run.projectId) { await applyLaunchSettingsAfterCreate(run.projectId); return; }
                 const result = await createWorkspaceAction({ ...data, roles: resolvedRoles });
                 if (!result.success || !result.project) throw Object.assign(new Error(result.error || 'Creation failed'), { code: (result as { code?: string }).code });
                 createdProjectId = result.project.id;
                 run.projectId = result.project.id;
                 run.slug = result.project.slug ?? null;
+                // It exists now: leaving from here on must not save it as a draft (restoring that would make it twice).
+                skipDraftOnUnmountRef.current = true;
+                void import('@/lib/storage/draft-store').then(({ draftStore }) => draftStore.clear(userId)).catch(() => undefined);
                 if (result.project.joinCode) run.organization = { title: result.project.title, joinCode: result.project.joinCode, handle: result.project.slug ?? data.organization?.handle ?? null, invites: result.project.invites, creatorTitle: data.organization?.creator_title || null, joinMode: data.organization?.join_mode ?? null };
                 for (const notice of result.notices ?? []) warnCreation(notice);
                 setCreateProgress((p) => (p ? { ...p, projectId: result.project!.id } : p));
@@ -1143,7 +1155,8 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
                     if (run.stopped) return;
                     const meta = await getWorkspaceHydrationProgressAction(projectId).catch(() => null);
                     if (meta) setCreateProgress((p) => (p ? { ...p, count: meta.completed, total: meta.total } : p));
-                    if (meta?.status === 'completed') return;
+                    // The import ends on done, or incomplete (Files lists what's missing and can fetch it again).
+                    if (meta?.status === 'done' || meta?.status === 'incomplete') return;
                     if (meta?.status === 'failed') throw new Error('GitHub stopped answering. Files shows the import as paused.');
                     await new Promise((resolve) => setTimeout(resolve, IMPORT_POLL_MS));
                 }

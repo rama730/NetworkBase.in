@@ -96,6 +96,8 @@ export function CreateWorkspaceRouteClient({
     const [wizardKey, setWizardKey] = useState(0)
     const handleCreateAnother = useCallback(() => {
         setCreatedOrg(null)
+        // A fresh wizard: never the values a GitHub sign-in round trip brought back for the last one.
+        setHandoff((current) => (current ? { ...current, resume: null } : current))
         setWizardKey((key) => key + 1)
     }, [])
 

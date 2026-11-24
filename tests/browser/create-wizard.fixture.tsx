@@ -28,7 +28,9 @@ const locations = params.get('org') === 'class'
     : params.get('org') ? [{ id: 'o1', title: 'Riverside Robotics Club', slug: 'riverside', orgType: 'club', visibilityCap: 'public', orgPublic: true, isAdmin: true }] : [];
 
 function App() {
-    useSyncExternalStore(w.__router.subscribe, w.__router.get);
+    const current = useSyncExternalStore(w.__router.subscribe, w.__router.get);
+    // /away: the person left the page (the wizard unmounts).
+    if (current === '/away') return null;
     // ?orgdone=1: the organization's ready screen, as the create page shows it after Create.
     if (params.get('orgdone')) {
         return <OrganizationCreatedScreen title="Riverside Robotics Club" joinCode="RIV-7K2" handle="riverside" invites={{ coAdmins: 1, members: 3, skipped: 0 }} joinMode="instant" onContinue={() => w.__replaced.push('/org/riverside')} />;

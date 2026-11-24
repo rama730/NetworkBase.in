@@ -230,8 +230,8 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, onOpen, onCr
 
     // Keys (create wizard v6): ⌘/Ctrl+Enter runs the footer's primary action. Esc on the page asks the same thing as Cancel
     // (Leave, when there is work to lose); Esc inside a field, menu or dialog only does that thing's own job.
-    const keysRef = useRef({ phase, fromReview, isReviewReady, isSubmitting, phase1NextDisabled: false });
-    useLayoutEffect(() => { keysRef.current = { phase, fromReview, isReviewReady, isSubmitting, phase1NextDisabled }; });
+    const keysRef = useRef({ phase, fromReview, isReviewReady, isSubmitting, phase1NextDisabled: false, creating: false });
+    useLayoutEffect(() => { keysRef.current = { phase, fromReview, isReviewReady, isSubmitting, phase1NextDisabled, creating: Boolean(createProgress) }; });
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
             const k = keysRef.current;
@@ -243,7 +243,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, onOpen, onCr
                 else if (!(k.phase === 1 && k.phase1NextDisabled)) void handleNext();
                 return;
             }
-            if (event.key !== 'Escape' || event.defaultPrevented) return;
+            if (event.key !== 'Escape' || event.defaultPrevented || k.creating) return;
             const target = event.target as HTMLElement | null;
             if (target?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
             if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
@@ -286,6 +286,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, onOpen, onCr
                             attempted={{ 2: phase2ValidationAttempted, 3: phase3ValidationAttempted, 4: phase4ValidationAttempted }}
                             currentPhase={phase}
                             onClose={handleCloseAttempt}
+                            hideCancel={Boolean(createProgress)}
                             onStepSelect={goToPhase}
                             stepsDisabled={isSubmitting || isPhaseTransitioning}
                             headingRef={headingRef}

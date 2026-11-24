@@ -100,6 +100,8 @@ export default function Phase2Information({ showValidationSummary = false, sourc
     // The address Create will give this name (v6): the plain name when free, else -2, -3 …
     const [address, setAddress] = useState<{ base: string; slug: string; taken: boolean } | null>(null);
     useEffect(() => {
+        // The name changed: the old address no longer applies. Create derives one if no preview lands in time.
+        if (!isOrganization) setValue('slug', undefined);
         if (isOrganization || childTitle.trim().length < 1) { setAddress(null); return; }
         let cancelled = false;
         const timer = setTimeout(() => void previewWorkspaceSlugAction(childTitle).then((result) => {

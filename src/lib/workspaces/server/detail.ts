@@ -1,4 +1,5 @@
 import { readChildOrgLink, readOrgDetail, readViewerOrgRole, type OrgDetail, type ParentOrgLink } from "@/lib/organizations/detail";
+import { hydrationProgress } from "@/lib/workspaces/hydration-progress";
 import { ROLE_ABILITIES, roleAllows } from "@/lib/workspaces/role-abilities";
 import "server-only";
 
@@ -898,11 +899,5 @@ export async function getWorkspaceHydrationProgressAction(
   const { data: { user } } = await supabase.auth.getUser();
   const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
   if (!access.project || !access.canRead) return null;
-  const hydration = access.project.importSource?.metadata?.hydration;
-  if (!hydration || typeof hydration.status !== "string") return null;
-  return {
-    status: hydration.status,
-    completed: Number(hydration.completed) || 0,
-    total: Number(hydration.total) || 0,
-  };
+  return hydrationProgress(access.project.importSource?.metadata?.hydration);
 }

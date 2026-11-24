@@ -21,6 +21,8 @@ export function createSteps(values: CreateWorkspaceInput, ctx: { uploadCount: nu
     if (values.organization) {
         return [
             { key: 'make', label: `Making ${title || 'the organization'}` },
+            // Its type's starter doc (report §34.5), unless the doc was skipped.
+            ...(values.readme?.mode === 'skip' ? [] : [{ key: 'doc' as const, label: 'Drafting the starter doc' }]),
             ...(values.organization.co_admins?.length || values.organization.invite_emails?.trim() ? [{ key: 'people' as const, label: 'Sending invitations' }] : []),
         ];
     }

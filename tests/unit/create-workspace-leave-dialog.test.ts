@@ -10,7 +10,8 @@ test("the workspace-setup exit dialog favors recovery and clearly isolates the d
 
   assert.match(dialog, /Unsaved changes/);
   assert.match(dialog, /Leave workspace setup\?/);
-  assert.match(dialog, /save a draft from the footer before you leave/i);
+  // v6: Save now is gone; drafts save on their own (the footer says so).
+  assert.match(dialog, /kept on this device as a draft/i);
   assert.match(dialog, /Saved drafts can be resumed/);
   assert.match(dialog, /variant="outline"[\s\S]*Keep editing/);
   assert.match(dialog, /variant="destructive"[\s\S]*Leave setup/);

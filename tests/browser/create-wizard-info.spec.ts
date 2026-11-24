@@ -16,7 +16,8 @@ async function open(page: Page, upload = false) {
         beforeGoto: async (p) => {
             await p.addInitScript(() => {
                 (window as any).__extraActions = {
-                    previewWorkspaceSlugAction: (title: string) => {
+                    previewWorkspaceSlugAction: async (title: string) => {
+                        if ((window as any).__slowPreview) await new Promise((r) => setTimeout(r, 1500));
                         const base = title.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
                         return Promise.resolve(base === 'atlas-maps' ? { base, slug: `${base}-2`, taken: true } : { base, slug: base, taken: false });
                     },
@@ -74,4 +75,20 @@ test('the address line says free, or which address a taken name gets', async ({ 
     await page.locator('#create-project-title').fill('Atlas Maps');
     await expect(page.locator('[data-address]')).toContainText('networkbase.in/w/atlas-maps is taken');
     await expect(page.locator('[data-address]')).toContainText('networkbase.in/w/atlas-maps-2');
+});
+
+test('a name changed right before Continue never keeps the address of an older name', async ({ page }) => {
+    await open(page);
+    await page.locator('#create-project-title').fill('Garden Ma');
+    await expect(page.locator('[data-address]')).toContainText('networkbase.in/w/garden-ma · free');
+    await page.evaluate(() => { (window as any).__slowPreview = true; });
+    await page.locator('#create-project-title').fill('Garden Map');
+    await page.getByRole('radio', { name: /Side project/ }).click();
+    await page.locator('#create-project-description').fill('A shared map of community gardens with plots and volunteer days.');
+    await next(page);
+    await next(page);
+    await next(page);
+    await expect(heading(page, 'Ready to create.')).toBeVisible();
+    await page.locator('[data-review-section="2"] [data-review-line]').click();
+    await expect(page.locator('[data-review-section="2"]')).not.toContainText('networkbase.in/w/garden-ma');
 });

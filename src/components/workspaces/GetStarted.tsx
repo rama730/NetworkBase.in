@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createWorkspaceInvitationAction, searchWorkspaceInviteCandidatesAction } from '@/app/actions/workspace/guidance';
 import { getWorkspaceInviteOptionsAction } from '@/app/actions/applications';
 import { CopyButton } from '@/components/ui/copy-button';
@@ -11,14 +11,24 @@ import { openTasks, readGetStarted, writeGetStarted, type GetStartedState, type 
 
 type Candidate = { id: string; username: string | null; fullName: string | null; avatarUrl: string | null };
 
+const SERVER_STATE: GetStartedState = { hidden: false, done: [], tasks: [] };
+/** The list lives in this browser: the server (and the first client render) see none, so the Overview hydrates cleanly. */
 function useGetStarted(projectId: string) {
-    const [state, setState] = useState<GetStartedState>(() => readGetStarted(projectId));
-    useEffect(() => {
-        const sync = (event: Event) => { if ((event as CustomEvent).detail === projectId) setState(readGetStarted(projectId)); };
+    const cache = useRef<{ raw: string | null; state: GetStartedState }>({ raw: null, state: SERVER_STATE });
+    const subscribe = useCallback((notify: () => void) => {
+        const sync = (event: Event) => { if (!(event instanceof CustomEvent) || event.detail === projectId) notify(); };
         window.addEventListener('nb-get-started', sync);
-        return () => window.removeEventListener('nb-get-started', sync);
+        window.addEventListener('storage', sync);
+        return () => { window.removeEventListener('nb-get-started', sync); window.removeEventListener('storage', sync); };
     }, [projectId]);
-    const update = useCallback((patch: Partial<GetStartedState>) => setState(writeGetStarted(projectId, patch)), [projectId]);
+    const read = useCallback(() => {
+        const state = readGetStarted(projectId);
+        const raw = JSON.stringify(state);
+        if (raw !== cache.current.raw) cache.current = { raw, state };
+        return cache.current.state;
+    }, [projectId]);
+    const state = useSyncExternalStore(subscribe, read, () => SERVER_STATE);
+    const update = useCallback((patch: Partial<GetStartedState>) => { writeGetStarted(projectId, patch); }, [projectId]);
     return [state, update] as const;
 }
 

@@ -53,7 +53,7 @@ export default function LeaveWorkspaceSetupDialog({ open, onOpenChange, onLeave 
             </Button>
           </div>
           <DialogDescription id="leave-project-setup-description" className="mt-4 max-w-[37ch] text-[14px] leading-6 text-muted-foreground">
-            Your changes have not been saved. Keep editing, or save a draft from the footer before you leave.
+            What you entered is kept on this device as a draft, so you can pick it up later. Keep editing, or leave.
           </DialogDescription>
         </DialogHeader>
 

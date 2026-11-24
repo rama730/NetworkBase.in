@@ -57,3 +57,12 @@ test('after Create (v6): the Finish view, Open replaces the route, and the Overv
     assert.doesNotMatch(route, /router\.replace\(`\/workspaces\/\$\{projectId\}`\)/);
     assert.match(dashboard, /isCreator && project\.kind !== "organization" \? <div className="nbs"><GetStarted overview/);
 });
+
+test('final review fixes: Get started reads storage after hydration; Create another forgets a GitHub resume', () => {
+    const getStarted = source('src/components/workspaces/GetStarted.tsx');
+    const route = source('src/components/workspaces/create-wizard/CreateWorkspaceRouteClient.tsx');
+    // The server renders nothing for it; the client's first render must match (no hydration mismatch on the Overview).
+    assert.match(getStarted, /useSyncExternalStore\(/);
+    assert.doesNotMatch(getStarted, /useState<GetStartedState>\(\(\) => readGetStarted/);
+    assert.match(route, /setHandoff\(\(current\) => \(current \? \{ \.\.\.current, resume: null \} : current\)\)/);
+});

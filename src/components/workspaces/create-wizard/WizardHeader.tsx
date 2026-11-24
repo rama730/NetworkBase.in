@@ -9,6 +9,8 @@ import type { PhaseProblems } from "./phase-problems";
 type WizardHeaderProps = {
   currentPhase: number;
   onClose: () => void;
+  /** While Create runs there is nothing to cancel: the Creating view has its own ways on. */
+  hideCancel?: boolean;
   /** Jump back to a finished step; omitted or blocked while a step change or submit is running. */
   onStepSelect?: (phase: WizardPhaseId) => void;
   stepsDisabled?: boolean;
@@ -23,7 +25,7 @@ type WizardHeaderProps = {
 
 // Create wizard v6: the step strip. One cell per step across the page, one clay marker that slides to the current step,
 // a pixel tick on finished steps and a count on steps that still need something. Phones: "Info · 2 of 5" and five squares.
-export default function WizardHeader({ currentPhase, onClose, onStepSelect, stepsDisabled = false, headingRef, isOrganization = false, problems, attempted }: WizardHeaderProps) {
+export default function WizardHeader({ currentPhase, onClose, onStepSelect, stepsDisabled = false, headingRef, isOrganization = false, problems, attempted, hideCancel = false }: WizardHeaderProps) {
   const phases = WIZARD_PHASES.map((p) => ({ id: p.id, label: isOrganization ? ORG_PHASE_LABELS[p.id] : p.label }));
   const currentLabel = phases[currentPhase - 1]?.label ?? "";
   const listRef = useRef<HTMLOListElement>(null);
@@ -78,9 +80,11 @@ export default function WizardHeader({ currentPhase, onClose, onStepSelect, step
         <span className="nb-step-squares">{phases.map((p) => <i key={p.id} data-on={p.id <= currentPhase || undefined} />)}</span>
       </div>
       {/* A page, not a dialog: Cancel is explicit; Esc asks the same thing (Leave) when the page has focus. */}
-      <button type="button" onClick={onClose} aria-label={isOrganization ? "Cancel organization setup" : "Cancel workspace setup"} className="nb-step-cancel">
-        <X aria-hidden="true" /><span>Cancel</span>
-      </button>
+      {hideCancel ? null : (
+        <button type="button" onClick={onClose} aria-label={isOrganization ? "Cancel organization setup" : "Cancel workspace setup"} className="nb-step-cancel">
+          <X aria-hidden="true" /><span>Cancel</span>
+        </button>
+      )}
     </header>
   );
 }

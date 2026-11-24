@@ -13,7 +13,7 @@ test.use({ viewport: { width: 1440, height: 900 } });
 const ID = '00000000-0000-4000-8000-0000000000aa';
 const api = (data: unknown) => ({ contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 
-async function open(page: Page, source: 'scratch' | 'github' | 'upload') {
+async function open(page: Page, source: 'scratch' | 'github' | 'upload', onSettings?: (page: Page) => Promise<void>) {
     await openApp(page, ENTRY, {
         path: '/workspaces/new',
         beforeGoto: async (p) => {
@@ -33,6 +33,7 @@ async function open(page: Page, source: 'scratch' | 'github' | 'upload') {
                     previewWorkspaceSlugAction: () => Promise.resolve(null),
                     listImportedRepoUrlsAction: () => Promise.resolve({ success: true, repos: [] }),
                     createWorkspaceAction: async () => { w.__log.push('make'); await gate('make'); return { success: true, project: { id, title: 'Garden Map', slug: 'garden-map' } }; },
+                    updateWorkspaceDocSettingsAction: async () => { if (w.__failDocPolicy) throw new Error('Failed to fetch'); return { success: true }; },
                     applyCreationIntentAction: async () => { w.__log.push('doc'); await gate('doc'); if (w.__failDoc) { w.__failDoc = false; throw new Error('The doc service is down'); } return { success: true }; },
                     addWorkflowsOnCreateAction: async () => { w.__log.push('workflow'); await gate('workflow'); return { success: true }; },
                     getWorkspaceHydrationProgressAction: async () => { w.__log.push('poll'); return w.__hyd; },
@@ -63,6 +64,7 @@ async function open(page: Page, source: 'scratch' | 'github' | 'upload') {
     await next(page);
     await page.locator('[data-popular-roles]').getByRole('button', { name: '+ Frontend developer' }).click();
     await next(page);
+    if (onSettings) await onSettings(page);
     await next(page);
     await expect(heading(page, 'Ready to create.')).toBeVisible();
     await page.getByRole('button', { name: /Create workspace/ }).click();
@@ -128,5 +130,51 @@ test('doc step failure shows Try again and Open anyway; Try again resumes at doc
     await release(page, 'workflow');
     await expect.poll(() => page.evaluate(() => (window as any).__pushed)).toContain(`/created/${ID}`);
     // Make ran once; the doc ran twice.
+    expect(await page.evaluate(() => (window as any).__log.filter((x: string) => x === 'make').length)).toBe(1);
+});
+
+test('a GitHub import that finishes reaches Finish on its own', async ({ page }) => {
+    await open(page, 'github');
+    for (const key of ['make', 'doc', 'workflow']) await release(page, key);
+    await page.evaluate(() => { (window as any).__hyd = { status: 'done', completed: 128, total: 128 }; });
+    await expect.poll(() => page.evaluate(() => (window as any).__pushed), { timeout: 8000 }).toContain(`/created/${ID}`);
+});
+
+test('leaving while Creating keeps no draft of the workspace that was made', async ({ page }) => {
+    await open(page, 'scratch');
+    await release(page, 'make');
+    await expect(row(page, 'doc')).toHaveAttribute('data-state', 'current');
+    await page.evaluate(() => (window as any).__router.push('/away'));
+    await page.waitForTimeout(800);
+    const draft = await page.evaluate(() => new Promise((resolve) => {
+        const req = indexedDB.open('keyval-store');
+        req.onsuccess = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains('keyval')) return resolve(null);
+            const get = db.transaction('keyval').objectStore('keyval').get('project_wizard_draft:u1');
+            get.onsuccess = () => resolve(get.result ?? null);
+            get.onerror = () => resolve(null);
+        };
+        req.onerror = () => resolve(null);
+    }));
+    expect(draft).toBeNull();
+});
+
+test('Esc and Cancel do nothing while Creating', async ({ page }) => {
+    await open(page, 'scratch');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Cancel' })).toHaveCount(0);
+});
+
+test('a setting that fails after the workspace is made never makes a second one', async ({ page }) => {
+    await open(page, 'scratch', async (p) => {
+        await p.getByRole('switch', { name: 'Members can edit the doc' }).click();
+    });
+    await page.evaluate(() => { (window as any).__failDocPolicy = true; });
+    await release(page, 'make');
+    await release(page, 'doc');
+    await release(page, 'workflow');
+    await expect.poll(() => page.evaluate(() => (window as any).__pushed)).toContain(`/created/${ID}`);
     expect(await page.evaluate(() => (window as any).__log.filter((x: string) => x === 'make').length)).toBe(1);
 });
