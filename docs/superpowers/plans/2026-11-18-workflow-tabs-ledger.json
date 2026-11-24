@@ -7558,9 +7558,9 @@
       "text": "Test plan",
       "kind": "journey",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/template-extras.test.ts; tests/db/template-extras.test.ts; tests/browser/template-extras.spec.ts",
+      "evidence": "Live 2026-11-24 (111001f48): in wt-test-a2-3, Test plan – WT Checkout (made with nb doc new) shows Pass 1 · Fail 1 · Blocked 1 · 33% and Report a bug made NB-66 (New, steps + expected); Tech spec – WT Sign-in Request review → NB-67 → done → Approved · 1 of 1; Business model canvas – WT Tutoring as a 3 × 3 grid; Investor update – WT Nov 2026 shows Q4 key results. Checked in Chrome."
     },
     {
       "key": "38.15.W3",
@@ -7628,9 +7628,9 @@
       "text": "The Business model canvas renders as a 3 × 3 grid from its headings; no separate canvas block. [call]",
       "kind": "call",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/template-extras.test.ts; tests/db/template-extras.test.ts; tests/browser/template-extras.spec.ts",
+      "evidence": "Live 2026-11-24 (111001f48): in wt-test-a2-3, Test plan – WT Checkout (made with nb doc new) shows Pass 1 · Fail 1 · Blocked 1 · 33% and Report a bug made NB-66 (New, steps + expected); Tech spec – WT Sign-in Request review → NB-67 → done → Approved · 1 of 1; Business model canvas – WT Tutoring as a 3 × 3 grid; Investor update – WT Nov 2026 shows Q4 key results. Checked in Chrome."
     },
     {
       "key": "38.15.call4",
@@ -7638,9 +7638,9 @@
       "text": "Test plan results are a Markdown table; the pass rate and Report a bug are worked out when it's shown. [call]",
       "kind": "call",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/template-extras.test.ts; tests/db/template-extras.test.ts; tests/browser/template-extras.spec.ts",
+      "evidence": "Live 2026-11-24 (111001f48): in wt-test-a2-3, Test plan – WT Checkout (made with nb doc new) shows Pass 1 · Fail 1 · Blocked 1 · 33% and Report a bug made NB-66 (New, steps + expected); Tech spec – WT Sign-in Request review → NB-67 → done → Approved · 1 of 1; Business model canvas – WT Tutoring as a 3 × 3 grid; Investor update – WT Nov 2026 shows Q4 key results. Checked in Chrome."
     },
     {
       "key": "38.15.call5",
@@ -8459,8 +8459,8 @@
       "kind": "call",
       "milestone": "A6",
       "status": "live",
-      "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
-      "evidence": "Live 2026-11-24 (ebf1a5dae)."
+      "test": "tests/unit/template-extras.test.ts; tests/db/template-extras.test.ts; tests/browser/template-extras.spec.ts",
+      "evidence": "Live 2026-11-24 (111001f48): in wt-test-a2-3, Test plan – WT Checkout (made with nb doc new) shows Pass 1 · Fail 1 · Blocked 1 · 33% and Report a bug made NB-66 (New, steps + expected); Tech spec – WT Sign-in Request review → NB-67 → done → Approved · 1 of 1; Business model canvas – WT Tutoring as a 3 × 3 grid; Investor update – WT Nov 2026 shows Q4 key results. Checked in Chrome."
     },
     {
       "key": "38.15.call8",
@@ -8481,6 +8481,46 @@
       "status": "live",
       "test": "tests/db/snippets.test.ts; packages/nb-cli/test/snippets.test.mjs",
       "evidence": "Live 2026-11-24 (see A6.35)."
+    },
+    {
+      "key": "38.15.call10",
+      "section": "38.15",
+      "text": "A6.36 Template extras (2026-11-24): a document made from a NetworkBase template remembers it (its kind); older ones are recognised by their file name (\"Tech spe",
+      "kind": "call",
+      "milestone": "A6",
+      "status": "live",
+      "test": "tests/unit/template-extras.test.ts; tests/db/template-extras.test.ts; tests/browser/template-extras.spec.ts",
+      "evidence": "Live 2026-11-24 (111001f48): in wt-test-a2-3, Test plan – WT Checkout (made with nb doc new) shows Pass 1 · Fail 1 · Blocked 1 · 33% and Report a bug made NB-66 (New, steps + expected); Tech spec – WT Sign-in Request review → NB-67 → done → Approved · 1 of 1; Business model canvas – WT Tutoring as a 3 × 3 grid; Investor update – WT Nov 2026 shows Q4 key results. Checked in Chrome."
+    },
+    {
+      "key": "38.16.call7",
+      "section": "38.16",
+      "text": "A7.1 Assets view (2026-11-24): Assets sits in Files' list of views when the Assets workflow is added. It lists the workspace's images, video, audio and fonts, a",
+      "kind": "call",
+      "milestone": "A7",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "38.16.call8",
+      "section": "38.16",
+      "text": "A7.2 Comments on files (2026-11-24): migration 0119filecomments (server only, like the other workflow tables). In Assets, the details panel's Open with comments",
+      "kind": "call",
+      "milestone": "A7",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
+    },
+    {
+      "key": "A6.36",
+      "section": "plan",
+      "text": "A6.36 Template extras (added 2026-11-24): BMC grid, Test plan pass rate + Report a bug, goals numbers, PRD roadmap items + Make tasks, Assumptions row actions, Request review, Class notes members-only",
+      "kind": "unit",
+      "milestone": "A6",
+      "status": "live",
+      "test": "tests/unit/template-extras.test.ts; tests/db/template-extras.test.ts; tests/browser/template-extras.spec.ts",
+      "evidence": "Live 2026-11-24 (111001f48): in wt-test-a2-3, Test plan – WT Checkout (made with nb doc new) shows Pass 1 · Fail 1 · Blocked 1 · 33% and Report a bug made NB-66 (New, steps + expected); Tech spec – WT Sign-in Request review → NB-67 → done → Approved · 1 of 1; Business model canvas – WT Tutoring as a 3 × 3 grid; Investor update – WT Nov 2026 shows Q4 key results. Checked in Chrome."
     }
   ]
 }
