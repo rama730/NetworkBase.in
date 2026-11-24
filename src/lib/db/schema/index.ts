@@ -1238,6 +1238,8 @@ export const attendanceRecords = pgTable("attendance_records", {
   /** Null while only a student's absence note is in (0127). */
   status: text("status", { enum: ["present", "late", "absent", "excused"] }),
   note: text("note"),
+  /** B1.4b (0127): the student's absence note; only the student writes it. */
+  studentNote: text("student_note"),
   markedBy: uuid("marked_by").references(() => profiles.id, { onDelete: "set null" }),
   markedAt: timestamp("marked_at", { withTimezone: true }).defaultNow().notNull(),
   history: jsonb("history").$type<Array<{ status: string; by: string | null; at: string }>>().notNull().default([]),

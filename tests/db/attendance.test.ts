@@ -120,9 +120,10 @@ test("B1.4b: check-in code marks Present once (never overwriting staff), absence
   const below = await sql`SELECT title FROM user_notifications WHERE user_id = ${t.b} AND title LIKE 'Your attendance%'`;
   assert.equal(below.length, 1, "b crossed below 75% once");
   viewerId = t.teacher;
+  await att.saveAttendanceAction(t.klass, started.session, [{ userId: t.b, status: "excused" }]);
   const staff = await att.readAttendanceAction(t.klass);
   assert.ok(staff.success);
-  assert.equal(staff.students.find((s) => s.id === t.b)!.notes[started.session], "Fever");
+  assert.equal(staff.students.find((s) => s.id === t.b)!.notes[started.session], "Fever", "security review: a staff save keeps the student's note");
 });
 
 test("B1.4b: a school's minimum reaches its classes locked; the school sees averages and counts, never names", async () => {

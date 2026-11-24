@@ -238,7 +238,7 @@ async function* streamAccountExport(input: {
   yield json(await db.select({ projectId: classSectionMembers.projectId, section: classSections.name, kind: classSections.kind, role: classSectionMembers.role })
     .from(classSectionMembers).innerJoin(classSections, eq(classSections.id, classSectionMembers.sectionId)).where(eq(classSectionMembers.userId, userId)).limit(5000));
   yield ",\"attendance\":";
-  yield json(await db.select({ projectId: attendanceRecords.projectId, session: attendanceRecords.sessionKey, status: attendanceRecords.status, note: attendanceRecords.note, markedAt: attendanceRecords.markedAt })
+  yield json(await db.select({ projectId: attendanceRecords.projectId, session: attendanceRecords.sessionKey, status: attendanceRecords.status, note: attendanceRecords.note, yourNote: attendanceRecords.studentNote, markedAt: attendanceRecords.markedAt })
     .from(attendanceRecords).where(eq(attendanceRecords.userId, userId)).limit(20000));
   yield ",\"assignedTasks\":";
 

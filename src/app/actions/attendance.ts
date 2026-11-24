@@ -59,7 +59,7 @@ export async function readAttendanceAction(orgId: string) {
         .innerJoin(profiles, eq(profiles.id, workspaceMembers.userId)).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, "member")))
       : await db.select({ id: workspaceMembers.userId, joinedAt: workspaceMembers.joinedAt, fullName: profiles.fullName, username: profiles.username }).from(workspaceMembers)
         .innerJoin(profiles, eq(profiles.id, workspaceMembers.userId)).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, ctx.userId)));
-    const rows = people.length ? await db.select({ userId: attendanceRecords.userId, key: attendanceRecords.sessionKey, status: attendanceRecords.status, note: attendanceRecords.note })
+    const rows = people.length ? await db.select({ userId: attendanceRecords.userId, key: attendanceRecords.sessionKey, status: attendanceRecords.status, note: attendanceRecords.studentNote })
       .from(attendanceRecords).where(and(eq(attendanceRecords.projectId, orgId), inArray(attendanceRecords.userId, people.map((p) => p.id)))) : [];
     const students = people.map((p) => {
       const records = new Map(rows.filter((r) => r.userId === p.id).map((r) => [r.key, r.status as AttendanceStatus]));
@@ -218,8 +218,9 @@ export async function sendAbsenceNoteAction(orgId: string, sessionKey: string, n
   const session = ctx.sessions.find((s) => s.key === sessionKey && s.status !== "cancelled");
   const at = session ? Date.parse(zonedInputToIso(session.start, ctx.c.zone)) : NaN;
   if (!session || at < Date.now() - 7 * 86_400_000 || at > Date.now() + 14 * 86_400_000) return { success: false, error: "Pick a class from the last week or the next two." };
-  await db.insert(attendanceRecords).values({ projectId: orgId, sessionKey, userId: ctx.userId, status: null, note: text, markedBy: null })
-    .onConflictDoUpdate({ target: [attendanceRecords.projectId, attendanceRecords.sessionKey, attendanceRecords.userId], set: { note: text } });
+  // Security review (B1.4b): the student's own column, so staff notes and marks are never touched.
+  await db.insert(attendanceRecords).values({ projectId: orgId, sessionKey, userId: ctx.userId, status: null, studentNote: text, markedBy: null })
+    .onConflictDoUpdate({ target: [attendanceRecords.projectId, attendanceRecords.sessionKey, attendanceRecords.userId], set: { studentNote: text } });
   const [org] = await db.select({ slug: workspaces.slug, ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
   const [me] = await db.select({ fullName: profiles.fullName, username: profiles.username }).from(profiles).where(eq(profiles.id, ctx.userId)).limit(1);
   if (org?.ownerId) {
