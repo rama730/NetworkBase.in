@@ -1637,7 +1637,10 @@ export async function readLaunchAction(projectId: string, docSlug: string) {
         const { launchProgress, whatsNew } = await import("@/lib/workflows/launches");
         const steps = await db.select({ title: tasks.title, status: tasks.status, stage: tasks.stage, dueDate: tasks.dueDate }).from(tasks)
             .where(and(eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt))).limit(MAX_BLOCK_ROWS * 10);
-        const ships = insider ? Array.from(await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; item_type: string | null }>(sql`
+        // 38.10 W9 (2026-11-24 sweep): a visitor of a public launch sees What's new once it has launched (what shipped;
+        // never bug titles, never before launch, never the items themselves, so no roadmap leaks).
+        const launchedForVisitors = !insider && Boolean(context.settings.launchedAt);
+        const ships = insider || launchedForVisitors ? Array.from(await db.execute<{ id: string; task_number: number | null; title: string; stage: string | null; item_type: string | null }>(sql`
             SELECT id, task_number, title, stage, type_fields->>'itemType' AS item_type FROM tasks
             WHERE workspace_id = ${projectId}::uuid AND item_type = 'roadmap_item' AND deleted_at IS NULL AND type_fields->>'launchDocId' = ${context.readme.id}
             ORDER BY task_number`)) : [];
@@ -1653,7 +1656,7 @@ export async function readLaunchAction(projectId: string, docSlug: string) {
             openSteps: steps.filter((s) => s.status !== "done" && s.stage !== "cancelled").length,
             openTitles: insider ? steps.filter((s) => s.status !== "done" && s.stage !== "cancelled").slice(0, 5).map((s) => s.title) : [],
             overdue: steps.filter((s) => s.status !== "done" && s.dueDate && s.dueDate.toISOString().slice(0, 10) < today).length,
-            ships: ships.map((s) => ({ id: s.id, number: s.task_number, title: s.title, stage: s.stage, itemType: s.item_type ?? "feature" })),
+            ships: insider ? ships.map((s) => ({ id: s.id, number: s.task_number, title: s.title, stage: s.stage, itemType: s.item_type ?? "feature" })) : [],
             whatsNew: whatsNew(ships.map((s) => ({ title: s.title, itemType: s.item_type })), bugs.map((b) => ({ title: b.title, fixedIn: b.fixed_in })), version),
         };
     } catch (error) {

@@ -129,3 +129,25 @@ test("A3.2: a Product launch lands its 18 steps in seven blocks, unassigned and 
   assert.deepEqual(rows.map((r) => [r.b, r.n]), [["launch1", 3], ["launch2", 2], ["launch3", 3], ["launch4", 2], ["launch5", 2], ["launch6", 3], ["launch7", 3]]);
   assert.equal(rows.reduce((n, r) => n + r.a + r.d, 0), 0);
 });
+
+test("W9 (2026-11-24 sweep): a visitor of a public launch sees What's new only after launch, without bug titles or the items", async () => {
+  const t = await workspace();
+  const outsider = await sql.begin((tx) => createUser(tx));
+  viewerId = t.owner;
+  await t.doc("v3-0");
+  assert.ok((await docs.createLaunchAction(t.ws, { docSlug: "v3-0", date: "2026-12-20", preset: "test_two", versionLabel: "v3.0" })).success);
+  const make = async (input: Record<string, unknown>) => ((await tasksServer.createTaskAction({ projectId: t.ws, status: "todo", priority: "medium", ...input } as never)) as { task: { id: string } }).task.id;
+  const item = await make({ title: "Dark mode", itemType: "roadmap_item", stage: "testing", typeFields: { column: "now", itemType: "feature" } });
+  assert.ok((await docs.setLaunchShipsAction(t.ws, { docSlug: "v3-0", itemId: item, on: true })).success);
+  await sql`INSERT INTO tasks (workspace_id, title, status, priority, creator_id, item_type, stage, type_fields) VALUES (${t.ws}, 'Secret crash in billing', 'done', 'medium', ${t.owner}, 'bug', 'fixed', ${sql.json({ fixedIn: "v3.0" })})`;
+  viewerId = outsider;
+  let read = await docs.readLaunchAction(t.ws, "v3-0");
+  assert.ok(read.success, JSON.stringify(read));
+  assert.deepEqual([read.member, read.ships, read.whatsNew.added, read.openTitles], [false, [], [], []], "nothing before launch");
+  viewerId = t.owner;
+  assert.ok((await docs.launchAction(t.ws, { docSlug: "v3-0", markItems: false })).success);
+  viewerId = outsider;
+  read = await docs.readLaunchAction(t.ws, "v3-0");
+  assert.ok(read.success);
+  assert.deepEqual([read.ships, read.whatsNew.added, read.whatsNew.fixed], [[], ["Dark mode"], []], "what shipped, never bug titles");
+});
