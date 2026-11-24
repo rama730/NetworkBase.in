@@ -1208,6 +1208,28 @@ export const lessonStaffNotes = pgTable("lesson_staff_notes", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** Plan B1.3 (0124): a class's sections and who is in them (TAs and students; one section per student per kind). */
+export const classSections = pgTable("class_sections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  kind: text("kind", { enum: ["lab", "tutorial", "lecture"] }).notNull().default("lab"),
+  meets: jsonb("meets").$type<Array<{ day: number; start: string; end: string }>>().notNull().default([]),
+  room: text("room"),
+  officeHours: jsonb("office_hours").$type<{ days: number[]; start: string; end: string; place: string | null } | null>(),
+  seatLimit: integer("seat_limit"),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export const classSectionMembers = pgTable("class_section_members", {
+  sectionId: uuid("section_id").notNull().references(() => classSections.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  role: text("role", { enum: ["ta", "student"] }).notNull(),
+  kind: text("kind").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.sectionId, t.userId] })]);
+
 // ============================================================================
 // ORGANIZATIONS (0241): server-only tables, no browser grants.
 // ============================================================================

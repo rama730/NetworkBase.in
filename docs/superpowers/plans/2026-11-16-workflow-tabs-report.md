@@ -7969,6 +7969,12 @@ STUDENT · class About / Overview
 8. Lab lessons for all sections or one.
 9. Review load warning above 1.5× the average.
 
+**B1.3 build calls (2026-11-24):**
+- **Split:** B1.3a builds sections (table + membership, 0124), the Sections view in Members (cards, Open with Move to, Remove with "Move them to"), Split students (evenly by name, randomly, by surname range; preview then Apply), student self-pick with seats, the Your section card and Settings → Sections. **B1.3b** builds the Sections assignment target, review routing to a section's TA, Rebalance, the review-load warning, the section audience in announcements and TA-only marking and attendance. **[call]**
+- A section's TAs are chosen from the class's TAs (admins); students are the class's members. One section per student per kind is a database rule. **[call]**
+- A student sees their own section with its TA and classmates' count; with self-pick on, the other sections show times and seats, never names. **[call]**
+- Placed in or moved to a section notifies the student (Normal). Section sessions in Next class and attendance wait for W6 (B1.4). **[call]**
+
 ### 30.10 College / University: the whole picture (complete 2026-11-17)
 
 | # | Workflow | Main reference | Home | Level |

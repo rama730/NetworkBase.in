@@ -126,7 +126,8 @@
     "drizzle/0120_scheduled_updates.sql",
     "drizzle/0121_learning_path.sql",
     "drizzle/0122_institution_level.sql",
-    "drizzle/0123_lesson_staff_notes.sql"
+    "drizzle/0123_lesson_staff_notes.sql",
+    "drizzle/0124_class_sections.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

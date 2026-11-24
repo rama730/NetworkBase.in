@@ -15,6 +15,7 @@ import ProjectOverviewCard from '@/components/workspaces/dashboard/WorkspaceOver
 import { RailSection } from '@/components/ui/rail-section'
 import { SchoolAboutSections } from '@/components/organizations/SchoolParts'
 import { ClassDetailsRail, SyllabusAndTerm } from '@/components/organizations/ClassHomeParts'
+import { YourSectionCard } from '@/components/organizations/Sections'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import type { Workspace } from '@/types/discover'
 import { formatInZone } from '@/lib/organizations/zoned-time'
@@ -77,6 +78,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                     <Link href={`${base}?tab=settings`} className="nb-link inline-block text-[13px]">Add a welcome note</Link>
                 ) : null}
                 <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={ORG_LABELS} editLabel="Edit details" />
+                {isClass ? <YourSectionCard orgId={project.id} /> : null}
                 {isClass ? <SyllabusAndTerm orgId={project.id} base={base} /> : null}
                 {/* Empty-state prompts for admins (report §22.3). */}
                 {isCreator && (!statements.problemStatement || !statements.solutionStatement) ? (

@@ -59,6 +59,7 @@ import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard } fro
 import { OrgWorkspacesTab } from '@/components/organizations/OrgWorkspacesTab';
 import { SchoolClassesTab } from '@/components/organizations/SchoolParts';
 import { ClassSprints } from '@/components/organizations/TermPlan';
+import { ClassMembers } from '@/components/organizations/Sections';
 import { typeProfile } from '@/lib/organizations/type-profile';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
 import { VerifiedMark } from '@/components/organizations/org-ui';
@@ -1302,7 +1303,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             {isOrganization && canManageProjectSettings && activeTab === 'members' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Members">
-                        <OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} started={orgStarted?.members} />
+                        {organization && !organization.isSchool && typeProfile(organization.type).schools
+                            ? <ClassMembers orgId={project.id}><OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} started={orgStarted?.members} /></ClassMembers>
+                            : <OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} started={orgStarted?.members} />}
                     </TabErrorBoundary>
                 </div>
             )}
