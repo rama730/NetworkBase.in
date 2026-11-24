@@ -115,7 +115,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
             <ConfirmDialog
                 open={removing !== null}
                 onOpenChange={(open) => !open && setRemoving(null)}
-                title={`Remove ${removing ? docTitle(removing.filename) : "doc"} from Docs?`}
+                title={`Remove ${removing ? removing.title ?? docTitle(removing.filename) : "doc"} from Docs?`}
                 description="The file stays in Files."
                 confirmLabel="Remove"
                 variant="destructive"
@@ -266,7 +266,7 @@ export function WorkspaceDocRail({
                                         <button
                                             type="button"
                                             onClick={() => rail.askRemove(doc)}
-                                            aria-label={`Remove ${docTitle(doc.filename)} from Docs`}
+                                            aria-label={`Remove ${doc.title ?? docTitle(doc.filename)} from Docs`}
                                             title="Remove from docs"
                                             className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-[4px] text-muted-foreground opacity-0 pointer-coarse:opacity-100 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
                                         >
