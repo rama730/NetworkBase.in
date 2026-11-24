@@ -73,6 +73,9 @@ export type WorkspaceDocSettings = {
     place?: string;
     invitedIds?: string[];
     answers?: Record<string, "going" | "cant">;
+    /** Report 38.15 W3 (A6.34): shown on the Docs site, and its place in the menu. */
+    docsSite?: boolean;
+    docsOrder?: number;
 };
 
 export type Motion = {
@@ -144,6 +147,7 @@ export type WorkspaceDocVersion = {
 
 export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null; section?: DocSection; kind?: string; date?: string; decisionNumber?: number; decisionStatus?: DecisionStatus; fromDocId?: string;
     supersedes?: string; supersededBy?: string; reverseReason?: string;
+    docsSite?: boolean; docsOrder?: number;
     /** A4.1 live check: a meeting's or launch's own title, shown instead of its file name. */
     title?: string };
 
@@ -211,6 +215,8 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(typeof source.approvedBy === "string" && UUID.test(source.approvedBy) ? { approvedBy: source.approvedBy } : {}),
         ...(typeof source.period === "string" && /^\d{4}(-(Q[1-4]|H[12]|0[1-9]|1[0-2]))?$/.test(source.period) ? { period: source.period } : {}),
         ...(typeof source.closedAt === "string" && Number.isFinite(Date.parse(source.closedAt)) ? { closedAt: source.closedAt } : {}),
+        ...(typeof source.docsSite === "boolean" ? { docsSite: source.docsSite } : {}),
+        ...(Number.isFinite(source.docsOrder) ? { docsOrder: source.docsOrder } : {}),
         ...(typeof source.offsiteTitle === "string" && source.offsiteTitle.trim() && source.offsiteTitle.length <= 120 ? { offsiteTitle: source.offsiteTitle.trim() } : {}),
         ...(typeof source.dateFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.dateFrom) ? { dateFrom: source.dateFrom } : {}),
         ...(typeof source.dateTo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.dateTo) ? { dateTo: source.dateTo } : {}),
@@ -352,6 +358,8 @@ export function resolveWorkspaceDocPermission(input: {
     /** Member settings Part 4: the owner's changes to "See and edit doc drafts"; organizations keep their rules. */
     roleAbilities?: unknown;
     orgRules?: boolean;
+    /** Report 38.15 W4 (A6.34): with the Docs site on, outsiders read only documents switched onto it. */
+    docsSiteOnly?: boolean;
 }) : WorkspaceDocPermission {
     const settings = normalizeWorkspaceDocSettings(input.settings);
     const visibility = normalizeWorkspaceVisibility(input.projectVisibility);
@@ -380,6 +388,7 @@ export function resolveWorkspaceDocPermission(input: {
         // publishes a doc out of a private project.
         isPublishedPublic = visibility === "public" && publicTabs.readme && Boolean(input.hasPublishedReadme);
     }
+    if (input.docsSiteOnly && !settings.docsSite) isPublishedPublic = false;
 
     let canReadPublished = false;
     if (override === "leaders_only") {

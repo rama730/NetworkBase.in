@@ -67,3 +67,18 @@ export function railSections<T extends RailDoc>(docs: T[], added: string[]) {
     return { id, label: sectionLabel(id), docs: sorted.map((d) => ({ ...d, prefix: prefix(d) })) };
   });
 }
+
+/**
+ * Report 38.15 W3 (A6.34): the Docs site menu. Documents on the site, grouped by section in section order (no section →
+ * Pages), each group by its menu order then title; documents not on the site are kept apart for their editors. The
+ * flat order is what Previous / Next follow.
+ */
+export function docsSiteMenu<T extends { slug: string; filename: string; title?: string; section?: string; docsSite?: boolean; docsOrder?: number }>(docs: T[]) {
+    const name = (d: T) => d.title ?? d.filename.replace(/\.md$/i, "");
+    const on = docs.filter((d) => d.docsSite);
+    const groups = DOC_SECTIONS.map((s) => ({
+        id: s.id, label: s.label,
+        docs: on.filter((d) => (d.section ?? "pages") === s.id).sort((a, b) => (a.docsOrder ?? 1e9) - (b.docsOrder ?? 1e9) || name(a).localeCompare(name(b))),
+    })).filter((g) => g.docs.length);
+    return { groups, order: groups.flatMap((g) => g.docs), off: docs.filter((d) => !d.docsSite) };
+}

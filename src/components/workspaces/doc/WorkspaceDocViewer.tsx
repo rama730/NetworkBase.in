@@ -30,6 +30,7 @@ import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
 import { useMainProtected, useSaveToBranch } from "@/components/workspaces/v2/files-tab/SaveToBranch";
 import type { Workspace } from "@/types/discover";
 import { OffsiteHeader } from "@/components/workspaces/doc/DocOffsite";
+import { DocsPrevNext, DocsSiteMenu, DocsSiteToggle, DocsViewSwitch, OnThisPage, useDocsSettings } from "@/components/workspaces/doc/DocsSite";
 
 const WorkspaceDocRenderer = dynamic(
     () => import("@/components/workspaces/doc/WorkspaceDocRenderer").then((mod) => mod.WorkspaceDocRenderer),
@@ -189,6 +190,11 @@ export function WorkspaceDocViewer({
     const addedWorkflows = useAddedWorkflows();
     const title = docTitle(orgDoc?.filename ?? listed?.filename ?? "");
     const meetingsView = addedWorkflows.includes("meetings") ? rail.view : null;
+    // Report 38.15 W3/W4 (A6.34): the Docs site view, once it's switched on; visitors and readers start on it.
+    const docsSettings = useDocsSettings(project.id).data;
+    const siteEnabled = docsSettings?.success === true && docsSettings.siteEnabled;
+    const [pickedView, setPickedView] = useState<"pages" | "site" | null>(null);
+    const docsView = siteEnabled ? (pickedView ?? (payload.canEdit ? "pages" : "site")) : "pages";
     const fileHref = payload.linkedNode ? `/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}` : null;
     
     const version = payload.version;
@@ -368,12 +374,28 @@ export function WorkspaceDocViewer({
 
     return (
         <div className="relative mx-auto w-full max-w-[1240px] px-0 py-0">
-            <WorkspaceDocMobileBar
+            {docsView === "site" ? null : <WorkspaceDocMobileBar
                 projectId={project.id}
                 activeSlug={normalizedDocSlug}
                 canEdit={payload.canEdit}
                 rail={rail}
-            />
+            />}
+            {siteEnabled && payload.canEdit ? <DocsViewSwitch view={docsView} onChange={setPickedView} /> : null}
+            {docsView === "site" ? (
+                <div className="grid gap-8 xl:grid-cols-[220px_minmax(0,1fr)_200px]">
+                    <details className="xl:hidden" data-testid="docs-site-drawer"><summary className="cursor-pointer text-[13px] font-medium">Docs menu</summary>
+                        <div className="mt-2"><DocsSiteMenu docs={rail.docs} activeSlug={normalizedDocSlug} canEdit={payload.canEdit} onOpen={(slug) => rail.navigate(slug)} projectId={project.id} /></div>
+                    </details>
+                    <aside className="hidden xl:block"><div className="sticky top-4"><DocsSiteMenu docs={rail.docs} activeSlug={normalizedDocSlug} canEdit={payload.canEdit} onOpen={(slug) => rail.navigate(slug)} projectId={project.id} /></div></aside>
+                    <div className="min-w-0">
+                        {reportMenu}
+                        {payload.canEdit && listed ? <div className="mb-3 flex justify-end"><DocsSiteToggle projectId={project.id} docSlug={normalizedDocSlug} on={listed.docsSite === true} /></div> : null}
+                        {renderer}
+                        <DocsPrevNext docs={rail.docs} activeSlug={normalizedDocSlug} onOpen={(slug) => rail.navigate(slug)} />
+                    </div>
+                    <aside className="hidden xl:block"><div className="sticky top-4"><OnThisPage headings={readmeViewModel.headings} /></div></aside>
+                </div>
+            ) : (
             <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
                     {reportMenu}
@@ -384,6 +406,7 @@ export function WorkspaceDocViewer({
                         <div className="mb-3 flex items-center justify-end gap-1">
                             <DocEditButton projectId={project.id} docSlug={normalizedDocSlug} filename={listed?.filename ?? "README.md"} content={readmeContent} fileHref={fileHref} />
                             {listed ? <MoveToSectionMenu projectId={project.id} docSlug={normalizedDocSlug} current={docSectionOf(listed, addedWorkflows)} date={listed.date} /> : null}
+                            {siteEnabled && listed ? <DocsSiteToggle projectId={project.id} docSlug={normalizedDocSlug} on={listed.docsSite === true} /> : null}
                         </div>
                     ) : null}
                     {listed?.decisionNumber && docSectionOf(listed, addedWorkflows) === "decisions" ? <DecisionMetaLine projectId={project.id} doc={listed} canEdit={payload.canEdit} /> : null}
@@ -403,6 +426,7 @@ export function WorkspaceDocViewer({
                     visibility={payload.settings.visibilityOverride}
                 />
             </div>
+            )}
             {payload.canEdit ? rail.dialogs : null}
         </div>
     );

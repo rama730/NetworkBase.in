@@ -165,6 +165,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             visibility: true,
             status: true,
             publicTabVisibility: true,
+            workflowSettings: true,
             deletedAt: true,
             importSource: true,
             githubRepoUrl: true,
@@ -210,6 +211,13 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
 
 type DocProjectBase = Awaited<ReturnType<typeof loadDocProjectBase>>;
 
+/** Report 38.15 (A6.34): the workspace's Docs site and Snippets switches (workflow_settings.docs). */
+function docsSettingsOf(project: { workflowSettings?: unknown }) {
+    const d = ((project.workflowSettings ?? {}) as { docs?: { siteEnabled?: unknown; snippetsEnabled?: unknown } }).docs ?? {};
+    return { siteEnabled: d.siteEnabled === true, snippetsEnabled: d.snippetsEnabled === true };
+}
+const docsSiteOn = (project: { workflowSettings?: unknown }) => docsSettingsOf(project).siteEnabled;
+
 function docContext(base: DocProjectBase, actorUserId: string | null, docSlug: string) {
     const { project, membership } = base;
     const readme = base.docs.find((doc) => doc.slug === docSlug);
@@ -227,6 +235,7 @@ function docContext(base: DocProjectBase, actorUserId: string | null, docSlug: s
         hasPublishedReadme,
         roleAbilities: project.roleAbilities,
         orgRules: project.kind === "organization" || Boolean(project.parentId),
+        docsSiteOnly: docsSiteOn(project),
     });
     return { ...base, readme, settings, permission };
 }
@@ -249,6 +258,7 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
             hasPublishedReadme: true,
             roleAbilities: project.roleAbilities,
             orgRules: project.kind === "organization" || Boolean(project.parentId),
+            docsSiteOnly: docsSiteOn(project),
         });
         // No file and nothing published: only a starter draft that never had a file, and only for its editors
         // (T16 live test: the side list said 0 while a new workspace's README showed).
@@ -257,12 +267,13 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
         if (!permission.canEdit && project.kind === "organization" && readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).lifecycle === "draft") continue;
         if (!permission.canEdit && !membership && !isOwner && doc.empty && (project.kind === "organization" || project.parentId)) continue;
         if (permission.canReadPublished || permission.canEdit) {
-            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, supersedes, supersededBy, reverseReason, meetingTitle, launchTitle, period, offsiteTitle } = normalizeWorkspaceDocSettings(doc.settings);
+            const { section, kind, date, decisionNumber, decisionStatus, fromDocId, supersedes, supersededBy, reverseReason, meetingTitle, launchTitle, period, offsiteTitle, docsSite, docsOrder } = normalizeWorkspaceDocSettings(doc.settings);
             // A5.1 live check: a goals document shows "Goals · Q4 2026", not its file name.
             const title = section === "meetings" ? meetingTitle : section === "launches" ? launchTitle : section === "goals" && period ? `Goals · ${goalPeriodLabel(period)}` : section === "offsite" ? offsiteTitle : undefined;
             results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId, ...(section ? { section } : {}), ...(kind ? { kind } : {}), ...(date ? { date } : {}), ...(title ? { title } : {}),
                 ...(decisionNumber ? { decisionNumber, decisionStatus: decisionStatus ?? "decided" } : {}), ...(fromDocId ? { fromDocId } : {}),
-                ...(supersedes ? { supersedes } : {}), ...(supersededBy ? { supersededBy } : {}), ...(reverseReason ? { reverseReason } : {}) });
+                ...(supersedes ? { supersedes } : {}), ...(supersededBy ? { supersededBy } : {}), ...(reverseReason ? { reverseReason } : {}),
+                ...(docsSite ? { docsSite } : {}), ...(docsOrder != null ? { docsOrder } : {}) });
         }
     }
     return results.sort((a, b) => {
@@ -2862,5 +2873,55 @@ export async function readUpcomingOffsitesAction(projectId: string, withinDays =
     } catch (error) {
         logger.error("offsite.upcoming_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Couldn’t load off-sites." };
+    }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Report 38.15 W3–W4 (plan A6.34): the Docs site. Owners and admins switch it on (workflow_settings.docs); editors put
+ * documents on it; with it on, people outside the workspace read only the documents on it (resolveWorkspaceDocPermission).
+ * ---------------------------------------------------------------------------------------------------------------- */
+export async function readDocsSettingsAction(projectId: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const base = await loadDocProjectBase(projectId, actor);
+        const { canChangeWorkflows } = await import("@/lib/workflows/rules");
+        const access = actor ? await getWorkspaceAccessById(projectId, actor) : null;
+        return { success: true as const, ...docsSettingsOf(base.project), canManage: Boolean(access && canChangeWorkflows(access)) };
+    } catch {
+        return { success: false as const, error: "Not found" };
+    }
+}
+
+export async function setDocsSettingsAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ siteEnabled: z.boolean().optional(), snippetsEnabled: z.boolean().optional() }).parse(input);
+        const access = await getWorkspaceAccessById(projectId, userId);
+        const { canChangeWorkflows } = await import("@/lib/workflows/rules");
+        if (!access.project || access.project.kind !== "workspace" || !canChangeWorkflows(access)) return { success: false as const, error: "Only owners and admins change the Docs site." };
+        const patch = { ...(data.siteEnabled !== undefined ? { siteEnabled: data.siteEnabled } : {}), ...(data.snippetsEnabled !== undefined ? { snippetsEnabled: data.snippetsEnabled } : {}) };
+        await db.execute(sql`UPDATE workspaces SET workflow_settings = coalesce(workflow_settings, '{}'::jsonb) || jsonb_build_object('docs', coalesce(workflow_settings->'docs', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb) WHERE id = ${projectId}::uuid`);
+        const project = (await loadDocProjectBase(projectId, userId)).project;
+        revalidateProjectDoc(project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("docs.settings_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t save." };
+    }
+}
+
+/** W3: a document's ⋯ → Show on docs site (off by default). */
+export async function setDocsSiteAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: docSlugSchema, on: z.boolean(), order: z.number().int().min(0).max(10_000).optional() }).parse(input);
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit this document put it on the docs site." };
+        await writeLaunchSettings(context.readme.id, { docsSite: data.on, ...(data.order !== undefined ? { docsOrder: data.order } : {}) });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("docs.site_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t change the docs site." };
     }
 }

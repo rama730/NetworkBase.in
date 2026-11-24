@@ -10,6 +10,7 @@ import { FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-part
 import { catalogEntry, type CatalogEntry } from "@/lib/workflows/catalog";
 import { AddWorkflowDialog, RemoveWorkflowDialog } from "./AddWorkflowDialog";
 import { MeetingSettingsPanel } from "./MeetingSettingsPanel";
+import { DocsSettingsPanel } from "@/components/workspaces/doc/DocsSite";
 import { useWorkspaceWorkflows } from "./useWorkspaceWorkflows";
 import { workflowIcon } from "./workflow-icons";
 
@@ -65,6 +66,7 @@ export function WorkflowSettingsSection({ workspaceId }: { workspaceId: string }
       )}
       {/* Report 38.11 S8 (A4.16): Meetings' own settings. */}
       {workflows.added.some((w) => w.workflow === "meetings") ? <MeetingSettingsPanel workspaceId={workspaceId} /> : null}
+      <DocsSettingsPanel workspaceId={workspaceId} />
       <AddWorkflowDialog open={adding} onOpenChange={setAdding} workspaceId={workspaceId} added={workflows.added} canManage={workflows.canManage} onChanged={() => void workflows.refresh()} />
       <RemoveWorkflowDialog entry={removing} workspaceId={workspaceId} onClose={() => setRemoving(null)} onChanged={() => void workflows.refresh()} />
     </section>
