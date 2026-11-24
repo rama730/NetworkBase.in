@@ -88,8 +88,8 @@ export function FinishView({ finished, values, childOrg, projectImage, onOpen, o
                 </div>
 
                 <ul data-made className="nb-made" aria-label="What was made">
-                    {made.map((item) => (
-                        <li key={item.key} data-state={item.state}>
+                    {made.map((item, i) => (
+                        <li key={item.key} data-state={item.state} className="nb-enter-settle" style={{ ['--i' as string]: i }}>
                             <span className="nb-creating-box" aria-hidden="true">{item.state === 'done' ? <PixelTick draw /> : item.state === 'failed' ? '!' : null}</span>
                             {item.text}
                         </li>

@@ -11,6 +11,7 @@ import { POPULAR_WORKSPACE_TAGS, WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces
 import { childTitleTakenAction } from '@/app/actions/organizations';
 import { previewWorkspaceSlugAction } from '@/app/actions/workspace/slug-preview';
 import { PixelTick } from '@/components/ui/PixelTick';
+import { useLeaving } from '@/hooks/useLeaving';
 import type { SourceFill } from '../useCreateWorkspaceWizard';
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { CreateWorkspaceInput } from '@/lib/validations/workspace';
@@ -72,7 +73,7 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
 }
 
 export default function Phase2Information({ showValidationSummary = false, sourceFill = null, onUndoSourceFill }: Phase2InformationProps) {
-    const { register, setValue, watch, control, formState: { errors } } = useFormContext<CreateWorkspaceInput>();
+    const { register, setValue, getValues, watch, control, formState: { errors } } = useFormContext<CreateWorkspaceInput>();
     const isOrganization = Boolean(watch('organization'));
     // Report §34.3: an organization's words and examples follow its type.
     const orgCopy = isOrganization ? ORG_CREATION_COPY[watch('organization.org_type') ?? 'other'] : null;
@@ -141,17 +142,19 @@ export default function Phase2Information({ showValidationSummary = false, sourc
         setTagError('');
     };
 
-    const removeTag = (tag: string) => {
-        setValue('tags', tags.filter((item) => item !== tag), { shouldDirty: true, shouldValidate: true });
+    // A removed tag stays for its leave animation, then goes (v6.6 motion).
+    const [isLeaving, leave] = useLeaving();
+    const removeTag = (tag: string) => leave(tag, () => {
+        setValue('tags', (getValues('tags') || []).filter((item) => item !== tag), { shouldDirty: true, shouldValidate: true });
         setTagError('');
-    };
+    });
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
             <PhaseHead noun={orgCopy ? 'organization' : 'workspace'} step={orgCopy ? 'Details' : 'Info'} title="Name it, then explain it." line={orgCopy ? 'What people see first on its page and in search.' : 'What people see first on cards, search and the workspace header.'} />
 
             {showValidationSummary && validationErrors.length > 0 ? (
-                <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
+                <div role="alert" aria-live="assertive" className="nb-enter-reveal mt-6 bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
                     <p className="font-semibold">Check the required workspace details</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
                         {validationErrors.map((err) => (
@@ -342,7 +345,7 @@ export default function Phase2Information({ showValidationSummary = false, sourc
                     {/* One chip box (v6): chips and the input in the same field, suggestions under it. */}
                     <div className="nb-chipbox" aria-label="Selected tags">
                         {tags.map((tag) => (
-                            <span key={tag} className="nb-tag nb-enter-chip">
+                            <span key={tag} className="nb-tag nb-enter-chip" data-leaving={isLeaving(tag) || undefined}>
                                 <span className="truncate">{tag}</span>
                                 <button type="button" className="nb-chip-x" onClick={() => removeTag(tag)} aria-label={`Remove ${tag}`}>
                                     <X className="size-3" aria-hidden="true" />

@@ -17,6 +17,8 @@ import { TabMarker } from '@/components/ui/TabMarker';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { useAuth } from '@/hooks/use-auth';
 import { useRoll } from '@/hooks/useRoll';
+import { useFlip } from '@/hooks/useFlip';
+import { useLeaving } from '@/hooks/useLeaving';
 import { resolveClientSkill } from '@/lib/skills/client';
 
 const fieldLabelClass = 'mb-2 block text-[13px] font-medium leading-[1.2] text-foreground';
@@ -91,6 +93,9 @@ function Segmented<T extends string>({ label, value, options, onChange }: { labe
 /** The role's skills in one chip box (v6.2), names matched to the skill catalog, 8 at most. */
 function RoleSkills({ id, skills, suggestions, onChange }: { id: string; skills: string[]; suggestions: string[]; onChange: (next: string[]) => void }) {
     const [draft, setDraft] = useState('');
+    const [isLeaving, leave] = useLeaving();
+    const skillsRef = useRef(skills);
+    skillsRef.current = skills;
     const add = (raw: string) => {
         const name = raw.trim() ? resolveClientSkill(raw.trim()).name : '';
         setDraft('');
@@ -105,9 +110,9 @@ function RoleSkills({ id, skills, suggestions, onChange }: { id: string; skills:
             </div>
             <div className="nb-chipbox" aria-label="Skills for this role">
                 {skills.map((skill) => (
-                    <span key={skill} className="nb-tag nb-enter-chip">
+                    <span key={skill} className="nb-tag nb-enter-chip" data-leaving={isLeaving(skill) || undefined}>
                         <span className="truncate">{skill}</span>
-                        <button type="button" className="nb-chip-x" onClick={() => onChange(skills.filter((s) => s !== skill))} aria-label={`Remove ${skill}`}><X className="size-3" aria-hidden="true" /></button>
+                        <button type="button" className="nb-chip-x" onClick={() => leave(skill, () => onChange(skillsRef.current.filter((s) => s !== skill)))} aria-label={`Remove ${skill}`}><X className="size-3" aria-hidden="true" /></button>
                     </span>
                 ))}
                 {skills.length < ROLE_SKILL_LIMIT ? (
@@ -150,12 +155,17 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
     const focusGrip = useRef<number | null>(null);
     const dragFrom = useRef<number | null>(null);
     const focusOnOpen = useRef<string | null>(null);
+    const rolesRef = useRef<HTMLOListElement>(null);
+    const flip = useFlip(rolesRef);
+    // Opening or closing a role moves the rows under it: they slide (v6.6 motion).
+    const openRole = (id: string | null) => { flip(); setOpenId(id); };
     useEffect(() => {
         const pending = pendingOpen.current;
         if (pending && openRoleIds[pending.index]) {
             pendingOpen.current = null;
             const id = openRoleIds[pending.index]!;
             focusOnOpen.current = pending.focus === 'title' ? `create-project-role-${id}` : `create-project-role-description-${id}`;
+            flip();
             setOpenId(id);
         }
         if (focusGrip.current !== null) {
@@ -293,7 +303,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                         <span>You can create it without recruiting. Add a role when you know what help the work needs.</span>
                     </div>
                 ) : (
-                    <ol className="nb-roles">
+                    <ol ref={rolesRef} className="nb-roles">
                         {openRoles.map((role, index) => {
                             const roleError = roleErrors[index];
                             const roleId = openRoleIds[index] || `role-${index}`;
@@ -319,7 +329,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                             const pops = ROLE_OPTIONS.filter((option) => !openRoles.some((r, i) => i !== index && sameTitle(r.role, option)) && !sameTitle(role.role, option)).slice(0, 6);
 
                             return (
-                                <li key={roleId} id={`role-${roleId}`} data-role-row className={`nb-role${isOpen ? ' open' : ''}${roleError || dup >= 0 ? ' bad' : ''}`}
+                                <li key={roleId} id={`role-${roleId}`} data-role-row data-flip={roleId} className={`nb-role${isOpen ? ' open' : ''}${roleError || dup >= 0 ? ' bad' : ''}`}
                                     onDragOver={(event) => { if (dragFrom.current !== null) event.preventDefault(); }}
                                     onDrop={(event) => { event.preventDefault(); if (dragFrom.current !== null) reorder(dragFrom.current, index); dragFrom.current = null; }}>
                                     <div className="nb-role-row">
@@ -337,7 +347,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                                         </span>
                                         <span className="nb-role-ctl">
                                             {isOpen ? null : <Stepper value={role.count} onChange={(count) => updateRole(index, { count: Math.min(10, Math.max(1, count)) })} />}
-                                            <button type="button" className="nbs-ib" aria-expanded={isOpen} aria-label={`${isOpen ? 'Close' : 'Edit'} ${role.role.trim() || 'role'}`} onClick={() => setOpenId(isOpen ? null : roleId)}>
+                                            <button type="button" className="nbs-ib" aria-expanded={isOpen} aria-label={`${isOpen ? 'Close' : 'Edit'} ${role.role.trim() || 'role'}`} onClick={() => openRole(isOpen ? null : roleId)}>
                                                 {isOpen ? <ChevronUp aria-hidden="true" /> : <Pencil aria-hidden="true" />}
                                             </button>
                                             {isOpen ? null : (
@@ -435,7 +445,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                                                 <button type="button" className="nb-role-remove" onClick={() => { removeRole(index); setOpenId(null); }}>Remove role</button>
                                                 <Button type="button" variant="ghost" size="sm" onClick={() => { pendingOpen.current = { index: index + 1, focus: 'title' }; duplicateRole(index); }}>Duplicate</Button>
                                                 <span className="nb-role-saved">{titled ? 'saved as you type' : 'a title is required'}</span>
-                                                <Button type="button" size="sm" onClick={() => setOpenId(null)}><Check className="size-4" aria-hidden="true" />Done</Button>
+                                                <Button type="button" size="sm" onClick={() => openRole(null)}><Check className="size-4" aria-hidden="true" />Done</Button>
                                             </div>
                                         </div>
                                     ) : null}

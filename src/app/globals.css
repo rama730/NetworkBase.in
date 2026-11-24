@@ -2821,11 +2821,13 @@ html[data-dragging] [data-drop-target] { outline: 1.5px dashed var(--muted-foreg
 .nb-enter-drop { animation: nb-enter-drop 150ms var(--nb-ease) backwards; }
 .nb-enter-chip { animation: nb-enter-chip 150ms var(--nb-ease) backwards; }
 .nb-enter-reveal { animation: nb-enter-reveal 220ms var(--nb-ease) backwards; }
+@keyframes nb-leave-chip { to { opacity: 0; transform: scale(.96); } }
+.nb-tag[data-leaving] { animation: nb-leave-chip 150ms var(--nb-ease) forwards; pointer-events: none; }
 .nb-pxtick { display: inline-block; width: 12px; height: 12px; flex: none; }
 .nb-pxtick svg { display: block; width: 100%; height: 100%; }
 .nb-pxtick[data-draw="true"] rect { animation: nb-px-in 1ms steps(1, end) backwards; animation-delay: calc(var(--d) * 45ms); }
-@media (prefers-reduced-motion: reduce) { .nb-enter-settle, .nb-enter-drop, .nb-enter-chip, .nb-enter-reveal, .nb-pxtick rect { animation: none !important; } }
-html[data-reduce-motion="true"] :is(.nb-enter-settle, .nb-enter-drop, .nb-enter-chip, .nb-enter-reveal, .nb-pxtick rect) { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .nb-enter-settle, .nb-enter-drop, .nb-enter-chip, .nb-enter-reveal, .nb-pxtick rect, .nb-tag[data-leaving] { animation: none !important; } }
+html[data-reduce-motion="true"] :is(.nb-enter-settle, .nb-enter-drop, .nb-enter-chip, .nb-enter-reveal, .nb-pxtick rect, .nb-tag[data-leaving]) { animation: none !important; }
 
 /* ---------- Create workspace v6: step strip, phase head, footer keys, step slide ---------- */
 .nb-step-strip { display: flex; align-items: stretch; min-height: 56px; border-bottom: 1px solid var(--border); background: var(--card); }
