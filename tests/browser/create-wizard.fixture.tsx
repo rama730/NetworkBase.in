@@ -26,7 +26,7 @@ function App() {
     useSyncExternalStore(w.__router.subscribe, w.__router.get);
     return (
         <div style={{ height: '100vh' }}>
-            <CreateWorkspaceWizard onClose={() => w.__router.push('/closed')} onSuccess={(id: string) => w.__router.push(`/created/${id}`)} createLocations={locations as never} initialOrgId={params.get('locked') ? 'o1' : null} />
+            <CreateWorkspaceWizard onClose={() => w.__router.push('/closed')} onSuccess={(id: string) => w.__router.push(`/created/${id}`)} createLocations={locations as never} initialOrgId={params.get('locked') ? 'o1' : null} initialSource={(params.get('source') as never) ?? null} />
         </div>
     );
 }

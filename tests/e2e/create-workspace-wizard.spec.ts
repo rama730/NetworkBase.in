@@ -20,7 +20,7 @@ test.describe("Create workspace wizard", () => {
     await expect(page.getByTestId("create-project-phase1-source-grid")).toBeVisible();
     await expect(page.getByText("Create New Project")).toHaveCount(0);
 
-    await page.getByTestId("create-project-source-card-github").click();
+    await page.getByRole("tab", { name: "Import from GitHub" }).click();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
     await expect(page.getByTestId("create-project-phase1-source-grid")).toBeVisible();
     await expect(page.getByTestId("create-project-github-manual-url")).toBeVisible();
@@ -31,12 +31,12 @@ test.describe("Create workspace wizard", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Create workspace" })).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
-    await page.getByTestId("create-project-source-card-upload").click();
+    await page.getByRole("tab", { name: "Upload files" }).click();
     await expect(page.getByTestId("create-project-source-view-upload")).toBeVisible();
     await expect(page.getByTestId("create-project-upload-dropzone")).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toHaveCount(0);
 
-    await page.getByTestId("create-project-source-card-scratch").click();
+    await page.getByRole("tab", { name: "Start from scratch" }).click();
     await expect(page.getByTestId("create-project-source-view-scratch")).toBeVisible();
     await expect(page.getByTestId("create-project-phase1-source-grid")).toBeVisible();
 
@@ -52,7 +52,7 @@ test.describe("Create workspace wizard", () => {
 
     await page.getByRole("link", { name: /new workspace/i }).click();
     await expect(page).toHaveURL(/\/projects\/new$/);
-    await page.getByTestId("create-project-source-card-github").click();
+    await page.getByRole("tab", { name: "Import from GitHub" }).click();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
     await page.getByTestId("create-project-connect-github").click();

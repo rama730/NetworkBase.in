@@ -2,12 +2,12 @@
 import { TabMarker } from "@/components/ui/TabMarker";
 import { PixelBeat } from "@/components/ui/PixelBeat";
 
-import { useCreateLocation, WherePicker } from '@/components/organizations/CreateLocation';
+import { useCreateLocation, WhereNotice, WherePicker } from '@/components/organizations/CreateLocation';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import dynamic from 'next/dynamic';
 import { useFormContext } from 'react-hook-form';
-import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, RefreshCcw } from 'lucide-react';
+import { Building2, Check, ChevronDown, ChevronRight, CircleHelp, Code2, File, Folder, FolderUp, GitBranch, Github, RefreshCcw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast, feedbackError } from "@/lib/feedback";
 import type { CreateWorkspaceInput } from '@/lib/validations/workspace';
@@ -28,7 +28,12 @@ import { SkillList } from '@/components/skills/SkillList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PhaseHead } from '../PhaseHead';
-import { Phase1SourceMethodGroup, type WorkspaceSourceType, type StartingPoint } from '@/components/workspaces/create-wizard/phase1/Phase1SourceMethodGroup';
+import type { WorkspaceSourceType, StartingPoint } from '@/components/workspaces/create-wizard/phase1/source-types';
+import { StartPanel, type StartSummary } from '@/components/workspaces/create-wizard/phase1/StartPanel';
+import { UnderlineTabs } from '@/components/ui/UnderlineTabs';
+import { listImportedRepoUrlsAction, type ImportedRepo } from '@/app/actions/workspace/imported-repos';
+import { ORG_PHASE_LABELS, WIZARD_PHASES } from '@/constants/workspace-wizard';
+import { orgTypeLabel } from '@/lib/organizations/config';
 import type { OrgType } from '@/lib/organizations/config';
 import { OrgTypePicker } from '@/components/organizations/OrgWizardFields';
 import { cn } from '@/lib/utils';
@@ -109,6 +114,9 @@ export default function Phase1SourceSelection({
     const uploadAnalysisControllerRef = useRef<AbortController | null>(null);
     const uploadAnalysisSequenceRef = useRef(0);
 
+    // Create wizard v6: Start opens on the way in you used last (never over a hand-off or a resumed GitHub sign-in).
+    const [fromLast, setFromLast] = useState(false);
+    const [importedRepos, setImportedRepos] = useState<ImportedRepo[]>([]);
     const [activeSourceView, setActiveSourceView] = useState<SourceType>(() => {
         if (initialSource) {
             return initialSource;
@@ -190,6 +198,14 @@ export default function Phase1SourceSelection({
             setGithubEntryMode('paste');
         }
     }, [githubEntryMode, hasGithubRepoAccess]);
+    // Create wizard v6: connected, with nothing pasted or picked yet, the GitHub tab opens on your repositories.
+    const entryModeChosenRef = useRef(false);
+    useEffect(() => {
+        if (!hasGithubRepoAccess || entryModeChosenRef.current || (getValues('import_source.repoUrl') || '').trim()) return;
+        entryModeChosenRef.current = true;
+        setGithubEntryMode('browse');
+        setRepoPickerOpen(true);
+    }, [hasGithubRepoAccess, getValues]);
 
     const normalizeGitHubRepoUrl = useCallback((raw: string) => {
         return normalizeGithubRepoUrl(raw) ?? (raw || '').trim();
@@ -423,6 +439,18 @@ export default function Phase1SourceSelection({
     const [switchAsk, setSwitchAsk] = useState<StartingPoint | null>(null);
     // Opened from "Create an organization" (report §45.8): start there once; nothing is picked for them after that.
     const startedAsOrg = useRef(false);
+    const lastChecked = useRef(false);
+    useEffect(() => {
+        if (lastChecked.current) return;
+        lastChecked.current = true;
+        if (initialSource || startAsOrganization || isResumingGithubOAuth || getValues('organization') || (getValues('import_source.type') ?? 'scratch') !== 'scratch') return;
+        let last: string | null = null;
+        try { last = localStorage.getItem('nb-create-last'); } catch { /* storage off */ }
+        if (last === 'github' || last === 'upload' || (last === 'organization' && !location.org)) {
+            handleSelectStartingPoint(last as StartingPoint);
+            setFromLast(true);
+        }
+    });
     useEffect(() => {
         if (!startAsOrganization || startedAsOrg.current || getValues('organization')) return;
         startedAsOrg.current = true;
@@ -979,28 +1007,12 @@ export default function Phase1SourceSelection({
     };
 
     const renderScratchView = () => (
-        <section
-            className="border-t border-border pt-6"
-            data-testid="create-project-source-view-scratch"
-            aria-labelledby="scratch-source-heading"
-        >
-            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(13rem,0.42fr)] md:items-start">
-                <div>
-                    <p className="nb-label text-primary">Start empty</p>
-                    <h3 id="scratch-source-heading" className="nb-section-title mt-2 text-foreground">
-                        Set up the workspace in the next steps
-                    </h3>
-                    <p className="nb-body mt-2 max-w-[62ch] text-muted-foreground">
-                        Start with an empty workspace, then add its details, team, settings, and review it before publishing.
-                    </p>
-                </div>
-                <dl className="border-l border-border pl-5 max-md:border-l-0 max-md:border-t max-md:pl-0 max-md:pt-4">
-                    <dt className="nb-label">Workspace source</dt>
-                    <dd className="nb-card-title mt-2 text-foreground">Start empty</dd>
-                    <dd className="nb-compact mt-1 text-muted-foreground">
-                        No repository or folder attached.
-                    </dd>
-                </dl>
+        <section className="nbs-frame" data-testid="create-project-source-view-scratch" aria-label="Comes with">
+            <p className="nbs-glabel pt-[18px]">Comes with</p>
+            <div className="nbs-rows">
+                <div className="nbs-row"><div><div className="t">Tabs</div><div className="d">Add workflow tabs like Roadmap or Bugs in Settings.</div></div><div className="ctl">{['Overview', 'Documents', 'Updates', 'Files'].map((tab) => <span key={tab} className="nb-tag">{tab}</span>)}</div></div>
+                <div className="nbs-row"><div><div className="t">Files</div><div className="d">Empty. Add files any time from the Files tab, or connect GitHub there.</div></div><div className="ctl"><span className="nbs-tag">Empty</span></div></div>
+                <div className="nbs-row"><div><div className="t">Starter doc</div><div className="d">Drafted from what you write in Info.</div></div><div className="ctl"><span className="nbs-tag">Template</span></div></div>
             </div>
         </section>
     );
@@ -1058,9 +1070,7 @@ export default function Phase1SourceSelection({
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <h3 id="github-import-heading" className="nb-section-title text-foreground">
-                                        Import from GitHub
-                                    </h3>
+                                    <span id="github-import-heading" className="nb-ui-label text-foreground">GitHub</span>
                                     {isLoadingAuth ? (
                                         <span className="nb-status" data-status="archived">
                                             <PixelBeat />
@@ -1087,9 +1097,6 @@ export default function Phase1SourceSelection({
                                         </span>
                                     )}
                                 </div>
-                                <p className="nb-body mt-2 max-w-[68ch] text-muted-foreground">
-                                    Browse a connected repository or paste its GitHub URL. Review the branch and included files before continuing.
-                                </p>
                                 {isResumingGithubOAuth && (isLoadingAuth || isConnectingGithub) ? (
                                     <p className="nb-compact mt-3 flex items-center gap-2 text-muted-foreground" role="status">
                                         <PixelBeat />
@@ -1124,6 +1131,7 @@ export default function Phase1SourceSelection({
                                             variant="ghost"
                                             onClick={() => {
                                                 setShowManualGithubEntry(true);
+                                                entryModeChosenRef.current = true;
                                                 setGithubEntryMode('paste');
                                                 setIsEditingResolvedRepo(true);
                                             }}
@@ -1140,6 +1148,7 @@ export default function Phase1SourceSelection({
                                         <button
                                             type="button"
                                             onClick={() => {
+                                                entryModeChosenRef.current = true;
                                                 setGithubEntryMode('paste');
                                                 setIsEditingResolvedRepo(true);
                                             }}
@@ -1160,6 +1169,7 @@ export default function Phase1SourceSelection({
                                         <button
                                             type="button"
                                             onClick={() => {
+                                                entryModeChosenRef.current = true;
                                                 setGithubEntryMode('browse');
                                                 setIsEditingResolvedRepo(true);
                                                 setRepoPickerOpen(true);
@@ -1259,8 +1269,22 @@ export default function Phase1SourceSelection({
                                                 ) : null}
                                                 {repoItems.map((item) => {
                                                     const isSelected = normalizeGitHubRepoUrl(repoUrl || '') === item.htmlUrl;
+                                                    const existing = importedRepos.find((repo) => repo.url.toLowerCase() === item.htmlUrl.toLowerCase().replace(/\/$/, ''));
+                                                    if (existing) return (
+                                                        <div key={`${item.id}-${item.fullName}`} data-repo-row={item.fullName} className="flex min-h-14 w-full items-center justify-between gap-4 border-b border-border px-3 py-3 last:border-b-0">
+                                                            <span className="min-w-0">
+                                                                <span className="nb-compact block truncate font-medium text-foreground">{item.fullName}</span>
+                                                                <span className="nb-meta mt-1 block text-muted-foreground">{item.visibility}{item.defaultBranch ? ` · ${item.defaultBranch}` : ''}</span>
+                                                            </span>
+                                                            <span className="flex shrink-0 items-center gap-2">
+                                                                <span className="nbs-tag">Already a workspace</span>
+                                                                <Link href={`/workspaces/${existing.slug ?? ''}`} className="nb-link nb-compact hover:underline">Open {existing.title}</Link>
+                                                            </span>
+                                                        </div>
+                                                    );
                                                     return (
                                                         <button
+                                                            data-repo-row={item.fullName}
                                                             key={`${item.id}-${item.fullName}`}
                                                             type="button"
                                                             role="option"
@@ -1333,7 +1357,8 @@ export default function Phase1SourceSelection({
                                                     setGithubAnalysisResult(null);
                                                     setShowManualGithubEntry(true);
                                                     setIsEditingResolvedRepo(true);
-                                                    setGithubEntryMode('paste');
+                                                    entryModeChosenRef.current = true;
+                                                setGithubEntryMode('paste');
                                                 }}
                                             />
                                         </div>
@@ -1498,20 +1523,7 @@ export default function Phase1SourceSelection({
 
     const renderUploadView = () => (
         <div className="space-y-6" data-testid="create-project-source-view-upload">
-            <section className="space-y-6" aria-labelledby="upload-source-heading">
-                <div className="flex items-start gap-4">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-secondary text-primary">
-                        <FolderUp className="size-5" />
-                    </div>
-                    <div>
-                        <h3 id="upload-source-heading" className="nb-section-title text-foreground">
-                            Upload a folder
-                        </h3>
-                        <p className="nb-body mt-2 max-w-[68ch] text-muted-foreground">
-                            Choose a local folder, check its contents, and review the detected stack before continuing.
-                        </p>
-                    </div>
-                </div>
+            <section className="space-y-6" aria-label="Folder on this device">
 
                 <input
                     ref={fileInputRef}
@@ -1526,6 +1538,8 @@ export default function Phase1SourceSelection({
                 <div className="mt-6 space-y-5">
                     <div
                         data-testid="create-project-upload-dropzone"
+                        data-drop-zone
+                        data-over={isDragOverUpload ? 'true' : undefined}
                         onDragOver={handleUploadDragOver}
                         onDragEnter={handleUploadDragOver}
                         onDragLeave={handleUploadDragLeave}
@@ -1554,10 +1568,10 @@ export default function Phase1SourceSelection({
                         ) : (
                             <div className="space-y-4 text-center">
                                 <div className="nb-card-title text-foreground">
-                                    {isDragOverUpload ? 'Drop folder to attach it' : 'Select a folder'}
+                                    {isDragOverUpload ? 'Drop to read this folder' : 'Drop a folder here'}
                                 </div>
                                 <div className="nb-compact text-muted-foreground">
-                                    Drag and drop a folder here, or browse from your device. Files can be up to {Math.floor(DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES / 2 ** 20)} MB each.
+                                    or browse your device. Each file up to {Math.floor(DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES / 2 ** 20)} MB; .git and node_modules are skipped.
                                 </div>
                                 <Button type="button" onClick={handleBrowseClick} data-testid="create-project-upload-browse">
                                     Browse folder
@@ -1608,30 +1622,66 @@ export default function Phase1SourceSelection({
         </div>
     );
 
-    const sourcePanel = organization
-        ? <OrgTypePicker />
-        : activeSourceView === 'github'
-        ? renderGithubView()
-        : activeSourceView === 'upload'
-            ? renderUploadView()
-            : renderScratchView();
+    // Imported-already repositories, read once the GitHub tab opens.
+    useEffect(() => {
+        if (activeSourceView !== 'github' || organization) return;
+        let live = true;
+        void listImportedRepoUrlsAction().then((result) => { if (live && result?.success) setImportedRepos(Array.isArray(result.repos) ? result.repos : []); }).catch(() => undefined);
+        return () => { live = false; };
+    }, [activeSourceView, organization]);
+
+    const tab: StartingPoint = organization ? 'organization' : selectedSource;
+    const chooseTab = (next: StartingPoint) => {
+        try { localStorage.setItem('nb-create-last', next); } catch { /* storage off */ }
+        setFromLast(false);
+        handleSelectStartingPoint(next);
+    };
+    const tabs = [
+        { key: 'scratch' as const, label: 'Start from scratch', icon: Code2 },
+        { key: 'github' as const, label: 'Import from GitHub', icon: Github },
+        { key: 'upload' as const, label: 'Upload files', icon: FolderUp },
+        // Orgs cannot nest: no Organization inside an org (report §14.3).
+        ...(!location.org || organization ? [{ key: 'organization' as const, label: 'Create organization', icon: Building2 }] : []),
+    ];
+    const normalizedRepo = normalizeGitHubRepoUrl(repoUrl || '').replace('https://github.com/', '');
+    const githubReady = preflightState.status === 'ok' && Boolean(normalizedRepo);
+    const next = WIZARD_PHASES.slice(1).map((step) => (organization ? ORG_PHASE_LABELS[step.id] : step.label));
+    const where = location.org;
+    const summary: StartSummary = {
+        sourceLabel: organization ? 'Organization' : 'Workspace source',
+        ...(organization
+            ? { source: 'New organization', sourceLine: organization.org_type ? (organization.org_type === 'other' ? organization.type_label?.trim() || 'Other' : orgTypeLabel(organization.org_type) ?? 'Organization') : 'No kind picked.', status: organization.org_type && (organization.org_type !== 'other' || organization.type_label?.trim()) ? { tone: 'ok' as const, label: 'Ready' } : { tone: '' as const, label: 'Pick one' } }
+            : tab === 'github'
+                ? { source: 'GitHub repository', sourceLine: githubReady ? `${normalizedRepo}${branch ? ` · ${branch}` : ''}` : 'None picked yet.', status: githubReady ? { tone: 'ok' as const, label: 'Ready' } : { tone: '' as const, label: 'Pick one' } }
+                : tab === 'upload'
+                    ? { source: 'Folder on this device', sourceLine: uploadManifest ? `${uploadManifest.folderName}/ · ${uploadManifest.totalFiles} files` : 'No folder chosen.', status: !uploadManifest ? { tone: '' as const, label: 'Choose one' } : uploadManifest.isValid ? { tone: 'ok' as const, label: 'Ready' } : { tone: 'warn' as const, label: `${uploadManifest.blockedCount} blocked` } }
+                    : { source: 'Start from scratch', sourceLine: 'No repository or folder attached.', status: { tone: 'ok' as const, label: 'Ready' } }),
+        second: organization
+            ? { label: 'Web address', value: 'Set in Details', line: 'The link people use to find and join it.' }
+            : { label: 'Lives in', value: where?.title ?? 'Personal', line: where ? 'Starts members only, the most open it allows.' : 'Starts public. Change it in Settings.' },
+        next,
+    };
+    const panel = organization
+        ? { eyebrow: 'Create organization', title: 'What kind of organization?', line: 'It sets the role names and defaults. Everything can change later in Settings.', body: <OrgTypePicker /> }
+        : tab === 'github'
+            ? { eyebrow: 'Import from GitHub', title: githubReady ? 'Check what comes in' : 'Pick a repository', line: 'Its files come in when you press Create. Nothing is copied before that.', body: renderGithubView() }
+            : tab === 'upload'
+                ? { eyebrow: 'Upload files', title: uploadManifest ? 'Check the folder' : 'Choose a folder on this device', line: 'It’s read here first. Nothing uploads until you press Create.', body: renderUploadView() }
+                : { eyebrow: 'Start from scratch', title: 'Set up the workspace in the next steps', line: 'Add its details, team and settings, then review it before you create it.', body: renderScratchView() };
 
     return (
-        <div className="min-w-0 w-full space-y-8 pb-6">
-            <PhaseHead noun={organization ? 'organization' : 'workspace'} step="Start" title="What are you starting from?" />
-            <WherePicker />
-            <Phase1SourceMethodGroup
-                value={organization ? 'organization' : selectedSource}
-                onChange={(type) => handleSelectStartingPoint(type)}
-                // Orgs cannot nest: no Organization card inside an org (report §14.3).
-                showOrganization={!location.org || Boolean(organization)}
-            />
-            <section
-                id={`create-project-source-panel-${activeSourceView}`}
-                aria-label={`${activeSourceView} workspace source settings`}
-            >
-                {sourcePanel}
-            </section>
+        <div className="nb-start min-w-0 w-full pb-6">
+            <div className="nb-start-band">
+                <PhaseHead noun={organization ? 'organization' : 'workspace'} step="Start" title="What are you starting from?" />
+            </div>
+            <div className="nb-start-tabs">
+                <UnderlineTabs variant="workspace" tabs={tabs} value={tab} onChange={chooseTab} label="Ways to start" idPrefix="create-start" trailing={organization ? null : <WherePicker />} />
+            </div>
+            {fromLast ? <p className="nb-meta nb-start-last">opened on your last choice</p> : null}
+            <WhereNotice />
+            <StartPanel panelKey={tab} eyebrow={panel.eyebrow} title={panel.title} line={panel.line} summary={summary}>
+                <div id={`create-project-source-panel-${activeSourceView}`}>{panel.body}</div>
+            </StartPanel>
             <ConfirmDialog open={Boolean(switchAsk)} onOpenChange={(open) => { if (!open) setSwitchAsk(null); }} title="Switch to a workspace?"
                 description="Organization details like the handle and invites will be removed." confirmLabel="Switch"
                 onConfirm={() => { if (switchAsk) handleSelectStartingPoint(switchAsk, true); setSwitchAsk(null); }} />

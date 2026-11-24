@@ -25,31 +25,28 @@ test("folder preflight reports files, bytes, warnings, duplicates, and oversized
   assert.equal(manifest.isValid, false);
 });
 
-test("phase 1 keeps one named radio source selector and a flat accessible repository tree", async () => {
-  const [selector, phase, githubDetails, uploadManifest] = await Promise.all([
-    readFile("src/components/workspaces/create-wizard/phase1/Phase1SourceMethodGroup.tsx", "utf8"),
+test("phase 1 is the workspace tab row with one panel per way in, and a flat accessible repository tree", async () => {
+  const [phase, githubDetails, uploadManifest, panel] = await Promise.all([
     readFile("src/components/workspaces/create-wizard/phases/Phase1SourceSelection.tsx", "utf8"),
     readFile("src/components/workspaces/create-wizard/phase1/GithubImportDetails.tsx", "utf8"),
     readFile("src/components/workspaces/create-wizard/phase1/UploadManifestPreview.tsx", "utf8"),
+    readFile("src/components/workspaces/create-wizard/phase1/StartPanel.tsx", "utf8"),
   ]);
 
-  assert.match(selector, /type="radio"/);
-  assert.match(selector, /name="create-project-source"/);
-  assert.match(selector, /How do you want to start\?/);
-  assert.match(selector, /border-primary bg-secondary/);
-  // Three cards in a row; four when the Organization card shows.
-  assert.match(selector, /md:grid-cols-2", showOrganization \? "xl:grid-cols-4" : "lg:grid-cols-3"/);
-  // Tiles size to their content (compact rows on phones), no fixed minimum height.
-  assert.doesNotMatch(selector, /min-h-44/);
-  assert.match(selector, /p-4 text-left md:p-6/);
-  assert.doesNotMatch(selector, /size-2 rounded-full bg-primary/);
-  assert.doesNotMatch(selector, /rounded-full border/);
+  // v6: the four ways in are the workspace page's tab row (buttons, not cards), with Lives in at its right end.
+  assert.match(phase, /<UnderlineTabs variant="workspace" tabs=\{tabs\} value=\{tab\} onChange=\{chooseTab\} label="Ways to start"/);
+  assert.match(phase, /trailing=\{organization \? null : <WherePicker \/>\}/);
+  for (const label of ["Start from scratch", "Import from GitHub", "Upload files", "Create organization"]) assert.match(phase, new RegExp(`label: '${label}'`));
+  // One panel grammar for every way in: eyebrow, heading, one line, body; the same summary on the right.
+  assert.match(panel, /data-start-summary/);
+  assert.match(panel, /<p className="nb-start-k">Next<\/p>/);
+  assert.doesNotMatch(phase, /Phase1SourceMethodGroup|name="create-project-source"/);
   assert.match(phase, /role="treeitem"/);
   assert.match(phase, /aria-level=/);
   assert.match(phase, /aria-expanded=/);
   assert.doesNotMatch(phase, /📁|📄/);
   assert.doesNotMatch(phase, /create-project-back-to-source-grid/);
-  assert.match(phase, /Start empty/);
+  assert.match(phase, /Comes with/);
   assert.match(phase, /Set up the workspace in the next steps/);
   assert.match(phase, /No repository or folder attached\./);
   assert.match(phase, /<GithubImportDetails/);
