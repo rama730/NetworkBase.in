@@ -9,6 +9,7 @@ import { readOrgMembersAction } from "@/app/actions/org-members";
 import { messageUserInWindow } from "@/components/messages/message-user";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { meetsText } from "@/components/organizations/ClassHomeParts";
+import { AttendanceView } from "@/components/organizations/Attendance";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -30,17 +31,17 @@ const useSections = (orgId: string) => useQuery({ queryKey: key(orgId), queryFn:
 
 /** A class's Members tab: Roster (today's) or Sections. */
 export function ClassMembers({ orgId, children }: { orgId: string; children: ReactNode }) {
-  const [view, setView] = useState<"roster" | "sections">("roster");
+  const [view, setView] = useState<"roster" | "sections" | "attendance">("roster");
   return (
     <div>
       <div role="group" aria-label="Members view" className="mb-3 inline-flex rounded-md border border-border p-0.5 text-[12px]" data-testid="class-members-switch">
-        {(["roster", "sections"] as const).map((v) => (
+        {(["roster", "sections", "attendance"] as const).map((v) => (
           <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
-            {v === "roster" ? "Roster" : "Sections"}
+            {v === "roster" ? "Roster" : v === "sections" ? "Sections" : "Attendance"}
           </button>
         ))}
       </div>
-      {view === "sections" ? <SectionsView orgId={orgId} /> : children}
+      {view === "sections" ? <SectionsView orgId={orgId} /> : view === "attendance" ? <AttendanceView orgId={orgId} /> : children}
     </div>
   );
 }

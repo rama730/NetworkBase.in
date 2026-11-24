@@ -7637,6 +7637,12 @@ STUDENT · class Overview rail
 10. Excused counts as neither present nor absent.
 
 
+**B1.4 build calls (2026-11-24):**
+- **Split:** B1.4a builds records (0126), Members → Attendance (grid with letters and words, % and Below minimum, a legend), Take attendance (opens unmarked, Mark all present, a live count, absence notes shown), the student's line on Overview, Settings → Attendance and Export register. **B1.4b** builds check-in codes and I'm here, students' absence notes, below-minimum notices, the school's minimum pushed down with its counts, the cancelled-session prompt and the section filter. **[call]**
+- The minimum is a class setting until B1.4b pushes the school's down (locked "Set by"). Only students (members) are on the register. Records count from the student's join day; cancelled sessions never count. **[call]**
+- After 7 days only the Teacher changes a record; every change is kept in the record's history and logged. **[call]**
+- Attendance and section membership are in the account export. **[call]**
+
 ### 30.8 W7 · Marks and rubric (agreed 2026-11-17)
 **References:**
 

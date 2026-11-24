@@ -8,6 +8,9 @@ import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { toAccountExportMessage } from "@/lib/account/export-contract";
 import {
+  attendanceRecords,
+  classSectionMembers,
+  classSections,
   connections,
   legalAcceptances,
   profileContributionSkills,
@@ -230,7 +233,14 @@ async function* streamAccountExport(input: {
     membershipCursor = page.at(-1)!.id;
     if (page.length < EXPORT_PAGE_SIZE) break;
   }
-  yield "],\"assignedTasks\":";
+  // B1.3/B1.4 (report 30.9 and 30.7 layer 16): the sections you're in and your own attendance records.
+  yield "],\"classSections\":";
+  yield json(await db.select({ projectId: classSectionMembers.projectId, section: classSections.name, kind: classSections.kind, role: classSectionMembers.role })
+    .from(classSectionMembers).innerJoin(classSections, eq(classSections.id, classSectionMembers.sectionId)).where(eq(classSectionMembers.userId, userId)).limit(5000));
+  yield ",\"attendance\":";
+  yield json(await db.select({ projectId: attendanceRecords.projectId, session: attendanceRecords.sessionKey, status: attendanceRecords.status, note: attendanceRecords.note, markedAt: attendanceRecords.markedAt })
+    .from(attendanceRecords).where(eq(attendanceRecords.userId, userId)).limit(20000));
+  yield ",\"assignedTasks\":";
 
   yield "[";
   written = 0;

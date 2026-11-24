@@ -11,6 +11,7 @@ import { OrgSchoolCard } from "@/components/organizations/OrgSchoolCard";
 import { ClassDetailsSettings } from "@/components/organizations/ClassHomeParts";
 import { TermPlanSettings } from "@/components/organizations/TermPlan";
 import { SectionSettingsCard } from "@/components/organizations/Sections";
+import { AttendanceSettingsCard } from "@/components/organizations/Attendance";
 import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
 import { OrgStorageSection } from "@/components/organizations/OrgStorageSection";
 import { OrgModerationSection } from "@/components/organizations/OrgModerationSection";
@@ -1450,7 +1451,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "child-org") && project ? <ChildOrgSection project={project} isLead={isProjectOwner} canManage={canManageSettings} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} />}
-                {organization && sections.some((s) => s.id === "org-profile") && !organization.isSchool && typeProfile(organization.type).schools ? <><ClassDetailsSettings orgId={projectId} /><TermPlanSettings orgId={projectId} /><SectionSettingsCard orgId={projectId} /></> : null}
+                {organization && sections.some((s) => s.id === "org-profile") && !organization.isSchool && typeProfile(organization.type).schools ? <><ClassDetailsSettings orgId={projectId} /><TermPlanSettings orgId={projectId} /><SectionSettingsCard orgId={projectId} /><AttendanceSettingsCard orgId={projectId} /></> : null}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
