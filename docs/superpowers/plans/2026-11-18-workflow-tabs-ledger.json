@@ -898,9 +898,9 @@
       "text": "A6.34 Docs site view — Build: setDocsSiteAction, searchDocsAction (⌘K). Journeys: D6 W3, W4 (public shows only switched-on docs). A6.35 Snippets — Journeys: D6 ",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/docs-site.test.ts; tests/unit/docs-site.test.ts; tests/browser/docs-site.spec.ts",
+      "evidence": "Live 2026-11-24 (07914a1eb): Settings → Documents → Docs site on in wt-test-a2-3; Show on docs site on two docs; three columns, Next, On this page, Move up saved order 0, ⌘K search, checked in Chrome. Live fixes d715e707d (view kept across documents, On this page scrolls) ship with A6.35. Full-text search deferred (report 38.15 call 8)."
     },
     {
       "key": "A6.35",
@@ -7548,9 +7548,9 @@
       "text": "Start from a template",
       "kind": "journey",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/doc-decisions.spec.ts; tests/unit/doc-templates.test.ts",
+      "evidence": "Live 2026-11-24 with A6.1–A6.33: Tech spec – WT Sign-in made from Add document in Chrome."
     },
     {
       "key": "38.15.W2",
@@ -7568,9 +7568,9 @@
       "text": "Docs site",
       "kind": "journey",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/docs-site.spec.ts; tests/db/docs-site.test.ts",
+      "evidence": "Live 2026-11-24 in Chrome on wt-test-a2-3 (see A6.34)."
     },
     {
       "key": "38.15.W4",
@@ -7578,9 +7578,9 @@
       "text": "Public Docs site",
       "kind": "journey",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/docs-site.test.ts",
+      "evidence": "Outsider rule proven by the DB test (lists, reads, links; signed-out too). Not shown live: the test workspace is private and making it public lists it on Discover. Revisit with a public test workspace if the user wants it. revisit 2026-12-01"
     },
     {
       "key": "38.15.W5",
@@ -7648,9 +7648,9 @@
       "text": "The Docs site and Snippets are off by default; public Docs site shows only documents switched on. [call]",
       "kind": "call",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/docs-site.test.ts; tests/browser/docs-site.spec.ts",
+      "evidence": "Docs site and Snippets settings off by default; outsiders read only docs on the site (A6.34)."
     },
     {
       "key": "38.16.call1",
@@ -8461,6 +8461,26 @@
       "status": "live",
       "test": "tests/unit/doc-templates.test.ts; tests/browser/doc-decisions.spec.ts",
       "evidence": "Live 2026-11-24 (ebf1a5dae)."
+    },
+    {
+      "key": "38.15.call8",
+      "section": "38.15",
+      "text": "A6.34 Docs site (2026-11-24): Settings → Workflows → Documents → Docs site (owners and admins, off by default) adds a Pages · Docs site switch above Documents f",
+      "kind": "call",
+      "milestone": "A6",
+      "status": "live",
+      "test": "tests/db/docs-site.test.ts; tests/browser/docs-site.spec.ts",
+      "evidence": "Live 2026-11-24 (07914a1eb), checked in Chrome."
+    },
+    {
+      "key": "38.15.call9",
+      "section": "38.15",
+      "text": "A6.35 Snippets and templates from the terminal (2026-11-24): Settings → Workflows → Documents → Snippets (off by default) adds a Snippets view to the Pages · Do",
+      "kind": "call",
+      "milestone": "A6",
+      "status": "todo",
+      "test": "",
+      "evidence": ""
     }
   ]
 }
