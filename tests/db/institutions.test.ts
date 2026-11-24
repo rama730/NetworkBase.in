@@ -90,7 +90,7 @@ test("privacy call: the institution sees counts and states only, never read of t
   const list = await inst.readInstitutionClassesAction(t.school);
   assert.ok(list.success && list.isAdmin);
   assert.deepEqual(list.classes.map((c) => [c.id, c.members, c.openAssignments, c.toReview]), [[t.klass, 2, 1, 1]]);
-  assert.deepEqual(Object.keys(list.classes[0]!).sort(), ["attendanceAvg", "behindPlan", "belowMinimum", "counted", "department", "id", "lastActivity", "members", "openAssignments", "slug", "teacher", "termEnd", "termStart", "title", "toReview"]);
+  assert.deepEqual(Object.keys(list.classes[0]!).sort(), ["attendanceAvg", "behindPlan", "belowMinimum", "counted", "department", "id", "lastActivity", "marked", "members", "notMarked", "openAssignments", "slug", "teacher", "termEnd", "termStart", "title", "toReview"]);
   const classAccess = await access.getWorkspaceAccessById(t.klass, t.principal);
   const teamAccess = await access.getWorkspaceAccessById(t.team, t.principal);
   assert.deepEqual([classAccess.canRead, classAccess.isInheritedAdmin, teamAccess.canRead, teamAccess.isInheritedAdmin], [false, false, false, false]);
