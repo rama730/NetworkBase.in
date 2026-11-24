@@ -200,7 +200,7 @@ test("B1.6d: the school's exam weeks reach its classes; its Exams view lists exa
   const view = await inst.readSchoolExamsAction(school);
   assert.ok(view.success);
   assert.deepEqual(view.exams.map((e) => [e.title, e.room, e.students, e.clashes]), [["Midterm", "LH-2", 1, 0]]);
-  assert.equal(JSON.stringify(view).includes("44"), false, "no marks reach the school");
+  assert.equal(/"(total|outOf|mark|marks|levels)"/.test(JSON.stringify(view)), false, "no marks reach the school");
   viewerId = t.a;
   assert.equal((await inst.readSchoolExamsAction(school)).success, false, "a member of the school doesn't see the Exams view");
   viewerId = t.teacher;
