@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import type { OrgType } from "@/lib/organizations/config";
-import { readViewerOrgRole } from "@/lib/organizations/detail";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { typeProfile } from "@/lib/organizations/type-profile";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -19,6 +19,13 @@ type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You can’t do that here." };
 const admin = (role: string | null) => role === "owner" || role === "admin";
 const schools = (type: string | null) => typeProfile(type as OrgType | null).schools;
+
+/** The viewer's role there, only when they're in it and may read (or write): suspended, archived, deleting and completed parts can't change anything. */
+async function roleIn(orgId: string, userId: string, need: "read" | "write") {
+  const a = await getWorkspaceAccessById(orgId, userId);
+  if (!(a.isOwner || a.isMember) || (need === "write" ? !a.canWrite : !a.canRead)) return null;
+  return a.isOwner ? "owner" : a.memberRole;
+}
 
 async function me() {
   const { userId } = await getViewerAuthContext();
@@ -51,14 +58,16 @@ export async function joinInstitutionAction(classId: string, institutionId: stri
   const userId = await me();
   const [c, inst] = await Promise.all([org(classId), org(institutionId)]);
   if (!userId || !c || !inst) return DENIED;
-  if (!admin(await readViewerOrgRole(classId, userId))) return DENIED;
+  if (!admin(await roleIn(classId, userId, "write"))) return DENIED;
   if (inst.orgLevel !== "institution") return { success: false, error: "That organization isn’t a school." };
   if (!schools(c.orgType) || c.orgLevel) return { success: false, error: "Only an Education class joins a school." };
   if (c.institutionId) return { success: false, error: "This class is already part of a school. Leave it first." };
-  const role = await readViewerOrgRole(institutionId, userId);
+  const role = await roleIn(institutionId, userId, "write");
   if (!role || role === "viewer") return { success: false, error: "Join that school first, then ask to add this class." };
   if (admin(role)) {
-    await db.update(workspaces).set({ institutionId, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest'` }).where(eq(workspaces.id, classId));
+    const done = await db.update(workspaces).set({ institutionId, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest'` })
+      .where(and(eq(workspaces.id, classId), isNull(workspaces.institutionId))).returning({ id: workspaces.id });
+    if (!done.length) return { success: false, error: "This class is already part of a school. Leave it first." };
     return { success: true, outcome: "joined" };
   }
   await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ institutionRequest: { institutionId, by: userId, at: new Date().toISOString() } })}::jsonb` })
@@ -75,10 +84,14 @@ const requestOf = (o: { orgSettings: unknown }) => (o.orgSettings as { instituti
 export async function decideClassRequestAction(institutionId: string, classId: string, approve: boolean): Promise<{ success: true } | Failure> {
   const userId = await me();
   const [c, inst] = await Promise.all([org(classId), org(institutionId)]);
-  if (!userId || !c || !inst || inst.orgLevel !== "institution" || !admin(await readViewerOrgRole(institutionId, userId))) return DENIED;
+  if (!userId || !c || !inst || inst.orgLevel !== "institution" || !admin(await roleIn(institutionId, userId, "write"))) return DENIED;
   if (requestOf(c)?.institutionId !== institutionId) return { success: false, error: "That class has no request here." };
   if (approve && c.institutionId) return { success: false, error: "That class joined another school meanwhile." };
-  await db.update(workspaces).set({ ...(approve ? { institutionId } : {}), orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest'` }).where(eq(workspaces.id, classId));
+  // The checks above repeat in the WHERE, so two admins deciding at once (or a class joining elsewhere) can't race.
+  const done = await db.update(workspaces).set({ ...(approve ? { institutionId } : {}), orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest'` })
+    .where(and(eq(workspaces.id, classId), sql`${workspaces.orgSettings}->'institutionRequest'->>'institutionId' = ${institutionId}`, approve ? isNull(workspaces.institutionId) : undefined))
+    .returning({ id: workspaces.id });
+  if (!done.length) return { success: false, error: "That request changed meanwhile. Reload the list." };
   return { success: true };
 }
 
@@ -88,8 +101,8 @@ export async function unlinkClassAction(classId: string): Promise<{ success: tru
   const c = await org(classId);
   if (!userId || !c) return DENIED;
   const pending = requestOf(c);
-  const fromClass = admin(await readViewerOrgRole(classId, userId));
-  const fromInstitution = c.institutionId ? admin(await readViewerOrgRole(c.institutionId, userId)) : false;
+  const fromClass = admin(await roleIn(classId, userId, "write"));
+  const fromInstitution = c.institutionId ? admin(await roleIn(c.institutionId, userId, "write")) : false;
   if (!fromClass && !fromInstitution) return DENIED;
   if (!c.institutionId && !pending) return { success: true };
   await db.update(workspaces).set({ institutionId: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest'` }).where(eq(workspaces.id, classId));
@@ -100,13 +113,13 @@ export async function unlinkClassAction(classId: string): Promise<{ success: tru
 export async function readClassInstitutionAction(classId: string) {
   const userId = await me();
   const c = await org(classId);
-  if (!userId || !c || !admin(await readViewerOrgRole(classId, userId))) return DENIED;
+  if (!userId || !c || !admin(await roleIn(classId, userId, "read"))) return DENIED;
   const pending = requestOf(c);
   const ids = [c.institutionId, pending?.institutionId].filter((x): x is string => Boolean(x));
   const linked = ids.length ? await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(inArray(workspaces.id, ids)) : [];
   const mine = Array.from(await db.execute<{ id: string; title: string; slug: string | null }>(sql`
     SELECT w.id, w.title, w.slug FROM workspaces w
-    WHERE w.org_level = 'institution' AND w.deleted_at IS NULL AND w.id <> ${classId}::uuid
+    WHERE w.org_level = 'institution' AND w.deleted_at IS NULL AND w.deletion_scheduled_at IS NULL AND w.suspended_at IS NULL AND w.status <> 'archived' AND w.id <> ${classId}::uuid
       AND (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid AND m.role <> 'viewer'))
     ORDER BY w.title LIMIT 50`));
   const [{ n } = { n: 0 }] = c.ownerId === userId && schools(c.orgType) && !c.orgLevel && !c.institutionId
@@ -127,7 +140,7 @@ export async function readInstitutionClassesAction(institutionId: string) {
     const userId = await me();
     const inst = await org(institutionId);
     if (!inst || inst.orgLevel !== "institution") return DENIED;
-    const role = userId ? await readViewerOrgRole(institutionId, userId) : null;
+    const role = userId ? await roleIn(institutionId, userId, "read") : null;
     if (!role) return DENIED;
     const isAdmin = admin(role);
     const rows = Array.from(await db.execute<{ id: string; title: string; slug: string | null; teacher: string | null; members: number; open_assignments: number; to_review: number; last_activity: string | null }>(sql`

@@ -167,7 +167,7 @@ export async function readOrgDetail(
       ? db.select({ email: orgVerificationCodes.email, expiresAt: orgVerificationCodes.expiresAt, sends: orgVerificationCodes.sends }).from(orgVerificationCodes).where(eq(orgVerificationCodes.orgId, orgId)).limit(1)
       : Promise.resolve([]),
     org.institutionId
-      ? db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(and(eq(workspaces.id, org.institutionId), isNull(workspaces.deletedAt))).limit(1)
+      ? db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility }).from(workspaces).where(and(eq(workspaces.id, org.institutionId), isNull(workspaces.deletedAt))).limit(1)
       : Promise.resolve([]),
   ]);
   const verificationPending: OrgDetail["verificationPending"] = !viewer.isAdmin || org.verifiedAt ? null
@@ -221,7 +221,8 @@ export async function readOrgDetail(
     verificationPending,
     partOfOrg: parent ? { id: parent.id, title: parent.title, slug: parent.slug, verified: Boolean(parent.verifiedAt) } : null,
     isSchool: org.orgLevel === "institution",
-    school: school ?? null,
+    // A private school's name reaches only people in the class (or the school's own page); visitors see public schools.
+    school: school && (viewer.isInOrg || school.visibility === "public") ? { id: school.id, title: school.title, slug: school.slug } : null,
     proofCode: viewer.isAdmin ? proofCode(orgId) : null,
     joinCode: viewer.isAdmin ? org.joinCode : null,
     joinCodeEnabled: org.joinCodeEnabled,

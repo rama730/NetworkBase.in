@@ -119,3 +119,25 @@ test("admins join at once; a class leaves or is removed; a linked class can't jo
   assert.equal((await sql`SELECT institution_id FROM workspaces WHERE id = ${own}`)[0]!.institution_id, null);
   await assert.rejects(sql`UPDATE workspaces SET institution_id = ${own} WHERE id = ${own}`, /institution_link_check/);
 });
+
+test("security review: a decided request can't be decided again; a suspended school can't decide or take classes", async () => {
+  const t = await setup();
+  viewerId = t.principal;
+  await inst.makeInstitutionAction(t.school);
+  viewerId = t.teacher;
+  await inst.joinInstitutionAction(t.klass, t.school);
+  viewerId = t.principal;
+  assert.equal((await inst.decideClassRequestAction(t.school, t.klass, false)).success, true);
+  assert.equal((await inst.decideClassRequestAction(t.school, t.klass, true)).success, false, "already declined");
+  assert.equal((await sql`SELECT institution_id FROM workspaces WHERE id = ${t.klass}`)[0]!.institution_id, null);
+  viewerId = t.teacher;
+  await inst.joinInstitutionAction(t.klass, t.school);
+  await sql`UPDATE workspaces SET suspended_at = now() WHERE id = ${t.school}`;
+  viewerId = t.principal;
+  assert.equal((await inst.decideClassRequestAction(t.school, t.klass, true)).success, false, "suspended: read-only");
+  const own = await organization(t.principal);
+  assert.equal((await inst.joinInstitutionAction(own, t.school)).success, false);
+  viewerId = t.teacher;
+  const mine = await inst.readClassInstitutionAction(t.klass);
+  assert.deepEqual(mine.success && mine.schools.map((s) => s.id), [], "a suspended school isn't offered");
+});
