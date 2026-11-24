@@ -15,12 +15,12 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     const wizard = source('src/components/workspaces/create-wizard/useCreateWorkspaceWizard.ts');
 
     assert.match(phase, /step=\{isOrganization \? 'Setup' : 'Settings'\} title="How it starts\."/);
-    assert.match(phase, /Choose \$\{noun\} visibility/);
+    // v6.7: headings say what you choose.
+    for (const title of ['How it looks on cards', 'Who can see it', 'Where people find more', 'What it starts with', 'What members can do', 'Where files come from', 'What the team is told', 'How teams work inside it']) assert.ok(phase.includes(`title: '${title}'`), title);
     // Roles are reviewed in step 5; step 4 is launch settings only.
     assert.doesNotMatch(phase, /Confirm the initial availability|Edit roles|Ready to review:/);
-    assert.match(phase, /\$\{Noun\} links/);
-    assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
-    assert.match(phase, /border-t border-border pt-6/);
+    assert.match(phase, /className="nbs-frame"/);
+    assert.match(phase, /Back to default/);
     assert.match(phase, /type="radio"/);
     assert.match(phase, /rounded-\[3px\]/);
     assert.match(phase, /commitContext="project-create"/);

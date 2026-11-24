@@ -314,7 +314,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                         {/* Content */}
                         <div ref={scrollBodyRef} data-wizard-scroll className="relative app-scroll app-scroll-y app-scroll-gutter min-h-0 flex-1 scroll-pb-32 overflow-y-auto overscroll-contain">
                         {/* One layout rule (v6): every step starts at the same left edge with a 24px gutter. */}
-                        <div className={`nb-wizard-body w-full ${phase === 1 || phase === 4 ? 'max-w-none' : phase === 5 ? 'max-w-[1220px]' : 'max-w-[940px]'} px-4 pb-12 pt-6 md:px-6 md:pt-7`} data-phase={phase}>
+                        <div className={`nb-wizard-body w-full ${phase === 1 || phase === 4 ? 'max-w-none' : phase === 5 ? 'max-w-[1220px]' : 'max-w-[940px]'} ${phase === 4 ? '' : 'px-4 pb-12 pt-6 md:px-6 md:pt-7'}`} data-phase={phase}>
                             {uploadProgress?.isUploading && (
                                 <div className="mb-4 rounded-lg border border-border bg-secondary/45 p-4" role="status" aria-live="polite">
                                     <div className="flex items-center justify-between gap-4">
@@ -366,7 +366,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                                         )}
                                         {phase === 2 && <Phase2Information showValidationSummary={phase2ValidationAttempted} sourceFill={sourceFill} onUndoSourceFill={undoSourceFill} />}
                                         {phase === 3 && <Phase3TeamRoles wizardContext={wizardContext} showValidationSummary={phase3ValidationAttempted} />}
-                                        {phase === 4 && <Phase4Settings showValidationSummary={phase4ValidationAttempted} linkComposerPending={phase4LinkComposerPending} onLinkComposerPending={setPhase4LinkComposerPending} projectImage={projectImage} onProjectImageChange={setProjectImage} />}
+                                        {phase === 4 && <Phase4Settings showValidationSummary={phase4ValidationAttempted} linkComposerPending={phase4LinkComposerPending} onLinkComposerPending={setPhase4LinkComposerPending} projectImage={projectImage} onProjectImageChange={setProjectImage} goToPhase={goToPhase} />}
                                         {phase === 5 && <Phase5Review goToPhase={goToPhase} onReady={handleReviewReady} projectImage={projectImage} />}
                                 </div>
                             </form>

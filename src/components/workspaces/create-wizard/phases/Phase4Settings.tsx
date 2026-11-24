@@ -2,15 +2,15 @@
 
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { PhaseHead } from '../PhaseHead';
-import { allowedChildVisibilities, type VisibilityCap } from '@/lib/organizations/child-rules';
+import { allowedChildVisibilities, capChildVisibility, type VisibilityCap } from '@/lib/organizations/child-rules';
 import { OrgCalendarFields, OrgSettingsFields } from '@/components/organizations/OrgWizardFields';
-import { ORG_CREATION_COPY } from '@/lib/organizations/creation';
+import { ORG_CREATION_COPY, orgTypeDefaults } from '@/lib/organizations/creation';
+import { getLifecycleStagesForWorkspaceType } from '@/lib/workspaces/lifecycle-templates';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { listOrgTemplateFoldersAction } from '@/app/actions/org-files';
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { Bell, Building2, CalendarDays, Check, ChevronDown, FileText, Folder, FolderKanban, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Building2, Check, Globe, ImagePlus, Info, Lock, Search, X } from 'lucide-react';
 import { WizardWorkflowsField } from '@/components/workspaces/workflows/WizardWorkflowsField';
 import { toast } from '@/lib/feedback';
 import { Button } from '@/components/ui/button';
@@ -33,73 +33,66 @@ type Phase4SettingsProps = {
     onLinkComposerPending?: (pending: boolean) => void;
     projectImage: File | null;
     onProjectImageChange: (file: File | null) => void;
+    /** Files → "Change in Start". */
+    goToPhase?: (phase: 1) => void;
 };
 
-// Same order and names as Project settings, so what is chosen here is where it lives later (spec §18).
-// Icons match the Project settings rail for the same sections.
-const SECTIONS: ReadonlyArray<{ id: string; eyebrow: string; label: string; description: string; icon: ComponentType<{ className?: string }> }> = [
-    { id: 'picture', eyebrow: 'Workspace picture', label: 'Workspace picture', description: 'Image on cards and header', icon: ImageIcon },
-    { id: 'access', eyebrow: 'Access and visibility', label: 'Access and visibility', description: 'Visibility and public tabs', icon: Globe },
-    { id: 'links', eyebrow: 'Links', label: 'Links', description: 'External destinations', icon: Link2 },
-    { id: 'documentation', eyebrow: 'Documentation', label: 'Documentation', description: 'Starter doc and editing', icon: FileText },
-    { id: 'lifecycle', eyebrow: 'Stages and workflow', label: 'Stages and workflow', description: 'Journey stages', icon: Workflow },
-    { id: 'permissions', eyebrow: 'Team permissions', label: 'Team permissions', description: 'Updates and uploads', icon: Users },
-    { id: 'files', eyebrow: 'Files and storage', label: 'Files and storage', description: 'Source and upload rules', icon: Folder },
-    { id: 'notifications', eyebrow: 'Notifications', label: 'Notifications', description: 'Team notification rules', icon: Bell },
-] as const;
+// Same order as Project settings, so what is chosen here is where it lives later (spec §18). v6.7: each heading says
+// what you choose; the short label names it in the docked list.
 type SectionId = 'calendar' | 'inside' | 'picture' | 'access' | 'links' | 'documentation' | 'lifecycle' | 'permissions' | 'files' | 'notifications';
-// An organization's own sections lead the step, numbered and in the index like the rest (org design plan CR2).
-const ORG_SECTIONS: typeof SECTIONS = [
-    { id: 'calendar', eyebrow: 'Calendar', label: 'Calendar', description: 'Term and first sprints', icon: CalendarDays },
-    { id: 'inside', eyebrow: 'Workspaces inside', label: 'Workspaces inside', description: 'Who creates them, work defaults', icon: FolderKanban },
+type SectionDef = { id: SectionId; label: string; title: string };
+const SECTIONS: ReadonlyArray<SectionDef> = [
+    { id: 'picture', label: 'Picture', title: 'How it looks on cards' },
+    { id: 'access', label: 'Visibility', title: 'Who can see it' },
+    { id: 'links', label: 'Links', title: 'Where people find more' },
+    { id: 'documentation', label: 'Starter doc', title: 'What it starts with' },
+    { id: 'lifecycle', label: 'Stages', title: 'Journey stages' },
+    { id: 'permissions', label: 'Permissions', title: 'What members can do' },
+    { id: 'files', label: 'Files', title: 'Where files come from' },
+    { id: 'notifications', label: 'Notifications', title: 'What the team is told' },
 ];
+// An organization's own sections lead the step (org design plan CR2).
+const ORG_SECTIONS: ReadonlyArray<SectionDef> = [
+    { id: 'calendar', label: 'Calendar', title: 'Term and first sprints' },
+    { id: 'inside', label: 'Workspaces inside', title: 'How teams work inside it' },
+];
+const pad = (n: number) => String(n).padStart(2, '0');
 
 const PUBLIC_TAB_ORDER: WorkspacePublicTabId[] = ['dashboard', 'readme', 'updates', 'files', 'sprints', 'tasks'];
 const sectionAnchor = (id: SectionId) => `create-project-launch-${id}`;
 
-function LaunchSection({ id, number, eyebrow, title, description, summary, collapsible, open, onToggle, children }: {
+/** One section as a Settings frame (v6.3): label, a serif heading that says what you choose, and, once changed,
+ *  a Changed tag and "Back to default". */
+function LaunchSection({ id, label, title, lead, changed, onReset, children }: {
     id: SectionId;
-    number: number;
-    eyebrow: string;
+    label: string;
     title: string;
-    description?: string;
-    summary: string;
-    collapsible: boolean;
-    open: boolean;
-    onToggle: () => void;
+    lead?: string;
+    changed: boolean;
+    onReset: () => void;
     children: ReactNode;
 }) {
-    const heading = (
-        <>
-            <p className="nb-micro text-primary">{String(number).padStart(2, '0')} · {eyebrow}</p>
-            <h3 id={`${sectionAnchor(id)}-heading`} className="nb-card-title mt-1 text-foreground">{title}</h3>
-            {description && (!collapsible || open) ? <p className="nb-compact mt-1 max-w-[65ch] text-muted-foreground">{description}</p> : null}
-            {collapsible && !open ? <p className="nb-meta mt-1 truncate text-muted-foreground">{summary}</p> : null}
-        </>
-    );
-
     return (
-        <section id={sectionAnchor(id)} data-launch-section={id} aria-labelledby={`${sectionAnchor(id)}-heading`} className="border-t border-border pt-6">
-            {collapsible ? (
-                // Phones: each section is one summary line until opened, so eight sections stay scannable.
-                <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={`${sectionAnchor(id)}-body`} className="flex w-full min-w-0 items-start justify-between gap-3 text-left">
-                    <span className="min-w-0">{heading}</span>
-                    <ChevronDown className={`mt-5 size-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
-                </button>
-            ) : heading}
-            <div id={`${sectionAnchor(id)}-body`} hidden={collapsible && !open} className="mt-5">{children}</div>
+        <section id={sectionAnchor(id)} data-launch-section={id} aria-labelledby={`${sectionAnchor(id)}-heading`} className="nbs-frame">
+            <div className="nbs-fhead">
+                <p className="nbs-eyebrow"><b>{label}</b>{changed ? <span className="nbs-tag hot nb-enter-chip">Changed</span> : null}</p>
+                <h2 id={`${sectionAnchor(id)}-heading`}>{title}</h2>
+                {lead ? <p>{lead}</p> : null}
+                {changed ? <button type="button" className="nb-link nb-sreset justify-self-start text-[13px]" onClick={onReset}>Back to default</button> : null}
+            </div>
+            <div className="nb-sbody">{children}</div>
         </section>
     );
 }
 
 function SwitchRow({ label, description, checked, onCheckedChange }: { label: string; description: string; checked: boolean; onCheckedChange: (checked: boolean) => void }) {
     return (
-        <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3.5 last:border-b-0">
+        <div className="nbs-row">
             <div className="min-w-0">
-                <p className="nb-ui-label text-foreground">{label}</p>
-                <p className="nb-compact mt-1 text-muted-foreground">{description}</p>
+                <p className="t">{label}</p>
+                <p className="d">{description}</p>
             </div>
-            <SettingsSwitch checked={checked} onCheckedChange={onCheckedChange} aria-label={label} className="mt-0.5" />
+            <SettingsSwitch checked={checked} onCheckedChange={onCheckedChange} aria-label={label} />
         </div>
     );
 }
@@ -118,7 +111,7 @@ function ChoiceChip({ selected, onClick, children }: { selected: boolean; onClic
     );
 }
 
-export default function Phase4Settings({ showValidationSummary = false, linkComposerPending = false, onLinkComposerPending, projectImage, onProjectImageChange }: Phase4SettingsProps) {
+export default function Phase4Settings({ showValidationSummary = false, linkComposerPending = false, onLinkComposerPending, projectImage, onProjectImageChange, goToPhase }: Phase4SettingsProps) {
     const { control, setValue, getFieldState, formState: { errors } } = useFormContext<CreateWorkspaceInput>();
     const isOrganization = Boolean(useWatch({ control, name: 'organization' }));
     // One noun for this step's copy (org design plan CR1): an organization's creator never reads "workspace".
@@ -153,7 +146,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     const orgType = useWatch({ control, name: 'organization.org_type' });
     const orgStarterDoc = isOrganization ? ORG_CREATION_COPY[orgType ?? 'other'].starterDoc : null;
     // Orgs don't use manual Journey stages: their Journey is built from sprints (report §22.1).
-    const sections = isOrganization ? [...ORG_SECTIONS, ...SECTIONS.filter((s) => s.id !== 'lifecycle')] : SECTIONS;
+    const sections = useMemo(() => (isOrganization ? [...ORG_SECTIONS, ...SECTIONS.filter((s) => s.id !== 'lifecycle')] : SECTIONS), [isOrganization]);
     const [
         visibilityValue, publicTabsValue, externalLinksValue, readme, docEditPolicy, lifecycleStagesValue,
         memberUpdatesEnabled, memberFileUploadDefault, notificationRowsValue,
@@ -181,29 +174,12 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
         externalLinksError ? { id: sectionAnchor('links'), message: externalLinksError } : null,
     ].filter((item): item is { id: string; message: string } => Boolean(item));
 
-    const [isPhone, setIsPhone] = useState(false);
-    const [openSections, setOpenSections] = useState<Set<SectionId>>(() => new Set());
-    useEffect(() => {
-        const query = window.matchMedia('(max-width: 767px)');
-        const sync = () => setIsPhone(query.matches);
-        sync();
-        query.addEventListener('change', sync);
-        return () => query.removeEventListener('change', sync);
-    }, []);
-    // Unfinished link work must stay visible on phones too.
-    const isOpen = (id: SectionId) => !isPhone || openSections.has(id) || (id === 'links' && validationMessages.length > 0);
-    const toggleSection = (id: SectionId) => setOpenSections((previous) => {
-        const next = new Set(previous);
-        if (next.has(id)) next.delete(id); else next.add(id);
-        return next;
-    });
-
     useEffect(() => () => onLinkComposerPending?.(false), [onLinkComposerPending]);
 
     // The rail scrolls only the wizard body. scrollIntoView() would also scroll the app's
     // overflow-hidden main area and push the page header out of view.
     const rootRef = useRef<HTMLDivElement>(null);
-    const [activeSection, setActiveSection] = useState<SectionId>('picture');
+    const [activeSection, setActiveSection] = useState<SectionId>(isOrganization ? 'calendar' : 'picture');
     const getScroller = useCallback(() => rootRef.current?.closest<HTMLElement>('[data-wizard-scroll]') ?? null, []);
     useEffect(() => {
         const scroller = getScroller();
@@ -214,18 +190,18 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
             frame = requestAnimationFrame(() => {
                 const top = scroller.getBoundingClientRect().top;
                 const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
-                let current: SectionId = 'picture';
+                let current: SectionId = sections[0]!.id;
                 for (const element of scroller.querySelectorAll<HTMLElement>('[data-launch-section]')) {
                     if (element.getBoundingClientRect().top - top <= 96) current = element.dataset.launchSection as SectionId;
                 }
                 // The last sections can't reach the top of a short page; at the bottom, the last one is current.
-                setActiveSection(atBottom ? 'notifications' : current);
+                setActiveSection(atBottom ? sections[sections.length - 1]!.id : current);
             });
         };
         sync();
         scroller.addEventListener('scroll', sync, { passive: true });
         return () => { cancelAnimationFrame(frame); scroller.removeEventListener('scroll', sync); };
-    }, [getScroller]);
+    }, [getScroller, sections]);
     const goToSection = (id: SectionId) => {
         const scroller = getScroller();
         const target = document.getElementById(sectionAnchor(id));
@@ -264,50 +240,121 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
         : sourceType === 'upload'
             ? `${Number(sourceMetadata.fileCount || 0)} files from ${String(sourceMetadata.folderName || 'your folder')} upload after creation`
             : 'Starts empty. Add files from the Files tab after creation';
-    const sectionProps = (id: SectionId) => ({ id, number: sections.findIndex((s) => s.id === id) + 1, eyebrow: sections.find((s) => s.id === id)?.eyebrow ?? '', collapsible: isPhone, open: isOpen(id), onToggle: () => toggleSection(id) });
+
+    // What each section starts at (v6.7), so a section can say Changed and go Back to default.
+    const orgDefaults = isOrganization ? orgTypeDefaults(orgType ?? 'other') : null;
+    const defaults = {
+        visibility: orgDefaults?.visibility ?? (childOrg ? capChildVisibility('org', childOrg.visibilityCap as VisibilityCap, childOrg.orgPublic) : 'public'),
+        memberUpdates: orgDefaults?.memberUpdates ?? childOrg?.memberUpdatesEnabled ?? true,
+        memberUploads: childOrg?.memberFileUploadDefault ?? true,
+        followSprints: Boolean(childOrg?.followSprintsDefault),
+        stages: projectType ? getLifecycleStagesForWorkspaceType(projectType) : [],
+    };
+    const sameTabs = PUBLIC_TAB_ORDER.every((tab) => publicTabs[tab] === DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY[tab]);
+    const reset = { shouldDirty: true, shouldValidate: true } as const;
+    const sectionState: Record<SectionId, { changed: boolean; state: string; reset: () => void }> = {
+        calendar: { changed: false, state: 'Optional', reset: () => undefined },
+        inside: { changed: false, state: 'Default', reset: () => undefined },
+        picture: { changed: Boolean(projectImage), state: projectImage ? 'Added' : 'None', reset: () => onProjectImageChange(null) },
+        access: {
+            changed: visibility !== defaults.visibility || !sameTabs,
+            state: visibility === 'private' ? 'Private' : visibility === 'org' ? 'Members' : 'Public',
+            reset: () => { setValue('visibility', defaults.visibility as CreateWorkspaceInput['visibility'], reset); setValue('public_tab_visibility', { ...DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY }, reset); },
+        },
+        links: { changed: externalLinks.length > 0, state: externalLinks.length ? pad(externalLinks.length) : 'None', reset: () => setValue('external_links', [], reset) },
+        documentation: {
+            changed: docMode === 'skip' || Boolean(readme?.publishOnCreate) || docEditPolicy === 'members' || Boolean(readme?.orgTemplateDocId),
+            state: docMode === 'skip' ? 'None' : readme?.orgTemplateDocId ? 'Org doc' : 'Template',
+            reset: () => { setValue('readme', { ...readme, mode: 'starter', publishOnCreate: false, orgTemplateDocId: null } as CreateWorkspaceInput['readme'], reset); setValue('doc_edit_policy', 'leaders', reset); },
+        },
+        lifecycle: {
+            changed: Boolean(projectType) && lifecycleStages.join('\u0000') !== defaults.stages.join('\u0000'),
+            state: pad(lifecycleStages.length),
+            reset: () => setValue('lifecycle_stages', defaults.stages, reset),
+        },
+        permissions: {
+            changed: (memberUpdatesEnabled !== false) !== defaults.memberUpdates || (memberFileUploadDefault !== false) !== defaults.memberUploads || (Boolean(childOrg) && Boolean(followOrgSprints) !== defaults.followSprints),
+            state: '',
+            reset: () => { setValue('member_updates_enabled', defaults.memberUpdates, reset); setValue('member_file_upload_default', defaults.memberUploads, reset); if (childOrg) setValue('follow_org_sprints', defaults.followSprints, reset); },
+        },
+        files: { changed: Boolean(templateFolderId), state: sourceType === 'github' ? 'GitHub' : sourceType === 'upload' ? 'Upload' : 'Empty', reset: () => setValue('org_template_folder_id', null, reset) },
+        notifications: {
+            changed: notificationsOn !== CREATE_WORKSPACE_NOTIFICATION_ROWS.length,
+            state: `${notificationsOn} of ${CREATE_WORKSPACE_NOTIFICATION_ROWS.length}`,
+            reset: () => setValue('notification_rows', { roles_applications: true, work: true, updates_docs: true }, reset),
+        },
+    };
+    sectionState.permissions.state = sectionState.permissions.changed ? 'Changed' : 'Default';
+    const changedCount = sections.filter((section) => sectionState[section.id].changed).length;
+    const resetSection = (id: SectionId) => sectionState[id].reset();
+    const resetAllChanged = () => sections.forEach((section) => { if (sectionState[section.id].changed) resetSection(section.id); });
+    const sectionProps = (id: SectionId) => {
+        const section = sections.find((item) => item.id === id)!;
+        return { id, label: section.label, title: section.title, changed: sectionState[id].changed, onReset: () => resetSection(id) };
+    };
+
+    // The docked list (v6.3): Find filters it; one highlight slides to the current row.
+    const [find, setFind] = useState('');
+    const query = find.trim().toLowerCase();
+    const shownSections = sections.filter((section) => !query || `${section.label} ${section.title}`.toLowerCase().includes(query));
+    const listRef = useRef<HTMLDivElement>(null);
+    const [highlight, setHighlight] = useState<{ y: number; h: number } | null>(null);
+    useLayoutEffect(() => {
+        const list = listRef.current;
+        const row = list?.querySelector<HTMLElement>('.nbs-nl[aria-current="location"]');
+        setHighlight(row ? { y: row.offsetTop, h: row.offsetHeight } : null);
+        // Phones: the strip scrolls sideways; keep the current section in view.
+        if (list && row && list.scrollWidth > list.clientWidth && (row.offsetLeft < list.scrollLeft || row.offsetLeft + row.offsetWidth > list.scrollLeft + list.clientWidth)) list.scrollLeft = row.offsetLeft - 16;
+    }, [activeSection, query, sections.length]);
+    // The dock is as tall as the visible step (the scroller), so it reads as a column pinned to the left edge.
+    useEffect(() => {
+        const scroller = getScroller();
+        const root = rootRef.current;
+        if (!scroller || !root) return;
+        const size = () => root.style.setProperty('--nb-dock-h', `${scroller.clientHeight}px`);
+        size();
+        const observer = new ResizeObserver(size);
+        observer.observe(scroller);
+        return () => observer.disconnect();
+    }, [getScroller]);
 
     return (
-        <div ref={rootRef} className="min-w-0 w-full lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
-            {/* Wide screens: the same section rail as Project settings (card, icon, label, description, active state). */}
-            <aside className="sticky top-0 hidden self-start rounded-lg border border-border bg-card p-2 xl:block lg:block">
-                <div className="px-3 pb-3 pt-2">
-                    <p className="nb-micro">Starting settings</p>
-                    <p className="nb-compact mt-1 text-muted-foreground">Jump to any section. All start at the Settings defaults.</p>
+        <div ref={rootRef} className="nb-settings-step">
+            {/* Docked like /settings (v6.3): pinned to the left edge, as tall as the step, its own scroll; a strip on phones. */}
+            <aside data-settings-dock className="nbs-nav nb-sdock">
+                <div className="nbs-nav-head">
+                    <p className="nbs-eyebrow"><b>Starts with</b></p>
+                    <label className="nbs-find">
+                        <Search aria-hidden="true" />
+                        <input type="search" value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find a setting" aria-label="Find a setting" autoComplete="off" />
+                    </label>
                 </div>
-                <nav aria-label="Starting settings sections" className="mt-1 space-y-1">
-                    {sections.map((section) => {
-                        const Icon = section.icon;
-                        const active = activeSection === section.id;
-                        return (
-                            <button
-                                key={section.id}
-                                type="button"
-                                aria-current={active ? 'location' : undefined}
-                                onClick={() => goToSection(section.id as SectionId)}
-                                className={cn(
-                                    'group flex min-h-[44px] w-full items-start gap-2.5 rounded-md px-3 py-2 text-left transition-colors duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)]',
-                                    active ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground',
-                                )}
-                            >
-                                <Icon className={cn('mt-0.5 h-4 w-4 shrink-0 transition-colors', active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
-                                <span className="min-w-0 flex-1">
-                                    <span className="nb-ui-label block truncate text-[13px] leading-tight">{section.label}</span>
-                                    <span className={cn('mt-0.5 block truncate text-[11px] leading-snug', active ? 'text-foreground/80' : 'text-muted-foreground/70')}>{section.description}</span>
-                                </span>
+                <nav aria-label="Starting settings sections" className="nbs-navnav">
+                    <div ref={listRef} className="nbs-navlist">
+                        <span data-nav-highlight className="nb-nav-hl" aria-hidden="true" style={highlight ? { transform: `translateY(${highlight.y}px)`, height: highlight.h, opacity: 1 } : { opacity: 0 }} />
+                        {shownSections.map((section) => (
+                            <button key={section.id} type="button" className="nbs-nl" aria-current={activeSection === section.id ? 'location' : undefined} onClick={() => goToSection(section.id)}>
+                                <span className="t">{section.label}</span>
+                                <span className="s" data-default={sectionState[section.id].changed ? undefined : ''}>{sectionState[section.id].state}</span>
                             </button>
-                        );
-                    })}
+                        ))}
+                        {shownSections.length === 0 ? <p className="nb-nav-none">no setting matches</p> : null}
+                    </div>
                 </nav>
+                <p className="nb-sdock-foot">
+                    <span>{pad(changedCount)} of {pad(sections.length)} changed</span>
+                    {changedCount ? <button type="button" className="nb-link text-[12.5px]" onClick={resetAllChanged}>Reset all</button> : null}
+                </p>
             </aside>
 
-            <div className="min-w-0 w-full space-y-8 pb-6">
+            <div className="nb-settings-doc">
                 <PhaseHead noun={isOrganization ? 'organization' : 'workspace'} step={isOrganization ? 'Setup' : 'Settings'} title="How it starts." line="Every choice starts at a sensible default and stays editable in Settings. Changed sections are marked." />
                 {isOrganization ? (
                     <>
-                        <LaunchSection {...sectionProps('calendar')} title="Term and first sprints" description="Optional. The term sets the week line; planned sprints become the Journey on About." summary="Term and sprints">
+                        <LaunchSection {...sectionProps('calendar')} lead="Optional. The term sets the week line; planned sprints become the Journey on About.">
                             <OrgCalendarFields />
                         </LaunchSection>
-                        <LaunchSection {...sectionProps('inside')} title="Workspaces inside and work" description="Who creates workspaces in the organization, and the defaults new work starts with." summary="Who creates workspaces · work defaults">
+                        <LaunchSection {...sectionProps('inside')} lead="Who creates workspaces in the organization, and the defaults new work starts with.">
                             <OrgSettingsFields />
                         </LaunchSection>
                     </>
@@ -343,7 +390,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 ) : null}
 
-                <LaunchSection {...sectionProps('picture')} title={`${Noun} picture`} description={`Shown on ${noun} cards, search, and the ${noun} header.`} summary={projectImage ? 'Picture added' : 'Initials until you add a picture'}>
+                <LaunchSection {...sectionProps('picture')} lead={`Shown on ${noun} cards, search and the header.`}>
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-input bg-muted/30 text-muted-foreground">
                             {imagePreviewUrl ? <img src={imagePreviewUrl} alt={`Selected ${noun} picture`} className="size-full object-cover" /> : <ImagePlus className="size-5" aria-hidden="true" />}
@@ -357,8 +404,8 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('access')} title={`Choose ${noun} visibility`} description={`Controls who can find the ${noun} now, and which tabs outsiders see.`} summary={visibility === 'private' ? 'Private · members only' : visibility === 'org' ? `Organization only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
-                    <fieldset className="border-y border-border" aria-describedby="create-project-visibility-help">
+                <LaunchSection {...sectionProps('access')} lead={childOrg ? `${childOrg.title} sets the most open it can be.` : `Who can find the ${noun} now, and which tabs outsiders see.`}>
+                    <fieldset className="nb-srows nb-srows-mid" aria-describedby="create-project-visibility-help">
                         <legend className="sr-only">{Noun} visibility</legend>
                         {(childOrg
                             ? [
@@ -376,14 +423,14 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                             const locked = Boolean(childOrg && !allowedChildVisibilities(childOrg.visibilityCap as VisibilityCap, childOrg.orgPublic).includes(option.id));
                             if (locked) {
                                 return (
-                                    <div key={option.id} className="flex items-start gap-3 border-b border-border px-4 py-4 text-muted-foreground last:border-b-0" aria-disabled="true">
+                                    <div key={option.id} className="flex items-start gap-3 border-b border-border px-[var(--nbs-pad)] py-4 text-muted-foreground last:border-b-0" aria-disabled="true">
                                         <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                                         <span className="min-w-0"><span className="nb-ui-label block">{option.label}</span><span className="nb-compact mt-1 block">Set by {childOrg!.title}</span></span>
                                     </div>
                                 );
                             }
                             return (
-                                <label key={option.id} className={`flex cursor-pointer items-start gap-3 border-b border-border px-4 py-4 last:border-b-0 transition-[background-color,border-color] duration-[130ms] focus-within:bg-muted/30 ${isSelected ? 'bg-secondary/60' : 'hover:bg-muted/30'}`}>
+                                <label key={option.id} className={`flex cursor-pointer items-start gap-3 border-b border-border px-[var(--nbs-pad)] py-4 last:border-b-0 transition-[background-color,border-color] duration-[130ms] focus-within:bg-muted/30 ${isSelected ? 'bg-secondary/60' : 'hover:bg-muted/30'}`}>
                                     <input type="radio" name="project-visibility" value={option.id} checked={isSelected} onChange={() => set('visibility', option.id)} className="sr-only" />
                                     <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[3px] border ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-transparent'}`} aria-hidden="true">
                                         <Check className="size-3" strokeWidth={2} />
@@ -417,7 +464,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </p>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('links')} title={`${Noun} links`} description={`Website, repository, demo, or community. Shown beside the ${noun} title and across public surfaces.`} summary={externalLinks.length === 0 ? 'No links yet' : `${externalLinks.length} ${externalLinks.length === 1 ? 'link' : 'links'}`}>
+                <LaunchSection {...sectionProps('links')} lead="Website, repository, demo or community.">
                     <WorkspaceLinkEditorFields
                         links={externalLinks}
                         savedLinks={[]}
@@ -430,7 +477,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     {externalLinksError ? <p role="alert" className="mt-2 text-[13px] leading-[1.5] text-destructive">{externalLinksError}</p> : null}
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description={`The ${noun}’s Documents tab: setup notes, guidance, and how to take part.`} summary={docMode === 'skip' ? 'No documents yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? (orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template')} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
+                <LaunchSection {...sectionProps('documentation')} lead={`The ${noun}’s Documents tab: setup notes and how to take part.`}>
                     <div className="flex flex-wrap gap-2" role="group" aria-label="Starter doc">
                         {orgTemplates.map((t) => (
                             <ChoiceChip key={t.id} selected={docMode === 'starter' && readme?.orgTemplateDocId === t.id} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: t.id } as CreateWorkspaceInput['readme'])}>
@@ -444,14 +491,14 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                         <p className="nb-compact mt-3 flex items-start gap-2 text-muted-foreground"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Your repository README can be linked from the Doc tab once the import finishes.</p>
                     ) : null}
                     {docMode === 'starter' ? (
-                        <div className="mt-4 border-y border-border">
+                        <div className="nb-srows mt-4">
                             <SwitchRow label={`Publish the document when the ${noun} is created`} description="Off: only the owner and admins can see it." checked={Boolean(readme?.publishOnCreate)} onCheckedChange={(checked) => set('readme', { ...readme, publishOnCreate: checked } as CreateWorkspaceInput['readme'])} />
                             <SwitchRow label="Members can edit the doc" description="Off: only the owner and admins can edit." checked={docEditPolicy === 'members'} onCheckedChange={(checked) => set('doc_edit_policy', checked ? 'members' : 'leaders')} />
                         </div>
                     ) : null}
                 </LaunchSection>
 
-                {isOrganization ? null : <LaunchSection {...sectionProps('lifecycle')} title="Journey stages" description="Stages are suggested from the category. Rename, reorder, or add them to match how the work will progress." summary={lifecycleStages.length ? `${lifecycleStages.length} stages` : 'No stages yet'}>
+                {isOrganization ? null : <LaunchSection {...sectionProps('lifecycle')} lead="Suggested from the category. Rename, reorder or add them to match how the work will go.">
                     <LifecycleEditor
                         stages={lifecycleStages}
                         onChange={(stages) => set('lifecycle_stages', stages)}
@@ -460,46 +507,39 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <WizardWorkflowsField orgId={childOrg?.id ?? null} />
                 </LaunchSection>}
 
-                <LaunchSection {...sectionProps('permissions')} title="What members can do" description="The owner and admins can always do both. These apply to members who join later." summary={`Updates: ${memberUpdatesEnabled !== false ? 'members' : 'owner and admins only'} · Uploads: ${memberFileUploadDefault !== false ? 'members' : 'owner and admins only'}`}>
-                    <div className="border-y border-border">
+                <LaunchSection {...sectionProps('permissions')} lead="The owner and admins can always do both. These apply to members who join later.">
+                    <div className="nb-srows">
                         <SwitchRow label="Members can post updates" description="Progress posts on the Updates tab." checked={memberUpdatesEnabled !== false} onCheckedChange={(checked) => set('member_updates_enabled', checked)} />
                         <SwitchRow label="New members can upload files" description="The starting upload permission for each member; adjustable per member later." checked={memberFileUploadDefault !== false} onCheckedChange={(checked) => set('member_file_upload_default', checked)} />
                         {childOrg ? <SwitchRow label={`Follow ${childOrg.title}'s sprints`} description="New sprints link to the organization’s sprint holding their dates and stay inside it." checked={Boolean(followOrgSprints)} onCheckedChange={(checked) => set('follow_org_sprints', checked)} /> : null}
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('files')} title={`${Noun} files`} description={`Where the ${noun}’s files come from and who can add more.`} summary={sourceSummary}>
-                    <div className="border-y border-border">
-                        <div className="flex items-start gap-3 border-b border-border px-4 py-3.5">
-                            <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <div className="min-w-0">
-                                <p className="nb-ui-label text-foreground">Source</p>
-                                <p className="nb-compact mt-1 text-muted-foreground">{sourceSummary}. Change the source in step 1.</p>
-                            </div>
+                <LaunchSection {...sectionProps('files')} lead={`Where the ${noun}’s files come from and who can add more.`}>
+                    <div className="nb-srows">
+                        <div className="nbs-row">
+                            <div className="min-w-0"><p className="t">Source</p><p className="d">{sourceSummary}.</p></div>
+                            <div className="ctl"><button type="button" className="nb-link text-[13px]" onClick={() => goToPhase?.(1)}>Change in Start</button></div>
                         </div>
                         {childOrg && templateFolders.length > 0 ? (
-                            <div className="border-b border-border px-4 py-3.5">
-                                <label htmlFor="org-template-folder" className="nb-ui-label text-foreground">From a {childOrg.title} template</label>
-                                <p className="nb-compact mt-1 text-muted-foreground">Copies the folder into the new workspace. The copies are yours to change.</p>
-                                <select id="org-template-folder" value={templateFolderId ?? ''} onChange={(e) => set('org_template_folder_id', e.target.value || null)}
-                                    className="mt-2 h-9 w-full max-w-xs rounded-md border border-border bg-background px-2 text-sm">
-                                    <option value="">None</option>
-                                    {templateFolders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                                </select>
+                            <div className="nbs-row">
+                                <div className="min-w-0"><label htmlFor="org-template-folder" className="t block">From a {childOrg.title} template</label><p className="d">Copies the folder into the new workspace. The copies are yours to change.</p></div>
+                                <div className="ctl">
+                                    <select id="org-template-folder" value={templateFolderId ?? ''} onChange={(e) => set('org_template_folder_id', e.target.value || null)} className="nb-select" data-size="sm">
+                                        <option value="">None</option>
+                                        {templateFolders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                    </select>
+                                </div>
                             </div>
                         ) : null}
-                        <div className="flex items-start gap-3 px-4 py-3.5">
-                            <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <div className="min-w-0">
-                                <p className="nb-ui-label text-foreground">Uploads</p>
-                                <p className="nb-compact mt-1 text-muted-foreground">The owner and admins can always upload. New members {memberFileUploadDefault !== false ? 'can upload' : 'can’t upload'}, set under Team permissions.</p>
-                            </div>
+                        <div className="nbs-row">
+                            <div className="min-w-0"><p className="t">Uploads</p><p className="d">The owner and admins can always upload. New members {memberFileUploadDefault !== false ? 'can upload' : 'can’t upload'} (Permissions).</p></div>
                         </div>
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('notifications')} title="What the team is told about" description={`${Noun}-wide notification rules. Each member can still tune their own.`} summary={`${notificationsOn} of ${CREATE_WORKSPACE_NOTIFICATION_ROWS.length} on`}>
-                    <div className="border-y border-border">
+                <LaunchSection {...sectionProps('notifications')} lead="Each member can still tune their own. Membership and security alerts always stay on.">
+                    <div className="nb-srows">
                         {CREATE_WORKSPACE_NOTIFICATION_ROWS.map((row) => (
                             <SwitchRow key={row.id} label={row.label} description={row.description} checked={notificationRows[row.id]} onCheckedChange={(checked) => set('notification_rows', { ...notificationRows, [row.id]: checked })} />
                         ))}
@@ -507,9 +547,9 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <p className="nb-compact mt-3 text-muted-foreground">Membership and security alerts always stay on.</p>
                 </LaunchSection>
 
-                <aside className="border-l-2 border-border pl-4 text-[13px] leading-[1.5] text-muted-foreground">
-                    After creation, in {noun} Settings: members and invitations, privacy and {noun} management.
-                </aside>
+                <p className="mt-6 text-[13px] leading-[1.5] text-muted-foreground">
+                    Members, invitations and {noun} management are in Settings after it’s created.
+                </p>
             </div>
         </div>
     );

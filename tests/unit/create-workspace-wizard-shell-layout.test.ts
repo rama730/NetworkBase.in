@@ -38,7 +38,8 @@ test("create-workspace is a normal page inside the app shell: no modal, one 1000
   assert.match(wizard, /relative flex h-full min-h-0 w-full flex-col/);
   // v6 layout rule: every step starts at the same left edge (24px gutter); Info/Team 940px, Review 1220px, Start/Settings full width.
   assert.match(footer, /export const WIZARD_COLUMN = "w-full max-w-\[940px\]"/);
-  assert.match(wizard, /max-w-none' : phase === 5 \? 'max-w-\[1220px\]' : 'max-w-\[940px\]'\} px-4 pb-12 pt-6 md:px-6/);
+  // Settings (step 4) brings its own docked list and document padding (v6.3); every other step shares the 24px gutter.
+  assert.match(wizard, /max-w-none' : phase === 5 \? 'max-w-\[1220px\]' : 'max-w-\[940px\]'\} \$\{phase === 4 \? '' : 'px-4 pb-12 pt-6 md:px-6 md:pt-7'\}/);
   // Sidebar and top bar stay, exactly like every other page.
   assert.doesNotMatch(layout, /if \(focus\)/);
   assert.match(layout, /<AppSidebar \/>[\s\S]*<TopNav \/>[\s\S]*\{children\}/);

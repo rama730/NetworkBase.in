@@ -68,7 +68,6 @@ test('step 4 shows the eight Workspace settings sections in order; picture and d
     assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'sections render in Settings order');
     assert.match(phase, /<SettingsSwitch /);
     assert.match(phase, /aria-label="Starting settings sections"/);
-    assert.match(phase, /aria-expanded=\{open\}/);
     assert.match(phase, /useWatch\(\{/);
 
     const hook = read('src/components/workspaces/create-wizard/useCreateWorkspaceWizard.ts');
@@ -77,17 +76,18 @@ test('step 4 shows the eight Workspace settings sections in order; picture and d
     assert.match(hook, /if \(createdProjectId\) await applyLaunchSettingsAfterCreate\(createdProjectId\);/);
 });
 
-test('step 4 retains its wizard rail while Project Settings uses the shared settings navigation', () => {
+test('step 4 docks its section list like main Settings (v6.3) while Project Settings uses the shared navigation', () => {
     const phase = read('src/components/workspaces/create-wizard/phases/Phase4Settings.tsx');
     const settings = read('src/components/workspaces/settings/WorkspaceSettingsNavigation.tsx');
     const wizard = read('src/components/workspaces/create-wizard/CreateWorkspaceWizard.tsx');
-    const settingsRow = 'group flex min-h-[44px] w-full items-start gap-2.5 rounded-md px-3 py-2 text-left transition-colors duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)]';
 
-    // Project Settings now follows main Settings; the separate wizard keeps its existing rail.
     assert.match(settings, /nb-nav-link/);
-    assert.ok(phase.includes(settingsRow));
-    assert.match(phase, /rounded-lg border border-border bg-card p-2 xl:block/);
-    assert.match(phase, /active \? 'bg-muted font-medium text-foreground'/);
+    assert.match(phase, /data-settings-dock className="nbs-nav nb-sdock"/);
+    assert.match(phase, /className="nbs-find"/);
+    assert.match(phase, /className="nbs-nl"/);
+    assert.match(phase, /data-nav-highlight/);
+    assert.match(phase, /of \{pad\(sections\.length\)\} changed/);
+    assert.match(phase, /Reset all/);
 
     // Regression: scrollIntoView also scrolled the app's overflow-hidden main and hid the page header.
     assert.doesNotMatch(phase, /\.scrollIntoView\(/);
