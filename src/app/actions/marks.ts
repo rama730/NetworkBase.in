@@ -200,15 +200,18 @@ export async function agreeMarkAction(copyId: string, total: number): Promise<{ 
   if (isAgent) return { success: false, error: "AI agents can’t set or change marks; a person does." };
   const copy = userId ? await loadCopy(copyId) : null;
   if (!copy || !userId || !(await canMark(copy, userId))) return DENIED;
+  if (copy.excused) return { success: false, error: "Excused work has no mark." };
   const mark = await readMark(copyId);
-  if (!mark?.second) return { success: false, error: "There’s no second mark to agree on." };
+  // Security review: agreeing is only for marks that disagree and aren't agreed yet, and lands between the two marks.
+  if (!mark?.second || mark.second.agreed || !needsAgreement(mark.total, mark.second.total, mark.outOf)) return { success: false, error: "These marks don’t need agreement." };
   if (userId !== mark.markerId && userId !== readExam(copy.settings)?.secondMarker) return { success: false, error: "Only the two markers agree the mark." };
-  if (!Number.isFinite(total) || total < 0 || total > mark.outOf) return { success: false, error: `Give a mark from 0 to ${mark.outOf}.` };
-  await db.execute(sql`
+  const low = Math.min(mark.total, mark.second.total), high = Math.max(mark.total, mark.second.total);
+  if (!Number.isFinite(total) || total < low || total > high) return { success: false, error: `The agreed mark is from ${low} to ${high}.` };
+  const rows = Array.from(await db.execute(sql`
     UPDATE assignment_marks SET total = ${Math.round(total * 100) / 100}, agreed_at = now(),
       history = history || jsonb_build_array(jsonb_build_object('total', total, 'second', second_total, 'agreed', ${total}::numeric, 'by', ${userId}::uuid, 'at', now()))
-    WHERE copy_id = ${copyId}::uuid`);
-  return { success: true };
+    WHERE copy_id = ${copyId}::uuid AND agreed_at IS NULL AND second_total IS NOT NULL AND abs(total - second_total) > out_of * 0.1 RETURNING copy_id`));
+  return rows.length ? { success: true } : { success: false, error: "These marks don’t need agreement." };
 }
 
 /** Settings → Marking (the Teacher): rubrics (new, edit, archive) and the comment bank. */
