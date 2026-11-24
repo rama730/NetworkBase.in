@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clapperboard, FileText, Gamepad2, Gavel, Handshake, MessagesSquare, Mic, MoreHorizontal, RotateCcw, Rocket, Siren, Target, Timer, type LucideIcon } from "lucide-react";
+import { BookMarked, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clapperboard, FileText, Gamepad2, Gavel, Handshake, MessagesSquare, Mic, MoreHorizontal, RotateCcw, Rocket, Siren, Target, Timer, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -48,7 +48,7 @@ export function useOpenDocAfter(projectId: string) {
 
 /** S1: each meeting type's card icon. */
 const TYPE_ICON: Record<string, LucideIcon> = { weekly: CalendarDays, standup: Timer, planning: Target, retro: RotateCcw, kickoff: Rocket, client: Handshake,
-  recording: Mic, shoot: Clapperboard, interview: MessagesSquare, incident: Siren, playtest: Gamepad2, board: Gavel, blank: FileText };
+  recording: Mic, shoot: Clapperboard, interview: MessagesSquare, incident: Siren, playtest: Gamepad2, board: Gavel, supervision: BookMarked, blank: FileText };
 
 /** S1 and W1: type, title, date and time (the workspace's zone), length, attendees, repeat. */
 export function NewMeetingDialog({ projectId, open, onOpenChange }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void }) {

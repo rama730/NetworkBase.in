@@ -1280,6 +1280,22 @@ export const peerReviews = pgTable("peer_reviews", {
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
 }, (t) => [unique("peer_reviews_one_each").on(t.copyId, t.reviewerId), index("peer_reviews_master_reviewer_idx").on(t.masterId, t.reviewerId)]);
 
+/** B1.8b (0134, report 30.6 layer 3): a thesis workspace's literature sources. Server only. */
+export const literatureSources = pgTable("literature_sources", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  authors: text("authors"),
+  year: integer("year"),
+  link: text("link"),
+  doi: text("doi"),
+  keyIssues: text("key_issues").array().default(sql`'{}'::text[]`).notNull(),
+  summary: text("summary"),
+  nodeId: uuid("node_id").references(() => workspaceNodes.id, { onDelete: "set null" }),
+  addedBy: uuid("added_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("literature_sources_workspace_idx").on(t.projectId, t.createdAt)]);
+
 /** B1.7a (0133, report 30.4 call 3): Pin for today — up to 3 of your own tasks for one day. Private; server only. */
 export const dayPins = pgTable("day_pins", {
   userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),

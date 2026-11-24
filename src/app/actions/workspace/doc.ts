@@ -3136,10 +3136,22 @@ export async function readThesisAction(projectId: string) {
         const ids = [settings.supervisorId, settings.coSupervisorId].filter((x): x is string => Boolean(x));
         const people = ids.length ? await db.select({ id: profiles.id, name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Supervisor')` }).from(profiles).where(inArray(profiles.id, ids)) : [];
         const nameOf = (id: string | null) => (id ? people.find((p) => p.id === id)?.name ?? null : null);
+        // B1.8b: the last Supervision meeting (with its open action items) and the outputs.
+        const meetings = await db.select({ slug: workspaceDocuments.slug, id: workspaceDocuments.id, date: sql<string | null>`${workspaceDocuments.settings}->>'date'` }).from(workspaceDocuments)
+            .where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.settings}->>'section' = 'meetings'`, sql`${workspaceDocuments.settings}->>'kind' = 'supervision'`,
+                sql`${workspaceDocuments.settings}->>'date' <= ${new Date().toISOString().slice(0, 10)}`))
+            .orderBy(sql`${workspaceDocuments.settings}->>'date' DESC`).limit(5);
+        const last = meetings.find((m) => { const p = docContext(base, actor, m.slug).permission; return p.canReadPublished || p.canEdit; });
+        const [openItems] = last ? await db.select({ n: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.sourceDocId, last.id), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`)) : [];
+        const outputs = await db.select({ title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus, labels: tasks.labels }).from(tasks)
+            .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), sql`${tasks.labels} && ARRAY['publication', 'talk', 'Publication', 'Talk']::text[]`)).limit(20);
         return { success: true as const, thesis: {
             canEdit: context.permission.canEdit, questions: settings.questions, chapters, words: totals.words, target: totals.target,
             nextMilestone: milestone ? { title: milestone.title, due: milestone.due?.toISOString() ?? null, href: `/workspaces/${encodeURIComponent(ws?.slug ?? projectId)}?tab=tasks&drawerType=task&drawerId=${milestone.id}` } : null,
             supervisor: nameOf(settings.supervisorId), coSupervisor: nameOf(settings.coSupervisorId),
+            lastSupervision: last?.date ? { date: last.date, slug: last.slug, openItems: openItems?.n ?? 0 } : null,
+            outputs: outputs.map((o) => ({ title: o.title, kind: o.labels.some((l) => l.toLowerCase() === "talk") ? "Talk" : "Publication",
+                state: o.status === "done" ? "Completed" : o.reviewStatus === "pending" ? "In review" : o.status === "in_progress" ? "In progress" : "Not started" })),
         } };
     } catch (error) {
         logger.error("thesis.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });

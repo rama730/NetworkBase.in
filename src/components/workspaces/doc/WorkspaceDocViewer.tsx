@@ -24,6 +24,7 @@ import { MoveToSectionMenu } from "@/components/workspaces/doc/MoveToSectionMenu
 import { DecisionMetaLine } from "@/components/workspaces/doc/DocDecisions";
 import { LaunchHeader } from "@/components/workspaces/doc/DocLaunch";
 import { MeetingHeader, MeetingsCalendar, OpenActionItems } from "@/components/workspaces/doc/DocMeeting";
+import { LiteratureView } from "@/components/workspaces/doc/LiteratureView";
 import { useAddedWorkflows } from "@/components/workspaces/workflows/useWorkspaceWorkflows";
 import { docSectionOf } from "@/lib/workspaces/doc-sections";
 import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
@@ -443,7 +444,8 @@ export function WorkspaceDocViewer({
                     {listed && docSectionOf(listed, addedWorkflows) === "meetings" ? <MeetingHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
                     {listed && docSectionOf(listed, addedWorkflows) === "offsite" ? <OffsiteHeader projectId={project.id} docSlug={normalizedDocSlug} /> : null}
                     {/* Report 38.11 W9 (A4.1): Documents → Open action items. */}
-                    {meetingsView === "actions" ? <OpenActionItems projectId={project.id} projectSlug={project.slug ?? project.id} />
+                    {addedWorkflows.includes("thesis") && rail.view === "literature" ? <LiteratureView projectId={project.id} canEdit={payload.canEdit} />
+                        : meetingsView === "actions" ? <OpenActionItems projectId={project.id} projectSlug={project.slug ?? project.id} />
                         : meetingsView === "calendar" ? <MeetingsCalendar projectId={project.id} projectSlug={project.slug ?? project.id} canAdd={payload.canEdit} onNew={() => rail.openAdd("meetings")} />
                         : <>{tools}{docBody}</>}
                 </div>

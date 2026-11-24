@@ -5,7 +5,7 @@ import { axeViolations } from './axe';
 
 // Report 30.6 W5 (plan B1.8a).
 const thesis = (chapters: unknown[]) => ({ canEdit: true, questions: ['Can GNNs beat ARIMA on city traffic?'], chapters, words: 11300, target: 12000,
-  nextMilestone: { title: 'Draft', due: '2027-03-30T23:59:00Z', href: '/workspaces/gnn?x' }, supervisor: 'Dr Iyer', coSupervisor: null });
+  nextMilestone: { title: 'Draft', due: '2027-03-30T23:59:00Z', href: '/workspaces/gnn?x' }, supervisor: 'Dr Iyer', coSupervisor: null, lastSupervision: { date: '2027-03-02', slug: 'sup-1', openItems: 2 }, outputs: [{ title: 'IEEE ITS paper', kind: 'Publication', state: 'In review' }] });
 
 test('Writing progress per chapter (over 110% marked), questions, next milestone and supervisor', async ({ page }) => {
   await page.addInitScript((t) => {
@@ -19,6 +19,8 @@ test('Writing progress per chapter (over 110% marked), questions, next milestone
   await expect(card.locator('.bg-destructive')).toHaveCount(1);
   await expect(card).toContainText('Draft · due Mar 3');
   await expect(card).toContainText('Dr Iyer');
+  await expect(card).toContainText('Mar 2 · 2 action items');
+  await expect(card).toContainText('IEEE ITS paper · In review');
   expect(await axeViolations(page)).toEqual([]);
 });
 

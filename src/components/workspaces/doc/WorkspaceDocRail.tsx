@@ -61,8 +61,8 @@ export type DocRailState = {
     askRemove: (doc: WorkspaceDocListItem | null) => void;
     dialogs: React.JSX.Element;
     /** Report 38.11 W9–W10 (A4.1): Open action items or the Meetings calendar (state, not the URL: the page drops unknown params). */
-    view: "actions" | "calendar" | null;
-    openView: (view: "actions" | "calendar") => void;
+    view: "actions" | "calendar" | "literature" | null;
+    openView: (view: "actions" | "calendar" | "literature") => void;
 };
 
 // One state machine for the desktop rail and the mobile bar: select, add, remove.
@@ -77,7 +77,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     const newIdeas = useNewIdeasDoc(projectId);
     const [recording, setRecording] = useState(false);
     const [removing, setRemoving] = useState<WorkspaceDocListItem | null>(null);
-    const [view, setView] = useState<"actions" | "calendar" | null>(null);
+    const [view, setView] = useState<"actions" | "calendar" | "literature" | null>(null);
 
     // Opening a doc is a history entry; leaving a removed doc replaces it.
     const navigate = (slug: string | null, replace = false) => {
@@ -233,6 +233,12 @@ export function WorkspaceDocRail({
                                     ))}
                                 </div>
                             ) : null,
+                            section.id === "literature" && !collapsed.includes(section.id) ? (
+                                <button key="literature:view" type="button" onClick={() => rail.openView("literature")} aria-pressed={rail.view === "literature"} data-testid="rail-literature"
+                                    className={cn("block px-1 py-1 text-left text-[12px] hover:text-foreground", rail.view === "literature" ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                                    Sources list
+                                </button>
+                            ) : null,
                             section.id && canEdit && section.docs.length === 0 && !collapsed.includes(section.id) ? (
                                 <button key={`empty:${section.id}`} type="button" onClick={() => rail.openAdd(section.id!)} className="block w-full px-1 py-1 text-left text-[12px] text-muted-foreground hover:text-foreground">
                                     {EMPTY_LINE[section.id]}
@@ -343,6 +349,12 @@ export function WorkspaceDocMobileBar({
                     );
                 })
             )}
+            {shownSection === "literature" && sections.length ? (
+                <button type="button" onClick={() => rail.openView("literature")} aria-pressed={rail.view === "literature"} data-testid="mobile-literature"
+                    className={cn("nb-touch-target inline-flex h-[32px] shrink-0 items-center rounded-[5px] border px-3 text-[12px] font-medium max-md:snap-start", rail.view === "literature" ? ACTIVE_ITEM : IDLE_ITEM)}>
+                    Sources list
+                </button>
+            ) : null}
             {/* Report 38.11 W11 (A4.1): phones reach Calendar and Open action items from the Meetings row too. */}
             {shownSection === "meetings" && sections.length ? ([["calendar", "Calendar"], ["actions", "Open action items"]] as const).map(([v, label]) => (
                 <button key={v} type="button" onClick={() => rail.openView(v)} aria-pressed={rail.view === v} data-testid={`mobile-meetings-${v}`}

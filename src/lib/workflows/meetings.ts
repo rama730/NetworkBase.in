@@ -35,6 +35,7 @@ export const MEETING_TYPES: MeetingType[] = [
   { id: "playtest", name: "Playtest", line: "What the tester saw, enjoyed and got stuck on.", sections: ["Build", "Tester", "Minutes played", "What I saw", "Fun moments", "Confusion", "Bugs", "Ideas"], actionItems: false, decisions: false },
   { id: "board", name: "Board meeting", line: "Motions and votes, quorum, minutes to approve.", sections: ["Agenda", "Reports", "Motions", "Minutes"], actionItems: false, decisions: true,
     guide: { Motions: "_Motions and votes are recorded in the panel at the top._" } },
+  { id: "supervision", name: "Supervision", line: "A thesis supervision: agenda, notes and action items.", sections: ["Agenda", "Notes"], actionItems: true, decisions: false },
   { id: "blank", name: "Blank", line: "Notes and action items.", sections: ["Notes"], actionItems: true, decisions: false },
 ];
 export const meetingType = (id: string) => MEETING_TYPES.find((t) => t.id === id) ?? null;
@@ -161,7 +162,7 @@ export const REMINDER_MINUTES = [0, 5, 15, 30] as const;
 const COMMON_TYPES = ["weekly", "standup", "planning", "retro", "kickoff", "client", "blank"];
 const CATEGORY_TYPES: Record<string, string[]> = {
   startup: ["board", "interview"], nonprofit: ["board"], podcast: ["recording"], video: ["shoot"], web_app: ["interview"],
-  tool: ["incident"], open_source: ["incident"], game: ["playtest"],
+  tool: ["incident"], open_source: ["incident"], game: ["playtest"], learning: ["supervision"],
 };
 export type MeetingSettings = { types: string[]; lengthMinutes: number; reminderMinutes: number };
 export function meetingSettings(raw: unknown, category: string | null | undefined): MeetingSettings {

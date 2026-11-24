@@ -101,6 +101,9 @@ function Card({ projectId, slug }: { projectId: string; slug: string }) {
           <dd>{t.nextMilestone ? <Link href={t.nextMilestone.href} className="hover:underline">{t.nextMilestone.title}{t.nextMilestone.due ? ` · due ${DAY.format(new Date(t.nextMilestone.due))}` : ""}</Link> : "None yet"}</dd>
           <dt className="text-muted-foreground">Supervisor</dt>
           <dd>{t.supervisor ?? "Not set"}{t.coSupervisor ? ` · co-supervisor ${t.coSupervisor}` : ""}</dd>
+          <dt className="text-muted-foreground">Last supervision</dt>
+          <dd>{t.lastSupervision ? <Link href={docHref(t.lastSupervision.slug)} className="hover:underline">{DAY.format(new Date(`${t.lastSupervision.date}T12:00:00Z`))}{t.lastSupervision.openItems ? ` · ${t.lastSupervision.openItems} action ${t.lastSupervision.openItems === 1 ? "item" : "items"}` : ""}</Link> : "None yet"}</dd>
+          {t.outputs.length ? <><dt className="text-muted-foreground">Outputs</dt><dd>{t.outputs.map((o) => `${o.title} · ${o.state}`).join("; ")}</dd></> : null}
         </dl>
       </div>
     </RailSection>
