@@ -155,8 +155,13 @@ export async function readMarkingSettingsAction(orgId: string) {
   if (!(a.isOwner || a.memberRole === "admin")) return DENIED;
   const [row] = Array.from(await db.execute<{ settings: unknown }>(sql`SELECT org_settings AS settings FROM workspaces WHERE id = ${orgId}::uuid`));
   const bank = (row?.settings as { commentBank?: unknown } | null)?.commentBank;
-  return { success: true as const, teacher: a.isOwner, rubrics: readRubrics(row?.settings),
-    commentBank: Array.isArray(bank) ? (bank as unknown[]).filter((x): x is string => typeof x === "string") : [] };
+  const commentBank = Array.isArray(bank) ? (bank as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  // B1.5b (report 30.8 layer 2): an empty comment bank is seeded from your recent return reasons in this class.
+  const suggested = commentBank.length ? [] : Array.from(await db.execute<{ reason: string }>(sql`
+    SELECT reason FROM (SELECT DISTINCT ON (e.payload->>'reason') e.payload->>'reason' AS reason, e.created_at FROM task_activity_events e
+      WHERE e.actor_id = ${userId}::uuid AND e.workspace_id = ${orgId}::uuid AND e.event_type = 'changes_requested' AND coalesce(e.payload->>'reason', '') <> ''
+      ORDER BY e.payload->>'reason', e.created_at DESC) r ORDER BY created_at DESC LIMIT 10`)).map((r) => r.reason.slice(0, 200));
+  return { success: true as const, teacher: a.isOwner, rubrics: readRubrics(row?.settings), commentBank, suggested };
 }
 
 export async function saveCommentBankAction(orgId: string, lines: string[]): Promise<{ success: true } | Failure> {

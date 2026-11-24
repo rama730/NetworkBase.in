@@ -18,7 +18,7 @@ async function open(page: Page, view: string) {
         return Object.keys(d.levels).length < 2 ? { success: false, error: 'Pick a level for Report.' } : { success: true, total: 17, outOf: 20 };
       },
       readMyMarkAction: async () => ({ success: true, marking: { mode: 'rubric', rubric: s.rubric }, mark: { total: 17, outOf: 20, levels: { c1: 0, c2: 1 }, comment: 'Explain the edge case', marker: 'Dr Rao', markedAt: '', visible: true } }),
-      readMarkingSettingsAction: async () => ({ success: true, teacher: true, rubrics: [s.rubric], commentBank: [] }),
+      readMarkingSettingsAction: async () => ({ success: true, teacher: true, rubrics: [s.rubric], commentBank: [], suggested: ['Cite your sources'] }),
       saveRubricAction: async (_o: string, r: unknown) => { calls.push(['rubric', r]); return { success: true, id: 'r2' }; },
       archiveRubricAction: async () => ({ success: true }),
       saveCommentBankAction: async (_o: string, l: string[]) => { calls.push(['bank', l]); return { success: true }; },
@@ -61,8 +61,11 @@ test('Settings → Marking: a new rubric with two criteria; the comment bank sav
   await page.getByRole('button', { name: 'Save rubric' }).click();
   const rubric = (await calls(page)).find((c: unknown[]) => c[0] === 'rubric')[1];
   expect([rubric.name, rubric.criteria.map((c: { name: string }) => c.name)]).toEqual(['Essay', ['Argument', 'Sources']]);
+  await expect(page.getByRole('textbox', { name: 'Comment bank' })).toHaveValue('Cite your sources');
+  await expect(page.getByTestId('marking-settings')).toContainText('Suggested from your recent return reasons');
   await page.getByRole('textbox', { name: 'Comment bank' }).fill('Good start\nCite sources');
   await page.getByRole('button', { name: 'Save comment bank' }).click();
   expect((await calls(page)).at(-1)).toEqual(['bank', ['Good start', 'Cite sources']]);
+  await expect(page.getByRole('button', { name: 'Save comment bank' })).toHaveCount(0);
   expect(await axeViolations(page)).toEqual([]);
 });

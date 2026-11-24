@@ -95,6 +95,7 @@ export function MarkingSettingsCard({ orgId }: { orgId: string }) {
   const data = q.data?.success ? q.data : null;
   const [editing, setEditing] = useState<{ id?: string; name: string; criteria: Array<{ id?: string; name: string }> } | null>(null);
   const [bank, setBank] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   if (!data) return null;
   const refresh = () => client.invalidateQueries({ queryKey: ["marking-settings", orgId] });
   const saveRubric = async () => {
@@ -138,10 +139,10 @@ export function MarkingSettingsCard({ orgId }: { orgId: string }) {
               </span>
             </div>
           ) : null}
-          <label className="flex flex-col gap-1.5"><span className="font-medium">Comment bank</span><span className="text-[12px] text-muted-foreground">One line each; they show as chips while marking.</span>
-            <textarea className="nb-textarea" rows={3} aria-label="Comment bank" value={bank ?? data.commentBank.join("\n")} onChange={(e) => setBank(e.target.value)} />
+          <label className="flex flex-col gap-1.5"><span className="font-medium">Comment bank</span><span className="text-[12px] text-muted-foreground">One line each; they show as chips while marking.{data.suggested.length && bank === null ? " Suggested from your recent return reasons: save to keep them." : ""}</span>
+            <textarea className="nb-textarea" rows={3} aria-label="Comment bank" value={bank ?? (data.commentBank.length ? data.commentBank : data.suggested).join("\n")} onChange={(e) => setBank(e.target.value)} />
           </label>
-          {bank !== null ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void saveCommentBankAction(orgId, bank.split("\n")).then((r) => { if (!r.success) return void toast.error(r.error); toast.success("Comment bank saved"); setBank(null); void refresh(); })}>Save comment bank</button> : null}
+          {bank !== null || (!saved && data.suggested.length > 0 && data.commentBank.length === 0) ? <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void saveCommentBankAction(orgId, (bank ?? data.suggested.join("\n")).split("\n")).then((r) => { if (!r.success) return void toast.error(r.error); toast.success("Comment bank saved"); setSaved(true); setBank(null); void refresh(); })}>Save comment bank</button> : null}
         </div>
       </SettingsCard>
     </section>
