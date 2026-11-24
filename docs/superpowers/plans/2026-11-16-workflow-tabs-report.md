@@ -8294,6 +8294,15 @@ START A COHORT (dialog)
 8. The cohort timeline reuses the Portfolio timeline.
 9. An instructor's Save as program needs admin approval.
 
+**B2.1 build calls (2026-11-25):**
+- **Split:** B2.1a programs (Save as program, Programs with cohorts, Start a cohort, Retire), B2.1b completion, B2.1c Move to a later cohort, B2.1d the kind, the Timeline and Start next cohort.
+- A program points to its source cohort instead of copying a snapshot; Start a cohort is the existing duplicate from it. The class it's saved from is its first cohort. Making a program or a cohort from a class needs owner or admin access to that class, never the school role alone. **[call]**
+- A started cohort ends on the program's length (weeks × 7 − 1 days from its start), as the dialog promises. **[call]**
+- Completion: required = every published assignment whose copy isn't Excused (optional assignments arrive with M4); Done is the approval in a class that reviews. Recording opens on the end date; going against the rule needs a reason; Completed ends the learner's profile entry as "Completed · Verified"; changing it back removes that. The school sees counts only. **[call]**
+- Move to a later cohort: staff of both cohorts, same program, a later start, seats checked under a row lock. Open copies are Excused "Moved to …"; the learner becomes a Viewer in the old cohort (finished work stays readable) and a learner in the new one. Requests from learners come later. **[call]**
+- The kind (College or university · School · Coaching or bootcamp) applies its starting values only to classes as they arrive in the school; saving it never renames classes already there, and a class's own values always win. **[call]**
+- A class whose learners are called Learner shows its duplicate as Start next cohort. **[call]**
+
 ### 31.3 C2 · Learning path (agreed 2026-11-17)
 **References** (a second scan of 14 searches found 114 templates, 50 of them rated; 7 studied from their screenshots):
 
