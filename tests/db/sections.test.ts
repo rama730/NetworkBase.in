@@ -138,4 +138,8 @@ test("B1.3b: routing — a hand-in goes to its student's section TA; another TA 
   const r = await assignments.reviewAssignmentCopyAction(copies[0]!, "approve");
   assert.equal(r.success, false);
   assert.match(r.success ? "" : r.error, /another section’s TA/);
+  const all = await assignments.approveAllSubmittedAction(master!.id);
+  assert.ok(all.success);
+  assert.equal(all.approved, 1, "security review: Approve all approves only ta2's own section's hand-in");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM tasks WHERE assignment_id = ${master!.id} AND review_status = 'pending'`)[0]!.n, 3);
 });

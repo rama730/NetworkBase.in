@@ -795,6 +795,17 @@ export async function startCopyAction(copyId: string): Promise<{ success: true }
 const ownWork = (copyId: string, userId: string) => sql`(${tasks.assigneeId} = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${copyId}::uuid AND tm.user_id = ${userId}))`;
 
 /** Reviews one waiting copy; false when someone else got there first (report §42.12 smaller bug 15). */
+/**
+ * B1.3b (report 30.9 call 2): the routing condition a TA must meet to review a copy (aliases c and m), when the class
+ * says "TAs work only with their section"; null when there's no limit (teachers, or the setting off).
+ */
+async function sectionGate(orgId: string, viewer: { role: string; userId: string }) {
+    if (viewer.role !== 'admin') return null;
+    const { readSectionSettings } = await import('@/lib/organizations/sections');
+    const [org] = await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    return readSectionSettings(org?.settings).taOnlyOwn ? reviewsCopySql(viewer.userId) : null;
+}
+
 async function reviewOne(copyId: string, reviewerId: string, decision: 'approve' | 'return', reason?: string, fixBy?: Date, change = false): Promise<boolean> {
     const now = new Date();
     const [copy] = await db.select({ projectId: tasks.projectId, sprintId: tasks.sprintId, title: tasks.title }).from(tasks).where(eq(tasks.id, copyId)).limit(1);
@@ -858,13 +869,10 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
     const [own] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, copyId), ownWork(copyId, viewer.userId))).limit(1);
     if (own) return { success: false, error: "You can’t review your own work. Ask another admin." };
     // B1.3b (report 30.9 call 2): with "TAs work only with their section" on, a TA reviews their section's work only.
-    if (viewer.role === 'admin') {
-        const { readSectionSettings } = await import('@/lib/organizations/sections');
-        const [org] = await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, loaded.master.projectId)).limit(1);
-        if (readSectionSettings(org?.settings).taOnlyOwn) {
-            const [row] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT ${reviewsCopySql(viewer.userId)} AS ok FROM tasks c JOIN tasks m ON m.id = c.assignment_id WHERE c.id = ${copyId}::uuid`));
-            if (row && !row.ok) return { success: false, error: "This hand-in is for another section’s TA." };
-        }
+    const gate = await sectionGate(loaded.master.projectId, viewer);
+    if (gate) {
+        const [row] = Array.from(await db.execute<{ ok: boolean }>(sql`SELECT ${gate} AS ok FROM tasks c JOIN tasks m ON m.id = c.assignment_id WHERE c.id = ${copyId}::uuid`));
+        if (row && !row.ok) return { success: false, error: "This hand-in is for another section’s TA." };
     }
     const reviewed = await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000), fixBy, Boolean(options.change && approved)).catch((error: Error) => error);
     if (reviewed instanceof Error) return { success: false, error: reviewed.message };
@@ -882,9 +890,13 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
 export async function approveAllSubmittedAction(masterId: string, copyIds?: string[]): Promise<{ success: true; approved: number; failed: Array<{ copyId: string; reason: string }> } | Failure> {
     const ctx = await adminOfMaster(masterId, 'approve_return');
     if (!ctx) return DENIED;
+    const [master] = await db.select({ projectId: tasks.projectId }).from(tasks).where(eq(tasks.id, masterId)).limit(1);
+    const gate = master ? await sectionGate(master.projectId, ctx.viewer) : null;
     const pending = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), eq(tasks.reviewStatus, 'pending'), isNull(tasks.deletedAt), isNull(tasks.excusedAt),
         copyIds ? inArray(tasks.id, copyIds.slice(0, 2000)) : undefined,
-        sql`NOT (${tasks.assigneeId} IS NOT DISTINCT FROM ${ctx.viewer.userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${ctx.viewer.userId}::uuid))`));
+        sql`NOT (${tasks.assigneeId} IS NOT DISTINCT FROM ${ctx.viewer.userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${ctx.viewer.userId}::uuid))`,
+        // Security review (B1.3b): Approve all follows the same section rule as one review.
+        gate ? sql`EXISTS (SELECT 1 FROM tasks c JOIN tasks m ON m.id = c.assignment_id WHERE c.id = ${tasks.id} AND ${gate})` : undefined));
     let approved = 0;
     const failed: Array<{ copyId: string; reason: string }> = [];
     for (const { id } of pending) {
