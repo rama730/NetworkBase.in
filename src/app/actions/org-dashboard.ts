@@ -676,7 +676,7 @@ async function readCatchUp(v: OrgViewer, orgId: string, now: Date, termStart: st
     const ids = earlier.map((s) => s.id);
     const files = await db.execute<{ sprint_id: string; name: string; path: string }>(sql`
         SELECT m.sprint_id, n.name, n.path FROM sprint_materials m JOIN workspace_nodes n ON n.id = m.node_id AND n.deleted_at IS NULL
-        WHERE m.sprint_id IN ${ids} AND ${orgFileAccessSql(v.access, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`}`);
+        WHERE m.sprint_id IN ${ids} AND ${orgFileAccessSql(v.access, { id: sql`n.id`, projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`}`);
     const docRows = await db.execute<{ sprint_id: string; doc_id: string }>(sql`SELECT m.sprint_id, m.doc_id FROM sprint_materials m WHERE m.sprint_id IN ${ids} AND m.doc_id IS NOT NULL`);
     const docs = docRows.length ? await readOrgDocsAction(orgId) : null;
     const docById = new Map(docs?.success && docs.data ? docs.data.docs.map((d) => [d.id, d]) : []);

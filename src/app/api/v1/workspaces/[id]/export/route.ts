@@ -45,7 +45,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     }
     const q = new URL(request.url).searchParams;
     const nodeFilter = orgFileAccessSql(access)
-      ? (alias: "n" | "child") => orgFileAccessSql(access, { projectId: sql.raw(`${alias}.workspace_id`), path: sql.raw(`${alias}.path`), taskId: sql.raw(`${alias}.task_id`) })
+      ? (alias: "n" | "child") => orgFileAccessSql(access, { id: sql.raw(`${alias}.id`), projectId: sql.raw(`${alias}.workspace_id`), path: sql.raw(`${alias}.path`), taskId: sql.raw(`${alias}.task_id`) })
       : undefined;
     const main = await prepareFolderExport({ projectId: id, folderId: null, nodeIds: undefined, canReadTaskFiles: canReadWorkspaceTaskFiles(access), nodeFilter }).catch((error: unknown) => {
       if (error instanceof Error && error.message.startsWith("No files")) return null;

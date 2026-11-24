@@ -63,6 +63,9 @@ test("a timed exam: due at the close, no late work, the paper locked until it op
   assert.deepEqual([master!.s.lateRule, master!.s.lateAfterMinutes, master!.s.exam.format, new Date(master!.due_date).toISOString()], ["none", 0, "timed", master!.s.exam.closesAt]);
   const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${made.masterId} AND assignee_id = ${t.a}`;
   await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, task_id) VALUES (${t.klass}, 'file', 'paper.pdf', '/paper.pdf', ${t.teacher}, ${made.masterId})`;
+  // Security review: a class file picked as material is locked with the paper.
+  const [sheet] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by) VALUES (${t.klass}, 'file', 'formula-sheet.pdf', '/formula-sheet.pdf', ${t.teacher}) RETURNING id`;
+  await sql`INSERT INTO task_node_links (task_id, node_id) VALUES (${made.masterId}, ${sheet!.id})`;
   viewerId = t.a;
   const before = await assignments.readAssignmentMaterialsAction(copy!.id);
   assert.ok(before.success && before.materials.length === 0, "the paper is never sent before opening");
@@ -71,7 +74,7 @@ test("a timed exam: due at the close, no late work, the paper locked until it op
   assert.ok(hand.success && hand.handIn.exam?.settings.room === "LH-2 · 204" && !hand.handIn.canSubmit);
   await sql`UPDATE tasks SET assignment_settings = jsonb_set(assignment_settings, '{exam,opensAt}', to_jsonb(${inHours(-1)}::text)) WHERE id = ${made.masterId}`;
   const open = await assignments.readAssignmentMaterialsAction(copy!.id);
-  assert.ok(open.success && open.materials.map((m) => m.name).join() === "paper.pdf", "it opens on time");
+  assert.ok(open.success && open.materials.map((m) => m.name).sort().join() === "formula-sheet.pdf,paper.pdf", "both open on time");
   assert.equal((await assignments.submitAssignmentAction(copy!.id, { text: "answer" })).success, true);
 });
 

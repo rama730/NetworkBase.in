@@ -37,8 +37,15 @@ export function canReadWorkspaceTaskFiles(access: ExistingProjectAccess): boolea
 /** SQL: ordinary project content, i.e. not owned by a task and not under /.system. */
 export const projectContentNodeSql = sql`${workspaceNodes.taskId} IS NULL AND ${workspaceNodes.path} NOT LIKE '/.system%'`;
 
-type NodeRef = { projectId: SQL | typeof workspaceNodes.projectId; path: SQL | typeof workspaceNodes.path; taskId: SQL | typeof workspaceNodes.taskId };
-const NODE_COLUMNS: NodeRef = { projectId: workspaceNodes.projectId, path: workspaceNodes.path, taskId: workspaceNodes.taskId };
+type NodeRef = { projectId: SQL | typeof workspaceNodes.projectId; path: SQL | typeof workspaceNodes.path; taskId: SQL | typeof workspaceNodes.taskId; id?: SQL | typeof workspaceNodes.id };
+const NODE_COLUMNS: NodeRef = { projectId: workspaceNodes.projectId, path: workspaceNodes.path, taskId: workspaceNodes.taskId, id: workspaceNodes.id };
+
+/**
+ * B1.6a (report 30.5): a timed exam whose paper hasn't opened yet. Never NULL (an ordinary assignment is false), so
+ * NOT of it is safe; ISO UTC strings compare in time order.
+ */
+const lockedExam = (task: SQL) => sql`coalesce(${task}.assignment_settings->'exam'->>'format' = 'timed'
+    AND ${task}.assignment_settings->'exam'->>'opensAt' > to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), false)`;
 
 /**
  * Org Files (report §23.3, §23.5), mirroring app_private.nb_org_node_access_ok (0247): in an organization,
@@ -62,15 +69,18 @@ export function orgFileAccessSql(access: OrgFileViewer, node: NodeRef = NODE_COL
         SELECT 1 FROM tasks nb_vt WHERE nb_vt.id = ${node.taskId} AND (
             (nb_vt.kind = 'assignment' AND nb_vt.assignment_id IS NULL AND nb_vt.assignment_settings->>'publishedAt' IS NOT NULL
                 -- B1.6a (report 30.5): a timed exam's paper stays locked until it opens (ISO UTC strings compare in order).
-                AND NOT (nb_vt.assignment_settings->'exam'->>'format' = 'timed'
-                    AND nb_vt.assignment_settings->'exam'->>'opensAt' > to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')))
+                AND NOT ${lockedExam(sql`nb_vt`)})
             OR nb_vt.assignee_id = ${viewerId}
             OR EXISTS (SELECT 1 FROM task_team_members nb_tm WHERE nb_tm.task_id = nb_vt.id AND nb_tm.user_id = ${viewerId})
         )
     ))`;
     const inside = access.isOwner || access.isMember;
+    // Security review (B1.6a): a class file picked as a timed exam's material stays locked with the paper.
+    const materialLocked = node.id ? sql`NOT EXISTS (SELECT 1 FROM task_node_links nb_l JOIN tasks nb_x ON nb_x.id = nb_l.task_id
+        WHERE nb_l.node_id = ${node.id} AND nb_x.kind = 'assignment' AND nb_x.deleted_at IS NULL AND ${lockedExam(sql`nb_x`)})` : undefined;
     return and(
         taskVisible,
+        materialLocked,
         sql`NOT ${marked("admins")}`,
         inside ? undefined : and(marked("public"), sql`NOT ${marked("members")}`),
     );

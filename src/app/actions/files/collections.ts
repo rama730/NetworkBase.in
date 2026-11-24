@@ -77,7 +77,7 @@ async function loadEntries(access: Awaited<ReturnType<typeof authorize>>, projec
 export async function getTaskFileGroups(projectId: string, options: { deliverables?: boolean; cursor?: string; fileCursor?: string; query?: string; taskId?: string; role?: TaskCollectionRole } = {}) {
     const access = await authorize(projectId);
     // In an organization, members see only their own copies' groups and no Admins-only files (report §23.5).
-    const orgRule = orgFileAccessSql(access, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`t.id` });
+    const orgRule = orgFileAccessSql(access, { id: sql`n.id`, projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`t.id` });
     // Groups are newest activity first; the cursor is "<updated_at ISO>~<task id>".
     const [cursorAt, cursorId] = options.cursor?.split("~") ?? [];
     if (options.cursor && (!cursorId || !UUID_RE.test(cursorId) || !/^[0-9][0-9:. +\-]{9,39}$/.test(cursorAt ?? ""))) throw new Error("Invalid task cursor");
