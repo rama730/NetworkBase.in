@@ -56,16 +56,18 @@ test("a school admin saves a cohort as a program, a cohort starts from it with i
   assert.ok(saved.success);
   const list = await prog.readProgramsAction(school);
   assert.ok(list.success);
-  assert.deepEqual(list.programs.map((p) => [p.name, p.weeks, p.status, p.sourceClass]), [["Full-stack Web", 12, "active", "Full-stack Web · Cohort 1"]]);
+  assert.deepEqual(list.programs.map((p) => [p.name, p.weeks, p.status, p.sourceClass, p.cohorts]), [["Full-stack Web", 12, "active", "Full-stack Web · Cohort 1", 1]], "the source class is its first cohort");
   const life = await loadAppModule(() => import("../../src/lib/organizations/lifecycle"));
   const copy = { about: true, docs: true, files: false, sprints: true, assignments: true, channels: false, admins: false };
-  const newId = await life.duplicateOrg(klass, principal!, { title: "Full-stack Web · Cohort 2", handle: `fsw-c2-${Date.now().toString(36)}`, termStart: "2027-04-19", copy, cohort: { programId: saved.id, seats: 30, joinMode: "approval" } });
+  // The program's 12 weeks set the end (Jul 11), even though the source term ran a day short of them.
+  await sql`UPDATE workspaces SET term_end = '2027-03-27' WHERE id = ${klass}`;
+  const newId = await life.duplicateOrg(klass, principal!, { title: "Full-stack Web · Cohort 2", handle: `fsw-c2-${Date.now().toString(36)}`, termStart: "2027-04-19", copy, cohort: { programId: saved.id, seats: 30, joinMode: "approval", end: "2027-07-11" } });
   assert.ok(newId);
   created.push(newId as string);
   const [c2] = await sql`SELECT institution_id, term_start::text, term_end::text, max_collaborators, org_settings->>'programId' AS program, org_settings->>'joinMode' AS join FROM workspaces WHERE id = ${newId as string}`;
   assert.deepEqual([c2!.institution_id, c2!.term_start, c2!.term_end, c2!.max_collaborators, c2!.program, c2!.join], [school, "2027-04-19", "2027-07-11", "30", saved.id, "approval"]);
   const again = await prog.readProgramsAction(school);
-  assert.ok(again.success && again.programs[0]!.cohorts === 1 && again.programs[0]!.list[0]!.state !== undefined);
+  assert.ok(again.success && again.programs[0]!.cohorts === 2 && again.programs[0]!.list[0]!.state !== undefined);
   assert.equal((await prog.updateProgramAction(saved.id, { status: "retired" })).success, true);
   assert.match((await prog.startCohortAction(saved.id, { name: "Cohort 3", handle: "cohort-3-x", start: "2027-08-02", seats: null, joinMode: "instant", copy }) as { error?: string }).error ?? "", /retired/);
   viewerId = teacher!;

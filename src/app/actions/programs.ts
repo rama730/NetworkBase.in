@@ -55,11 +55,14 @@ export async function saveAsProgramAction(classId: string, name: string): Promis
   const title = String(name ?? "").trim().slice(0, 120) || c.title;
   const [row] = await db.insert(programs).values({ institutionId: c.institutionId, name: title, weeks: weeksBetween(c.termStart, c.termEnd), sourceClassId: classId,
     seats: c.seats ? Number(c.seats) || null : null, createdBy: who.userId }).returning({ id: programs.id });
+  // Found live (B2.1a): the class it's saved from is the program's first cohort (counted, and its learners can move on).
+  await db.update(workspaces).set({ orgSettings: sql`jsonb_set(coalesce(${workspaces.orgSettings}, '{}'::jsonb), '{programId}', to_jsonb(${row!.id}::text))` })
+    .where(and(eq(workspaces.id, classId), sql`(${workspaces.orgSettings}->>'programId') IS NULL`));
   return { success: true, id: row!.id };
 }
 
 export type ProgramRow = { id: string; name: string; weeks: number | null; status: string; sourceClass: string | null; seats: number | null; cohorts: number; nextStart: string | null;
-  list: Array<{ id: string; title: string; slug: string | null; start: string | null; end: string | null; state: CohortState; members: number; completed: number; recorded: number }> };
+  list: Array<{ id: string; title: string; slug: string | null; start: string | null; end: string | null; state: CohortState; members: number; seats: number | null; completed: number; recorded: number }> };
 
 /** The school's Programs (admins): each with its cohorts — Upcoming, Running, Finished — and seats taken. */
 export async function readProgramsAction(schoolId: string) {
@@ -67,8 +70,8 @@ export async function readProgramsAction(schoolId: string) {
     if (!(await schoolAdmin(schoolId))) return DENIED;
     const rows = await db.select({ id: programs.id, name: programs.name, weeks: programs.weeks, status: programs.status, seats: programs.seats, source: programs.sourceClassId,
       sourceTitle: sql<string | null>`(SELECT title FROM workspaces WHERE id = ${programs.sourceClassId})` }).from(programs).where(eq(programs.institutionId, schoolId)).orderBy(programs.name);
-    const cohorts = rows.length ? Array.from(await db.execute<{ id: string; title: string; slug: string | null; start: string | null; end: string | null; program: string; members: number; completed: number; recorded: number }>(sql`
-      SELECT w.id, w.title, w.slug, w.term_start::text AS start, w.term_end::text AS "end", w.org_settings->>'programId' AS program,
+    const cohorts = rows.length ? Array.from(await db.execute<{ id: string; title: string; slug: string | null; start: string | null; end: string | null; program: string; members: number; seats: string | null; completed: number; recorded: number }>(sql`
+      SELECT w.id, w.title, w.slug, w.term_start::text AS start, w.term_end::text AS "end", w.org_settings->>'programId' AS program, w.max_collaborators AS seats,
         (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = w.id AND m.role = 'member') AS members,
         -- B2.1b layer 16: the school sees completion counts, never names.
         (SELECT count(*) FILTER (WHERE cc.completed)::int FROM cohort_completions cc WHERE cc.workspace_id = w.id) AS completed,
@@ -76,7 +79,7 @@ export async function readProgramsAction(schoolId: string) {
       FROM workspaces w WHERE w.institution_id = ${schoolId}::uuid AND w.deleted_at IS NULL AND w.org_settings ? 'programId' ORDER BY w.term_start`)) : [];
     const today = new Date().toISOString().slice(0, 10);
     return { success: true as const, programs: rows.map((p): ProgramRow => {
-      const list = cohorts.filter((c) => c.program === p.id).map((c) => ({ id: c.id, title: c.title, slug: c.slug, start: c.start, end: c.end, state: cohortState(c.start, c.end, today), members: c.members, completed: c.completed, recorded: c.recorded }));
+      const list = cohorts.filter((c) => c.program === p.id).map((c) => ({ id: c.id, title: c.title, slug: c.slug, start: c.start, end: c.end, state: cohortState(c.start, c.end, today), members: c.members, seats: c.seats ? Number(c.seats) || null : null, completed: c.completed, recorded: c.recorded }));
       return { id: p.id, name: p.name, weeks: p.weeks, status: p.status, sourceClass: p.sourceTitle, seats: p.seats, cohorts: list.length, nextStart: list.find((c) => c.state === "upcoming")?.start ?? null, list };
     }) };
   } catch (error) {
@@ -114,7 +117,7 @@ export async function startCohortAction(programId: string, input: z.input<typeof
   try {
     await inngest.send({ name: "org/duplicate.requested", data: { sourceId: p.sourceClassId, actorId: who.userId, options: {
       title: parsed.data.name, handle: handle.handle, termStart: parsed.data.start, copy: parsed.data.copy,
-      cohort: { programId: p.id, seats: parsed.data.seats, joinMode: parsed.data.joinMode } } } });
+      cohort: { programId: p.id, seats: parsed.data.seats, joinMode: parsed.data.joinMode, end: p.weeks ? cohortEnd(parsed.data.start, p.weeks) : null } } } });
   } catch {
     return { success: false, error: "Starting cohorts is unavailable right now. Try again in a minute." };
   }

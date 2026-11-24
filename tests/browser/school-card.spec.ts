@@ -27,7 +27,7 @@ async function open(page: Page, view: 'class' | 'school' | 'classes' | 'attentio
       readOrgMembersAction: async () => ({ success: true, rows: [{ userId: 'u1', name: 'Asha' }] }),
       readSchoolExamsAction: async () => ({ success: true, exams: [{ id: 'm1', title: 'Midterm', classTitle: 'Maths 10A', format: 'in_person', opensAt: '2027-03-02T10:00:00Z', closesAt: '2027-03-02T12:00:00Z', room: 'LH-2', students: 31, clashes: 3 }] }),
       readProgramsAction: async () => ({ success: true, programs: [{ id: 'p1', name: 'Full-stack Web', weeks: 12, status: 'active', sourceClass: 'Maths 10A', seats: 30, cohorts: 1, nextStart: null,
-        list: [{ id: 'c1', title: 'Full-stack Web · Cohort 1', slug: 'fsw-1', start: '2027-01-04', end: '2027-03-28', state: 'running', members: 18 }] }] }),
+        list: [{ id: 'c1', title: 'Full-stack Web · Cohort 1', slug: 'fsw-1', start: '2027-01-04', end: '2027-03-28', state: 'running', members: 18, seats: 30, completed: 0, recorded: 0 }] }] }),
       startCohortAction: async (id: string, input: unknown) => { calls.push(['start', id, input]); return { success: true, ends: '2027-07-11' }; },
       saveAsProgramAction: async (id: string, name: string) => { calls.push(['save', id, name]); return { success: true, id: 'p2' }; },
       saveSchoolExamWeeksAction: async (_s: string, rows: unknown) => { calls.push(['weeks', rows]); return { success: true }; },

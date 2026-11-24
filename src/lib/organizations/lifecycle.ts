@@ -204,7 +204,7 @@ export type DuplicateOptions = {
   termStart: string | null;
   copy: { about: boolean; docs: boolean; files: boolean; sprints: boolean; assignments: boolean; channels: boolean; admins: boolean };
   /** B2.1a Start a cohort (report 31.2): the program it runs, its seats and how people join. */
-  cohort?: { programId: string; seats: number | null; joinMode: "approval" | "instant" };
+  cohort?: { programId: string; seats: number | null; joinMode: "approval" | "instant"; end?: string | null };
 };
 
 /** Shift a date by the term move (new term start − old term start), whole days. */
@@ -263,6 +263,8 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
       await db.update(workspaces).set({
         orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ programId: options.cohort.programId, joinMode: options.cohort.joinMode })}::jsonb`,
         maxCollaborators: options.cohort.seats == null ? null : String(options.cohort.seats),
+        // Found live (B2.1a): the program's length sets the end the form promised, not the old term's exact days.
+        ...(options.cohort.end ? { termEnd: options.cohort.end } : {}),
       }).where(eq(workspaces.id, newId));
     }
     return filled;
