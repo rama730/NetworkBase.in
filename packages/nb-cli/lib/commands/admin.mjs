@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 // Workspace admin, security and data from the terminal (report Part F, M7): workspace create, settings and archive;
 // the agent policy; docs add and remove; whoami --security; nb export; nb api. Risky actions ask "Verify it's you"
 // in the browser (F5) and then continue.
@@ -92,15 +93,19 @@ export async function docAdd(ctx) {
   ctx.out.result("nb.doc.add/1", res, () => `${ctx.out.c.success(ctx.out.sym.done)} ${safe(file)} is a workspace doc · nb doc list`);
 }
 
-/** `nb doc new --template <id> [title]` (38.15 W6, A6.35): a document from a NetworkBase template. @param {Context} ctx */
+/**
+ * `nb doc new --template <id> [title]` (38.15 W6, A6.35): a document from a NetworkBase template. The file goes up as
+ * `nb push` sends files (same rules: protected main, agents' approval), then becomes a doc. @param {Context} ctx
+ */
 export async function docNew(ctx) {
   const template = ctx.flags.template ? String(ctx.flags.template) : "";
   if (!template) throw usage('nb doc new --template <id> ["title"]', "nb doc templates lists the templates");
   const title = ctx.positionals.join(" ").trim();
-  const res = /** @type {any} */ (await ctx.api.post(`${ws(ctx)}/docs`, { template, title }));
-  ctx.out.result("nb.doc.new/1", res, (r) => r.waiting
-    ? `${safe(r.path)} waits for your person to apply its change set · then nb doc add ${safe(r.path)}`
-    : `${ctx.out.c.success(ctx.out.sym.done)} ${safe(r.path)} is a workspace doc · nb doc view ${safe(r.slug ?? "")}`);
+  const made = /** @type {any} */ (await ctx.api.get(`${ws(ctx)}/docs`, { query: { template, title } }));
+  const content = Buffer.from(made.text, "utf8");
+  await ctx.api.post("/api/v1/files/place", { projectId: ctx.requireWorkspace(), files: [{ path: made.path, contentHash: crypto.createHash("sha256").update(content).digest("hex"), size: content.length, mimeType: "text/markdown", contentBase64: content.toString("base64") }] });
+  const res = /** @type {any} */ (await ctx.api.post(`${ws(ctx)}/docs`, { path: made.path }));
+  ctx.out.result("nb.doc.new/1", { ...res, path: made.path }, (r) => `${ctx.out.c.success(ctx.out.sym.done)} ${safe(r.path)} is a workspace doc · nb doc view ${safe(r.slug ?? "")}`);
 }
 
 /** `nb doc templates` (38.15 W6): the NetworkBase templates and their ids. @param {Context} ctx */

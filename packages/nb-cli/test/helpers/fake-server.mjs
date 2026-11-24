@@ -729,9 +729,12 @@ const patterns = [
   [/^\/api\/v1\/workspaces\/([^/]+)\/goals$/, "GET", (_req, /** @type {any} */ state) => ({ data: state.goals ?? { period: "2027-Q1", label: null, objectives: [] } })],
   // Ideas (report 38.13 W9): whatever the test put on state.ideas; an add is kept on state.ideaAdds.
   [/^\/api\/v1\/workspaces\/([^/]+)\/offsites$/, "GET", (_req, /** @type {any} */ state) => ({ data: { offsites: state.offsites ?? [] } })],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "POST", (/** @type {any} */ req) => req.body?.template
-    ? (req.body.template === "tech-spec" ? { status: 201, data: { slug: "tech-spec-sign-in", path: `Docs/Tech spec – ${req.body.title}.md` } } : fail(404, "NOT_FOUND", `No template "${req.body.template}"`))
-    : { status: 201, data: { slug: "x" } }],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "POST", (/** @type {any} */ req, /** @type {any} */ state) => {
+    const file = state.files.get(req.body.path);
+    if (!file) return fail(404, "NOT_FOUND", `No file ${req.body.path} here`);
+    state.docs.push({ slug: "tech-spec-sign-in", filename: req.body.path.split("/").pop(), nodePath: req.body.path });
+    return { status: 201, data: { success: true, slug: "tech-spec-sign-in" } };
+  }],
   [/^\/api\/v1\/workspaces\/([^/]+)\/snippets$/, "GET", (/** @type {any} */ req, /** @type {any} */ state) => {
     const name = req.query.get("name");
     const all = state.snippets ?? [];
@@ -750,7 +753,9 @@ const patterns = [
   [/^\/api\/v1\/workspaces\/([^/]+)\/content$/, "GET", (_req, /** @type {any} */ state) => ({ data: { projectKey: "T", timeZone: "UTC",
     channels: [{ id: "blog", name: "Blog", updates: true }, { id: "linkedin", name: "LinkedIn", updates: false }], types: [{ id: "article", name: "Article" }, { id: "post", name: "Post" }],
     items: state.content ?? [] } })],
-  [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: (d.nodePath && state.files.get(d.nodePath)?.nodeId) ?? null })) } })],
+  [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (req, state) => req.query.get("template")
+    ? (req.query.get("template") === "tech-spec" ? { data: { template: { id: "tech-spec", name: "Tech spec" }, path: `Docs/Tech spec – ${req.query.get("title")}.md`, text: "# Tech spec\n" } } : fail(404, "NOT_FOUND", `No template "${req.query.get("template")}"`))
+    : ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: (d.nodePath && state.files.get(d.nodePath)?.nodeId) ?? null })) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {
     const doc = state.docs.find((d) => d.slug === req.params[1]);
     const file = doc?.nodePath ? state.files.get(doc.nodePath) : null;

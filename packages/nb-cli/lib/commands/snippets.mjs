@@ -22,6 +22,9 @@ export async function list(ctx) {
 export async function get(ctx) {
   const name = ctx.positionals.join(" ").trim();
   if (!name) throw new CliError("USAGE", "Name the snippet", { hint: 'nb snippets get "Retry with backoff"' });
-  const d = /** @type {any} */ (await ctx.api.get(base(ctx), { query: { name } }));
+  const d = /** @type {any} */ (await ctx.api.get(base(ctx), { query: { name } }).catch((error) => {
+    if (error instanceof CliError && error.status === 404) throw new CliError("NOT_FOUND", error.message, { hint: "nb snippets list shows their names" });
+    throw error;
+  }));
   ctx.out.result("nb.snippets.get/1", { snippet: d.snippet }, (r) => r.snippet.code);
 }

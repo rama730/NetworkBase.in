@@ -24,7 +24,7 @@ describe("nb snippets", () => {
     assert.equal(r.stdout.trim(), "await retry(fn);");
     const miss = await runCli(["snippets", "get", "nope", "-w", "design-lab"], { api: api.url });
     assert.notEqual(miss.code, 0);
-    assert.match(miss.stderr, /No snippet named/);
+    assert.match(miss.stderr, /No snippet named[\s\S]*nb snippets list/);
   });
 });
 
