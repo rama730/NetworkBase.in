@@ -5558,9 +5558,9 @@
       "text": "Copying a document as a template",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-templates.test.ts",
+      "evidence": "By construction (2026-11-24 sweep): rows belong to the source document id, so a copied template (A6.1, org templates) starts with empty blocks; templates are text only."
     },
     {
       "key": "38.3.W10",
@@ -5618,9 +5618,9 @@
       "text": "Blocks are inserted from an Insert menu in the Files editor, never typed by hand. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/doc-live-rows.spec.ts",
+      "evidence": "Insert ▾ in the Files editor adds blocks (A0.5)."
     },
     {
       "key": "38.3.call3",
@@ -5628,9 +5628,9 @@
       "text": "New rows go to To do in the Backlog, not the running sprint. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/doc-rows.test.ts",
+      "evidence": "New rows are To do in the Backlog (sprint_id null)."
     },
     {
       "key": "38.3.call4",
@@ -5638,9 +5638,9 @@
       "text": "Completed rows stay in place for 7 days, then fold under \"Completed\". [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/doc-live-blocks.test.ts; tests/browser/doc-live-rows.spec.ts",
+      "evidence": "orderRows keeps completed rows in place 7 days, then folds under Completed."
     },
     {
       "key": "38.3.call5",
@@ -5678,9 +5678,9 @@
       "text": "Agenda stays plain Markdown inside the templates; no live agenda block. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts",
+      "evidence": "Meeting templates keep the agenda as Markdown (A4.3–A4.15); no agenda block exists."
     },
     {
       "key": "38.3.call9",
@@ -5788,9 +5788,9 @@
       "text": "Keyboard only",
       "kind": "journey",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/create-module.spec.ts",
+      "evidence": "N opens New on Task, Shift+N opens New ▾ (TasksTab key handler); Ctrl+Enter creates."
     },
     {
       "key": "38.4.call1",
@@ -5798,9 +5798,9 @@
       "text": "The panel keeps its tabs; the 11.2 one-scroll page stays with Pipeline (parked). [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/task-stage.spec.ts",
+      "evidence": "The task panel keeps its tabs; the one-scroll page stays with Pipeline (parked)."
     },
     {
       "key": "38.4.call2",
@@ -5808,9 +5808,9 @@
       "text": "Never-on-board types swap Subtasks for a Work tab (filled in T1 and T2). [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/planner-work.spec.ts",
+      "evidence": "Never-on-board types (project) get the Work tab (A1.3)."
     },
     {
       "key": "38.4.call3",
@@ -5840,7 +5840,7 @@
       "milestone": "A0",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "2026-11-24 sweep: type sections are read from the form on create; check that values survive switching type tabs (sections may unmount)."
     },
     {
       "key": "38.4.call6",
@@ -6218,9 +6218,9 @@
       "text": "Hiding Bugs",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/workflow-tabs.spec.ts; tests/db/workflow-catalog.test.ts",
+      "evidence": "Hiding Bugs = F1 W7 Remove hides; greyed type mark on cards (A0.10)."
     },
     {
       "key": "38.6.call1",
@@ -6858,9 +6858,9 @@
       "text": "Phone",
       "kind": "journey",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/browser/roadmap-tab.spec.ts",
+      "evidence": "Roadmap phone: three folding sections (A2.10)."
     },
     {
       "key": "38.9.W12",
@@ -6908,9 +6908,9 @@
       "text": "Projects link as Built by; they stay un-nested (T1 call 4). [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts; tests/unit/roadmap-rules.test.ts",
+      "evidence": "Projects link as Built by and stay un-nested."
     },
     {
       "key": "38.9.call5",
@@ -6918,9 +6918,9 @@
       "text": "Requests can be linked; their askers hear when the item ships. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/roadmap.test.ts",
+      "evidence": "Launched tells the askers of linked requests."
     },
     {
       "key": "38.9.call6",
@@ -6928,9 +6928,9 @@
       "text": "No public roadmap in this release. [call]",
       "kind": "call",
       "milestone": "A2",
-      "status": "todo",
+      "status": "n/a-live",
       "test": "",
-      "evidence": ""
+      "evidence": "No public roadmap in this release (parked by call)."
     },
     {
       "key": "38.10.W1",
@@ -7020,7 +7020,7 @@
       "milestone": "A3",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "2026-11-24 sweep: launch phone layout stacks; the public reader view (countdown + What's new only) needs a check."
     },
     {
       "key": "38.10.W10",
@@ -7078,9 +7078,9 @@
       "text": "Bugs fill Fixed by matching their Fixed in text to the launch's version label. [call]",
       "kind": "call",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/launches.test.ts",
+      "evidence": "Bugs fill Fixed by from Fixed in matching the version label."
     },
     {
       "key": "38.10.call6",
@@ -7088,9 +7088,9 @@
       "text": "Close is suggested after 14 days; nothing closes on its own. [call]",
       "kind": "call",
       "milestone": "A3",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/launch-rules.test.ts",
+      "evidence": "closeSuggested after 14 days; nothing closes on its own."
     },
     {
       "key": "38.11.W1",
@@ -7218,9 +7218,9 @@
       "text": "Meetings and decisions are documents; 1:1s stay parked. [call]",
       "kind": "call",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/meetings.test.ts",
+      "evidence": "Meetings and decisions are documents (A4.1–A4.2); 1:1s parked."
     },
     {
       "key": "38.11.call2",
@@ -7288,9 +7288,9 @@
       "text": "Lessons stay as text in retrospectives; there's no lessons log in this release. [call]",
       "kind": "call",
       "milestone": "A4",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/meeting-rules.test.ts",
+      "evidence": "Retrospective lessons stay as text (A4.6 template)."
     },
     {
       "key": "38.12.W1",
@@ -7370,7 +7370,7 @@
       "milestone": "A5",
       "status": "todo",
       "test": "",
-      "evidence": ""
+      "evidence": "Moved to B4.3 (needs organization objectives)."
     },
     {
       "key": "38.12.W9",
@@ -7718,9 +7718,9 @@
       "text": "Schedule",
       "kind": "journey",
       "milestone": "A7",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live-pending",
+      "test": "tests/db/scheduled-updates.test.ts",
+      "evidence": "Schedule… in the composer is live (A7.4); posting a test Update waits for the user's OK. revisit 2026-11-25"
     },
     {
       "key": "38.17.call1",
@@ -8008,9 +8008,9 @@
       "text": "A0.6 deferred: the attendees' notice \"A decision is recorded from a meeting you attended\" waits for meeting attendees (A4.1); agents recording decisions (tier \"",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": "deferred to A4.1 (attendee notice) and A4.2 (agent decisions CLI)."
+      "status": "live",
+      "test": "tests/db/meetings.test.ts",
+      "evidence": "A0.6 deferral resolved in A4.1/A4.2: attendees are told when a decision is recorded from their meeting (readersOf)."
     },
     {
       "key": "38.4.call8",
@@ -8038,9 +8038,9 @@
       "text": "A0.8: no type has its own fields yet, so \"[Type] details\" and the carry-over of type-only fields (call 5) arrive with each type's unit (Bug details in A2.1); th",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": "deferred to each type unit (A2.1 Bug details); server already refuses unknown fields by name (db test)."
+      "status": "live",
+      "test": "tests/unit/create-rules.test.ts",
+      "evidence": "A0.8 deferral resolved: type details sections arrived with each type (Bug A2.1, Request A2.4, Content A2.7, Roadmap A2.10)."
     },
     {
       "key": "38.4.call11",
@@ -8048,9 +8048,9 @@
       "text": "A0.8: the CLI and MCP --type/--stage come with A0.10 (as the plan lists); the server rule they will share (call 3: a member's sprint goes to the Backlog, backlo",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": "CLI/MCP --type/--stage with A0.10."
+      "status": "live",
+      "test": "packages/nb-cli/test/bugs.test.mjs",
+      "evidence": "A0.8 deferral resolved in A0.10: CLI/MCP --type/--stage."
     },
     {
       "key": "38.4.call12",
@@ -8068,9 +8068,9 @@
       "text": "A0.9: the shared one-line quick-add (S3) is built with its second user, the own-tab \"+ New bug\" line in A2.1; Part of joins the read-only lines with A1.3. [call",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": "shared quick-add with A2.1; Part of with A1.3."
+      "status": "live",
+      "test": "tests/browser/bugs-tab.spec.ts",
+      "evidence": "A0.9 deferral resolved: quick-add lines in own tabs (A2.1 + New bug)."
     },
     {
       "key": "38.2.call19",
@@ -8088,9 +8088,9 @@
       "text": "A0.10: updateTaskTypeFieldsAction and the Work tab wait for the first type with fields (A2.1) and the first never-on-board type (A1.3). [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": "with A2.1 (fields) and A1.3 (Work tab)."
+      "status": "live",
+      "test": "tests/browser/planner-work.spec.ts",
+      "evidence": "A0.10 deferral resolved: updateTaskTypeFieldsAction (A2.1) and the Work tab (A1.3)."
     },
     {
       "key": "38.2.call21",
@@ -8128,9 +8128,9 @@
       "text": "A0.11: + Filter offers Priority and Sprint; Labels joins when cards carry their labels. Own tabs add their chips (Severity in Bugs) with their units. [call]",
       "kind": "call",
       "milestone": "A0",
-      "status": "todo",
-      "test": "",
-      "evidence": "Labels when cards carry labels; own-tab chips with their units."
+      "status": "live",
+      "test": "tests/browser/filter-chips.spec.ts; tests/browser/bugs-tab.spec.ts",
+      "evidence": "A0.11 deferral resolved: + Filter with Priority and Sprint; own tabs add their chips (Severity in Bugs)."
     },
     {
       "key": "38.5.call10",
