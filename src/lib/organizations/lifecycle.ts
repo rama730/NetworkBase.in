@@ -221,7 +221,7 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
   const anchor = source.termStart ? Date.parse(`${source.termStart}T00:00:00Z`) : firstSprint?.start ? new Date(firstSprint.start).getTime() : null;
   const deltaMs = options.termStart && anchor !== null ? Date.parse(`${options.termStart}T00:00:00Z`) - anchor : 0;
   const shiftDate = (d: string | null) => (d ? new Date(Date.parse(`${d}T00:00:00Z`) + deltaMs).toISOString().slice(0, 10) : null);
-  const keepSettings = Object.fromEntries(Object.entries(source.orgSettings ?? {}).filter(([k]) => !["changes", "detachRequest", "moveInRequest", "archivedWithOrg", "handleChangedAt"].includes(k)));
+  const keepSettings = Object.fromEntries(Object.entries(source.orgSettings ?? {}).filter(([k]) => !["changes", "detachRequest", "moveInRequest", "archivedWithOrg", "handleChangedAt", "institutionRequest"].includes(k)));
 
   const newId = await db.transaction(async (tx) => {
     // Audit N24: the 5-owned limit is checked again here, so duplicates queued at once can't all pass.
@@ -229,6 +229,8 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
     const [created] = await tx.insert(workspaces).values({
       ownerId: actorId, title: options.title, slug: options.handle, key: `${generateWorkspaceKey(options.title)}${randomUUID().slice(0, 3).toUpperCase()}`, currentTaskNumber: 0,
       kind: "organization", orgType: source.orgType, visibility: source.visibility, status: "active",
+      // B0.2: Start next term — the copy of a class stays in its school (a school itself is copied as a school).
+      institutionId: source.institutionId, orgLevel: source.orgLevel,
       orgSettings: options.copy.about ? keepSettings : { version: 1, roleNames: (source.orgSettings as { roleNames?: unknown })?.roleNames },
       description: options.copy.about ? source.description : null, shortDescription: options.copy.about ? source.shortDescription : null,
       coverImage: options.copy.about ? source.coverImage : null, welcomeNote: options.copy.about ? source.welcomeNote : null,

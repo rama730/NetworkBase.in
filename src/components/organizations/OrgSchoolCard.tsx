@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import { decideClassRequestAction, joinInstitutionAction, makeInstitutionAction, readClassInstitutionAction, readInstitutionClassesAction, unlinkClassAction, type InstitutionClass } from "@/app/actions/institutions";
+import { decideClassRequestAction, joinInstitutionAction, makeInstitutionAction, readClassInstitutionAction, readInstitutionClassesAction, saveDepartmentsAction, setClassDepartmentAction, unlinkClassAction, type Department, type InstitutionClass } from "@/app/actions/institutions";
+import { readOrgMembersAction } from "@/app/actions/org-members";
+import { Input } from "@/components/ui/input";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SettingsCard } from "@/components/workspaces/settings/SettingsFormFields";
-import { FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
+import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
-import { formatInZone } from "@/lib/organizations/zoned-time";
+import { classCounts } from "@/lib/organizations/school-rules";
 
 const LINK = "nb-touch-target text-[13px] font-medium text-primary underline-offset-2 hover:underline";
 const href = (o: { slug: string | null; id: string }) => `/org/${encodeURIComponent(o.slug ?? o.id)}`;
@@ -66,12 +69,22 @@ export function OrgSchoolCard({ orgId, isSchool }: { orgId: string; isSchool: bo
               {school.classes.map((c: InstitutionClass) => (
                 <SettingsRow key={c.id} title={<Link href={href(c)} className="hover:underline">{c.title}</Link>}
                   description={c.teacher ? `Teacher ${c.teacher}` : undefined}
-                  meta={<span className="font-mono">{c.members} members · {c.openAssignments} open assignments · {c.toReview} to review{c.lastActivity ? ` · active ${formatInZone(c.lastActivity, { month: "short", day: "numeric" }, null)}` : ""}</span>}
-                  right={<button type="button" className={LINK} onClick={() => void run(unlinkClassAction(c.id), `${c.title} removed from the school`).catch((e: Error) => toast.error(e.message))}>Remove<span className="sr-only"> {c.title}</span></button>} />
+                  meta={<span className="font-mono">{classCounts(c)}</span>}
+                  right={<span className="flex items-center gap-3">
+                    {school.departments.length ? (
+                      <select aria-label={`Department of ${c.title}`} className="nb-select w-[160px]" value={c.department ?? ""}
+                        onChange={(e) => void run(setClassDepartmentAction(orgId, c.id, e.target.value || null), "Department saved").catch((err: Error) => toast.error(err.message))}>
+                        <option value="">No department</option>
+                        {school.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      </select>
+                    ) : null}
+                    <button type="button" className={LINK} onClick={() => void run(unlinkClassAction(c.id), `${c.title} removed from the school`).catch((e: Error) => toast.error(e.message))}>Remove<span className="sr-only"> {c.title}</span></button>
+                  </span>} />
               ))}
             </div>
           )}
         </SettingsCard>
+        <DepartmentsCard schoolId={orgId} departments={school.departments} onSaved={refresh} />
       </section>
     );
   }
@@ -118,5 +131,43 @@ export function OrgSchoolCard({ orgId, isSchool }: { orgId: string; isSchool: bo
         description="The school stops seeing this class’s counts. Nothing in the class changes." confirmLabel="Leave the school"
         onConfirm={() => run(unlinkClassAction(orgId), "Left the school")} />
     </section>
+  );
+}
+
+/** Settings → Departments (B0.2): names, and a head of department picked from the school's members. */
+function DepartmentsCard({ schoolId, departments, onSaved }: { schoolId: string; departments: Department[]; onSaved: () => Promise<void> }) {
+  const [rows, setRows] = useState(departments);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setRows(departments), [departments]);
+  const members = useQuery({ queryKey: ["org-members", schoolId, "heads"], queryFn: () => readOrgMembersAction(schoolId), staleTime: 60_000 });
+  const people = members.data?.success ? members.data.rows : [];
+  const set = (i: number, patch: Partial<Department>) => setRows((cur) => cur.map((d, j) => (j === i ? { ...d, ...patch } : d)));
+  const save = async () => {
+    setBusy(true);
+    const r = await saveDepartmentsAction(schoolId, rows).finally(() => setBusy(false));
+    if (!r.success) return void toast.error(r.error);
+    toast("Departments saved");
+    await onSaved();
+  };
+  return (
+    <SettingsCard title="Departments" headingLevel={2} description="A label on each class. A head of department sees their department’s classes with the same counts you see, nothing more.">
+      <div className="space-y-3" data-testid="school-departments">
+        {rows.length === 0 ? <p className="nb-compact text-muted-foreground">No departments yet.</p> : null}
+        {rows.map((d, i) => (
+          <div key={d.id || i} className="flex flex-wrap items-center gap-2">
+            <Input aria-label={`Department ${i + 1} name`} value={d.name} maxLength={60} onChange={(e) => set(i, { name: e.target.value })} className="min-w-[180px] flex-1" />
+            <select aria-label={`Head of ${d.name || `department ${i + 1}`}`} className="nb-select w-[200px]" value={d.heads[0] ?? ""} onChange={(e) => set(i, { heads: e.target.value ? [e.target.value] : [] })}>
+              <option value="">No head</option>
+              {people.map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
+            </select>
+            <button type="button" className={LINK} onClick={() => setRows((cur) => cur.filter((_, j) => j !== i))}>Remove<span className="sr-only"> {d.name}</span></button>
+          </div>
+        ))}
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setRows((cur) => [...cur, { id: "", name: "", heads: [] }])}>Add department</button>
+          <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy} onClick={() => void save()}>Save departments</button>
+        </div>
+      </div>
+    </SettingsCard>
   );
 }

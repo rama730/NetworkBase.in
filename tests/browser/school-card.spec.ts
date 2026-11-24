@@ -4,7 +4,7 @@ import { openApp } from './app-bundle';
 import { axeViolations } from './axe';
 
 // Report 29.2 (plan B0.1): a class joins or leaves a school; a school sees counts only and decides requests.
-async function open(page: Page, view: 'class' | 'school', state: Record<string, unknown> = {}) {
+async function open(page: Page, view: 'class' | 'school' | 'classes' | 'attention', state: Record<string, unknown> = {}) {
   await page.setViewportSize({ width: 900, height: 900 });
   await page.addInitScript((s) => {
     const calls: unknown[] = [];
@@ -15,8 +15,16 @@ async function open(page: Page, view: 'class' | 'school', state: Record<string, 
       joinInstitutionAction: async (c: string, i: string) => { calls.push(['join', i]); return { success: true, outcome: 'requested' }; },
       unlinkClassAction: async (c: string) => { calls.push(['unlink']); return { success: true }; },
       makeInstitutionAction: async () => { calls.push(['make']); return { success: true }; },
-      readInstitutionClassesAction: async () => ({ success: true, isAdmin: true, requests: [{ id: 'c9', title: 'Physics 9B' }],
-        classes: [{ id: 'c1', title: 'Maths 10A', slug: 'maths-10a', teacher: 'Asha', members: 31, openAssignments: 2, toReview: 5, lastActivity: '2026-11-22T10:00:00Z' }] }),
+      readInstitutionClassesAction: async () => ({ success: true, isAdmin: s.isAdmin ?? true, headOf: s.headOf ?? [], requests: [{ id: 'c9', title: 'Physics 9B' }],
+        departments: [{ id: 'd1', name: 'Science', heads: [] }, { id: 'd2', name: 'Arts', heads: [] }],
+        classes: [
+          { id: 'c1', title: 'Maths 10A', slug: 'maths-10a', teacher: 'Asha', department: 'd1', termStart: '2026-08-01', termEnd: '2026-12-15', counted: true, members: 31, openAssignments: 2, toReview: 5, lastActivity: new Date().toISOString() },
+          { id: 'c2', title: 'History 8', slug: null, teacher: 'Dev', department: 'd2', termStart: null, termEnd: null, counted: true, members: 20, openAssignments: 1, toReview: 12, lastActivity: new Date().toISOString() },
+          { id: 'c3', title: 'Art club', slug: null, teacher: 'Asha', department: null, termStart: null, termEnd: null, counted: false, members: 0, openAssignments: 0, toReview: 0, lastActivity: null },
+        ] }),
+      setClassDepartmentAction: async (_s: string, c: string, d: string | null) => { calls.push(['dept', c, d]); return { success: true }; },
+      saveDepartmentsAction: async (_s: string, rows: unknown) => { calls.push(['depts', rows]); return { success: true, departments: rows }; },
+      readOrgMembersAction: async () => ({ success: true, rows: [{ userId: 'u1', name: 'Asha' }] }),
       decideClassRequestAction: async (_i: string, c: string, ok: boolean) => { calls.push(['decide', c, ok]); return { success: true }; },
     };
   }, state);
@@ -57,7 +65,48 @@ test('a school sees its classes as counts and approves a request', async ({ page
   const row = page.getByTestId('school-classes');
   await expect(row).toContainText('Maths 10A');
   await expect(row).toContainText('31 members · 2 open assignments · 5 to review');
+  await page.getByLabel('Department of Maths 10A').selectOption('d2');
+  await expect.poll(() => calls(page)).toEqual([['dept', 'c1', 'd2']]);
+  await page.evaluate(() => ((window as any).__calls.length = 0));
   await page.getByRole('button', { name: 'Approve Physics 9B' }).click();
   await expect.poll(() => calls(page)).toEqual([['decide', 'c9', true]]);
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B0.2: departments are named with a head and saved together', async ({ page }) => {
+  await open(page, 'school');
+  const box = page.getByTestId('school-departments');
+  await expect(box.getByLabel('Department 1 name')).toHaveValue('Science');
+  await box.getByRole('button', { name: 'Add department' }).click();
+  await box.getByLabel('Department 3 name').fill('Maths');
+  await box.getByLabel('Head of Maths').selectOption('u1');
+  await box.getByRole('button', { name: 'Save departments' }).click();
+  await expect.poll(() => calls(page)).toEqual([['depts', [{ id: 'd1', name: 'Science', heads: [] }, { id: 'd2', name: 'Arts', heads: [] }, { id: '', name: 'Maths', heads: ['u1'] }]]]);
+});
+
+test('B0.2: the Classes tab groups by department, teacher or term; uncounted classes show no counts', async ({ page }) => {
+  await open(page, 'classes');
+  const tab = page.getByTestId('school-classes-tab');
+  await expect(tab.getByRole('region', { name: 'Science' })).toContainText('Maths 10A');
+  await expect(tab.getByRole('region', { name: 'No department' })).toContainText('Art club');
+  await expect(tab.getByRole('region', { name: 'No department' })).not.toContainText('members');
+  await page.getByRole('tab', { name: 'Teacher' }).click();
+  await expect(tab.getByRole('region', { name: 'Asha' }).getByTestId('school-class-row')).toHaveCount(2);
+  await page.getByRole('tab', { name: 'Term' }).click();
+  await expect(tab.getByRole('region', { name: 'Aug 2026 – Dec 2026' })).toContainText('Maths 10A');
+  expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B0.2: Overview lists classes needing attention for admins and heads, nobody else', async ({ page }) => {
+  await open(page, 'attention');
+  const card = page.getByTestId('school-attention');
+  await expect(card).toContainText('History 8');
+  await expect(card).toContainText('12 hand-ins waiting for review');
+  await expect(card).not.toContainText('Maths 10A');
+  await expect(card).toContainText('17 to review across classes');
+});
+
+test('B0.2: a plain member of the school gets no attention card', async ({ page }) => {
+  await open(page, 'attention', { isAdmin: false });
+  await expect(page.getByTestId('school-attention')).toHaveCount(0);
 });

@@ -1,5 +1,6 @@
 'use server';
 
+import { pushSchoolSettings, SCHOOL_LOCKED_FIELDS, schoolLockedFields } from '@/lib/organizations/school-push';
 import { createHash } from 'node:crypto';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
@@ -236,7 +237,19 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
     const value = parsed.data as Record<string, unknown>;
 
     const [actor] = await db.select({ fullName: profiles.fullName }).from(profiles).where(eq(profiles.id, viewer.userId)).limit(1);
-    const [current] = await db.select({ orgType: workspaces.orgType, orgSettings: workspaces.orgSettings, termStart: workspaces.termStart, termEnd: workspaces.termEnd }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const [current] = await db.select({ orgType: workspaces.orgType, orgSettings: workspaces.orgSettings, termStart: workspaces.termStart, termEnd: workspaces.termEnd, institutionId: workspaces.institutionId, orgLevel: workspaces.orgLevel }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    // Report 29.2 (B0.2): a class in a school keeps the school's settings. Sending today's value back is fine (forms
+    // send every field); changing one is refused.
+    if (current?.institutionId) {
+        const [school] = await db.select({ orgSettings: workspaces.orgSettings, termStart: workspaces.termStart, termEnd: workspaces.termEnd }).from(workspaces).where(eq(workspaces.id, current.institutionId)).limit(1);
+        const stored: Record<string, unknown> = { ...(current.orgSettings as Record<string, unknown> | null ?? {}), termStart: current.termStart, termEnd: current.termEnd };
+        const norm = (v: unknown) => (v === '' || v === undefined ? null : v);
+        for (const field of school ? schoolLockedFields(school) : []) {
+            if (!(field in value)) continue;
+            if (norm(value[field]) !== norm(stored[SCHOOL_LOCKED_FIELDS[field]!])) return { success: false, error: 'Your school sets this. Ask its admins, or leave the school first.' };
+            delete value[field];
+        }
+    }
     const storedNames = (current?.orgSettings as { roleNames?: Record<string, string> } | null)?.roleNames;
     const settingsPatch: Record<string, unknown> = {
         changes: { [section]: { by: viewer.userId, byName: actor?.fullName ?? null, at: new Date().toISOString() } },
@@ -316,6 +329,7 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
     }
     // A tightened cap lowers existing child projects (report §21.7); the preview showed how many.
     if ('visibility_cap' in value) await applyChildVisibilityCap(orgId);
+    if (current?.orgLevel === 'institution') await pushSchoolSettings(orgId);
     revalidateOrg(viewer.slug, orgId);
     return { success: true };
 }

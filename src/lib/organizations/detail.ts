@@ -5,6 +5,7 @@ import { isLooseUuid } from "@/lib/validations/uuid";
 
 import { db } from "@/lib/db";
 import { extensionDeviceSessions, orgHandleHolds, orgVerificationCodes, profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
+import { schoolLockedFields } from "@/lib/organizations/school-push";
 import { orgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
 import { orgLimitBlock } from "@/lib/organizations/limits";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
@@ -96,6 +97,8 @@ export type OrgDetail = {
   /** Report 29.2 (B0.1): this is a school, or the school this class is part of (a link, beside "Part of"). */
   isSchool: boolean;
   school: { title: string; slug: string | null; id: string } | null;
+  /** B0.2: the settings fields its school sets (shown locked, "Set by <school>"); empty outside a school. */
+  schoolLocks: string[];
   /** Owners and admins: way 3's code. */
   proofCode: string | null;
   /** Owners and admins only. */
@@ -167,7 +170,7 @@ export async function readOrgDetail(
       ? db.select({ email: orgVerificationCodes.email, expiresAt: orgVerificationCodes.expiresAt, sends: orgVerificationCodes.sends }).from(orgVerificationCodes).where(eq(orgVerificationCodes.orgId, orgId)).limit(1)
       : Promise.resolve([]),
     org.institutionId
-      ? db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility }).from(workspaces).where(and(eq(workspaces.id, org.institutionId), isNull(workspaces.deletedAt))).limit(1)
+      ? db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility, orgSettings: workspaces.orgSettings, termStart: workspaces.termStart, termEnd: workspaces.termEnd }).from(workspaces).where(and(eq(workspaces.id, org.institutionId), isNull(workspaces.deletedAt))).limit(1)
       : Promise.resolve([]),
   ]);
   const verificationPending: OrgDetail["verificationPending"] = !viewer.isAdmin || org.verifiedAt ? null
@@ -223,6 +226,7 @@ export async function readOrgDetail(
     isSchool: org.orgLevel === "institution",
     // A private school's name reaches only people in the class (or the school's own page); visitors see public schools.
     school: school && (viewer.isInOrg || school.visibility === "public") ? { id: school.id, title: school.title, slug: school.slug } : null,
+    schoolLocks: school && viewer.isAdmin ? schoolLockedFields(school) : [],
     proofCode: viewer.isAdmin ? proofCode(orgId) : null,
     joinCode: viewer.isAdmin ? org.joinCode : null,
     joinCodeEnabled: org.joinCodeEnabled,

@@ -6487,6 +6487,14 @@ Institution   (school · college · university · academy)        ← new
   - Locked "Set by" settings, the Department label and Head of department, and the institution tabs come in B0.2. **[call]**
   - **Where it shows (B0.1):** a class's Settings → Workspaces has a **School** card (Join a school, the pending request with Cancel, Leave the school; Make this a school for an empty Education organization's owner). A school's Settings has a **Classes** card for its admins: each class with teacher and counts, requests with Approve/Decline, Remove. The header reads "Part of <school>" as a link. In the sidebar a class sits one step in under its school when you're in both. Members of a school see its classes in B0.2's Projects tab. Which types can have schools is the type profile's `schools` flag (Education only). **[call]**
 
+- **B0.2 build calls (2026-11-24):**
+  - **Departments** are names a school's admins keep in Settings → Departments. Each class gets one department, set by the school's admins on its Classes row (stored on the class). **Head of department** is a label on a school member, scoped to one department: they see that department's classes with the same counts the admins see, and nothing more. It changes no permission row. **[call]**
+  - **Projects tab of a school** lists its classes instead of workspaces, grouped by **Department**, **Teacher** or **Term** (switch), with the counts for admins and heads and titles for everyone else. **Start next term** is the existing Duplicate on a class (its teacher runs it); the copy stays in the same school. **Archive** is the class's own (its teacher); the school can only remove a class. No bulk archive: a school never closes a teacher's class. **[call]**
+  - **Overview of a school**, for admins and heads: **Classes needing attention**, a class with 10 or more hand-ins waiting for review, or no activity for 14 days. "Behind plan" joins in B1.2 with the Term plan. The review queue at school level is these counts by class and teacher, shown in the same card; there is no separate school review queue. **[call]**
+  - **About of a school** adds Departments and its public classes. **[call]**
+  - **Members:** the directory is today's Members tab; "CSV import" is pasting the email column into Invite by email (it already takes many addresses). **[call]**
+  - **Settings pushed down:** the school's term dates, AI policy, late rule and review default, and the cap on workspace visibility are written into every class in the school when saved and when a class joins; the class shows them locked as "Set by <school>" and can't change them while it's in the school. Leaving the school unlocks them (values kept). **Who can create classes** waits for a one-step New class (later); the template library arrives with the first templates (B1.2 Syllabus, B1.5 rubrics). **[call]**
+
 ### 29.3 The term cycle
 | Moment | Institution | Class | Today |
 |---|---|---|---|

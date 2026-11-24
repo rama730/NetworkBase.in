@@ -57,6 +57,7 @@ import type { OrgFilesInfo } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard } from '@/components/organizations/OrgOverviewParts';
 import { OrgWorkspacesTab } from '@/components/organizations/OrgWorkspacesTab';
+import { SchoolClassesTab } from '@/components/organizations/SchoolParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
 import { VerifiedMark } from '@/components/organizations/org-ui';
 import { HeaderReportMenu } from '@/components/reports/ItemMenu';
@@ -1270,7 +1271,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Overview">
                         {/* Orgs get their own Dashboard (report §27); child projects add the org line (§27.5). */}
-                        {isOrganization ? <OrgDashboard orgId={project.id} orgSlug={project.slug ?? null} orgType={organization?.type ?? null} started={orgStarted?.dashboard} /> : <>
+                        {isOrganization ? <OrgDashboard orgId={project.id} orgSlug={project.slug ?? null} orgType={organization?.type ?? null} isSchool={Boolean(organization?.isSchool)} started={orgStarted?.dashboard} /> : <>
                         {parentOrg ? <ChildOrgLine projectId={project.id} /> : null}
                         {parentOrg ? <ChildUnitsLine projectId={project.id} members={allMembers} /> : null}
                         <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} recentActivityStarted={started?.recentActivity} />
@@ -1290,7 +1291,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             {isOrganization && isOwnerOrMember && activeTab === 'projects' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Workspaces">
-                        <OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />
+                        {organization?.isSchool ? <SchoolClassesTab orgId={project.id} /> : <OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />}
                     </TabErrorBoundary>
                 </div>
             )}

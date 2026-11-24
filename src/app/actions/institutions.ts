@@ -3,10 +3,11 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { workspaces } from "@/lib/db/schema";
+import { workspaceMembers, workspaces } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import type { OrgType } from "@/lib/organizations/config";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { pushSchoolSettings } from "@/lib/organizations/school-push";
 import { typeProfile } from "@/lib/organizations/type-profile";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -68,6 +69,7 @@ export async function joinInstitutionAction(classId: string, institutionId: stri
     const done = await db.update(workspaces).set({ institutionId, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest'` })
       .where(and(eq(workspaces.id, classId), isNull(workspaces.institutionId))).returning({ id: workspaces.id });
     if (!done.length) return { success: false, error: "This class is already part of a school. Leave it first." };
+    await pushSchoolSettings(institutionId, classId);
     return { success: true, outcome: "joined" };
   }
   await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ institutionRequest: { institutionId, by: userId, at: new Date().toISOString() } })}::jsonb` })
@@ -92,6 +94,7 @@ export async function decideClassRequestAction(institutionId: string, classId: s
     .where(and(eq(workspaces.id, classId), sql`${workspaces.orgSettings}->'institutionRequest'->>'institutionId' = ${institutionId}`, approve ? isNull(workspaces.institutionId) : undefined))
     .returning({ id: workspaces.id });
   if (!done.length) return { success: false, error: "That request changed meanwhile. Reload the list." };
+  if (approve) await pushSchoolSettings(institutionId, classId);
   return { success: true };
 }
 
@@ -105,7 +108,7 @@ export async function unlinkClassAction(classId: string): Promise<{ success: tru
   const fromInstitution = c.institutionId ? admin(await roleIn(c.institutionId, userId, "write")) : false;
   if (!fromClass && !fromInstitution) return DENIED;
   if (!c.institutionId && !pending) return { success: true };
-  await db.update(workspaces).set({ institutionId: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest'` }).where(eq(workspaces.id, classId));
+  await db.update(workspaces).set({ institutionId: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'institutionRequest' - 'department'` }).where(eq(workspaces.id, classId));
   return { success: true };
 }
 
@@ -129,22 +132,35 @@ export async function readClassInstitutionAction(classId: string) {
     institution: linked.find((l) => l.id === c.institutionId) ?? null, pending: pending ? linked.find((l) => l.id === pending.institutionId) ?? null : null, schools: mine };
 }
 
-export type InstitutionClass = { id: string; title: string; slug: string | null; teacher: string | null; members: number; openAssignments: number; toReview: number; lastActivity: string | null };
+export type InstitutionClass = {
+  id: string; title: string; slug: string | null; teacher: string | null; department: string | null; termStart: string | null; termEnd: string | null;
+  /** Counts reach the school's admins, and a head of department for their department's classes; zeros otherwise. */
+  counted: boolean; members: number; openAssignments: number; toReview: number; lastActivity: string | null;
+};
+export type Department = { id: string; name: string; heads: string[] };
+const departmentsOf = (o: { orgSettings: unknown }): Department[] => {
+  const list = (o.orgSettings as { departments?: unknown } | null)?.departments;
+  return Array.isArray(list) ? list.filter((d): d is Department => Boolean(d && typeof d.id === "string" && typeof d.name === "string")).map((d) => ({ ...d, heads: Array.isArray(d.heads) ? d.heads : [] })) : [];
+};
 
 /**
- * The institution's classes (report 29.2 privacy call): for its admins, counts and states only; for its members,
- * titles. Never assignments' contents, hand-ins, marks, tasks or files.
+ * The institution's classes (report 29.2 privacy call, B0.2 departments): its admins see every class's counts and
+ * states, a head of department their department's; other members see titles. Never assignments' contents,
+ * hand-ins, marks, tasks or files.
  */
 export async function readInstitutionClassesAction(institutionId: string) {
   try {
     const userId = await me();
     const inst = await org(institutionId);
-    if (!inst || inst.orgLevel !== "institution") return DENIED;
-    const role = userId ? await roleIn(institutionId, userId, "read") : null;
+    if (!userId || !inst || inst.orgLevel !== "institution") return DENIED;
+    const role = await roleIn(institutionId, userId, "read");
     if (!role) return DENIED;
     const isAdmin = admin(role);
-    const rows = Array.from(await db.execute<{ id: string; title: string; slug: string | null; teacher: string | null; members: number; open_assignments: number; to_review: number; last_activity: string | null }>(sql`
-      SELECT c.id, c.title, c.slug, coalesce(p.full_name, p.username) AS teacher,
+    const departments = departmentsOf(inst);
+    const heads = new Set(departments.filter((d) => d.heads.includes(userId)).map((d) => d.id));
+    const rows = Array.from(await db.execute<{ id: string; title: string; slug: string | null; teacher: string | null; department: string | null; term_start: string | null; term_end: string | null;
+      members: number; open_assignments: number; to_review: number; last_activity: string | null }>(sql`
+      SELECT c.id, c.title, c.slug, coalesce(p.full_name, p.username) AS teacher, c.org_settings->>'department' AS department, c.term_start::text, c.term_end::text,
         (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = c.id) AS members,
         (SELECT count(*)::int FROM tasks t WHERE t.workspace_id = c.id AND t.kind = 'assignment' AND t.assignment_id IS NULL AND t.deleted_at IS NULL AND t.assignment_settings->>'closedAt' IS NULL) AS open_assignments,
         (SELECT count(*)::int FROM tasks t JOIN tasks m ON m.id = t.assignment_id WHERE m.workspace_id = c.id AND t.deleted_at IS NULL AND t.review_status = 'pending') AS to_review,
@@ -153,12 +169,61 @@ export async function readInstitutionClassesAction(institutionId: string) {
       WHERE c.institution_id = ${institutionId}::uuid AND c.deleted_at IS NULL ORDER BY c.title`));
     const requests = isAdmin ? Array.from(await db.execute<{ id: string; title: string }>(sql`
       SELECT id, title FROM workspaces WHERE deleted_at IS NULL AND org_settings->'institutionRequest'->>'institutionId' = ${institutionId} ORDER BY title`)) : [];
-    return { success: true as const, isAdmin, requests,
-      classes: rows.map((r): InstitutionClass => isAdmin
-        ? { id: r.id, title: r.title, slug: r.slug, teacher: r.teacher, members: r.members, openAssignments: r.open_assignments, toReview: r.to_review, lastActivity: r.last_activity }
-        : { id: r.id, title: r.title, slug: r.slug, teacher: r.teacher, members: 0, openAssignments: 0, toReview: 0, lastActivity: null }) };
+    const known = new Set(departments.map((d) => d.id));
+    return { success: true as const, isAdmin, headOf: [...heads], requests,
+      // Heads' names are the admins' business; everyone else sees department names.
+      departments: departments.map((d) => ({ id: d.id, name: d.name, heads: isAdmin ? d.heads : [] })),
+      classes: rows.map((r): InstitutionClass => {
+        const department = r.department && known.has(r.department) ? r.department : null;
+        const counted = isAdmin || Boolean(department && heads.has(department));
+        return { id: r.id, title: r.title, slug: r.slug, teacher: r.teacher, department, termStart: r.term_start, termEnd: r.term_end, counted,
+          members: counted ? r.members : 0, openAssignments: counted ? r.open_assignments : 0, toReview: counted ? r.to_review : 0, lastActivity: counted ? r.last_activity : null };
+      }) };
   } catch (error) {
     logger.warn("institutions.classes_failed", { institutionId, error: error instanceof Error ? error.message : String(error) });
     return { success: false as const, error: "Couldn’t load the classes." };
   }
+}
+
+/** Settings → Departments (school admins): names, and each one's heads (members of the school). */
+export async function saveDepartmentsAction(schoolId: string, input: Array<{ id?: string; name: string; heads?: string[] }>): Promise<{ success: true; departments: Department[] } | Failure> {
+  const userId = await me();
+  const school = await org(schoolId);
+  if (!userId || !school || school.orgLevel !== "institution" || !admin(await roleIn(schoolId, userId, "write"))) return DENIED;
+  if (!Array.isArray(input) || input.length > 50) return { success: false, error: "Up to 50 departments." };
+  const names = input.map((d) => String(d?.name ?? "").trim());
+  if (names.some((n) => !n || n.length > 60)) return { success: false, error: "Each department needs a name of up to 60 characters." };
+  if (new Set(names.map((n) => n.toLowerCase())).size !== names.length) return { success: false, error: "Two departments have the same name." };
+  const wanted = [...new Set(input.flatMap((d) => (Array.isArray(d.heads) ? d.heads : [])).filter(isLooseUuid))];
+  const members = new Set(wanted.length ? (await db.select({ id: workspaceMembers.userId }).from(workspaceMembers)
+    .where(and(eq(workspaceMembers.projectId, schoolId), inArray(workspaceMembers.userId, wanted)))).map((r) => r.id) : []);
+  const old = new Set(departmentsOf(school).map((d) => d.id));
+  const departments: Department[] = input.map((d, i) => ({ id: d.id && old.has(d.id) ? d.id : crypto.randomUUID(), name: names[i]!,
+    heads: (Array.isArray(d.heads) ? d.heads : []).filter((h) => members.has(h)).slice(0, 10) }));
+  await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ departments })}::jsonb` }).where(eq(workspaces.id, schoolId));
+  return { success: true, departments };
+}
+
+/** The school's admins put a class in a department (or none). */
+export async function setClassDepartmentAction(schoolId: string, classId: string, departmentId: string | null): Promise<{ success: true } | Failure> {
+  const userId = await me();
+  const [school, c] = await Promise.all([org(schoolId), org(classId)]);
+  if (!userId || !school || !c || c.institutionId !== schoolId || !admin(await roleIn(schoolId, userId, "write"))) return DENIED;
+  if (departmentId && !departmentsOf(school).some((d) => d.id === departmentId)) return { success: false, error: "That department isn’t in this school." };
+  await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ department: departmentId })}::jsonb` })
+    .where(and(eq(workspaces.id, classId), eq(workspaces.institutionId, schoolId)));
+  return { success: true };
+}
+
+/** A school's About (anyone who can see the school): department names and its public classes. */
+export async function readSchoolAboutAction(schoolId: string) {
+  const school = await org(schoolId);
+  if (!school || school.orgLevel !== "institution") return DENIED;
+  const userId = await me();
+  const a = await getWorkspaceAccessById(schoolId, userId ?? null);
+  if (!a.canRead) return DENIED;
+  const classes = Array.from(await db.execute<{ id: string; title: string; slug: string | null; department: string | null }>(sql`
+    SELECT id, title, slug, org_settings->>'department' AS department FROM workspaces
+    WHERE institution_id = ${schoolId}::uuid AND deleted_at IS NULL AND visibility = 'public' AND status <> 'archived' ORDER BY title LIMIT 200`));
+  return { success: true as const, departments: departmentsOf(school).map((d) => ({ id: d.id, name: d.name })), classes };
 }

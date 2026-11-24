@@ -5,7 +5,7 @@ import { useMemo, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { useQuery } from '@tanstack/react-query'
-import { X } from '@/components/ui/icons'
+import { Lock, X } from '@/components/ui/icons'
 
 import {
     leaveOrgAction,
@@ -58,6 +58,13 @@ const OWNER_ONLY = 'Only the owner can change this.'
 function Section({ id, children }: { id: string; children: ReactNode }) {
     return <section id={`project-settings-${id}`} data-project-settings-section className="space-y-6">{children}</section>
 }
+
+/** B0.2: a class in a school shows what the school sets, locked. */
+function SetBySchool({ organization, fields, what }: { organization: OrgDetail; fields: string[]; what: string }) {
+    if (!organization.school || !fields.some((f) => organization.schoolLocks?.includes(f))) return null
+    return <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground" data-testid="set-by-school"><Lock className="size-3.5" aria-hidden="true" />{what} · Set by {organization.school.title}</p>
+}
+const lockedBySchool = (organization: OrgDetail, field: string) => Boolean(organization.schoolLocks?.includes(field))
 
 /** A function, not a component: SettingsCard draws its footer band for any element, even one that renders nothing. */
 function lastChanged(organization: OrgDetail, section: OrgSettingsSection) {
@@ -287,9 +294,10 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
                     {typeProfile(organization.type).termDates ? <fieldset>
                         <legend className={labelClass}>Term</legend>
                         <p className={helpClass}>Optional, for example Aug–Dec 2026. Shown on About, and it sets the week line.</p>
+                        <SetBySchool organization={organization} fields={['term_start']} what="Term dates" />
                         <div className="mt-2 grid max-w-md gap-3 sm:grid-cols-2">
-                            <label><span className={labelClass}>Starts</span><Input type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} className="mt-1.5" /></label>
-                            <label><span className={labelClass}>Ends</span><Input type="date" value={termEnd} min={termStart || undefined} onChange={(e) => setTermEnd(e.target.value)} className="mt-1.5" aria-invalid={termWrong || undefined} /></label>
+                            <label><span className={labelClass}>Starts</span><Input type="date" value={termStart} disabled={lockedBySchool(organization, 'term_start')} onChange={(e) => setTermStart(e.target.value)} className="mt-1.5" /></label>
+                            <label><span className={labelClass}>Ends</span><Input type="date" value={termEnd} disabled={lockedBySchool(organization, 'term_end')} min={termStart || undefined} onChange={(e) => setTermEnd(e.target.value)} className="mt-1.5" aria-invalid={termWrong || undefined} /></label>
                         </div>
                         {termWrong ? <p role="alert" className={fieldError}>The term has to end after it starts.</p> : null}
                     </fieldset> : null}
@@ -536,11 +544,12 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
                     </fieldset>
                     <fieldset>
                         <legend className={labelClass}>Highest allowed visibility</legend>
+                        <SetBySchool organization={organization} fields={['visibility_cap']} what="Highest allowed visibility" />
                         <p className={helpClass}>The most open a workspace here can be. Tightening it lowers workspaces above it, after you confirm.</p>
                         <div className="mt-2 space-y-2.5 text-[13px]">
                             {CAP_OPTIONS.map((option) => (
                                 <label key={option.value} className="flex items-start gap-2.5">
-                                    <input type="radio" className="nb-radio mt-0.5" name="org-visibility-cap" checked={cap === option.value} onChange={() => void chooseCap(option.value)} />
+                                    <input type="radio" className="nb-radio mt-0.5" name="org-visibility-cap" checked={cap === option.value} disabled={lockedBySchool(organization, 'visibility_cap')} onChange={() => void chooseCap(option.value)} />
                                     <span><span className="block font-medium">{option.label}</span><span className="block text-muted-foreground">{option.hint}</span></span>
                                 </label>
                             ))}
@@ -586,10 +595,11 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
             <SettingsCard title="Work" headingLevel={2} description="Defaults for new tasks and sprints. Each one can still change them." footer={lastChanged(organization, 'work')}>
                 <div className="space-y-6">
                     <h3 className="nb-micro">Tasks</h3>
-                    <InstantSwitch label={L.reviewRequired.label} help={`${L.reviewRequired.help} Fills in the task form.`} checked={organization.work.reviewRequired} save={instant('review_required')} />
+                    <SetBySchool organization={organization} fields={['review_required', 'late_rule', 'ai_policy']} what="Review, late hand-ins and AI agents" />
+                    <InstantSwitch label={L.reviewRequired.label} help={`${L.reviewRequired.help} Fills in the task form.`} checked={organization.work.reviewRequired} disabled={lockedBySchool(organization, 'review_required')} save={instant('review_required')} />
                     <div className="grid gap-5 sm:grid-cols-2">
                         <label className="flex flex-col"><span className={labelClass}>{L.lateRule.label}</span><span className={`block pb-2 ${helpClass}`}>{L.lateRule.help}</span>
-                            <select className="nb-select mt-auto w-full" value={work.lateRule} onChange={(e) => set('lateRule', e.target.value as typeof work.lateRule)}>
+                            <select className="nb-select mt-auto w-full" value={work.lateRule} disabled={lockedBySchool(organization, 'late_rule')} onChange={(e) => set('lateRule', e.target.value as typeof work.lateRule)}>
                                 {(['always', 'until', 'none'] as const).map((v) => <option key={v} value={v}>{L.lateRule.options[v]}</option>)}
                             </select>
                         </label>
@@ -599,7 +609,7 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                             </select>
                         </label>
                         <label className="flex flex-col"><span className={labelClass}>AI agents on assignments</span><span className={`block pb-2 ${helpClass}`}>New assignments start with this. It applies to agents connected to NetworkBase; it can’t detect other tools.</span>
-                            <select className="nb-select mt-auto w-full" value={work.aiPolicy} onChange={(e) => set('aiPolicy', e.target.value as typeof work.aiPolicy)}>
+                            <select className="nb-select mt-auto w-full" value={work.aiPolicy} disabled={lockedBySchool(organization, 'ai_policy')} onChange={(e) => set('aiPolicy', e.target.value as typeof work.aiPolicy)}>
                                 <option value="labelled">Allowed, labelled for reviewers</option><option value="allowed">Allowed</option><option value="not_allowed">Not allowed</option>
                             </select>
                         </label>

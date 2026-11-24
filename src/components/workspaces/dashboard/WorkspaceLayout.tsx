@@ -534,7 +534,7 @@ export default function WorkspaceLayout({
                                     )}
                                 >
                                     <tab.icon aria-hidden="true" className={cn("size-4 max-sm:hidden", isActive ? "text-primary" : "text-muted-foreground")} />
-                                    {tab.label}
+                                    {tab.id === "projects" && (project as { organization?: { isSchool?: boolean } | null } | null)?.organization?.isSchool ? "Classes" : tab.label}
                                     {tab.locked ? <Lock aria-label={`Added by ${tab.by ?? "the organization"}`} className="size-3 text-muted-foreground" /> : null}
                                     {tab.id === "files" && filesSyncBadge && filesSyncBadge.status !== "idle" && filesSyncBadge.status !== "completed" && (
                                         <span

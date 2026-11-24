@@ -13,6 +13,7 @@ import { readOrgAboutAction } from '@/app/actions/org-dashboard'
 import JourneyTimeline from '@/components/workspaces/dashboard/JourneyTimeline'
 import ProjectOverviewCard from '@/components/workspaces/dashboard/WorkspaceOverviewCard'
 import { RailSection } from '@/components/ui/rail-section'
+import { SchoolAboutSections } from '@/components/organizations/SchoolParts'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import type { Workspace } from '@/types/discover'
 import { formatInZone } from '@/lib/organizations/zoned-time'
@@ -87,6 +88,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                         </ul>
                     </RailSection>
                 ) : null}
+                {org?.isSchool ? <SchoolAboutSections orgId={project.id} /> : null}
             </div>
             <aside {...stickyRail} aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">
                 {railLoading ? <div role="status" aria-label="Loading details" className="space-y-6">{[0, 1, 2].map((i) => <div key={i} className="nb-skeleton h-28 rounded-lg" aria-hidden="true" />)}</div> : null}

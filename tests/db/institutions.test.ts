@@ -90,7 +90,7 @@ test("privacy call: the institution sees counts and states only, never read of t
   const list = await inst.readInstitutionClassesAction(t.school);
   assert.ok(list.success && list.isAdmin);
   assert.deepEqual(list.classes.map((c) => [c.id, c.members, c.openAssignments, c.toReview]), [[t.klass, 2, 1, 1]]);
-  assert.deepEqual(Object.keys(list.classes[0]!).sort(), ["id", "lastActivity", "members", "openAssignments", "slug", "teacher", "title", "toReview"]);
+  assert.deepEqual(Object.keys(list.classes[0]!).sort(), ["counted", "department", "id", "lastActivity", "members", "openAssignments", "slug", "teacher", "termEnd", "termStart", "title", "toReview"]);
   const classAccess = await access.getWorkspaceAccessById(t.klass, t.principal);
   const teamAccess = await access.getWorkspaceAccessById(t.team, t.principal);
   assert.deepEqual([classAccess.canRead, classAccess.isInheritedAdmin, teamAccess.canRead, teamAccess.isInheritedAdmin], [false, false, false, false]);
@@ -140,4 +140,55 @@ test("security review: a decided request can't be decided again; a suspended sch
   viewerId = t.teacher;
   const mine = await inst.readClassInstitutionAction(t.klass);
   assert.deepEqual(mine.success && mine.schools.map((s) => s.id), [], "a suspended school isn't offered");
+});
+
+test("B0.2: departments and heads — a head sees counts for their department only; members titles; heads must be members", async () => {
+  const t = await setup();
+  viewerId = t.principal;
+  await inst.makeInstitutionAction(t.school);
+  const science = await organization(t.otherTeacher);
+  const arts = await organization(t.otherTeacher);
+  await sql`UPDATE workspaces SET institution_id = ${t.school} WHERE id IN (${science}, ${arts})`;
+  assert.match(errorOf(await inst.saveDepartmentsAction(t.school, [{ name: "Science" }, { name: "science" }])), /same name/);
+  const saved = await inst.saveDepartmentsAction(t.school, [{ name: "Science", heads: [t.teacher, t.student] }, { name: "Arts" }]);
+  assert.ok(saved.success);
+  assert.deepEqual(saved.departments.map((d) => [d.name, d.heads]), [["Science", [t.teacher]], ["Arts", []]], "the student isn't in the school, so isn't a head");
+  const [sci, art] = saved.departments;
+  assert.equal((await inst.setClassDepartmentAction(t.school, science, sci!.id)).success, true);
+  assert.equal((await inst.setClassDepartmentAction(t.school, arts, art!.id)).success, true);
+  assert.equal((await inst.setClassDepartmentAction(t.school, t.klass, sci!.id)).success, false, "not a class of this school");
+  viewerId = t.teacher;
+  assert.equal((await inst.saveDepartmentsAction(t.school, [])).success, false, "heads don't edit departments");
+  const asHead = await inst.readInstitutionClassesAction(t.school);
+  assert.ok(asHead.success && !asHead.isAdmin);
+  assert.deepEqual(asHead.headOf, [sci!.id]);
+  assert.deepEqual(asHead.classes.map((c) => [c.id, c.counted, c.members]), [[science, true, 1], [arts, false, 0]].sort((a, b) => asHead.classes.findIndex((c) => c.id === a[0]) - asHead.classes.findIndex((c) => c.id === b[0])));
+  assert.deepEqual(asHead.departments.map((d) => d.heads), [[], []], "heads' names are for admins");
+  viewerId = t.otherTeacher;
+  const asMember = await inst.readInstitutionClassesAction(t.school);
+  assert.ok(asMember.success && asMember.classes.every((c) => !c.counted && c.members === 0));
+});
+
+test("B0.2: the school's settings reach its classes on join and on save, locked there; leaving unlocks", async () => {
+  const t = await setup();
+  const orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
+  viewerId = t.principal;
+  await inst.makeInstitutionAction(t.school);
+  await sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"assignmentLateRule":"none","assignmentAiPolicy":"not_allowed"}'::jsonb,
+    term_start = '2027-01-10', term_end = '2027-05-20' WHERE id = ${t.school}`;
+  viewerId = t.teacher;
+  await inst.joinInstitutionAction(t.klass, t.school);
+  viewerId = t.principal;
+  await inst.decideClassRequestAction(t.school, t.klass, true);
+  const [c1] = await sql`SELECT org_settings->>'assignmentLateRule' AS late, org_settings->>'assignmentAiPolicy' AS ai, term_start::text, term_end::text FROM workspaces WHERE id = ${t.klass}`;
+  assert.deepEqual([c1!.late, c1!.ai, c1!.term_start, c1!.term_end], ["none", "not_allowed", "2027-01-10", "2027-05-20"]);
+  viewerId = t.teacher;
+  assert.match(errorOf(await orgs.updateOrgSettingsAction(t.klass, "work", { late_rule: "always" })), /Your school sets this/);
+  assert.equal((await orgs.updateOrgSettingsAction(t.klass, "work", { late_rule: "none", reminders: "off" })).success, true, "today's value with other fields saves");
+  viewerId = t.principal;
+  assert.equal((await orgs.updateOrgSettingsAction(t.school, "work", { late_rule: "always" })).success, true);
+  assert.equal((await sql`SELECT org_settings->>'assignmentLateRule' AS late FROM workspaces WHERE id = ${t.klass}`)[0]!.late, "always", "a school save reaches its classes");
+  viewerId = t.teacher;
+  await inst.unlinkClassAction(t.klass);
+  assert.equal((await orgs.updateOrgSettingsAction(t.klass, "work", { late_rule: "until" })).success, true, "out of the school, the class decides");
 });
