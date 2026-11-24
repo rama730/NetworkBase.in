@@ -143,3 +143,32 @@ test("B1.3b: routing — a hand-in goes to its student's section TA; another TA 
   assert.equal(all.approved, 1, "security review: Approve all approves only ta2's own section's hand-in");
   assert.equal((await sql`SELECT count(*)::int AS n FROM tasks WHERE assignment_id = ${master!.id} AND review_status = 'pending'`)[0]!.n, 3);
 });
+
+test("B1.3c: an announcement for Section B reaches B's students and TA (plus admins), counts them, and the database rule agrees", async () => {
+  const t = await setup(3);
+  viewerId = t.teacher;
+  const a = await sec.saveSectionAction(t.klass, section("A"));
+  const b = await sec.saveSectionAction(t.klass, section("B", { taIds: [t.ta] }));
+  assert.ok(a.success && b.success);
+  await sec.moveStudentAction(t.klass, t.kids[0]!, a.id);
+  await sec.moveStudentAction(t.klass, t.kids[1]!, b.id);
+  const updates = await loadAppModule(() => import("../../src/lib/organizations/org-updates"));
+  const notify = await loadAppModule(() => import("../../src/lib/organizations/notify"));
+  const audience = { sectionIds: [b.id] };
+  const reached = new Set(await notify.announcementPeople(t.klass, audience, t.teacher));
+  assert.deepEqual([reached.has(t.kids[1]!), reached.has(t.kids[0]!), reached.has(t.kids[2]!), reached.has(t.ta), reached.has(t.teacher)], [true, false, false, true, true]);
+  assert.equal(await updates.countAudience(t.klass, audience), 3, "owner, the TA (an admin) and the one student in B");
+  const [post] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, update_type, visibility, audience) VALUES (${t.klass}, ${t.teacher}, 'Lab B moves to Lab 4', 'announcement', 'members', ${sql.json(audience)}) RETURNING id`;
+  const { db } = await loadAppModule(() => import("../../src/lib/db"));
+  const { workspaceUpdates } = await loadAppModule(() => import("../../src/lib/db/schema"));
+  const { and, eq } = await import("drizzle-orm");
+  const sees = async (userId: string) => (await db.select({ id: workspaceUpdates.id }).from(workspaceUpdates)
+    .where(and(eq(workspaceUpdates.id, post!.id), updates.audienceSql({ isOrgAdmin: false, viewerRole: "member", viewerChildIds: [] }, userId)))).length === 1;
+  assert.deepEqual([await sees(t.kids[1]!), await sees(t.kids[0]!)], [true, false]);
+  const ok = async (userId: string) => (await sql.begin(async (tx) => {
+    await tx`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`;
+    const [r] = await tx`SELECT app_private.nb_update_audience_ok(${t.klass}::uuid, ${t.teacher}::uuid, ${sql.json(audience)}) AS ok`;
+    return r!.ok as boolean;
+  }));
+  assert.deepEqual([await ok(t.kids[1]!), await ok(t.kids[0]!)], [true, false], "0125: the database's audience rule matches");
+});

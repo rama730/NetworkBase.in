@@ -1458,7 +1458,8 @@ export async function readOrgTabBadgesAction(orgId: string): Promise<OrgTabBadge
                     AND u.created_at > coalesce((SELECT last_seen_updates_at FROM workspace_members WHERE workspace_id = ${orgId} AND user_id = ${viewer.userId}), '-infinity'::timestamptz)
                     AND (${viewer.isAdmin} OR u.audience = '{}'::jsonb OR u.audience->'roles' @> to_jsonb(${viewer.role}::text)
                       OR EXISTS (SELECT 1 FROM workspace_members c JOIN workspaces p ON p.id = c.workspace_id
-                                 WHERE c.user_id = ${viewer.userId} AND p.parent_id = ${orgId} AND p.deleted_at IS NULL AND u.audience->'projectIds' @> to_jsonb(p.id::text)))) AS updates,
+                                 WHERE c.user_id = ${viewer.userId} AND p.parent_id = ${orgId} AND p.deleted_at IS NULL AND u.audience->'projectIds' @> to_jsonb(p.id::text))
+                      OR EXISTS (SELECT 1 FROM class_section_members sm WHERE sm.user_id = ${viewer.userId}::uuid AND sm.workspace_id = u.workspace_id AND coalesce(u.audience->'sectionIds', '[]'::jsonb) @> to_jsonb(sm.section_id::text)))) AS updates,
           ${viewer.isAdmin
             ? sql`(SELECT count(*)::int FROM role_applications WHERE workspace_id = ${orgId} AND role_id IS NULL AND status = 'pending')`
             : sql`0`} AS members`);

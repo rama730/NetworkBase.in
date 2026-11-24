@@ -266,7 +266,7 @@ function UpdateCard({
                 ) : null}
                 {inOrgFeed && orgView && !update.fromProject ? (
                   <span className="text-[11px] text-muted-foreground">· {cardAudienceLabel(orgView, update)}</span>
-                ) : update.visibility === "members" || update.audience.roles?.length || update.audience.projectIds?.length ? (
+                ) : update.visibility === "members" || update.audience.roles?.length || update.audience.projectIds?.length || update.audience.sectionIds?.length ? (
                   <span className="text-[11px] text-muted-foreground">· Members only</span>
                 ) : null}
                 {isNew ? (

@@ -147,7 +147,8 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
           AND (u.audience = '{}'::jsonb OR u.audience->'roles' @> to_jsonb(${role}::text)
             OR EXISTS (SELECT 1 FROM workspace_members c JOIN workspaces p ON p.id = c.workspace_id
               -- Audit N61: the same audience rule as the feed (inAudience), deleted workspaces included.
-              WHERE c.user_id = ${v.userId} AND p.parent_id = ${v.org.id} AND p.deleted_at IS NULL AND u.audience->'projectIds' @> to_jsonb(p.id::text)))
+              WHERE c.user_id = ${v.userId} AND p.parent_id = ${v.org.id} AND p.deleted_at IS NULL AND u.audience->'projectIds' @> to_jsonb(p.id::text))
+            OR EXISTS (SELECT 1 FROM class_section_members sm WHERE sm.user_id = ${v.userId}::uuid AND sm.workspace_id = u.workspace_id AND coalesce(u.audience->'sectionIds', '[]'::jsonb) @> to_jsonb(sm.section_id::text)))
         ORDER BY u.created_at DESC LIMIT 3`);
     for (const a of unread) rows.push({ kind: 'announcement', label: `Read: ${a.content.replace(/\s+/g, ' ').slice(0, 60)}`, href: `${base}?tab=updates&updateId=${a.id}` });
     // Smaller bug 8: the full document read runs only when a required document is still unread at its version.

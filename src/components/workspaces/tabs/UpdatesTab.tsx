@@ -259,7 +259,7 @@ export default function UpdatesTab({
   const canCreate = Boolean(capabilities?.canCreate ?? canCreateUpdates);
   const canManage = Boolean(capabilities?.canManage ?? canManageUpdates);
   const orgControls = useOrgComposer(org, projectId, orgOptions, setOrgOptions, canCreate);
-  const orgView = useMemo(() => org ? { org, workspaceTitles: new Map((org.workspaces ?? []).map((w) => [w.id, w.title])) } : null, [org]);
+  const orgView = useMemo(() => org ? { org, workspaceTitles: new Map([...(org.workspaces ?? []), ...(org.sections ?? [])].map((w) => [w.id, w.title])) } : null, [org]);
   // Report §7.5: a member who can't post is told who posts here.
   const whoPosts = org?.kind === "org" && !canCreate && isMember
     ? `Only ${org.roleNames ? rolePlural(org.roleNames.admin) : "admins"} post here. You can reply to posts.` : null;

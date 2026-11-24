@@ -32,6 +32,7 @@ import { toIsoString } from "@/lib/utils/date";
 import { parsePositiveInteger } from "@/lib/utils/number";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import {
+    classSections,
     profiles,
     profileContributionStages,
     profileContributions,
@@ -1289,6 +1290,7 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
                     emailsLeft: composer?.emailsLeft ?? 0,
                     pins: composer?.pins ?? [],
                     workspaces: composer?.workspaces ?? [],
+                    sections: composer?.sections ?? [],
                 } : null,
                 capabilities: {
                     canCreate: access.canCreate,
@@ -1309,12 +1311,14 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
 async function readOrgComposerFacts(access: ProjectUpdateAccess) {
     const org = access.org!;
     const admin = org.kind === "org" && org.isOrgAdmin;
-    const [sent, pins, audienceWorkspaces] = await Promise.all([
+    const [sent, pins, audienceWorkspaces, sections] = await Promise.all([
         admin ? orgEmailsSentToday(org.orgId) : ANNOUNCEMENT_EMAILS_PER_DAY,
         org.kind === "org" ? readOrgPins(org.orgId) : [],
         org.kind === "org" ? readAudienceWorkspaces(org) : [],
+        // B1.3c: a class's sections, for the audience picker and the card's label.
+        org.kind === "org" ? db.select({ id: classSections.id, title: classSections.name }).from(classSections).where(eq(classSections.projectId, org.orgId)).orderBy(classSections.position) : [],
     ]);
-    return { emailsLeft: Math.max(0, ANNOUNCEMENT_EMAILS_PER_DAY - sent), pins, workspaces: audienceWorkspaces };
+    return { emailsLeft: Math.max(0, ANNOUNCEMENT_EMAILS_PER_DAY - sent), pins, workspaces: audienceWorkspaces, sections };
 }
 
 export async function readWorkspaceUpdateAction(projectId: string, updateId: string) {
@@ -1574,7 +1578,11 @@ async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: Wo
         const wanted = (input.audience.projectIds ?? []).filter((id) => isLooseUuid(id));
         const projectIds = wanted.length === 0 ? [] : (await db.select({ id: workspaces.id }).from(workspaces)
             .where(and(eq(workspaces.parentId, access.project!.id), inArray(workspaces.id, wanted), isNull(workspaces.deletedAt)))).map((row) => row.id);
-        audience = { ...(roles.length ? { roles } : {}), ...(projectIds.length ? { projectIds } : {}) };
+        // B1.3c: sections of this class only.
+        const wantedSections = (input.audience.sectionIds ?? []).filter((id) => isLooseUuid(id));
+        const sectionIds = wantedSections.length === 0 ? [] : (await db.select({ id: classSections.id }).from(classSections)
+            .where(and(eq(classSections.projectId, access.project!.id), inArray(classSections.id, wantedSections)))).map((row) => row.id);
+        audience = { ...(roles.length ? { roles } : {}), ...(projectIds.length ? { projectIds } : {}), ...(sectionIds.length ? { sectionIds } : {}) };
     }
     return {
         audience,
@@ -1733,7 +1741,7 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
         }
 
         // Audit N55: an announcement for part of the organization isn't dropped into everyone's #general.
-        if (input.shareToGeneral && updateType === "announcement" && access.org?.kind === "org" && access.canManage && !orgOptions.audience?.roles?.length && !orgOptions.audience?.projectIds?.length) {
+        if (input.shareToGeneral && updateType === "announcement" && access.org?.kind === "org" && access.canManage && !orgOptions.audience?.roles?.length && !orgOptions.audience?.projectIds?.length && !orgOptions.audience?.sectionIds?.length) {
             await shareToOrgGeneral(projectId, viewer.userId, { kind: "announcement", ref_id: inserted.id });
         }
         // Org announcements: tray and push for the audience, E9 when the post asked for email (report §26.3 E).

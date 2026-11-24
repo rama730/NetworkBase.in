@@ -4,18 +4,20 @@
 import { rolePlural } from "@/lib/organizations/role-words";
 
 /** Who sees a post: everyone when empty; otherwise these roles and members of these child projects. */
-export type UpdateAudience = { roles?: Array<"admin" | "member" | "viewer">; projectIds?: string[] };
+/** B1.3c: sectionIds names sections of a class (report 30.9 "section news"). */
+export type UpdateAudience = { roles?: Array<"admin" | "member" | "viewer">; projectIds?: string[]; sectionIds?: string[] };
 
 export function audienceAllows(
   audience: UpdateAudience | null | undefined,
-  viewer: { isAdmin: boolean; isAuthor: boolean; role: "owner" | "admin" | "member" | "viewer" | null; childProjectIds: string[] },
+  viewer: { isAdmin: boolean; isAuthor: boolean; role: "owner" | "admin" | "member" | "viewer" | null; childProjectIds: string[]; sectionIds?: string[] },
 ) {
   const roles = audience?.roles ?? [];
   const projectIds = audience?.projectIds ?? [];
-  if (roles.length === 0 && projectIds.length === 0) return true;
+  const sectionIds = audience?.sectionIds ?? [];
+  if (roles.length === 0 && projectIds.length === 0 && sectionIds.length === 0) return true;
   if (viewer.isAdmin || viewer.isAuthor) return true;
   if (viewer.role && viewer.role !== "owner" && roles.includes(viewer.role)) return true;
-  return projectIds.some((id) => viewer.childProjectIds.includes(id));
+  return projectIds.some((id) => viewer.childProjectIds.includes(id)) || sectionIds.some((id) => (viewer.sectionIds ?? []).includes(id));
 }
 
 /** Up to 3 pinned posts in an org; one in any other project (decision 35). */
@@ -49,7 +51,7 @@ export function audienceChange(
   prev: { audience: UpdateAudience | null | undefined; visibility: string },
   next: { audience: UpdateAudience | null | undefined; visibility: string },
 ): "same" | "wider" | "narrower" | "mixed" {
-  const parts = (a: UpdateAudience | null | undefined) => [...(a?.roles ?? []).map((r) => `r:${r}`), ...(a?.projectIds ?? []).map((id) => `p:${id}`)];
+  const parts = (a: UpdateAudience | null | undefined) => [...(a?.roles ?? []).map((r) => `r:${r}`), ...(a?.projectIds ?? []).map((id) => `p:${id}`), ...(a?.sectionIds ?? []).map((id) => `s:${id}`)];
   const before = parts(prev.audience), after = parts(next.audience);
   const visRank = (v: string) => (v === "public" ? 1 : 0);
   let wider = visRank(next.visibility) > visRank(prev.visibility);
@@ -75,11 +77,12 @@ export function audienceLabel(
   if (post.visibility === "public") return "Public";
   const roles = post.audience?.roles ?? [];
   const ids = post.audience?.projectIds ?? [];
-  if (roles.length === 0 && ids.length === 0) return "Members";
+  const sections = post.audience?.sectionIds ?? [];
+  if (roles.length === 0 && ids.length === 0 && sections.length === 0) return "Members";
   const names = [
     ...roles.map((r) => rolePlural(roleNames[r])),
-    ...ids.map((id) => workspaceTitles.get(id)).filter((t): t is string => Boolean(t)),
+    ...[...ids, ...sections].map((id) => workspaceTitles.get(id)).filter((t): t is string => Boolean(t)),
   ];
-  if (names.length === 0) return "Selected workspaces";
+  if (names.length === 0) return sections.length && !ids.length ? "Selected sections" : "Selected workspaces";
   return names.length === 1 ? names[0]! : `${names[0]} +${names.length - 1}`;
 }

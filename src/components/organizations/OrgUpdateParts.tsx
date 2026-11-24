@@ -39,6 +39,8 @@ export type OrgFeedInfo = {
     emailsLeft?: number
     pins?: Array<{ id: string; excerpt: string }>
     workspaces?: Array<{ id: string; title: string }>
+    /** B1.3c: a class's sections, for "Section B" audiences. */
+    sections?: Array<{ id: string; title: string }>
 }
 
 export type OrgPostOptions = {
@@ -153,7 +155,7 @@ export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: Or
     const emailOn = emailsLeft > 0 && (value.notifyLevel ?? org.notifyDefault) === 'email'
     const pins = org.pins ?? []
     const pinFull = pins.length >= 3 && !value.pin
-    const label = audienceLabel({ audience: value.audience, visibility: value.isPublic ? 'public' : 'members' }, roleNames, new Map((org.workspaces ?? []).map((w) => [w.id, w.title])))
+    const label = audienceLabel({ audience: value.audience, visibility: value.isPublic ? 'public' : 'members' }, roleNames, new Map([...(org.workspaces ?? []), ...(org.sections ?? [])].map((w) => [w.id, w.title])))
     const reachLine = value.isPublic ? 'Anyone · also on Discover' : reach === null ? null : `Goes to ${people(reach)}`
     const blockedReason = !value.isPublic && reach === 0 ? 'Nobody is in this audience yet. Pick another before posting.' : null
     return {
@@ -228,20 +230,25 @@ export function AudienceMenu({ org, value, label, onChange }: {
     const roleNames = org.roleNames ?? DEFAULT_ROLES
     const roles = value.audience.roles ?? []
     const projectIds = value.audience.projectIds ?? []
+    const sectionIds = value.audience.sectionIds ?? []
     const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
-    const set = (audience: UpdateAudience) => onChange({ audience: { ...(audience.roles?.length ? { roles: audience.roles } : {}), ...(audience.projectIds?.length ? { projectIds: audience.projectIds } : {}) }, isPublic: false })
+    const set = (audience: UpdateAudience) => onChange({ audience: { ...(audience.roles?.length ? { roles: audience.roles } : {}), ...(audience.projectIds?.length ? { projectIds: audience.projectIds } : {}), ...(audience.sectionIds?.length ? { sectionIds: audience.sectionIds } : {}) }, isPublic: false })
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild><button type="button" className={chip} aria-label={`Audience: ${label}`}><Users className="h-3.5 w-3.5" aria-hidden="true" />{label}</button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
-                <DropdownMenuCheckboxItem checked={!value.isPublic && roles.length === 0 && projectIds.length === 0} onSelect={(e) => { e.preventDefault(); set({}) }}>Everyone in {org.title}</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={roles.includes('admin')} onSelect={(e) => { e.preventDefault(); set({ roles: toggle(roles, 'admin'), projectIds }) }}>{rolePlural(roleNames.admin)}</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={!value.isPublic && roles.length === 0 && projectIds.length === 0 && sectionIds.length === 0} onSelect={(e) => { e.preventDefault(); set({}) }}>Everyone in {org.title}</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={roles.includes('admin')} onSelect={(e) => { e.preventDefault(); set({ roles: toggle(roles, 'admin'), projectIds, sectionIds }) }}>{rolePlural(roleNames.admin)}</DropdownMenuCheckboxItem>
                 {(['member', 'viewer'] as const).map((r) => (
-                    <DropdownMenuCheckboxItem key={r} checked={roles.includes(r)} onSelect={(e) => { e.preventDefault(); set({ roles: toggle(roles, r), projectIds }) }}>{rolePlural(roleNames[r])}</DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem key={r} checked={roles.includes(r)} onSelect={(e) => { e.preventDefault(); set({ roles: toggle(roles, r), projectIds, sectionIds }) }}>{rolePlural(roleNames[r])}</DropdownMenuCheckboxItem>
                 ))}
                 {(org.workspaces ?? []).length ? <DropdownMenuSeparator /> : null}
                 {(org.workspaces ?? []).map((w) => (
-                    <DropdownMenuCheckboxItem key={w.id} checked={projectIds.includes(w.id)} onSelect={(e) => { e.preventDefault(); set({ roles, projectIds: toggle(projectIds, w.id) }) }}>{w.title}</DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem key={w.id} checked={projectIds.includes(w.id)} onSelect={(e) => { e.preventDefault(); set({ roles, projectIds: toggle(projectIds, w.id), sectionIds }) }}>{w.title}</DropdownMenuCheckboxItem>
+                ))}
+                {(org.sections ?? []).length ? <DropdownMenuSeparator /> : null}
+                {(org.sections ?? []).map((x) => (
+                    <DropdownMenuCheckboxItem key={x.id} checked={sectionIds.includes(x.id)} onSelect={(e) => { e.preventDefault(); set({ roles, projectIds, sectionIds: toggle(sectionIds, x.id) }) }}>{x.title}</DropdownMenuCheckboxItem>
                 ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem checked={value.isPublic} onSelect={(e) => { e.preventDefault(); onChange({ audience: {}, isPublic: !value.isPublic }) }}>Public · Also on Discover</DropdownMenuCheckboxItem>

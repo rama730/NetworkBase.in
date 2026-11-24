@@ -7974,6 +7974,7 @@ STUDENT · class About / Overview
 - A section's TAs are chosen from the class's TAs (admins); students are the class's members. One section per student per kind is a database rule. **[call]**
 - A student sees their own section with its TA and classmates' count; with self-pick on, the other sections show times and seats, never names. **[call]**
 - Placed in or moved to a section notifies the student (Normal). Section sessions in Next class and attendance wait for W6 (B1.4). **[call]**
+- **B1.3b/c as built:** reviews route by one rule (a Rebalance override, else reviewers named on the assignment, else the student's section TAs, else every reviewer — the teacher when a section has no TA); with "TAs work only with their section" on, a TA's single review and Approve all both follow it. Rebalance stores a per-copy reviewer on hand-ins not yet reviewed. An announcement's audience can name sections (`sectionIds`); the database's audience rule (0125) matches the app's. **[call]**
 
 ### 30.10 College / University: the whole picture (complete 2026-11-17)
 

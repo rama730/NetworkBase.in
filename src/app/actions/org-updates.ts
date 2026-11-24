@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { workspaceMembers, workspaces, workspaceUpdates } from '@/lib/db/schema';
+import { classSections, workspaceMembers, workspaces, workspaceUpdates } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { countAudience, readOrgUpdateContext, readPinnedOrgLine, readSharedPins, readUnseenPeople } from '@/lib/organizations/org-updates';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
@@ -154,7 +154,11 @@ export async function setOrgUpdateAudienceAction(orgId: string, updateId: string
     const wanted = (next.audience?.projectIds ?? []).filter((id) => UUID_RE.test(id));
     const projectIds = wanted.length ? (await db.select({ id: workspaces.id }).from(workspaces)
         .where(and(eq(workspaces.parentId, orgId), inArray(workspaces.id, wanted), isNull(workspaces.deletedAt)))).map((r) => r.id) : [];
-    const audience: UpdateAudience = { ...(roles.length ? { roles } : {}), ...(projectIds.length ? { projectIds } : {}) };
+    // B1.3c: sections of this class only.
+    const wantedSections = (next.audience?.sectionIds ?? []).filter((id) => UUID_RE.test(id));
+    const sectionIds = wantedSections.length ? (await db.select({ id: classSections.id }).from(classSections)
+        .where(and(eq(classSections.projectId, orgId), inArray(classSections.id, wantedSections)))).map((r) => r.id) : [];
+    const audience: UpdateAudience = { ...(roles.length ? { roles } : {}), ...(projectIds.length ? { projectIds } : {}), ...(sectionIds.length ? { sectionIds } : {}) };
     const visibility = next.visibility === 'public' ? 'public' : 'members';
     const change = audienceChange({ audience: post.audience as UpdateAudience, visibility: post.visibility }, { audience, visibility });
     if ((change === 'wider' || change === 'mixed') && !confirmedWider) return { success: false, error: 'wider' };

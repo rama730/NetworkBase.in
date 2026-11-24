@@ -86,7 +86,8 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
                  AND (u.audience = '{}'::jsonb OR m.role = 'admin' OR u.author_id = ${viewerId}::uuid OR u.audience->'roles' @> to_jsonb(m.role::text)
                    OR EXISTS (SELECT 1 FROM workspace_members cm JOIN workspaces cp ON cp.id = cm.workspace_id AND cp.deleted_at IS NULL AND cp.parent_id = u.workspace_id
                      WHERE cm.user_id = ${viewerId}::uuid
-                     AND cm.workspace_id::text IN (SELECT jsonb_array_elements_text(coalesce(u.audience->'projectIds', '[]'::jsonb)))))
+                     AND cm.workspace_id::text IN (SELECT jsonb_array_elements_text(coalesce(u.audience->'projectIds', '[]'::jsonb))))
+                   OR EXISTS (SELECT 1 FROM class_section_members sm WHERE sm.user_id = ${viewerId}::uuid AND sm.workspace_id = u.workspace_id AND coalesce(u.audience->'sectionIds', '[]'::jsonb) @> to_jsonb(sm.section_id::text)))
              )) AS can_view
       FROM workspace_updates u JOIN workspaces p ON p.id = u.workspace_id
       WHERE u.id = ANY(${uuidArray(announcementIds)})

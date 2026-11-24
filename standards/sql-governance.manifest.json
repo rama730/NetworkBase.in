@@ -127,7 +127,8 @@
     "drizzle/0121_learning_path.sql",
     "drizzle/0122_institution_level.sql",
     "drizzle/0123_lesson_staff_notes.sql",
-    "drizzle/0124_class_sections.sql"
+    "drizzle/0124_class_sections.sql",
+    "drizzle/0125_section_audience.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

@@ -83,3 +83,10 @@ test('B1.3b: Review load flags the TA over 1.5× the average; Rebalance previews
   await expect.poll(async () => (await calls(page)).some((c: unknown[]) => c[0] === 'rebalance' && c[1] === true)).toBe(true);
   expect((await calls(page))[0]).toEqual(['rebalance', false]);
 });
+
+test('B1.3c: the announcement audience lists the class sections', async ({ page }) => {
+  await open(page, 'audience', { sections: [] });
+  await page.getByRole('button', { name: 'Audience: Everyone' }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Section B' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__audience)).toEqual({ audience: { sectionIds: ['sB'] }, isPublic: false });
+});

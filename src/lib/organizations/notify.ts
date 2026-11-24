@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { profiles, workspaceMembers, workspaces, workspaceUpdates } from "@/lib/db/schema";
+import { classSectionMembers, profiles, workspaceMembers, workspaces, workspaceUpdates } from "@/lib/db/schema";
 import { emailEnabled, type OrgEmailKind } from "@/lib/email/contracts";
 import { queueEmail, queueEmails, wakeEmailWorker } from "@/lib/email/outbox";
 import type { OrgEmailData, OrgEmailPerson } from "@/lib/email/org-templates";
@@ -189,9 +189,17 @@ export async function announcementPeople(orgId: string, audience: UpdateAudience
   const inChild = new Set(childIds.length ? (await db.select({ userId: workspaceMembers.userId }).from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
     .where(and(inArray(workspaceMembers.projectId, childIds), eq(workspaces.parentId, orgId)))).map((r) => r.userId) : []);
+  // B1.3c: a post for sections reaches the students and TAs in them.
+  const sectionIds = audience?.sectionIds ?? [];
+  const inSection = new Map<string, string[]>();
+  if (sectionIds.length) {
+    const rows = await db.select({ userId: classSectionMembers.userId, sectionId: classSectionMembers.sectionId }).from(classSectionMembers)
+      .where(and(eq(classSectionMembers.projectId, orgId), inArray(classSectionMembers.sectionId, sectionIds)));
+    for (const r of rows) inSection.set(r.userId, [...(inSection.get(r.userId) ?? []), r.sectionId]);
+  }
   return [{ userId: owner?.ownerId ?? "", role: "owner" }, ...members].filter((m) => m.userId && audienceAllows(audience, {
     isAdmin: m.role === "owner" || m.role === "admin", isAuthor: m.userId === actorId,
-    role: m.role as "owner" | "admin" | "member" | "viewer", childProjectIds: inChild.has(m.userId) ? childIds : [],
+    role: m.role as "owner" | "admin" | "member" | "viewer", childProjectIds: inChild.has(m.userId) ? childIds : [], sectionIds: inSection.get(m.userId) ?? [],
   })).map((m) => m.userId);
 }
 

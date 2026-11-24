@@ -74,6 +74,9 @@ export function audienceSql(ctx: Pick<OrgUpdateContext, "isOrgAdmin" | "viewerRo
   if (viewerId) conditions.push(eq(workspaceUpdates.authorId, viewerId));
   if (ctx.viewerRole && ctx.viewerRole !== "owner") conditions.push(sql`${workspaceUpdates.audience}->'roles' @> to_jsonb(${ctx.viewerRole}::text)`);
   for (const childId of ctx.viewerChildIds) conditions.push(sql`${workspaceUpdates.audience}->'projectIds' @> to_jsonb(${childId}::text)`);
+  // B1.3c: a post for sections reaches the students and TAs in them.
+  if (viewerId) conditions.push(sql`(${workspaceUpdates.audience} ? 'sectionIds' AND EXISTS (SELECT 1 FROM class_section_members sm WHERE sm.user_id = ${viewerId}::uuid
+    AND sm.workspace_id = ${workspaceUpdates.projectId} AND ${workspaceUpdates.audience}->'sectionIds' @> to_jsonb(sm.section_id::text)))`);
   return or(...conditions);
 }
 
@@ -147,9 +150,12 @@ export function readSharedPins(orgSettings: unknown): string[] {
 export async function countAudience(orgId: string, audience: UpdateAudience | null) {
   const roles = audience?.roles ?? [];
   const projectIds = audience?.projectIds ?? [];
+  const sectionIds = audience?.sectionIds ?? [];
   const [row] = await db.execute<{ n: number }>(sql`
     SELECT count(DISTINCT pm.user_id)::int AS n FROM workspace_members pm WHERE pm.workspace_id = ${orgId}
-      AND (${roles.length === 0 && projectIds.length === 0}
+      AND (${roles.length === 0 && projectIds.length === 0 && sectionIds.length === 0}
+        OR EXISTS (SELECT 1 FROM class_section_members sm WHERE sm.user_id = pm.user_id AND sm.workspace_id = ${orgId}
+          AND sm.section_id::text IN (SELECT jsonb_array_elements_text(${JSON.stringify(sectionIds)}::jsonb)))
         OR pm.role IN ('owner', 'admin')
         OR pm.role IN (SELECT jsonb_array_elements_text(${JSON.stringify(roles)}::jsonb))
         OR EXISTS (SELECT 1 FROM workspace_members c JOIN workspaces p ON p.id = c.workspace_id
@@ -179,7 +185,9 @@ const inAudience = sql`(u.audience = '{}'::jsonb OR m.role IN ('owner', 'admin')
   OR m.role IN (SELECT jsonb_array_elements_text(coalesce(u.audience->'roles', '[]'::jsonb)))
   OR EXISTS (SELECT 1 FROM workspace_members c JOIN workspaces p ON p.id = c.workspace_id
     WHERE c.user_id = m.user_id AND p.parent_id = u.workspace_id AND p.deleted_at IS NULL
-      AND p.id::text IN (SELECT jsonb_array_elements_text(coalesce(u.audience->'projectIds', '[]'::jsonb)))))`;
+      AND p.id::text IN (SELECT jsonb_array_elements_text(coalesce(u.audience->'projectIds', '[]'::jsonb))))
+  OR EXISTS (SELECT 1 FROM class_section_members sm WHERE sm.user_id = m.user_id AND sm.workspace_id = u.workspace_id
+      AND coalesce(u.audience->'sectionIds', '[]'::jsonb) @> to_jsonb(sm.section_id::text)))`;
 
 /**
  * "Seen by 32 of 40" (report §28.3, decision 58): people in the post's audience, not its author, who opened Updates
