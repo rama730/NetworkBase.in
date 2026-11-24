@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { fileComments, profiles, workspaceNodes } from "@/lib/db/schema";
-import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { accessAllows, canReadWorkspaceTab, getWorkspaceAccessById, writeBlockedMessage } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
 import { anchorSchema, anchorValid, mediaKindOf } from "@/lib/workflows/file-comments";
 
@@ -22,12 +22,15 @@ async function insiderFile(projectId: string, nodeId: string) {
   if (!user) throw new Error("Sign in to continue");
   if (!uuid.safeParse(projectId).success || !uuid.safeParse(nodeId).success) throw new Error("Not found");
   const access = await getWorkspaceAccessById(projectId, user.id);
-  if (!access.project || access.project.kind !== "workspace" || !(access.isOwner || access.isMember)) throw new Error("Comments are for workspace members.");
+  // Members who may see Files themselves (security review): with "See Files" off a member reads Files as a visitor,
+  // and visitors never see comments.
+  if (!access.project || access.project.kind !== "workspace" || !(access.isOwner || (access.isMember && accessAllows(access, "files.see"))) || !canReadWorkspaceTab(access, "files")) throw new Error("Comments are for workspace members.");
   const [node] = await db.select({ id: workspaceNodes.id, name: workspaceNodes.name, mimeType: workspaceNodes.mimeType, version: workspaceNodes.currentVersion, createdBy: workspaceNodes.createdBy, taskId: workspaceNodes.taskId })
     .from(workspaceNodes).where(and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt))).limit(1);
   // A task's files stay with the task (as in Assets).
   if (!node || node.taskId) throw new Error("File not found");
-  return { user, access, node, canComment: access.isOwner || access.memberRole !== "viewer" };
+  // A read-only workspace (suspended or ended organization, a completed member) takes no comment changes.
+  return { user, access, node, canComment: (access.isOwner || access.memberRole !== "viewer") && !access.writeBlocked };
 }
 
 /** Every comment on the file, all versions (the viewer filters by version), with authors' names. */
@@ -85,6 +88,7 @@ export async function changeFileCommentAction(input: z.infer<typeof changeInput>
   try {
     const data = changeInput.parse(input);
     const { user, access } = await insiderFile(data.projectId, data.nodeId);
+    if (access.writeBlocked) throw new Error(writeBlockedMessage(access.writeBlocked));
     const [c] = await db.select({ authorId: fileComments.authorId }).from(fileComments)
       .where(and(eq(fileComments.id, data.commentId), eq(fileComments.nodeId, data.nodeId), isNull(fileComments.deletedAt))).limit(1);
     if (!c) throw new Error("Comment not found");

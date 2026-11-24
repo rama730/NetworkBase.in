@@ -87,3 +87,16 @@ test("resolve by the author or someone who can change files; delete by the autho
   const read = await comments.readFileCommentsAction(t.ws, t.image);
   assert.equal(read.success && read.comments.length, 0);
 });
+
+test("security review: a completed member can't comment or delete; a member without See Files can't read", async () => {
+  const t = await workspace();
+  viewerId = t.member;
+  const c = await comments.addFileCommentAction({ projectId: t.ws, nodeId: t.image, version: 3, content: "Before I finished" });
+  assert.ok(c.success);
+  await sql`UPDATE workspace_members SET completed_at = now() WHERE workspace_id = ${t.ws} AND user_id = ${t.member}`;
+  assert.equal((await comments.addFileCommentAction({ projectId: t.ws, nodeId: t.image, version: 3, content: "x" })).success, false);
+  assert.equal((await comments.changeFileCommentAction({ projectId: t.ws, nodeId: t.image, commentId: c.id, action: "delete" })).success, false);
+  await sql`UPDATE workspace_members SET completed_at = NULL WHERE workspace_id = ${t.ws} AND user_id = ${t.member}`;
+  await sql`UPDATE workspaces SET role_abilities = '{"member": {"files.see": false}}'::jsonb WHERE id = ${t.ws}`;
+  assert.equal((await comments.readFileCommentsAction(t.ws, t.image)).success, false);
+});
