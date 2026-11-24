@@ -908,9 +908,9 @@
       "text": "A6.34 Docs site view — Build: setDocsSiteAction, searchDocsAction (⌘K). Journeys: D6 W3, W4 (public shows only switched-on docs). A6.35 Snippets — Journeys: D6 ",
       "kind": "unit",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/snippets.test.ts; tests/unit/snippet-rules.test.ts; tests/browser/docs-site.spec.ts; packages/nb-cli/test/snippets.test.mjs",
+      "evidence": "Live 2026-11-24 (85a349660 + fix 2aebc45c4): Snippets on in wt-test-a2-3; New snippet \"WT Retry with backoff\" + Copy in Chrome; nb snippets list/get, nb doc templates, nb doc new --template faq \"WT Billing\" against prod. First nb doc new used change sets and failed where they are off; now sent like nb push."
     },
     {
       "key": "A7.1",
@@ -7588,9 +7588,9 @@
       "text": "Snippets",
       "kind": "journey",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/snippets.test.ts; tests/browser/docs-site.spec.ts",
+      "evidence": "Live 2026-11-24 in Chrome (see A6.35)."
     },
     {
       "key": "38.15.W6",
@@ -7598,9 +7598,9 @@
       "text": "CLI",
       "kind": "journey",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "packages/nb-cli/test/snippets.test.mjs",
+      "evidence": "Live 2026-11-24 with the repo CLI against prod (see A6.35); MCP networkbase_snippet_list/get, networkbase_doc_create run the same commands. Ships to npm with the next CLI release."
     },
     {
       "key": "38.15.call1",
@@ -8478,9 +8478,9 @@
       "text": "A6.35 Snippets and templates from the terminal (2026-11-24): Settings → Workflows → Documents → Snippets (off by default) adds a Snippets view to the Pages · Do",
       "kind": "call",
       "milestone": "A6",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/db/snippets.test.ts; packages/nb-cli/test/snippets.test.mjs",
+      "evidence": "Live 2026-11-24 (see A6.35)."
     }
   ]
 }
