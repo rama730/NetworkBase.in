@@ -116,8 +116,8 @@ test("the catalog: unique ids, known groups, own tabs only in Own tab, nothing b
     assert.equal(Boolean(w.tab), w.group === "own_tab", w.id);
     assert.ok(w.line.endsWith("."), w.id);
   }
-  // Built as their rounds ship: Bugs with T3 (A2.3), Requests with T4 (A2.6), Project planner with T1 (A1.6).
-  assert.deepEqual(WORKFLOW_CATALOG.filter((w) => w.built).map((w) => w.id).sort(), ["assets", "bugs", "changelog", "content", "goals", "ideas", "launches", "learning_path", "meetings", "offsite", "project_planner", "requests", "roadmap"]);
+  // Built as their rounds ship: Bugs with T3 (A2.3), Requests with T4 (A2.6), Project planner with T1 (A1.6), Thesis with W5 (B1.8a).
+  assert.deepEqual(WORKFLOW_CATALOG.filter((w) => w.built).map((w) => w.id).sort(), ["assets", "bugs", "changelog", "content", "goals", "ideas", "launches", "learning_path", "meetings", "offsite", "project_planner", "requests", "roadmap", "thesis"]);
 });
 
 test("wizard suggestions: section 6 in order, built ones only, the first ticked (decision 5)", async () => {

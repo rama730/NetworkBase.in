@@ -11,6 +11,7 @@ import { ContentOverviewCard } from "@/components/workspaces/dashboard/ContentOv
 import { RoadmapOverviewCard } from "@/components/workspaces/dashboard/RoadmapOverviewCard";
 import { MeetingsOverviewCard } from "@/components/workspaces/dashboard/MeetingsOverviewCard";
 import { GoalsOverviewCard } from "@/components/workspaces/dashboard/GoalsOverviewCard";
+import { ThesisOverviewCard } from "@/components/workspaces/dashboard/ThesisOverviewCard";
 import { OffsiteOverviewCard } from "@/components/workspaces/dashboard/OffsiteOverviewCard";
 import { useBottomStickyRail } from "@/hooks/useBottomStickyRail";
 import { GetStarted } from "@/components/workspaces/GetStarted";
@@ -87,6 +88,7 @@ export function DashboardTab({
                 {project.kind !== "organization" ? <ContentOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
                 {project.kind !== "organization" ? <RoadmapOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
                 {project.kind !== "organization" ? <MeetingsOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
+                {project.kind !== "organization" ? <ThesisOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
                 {project.kind !== "organization" ? <GoalsOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
                 {project.kind !== "organization" ? <OffsiteOverviewCard projectId={project.id} slug={project.slug ?? project.id} /> : null}
                 <RecentActivityCard projectId={project.id} started={recentActivityStarted} />

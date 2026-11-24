@@ -1,3 +1,4 @@
+import { readChapter } from "@/lib/workflows/thesis";
 import { createHash, } from "crypto";
 import { roleAllows } from "@/lib/workspaces/role-abilities";
 import { normalizeWorkspacePublicTabVisibility, normalizeWorkspaceMemberRole, } from "@/lib/workspaces/settings-policies";
@@ -56,6 +57,8 @@ export type WorkspaceDocSettings = {
     seriesId?: string;
     finishedAt?: string;
     carriedTaskIds?: string[];
+    /** B1.8a (report 30.6): a thesis chapter's number, word target and status. */
+    chapter?: import('@/lib/workflows/thesis').Chapter;
     meetingTitle?: string;
     /** Report 38.11 W6 (A4.9): a board meeting's size, who is present, its motions, and when its minutes were approved. */
     boardSize?: number;
@@ -232,6 +235,7 @@ export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSetti
         ...(source.answers && typeof source.answers === "object" && !Array.isArray(source.answers)
             ? { answers: Object.fromEntries(Object.entries(source.answers as Record<string, unknown>).filter(([k, v]) => UUID.test(k) && (v === "going" || v === "cant")).slice(0, 200)) as Record<string, "going" | "cant"> } : {}),
         ...(typeof source.meetingTitle === "string" && source.meetingTitle.trim() && source.meetingTitle.length <= 120 ? { meetingTitle: source.meetingTitle.trim() } : {}),
+        ...(source.chapter && typeof source.chapter === "object" ? { chapter: readChapter({ chapter: source.chapter })! } : {}),
         ...(Array.isArray(source.carriedTaskIds) ? { carriedTaskIds: source.carriedTaskIds.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 200) } : {}),
     };
 }

@@ -10,6 +10,9 @@ export const DOC_SECTIONS = [
   { id: "goals", label: "Goals", workflow: "goals" },
   { id: "ideas", label: "Ideas", workflow: "ideas" },
   { id: "offsite", label: "Off-site", workflow: "offsite" },
+  { id: "chapters", label: "Chapters", workflow: "thesis" },
+  { id: "literature", label: "Literature", workflow: "thesis" },
+  { id: "supervisions", label: "Supervisions", workflow: "thesis" },
 ] as const;
 
 export type DocSection = (typeof DOC_SECTIONS)[number]["id"];
@@ -17,7 +20,7 @@ export type DocSection = (typeof DOC_SECTIONS)[number]["id"];
 export const isDocSection = (value: unknown): value is DocSection => DOC_SECTIONS.some((s) => s.id === value);
 export const sectionLabel = (id: DocSection) => DOC_SECTIONS.find((s) => s.id === id)!.label;
 /** Meetings and Launches carry a date (S2). */
-export const sectionHasDate = (id: DocSection) => id === "meetings" || id === "launches";
+export const sectionHasDate = (id: DocSection) => id === "meetings" || id === "launches" || id === "supervisions";
 
 /** Sections a document can be in, given the workspace's added workflows; Pages always. */
 export const availableSections = (added: string[]): DocSection[] =>

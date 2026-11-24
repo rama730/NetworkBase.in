@@ -4,7 +4,7 @@ import { docTitle, isEmptyDoc, readOrgDocOptions } from "@/lib/organizations/doc
 import { linkedFileEditor } from "@/lib/workspaces/doc-linked-editor";
 import { orgLimitBlock } from "@/lib/organizations/limits";
 import { orgTaskReadFilter } from "@/lib/organizations/assignments";
-import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
@@ -3095,4 +3095,105 @@ export async function readGoalsNumbersAction(projectId: string) {
     const r = await readGoalsAction(projectId, summary.summary.slug);
     if (!r.success) return { success: true as const, label: null, rows: [] };
     return { success: true as const, label: r.label, rows: r.objectives.flatMap((o) => o.keyResults.map((k) => ({ objective: o.title, title: k.title, current: k.current ?? null, target: k.target ?? null, unit: k.unit ?? null, status: k.status }))) };
+}
+
+
+/**
+ * B1.8a (report 30.6 W5): the thesis on Overview — research questions, chapters with words counted from each chapter's
+ * published text, the next milestone (the class's each-child copy in this workspace) and the supervisor labels.
+ * Insiders only: thesis text stays with the student, supervisors and examiners.
+ */
+export async function readThesisAction(projectId: string) {
+    try {
+        const actor = await getOptionalUserId();
+        if (!actor) return { success: false as const, error: "Not found." };
+        const context = await getDocProjectContext(projectId, actor);
+        if (!(actor === context.project.ownerId || context.membership)) return { success: false as const, error: "Not found." };
+        const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+        if (!(await readWorkspaceWorkflows(projectId, actor)).added.some((w) => w.workflow === "thesis")) return { success: false as const, error: "Add Thesis first." };
+        const t = await import("@/lib/workflows/thesis");
+        const [ws] = await db.select({ settings: workspaces.workflowSettings, slug: workspaces.slug, parentId: workspaces.parentId }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const settings = t.readThesisSettings(ws?.settings);
+        const docs = await db.select({ slug: workspaceDocuments.slug, filename: workspaceDocuments.filename, settings: workspaceDocuments.settings, versionId: workspaceDocuments.publishedVersionId })
+            .from(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), sql`${workspaceDocuments.settings}->>'section' = 'chapters'`)).limit(60);
+        const chapters = [];
+        for (const d of docs) {
+            // A document moved into Chapters without numbers yet counts with the defaults.
+            const chapter = t.readChapter(d.settings) ?? t.readChapter({ chapter: {} })!;
+            const version = await readPublishedVersion(d.versionId);
+            const text = version?.content ?? "";
+            const heading = text.match(/^#\s+(.+)$/m)?.[1]?.replace(/^\d+[.)]?\s*/, "").trim();
+            chapters.push({ slug: d.slug, title: heading || d.filename.replace(/\.md$/i, ""), ...chapter, words: t.countWords(text) });
+        }
+        chapters.sort((a, b) => a.number - b.number);
+        const totals = t.writingTotals(chapters);
+        const [milestone] = await db.select({ id: tasks.id, title: tasks.title, due: tasks.dueDate }).from(tasks)
+            .where(and(eq(tasks.projectId, projectId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`, isNull(tasks.excusedAt)))
+            .orderBy(sql`${tasks.dueDate} ASC NULLS LAST`).limit(1);
+        const ids = [settings.supervisorId, settings.coSupervisorId].filter((x): x is string => Boolean(x));
+        const people = ids.length ? await db.select({ id: profiles.id, name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Supervisor')` }).from(profiles).where(inArray(profiles.id, ids)) : [];
+        const nameOf = (id: string | null) => (id ? people.find((p) => p.id === id)?.name ?? null : null);
+        return { success: true as const, thesis: {
+            canEdit: context.permission.canEdit, questions: settings.questions, chapters, words: totals.words, target: totals.target,
+            nextMilestone: milestone ? { title: milestone.title, due: milestone.due?.toISOString() ?? null, href: `/workspaces/${encodeURIComponent(ws?.slug ?? projectId)}?tab=tasks&drawerType=task&drawerId=${milestone.id}` } : null,
+            supervisor: nameOf(settings.supervisorId), coSupervisor: nameOf(settings.coSupervisorId),
+        } };
+    } catch (error) {
+        logger.error("thesis.read_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load the thesis." };
+    }
+}
+
+/**
+ * Research questions (people who can edit documents) and the Supervisor / Co-supervisor labels (call: a label on the
+ * existing admin role — the person must already be one of the workspace's admins, or the owner of its class).
+ */
+export async function saveThesisAction(projectId: string, input: { questions?: string[]; supervisorId?: string | null; coSupervisorId?: string | null }) {
+    try {
+        const userId = await requireUserId();
+        const context = await getDocProjectContext(projectId, userId);
+        if (!context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents change the thesis." };
+        const t = await import("@/lib/workflows/thesis");
+        const [ws] = await db.select({ settings: workspaces.workflowSettings, ownerId: workspaces.ownerId, parentId: workspaces.parentId }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+        const current = t.readThesisSettings(ws?.settings);
+        const next = { ...current };
+        if (input.questions) next.questions = t.readThesisSettings({ thesis: { questions: input.questions } }).questions;
+        for (const key of ["supervisorId", "coSupervisorId"] as const) {
+            if (input[key] === undefined) continue;
+            const id = input[key];
+            if (id !== null) {
+                const [ok] = Array.from(await db.execute<{ ok: boolean }>(sql`
+                    SELECT true AS ok WHERE EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = ${projectId}::uuid AND m.user_id = ${id}::uuid AND m.role = 'admin')
+                      OR EXISTS (SELECT 1 FROM workspaces p WHERE p.id = ${ws?.parentId ?? null}::uuid AND p.owner_id = ${id}::uuid)
+                      OR EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${ws?.parentId ?? null}::uuid AND pm.user_id = ${id}::uuid AND pm.role = 'admin')`));
+                if (!ok) return { success: false as const, error: "A supervisor is one of this workspace's admins or its class's staff." };
+            }
+            next[key] = id;
+        }
+        await db.update(workspaces).set({ workflowSettings: sql`coalesce(${workspaces.workflowSettings}, '{}'::jsonb) || ${JSON.stringify({ thesis: next })}::jsonb` }).where(eq(workspaces.id, projectId));
+        return { success: true as const };
+    } catch (error) {
+        logger.error("thesis.save_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t save the thesis." };
+    }
+}
+
+/** File a document under Chapters with its number and word target (the browser makes the file, as launches do). */
+export async function fileChapterAction(projectId: string, docSlug: string, input: { number: number; target: number; status?: string }) {
+    try {
+        const userId = await requireUserId();
+        const context = await getDocProjectContext(projectId, userId, docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit documents add chapters." };
+        const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+        if (!availableSections((await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow)).includes("chapters")) return { success: false as const, error: "Add Thesis first." };
+        const { readChapter } = await import("@/lib/workflows/thesis");
+        const previous = (context.settings as { chapter?: unknown }).chapter;
+        const chapter = readChapter({ chapter: { ...(previous && typeof previous === "object" ? previous : {}), ...input } })!;
+        await writeLaunchSettings(context.readme.id, { section: "chapters", chapter });
+        revalidateProjectDoc(context.project);
+        return { success: true as const, chapter };
+    } catch (error) {
+        logger.error("thesis.chapter_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t file the chapter." };
+    }
 }
