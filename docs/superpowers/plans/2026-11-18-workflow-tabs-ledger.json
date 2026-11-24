@@ -1018,9 +1018,9 @@
       "text": "B1.2 W2 Term plan + lessons (30.3) — Goal: units → weeks → lessons table with outcomes and progress. Build: also the Sprints Calendar for classes, the Term plan",
       "kind": "unit",
       "milestone": "B1",
-      "status": "todo",
-      "test": "",
-      "evidence": ""
+      "status": "live",
+      "test": "tests/unit/term-plan.test.ts; tests/db/term-plan.test.ts; tests/browser/term-plan.spec.ts",
+      "evidence": "d03d61ecb + a0f9c078d live 2026-11-24 (0123 in prod). Live in Chrome on wt-test-b0-class: Unit 1 + Week 1 planned, + Lesson \"WT Arrays\" took the Thu 26 Nov 10:30 session, Ready → Mark taught → \"100%, 1 of 1 taught\"; Calendar shows it in November. Student view, TA limits, teacher notes privacy, Shift the rest, Behind plan and the Mark taught reminder proven by DB tests (one test account). Split: B1.2a/B1.2b (report 30.3 build calls)."
     },
     {
       "key": "B1.3",
