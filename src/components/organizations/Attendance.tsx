@@ -91,6 +91,7 @@ export function AttendanceView({ orgId }: { orgId: string }) {
               ))}
             </tbody>
           </table>
+          {data.students.length === 0 ? <p className="px-3 py-3 text-[13px] text-muted-foreground" data-testid="attendance-no-students">No students yet. Invite them from Roster; they appear here when they join.</p> : null}
           <p className="border-t border-border px-3 py-2 text-[12px] text-muted-foreground">P Present · L Late · A Absent · E Excused · · not taken</p>
         </div>
       )}
