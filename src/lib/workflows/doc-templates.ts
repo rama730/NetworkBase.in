@@ -100,6 +100,7 @@ _Finances · What will they pay for, and how?_
 
 ## Key numbers
 _From Goals: the key results you report on, their current value and target._
+{% project.goals %}
 
 ## Highlights
 
@@ -320,6 +321,7 @@ _Link the Persona documents._
 
 ## Success metrics
 _The key results this should move (Goals)._
+{% project.goals %}
 
 ## Requirements
 | Requirement | Priority (Must / Should / Could) | Roadmap item |
@@ -599,6 +601,7 @@ _Three lines in your own words._
 
 ## Outcomes
 _The key results this grant moves (Goals)._
+{% project.goals %}
 
 ## Budget
 ${parked("Money")}
@@ -616,6 +619,7 @@ ${parked("Money")}
 
 ## Numbers
 _The year’s key results (Goals)._
+{% project.goals %}
 
 ## Stories
 

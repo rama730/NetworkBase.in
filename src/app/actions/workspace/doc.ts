@@ -1564,7 +1564,7 @@ export async function readDocRowKeysAction(projectId: string, docSlug: string) {
         if (!context.readme || !context.permission.canEdit) return { success: true as const, keys: [] as Array<{ key: string; count: number }> };
         const keys = await db.select({ key: tasks.sourceBlock, count: sql<number>`count(*)::int` }).from(tasks)
             // A5 live check: a goals or ideas block's items belong to that block, not to a task list that was removed.
-            .where(and(eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt), sql`coalesce(${tasks.sourceBlock}, '') NOT IN ('goals', 'ideas')`)).groupBy(tasks.sourceBlock);
+            .where(and(eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt), sql`coalesce(${tasks.sourceBlock}, '') NOT IN ('goals', 'ideas') AND coalesce(${tasks.sourceBlock}, '') NOT LIKE 'tpl\_%'`)).groupBy(tasks.sourceBlock);
         return { success: true as const, keys: keys.flatMap((k) => (k.key ? [{ key: k.key, count: k.count }] : [])) };
     } catch {
         return { success: false as const, error: "Couldn’t count the lists." };
@@ -2982,4 +2982,113 @@ export async function readSnippetCodeAction(projectId: string, docSlug: string) 
     const { snippetCode } = await import("@/lib/workflows/snippets");
     const code = snippetCode(doc.data.version?.content ?? "");
     return code == null ? { success: false as const, error: "This snippet has no code block yet.", code: "NOT_FOUND" as const } : { success: true as const, code };
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Report 38.15 call 7 (A6.36): template extras. A document remembers its template (kind); the tools under its header
+ * make tasks, bugs, roadmap items and review tasks linked to it (source block `tpl_*`, never a live list of its own).
+ * ---------------------------------------------------------------------------------------------------------------- */
+const TPL_BLOCKS = { tests: "tpl_tests", stories: "tpl_stories", roadmap: "tpl_roadmap", bugs: "tpl_bugs", review: "tpl_review" } as const;
+
+/** Made from a template: remember which (once), and Class notes start members-only. */
+export async function setDocTemplateAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = z.object({ docSlug: z.string().trim().min(1).max(120).transform((s) => normalizeWorkspaceDocSlug(s)), template: z.string().regex(/^[a-z0-9-]{1,40}$/) }).parse(input);
+        const { templateById } = await import("@/lib/workflows/doc-templates");
+        if (!templateById(data.template)) return { success: false as const, error: "No such template." };
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit this document." };
+        if (context.settings.kind) return { success: true as const };
+        await writeLaunchSettings(context.readme.id, { kind: data.template, ...(data.template === "class-notes" ? { visibilityOverride: "members_only" as const } : {}) });
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("doc.template_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t save the template." };
+    }
+}
+
+/** The tools' state: what was already made from this document, the review, and the members to ask. */
+export async function readTemplateToolsAction(projectId: string, docSlug: string) {
+    try {
+        const actor = await getOptionalUserId();
+        const context = await getDocProjectContext(projectId, actor, docSlug);
+        const insider = Boolean(actor) && (actor === context.project.ownerId || Boolean(context.membership));
+        if (!context.readme || !insider) return { success: false as const, error: "Template tools are for workspace members." };
+        const made = await db.select({ id: tasks.id, title: tasks.title, block: tasks.sourceBlock, status: tasks.status, number: tasks.taskNumber, assigneeId: tasks.assigneeId }).from(tasks)
+            .where(and(eq(tasks.sourceDocId, context.readme.id), isNull(tasks.deletedAt), sql`${tasks.sourceBlock} LIKE 'tpl\\_%'`)).orderBy(asc(tasks.sourcePosition));
+        const people = Array.from(await db.execute<{ id: string; name: string }>(sql`
+            SELECT p.id, coalesce(p.full_name, p.username, 'Someone') AS name FROM profiles p
+            WHERE p.id = ${context.project.ownerId}::uuid OR p.id IN (SELECT user_id FROM workspace_members WHERE workspace_id = ${projectId}::uuid AND role <> 'viewer')
+            ORDER BY p.full_name`));
+        const { reviewState } = await import("@/lib/workflows/template-extras");
+        const review = made.filter((t) => t.block === TPL_BLOCKS.review);
+        return { success: true as const, canEdit: context.permission.canEdit, people: Array.from(people),
+            made: made.map((t) => ({ id: t.id, title: t.title, block: t.block, done: t.status === "done", number: t.number, assigneeId: t.assigneeId })),
+            review: reviewState(review.map((t) => ({ done: t.status === "done" }))) };
+    } catch (error) {
+        logger.error("doc.template_tools_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load the template tools." };
+    }
+}
+
+const makeDocTasksSchema = z.object({
+    docSlug: z.string().trim().min(1).max(120).transform((s) => normalizeWorkspaceDocSlug(s)),
+    kind: z.enum(["tests", "stories", "roadmap", "bugs", "review"]),
+    items: z.array(z.object({ title: z.string().trim().min(1).max(200), steps: z.string().max(2000).optional(), expected: z.string().max(1000).optional(), assigneeId: z.string().uuid().optional() })).min(1).max(30),
+});
+
+/**
+ * Make a task, Make tasks, Create roadmap items, Report a bug, Request review: one task per item, linked to the
+ * document; an item already made from this document (same title, same kind) isn't made twice.
+ */
+export async function makeDocTasksAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const data = makeDocTasksSchema.parse(input);
+        const context = await getDocProjectContext(projectId, userId, data.docSlug);
+        if (!context.readme || !context.permission.canEdit) return { success: false as const, error: "Only people who can edit this document make tasks from it." };
+        const block = TPL_BLOCKS[data.kind];
+        if (data.kind === "roadmap" || data.kind === "bugs") {
+            const { readWorkspaceWorkflows } = await import("@/lib/workflows/server");
+            const added = (await readWorkspaceWorkflows(projectId, userId)).added.map((w) => w.workflow);
+            if (!added.includes(data.kind === "roadmap" ? "roadmap" : "bugs")) return { success: false as const, error: data.kind === "roadmap" ? "Add Roadmap first." : "Add Bugs first." };
+        }
+        const reviewers = data.kind === "review" ? await memberIds(projectId, data.items.flatMap((i) => (i.assigneeId ? [i.assigneeId] : []))) : [];
+        if (data.kind === "review" && reviewers.length !== data.items.length) return { success: false as const, error: "Reviewers must be in this workspace." };
+        const existing = await db.select({ title: tasks.title, assigneeId: tasks.assigneeId, position: tasks.sourcePosition }).from(tasks)
+            .where(and(eq(tasks.sourceDocId, context.readme.id), eq(tasks.sourceBlock, block), isNull(tasks.deletedAt)));
+        const seen = new Set(existing.map((t) => `${t.title.toLowerCase()}|${data.kind === "review" ? t.assigneeId : ""}`));
+        let position = existing.reduce((m, t) => Math.max(m, t.position ?? 0), 0);
+        const { createTaskAction } = await import("@/lib/workspaces/server/tasks");
+        const due = data.kind === "review" ? new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10) : null;
+        let made = 0;
+        for (const item of data.items) {
+            const key = `${item.title.toLowerCase()}|${data.kind === "review" ? item.assigneeId : ""}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const typed = data.kind === "roadmap" ? { itemType: "roadmap_item", stage: "backlog", typeFields: {} }
+                : data.kind === "bugs" ? { itemType: "bug", stage: "new", typeFields: { ...(item.steps ? { steps: item.steps } : {}), ...(item.expected ? { expected: item.expected } : {}) } } : {};
+            const r = await createTaskAction({ projectId, title: item.title, status: "todo", priority: "medium", assigneeId: item.assigneeId ?? null, dueDate: due, ...typed } as Parameters<typeof createTaskAction>[0]);
+            if (!r.success || !("task" in r) || !r.task) return { success: false as const, error: (r.success ? null : r.error) ?? "Couldn’t make the task." };
+            await db.update(tasks).set({ sourceDocId: context.readme.id, sourceBlock: block, sourcePosition: ++position }).where(eq(tasks.id, r.task.id));
+            made++;
+        }
+        revalidateProjectDoc(context.project);
+        return { success: true as const, made };
+    } catch (error) {
+        if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Check the items." };
+        logger.error("doc.make_tasks_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t make the tasks." };
+    }
+}
+
+/** A goals block outside a goals document: this period's key results (members only; read-only). */
+export async function readGoalsNumbersAction(projectId: string) {
+    const summary = await readGoalsSummaryAction(projectId);
+    if (!summary.success || !summary.summary) return { success: true as const, label: null, rows: [] as Array<{ objective: string; title: string; current: number | null; target: number | null; unit: string | null; status: string }> };
+    const r = await readGoalsAction(projectId, summary.summary.slug);
+    if (!r.success) return { success: true as const, label: null, rows: [] };
+    return { success: true as const, label: r.label, rows: r.objectives.flatMap((o) => o.keyResults.map((k) => ({ objective: o.title, title: k.title, current: k.current ?? null, target: k.target ?? null, unit: k.unit ?? null, status: k.status }))) };
 }

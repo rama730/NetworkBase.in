@@ -77,10 +77,11 @@ export function DocDecisionsBlock({ projectId, docSlug, canEdit }: { projectId: 
  * W6 sheet: Decision (required, 1–200) and Context (optional, up to 2,000). The document is made like any new one, then
  * filed under Decisions with the next D-number; if numbering fails the new file is taken back out.
  */
-export function RecordDecisionDialog({ projectId, fromDocSlug, supersedes, open, onOpenChange }: { projectId: string; fromDocSlug?: string; supersedes?: { slug: string; label: string }; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function RecordDecisionDialog({ projectId, fromDocSlug, supersedes, initialContext, open, onOpenChange }: { projectId: string; fromDocSlug?: string; supersedes?: { slug: string; label: string }; initialContext?: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
-  const [context, setContext] = useState("");
+  // A6.36: a broken assumption opens this with the row as its context.
+  const [context, setContext] = useState(initialContext ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const close = () => { if (!busy) { onOpenChange(false); setError(null); } };

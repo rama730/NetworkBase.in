@@ -32,6 +32,8 @@ import type { Workspace } from "@/types/discover";
 import { OffsiteHeader } from "@/components/workspaces/doc/DocOffsite";
 import { DocsPrevNext, DocsSiteMenu, DocsSiteToggle, DocsViewSwitch, OnThisPage, useDocsSettings, type DocsView } from "@/components/workspaces/doc/DocsSite";
 import { SnippetsView } from "@/components/workspaces/doc/DocSnippets";
+import { BmcCanvas, DocTemplateTools } from "@/components/workspaces/doc/DocTemplateTools";
+import { templateOfDoc } from "@/lib/workflows/template-extras";
 
 const WorkspaceDocRenderer = dynamic(
     () => import("@/components/workspaces/doc/WorkspaceDocRenderer").then((mod) => mod.WorkspaceDocRenderer),
@@ -351,6 +353,9 @@ export function WorkspaceDocViewer({
         };
     }, []);
 
+    // Report 38.15 call 3 and 7 (A6.36): a document's template brings its tools, and the canvas shows as a grid.
+    const template = listed ? templateOfDoc(listed) : null;
+    const [bmcAsText, setBmcAsText] = useState(false);
     // Report §7.4, live-fix 23: an empty document says so (blank, or only its title as a heading); editors get Start writing.
     const renderer = !version || isEmptyDoc(version.content, title) ? (
         <div className="nb-empty-state py-12" role="status">
@@ -375,6 +380,13 @@ export function WorkspaceDocViewer({
             viewModel={readmeViewModel}
         />
     );
+    const docBody = template === "business-model-canvas" && version && !isEmptyDoc(version.content, title) ? (
+        <div>
+            <div className="mb-2 flex justify-end"><button type="button" className="text-[12px] font-medium text-muted-foreground underline underline-offset-4" onClick={() => setBmcAsText((v) => !v)}>{bmcAsText ? "Show as canvas" : "Show as text"}</button></div>
+            {bmcAsText ? renderer : <BmcCanvas content={version.content} />}
+        </div>
+    ) : renderer;
+    const tools = template && listed && version ? <DocTemplateTools projectId={project.id} docSlug={normalizedDocSlug} template={template} content={version.content} /> : null;
     if (inPlaceBanner) {
         return (
             <div className="relative mx-auto w-full max-w-[1240px] px-0 py-0">
@@ -407,7 +419,7 @@ export function WorkspaceDocViewer({
                     <div className="min-w-0">
                         {reportMenu}
                         {payload.canEdit && listed ? <div className="mb-3 flex justify-end"><DocsSiteToggle projectId={project.id} docSlug={normalizedDocSlug} on={listed.docsSite === true} /></div> : null}
-                        {renderer}
+                        {docBody}
                         <DocsPrevNext docs={rail.docs} activeSlug={normalizedDocSlug} onOpen={(slug) => rail.navigate(slug)} />
                     </div>
                     <aside className="hidden xl:block"><div className="sticky top-4"><OnThisPage headings={readmeViewModel.headings} /></div></aside>
@@ -433,7 +445,7 @@ export function WorkspaceDocViewer({
                     {/* Report 38.11 W9 (A4.1): Documents → Open action items. */}
                     {meetingsView === "actions" ? <OpenActionItems projectId={project.id} projectSlug={project.slug ?? project.id} />
                         : meetingsView === "calendar" ? <MeetingsCalendar projectId={project.id} projectSlug={project.slug ?? project.id} canAdd={payload.canEdit} onNew={() => rail.openAdd("meetings")} />
-                        : renderer}
+                        : <>{tools}{docBody}</>}
                 </div>
                 <WorkspaceDocRail
                     projectId={project.id}

@@ -3,6 +3,7 @@
 import { RemovedListsNote, WorkspaceDocLiveBlock } from "@/components/workspaces/doc/WorkspaceDocLiveBlock";
 import { DocDecisionsBlock } from "@/components/workspaces/doc/DocDecisions";
 import { GoalsBlock } from "@/components/workspaces/doc/DocGoals";
+import { GoalsNumbers } from "@/components/workspaces/doc/DocTemplateTools";
 import { IdeasBlock } from "@/components/workspaces/doc/DocIdeas";
 import { parseLiveBlocks } from "@/lib/workspaces/doc-live-blocks";
 import React, { Suspense, useMemo, type CSSProperties } from "react";
@@ -843,6 +844,8 @@ export const WorkspaceDocRenderer = React.memo(function WorkspaceDocRenderer({
                                 : <div key={`block-${plan.index}`} className="my-4 rounded-[8px] border border-dashed border-border px-4 py-3 text-[13px] text-muted-foreground">Ideas · the ranked list shows on the Documents tab</div>;
                         }
                         if (live?.kind === "goals") {
+                            // A6.36: without a period it's a template's numbers block (Investor update, Grant proposal…): this period's key results.
+                            if (!live.period && !editorMode && allowSmartBlocks) return <GoalsNumbers key={`block-${plan.index}`} projectId={project.id} />;
                             return !editorMode && allowSmartBlocks
                                 ? <GoalsBlock key={`block-${plan.index}`} projectId={project.id} docSlug={normalizedDocSlug} />
                                 : <div key={`block-${plan.index}`} className="my-4 rounded-[8px] border border-dashed border-border px-4 py-3 text-[13px] text-muted-foreground">Goals{live.period ? ` · ${live.period}` : ""} · objectives and key results show on the Documents tab</div>;

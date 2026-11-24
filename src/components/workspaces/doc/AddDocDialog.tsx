@@ -63,6 +63,11 @@ export function AddDocDialog({
             const { filename, content } = await make();
             const created = await createDocFile(projectId, filename, content);
             await placeInSection(created.slug);
+            // A6.36: a NetworkBase template is remembered (its tools; Class notes start members-only).
+            if (DOC_TEMPLATES.some((t) => t.id === key)) {
+                const { setDocTemplateAction } = await import("@/app/actions/workspace/doc");
+                await setDocTemplateAction(projectId, { docSlug: created.slug, template: key }).catch(() => undefined);
+            }
             if (org?.mode === "org") {
                 const { updateOrgDocOptionsAction } = await import("@/app/actions/org-docs");
                 await updateOrgDocOptionsAction(org.orgId, created.id, { visibility: "members_only" });
