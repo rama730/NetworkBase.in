@@ -5,14 +5,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck } from "lucide-react";
 
 import { readCompletionAction, readCompletionLineAction, recordCompletionAction } from "@/app/actions/cohort-completion";
+import { moveToLaterCohortAction, readLaterCohortsAction } from "@/app/actions/cohort-move";
 import { StatusBadge } from "@/components/organizations/org-ui";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Input } from "@/components/ui/input";
 import { PixelBeat } from "@/components/ui/PixelBeat";
-import { FORM_PRIMARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
+import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 
-// Report 31.2 C1 calls 5–6 (plan B2.1b): Members → Completion. Staff record it from the end date; a learner sees theirs.
+// Report 31.2 C1 calls 5–7 (plan B2.1b, B2.1c): Members → Completion. Staff record it from the end date and move a
+// learner to a later cohort; a learner sees theirs.
+const LINK = "nb-touch-target text-[13px] font-medium text-primary underline-offset-2 hover:underline";
 const DAY = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 const key = (orgId: string) => ["cohort-completion", orgId] as const;
 const useCompletion = (orgId: string) => useQuery({ queryKey: key(orgId), queryFn: () => readCompletionAction(orgId), staleTime: 30_000 });
@@ -80,6 +83,7 @@ export function CompletionView({ orgId }: { orgId: string }) {
                     </select>
                   ) : l.record ? <StatusBadge state={l.record.completed ? "done" : "archived"}>{l.record.completed ? "Completed" : "Not completed"}</StatusBadge> : null}
                 </div>
+                {data.canRecord ? <MoveLater orgId={orgId} learner={l} /> : null}
                 {data.canRecord && data.open && override ? (
                   <Input value={c.reason} maxLength={500} aria-label={`Why, for ${l.name}`} placeholder={c.completed ? "Why they completed without meeting the rule" : "Why they didn’t complete"}
                     onChange={(e) => setChoices({ ...choices, [l.id]: { ...c, reason: e.target.value } })} />
@@ -91,6 +95,39 @@ export function CompletionView({ orgId }: { orgId: string }) {
       )}
       {data.canRecord && data.open && data.learners.length ? <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy} onClick={() => void save()}>Record completion</button> : null}
     </section>
+  );
+}
+
+/** Move to a later cohort (call 7): open work here is Excused, finished work stays, they join the later cohort. */
+function MoveLater({ orgId, learner }: { orgId: string; learner: { id: string; name: string } }) {
+  const client = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const later = useQuery({ queryKey: ["later-cohorts", orgId], queryFn: () => readLaterCohortsAction(orgId), enabled: open, staleTime: 60_000 });
+  if (!open) return <button type="button" className={LINK} onClick={() => setOpen(true)}>Move to a later cohort<span className="sr-only"> for {learner.name}</span></button>;
+  const list = later.data?.success ? later.data.cohorts : [];
+  const move = async () => {
+    setBusy(true);
+    const r = await moveToLaterCohortAction(orgId, learner.id, to);
+    setBusy(false);
+    if (!r.success) return void toast.error(r.error);
+    toast.success(`${learner.name} moved${r.excused ? `; ${r.excused} open ${r.excused === 1 ? "assignment" : "assignments"} here excused` : ""}`);
+    setOpen(false);
+    void client.invalidateQueries({ queryKey: key(orgId) });
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="move-later">
+      {later.isPending ? <span className="text-muted-foreground">Loading cohorts…</span> : list.length === 0 ? <span className="text-muted-foreground">No later cohort of this program that you teach.</span> : (
+        <select className="nb-select" data-size="sm" aria-label={`Later cohort for ${learner.name}`} value={to} onChange={(e) => setTo(e.target.value)}>
+          <option value="">Pick a cohort</option>
+          {list.map((c) => <option key={c.id} value={c.id} disabled={c.seatsLeft <= 0}>{c.title}{c.start ? ` · starts ${DAY.format(new Date(`${c.start}T00:00:00Z`))}` : ""}{c.seatsLeft <= 0 ? " · full" : ""}</option>)}
+        </select>
+      )}
+      <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy || !to} onClick={() => void move()}>Move</button>
+      <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setOpen(false)}>Cancel</button>
+      <p className="w-full text-[12px] text-muted-foreground">Finished work stays here; open assignments here are excused; they can still read this cohort.</p>
+    </div>
   );
 }
 
