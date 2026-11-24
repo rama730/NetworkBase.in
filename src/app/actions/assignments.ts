@@ -4,6 +4,7 @@ import { reviewsCopySql } from '@/lib/organizations/sections-server';
 import { freezeMarking, marksForStaff } from '@/lib/organizations/marks-server';
 import { readMarking, readRubrics, rubricOutOf } from '@/lib/organizations/marks';
 import { typeProfile } from '@/lib/organizations/type-profile';
+import { examPhase, readExam, resultsHeld } from '@/lib/organizations/exams';
 import { revalidatePath } from 'next/cache';
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
@@ -108,6 +109,16 @@ const createSchema = z.object({
     marking: z.union([z.object({ mode: z.literal('none') }), z.object({ mode: z.literal('outof'), outOf: z.number().positive().max(100_000) }), z.object({ mode: z.literal('rubric'), rubricId: z.string().uuid() })]).optional(),
     /** Peer review (B1.5c): only with a rubric and text or link hand-ins (files stay private). */
     peerReview: z.boolean().optional(),
+    /** An exam (report 30.5, B1.6a): the window sets the due date; timed and in-person exams take no late work. */
+    exam: z.object({
+        format: z.enum(['in_person', 'timed', 'take_home']),
+        opensAt: z.string().datetime({ offset: true }),
+        closesAt: z.string().datetime({ offset: true }),
+        room: z.string().trim().max(80).nullable().optional(),
+        seats: z.string().trim().max(120).nullable().optional(),
+        covers: z.object({ units: z.array(z.string().uuid()).max(40), outcomes: z.array(z.string().max(40)).max(40) }).optional(),
+        hold: z.boolean().optional(),
+    }).optional(),
 });
 
 /** Reviewers are the organization's admins (owner included), each once; an error when anyone else is named. */
@@ -140,6 +151,17 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     const data = parsed.data;
     const viewer = await orgRole(data.projectId);
     if (!viewer || !orgCan(orgRoleOf(viewer.role), 'create_assignments')) return DENIED;
+    // B1.6a exams: the window is stored in UTC; it ends at the due date; timed and in-person exams take no late work
+    // and the 15-minute allowance doesn't apply (call); in person has no hand-in (staff enter marks).
+    const exam = data.exam ? readExam({ exam: { ...data.exam, opensAt: new Date(data.exam.opensAt).toISOString(), closesAt: new Date(data.exam.closesAt).toISOString(), covers: data.exam.covers ?? { units: [], outcomes: [] } } }) : null;
+    if (data.exam && !exam) return { success: false, error: 'The exam has to close after it opens.' };
+    if (exam) {
+        data.dueDate = exam.closesAt;
+        data.lateAfterMinutes = data.lateAfterMinutes ?? 0;
+        if (exam.format !== 'take_home') { data.lateRule = 'none'; data.lateUntil = null; }
+        if (exam.format === 'in_person') data.submissionType = 'none';
+        if (exam.format === 'timed' && data.submissionType !== 'file' && data.submissionType !== 'text') return { success: false, error: 'A timed exam is handed in as a file or text.' };
+    }
     const lateBlock = lateRuleBlock(data, new Date(data.dueDate));
     const marking = data.marking && data.marking.mode !== 'none' ? await freezeMarking(data.projectId, data.marking) : null;
     if (marking && 'error' in marking) return { success: false, error: marking.error };
@@ -183,6 +205,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
                 ...(data.aiNote ? { aiNote: data.aiNote } : {}),
                 ...(marking ? { marking } : {}),
                 ...(data.peerReview ? { peerReview: true } : {}),
+                ...(exam ? { exam } : {}),
                 ...scheduled.fields,
             };
             const masterId = await createMasterTask(tx, {
@@ -279,6 +302,8 @@ export type HandIn = {
     /** Mockup task 3: handing in now would be marked late. */
     wouldBeLate: boolean;
     materials: Array<{ nodeId: string; name: string; projectId: string }>;
+    /** B1.6a: the exam (window, room, What's in it as unit names) when this assignment is one. */
+    exam?: { settings: import('@/lib/organizations/exams').ExamSettings; coverNames: string[] } | null;
     /** Review UX: the copy's workspace, its steps (2.7), the upload limit (2.10), and what happened to it, newest first (2.9, 3.14, 3.15). */
     projectId: string; orgId: string; masterId: string;
     steps: Array<{ id: string; title: string; done: boolean }>;
@@ -318,7 +343,10 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
     const roles = orgRoleNames(org?.orgType, org?.orgSettings);
     // Submit is open per the same rules the server checks on Submit.
     const replaceLocked = approved || (copy.status === 'done' && copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil));
-    const canSubmit = holder && !copy.excusedAt && !replaceLocked && canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil);
+    const exam = readExam(master.settings);
+    const canSubmit = holder && !copy.excusedAt && !replaceLocked && canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil) && !(exam?.format === 'timed' && examPhase(exam, now.getTime()) === 'before');
+    const coverNames = exam?.covers.units.length ? (await db.select({ id: workspaceSprints.id, name: workspaceSprints.name }).from(workspaceSprints)
+        .where(and(eq(workspaceSprints.projectId, master.projectId), inArray(workspaceSprints.id, exam.covers.units)))).map((u) => u.name) : [];
     // Mockup task 3: "This will be marked Late." when handing in now would be.
     const wouldBeLate = canSubmit && Boolean(copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings));
     const sizes = new Map<string, { size: number | null; projectId: string }>(latest?.files.length ? (await db.select({ id: workspaceNodes.id, size: workspaceNodes.size, projectId: workspaceNodes.projectId }).from(workspaceNodes).where(inArray(workspaceNodes.id, latest.files.map((f) => f.nodeId)))).map((n) => [n.id, { size: n.size == null ? null : Number(n.size), projectId: n.projectId }]) : []);
@@ -342,6 +370,7 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
         latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name, size: sizes.get(f.nodeId)?.size ?? null, projectId: sizes.get(f.nodeId)?.projectId ?? copy.projectId, ...label(f.nodeId) })) } : null,
         files: files.map((f) => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size), projectId: f.project_id, ...label(f.node_id) })), materials: materials.success ? materials.materials : [],
         wouldBeLate, projectId: copy.projectId, orgId: master.projectId, masterId: master.id, steps, maxFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES,
+        exam: exam ? { settings: exam, coverNames: [...coverNames, ...exam.covers.outcomes] } : null,
         history: history.map((e) => ({ kind: e.kind, at: new Date(e.at).toISOString(), by: e.by, ...(e.kind === 'handed_in' ? { version: Number(e.version), late: Boolean(e.late) } : { reason: e.reason }) })),
     } };
 }
@@ -679,6 +708,8 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     const submitter = await orgRole(master.projectId, 'read');
     if (copy.projectId === master.projectId && (!submitter || ['guest', 'visitor'].includes(orgRoleOf(submitter.role)))) return DENIED;
     if (copy.excusedAt) return { success: false, error: "You’re excused from this one." };
+    const submitExam = readExam(master.settings);
+    if (submitExam?.format === 'timed' && examPhase(submitExam) === 'before') return { success: false, error: 'The paper isn’t open yet.' };
     const copyAccess = await getWorkspaceAccessById(copy.projectId, userId);
     if (copyAccess.writeBlocked) return { success: false, error: writeBlockedMessage(copyAccess.writeBlocked) };
     // Approved work is locked (decision 85); done work with no review can be replaced until it's due (34.4).
@@ -825,8 +856,9 @@ async function sectionGate(orgId: string, viewer: { role: string; userId: string
 
 async function reviewOne(copyId: string, reviewerId: string, decision: 'approve' | 'return', reason?: string, fixBy?: Date, change = false): Promise<boolean> {
     const now = new Date();
-    const [copy] = await db.select({ projectId: tasks.projectId, sprintId: tasks.sprintId, title: tasks.title }).from(tasks).where(eq(tasks.id, copyId)).limit(1);
+    const [copy] = await db.select({ projectId: tasks.projectId, sprintId: tasks.sprintId, title: tasks.title, settings: sql<unknown>`(SELECT m.assignment_settings FROM tasks m WHERE m.id = "tasks"."assignment_id")` }).from(tasks).where(eq(tasks.id, copyId)).limit(1);
     if (!copy) return false;
+    const held = resultsHeld(readExam(copy.settings));
     let marked = false;
     const reviewed = await db.transaction(async (tx) => {
         // Approve only what was handed in: files and steps can't have changed since (problems 21, 29). Submissions
@@ -846,7 +878,7 @@ async function reviewOne(copyId: string, reviewerId: string, decision: 'approve'
             : eq(tasks.reviewStatus, 'pending'))).returning({ id: tasks.id });
         if (updated.length === 0) return false;
         // B1.5a (report 30.8 call 5): Approve shows the draft mark; Return keeps it as a hidden draft.
-        marked = decision === 'approve'
+        marked = decision === 'approve' && held ? false : decision === 'approve'
             ? Array.from(await tx.execute(sql`UPDATE assignment_marks SET visible_at = now() WHERE copy_id = ${copyId}::uuid AND visible_at IS NULL RETURNING copy_id`)).length > 0
             : (await tx.execute(sql`UPDATE assignment_marks SET visible_at = NULL WHERE copy_id = ${copyId}::uuid`), false);
         await tx.insert(taskActivityEvents).values({
@@ -856,7 +888,8 @@ async function reviewOne(copyId: string, reviewerId: string, decision: 'approve'
         });
         return true;
     });
-    if (reviewed) await notifyAssignmentReviewed(copyId, reviewerId, decision, reason ?? null, marked);
+    // B1.6a: with results held, the student hears nothing on Approve; Release results tells them.
+    if (reviewed && !(held && decision === 'approve')) await notifyAssignmentReviewed(copyId, reviewerId, decision, reason ?? null, marked);
     return reviewed;
 }
 
@@ -985,6 +1018,8 @@ export type AssignmentRow = {
     submissionType: string;
     reviewRequired: boolean;
     teams: boolean;
+    /** B1.6a: an exam's format and whether its results wait for Release. */
+    exam?: { format: 'in_person' | 'timed' | 'take_home'; held: boolean };
     counts: Record<CopyState, number> & { total: number };
     /** Teams mode: people done out of everyone placed ("7 of 11 people", report §16.11). */
     people?: { done: number; total: number };
@@ -1048,6 +1083,7 @@ export async function listAssignmentsAction(orgId: string, options: { masterId?:
             })(),
             ...(viewer.isAdmin && !settings.publishedAt ? { publishAt: settings.publishAt ?? null, publishOnSprintStart: Boolean(settings.publishOnSprintStart) } : {}),
             submissionType: settings.submissionType, reviewRequired: settings.reviewRequired, teams: settings.target.mode === 'teams',
+            ...(readExam(settings) ? { exam: { format: readExam(settings)!.format, held: resultsHeld(readExam(settings)) } } : {}),
             counts, mine, ...(teamPeople ? { people: teamPeople } : {}),
         };
     });

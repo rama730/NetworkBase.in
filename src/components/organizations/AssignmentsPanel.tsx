@@ -65,6 +65,7 @@ import { ClassQuestions } from '@/components/organizations/ClassQuestions'
 import { saveBlob, toCsvBlob } from '@/lib/download'
 import { addDaysToDay, dayList, DEFAULT_DUE_TIME, formatInZone, isoToZonedInput, weeklyDays, zonedInputToIso } from '@/lib/organizations/zoned-time'
 import { DateTimeField, duePresets, publishPresets } from '@/components/organizations/DateTimeField'
+import { EXAM_FORMATS } from '@/lib/organizations/exams'
 import { Field, FORM_DIALOG_CLASS, FORM_FOOTER_CLASS, FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS, inputClassName, QuickChips, SectionDivider, selectClassName, SelectWrap } from '@/components/workspaces/v2/tasks/form-parts'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { docTitle } from '@/lib/organizations/doc-rules'
@@ -261,6 +262,14 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     const [marking, setMarking] = useState('none')
     const [outOf, setOutOf] = useState('10')
     const [peerReview, setPeerReview] = useState(false)
+    // B1.6a Exam (report 30.5): in an Education class an assignment can be an exam; Due becomes Starts plus a length.
+    const [isExam, setIsExam] = useState(false)
+    const [examFormat, setExamFormat] = useState<'in_person' | 'timed' | 'take_home'>('in_person')
+    const [examLength, setExamLength] = useState('120')
+    const [examRoom, setExamRoom] = useState('')
+    const [examSeats, setExamSeats] = useState('')
+    const [examHold, setExamHold] = useState(true)
+    const [examUnits, setExamUnits] = useState<string[]>([])
     const peerOk = marking !== 'none' && marking !== 'outof' && (submissionType === 'text' || submissionType === 'link')
     const [sectionIds, setSectionIds] = useState<string[]>([])
     // Errors sit under their field, like the Task tab; a server error sits at the top of the form.
@@ -369,6 +378,8 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             ...(reviewRequired && !reviewOff && reviewers.length ? { reviewers } : {}),
             aiPolicy, ...(aiNote.trim() ? { aiNote: aiNote.trim() } : {}),
             ...(peerReview && peerOk ? { peerReview: true } : {}),
+            ...(isExam && dueLocal ? { exam: { format: examFormat, opensAt: at(dueLocal), closesAt: new Date(Date.parse(at(dueLocal)) + Math.max(5, Number(examLength) || 0) * 60_000).toISOString(),
+                room: examRoom.trim() || null, seats: examSeats.trim() || null, covers: { units: examUnits, outcomes: [] }, hold: examHold } } : {}),
             ...(marking === 'outof' ? { marking: { mode: 'outof' as const, outOf: Number(outOf) } } : marking !== 'none' ? { marking: { mode: 'rubric' as const, rubricId: marking } } : {}),
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
@@ -460,10 +471,48 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                     <Field label="Assignment title" htmlFor="assignment-title" required error={fieldErrors.title}>
                         <input id="assignment-title" value={title} onChange={(e) => { setTitle(e.target.value); clear('title') }} maxLength={200} placeholder="e.g., Lab 1: Arrays and linked lists" className={inputClassName(Boolean(fieldErrors.title))} autoFocus />
                     </Field>
+                    {options.rubrics ? (
+                        <Field label="Kind" htmlFor="assignment-kind">
+                            <SelectWrap>
+                                <select id="assignment-kind" value={isExam ? 'exam' : 'assignment'} onChange={(e) => { const exam = e.target.value === 'exam'; setIsExam(exam); if (exam && marking === 'none') setMarking('outof') }} className={cn('nb-select', selectClassName())}>
+                                    <option value="assignment">Assignment</option><option value="exam">Exam</option>
+                                </select>
+                            </SelectWrap>
+                        </Field>
+                    ) : null}
                     <Field label="Instructions" htmlFor="assignment-instructions">
                         <textarea id="assignment-instructions" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} placeholder="What to do, what to hand in, how it’s marked…" className={cn('nb-textarea', inputClassName(false), 'min-h-[72px] resize-y py-2')} />
                     </Field>
                 </div>
+
+                {isExam ? (
+                    <div className="space-y-3.5" data-testid="exam-details">
+                        <SectionDivider title="Exam details" />
+                        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                            <Field label="Format" htmlFor="exam-format">
+                                <SelectWrap>
+                                    <select id="exam-format" value={examFormat} onChange={(e) => { const f = e.target.value as typeof examFormat; setExamFormat(f); if (f === 'in_person') setSubmissionType('none'); else if (submissionType === 'none' || (f === 'timed' && submissionType === 'link')) setSubmissionType('file') }} className={cn('nb-select', selectClassName())}>
+                                        <option value="in_person">In person</option><option value="timed">Timed online</option><option value="take_home">Take-home</option>
+                                    </select>
+                                </SelectWrap>
+                            </Field>
+                            <Field label="Length (minutes)" htmlFor="exam-length">
+                                <input id="exam-length" type="number" min={5} max={10080} value={examLength} onChange={(e) => setExamLength(e.target.value)} className={inputClassName(false)} />
+                            </Field>
+                            <Field label="Room" htmlFor="exam-room"><input id="exam-room" value={examRoom} maxLength={80} onChange={(e) => setExamRoom(e.target.value)} placeholder="LH-2 · 204" className={inputClassName(false)} /></Field>
+                            <Field label="Seats" htmlFor="exam-seats"><input id="exam-seats" value={examSeats} maxLength={120} onChange={(e) => setExamSeats(e.target.value)} placeholder="By roll number" className={inputClassName(false)} /></Field>
+                        </div>
+                        {options.sprints.length ? (
+                            <fieldset className="space-y-1.5"><legend className={cn('font-medium', small)}>What’s in it</legend>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1">{options.sprints.map((s) => (
+                                    <label key={s.id} className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={examUnits.includes(s.id)} onChange={(e) => setExamUnits((cur) => (e.target.checked ? [...cur, s.id] : cur.filter((x) => x !== s.id)))} />{s.name}</label>
+                                ))}</div>
+                            </fieldset>
+                        ) : null}
+                        <label className={cn('flex items-center gap-2', small)}><input className="nb-check" type="checkbox" checked={examHold} onChange={(e) => setExamHold(e.target.checked)} />Hold results until released</label>
+                        {examFormat === 'timed' ? <p className="text-xs text-muted-foreground">The paper (files on this exam) stays locked until it opens. Late work isn’t accepted.</p> : null}
+                    </div>
+                ) : null}
 
                 <div className="space-y-3.5">
                     <SectionDivider title="Who gets it" />
@@ -633,7 +682,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
 
                 <div className="space-y-3.5">
                     <SectionDivider title="Due and late work" />
-                    <Field label="Due date" htmlFor="assignment-due" required error={fieldErrors.due}>
+                    <Field label={isExam ? 'Starts' : 'Due date'} htmlFor="assignment-due" required error={fieldErrors.due}>
                         <DateTimeField id="assignment-due" value={dueLocal} onChange={pickDue} timeZone={timeZone} defaultTime={dueTime} hasError={Boolean(fieldErrors.due)}
                             presets={[...duePresets(timeZone), ...(sprintEndDay ? [{ label: 'End of sprint', day: sprintEndDay }] : [])]} />
                     </Field>
@@ -1024,7 +1073,7 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
             <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
                     <h3 id="assignment-manage-heading" className="nb-card-title truncate">{row.title}</h3>
-                    <p className="nb-meta">{[row.dueDate ? `Due ${new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short', ...(data.timeZone ? { timeZone: data.timeZone } : {}) }).format(new Date(row.dueDate))}` : 'No due date', row.status === 'open' ? 'Open' : row.status === 'closed' ? 'Closed' : row.status === 'scheduled' ? 'Scheduled' : 'Draft'].join(' · ')}</p>
+                    <p className="nb-meta">{[row.dueDate ? `Due ${new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short', ...(data.timeZone ? { timeZone: data.timeZone } : {}) }).format(new Date(row.dueDate))}` : 'No due date', row.status === 'open' ? 'Open' : row.status === 'closed' ? 'Closed' : row.status === 'scheduled' ? 'Scheduled' : 'Draft', row.exam ? `Exam · ${EXAM_FORMATS[row.exam.format]}${row.exam.held ? ' · results held' : ''}` : null].filter(Boolean).join(' · ')}</p>
                 </div>
                 {/* Mockup task 1: the rarer actions sit in one menu; the panel itself shows the class. */}
                 {live ? (

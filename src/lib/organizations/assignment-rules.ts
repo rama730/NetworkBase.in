@@ -44,6 +44,8 @@ export type AssignmentSettings = {
   marking?: import('@/lib/organizations/marks').Marking;
   /** Peer review (report 30.8 call, B1.5c): with a rubric and text or link hand-ins. */
   peerReview?: boolean;
+  /** An exam (report 30.5 W4, B1.6a): format, window, room, what it covers, hold results. */
+  exam?: import('@/lib/organizations/exams').ExamSettings;
 };
 
 /**

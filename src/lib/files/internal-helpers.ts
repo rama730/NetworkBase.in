@@ -60,7 +60,10 @@ export function orgFileAccessSql(access: OrgFileViewer, node: NodeRef = NODE_COL
     // Aliases are unusual on purpose: callers pass outer columns such as t.id or n.path.
     const taskVisible = sql`(${node.taskId} IS NULL OR EXISTS (
         SELECT 1 FROM tasks nb_vt WHERE nb_vt.id = ${node.taskId} AND (
-            (nb_vt.kind = 'assignment' AND nb_vt.assignment_id IS NULL AND nb_vt.assignment_settings->>'publishedAt' IS NOT NULL)
+            (nb_vt.kind = 'assignment' AND nb_vt.assignment_id IS NULL AND nb_vt.assignment_settings->>'publishedAt' IS NOT NULL
+                -- B1.6a (report 30.5): a timed exam's paper stays locked until it opens (ISO UTC strings compare in order).
+                AND NOT (nb_vt.assignment_settings->'exam'->>'format' = 'timed'
+                    AND nb_vt.assignment_settings->'exam'->>'opensAt' > to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')))
             OR nb_vt.assignee_id = ${viewerId}
             OR EXISTS (SELECT 1 FROM task_team_members nb_tm WHERE nb_tm.task_id = nb_vt.id AND nb_tm.user_id = ${viewerId})
         )

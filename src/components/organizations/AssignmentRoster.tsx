@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
+import { releaseResultsAction } from '@/app/actions/exams'
 import { filterRoster, remindSkips, rosterSections, rosterTiles } from '@/lib/organizations/assignment-rules'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { remindSummary } from '@/lib/organizations/member-rules'
@@ -68,6 +69,8 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
     // The tiles' counts change when work is decided anywhere (the queue, a copy); the lists follow them.
     const countsKey = JSON.stringify(row.counts)
     useEffect(() => { load() }, [load, countsKey])
+    // B1.6a: Release results (the Teacher; the server refuses a TA).
+    const [releaseAsk, setReleaseAsk] = useState(false)
     const run = (action: () => Promise<{ success: boolean; error?: string }>, done?: string) => startTransition(async () => {
         const result = await action()
         setError(result.success ? null : result.error ?? 'Something went wrong.')
@@ -123,6 +126,7 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
                 {tiles.notIn > 0 ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={remindAll}>Remind {picked.size || tiles.notIn - skips}</Button> : null}
                 {row.submissionType === 'file' && tiles.submitted + tiles.done > 0 ? <Button asChild size="sm" variant="outline"><DownloadLink href={`/api/v1/workspaces/${orgId}/tasks/${row.masterId}/submissions`}>Download all</DownloadLink></Button> : null}
                 <Button type="button" size="sm" variant="outline" onClick={onExport}>Export</Button>
+                {row.exam?.held ? <Button type="button" size="sm" disabled={pending} onClick={() => setReleaseAsk(true)}>Release results</Button> : null}
                 {withoutCopy.length ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setAsk({ kind: 'give' })}>Give to…</Button> : null}
             </div>
             {/* Decision 60, finding 1.14: say who Remind skips before the click, not after. */}
@@ -222,6 +226,9 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
                 onReturn={(reason, fixBy) => run(async () => { const r = await returnCopiesAction([...picked], reason, fixBy); if (r.success) { toast.success(`Returned ${r.returned}${r.skipped ? `. ${r.skipped} weren’t waiting for review.` : '.'}`); setPicked(new Set()) } return r })} />
             <ExtendDialog timeZone={timeZone} label={`${picked.size} people`} currentDue={row.dueDate} closed={closed} open={ask?.kind === 'bulk-extend'} onClose={() => setAsk(null)}
                 onExtend={(due, reopen) => run(async () => { const r = await extendCopiesAction([...picked], due, { reopen }); if (r.success) { setPicked(new Set()); toast.success(r.failed ? `Extended ${r.extended} · ${r.failed} couldn’t be` : `Extended ${r.extended}`) } return r })} />
+            <ConfirmDialog open={releaseAsk} onOpenChange={setReleaseAsk} title="Release results?"
+                description="Every approved mark shows to its student at once, and each is told. This can’t be taken back."
+                confirmLabel="Release results" onConfirm={() => { setReleaseAsk(false); run(() => releaseResultsAction(row.masterId), 'Results released'); onChanged() }} />
             <ConfirmDialog open={ask?.kind === 'remove'} onOpenChange={(v) => { if (!v) setAsk(null) }} variant="destructive"
                 title={`Remove ${ask && 'row' in ask ? ask.row.label : ''}’s copy?`} description="They haven’t started it. It leaves their list, and they’re told."
                 confirmLabel="Remove" onConfirm={() => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; run(() => removeCopyAction(copyId)) } setAsk(null) }} />

@@ -9,6 +9,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
 import { DEFAULT_LEVELS, markTotal, readMarking, readRubric, readRubrics, type MarkDraft } from "@/lib/organizations/marks";
 import { readSectionSettings } from "@/lib/organizations/sections";
+import { readExam, resultsHeld } from "@/lib/organizations/exams";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 /**
@@ -107,7 +108,7 @@ export async function saveMarkAction(copyId: string, input: MarkDraft): Promise<
   await db.execute(sql`
     INSERT INTO assignment_marks (copy_id, master_id, workspace_id, total, out_of, levels, comment, marker_id, marked_at, visible_at)
     VALUES (${copyId}::uuid, ${copy.master_id}::uuid, ${copy.org_id}::uuid, ${result.total}, ${result.outOf}, ${JSON.stringify(parsed.data.levels ?? {})}::jsonb,
-      ${parsed.data.comment ?? null}, ${userId}::uuid, now(), CASE WHEN ${copy.approved} THEN now() ELSE NULL END)
+      ${parsed.data.comment ?? null}, ${userId}::uuid, now(), CASE WHEN ${copy.approved && !resultsHeld(readExam(copy.settings))} THEN now() ELSE NULL END)
     ON CONFLICT (copy_id) DO UPDATE SET total = EXCLUDED.total, out_of = EXCLUDED.out_of, levels = EXCLUDED.levels, comment = EXCLUDED.comment,
       marker_id = EXCLUDED.marker_id, marked_at = now(),
       history = assignment_marks.history || jsonb_build_array(jsonb_build_object('total', assignment_marks.total, 'by', assignment_marks.marker_id, 'at', assignment_marks.marked_at))`);
