@@ -138,7 +138,8 @@
     "drizzle/0132_second_marks.sql",
     "drizzle/0133_day_pins.sql",
     "drizzle/0134_literature_sources.sql",
-    "drizzle/0135_school_programs.sql"
+    "drizzle/0135_school_programs.sql",
+    "drizzle/0136_cohort_completions.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

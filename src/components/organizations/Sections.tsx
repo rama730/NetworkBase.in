@@ -10,6 +10,7 @@ import { messageUserInWindow } from "@/components/messages/message-user";
 import { OrgCard, StatusBadge } from "@/components/organizations/org-ui";
 import { meetsText } from "@/components/organizations/ClassHomeParts";
 import { AttendanceView } from "@/components/organizations/Attendance";
+import { CompletionView } from "@/components/organizations/Completion";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -31,17 +32,17 @@ const useSections = (orgId: string) => useQuery({ queryKey: key(orgId), queryFn:
 
 /** A class's Members tab: Roster (today's) or Sections. */
 export function ClassMembers({ orgId, children }: { orgId: string; children: ReactNode }) {
-  const [view, setView] = useState<"roster" | "sections" | "attendance">("roster");
+  const [view, setView] = useState<"roster" | "sections" | "attendance" | "completion">("roster");
   return (
     <div>
       <div role="group" aria-label="Members view" className="mb-3 inline-flex rounded-md border border-border p-0.5 text-[12px]" data-testid="class-members-switch">
-        {(["roster", "sections", "attendance"] as const).map((v) => (
+        {(["roster", "sections", "attendance", "completion"] as const).map((v) => (
           <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
-            {v === "roster" ? "Roster" : v === "sections" ? "Sections" : "Attendance"}
+            {v === "roster" ? "Roster" : v === "sections" ? "Sections" : v === "attendance" ? "Attendance" : "Completion"}
           </button>
         ))}
       </div>
-      {view === "sections" ? <SectionsView orgId={orgId} /> : view === "attendance" ? <AttendanceView orgId={orgId} /> : children}
+      {view === "sections" ? <SectionsView orgId={orgId} /> : view === "attendance" ? <AttendanceView orgId={orgId} /> : view === "completion" ? <CompletionView orgId={orgId} /> : children}
     </div>
   );
 }

@@ -1294,6 +1294,17 @@ export const programs = pgTable("programs", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("programs_institution_idx").on(t.institutionId)]);
 
+/** B2.1b (0136, report 31.2 calls 5–6): a cohort's completion per learner; an override keeps its reason. Server only. */
+export const cohortCompletions = pgTable("cohort_completions", {
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  completed: boolean("completed").notNull(),
+  byRule: boolean("by_rule").notNull(),
+  overrideReason: text("override_reason"),
+  decidedBy: uuid("decided_by").references(() => profiles.id, { onDelete: "set null" }),
+  decidedAt: timestamp("decided_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.projectId, t.userId] })]);
+
 /** B1.8b (0134, report 30.6 layer 3): a thesis workspace's literature sources. Server only. */
 export const literatureSources = pgTable("literature_sources", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -47,7 +47,7 @@ export function ProgramsSection({ schoolId }: { schoolId: string }) {
                   {p.list.map((c) => (
                     <li key={c.id}><Link href={`/org/${encodeURIComponent(c.slug ?? c.id)}`} className="inline-flex items-center gap-1.5 rounded-sm border border-border px-2 py-1 hover:bg-muted">
                       {c.title} <StatusBadge state={c.state === "running" ? "active" : c.state === "upcoming" ? "new" : "done"}>{COHORT_WORDS[c.state]}</StatusBadge>
-                      <span className="font-mono text-[12px] text-muted-foreground">{c.members}{p.seats ? ` / ${p.seats}` : ""}</span></Link></li>
+                      <span className="font-mono text-[12px] text-muted-foreground">{c.members}{p.seats ? ` / ${p.seats}` : ""}{c.recorded ? ` · ${c.completed} of ${c.recorded} completed` : ""}</span></Link></li>
                   ))}
                 </ul>
               ) : null}

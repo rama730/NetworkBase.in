@@ -59,7 +59,7 @@ export async function saveAsProgramAction(classId: string, name: string): Promis
 }
 
 export type ProgramRow = { id: string; name: string; weeks: number | null; status: string; sourceClass: string | null; seats: number | null; cohorts: number; nextStart: string | null;
-  list: Array<{ id: string; title: string; slug: string | null; start: string | null; end: string | null; state: CohortState; members: number }> };
+  list: Array<{ id: string; title: string; slug: string | null; start: string | null; end: string | null; state: CohortState; members: number; completed: number; recorded: number }> };
 
 /** The school's Programs (admins): each with its cohorts — Upcoming, Running, Finished — and seats taken. */
 export async function readProgramsAction(schoolId: string) {
@@ -67,13 +67,16 @@ export async function readProgramsAction(schoolId: string) {
     if (!(await schoolAdmin(schoolId))) return DENIED;
     const rows = await db.select({ id: programs.id, name: programs.name, weeks: programs.weeks, status: programs.status, seats: programs.seats, source: programs.sourceClassId,
       sourceTitle: sql<string | null>`(SELECT title FROM workspaces WHERE id = ${programs.sourceClassId})` }).from(programs).where(eq(programs.institutionId, schoolId)).orderBy(programs.name);
-    const cohorts = rows.length ? Array.from(await db.execute<{ id: string; title: string; slug: string | null; start: string | null; end: string | null; program: string; members: number }>(sql`
+    const cohorts = rows.length ? Array.from(await db.execute<{ id: string; title: string; slug: string | null; start: string | null; end: string | null; program: string; members: number; completed: number; recorded: number }>(sql`
       SELECT w.id, w.title, w.slug, w.term_start::text AS start, w.term_end::text AS "end", w.org_settings->>'programId' AS program,
-        (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = w.id AND m.role = 'member') AS members
+        (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = w.id AND m.role = 'member') AS members,
+        -- B2.1b layer 16: the school sees completion counts, never names.
+        (SELECT count(*) FILTER (WHERE cc.completed)::int FROM cohort_completions cc WHERE cc.workspace_id = w.id) AS completed,
+        (SELECT count(*)::int FROM cohort_completions cc WHERE cc.workspace_id = w.id) AS recorded
       FROM workspaces w WHERE w.institution_id = ${schoolId}::uuid AND w.deleted_at IS NULL AND w.org_settings ? 'programId' ORDER BY w.term_start`)) : [];
     const today = new Date().toISOString().slice(0, 10);
     return { success: true as const, programs: rows.map((p): ProgramRow => {
-      const list = cohorts.filter((c) => c.program === p.id).map((c) => ({ id: c.id, title: c.title, slug: c.slug, start: c.start, end: c.end, state: cohortState(c.start, c.end, today), members: c.members }));
+      const list = cohorts.filter((c) => c.program === p.id).map((c) => ({ id: c.id, title: c.title, slug: c.slug, start: c.start, end: c.end, state: cohortState(c.start, c.end, today), members: c.members, completed: c.completed, recorded: c.recorded }));
       return { id: p.id, name: p.name, weeks: p.weeks, status: p.status, sourceClass: p.sourceTitle, seats: p.seats, cohorts: list.length, nextStart: list.find((c) => c.state === "upcoming")?.start ?? null, list };
     }) };
   } catch (error) {
