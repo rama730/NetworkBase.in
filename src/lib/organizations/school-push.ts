@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { workspaces } from "@/lib/db/schema";
 import { applyChildVisibilityCap } from "@/lib/organizations/children";
+import { kindStartingValues, readSchoolKind } from "@/lib/organizations/school-kind";
 
 /**
  * Report 29.2, B0.2 call "Settings pushed down": a school's term dates, AI policy, late rule, review default and
@@ -26,9 +27,13 @@ export function schoolLockedFields(school: { orgSettings: unknown; termStart: st
 
 /** Copies the school's settings into its classes (one class, or all of them); returns the classes changed. */
 export async function pushSchoolSettings(schoolId: string, classId?: string): Promise<string[]> {
+  // B2.1d (report 31.2 calls 1–2): a class arriving in the school starts with its kind's values; its own win. Saving
+  // the school's settings later never renames the classes already there.
+  const [school] = classId ? await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, schoolId)).limit(1) : [];
+  const starting = JSON.stringify(kindStartingValues(readSchoolKind(school?.settings)));
   const rows = Array.from(await db.execute<{ id: string }>(sql`
     UPDATE workspaces c SET
-      org_settings = coalesce(c.org_settings, '{}'::jsonb) || coalesce((SELECT jsonb_object_agg(k, v) FROM jsonb_each(coalesce(s.org_settings, '{}'::jsonb)) AS e(k, v)
+      org_settings = ${starting}::jsonb || coalesce(c.org_settings, '{}'::jsonb) || coalesce((SELECT jsonb_object_agg(k, v) FROM jsonb_each(coalesce(s.org_settings, '{}'::jsonb)) AS e(k, v)
         WHERE k IN ('assignmentAiPolicy', 'assignmentLateRule', 'assignmentReview', 'visibilityCap', 'attendanceMinimum', 'examWeeks')), '{}'::jsonb),
       -- Both dates or neither, so a class's own term can never end before it starts.
       term_start = CASE WHEN s.term_start IS NOT NULL AND s.term_end IS NOT NULL THEN s.term_start ELSE c.term_start END,

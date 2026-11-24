@@ -71,7 +71,7 @@ export function OrgDangerZone({ orgId, organization, handle }: { orgId: string; 
                 {preview?.detached.length ? <InviteBackRow orgId={orgId} detached={preview.detached} /> : null}
                 <TransferRow orgId={orgId} admins={admins} organization={organization} />
                 <ArchiveRow orgId={orgId} archived={organization.archived} preview={preview} handle={handle} />
-                <DuplicateRow orgId={orgId} handle={handle} termStart={organization.termStart} type={organization.type} />
+                <DuplicateRow orgId={orgId} handle={handle} termStart={organization.termStart} type={organization.type} cohort={organization.roleNames.member === 'Learner'} />
                 <DeleteRow orgId={orgId} handle={handle} preview={preview} />
             </div>
         </SettingsCard>
@@ -201,8 +201,9 @@ const COPY_ITEMS = [
     { key: 'admins', text: 'Invite the current admins' },
 ] as const
 
-function DuplicateRow({ orgId, handle, termStart, type }: { orgId: string; handle: string | null; termStart: string | null; type: OrgDetail['type'] }) {
-    const startWord = typeProfile(type).termDates ? 'Term start' : 'Start date'
+// B2.1d (report 31.2): a class of Learners (a cohort) calls it Start next cohort; it's the same duplicate.
+function DuplicateRow({ orgId, handle, termStart, type, cohort }: { orgId: string; handle: string | null; termStart: string | null; type: OrgDetail['type']; cohort: boolean }) {
+    const startWord = cohort ? 'Starts' : typeProfile(type).termDates ? 'Term start' : 'Start date'
     const [open, setOpen] = useState(false)
     const [title, setTitle] = useState('')
     const [newHandle, setNewHandle] = useState(handle ? `${handle}-copy` : '')
@@ -211,8 +212,9 @@ function DuplicateRow({ orgId, handle, termStart, type }: { orgId: string; handl
     const { pending, run } = useRun()
     return (
         <div className="space-y-4 border-t border-border pt-5">
-            <Row title="Duplicate" action={open ? null : <Button variant="outline" onClick={() => setOpen(true)}>Duplicate…</Button>}>
-                A new organization for the next term. Never members, workspaces, submissions, messages, posts, contributions or the join code.
+            <Row title={cohort ? 'Start next cohort' : 'Duplicate'} action={open ? null : <Button variant="outline" onClick={() => setOpen(true)}>{cohort ? 'Start next cohort…' : 'Duplicate…'}</Button>}>
+                {cohort ? 'The next run of this class, dated from its start. Never learners, marks, attendance, workspaces, messages or the join code.'
+                    : 'A new organization for the next term. Never members, workspaces, submissions, messages, posts, contributions or the join code.'}
             </Row>
             {open ? (
                 <div className="space-y-4 rounded-md bg-muted p-4">
@@ -230,7 +232,7 @@ function DuplicateRow({ orgId, handle, termStart, type }: { orgId: string; handl
                         ))}
                     </fieldset>
                     <div className="flex flex-wrap items-center gap-2">
-                        <Button disabled={pending || title.trim().length < 3 || title.trim().length > 100} onClick={() => run(() => duplicateOrgAction(orgId, { title, handle: newHandle, termStart: start || null, copy }), "Duplicating in the background. You’ll get a notification when it’s ready.", () => setOpen(false))}>Duplicate organization</Button>
+                        <Button disabled={pending || title.trim().length < 3 || title.trim().length > 100} onClick={() => run(() => duplicateOrgAction(orgId, { title, handle: newHandle, termStart: start || null, copy }), "Duplicating in the background. You’ll get a notification when it’s ready.", () => setOpen(false))}>{cohort ? 'Start cohort' : 'Duplicate organization'}</Button>
                         <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                     </div>
                 </div>

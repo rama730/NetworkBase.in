@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { FORM_PRIMARY_CLASS, FORM_SECONDARY_CLASS } from "@/components/workspaces/v2/tasks/form-parts";
 import { toast } from "@/lib/feedback";
 import { COHORT_WORDS, cohortEnd } from "@/lib/organizations/programs";
+import { cohortBars } from "@/lib/organizations/school-kind";
+import { cn } from "@/lib/utils";
 
 // Report 31.2 C1 (plan B2.1a): the school's Programs — cohorts by program, Start a cohort, Retire, Save as program.
 const LINK = "nb-touch-target text-[13px] font-medium text-primary underline-offset-2 hover:underline";
@@ -22,13 +24,25 @@ export function ProgramsSection({ schoolId }: { schoolId: string }) {
   const client = useQueryClient();
   const q = useQuery({ queryKey: ["programs", schoolId], queryFn: () => readProgramsAction(schoolId), staleTime: 30_000 });
   const [starting, setStarting] = useState<string | null>(null);
+  const [view, setView] = useState<"programs" | "timeline">("programs");
   if (!q.data?.success) return null;
   const refresh = () => client.invalidateQueries({ queryKey: ["programs", schoolId] });
   const list = q.data.programs;
   return (
     <section aria-label="Programs" className="space-y-2" data-testid="programs">
-      <h2 className="nb-section-title">Programs <span className="nb-meta font-mono">{list.length}</span></h2>
-      {list.length === 0 ? <p className="text-[13px] text-muted-foreground">Make your first program from a cohort you’ve run: Save as program on one of the classes below.</p> : (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="nb-section-title">Programs <span className="nb-meta font-mono">{list.length}</span></h2>
+        {list.some((p) => p.list.length) ? (
+          <div role="group" aria-label="Programs view" className="inline-flex rounded-md border border-border p-0.5 text-[12px]">
+            {(["programs", "timeline"] as const).map((v) => (
+              <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-sm px-2.5 py-1", view === v ? "bg-muted font-semibold text-foreground" : "text-muted-foreground")}>
+                {v === "programs" ? "Programs" : "Timeline"}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {view === "timeline" ? <CohortTimeline programs={list} /> : list.length === 0 ? <p className="text-[13px] text-muted-foreground">Make your first program from a cohort you’ve run: Save as program on one of the classes below.</p> : (
         <ul className="divide-y divide-border rounded-md border border-border bg-card text-[13px]">
           {list.map((p) => (
             <li key={p.id} className="space-y-2 px-4 py-3" data-testid="program-row">
@@ -57,6 +71,32 @@ export function ProgramsSection({ schoolId }: { schoolId: string }) {
         </ul>
       )}
     </section>
+  );
+}
+
+/** Timeline (call 8): one row per program, one bar per cohort on a shared range; each bar names itself in words. */
+function CohortTimeline({ programs }: { programs: ProgramRow[] }) {
+  const all = cohortBars(programs.flatMap((p) => p.list.map((c) => ({ ...c, program: p.id }))));
+  if (!all.start) return <p className="text-[13px] text-muted-foreground">Cohorts show here once they have start and end dates.</p>;
+  return (
+    <div className="space-y-2 overflow-x-auto rounded-md border border-border bg-card p-3 text-[12px]" data-testid="cohort-timeline">
+      <p className="flex justify-between font-mono text-muted-foreground"><span>{fmt(all.start)}</span><span>{fmt(all.end)}</span></p>
+      {programs.filter((p) => p.list.length).map((p) => (
+        <div key={p.id} className="grid min-w-[560px] grid-cols-[140px_1fr] items-center gap-2">
+          <span className="truncate font-medium">{p.name}</span>
+          <ul className="relative h-7" aria-label={`${p.name} cohorts on the timeline`}>
+            {all.bars.filter((b) => b.program === p.id).map((b) => (
+              <li key={b.id} className="absolute inset-y-0" style={{ left: `${b.left}%`, width: `${b.width}%` }}>
+                <Link href={`/org/${encodeURIComponent(b.slug ?? b.id)}`} title={`${b.title} · ${COHORT_WORDS[b.state]} · ${fmt(b.start)} – ${fmt(b.end)}`}
+                  className={cn("flex h-full items-center truncate rounded-sm border px-1.5", b.state === "running" ? "border-primary bg-primary text-primary-foreground" : b.state === "upcoming" ? "border-dashed border-border" : "border-border bg-muted text-muted-foreground")}>
+                  {b.title}<span className="sr-only"> · {COHORT_WORDS[b.state]} · {fmt(b.start)} to {fmt(b.end)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
 

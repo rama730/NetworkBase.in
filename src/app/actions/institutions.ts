@@ -1,5 +1,6 @@
 "use server";
 
+import { readSchoolKind, SCHOOL_KINDS, type SchoolKind } from "@/lib/organizations/school-kind";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -200,7 +201,7 @@ export async function readInstitutionClassesAction(institutionId: string) {
     };
     const minimum = (inst.orgSettings as { attendanceMinimum?: unknown } | null)?.attendanceMinimum;
     const { readExamWeeks } = await import("@/lib/organizations/class-sessions");
-    return { success: true as const, isAdmin, headOf: [...heads], requests, attendanceMinimum: typeof minimum === "number" ? minimum : null, examWeeks: readExamWeeks(inst.orgSettings),
+    return { success: true as const, isAdmin, headOf: [...heads], requests, attendanceMinimum: typeof minimum === "number" ? minimum : null, examWeeks: readExamWeeks(inst.orgSettings), schoolKind: readSchoolKind(inst.orgSettings),
       // Heads' names are the admins' business; everyone else sees department names.
       departments: departments.map((d) => ({ id: d.id, name: d.name, heads: isAdmin ? d.heads : [] })),
       classes: rows.map((r): InstitutionClass => {
@@ -303,6 +304,16 @@ export async function readSchoolExamsAction(schoolId: string) {
   const exams: SchoolExam[] = [];
   for (const r of rows) exams.push({ id: r.id, title: r.title, classTitle: r.class_title, format: r.exam.format, opensAt: r.exam.opensAt, closesAt: r.exam.closesAt, room: r.exam.room ?? null, students: r.students, clashes: await examClashes(r.id) });
   return { success: true as const, exams };
+}
+
+/** B2.1d (report 31.2 call 1): the school's kind; Coaching or bootcamp starts new classes with its words and approval. */
+export async function saveSchoolKindAction(schoolId: string, kind: SchoolKind | null): Promise<{ success: true } | Failure> {
+  const userId = await me();
+  const school = await org(schoolId);
+  if (!userId || !school || school.orgLevel !== "institution" || !admin(await roleIn(schoolId, userId, "write"))) return DENIED;
+  if (kind !== null && !(kind in SCHOOL_KINDS)) return { success: false, error: "Pick a kind." };
+  await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || ${JSON.stringify({ schoolKind: kind })}::jsonb` }).where(eq(workspaces.id, schoolId));
+  return { success: true };
 }
 
 export async function saveSchoolAttendanceMinimumAction(schoolId: string, minimum: number | null): Promise<{ success: true } | Failure> {

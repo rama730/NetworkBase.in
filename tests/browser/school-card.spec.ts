@@ -32,6 +32,7 @@ async function open(page: Page, view: 'class' | 'school' | 'classes' | 'attentio
       saveAsProgramAction: async (id: string, name: string) => { calls.push(['save', id, name]); return { success: true, id: 'p2' }; },
       saveSchoolExamWeeksAction: async (_s: string, rows: unknown) => { calls.push(['weeks', rows]); return { success: true }; },
       decideClassRequestAction: async (_i: string, c: string, ok: boolean) => { calls.push(['decide', c, ok]); return { success: true }; },
+      saveSchoolKindAction: async (_s: string, k: unknown) => { calls.push(['kind', k]); return { success: true }; },
     };
   }, state);
   await openApp(page, 'tests/browser/school-card.fixture.tsx', { path: `/?view=${view}` });
@@ -151,4 +152,25 @@ test('B2.1a: Programs with their cohorts; Start a cohort shows the end and sends
   await page.getByRole('button', { name: 'Save as program from Maths 10A' }).click();
   expect((await calls(page)).at(-1)).toEqual(['save', 'c1', 'Maths 10A']);
   expect(await axeViolations(page)).toEqual([]);
+});
+
+test('B2.1d: the Timeline shows each cohort as a bar on one range, named in words', async ({ page }) => {
+  await open(page, 'classes');
+  const programs = page.getByTestId('programs');
+  await programs.getByRole('button', { name: 'Timeline' }).click();
+  const timeline = page.getByTestId('cohort-timeline');
+  await expect(timeline).toContainText('Jan 4, 2027');
+  await expect(timeline.getByRole('link', { name: 'Full-stack Web · Cohort 1 · Running · Jan 4, 2027 to Mar 28, 2027' })).toBeVisible();
+  expect(await axeViolations(page)).toEqual([]);
+  await programs.getByRole('button', { name: 'Programs', exact: true }).click();
+  await expect(programs.getByRole('list', { name: 'Full-stack Web cohorts' })).toBeVisible();
+});
+
+test('B2.1d: the school picks its kind; Coaching or bootcamp says what new classes start with', async ({ page }) => {
+  await open(page, 'school');
+  const kind = page.getByTestId('school-kind');
+  await kind.getByLabel('School kind').selectOption('coaching');
+  await expect(kind).toContainText('Instructor · Mentor · Learner, Modules, joining by approval');
+  await kind.getByRole('button', { name: 'Save kind' }).click();
+  await expect.poll(() => calls(page)).toContainEqual(['kind', 'coaching']);
 });

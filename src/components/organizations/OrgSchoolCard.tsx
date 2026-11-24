@@ -1,10 +1,11 @@
 "use client";
 
+import { SCHOOL_KINDS, type SchoolKind } from "@/lib/organizations/school-kind";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { decideClassRequestAction, joinInstitutionAction, makeInstitutionAction, readClassInstitutionAction, readInstitutionClassesAction, saveDepartmentsAction, saveSchoolAttendanceMinimumAction, saveSchoolExamWeeksAction, setClassDepartmentAction, unlinkClassAction, type Department, type InstitutionClass } from "@/app/actions/institutions";
+import { decideClassRequestAction, joinInstitutionAction, makeInstitutionAction, readClassInstitutionAction, readInstitutionClassesAction, saveDepartmentsAction, saveSchoolAttendanceMinimumAction, saveSchoolKindAction, saveSchoolExamWeeksAction, setClassDepartmentAction, unlinkClassAction, type Department, type InstitutionClass } from "@/app/actions/institutions";
 import { readOrgMembersAction } from "@/app/actions/org-members";
 import { Input } from "@/components/ui/input";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
@@ -85,6 +86,7 @@ export function OrgSchoolCard({ orgId, isSchool }: { orgId: string; isSchool: bo
           )}
         </SettingsCard>
         <DepartmentsCard schoolId={orgId} departments={school.departments} onSaved={refresh} />
+        <SchoolKindCard schoolId={orgId} value={school.schoolKind} onSaved={refresh} />
         <SchoolMinimum schoolId={orgId} value={school.attendanceMinimum} onSaved={refresh} />
         <SchoolExamWeeks schoolId={orgId} value={school.examWeeks ?? []} onSaved={refresh} />
       </section>
@@ -169,6 +171,30 @@ function DepartmentsCard({ schoolId, departments, onSaved }: { schoolId: string;
           <button type="button" className={FORM_SECONDARY_CLASS} onClick={() => setRows((cur) => [...cur, { id: "", name: "", heads: [] }])}>Add department</button>
           <button type="button" className={FORM_PRIMARY_CLASS} disabled={busy} onClick={() => void save()}>Save departments</button>
         </div>
+      </div>
+    </SettingsCard>
+  );
+}
+
+/** B2.1d (report 31.2 calls 1–2): the school's kind sets new classes' starting words; classes already here keep theirs. */
+function SchoolKindCard({ schoolId, value, onSaved }: { schoolId: string; value: SchoolKind | null; onSaved: () => Promise<void> }) {
+  const [draft, setDraft] = useState<string>(value ?? "");
+  useEffect(() => setDraft(value ?? ""), [value]);
+  const save = async () => {
+    const r = await saveSchoolKindAction(schoolId, (draft || null) as SchoolKind | null);
+    if (!r.success) return void toast.error(r.error);
+    toast.success("Kind saved. New classes start with its words.");
+    await onSaved();
+  };
+  return (
+    <SettingsCard title="Kind" headingLevel={2} description="Sets the words and joining new classes start with. Each class can change them; classes already here keep theirs.">
+      <div className="flex flex-wrap items-center gap-3 text-[13px]" data-testid="school-kind">
+        <select className="nb-select" aria-label="School kind" value={draft} onChange={(e) => setDraft(e.target.value)}>
+          <option value="">Not set</option>
+          {(Object.keys(SCHOOL_KINDS) as SchoolKind[]).map((k) => <option key={k} value={k}>{SCHOOL_KINDS[k]}</option>)}
+        </select>
+        {draft === "coaching" ? <span className="text-muted-foreground">Instructor · Mentor · Learner, Modules, joining by approval</span> : null}
+        <button type="button" className={FORM_PRIMARY_CLASS} onClick={() => void save()}>Save kind</button>
       </div>
     </SettingsCard>
   );
